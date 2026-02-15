@@ -686,8 +686,47 @@
       left: auto;
       right: 0;
       flex-direction: row;
+      flex-wrap: wrap;
       border-radius: 14px;
       gap: 2px;
+      width: 180px;
+    }
+    .browse-mode.island-mode #pill-browse-more {
+      display: none;
+    }
+    #pill-menu-more-items {
+      display: none;
+    }
+    .browse-mode.island-mode.menu-expanded #pill-menu-more-items {
+      display: flex;
+      flex-direction: column;
+      flex-basis: 100%;
+      border-top: 1px solid var(--aether-border);
+      margin-top: 2px;
+      padding-top: 4px;
+    }
+    #pill-menu-more-items button {
+      width: 100%;
+      text-align: left;
+      padding: 6px 12px;
+      border: none;
+      background: none;
+      color: var(--aether-text);
+      font-size: 0.78rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #pill-menu-more-items button:hover {
+      background: var(--aether-hover);
+    }
+    #pill-menu-more-items button:disabled {
+      color: var(--aether-text-dimmest);
+      cursor: default;
+    }
+    #pill-menu-more-items button:disabled:hover {
+      background: none;
     }
 
 
