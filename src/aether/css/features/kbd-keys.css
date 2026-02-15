@@ -1,0 +1,15 @@
+/* ── Keyboard shortcut keys ── */
+    /* ── Keyboard shortcut keys (settings) ── */
+    .kbd-key {
+      display: inline-block;
+      background: var(--nr-bg-raised);
+      border: 1px solid var(--nr-border-strong);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.7rem;
+      color: var(--nr-text-secondary);
+      min-width: 20px;
+      text-align: center;
+    }
+

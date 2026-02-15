@@ -1,0 +1,123 @@
+/* ── Dev stats ── */
+    /* Dev Stats */
+    .dev-stats-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px; }
+    .dev-stat-card {
+      background: var(--nr-bg-surface);
+      border: 1px solid var(--nr-border-default);
+      border-radius: 8px;
+      padding: 12px 10px;
+      text-align: center;
+      min-width: 0;
+      transition: all var(--motion-fast) var(--motion-smooth);
+    }
+    .dev-stat-card:hover {
+      background: var(--nr-bg-raised);
+      border-color: var(--nr-accent);
+    }
+    .dev-stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--nr-text-primary);
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .dev-stat-label {
+      font-size: 0.7rem;
+      color: var(--nr-text-quaternary);
+      margin-top: 2px;
+      font-weight: 500;
+    }
+    .dev-charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .dev-loc-chart { margin-top: 0; }
+    .dev-chart-wrap { position: relative; }
+    .dev-chart-tooltip {
+      display: none;
+      position: absolute;
+      background: var(--nr-bg-surface);
+      border: 1px solid var(--nr-border-default);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.7rem;
+      line-height: 1.5;
+      color: var(--nr-text-primary);
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 10;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+
+    /* Dev Panel Buttons */
+    .dev-btn-primary {
+      background: var(--nr-accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--motion-fast) var(--motion-smooth);
+    }
+    .dev-btn-primary:hover:not(:disabled) {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+    .dev-btn-primary:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    .dev-btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .dev-btn-secondary {
+      background: var(--nr-bg-raised);
+      color: var(--nr-text-primary);
+      border: 1px solid var(--nr-border-default);
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all var(--motion-fast) var(--motion-smooth);
+    }
+    .dev-btn-secondary:hover:not(:disabled) {
+      background: var(--nr-bg-surface);
+      border-color: var(--nr-accent);
+    }
+    .dev-btn-secondary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .dev-input {
+      background: var(--nr-bg-surface);
+      color: var(--nr-text-primary);
+      border: 1px solid var(--nr-border-default);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      transition: all var(--motion-fast) var(--motion-smooth);
+    }
+    .dev-input:focus {
+      outline: none;
+      border-color: var(--nr-accent);
+      box-shadow: 0 0 0 2px rgba(180, 69, 26, 0.1);
+    }
+    .dev-git-log-list { display: flex; flex-direction: column; gap: 0; }
+    .dev-git-log-item {
+      display: flex;
+      gap: 6px;
+      align-items: baseline;
+      padding: 2px 4px;
+      font-size: 0.72rem;
+      line-height: 1.4;
+    }
+    .dev-git-log-item:nth-child(odd) { background: rgba(255,255,255,0.02); }
+    .dev-git-log-sha { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.68rem; color: var(--nr-accent); flex-shrink: 0; }
+    .dev-git-log-msg { color: var(--nr-text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+    .dev-git-log-diff { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.65rem; white-space: nowrap; flex-shrink: 0; }
+    .dev-git-log-meta { color: var(--nr-text-quaternary); font-size: 0.65rem; white-space: nowrap; flex-shrink: 0; }
+    .dev-git-load-more-btn { display:block; width:100%; padding:6px 0; margin-top:4px; background:transparent; border:1px solid var(--border-color); color:var(--nr-text-secondary); font-size:0.7rem; border-radius:6px; cursor:pointer; transition:background 0.15s; }
+    .dev-git-load-more-btn:hover { background:var(--nr-bg-surface); }
+    .dev-git-load-more-btn:disabled { opacity:0.5; cursor:default; }
+

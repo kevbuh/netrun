@@ -124,7 +124,7 @@ function _showHistoryDropdown(direction, buttonEl) {
   const items = stack.slice().reverse().slice(0, 15);
   items.forEach((url, i) => {
     const row = document.createElement('div');
-    row.className = 'browse-history-dropdown nr-menu-item';
+    row.className = 'browse-history-dropdown-item nr-menu-item';
     const fav = document.createElement('img');
     fav.src = _browseFaviconUrl(url);
     fav.width = 14; fav.height = 14;
@@ -138,6 +138,7 @@ function _showHistoryDropdown(direction, buttonEl) {
     row.onclick = () => { _historyDropdownNavigate(direction, i + 1); _hideHistoryDropdownNow(); };
     dd.appendChild(row);
   });
+  if (window.Aether && Aether.materials) Aether.materials.apply(dd, 'thin');
   document.body.appendChild(dd);
   _historyDropdownEl = dd;
   // Position below the button

@@ -1,0 +1,75 @@
+/* ── Universal side panel ── */
+    /* ── Universal Side Panel ── */
+    #universal-panel {
+      position: fixed;
+      right: 0;
+      top: 34px;
+      height: calc(100% - 34px);
+      display: flex;
+      flex-direction: column;
+      background: var(--nr-bg-surface);
+      border-left: 1px solid var(--nr-border-default);
+      z-index: 40;
+    }
+    #universal-panel-resize {
+      position: absolute;
+      left: -3px;
+      top: 0;
+      width: 6px;
+      height: 100%;
+      cursor: col-resize;
+      z-index: 1;
+    }
+    #universal-panel-resize:hover,
+    #universal-panel-resize:active {
+      background: var(--nr-accent);
+      opacity: 0.3;
+    }
+    #universal-panel-tabs {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 8px 8px 0;
+      border-bottom: 1px solid var(--nr-border-subtle);
+    }
+    #universal-panel-tabs.icons-only .panel-tab-label { display: none; }
+    #universal-panel-tabs.icons-only .universal-panel-tab-btn { padding: 6px 8px; justify-content: center; flex: 1; }
+    #universal-panel-tabs.icons-only .universal-panel-tab-btn svg { margin-right: 0; }
+    .universal-panel-tab-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      flex-shrink: 0;
+      height: 32px;
+      padding: 0 10px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--nr-text-quaternary);
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1px;
+    }
+    .universal-panel-tab-btn:hover {
+      color: var(--nr-text-primary);
+    }
+    .universal-panel-tab-btn.active {
+      color: var(--nr-text-primary);
+      border-bottom-color: var(--nr-accent);
+    }
+    #universal-panel-header {
+      flex-shrink: 0;
+    }
+    #universal-panel-header:empty {
+      display: none;
+    }
+    #universal-panel-content {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+

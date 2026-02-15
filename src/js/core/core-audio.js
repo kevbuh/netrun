@@ -200,7 +200,7 @@ function _islandRenderPill(a) {
   } else if (a.type === 'audio') {
     return _islandAudioBars + '<span>' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'ai') {
-    return '<span class="island-ai-dot"></span><span>' + escapeHtml(a.label || '') + '</span>';
+    return '<span class="island-ai-dot nr-breathe"></span><span>' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'achievement') {
     return icon('help', { size: 14, stroke: '#caa12a' });
   } else if (a.type === 'rss') {

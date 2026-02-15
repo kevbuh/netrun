@@ -1,0 +1,65 @@
+/* ── Slides editor ── */
+    /* ── Slides editor ── */
+    .slides-thumb-panel {
+      width: 200px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--nr-border-dim);
+      padding: 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--nr-bg-surface);
+    }
+    .slides-thumb {
+      cursor: pointer;
+      border-radius: 6px;
+      padding: 6px;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .slides-thumb:hover {
+      background: var(--nr-bg-raised);
+    }
+    .slides-thumb.active {
+      background: var(--nr-bg-raised);
+      outline: 2px solid var(--nr-accent);
+      outline-offset: -2px;
+    }
+    .slides-thumb-btns {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      display: none;
+      gap: 2px;
+    }
+    .slides-thumb:hover .slides-thumb-btns {
+      display: flex;
+    }
+    .slides-thumb-add {
+      width: 160px;
+      height: 90px;
+      border: 2px dashed var(--nr-border-strong);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      margin: 0 auto;
+      flex-shrink: 0;
+    }
+    .slides-thumb-add:hover {
+      border-color: var(--nr-accent);
+      background: var(--nr-bg-raised);
+    }
+    .slides-present-indicator {
+      position: absolute;
+      bottom: 20px;
+      right: 30px;
+      color: rgba(255,255,255,0.5);
+      font-size: 0.85rem;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      pointer-events: none;
+    }
+

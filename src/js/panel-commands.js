@@ -279,7 +279,7 @@ function _aetherFilterCommands(query) {
 }
 
 function _aetherRenderCmdDropdown(popup, query) {
-  let dropdown = popup.querySelector('.aether-cmd-dropdown nr-menu');
+  let dropdown = popup.querySelector('.aether-cmd-dropdown.nr-menu');
   const matches = _aetherFilterCommands(query);
   if (!matches.length) {
     if (dropdown) dropdown.remove();
@@ -333,12 +333,12 @@ function _aetherRenderCmdDropdown(popup, query) {
 }
 
 function _aetherHideCmdDropdown(popup) {
-  const dropdown = popup.querySelector('.aether-cmd-dropdown nr-menu');
+  const dropdown = popup.querySelector('.aether-cmd-dropdown.nr-menu');
   if (dropdown) dropdown.remove();
 }
 
 function _aetherHideNoteDropdown(popup) {
-  const dropdown = popup.querySelector('.aether-note-dropdown nr-menu');
+  const dropdown = popup.querySelector('.aether-note-dropdown.nr-menu');
   if (dropdown) dropdown.remove();
   _aetherNoteResults = [];
   _aetherNoteIdx = 0;
@@ -346,7 +346,7 @@ function _aetherHideNoteDropdown(popup) {
 }
 
 function _aetherHideTabDropdown(popup) {
-  const dropdown = popup.querySelector('.aether-tab-dropdown nr-menu');
+  const dropdown = popup.querySelector('.aether-tab-dropdown.nr-menu');
   if (dropdown) dropdown.remove();
   _aetherTabList = [];
   _aetherTabIdx = 0;
@@ -487,7 +487,7 @@ async function _aetherRenderNoteDropdown(popup, query) {
     _aetherNoteResults = notes.slice(0, 12);
   }
 
-  let dropdown = popup.querySelector('.aether-note-dropdown nr-menu');
+  let dropdown = popup.querySelector('.aether-note-dropdown.nr-menu');
   if (!_aetherNoteResults.length) {
     if (!dropdown) {
       dropdown = document.createElement('div');
@@ -938,7 +938,7 @@ async function _doAetherTab(popup) {
 }
 
 function _renderTabDropdown(popup) {
-  let dropdown = popup.querySelector('.aether-tab-dropdown nr-menu');
+  let dropdown = popup.querySelector('.aether-tab-dropdown.nr-menu');
   if (!_aetherTabList.length) {
     if (dropdown) dropdown.remove();
     return;
@@ -980,7 +980,7 @@ async function _aetherSelectTab(popup) {
   const tab = _aetherTabList[_aetherTabIdx];
   if (!tab) return;
 
-  const dropdown = popup.querySelector('.aether-tab-dropdown nr-menu');
+  const dropdown = popup.querySelector('.aether-tab-dropdown.nr-menu');
   const items = dropdown ? dropdown.querySelectorAll('.aether-tab-item') : [];
   const el = items[_aetherTabIdx];
   if (el) {

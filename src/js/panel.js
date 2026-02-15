@@ -1406,8 +1406,8 @@ function _panelBuildChatInput(popup, config) {
     ev.stopPropagation();
     const val = askInput.value;
     const isCmd = val.startsWith('/');
-    const dropdown = popup.querySelector('.aether-cmd-dropdown nr-menu');
-    const noteDropdown = popup.querySelector('.aether-note-dropdown nr-menu:not(.aether-model-dropdown):not(.aether-history-dropdown)');
+    const dropdown = popup.querySelector('.aether-cmd-dropdown.nr-menu');
+    const noteDropdown = popup.querySelector('.aether-note-dropdown.nr-menu:not(.aether-model-dropdown):not(.aether-history-dropdown)');
     const modelDropdown = popup.querySelector('.aether-model-dropdown');
 
     // Arrow keys navigate model dropdown
@@ -1432,7 +1432,7 @@ function _panelBuildChatInput(popup, config) {
     }
 
     // Arrow keys navigate tab dropdown
-    const tabDropdown = popup.querySelector('.aether-tab-dropdown nr-menu');
+    const tabDropdown = popup.querySelector('.aether-tab-dropdown.nr-menu');
     if (tabDropdown && _aetherTabList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
       ev.preventDefault();
       if (ev.key === 'ArrowDown') _aetherTabIdx = Math.min(_aetherTabIdx + 1, _aetherTabList.length - 1);
@@ -1506,7 +1506,7 @@ function _panelBuildChatInput(popup, config) {
       if (ev.key === 'ArrowDown') _aetherCmdIdx = Math.min(_aetherCmdIdx + 1, items.length - 1);
       else _aetherCmdIdx = Math.max(_aetherCmdIdx - 1, 0);
       _aetherRenderCmdDropdown(popup, val.slice(1).trim());
-      const dd = popup.querySelector('.aether-cmd-dropdown nr-menu');
+      const dd = popup.querySelector('.aether-cmd-dropdown.nr-menu');
       const sel = dd && dd.querySelector('.aether-cmd-item.selected');
       if (sel) sel.scrollIntoView({ block: 'nearest' });
       return;

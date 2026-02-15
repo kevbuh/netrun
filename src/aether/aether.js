@@ -29,9 +29,17 @@
       var el = document.createElement('button');
       el.className = 'nr-btn' + (opts.variant ? ' nr-btn-' + opts.variant : ' nr-btn-primary');
       if (opts.size) el.classList.add('nr-btn-' + opts.size);
+      if (opts.icon) el.classList.add('nr-btn-icon');
       if (opts.className) el.className += ' ' + opts.className;
-      el.textContent = text;
+      if (opts.icon && typeof window.icon === 'function') {
+        el.innerHTML = window.icon(opts.icon, { size: opts.iconSize || 14 });
+        if (text) el.innerHTML += '<span>' + text + '</span>';
+      } else {
+        el.textContent = text;
+      }
+      if (opts.title) el.title = opts.title;
       if (opts.onClick) el.addEventListener('click', opts.onClick);
+      if (opts.disabled) el.disabled = true;
       return el;
     },
 

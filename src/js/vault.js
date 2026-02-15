@@ -770,14 +770,14 @@ async function vaultNewNote(folder = null) {
 
 // New note dropdown toggle
 function vaultToggleNewDropdown() {
-  const dd = document.getElementById('vault-new-dropdown nr-menu');
+  const dd = document.getElementById('vault-new-dropdown');
   if (!dd) return;
   const show = dd.style.display === 'none';
   dd.style.display = show ? '' : 'none';
   if (show) {
     // Close on outside click
     const close = (e) => {
-      if (!e.target.closest('.vault-new-dropdown nr-menu-wrapper')) {
+      if (!e.target.closest('.vault-new-dropdown-wrapper')) {
         dd.style.display = 'none';
         document.removeEventListener('click', close, true);
       }
@@ -787,7 +787,7 @@ function vaultToggleNewDropdown() {
 }
 
 function vaultHideNewDropdown() {
-  const dd = document.getElementById('vault-new-dropdown nr-menu');
+  const dd = document.getElementById('vault-new-dropdown');
   if (dd) dd.style.display = 'none';
 }
 

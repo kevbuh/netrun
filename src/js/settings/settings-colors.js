@@ -351,7 +351,7 @@ function _applyDaylightColors() {
     }
   }
 
-  // Mapping from legacy vars to --nr-* vars for dual-write
+  // Map legacy keyframe names → --nr-* token names
   var _nrMap = {
     '--bg-body': '--nr-bg-body', '--bg-card': '--nr-bg-surface',
     '--bg-hover': '--nr-bg-raised', '--bg-canvas': '--nr-bg-sunken',
@@ -368,18 +368,16 @@ function _applyDaylightColors() {
     '--overlay-bg': '--nr-shadow-overlay',
   };
 
-  // Apply
+  // Apply — write only --nr-* vars (legacy aliases removed)
   for (const key of Object.keys(vA)) {
     if (key.endsWith('$a')) {
       const alpha = lerped[key];
       const cssVar = key.slice(0, -2);
       const val = `rgba(0,0,0,${alpha.toFixed(3)})`;
-      el.style.setProperty(cssVar, val);
-      if (_nrMap[cssVar]) el.style.setProperty(_nrMap[cssVar], val);
+      el.style.setProperty(_nrMap[cssVar] || cssVar, val);
     } else {
       const hex = _oklchToHex(lerped[key][0], lerped[key][1], lerped[key][2]);
-      el.style.setProperty(key, hex);
-      if (_nrMap[key]) el.style.setProperty(_nrMap[key], hex);
+      el.style.setProperty(_nrMap[key] || key, hex);
     }
   }
 }
@@ -394,7 +392,7 @@ function startDaylightTheme() {
 function stopDaylightTheme() {
   if (_daylightInterval) { clearInterval(_daylightInterval); _daylightInterval = null; }
   window._daylightStartReal = null;
-  // Remove all inline style properties set by daylight (both legacy + nr-*)
+  // Remove all inline --nr-* properties set by daylight
   var _nrMap = {
     '--bg-body': '--nr-bg-body', '--bg-card': '--nr-bg-surface',
     '--bg-hover': '--nr-bg-raised', '--bg-canvas': '--nr-bg-sunken',
@@ -414,8 +412,7 @@ function stopDaylightTheme() {
   const kf0 = _daylightKeyframes[0][1];
   for (const key of Object.keys(kf0)) {
     const cssVar = key.endsWith('$a') ? key.slice(0, -2) : key;
-    el.style.removeProperty(cssVar);
-    if (_nrMap[cssVar]) el.style.removeProperty(_nrMap[cssVar]);
+    el.style.removeProperty(_nrMap[cssVar] || cssVar);
   }
 }
 
@@ -469,8 +466,6 @@ function applyAccentColor(color) {
   // Compute a lighter hover variant
   const r = parseInt(color.slice(1,3), 16), g = parseInt(color.slice(3,5), 16), b = parseInt(color.slice(5,7), 16);
   const hover = '#' + [Math.min(255, r + 20), Math.min(255, g + 20), Math.min(255, b + 20)].map(v => v.toString(16).padStart(2, '0')).join('');
-  document.documentElement.style.setProperty('--accent', color);
-  document.documentElement.style.setProperty('--accent-hover', hover);
   document.documentElement.style.setProperty('--nr-accent', color);
   document.documentElement.style.setProperty('--nr-accent-hover', hover);
 }

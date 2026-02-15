@@ -489,7 +489,7 @@ function _browseUpdateNewTabPage(tab) {
   if (tab && tab.blank) {
     if (!ntp) {
       ntp = document.createElement('div');
-      ntp.className = 'browse-ntp';
+      ntp.className = 'browse-ntp nr-living-gradient';
       ntp.innerHTML = `<input type="file" id="browse-pdf-file-input" multiple style="display:none" onchange="handleNtpFileInput(this)">
         <div class="browse-ntp-inner">
           <div class="browse-ntp-center">

@@ -1182,7 +1182,7 @@ function _devLineChart(hist, yKey, label, color, tooltipFn) {
   });
   // Crosshair line + hover dot (hidden by default)
   svg += `<line id="${id}-vline" x1="0" y1="${PAD.t}" x2="0" y2="${PAD.t + ch}" stroke="${color}" stroke-width="1" stroke-dasharray="3,2" opacity="0.5" style="display:none"/>`;
-  svg += `<circle id="${id}-hdot" cx="0" cy="0" r="4" fill="${color}" stroke="var(--bg-primary)" stroke-width="1.5" style="display:none"/>`;
+  svg += `<circle id="${id}-hdot" cx="0" cy="0" r="4" fill="${color}" stroke="var(--nr-bg-body)" stroke-width="1.5" style="display:none"/>`;
   // Invisible hover rect
   svg += `<rect x="${PAD.l}" y="${PAD.t}" width="${cw}" height="${ch}" fill="transparent" style="cursor:crosshair" id="${id}-hover"/>`;
   // X labels
@@ -1275,7 +1275,7 @@ function renderDevPanel() {
         cursor:pointer;
         border-left:3px solid ${isActive ? 'var(--nr-accent)' : 'transparent'};
         background:${isActive ? 'var(--nr-bg-raised)' : 'transparent'};
-        color:${isActive ? 'var(--nr-text-primary)' : 'var(--text-secondary)'};
+        color:${isActive ? 'var(--nr-text-primary)' : 'var(--nr-text-secondary)'};
         font-size:0.8rem;
         font-weight:${isActive ? '600' : '400'};
         transition:all var(--motion-fast) var(--motion-smooth);
@@ -1596,7 +1596,7 @@ async function _devLoadDependencyGraph() {
 
     if (data.status === 'error') {
       status.textContent = 'Error: ' + data.message;
-      status.style.color = 'var(--text-error)';
+      status.style.color = 'var(--nr-text-error, #ef4444)';
       return;
     }
 
@@ -1612,7 +1612,7 @@ async function _devLoadDependencyGraph() {
 
     const nodeLabel = _devGraphLevel === 'file' ? 'files' : 'functions';
     status.textContent = `${data.nodes.length} ${nodeLabel}, ${data.edges.length} dependencies`;
-    status.style.color = 'var(--text-success)';
+    status.style.color = 'var(--nr-text-success, #22c55e)';
 
     // Render the tree
     if (_devGraphLevel === 'file') {
@@ -1623,7 +1623,7 @@ async function _devLoadDependencyGraph() {
 
   } catch (e) {
     status.textContent = 'Error: ' + e.message;
-    status.style.color = 'var(--text-error)';
+    status.style.color = 'var(--nr-text-error, #ef4444)';
   } finally {
     btn.disabled = false;
     btn.textContent = 'Reload Graph';
@@ -1957,12 +1957,12 @@ async function _devRunFunctionRegistry() {
 
     if (data.error) {
       status.textContent = 'Error: ' + data.error;
-      status.style.color = 'var(--text-error)';
+      status.style.color = 'var(--nr-text-error, #ef4444)';
       return;
     }
 
     status.textContent = 'Analysis complete';
-    status.style.color = 'var(--text-success)';
+    status.style.color = 'var(--nr-text-success, #22c55e)';
 
     const summary = data.summary;
 
@@ -2083,7 +2083,7 @@ async function _devRunFunctionRegistry() {
     `;
   } catch (e) {
     status.textContent = 'Error: ' + e.message;
-    status.style.color = 'var(--text-error)';
+    status.style.color = 'var(--nr-text-error, #ef4444)';
   } finally {
     btn.disabled = false;
     btn.textContent = 'Analyze Functions';
@@ -2116,7 +2116,7 @@ async function _devRunFeedValidator() {
 
     if (data.status === 'error' && data.message) {
       status.textContent = 'Error: ' + data.message;
-      status.style.color = 'var(--text-error)';
+      status.style.color = 'var(--nr-text-error, #ef4444)';
       return;
     }
 
@@ -2154,7 +2154,7 @@ async function _devRunFeedValidator() {
     `;
   } catch (e) {
     status.textContent = 'Error: ' + e.message;
-    status.style.color = 'var(--text-error)';
+    status.style.color = 'var(--nr-text-error, #ef4444)';
   } finally {
     btn.disabled = false;
     btn.textContent = 'Run Validation';
@@ -2252,7 +2252,7 @@ async function _devRunLoadOrderAnalysis() {
 
     if (data.status === 'error' && data.message) {
       status.textContent = 'Error: ' + data.message;
-      status.style.color = 'var(--text-error)';
+      status.style.color = 'var(--nr-text-error, #ef4444)';
       return;
     }
 
@@ -2348,7 +2348,7 @@ async function _devRunLoadOrderAnalysis() {
     `;
   } catch (e) {
     status.textContent = 'Error: ' + e.message;
-    status.style.color = 'var(--text-error)';
+    status.style.color = 'var(--nr-text-error, #ef4444)';
   } finally {
     btn.disabled = false;
     btn.textContent = 'Run Analysis';

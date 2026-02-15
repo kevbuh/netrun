@@ -1117,6 +1117,7 @@ async function toggleFileShareDropdown(btn) {
   dd.id = 'file-share-dropdown';
   dd.style.cssText = 'position:fixed;z-index:10001;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;padding:6px 0;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.3);font-size:12px';
   dd.innerHTML = '<div style="padding:4px 12px;color:var(--nr-text-quaternary);font-size:11px">Loading teams...</div>';
+  if (window.Aether && Aether.materials) Aether.materials.apply(dd, 'thin');
   document.body.appendChild(dd);
   const rect = btn.getBoundingClientRect();
   dd.style.top = (rect.bottom + 4) + 'px';
@@ -1149,6 +1150,6 @@ async function shareFileToTeam(teamId, el) {
     if (el) { el.innerHTML = '<span style="color:var(--nr-accent);font-size:11px">Shared ✓</span>'; }
     setTimeout(() => { const dd = document.getElementById('file-share-dropdown'); if (dd) dd.remove(); }, 800);
   } catch {
-    if (el) { el.innerHTML = '<span style="color:var(--text-red-400);font-size:11px">Failed</span>'; el.style.pointerEvents = ''; el.style.opacity = '1'; }
+    if (el) { el.innerHTML = '<span style="color:#f87171;font-size:11px">Failed</span>'; el.style.pointerEvents = ''; el.style.opacity = '1'; }
   }
 }

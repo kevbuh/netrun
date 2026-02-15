@@ -1,0 +1,15 @@
+/* ── Scrollbar utilities ── */
+
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+    /* Transparent scrollbar track */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--nr-text-quaternary); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--nr-text-quaternary); }
+    * { scrollbar-width: thin; scrollbar-color: var(--nr-text-quaternary) transparent; }
+    .nb-img-wrap:hover .nb-img-btns { opacity: 1; }
+
+    /* md-tb-btn → migrated to nr-btn-icon (src/aether/css/components/buttons.css) */
+

@@ -1,0 +1,103 @@
+/* ── Onboarding ── */
+    /* === Honeycomb Onboarding === */
+    .hc-circle {
+      position: absolute;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 2px solid var(--nr-border-default);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      will-change: transform;
+      transition: transform 0.15s ease-out, border-color 0.2s, box-shadow 0.2s;
+      user-select: none;
+    }
+    .hc-circle:hover {
+      border-color: var(--nr-text-tertiary);
+    }
+    .hc-circle.selected {
+      border-color: var(--nr-accent);
+      box-shadow: 0 0 18px 5px color-mix(in srgb, var(--nr-accent) 60%, transparent);
+    }
+    .hc-circle .hc-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .hc-circle img {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      pointer-events: none;
+    }
+    .hc-circle .hc-letter {
+      font-size: 13px;
+      font-weight: 700;
+      pointer-events: none;
+      line-height: 1;
+    }
+    .hc-tooltip {
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.62rem;
+      font-weight: 500;
+      color: var(--nr-text-secondary);
+      background: var(--nr-bg-overlay);
+      border: 1px solid var(--nr-border-default);
+      padding: 1px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 100;
+    }
+    .hc-circle.hc-hovered .hc-tooltip {
+      opacity: 1;
+    }
+    /* vignette removed */
+    #honeycomb-viewport.grabbing {
+      cursor: grabbing;
+    }
+    /* Category tabs */
+    .hc-tabs {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 0 16px 6px;
+    }
+    .hc-tab {
+      font-size: 0.7rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--nr-border-default);
+      background: transparent;
+      color: var(--nr-text-tertiary);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .hc-tab:hover {
+      border-color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
+    }
+    .hc-tab.active {
+      border-color: var(--nr-accent);
+      color: var(--nr-accent);
+      background: color-mix(in srgb, var(--nr-accent) 10%, transparent);
+    }
+
+    .onboard-source.onboard-selected {
+      background: color-mix(in srgb, var(--nr-accent) 8%, transparent);
+    }
+

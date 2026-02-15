@@ -1,0 +1,33 @@
+/* ── Electron specific ── */
+    /* Electron: pill bar is not draggable */
+    body.electron-app #sidebar-nav {
+      -webkit-app-region: no-drag;
+    }
+    body.electron-app #browse-bar {
+      -webkit-app-region: drag;
+    }
+    body.electron-app #browse-bar button,
+    body.electron-app #browse-bar input,
+    body.electron-app #browse-bar div {
+      -webkit-app-region: no-drag;
+    }
+    .browse-more-btn-drop-target {
+      outline: 2px solid var(--nr-accent);
+      border-radius: 6px;
+      box-shadow: 0 0 8px var(--nr-accent);
+    }
+    body.electron-app .view > .electron-drag-top {
+      -webkit-app-region: drag;
+      height: 12px;
+      flex-shrink: 0;
+    }
+    /* Download app banner (hidden in Electron) */
+    body.electron-app #download-app-banner {
+      display: none !important;
+    }
+
+    #download-app-banner {
+      animation: slideDown 0.3s ease-out;
+    }
+
+

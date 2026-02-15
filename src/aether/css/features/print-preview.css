@@ -1,0 +1,120 @@
+/* ── Print preview ── */
+    /* ── Print Preview Popup ── */
+    .print-preview-overlay {
+      position: fixed; inset: 0; z-index: 10000;
+      background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      animation: ppFadeIn 0.15s ease;
+    }
+
+    .print-preview-dialog {
+      width: 780px; max-width: 92vw; height: 520px; max-height: 85vh;
+      background: var(--nr-bg-surface); border: 1px solid var(--nr-border-default);
+      border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+      display: flex; overflow: hidden;
+    }
+    .print-preview-page {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: var(--bg-secondary, #1a1a1a); padding: 24px; gap: 12px; min-width: 0;
+    }
+    .print-preview-canvas-wrap {
+      flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0;
+    }
+    .print-preview-canvas {
+      box-shadow: 0 2px 16px rgba(0,0,0,0.3); border-radius: 2px; background: #fff;
+    }
+    .print-preview-nav {
+      display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    }
+    .print-preview-nav-btn {
+      background: none; border: 1px solid var(--nr-border-default); border-radius: 6px;
+      color: var(--nr-text-primary); cursor: pointer; padding: 4px 6px; display: flex;
+      align-items: center; justify-content: center; transition: background 0.1s;
+    }
+    .print-preview-nav-btn:hover { background: var(--nr-bg-raised); }
+    .print-preview-page-indicator {
+      font-size: 0.78rem; color: var(--nr-text-quaternary); min-width: 60px; text-align: center;
+    }
+    .print-preview-settings {
+      width: 260px; flex-shrink: 0; padding: 24px 20px; display: flex; flex-direction: column; gap: 16px;
+      border-left: 1px solid var(--nr-border-default);
+    }
+    .print-preview-settings-title {
+      font-size: 1.1rem; font-weight: 600; color: var(--nr-text-primary); margin-bottom: 4px;
+    }
+    .print-preview-field { display: flex; flex-direction: column; gap: 6px; }
+    .print-preview-label {
+      font-size: 0.72rem; font-weight: 600; color: var(--nr-text-quaternary);
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .print-preview-radio-group { display: flex; flex-direction: column; gap: 4px; }
+    .print-preview-radio {
+      font-size: 0.8rem; color: var(--nr-text-primary); display: flex; align-items: center; gap: 6px; cursor: pointer;
+    }
+    .print-preview-radio input[type="radio"] { accent-color: var(--nr-accent); margin: 0; }
+    .print-preview-custom-input {
+      width: 100px; font-size: 0.75rem; padding: 3px 6px; margin-left: 4px;
+      border: 1px solid var(--nr-border-strong); border-radius: 4px;
+      background: var(--input-bg, transparent); color: var(--nr-text-primary);
+    }
+    .print-preview-custom-input:disabled { opacity: 0.4; }
+    .print-preview-toggle-row { display: flex; gap: 6px; }
+    .print-preview-toggle {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 6px 8px; border: 1px solid var(--nr-border-default); border-radius: 6px;
+      background: none; color: var(--nr-text-quaternary); font-size: 0.78rem;
+      cursor: pointer; transition: all 0.1s;
+    }
+    .print-preview-toggle:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
+    .print-preview-toggle.active {
+      border-color: var(--nr-accent); color: var(--nr-accent); background: rgba(180,69,26,0.08);
+    }
+    .print-preview-select {
+      font-size: 0.8rem; padding: 5px 8px; border: 1px solid var(--nr-border-default);
+      border-radius: 6px; background: var(--nr-bg-surface); color: var(--nr-text-primary);
+      cursor: pointer;
+    }
+    .print-preview-actions {
+      display: flex; gap: 8px; justify-content: flex-end; padding-top: 8px;
+      border-top: 1px solid var(--nr-border-default);
+    }
+    .print-preview-cancel {
+      padding: 7px 16px; border: 1px solid var(--nr-border-default); border-radius: 6px;
+      background: none; color: var(--nr-text-primary); font-size: 0.82rem;
+      cursor: pointer; transition: background 0.1s;
+    }
+    .print-preview-cancel:hover { background: var(--nr-bg-raised); }
+    .print-preview-print {
+      padding: 7px 20px; border: none; border-radius: 6px;
+      background: var(--nr-accent); color: #fff; font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; transition: opacity 0.1s;
+    }
+    .print-preview-print:hover { opacity: 0.9; }
+
+    /* ── Print styles (PDF viewer) ── */
+    @media print {
+      body.printing-pdf * { visibility: hidden; }
+      body.printing-pdf .pdf-pages-container,
+      body.printing-pdf .pdf-pages-container * { visibility: visible; }
+      body.printing-pdf .pdf-pages-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        overflow: visible;
+        padding: 0;
+        gap: 0;
+        background: #fff;
+      }
+      body.printing-pdf .pdf-page-wrapper {
+        page-break-after: always;
+        box-shadow: none;
+        margin: 0;
+      }
+      body.printing-pdf .pdf-page-wrapper:last-child { page-break-after: auto; }
+      body.printing-pdf .pdf-page-wrapper .textLayer,
+      body.printing-pdf .pdf-page-wrapper .pdf-annotation-layer,
+      body.printing-pdf .pdf-page-wrapper .pdf-search-highlight { visibility: hidden; }
+      body.printing-pdf .pdf-toolbar { display: none !important; }
+      @page { margin: 0.5cm; }
+

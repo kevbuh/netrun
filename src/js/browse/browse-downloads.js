@@ -212,7 +212,7 @@ function _browseUpdateDownloadBadge() {
 }
 
 function _browseRenderDownloads() {
-  const dropdown = document.getElementById('browse-downloads-dropdown nr-menu');
+  const dropdown = document.getElementById('browse-downloads-dropdown');
   if (!dropdown) return;
 
   if (_browseDownloads.length === 0) {
@@ -268,7 +268,7 @@ function _formatBytes(bytes) {
 }
 
 function _closeBrowseDownloadsDropdown() {
-  const dropdown = document.getElementById('browse-downloads-dropdown nr-menu');
+  const dropdown = document.getElementById('browse-downloads-dropdown');
   if (dropdown) dropdown.style.display = 'none';
   document.removeEventListener('click', _closeBrowseDownloadsOnClick);
   window.removeEventListener('blur', _closeBrowseDownloadsOnBlur);
@@ -277,7 +277,7 @@ function _closeBrowseDownloadsDropdown() {
 function toggleBrowseDownloads(event) {
   if (event) event.stopPropagation();
 
-  const dropdown = document.getElementById('browse-downloads-dropdown nr-menu');
+  const dropdown = document.getElementById('browse-downloads-dropdown');
   if (!dropdown) return;
 
   if (dropdown.style.display === 'none') {

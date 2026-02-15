@@ -1,0 +1,50 @@
+/* ── Whiteboard toolbar ── */
+    /* ── Whiteboard toolbar ── */
+    .wb-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--nr-border-dim);
+      background: var(--nr-bg-surface);
+      flex-shrink: 0;
+    }
+    .wb-toolbar input[type="color"] {
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--nr-border-strong);
+      border-radius: 6px;
+      background: none;
+      cursor: pointer;
+      padding: 1px;
+    }
+    .wb-size-slider {
+      width: 80px;
+      accent-color: var(--nr-accent);
+    }
+    .wb-tool-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--nr-border-strong);
+      background: var(--nr-bg-surface);
+      color: var(--nr-text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .wb-tool-btn:hover { border-color: var(--nr-accent); color: var(--nr-text-primary); }
+    .wb-tool-btn.active { border-color: var(--nr-accent); background: var(--nr-accent); color: #fff; }
+    #wb-canvas { display: block; cursor: crosshair; flex: 1; }
+    .wb-sidebar {
+      width: 180px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--nr-border-dim);
+      padding: 10px 6px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+

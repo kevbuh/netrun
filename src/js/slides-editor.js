@@ -1172,6 +1172,7 @@ function _toggleSlidesShareMenu(btn) {
   const dd = document.createElement('div');
   dd.id = 'slides-share-menu';
   dd.style.cssText = 'position:fixed;z-index:10001;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;padding:6px 0;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.3);font-size:12px';
+  if (window.Aether && Aether.materials) Aether.materials.apply(dd, 'thick');
   document.body.appendChild(dd);
   const rect = btn.getBoundingClientRect();
   dd.style.top = (rect.bottom + 4) + 'px';

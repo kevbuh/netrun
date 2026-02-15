@@ -1,0 +1,47 @@
+/* ── Dashboard & bento grid ── */
+    .dash-del, .dash-offline:not(.cached) { opacity: 0; transition: opacity 0.15s; }
+    .dash-row:hover > .dash-del, .dash-row:hover > .dash-offline { opacity: 1; }
+
+    /* Bento grid dashboard */
+    .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    /* bento-card → migrated to nr-card (src/aether/css/components/cards.css) */
+    .bento-1x1 { grid-column: span 1; }
+    .bento-2x1 { grid-column: span 2; }
+    .bento-3x1 { grid-column: span 3; }
+    .bento-4x1 { grid-column: span 4; }
+    .bento-2x2 { grid-column: span 2; grid-row: span 2; }
+    .bento-stats {
+      display: flex; gap: 10px; margin-bottom: 14px;
+    }
+    .bento-stat {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 12px 8px; border-radius: 12px;
+      background: var(--nr-bg-surface); border: 1px solid var(--nr-border-default);
+      transition: border-color 0.15s;
+    }
+    .bento-stat:hover { border-color: var(--nr-border-strong); }
+    .bento-stat .stat-value { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+    .bento-stat .stat-label { font-size: 0.72rem; color: var(--nr-text-quaternary); margin-top: 4px; }
+    .bento-stat .stat-sub { font-size: 0.65rem; color: var(--nr-text-quaternary); margin-top: 2px; }
+    .bento-action-btn {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 6px; padding: 12px 8px; border-radius: 10px;
+      background: transparent; border: 1px solid var(--nr-border-default);
+      color: var(--nr-text-tertiary); cursor: pointer; transition: all 0.15s;
+      font-size: 0.72rem;
+    }
+    .bento-action-btn:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); border-color: var(--nr-border-strong); }
+    .bento-trending-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border-radius: 8px; transition: background 0.15s; cursor: pointer;
+    }
+    .bento-trending-item:hover { background: var(--nr-bg-raised); }
+    .bento-trending-rank {
+      font-size: 0.9rem; font-weight: 700; color: var(--nr-text-quaternary);
+      width: 20px; text-align: center; flex-shrink: 0;
+    }
+    @media (max-width: 800px) {
+      .bento-grid { grid-template-columns: repeat(2, 1fr); }
+      .bento-3x1, .bento-4x1 { grid-column: span 2; }
+    }
+

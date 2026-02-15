@@ -1,0 +1,24 @@
+/* ── Pixel pet & comments ── */
+    /* ── Pixel Pet ── */
+    #pixel-pet {
+      position: fixed;
+      z-index: 9999;
+      pointer-events: auto;
+      image-rendering: pixelated;
+      cursor: pointer;
+    }
+    #pet-canvas {
+      width: 48px;
+      height: 48px;
+      image-rendering: pixelated;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    #pixel-pet-sidebar {
+      image-rendering: pixelated;
+      cursor: pointer;
+    }
+
+    /* ── Comment threads ── */
+    .comment-thread + .comment-thread { margin-top: 4px; }
+

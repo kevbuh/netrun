@@ -225,6 +225,7 @@ function showEmojiPicker(teamId, msgId, btn) {
     `<button onclick="toggleReaction(${teamId}, '${msgId}', '${e}'); document.getElementById('emoji-reaction-picker')?.remove()"
       class="w-8 h-8 flex items-center justify-center rounded cursor-pointer bg-transparent border-none text-base hover:bg-accent/10 transition-colors">${e}</button>`
   ).join('');
+  if (window.Aether && Aether.materials) Aether.materials.apply(dd, 'thick');
   document.body.appendChild(dd);
 
   const close = (e) => { if (!dd.contains(e.target) && e.target !== btn) { dd.remove(); document.removeEventListener('mousedown', close); } };

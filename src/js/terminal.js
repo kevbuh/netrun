@@ -437,8 +437,8 @@ function _renderLayout() {
       const handle = document.createElement('div');
       handle.className = 'term-split-handle';
       handle.style.cssText = node.direction === 'horizontal'
-        ? 'height:4px;width:100%;cursor:row-resize;background:var(--border-sidebar);flex-shrink:0;'
-        : 'width:4px;height:100%;cursor:col-resize;background:var(--border-sidebar);flex-shrink:0;';
+        ? 'height:4px;width:100%;cursor:row-resize;background:var(--nr-border-dim);flex-shrink:0;'
+        : 'width:4px;height:100%;cursor:col-resize;background:var(--nr-border-dim);flex-shrink:0;';
       _initSplitResize(handle, node, pane1);
 
       const pane2 = document.createElement('div');
