@@ -11,7 +11,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const THEME_COLOR_SCHEME = {
   dark: 'dark',
   light: 'light',
-  sepia: 'light',
   daylight: 'light',
 };
 
@@ -126,9 +125,6 @@ describe('Theme Color Scheme', () => {
     expect(getThemeColorScheme('light')).toBe('light');
   });
 
-  it('should return light for sepia theme', () => {
-    expect(getThemeColorScheme('sepia')).toBe('light');
-  });
 
   it('should return light for daylight theme', () => {
     expect(getThemeColorScheme('daylight')).toBe('light');
