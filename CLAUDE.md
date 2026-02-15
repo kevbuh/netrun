@@ -56,8 +56,9 @@ npm run validate-load-order # Check script load order
 - **Agents** (`src/core/agents/`): Agent runtime with tool-calling loop. Built-in research assistant agent.
 - **Ambient** (`src/core/ambient/`): Ambient processing pipeline for background tasks.
 - **Database** (`src/core/db/`): SQLite via better-sqlite3 with WAL mode. Schema in `schema.ts`, query modules in `queries/`.
+- **Context** (`src/core/context/`): Living context system. Markdown files in `~/.netrun/context/` (main.md + task-*.md). `manager.ts` handles CRUD, `compaction.ts` handles LLM-based summarization. Metadata tracked in SQLite `context_meta` table. IPC handlers use `db:context-*` prefix.
 - **Managers**: `terminal-manager.ts` (node-pty terminal sessions), `kernel-manager.ts` (Jupyter-style kernels), `captions-manager.ts` (media captions), `neuralook-manager.ts` (visual analysis).
-- **IPC** (`src/core/ipc-handlers.ts`): Central IPC handler registration connecting renderer requests to core functionality.
+- **IPC** (`src/core/ipc-handlers.ts`): Central IPC handler registration connecting renderer requests to core functionality. Renderer calls `electronAPI.dbQuery(channel, ...args)` which maps to `ipcMain.handle('db:' + channel, ...)`.
 
 ### Frontend JS conventions
 

@@ -1,5 +1,5 @@
 // onboarding.js — Onboarding wizard (standalone page)
-// Steps: 0=Welcome, 1=Username, 2=Accent Color, 3=Theme, 4=Neuralook, 5=Finale
+// Steps: 0=Welcome, 1=Username, 2=Accent Color, 3=Theme, 4=Tab Layout, 5=Chat Model, 6=Pixel Pet, 7=Neuralook, 8=Finale
 
 // Auth guard: no token → redirect to login
 (function() {
@@ -9,7 +9,7 @@
 })();
 
 let _wizardStep = 0;
-const _wizardTotalSteps = 6;
+const _wizardTotalSteps = 9;
 
 const _wizardAccentColors = [
   { color: '#b4451a', name: 'Orange' },
@@ -30,7 +30,18 @@ const _wizardThemes = [
   { id: 'auto',     name: 'Auto',     desc: 'Matches your system',  bg: '#0a0a0a', bar: '#151515', text: '#e0e0e0' },
 ];
 
+const _wizardPetTypes = [
+  { id: 'cat',      name: 'Cat',       emoji: '' },
+  { id: 'blackCat', name: 'Black Cat', emoji: '' },
+  { id: 'dog',      name: 'Dog',       emoji: '' },
+  { id: 'poodle',   name: 'Poodle',    emoji: '' },
+  { id: 'bunny',    name: 'Bunny',     emoji: '' },
+  { id: 'froog',    name: 'Froog',     emoji: '' },
+  { id: 'pacman',   name: 'Pac-Man',   emoji: '' },
+];
+
 let _wizardPendingUsername = null;
+let _wizardModelList = [];
 
 function openOnboarding() {
   // Render directly into #onboarding-container (standalone page)
@@ -103,8 +114,11 @@ function _renderWizardStep(stepIndex, direction) {
     else if (stepIndex === 1) contentHTML = _wizardUsernameHTML();
     else if (stepIndex === 2) contentHTML = _wizardAccentHTML();
     else if (stepIndex === 3) contentHTML = _wizardThemeHTML();
-    else if (stepIndex === 4) contentHTML = _wizardNeuralookHTML();
-    else if (stepIndex === 5) contentHTML = _wizardFinaleHTML();
+    else if (stepIndex === 4) contentHTML = _wizardTabLayoutHTML();
+    else if (stepIndex === 5) contentHTML = _wizardChatModelHTML();
+    else if (stepIndex === 6) contentHTML = _wizardPixelPetHTML();
+    else if (stepIndex === 7) contentHTML = _wizardNeuralookHTML();
+    else if (stepIndex === 8) contentHTML = _wizardFinaleHTML();
 
     const step = document.createElement('div');
     step.className = 'wizard-step';
@@ -122,6 +136,7 @@ function _renderWizardStep(stepIndex, direction) {
     if (stepIndex === 1) _wizardUsernameInit();
     else if (stepIndex === 2) _wizardAccentInit();
     else if (stepIndex === 3) _wizardThemeInit();
+    else if (stepIndex === 5) _wizardChatModelInit();
   }, delay);
 }
 
@@ -311,7 +326,172 @@ function _wizardThemeContinue() {
   _renderWizardStep(4, 'forward');
 }
 
-// ── Step 4: Neuralook (optional) ──
+// ── Step 4: Tab Layout ──
+
+function _wizardTabLayoutHTML() {
+  const current = localStorage.getItem('browseTabLayout') || 'island';
+  return `
+    <div style="text-align:center;">
+      <div style="font-size:20px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:4px;">Browser tab style</div>
+      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:20px;">How should your browser tabs look?</div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-bottom:20px;">
+        <button class="wizard-tab-layout-option${current === 'island' ? ' selected' : ''}" data-layout="island" onclick="_wizardPickTabLayout('island', this)">
+          <div class="wizard-tab-layout-preview">
+            <div style="display:flex;gap:4px;align-items:center;justify-content:center;height:100%;">
+              <div style="width:10px;height:100%;background:var(--nr-text-secondary,#999);opacity:0.2;border-radius:3px;"></div>
+              <div style="flex:1;display:flex;flex-direction:column;gap:3px;padding:4px;">
+                <div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:80%;"></div>
+                <div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:60%;"></div>
+                <div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:70%;"></div>
+              </div>
+            </div>
+          </div>
+          <span class="wizard-tab-layout-name">Island</span>
+          <span class="wizard-tab-layout-desc">Sidebar tabs</span>
+        </button>
+        <button class="wizard-tab-layout-option${current === 'horizontal' ? ' selected' : ''}" data-layout="horizontal" onclick="_wizardPickTabLayout('horizontal', this)">
+          <div class="wizard-tab-layout-preview">
+            <div style="display:flex;flex-direction:column;height:100%;">
+              <div style="display:flex;gap:2px;padding:3px 4px;">
+                <div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>
+                <div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>
+                <div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>
+              </div>
+              <div style="height:5px;background:var(--nr-text-secondary,#999);opacity:0.15;margin:0 4px;border-radius:2px;"></div>
+              <div style="flex:1;"></div>
+            </div>
+          </div>
+          <span class="wizard-tab-layout-name">Horizontal</span>
+          <span class="wizard-tab-layout-desc">Top tab bar</span>
+        </button>
+      </div>
+      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(5, 'forward')">Continue</button>
+    </div>
+  `;
+}
+
+function _wizardPickTabLayout(layout, el) {
+  localStorage.setItem('browseTabLayout', layout);
+  const wizard = document.getElementById('onboarding-wizard');
+  if (wizard) {
+    wizard.querySelectorAll('.wizard-tab-layout-option').forEach(b => b.classList.remove('selected'));
+  }
+  if (el) el.classList.add('selected');
+}
+
+// ── Step 5: Chat Model ──
+
+function _wizardChatModelHTML() {
+  return `
+    <div style="text-align:center;">
+      <div style="font-size:20px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:4px;">Choose a model</div>
+      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:20px;">Pick the default Ollama model for chat and tools.</div>
+      <div id="wiz-model-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px;max-height:200px;overflow-y:auto;">
+        <div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;">Loading models...</div>
+      </div>
+      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(6, 'forward')">Continue</button>
+    </div>
+  `;
+}
+
+async function _wizardChatModelInit() {
+  try {
+    const data = await apiGet('/api/models');
+    _wizardModelList = data.models || [];
+  } catch (e) {
+    _wizardModelList = [];
+  }
+
+  const container = document.getElementById('wiz-model-list');
+  if (!container) return;
+
+  if (!_wizardModelList.length) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;">No models found. Make sure Ollama is running.</div>';
+    return;
+  }
+
+  const current = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  container.innerHTML = _wizardModelList.map(m => {
+    const sel = m === current;
+    return `<button class="wizard-model-option${sel ? ' selected' : ''}" onclick="_wizardPickModel('${m.replace(/'/g, "\\'")}', this)">${m}</button>`;
+  }).join('');
+}
+
+function _wizardPickModel(model, el) {
+  localStorage.setItem('chatModel', model);
+  const wizard = document.getElementById('onboarding-wizard');
+  if (wizard) {
+    wizard.querySelectorAll('.wizard-model-option').forEach(b => b.classList.remove('selected'));
+  }
+  if (el) el.classList.add('selected');
+}
+
+// ── Step 6: Pixel Pet ──
+
+function _wizardPixelPetHTML() {
+  const petOn = localStorage.getItem('pixelPet') === 'on';
+  const currentType = localStorage.getItem('pixelPetType') || 'cat';
+  return `
+    <div style="text-align:center;">
+      <div style="font-size:20px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:4px;">Pick a companion</div>
+      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:20px;">A pixel pet that lives on your screen. Or go solo.</div>
+      <div id="wiz-pet-preview" style="height:48px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;">
+        <canvas id="wiz-pet-canvas" width="48" height="48" style="image-rendering:pixelated;width:48px;height:48px;"></canvas>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:20px;">
+        ${_wizardPetTypes.map(p => {
+          const sel = petOn && currentType === p.id;
+          return `<button class="wizard-pet-option${sel ? ' selected' : ''}" data-pet="${p.id}" onclick="_wizardPickPet('${p.id}', this)">${p.name}</button>`;
+        }).join('')}
+        <button class="wizard-pet-option${!petOn ? ' selected' : ''}" data-pet="none" onclick="_wizardPickPet('none', this)">None</button>
+      </div>
+      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(7, 'forward')">Continue</button>
+    </div>
+  `;
+}
+
+function _wizardPickPet(petId, el) {
+  const wizard = document.getElementById('onboarding-wizard');
+  if (wizard) {
+    wizard.querySelectorAll('.wizard-pet-option').forEach(b => b.classList.remove('selected'));
+  }
+  if (el) el.classList.add('selected');
+
+  if (petId === 'none') {
+    localStorage.setItem('pixelPet', 'off');
+    const canvas = document.getElementById('wiz-pet-canvas');
+    if (canvas) { const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 48, 48); }
+  } else {
+    localStorage.setItem('pixelPet', 'on');
+    localStorage.setItem('pixelPetType', petId);
+    _wizardDrawPetPreview(petId);
+  }
+}
+
+function _wizardDrawPetPreview(petId) {
+  const canvas = document.getElementById('wiz-pet-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 48, 48);
+  // Draw a simple colored square placeholder with the pet's initial
+  // The actual pet sprite system uses PET_TYPES which is scoped inside pixel-pet.js IIFE
+  const colors = {
+    cat: '#e8a87c', blackCat: '#1a1a1a', dog: '#c49a6c',
+    poodle: '#E87830', bunny: '#eee', froog: '#ef4444', pacman: '#ffd700'
+  };
+  const color = colors[petId] || '#999';
+  // Draw a chunky pixel-art style circle
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(24, 24, 16, 0, Math.PI * 2);
+  ctx.fill();
+  // Eyes
+  ctx.fillStyle = petId === 'blackCat' ? '#7cfc00' : '#2a2a2a';
+  ctx.fillRect(18, 20, 4, 4);
+  ctx.fillRect(28, 20, 4, 4);
+}
+
+// ── Step 7: Neuralook (optional) ──
 
 function _wizardNeuralookHTML() {
   return `
@@ -322,7 +502,7 @@ function _wizardNeuralookHTML() {
         <svg style="width:48px;height:48px;display:inline-block;" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       </div>
       <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_wizardStartNeuralook()">Calibrate now</button>
-      <button class="nr-btn nr-btn nr-btn-ghost" onclick="_renderWizardStep(5, 'forward')">Set up later</button>
+      <button class="nr-btn nr-btn nr-btn-ghost" onclick="_renderWizardStep(8, 'forward')">Set up later</button>
     </div>
   `;
 }
@@ -333,7 +513,7 @@ async function _wizardStartNeuralook() {
   window.location.href = '/#neuralook';
 }
 
-// ── Step 5: Finale ──
+// ── Step 8: Finale ──
 
 function _wizardFinaleHTML() {
   const username = _wizardPendingUsername || (_authUserInfo && _authUserInfo.username) || 'you';

@@ -256,15 +256,16 @@ function _islandRenderPill(a) {
     if (a.loading) {
       return '<span class="island-annotate-dot"></span><span>' + escapeHtml(a.label || 'Analyzing\u2026') + '</span>';
     }
-    // Paper mode — show paper icon + citation count
-    if (a._paper) {
-      const paperIcon = icon('fileText', { size: 14, stroke: '#8b5cf6' }) || icon('brain', { size: 14, stroke: '#8b5cf6' });
-      return paperIcon + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || 'Paper') + '</span>';
-    }
     const _annModeColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
     const annColor = _annModeColors[a.modeType] || '#4caf50';
     const annIcon = a.insight ? icon('brain', { size: 14, stroke: annColor }) : icon('comment', { size: 14, stroke: annColor });
-    return annIcon + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || '') + '</span>';
+    // Paper mode — append citation badge after the normal label
+    let paperBadge = '';
+    if (a._paper && a._paperState && a._paperState.s2Data) {
+      const cc = a._paperState.s2Data.citationCount;
+      if (cc != null) paperBadge = '<span style="margin-left:6px;font-size:10px;padding:1px 5px;border-radius:8px;background:rgba(139,92,246,0.15);color:#8b5cf6">' + cc + ' cit.</span>';
+    }
+    return annIcon + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || '') + '</span>' + paperBadge;
   } else if (a.type === 'calendar') {
     return icon('calendar', { size: 14, stroke: '#3b82f6' }) + '<span style="color:#3b82f6">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'bookmark') {
@@ -318,55 +319,7 @@ function _islandBuildTray(a, isBrowse) {
         + '</div>';
     }
     return trayHtml;
-  } else if (a.type === 'insight' && a._paper && a._paperState) {
-    // Paper mode tray — show metadata from Semantic Scholar
-    var trayHtml = '';
-    var ps = a._paperState;
-    var s2 = ps.s2Data;
-    var meta = ps.meta || {};
-    // Paper title
-    var title = (s2 && s2.title) || meta.title || '';
-    if (title) {
-      trayHtml += '<div style="padding:8px 10px 4px;font-size:13px;font-weight:600;color:var(--nr-text-primary);line-height:1.4">' + escapeHtml(title) + '</div>';
-    }
-    // Citation count + year + venue
-    if (s2) {
-      var details = [];
-      if (s2.year) details.push(s2.year);
-      if (s2.venue) details.push(s2.venue);
-      if (s2.citationCount != null) details.push(s2.citationCount + ' citation' + (s2.citationCount !== 1 ? 's' : ''));
-      if (details.length) {
-        trayHtml += '<div style="padding:2px 10px 6px;font-size:11px;color:var(--nr-text-tertiary)">' + escapeHtml(details.join(' \u00b7 ')) + '</div>';
-      }
-    }
-    // Authors with h-index
-    var authors = (s2 && s2.authors) || [];
-    var authorDetails = ps.authorDetails || [];
-    if (authors.length || (meta.authors && meta.authors.length)) {
-      trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 0"></div>';
-      var displayAuthors = authors.length ? authors.slice(0, 5) : meta.authors.slice(0, 5).map(function(n) { return { name: n }; });
-      for (var ai = 0; ai < displayAuthors.length; ai++) {
-        var author = displayAuthors[ai];
-        var name = author.name || '';
-        // Find matching author detail (h-index)
-        var detail = null;
-        for (var di = 0; di < authorDetails.length; di++) {
-          if (authorDetails[di] && authorDetails[di].name === name) { detail = authorDetails[di]; break; }
-        }
-        var hBadge = detail && detail.hIndex != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:auto">h-index: ' + detail.hIndex + '</span>' : '';
-        var citBadge = detail && detail.citationCount != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:6px">' + detail.citationCount.toLocaleString() + ' cit.</span>' : '';
-        trayHtml += '<div style="padding:4px 10px;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--nr-text-primary)">';
-        trayHtml += '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(name) + '</span>';
-        trayHtml += hBadge + citBadge;
-        trayHtml += '</div>';
-      }
-      if ((authors.length > 5) || (meta.authors && meta.authors.length > 5)) {
-        var extra = (authors.length || meta.authors.length) - 5;
-        trayHtml += '<div style="padding:2px 10px 4px;font-size:11px;color:var(--nr-text-quaternary)">+' + extra + ' more</div>';
-      }
-    }
-    return trayHtml;
-  } else if (a.type === 'insight' && a.items && a.items.length) {
+  } else if (a.type === 'insight' && ((a.items && a.items.length) || (a._paper && a._paperState))) {
     const annColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
     const annLabels = { ALPHA: 'Alpha', CONTRADICTION: 'Contradiction', AD: 'Ad', CONNECTION: 'Connection' };
     // Extend with custom categories
@@ -378,12 +331,58 @@ function _islandBuildTray(a, isBrowse) {
       }
     }
     var trayHtml = '';
-    // Insight text at top of tray
+    // Paper metadata at top of tray (when on an academic paper page)
+    if (a._paper && a._paperState) {
+      var ps = a._paperState;
+      var s2 = ps.s2Data;
+      var meta = ps.meta || {};
+      var paperTitle = (s2 && s2.title) || meta.title || '';
+      if (paperTitle) {
+        trayHtml += '<div style="padding:8px 10px 4px;font-size:13px;font-weight:600;color:var(--nr-text-primary);line-height:1.4">' + escapeHtml(paperTitle) + '</div>';
+      }
+      if (s2) {
+        var paperDetails = [];
+        if (s2.year) paperDetails.push(s2.year);
+        if (s2.venue) paperDetails.push(s2.venue);
+        if (s2.citationCount != null) paperDetails.push(s2.citationCount + ' citation' + (s2.citationCount !== 1 ? 's' : ''));
+        if (paperDetails.length) {
+          trayHtml += '<div style="padding:2px 10px 4px;font-size:11px;color:var(--nr-text-tertiary)">' + escapeHtml(paperDetails.join(' \u00b7 ')) + '</div>';
+        }
+      }
+      var paperAuthors = (s2 && s2.authors) || [];
+      var authorDetails = ps.authorDetails || [];
+      if (paperAuthors.length || (meta.authors && meta.authors.length)) {
+        trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 0"></div>';
+        var displayAuthors = paperAuthors.length ? paperAuthors.slice(0, 5) : meta.authors.slice(0, 5).map(function(n) { return { name: n }; });
+        for (var pai = 0; pai < displayAuthors.length; pai++) {
+          var pAuthor = displayAuthors[pai];
+          var pName = pAuthor.name || '';
+          var pDetail = null;
+          for (var pdi = 0; pdi < authorDetails.length; pdi++) {
+            if (authorDetails[pdi] && authorDetails[pdi].name === pName) { pDetail = authorDetails[pdi]; break; }
+          }
+          var hBadge = pDetail && pDetail.hIndex != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:auto">h-index: ' + pDetail.hIndex + '</span>' : '';
+          var citBadge = pDetail && pDetail.citationCount != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:6px">' + pDetail.citationCount.toLocaleString() + ' cit.</span>' : '';
+          trayHtml += '<div style="padding:4px 10px;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--nr-text-primary)">';
+          trayHtml += '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(pName) + '</span>';
+          trayHtml += hBadge + citBadge;
+          trayHtml += '</div>';
+        }
+        if ((paperAuthors.length > 5) || (meta.authors && meta.authors.length > 5)) {
+          var pExtra = (paperAuthors.length || meta.authors.length) - 5;
+          trayHtml += '<div style="padding:2px 10px 4px;font-size:11px;color:var(--nr-text-quaternary)">+' + pExtra + ' more</div>';
+        }
+      }
+      if (a.items && a.items.length) {
+        trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:4px 0"></div>';
+      }
+    }
+    // Insight text
     if (a.insight) {
       trayHtml += '<div style="padding:8px 10px;font-size:12px;color:var(--nr-text-primary);line-height:1.5;opacity:0.9">' + escapeHtml(a.insight) + '</div>';
-      if (a.items.length) trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 0"></div>';
+      if (a.items && a.items.length) trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 0"></div>';
     }
-    for (let ai = 0; ai < a.items.length; ai++) {
+    for (let ai = 0; ai < (a.items || []).length; ai++) {
       const ann = a.items[ai];
       const ac = annColors[ann.type] || '#888';
       const al = annLabels[ann.type] || ann.type;
@@ -804,7 +803,8 @@ function _islandRender() {
     }
 
     // Auto-dismiss on done — stagger so pills collapse one by one
-    if (a.done && !_islandDismissTimers[id]) {
+    // Never auto-dismiss insight pill when paper metadata is attached
+    if (a.done && !_islandDismissTimers[id] && !(a.type === 'insight' && a._paper)) {
       const baseDelay = a.type === 'achievement' ? 5000 : a.type === 'feed-notif' ? 10000 : 2500;
       const pendingCount = Object.keys(_islandDismissTimers).length;
       const stagger = pendingCount * 500;
