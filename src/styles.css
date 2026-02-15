@@ -983,12 +983,6 @@
       transform: none;
     }
 
-    /* Light theme overrides for browse mode */
-    [data-theme="light"] .pill-bar.browse-mode,
-    [data-theme="daylight"] .pill-bar.browse-mode,
-    [data-theme="sepia"] .pill-bar.browse-mode {
-      background: rgba(0, 0, 0, 0.08);
-    }
     /* ── Browse bar drag ghost ── */
     .browse-bar-drag-ghost {
       position: fixed;
