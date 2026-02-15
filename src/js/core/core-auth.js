@@ -143,7 +143,7 @@ async function _handleGoogleCredential(response) {
     // Sync: pull from server for returning users
     await syncFromServer();
     if (!data.username) {
-      _showUsernamePicker();
+      _showOnboardingWizard();
     } else {
       _onLoginSuccess();
     }
@@ -214,6 +214,209 @@ async function _submitUsername() {
     btn.disabled = false;
     btn.textContent = 'Continue';
   }
+}
+
+// ── Onboarding Wizard ──
+
+let _wizardStep = 0;
+
+const _wizardAccentColors = [
+  { color: '#b4451a', name: 'Orange' },
+  { color: '#e53e3e', name: 'Red' },
+  { color: '#d69e2e', name: 'Gold' },
+  { color: '#38a169', name: 'Green' },
+  { color: '#3182ce', name: 'Blue' },
+  { color: '#805ad5', name: 'Purple' },
+  { color: '#d53f8c', name: 'Pink' },
+  { color: '#718096', name: 'Gray' },
+  { color: '#111111', name: 'Black' },
+];
+
+function _showOnboardingWizard() {
+  const signInBtn = document.getElementById('google-signin-btn');
+  const wizard = document.getElementById('onboarding-wizard');
+  const modal = document.getElementById('auth-modal');
+  if (signInBtn) signInBtn.style.display = 'none';
+  if (wizard) wizard.style.display = '';
+  if (modal) modal.classList.add('wizard-mode');
+  _wizardStep = 0;
+  _renderWizardStep(0, 'forward');
+}
+
+function _renderWizardStep(stepIndex, direction) {
+  const wizard = document.getElementById('onboarding-wizard');
+  if (!wizard) return;
+
+  const prev = wizard.querySelector('.wizard-step');
+  if (prev) {
+    prev.classList.remove('active');
+    prev.classList.add('exit-left');
+    setTimeout(() => { if (prev.parentNode) prev.remove(); }, 350);
+  }
+
+  const delay = prev ? 350 : 0;
+  setTimeout(() => {
+    _wizardStep = stepIndex;
+    const totalSteps = 3;
+    // Build dots
+    let dotsHTML = '<div class="wizard-dots">';
+    for (let i = 0; i < totalSteps; i++) {
+      const cls = i === stepIndex ? 'active' : i < stepIndex ? 'completed' : '';
+      dotsHTML += `<div class="wizard-dot ${cls}"></div>`;
+    }
+    dotsHTML += '</div>';
+
+    let contentHTML = '';
+    if (stepIndex === 0) contentHTML = _wizardUsernameHTML();
+    else if (stepIndex === 1) contentHTML = _wizardAccentHTML();
+    else if (stepIndex === 2) contentHTML = _wizardNeuralookHTML();
+
+    const step = document.createElement('div');
+    step.className = 'wizard-step';
+    step.innerHTML = dotsHTML + contentHTML;
+    wizard.appendChild(step);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        step.classList.add('active');
+      });
+    });
+
+    // Init step-specific behavior
+    if (stepIndex === 0) _wizardUsernameInit();
+    else if (stepIndex === 1) _wizardAccentInit();
+  }, delay);
+}
+
+// ── Step 0: Username ──
+
+function _wizardUsernameHTML() {
+  return `
+    <div style="text-align:center;">
+      <div style="font-size:20px;font-weight:600;color:var(--text-primary,#e0e0e0);margin-bottom:4px;">Choose a username</div>
+      <div style="font-size:13px;color:var(--text-muted,#999);margin-bottom:20px;">This will be your public identity.</div>
+      <input id="wiz-username" type="text" maxlength="20" placeholder="username"
+        style="width:100%;box-sizing:border-box;padding:10px 14px;font-size:15px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text-primary,#e0e0e0);outline:none;text-align:center;" />
+      <div id="wiz-username-hint" style="font-size:11px;color:var(--text-muted,#999);margin-top:6px;">2-20 characters: letters, numbers, hyphens, underscores</div>
+      <div id="wiz-username-error" style="font-size:12px;color:#e74c3c;margin-top:6px;min-height:18px;"></div>
+      <button id="wiz-username-btn" class="wizard-btn wizard-btn-primary" style="margin-top:4px;" disabled onclick="_wizardSubmitUsername()">Continue</button>
+    </div>
+  `;
+}
+
+function _wizardUsernameInit() {
+  const input = document.getElementById('wiz-username');
+  if (!input) return;
+  input.addEventListener('input', () => {
+    const val = input.value.replace(/[^a-zA-Z0-9_-]/g, '');
+    if (val !== input.value) input.value = val;
+    const btn = document.getElementById('wiz-username-btn');
+    const valid = val.length >= 2 && val.length <= 20;
+    if (btn) { btn.disabled = !valid; }
+    const errEl = document.getElementById('wiz-username-error');
+    if (errEl) errEl.textContent = '';
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const btn = document.getElementById('wiz-username-btn');
+      if (btn && !btn.disabled) _wizardSubmitUsername();
+    }
+  });
+  input.focus();
+}
+
+async function _wizardSubmitUsername() {
+  const input = document.getElementById('wiz-username');
+  const errEl = document.getElementById('wiz-username-error');
+  const btn = document.getElementById('wiz-username-btn');
+  if (!input || !errEl) return;
+  const username = input.value.trim();
+  if (username.length < 2 || username.length > 20 || !/^[a-zA-Z0-9_-]+$/.test(username)) {
+    errEl.textContent = 'Invalid username format';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Checking...';
+  try {
+    const data = await apiPost('/api/auth/username', { username });
+    _authUserInfo.username = data.username;
+    localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
+    _renderWizardStep(1, 'forward');
+  } catch (e) {
+    errEl.textContent = e.message || 'Network error, please try again';
+    btn.disabled = false;
+    btn.textContent = 'Continue';
+  }
+}
+
+// ── Step 1: Accent Color ──
+
+function _wizardAccentHTML() {
+  const current = localStorage.getItem('accentColor') || '#b4451a';
+  const currentName = (_wizardAccentColors.find(c => c.color === current) || { name: 'Orange' }).name;
+  return `
+    <div style="text-align:center;">
+      <div style="font-size:20px;font-weight:600;color:var(--text-primary,#e0e0e0);margin-bottom:4px;">Pick your color</div>
+      <div style="font-size:13px;color:var(--text-muted,#999);margin-bottom:20px;">You can change this anytime in settings.</div>
+      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-bottom:14px;">
+        ${_wizardAccentColors.map(a => `
+          <button class="onboard-swatch${a.color === current ? ' selected' : ''}" style="background:${a.color};" data-color="${a.color}" data-name="${a.name}" onclick="_wizardPickAccent('${a.color}', this)"></button>
+        `).join('')}
+      </div>
+      <div id="wiz-color-name" style="font-size:13px;color:var(--text-muted,#999);margin-bottom:16px;">${currentName}</div>
+      <button class="wizard-btn wizard-btn-primary" onclick="_wizardAccentContinue()">Continue</button>
+    </div>
+  `;
+}
+
+function _wizardAccentInit() {
+  const current = localStorage.getItem('accentColor') || '#b4451a';
+  if (typeof applyAccentColor === 'function') applyAccentColor(current);
+}
+
+function _wizardPickAccent(color, el) {
+  if (typeof setAccentColor === 'function') setAccentColor(color);
+  // Update swatch selection visuals
+  const wizard = document.getElementById('onboarding-wizard');
+  if (wizard) {
+    wizard.querySelectorAll('.onboard-swatch').forEach(s => s.classList.remove('selected'));
+  }
+  if (el) el.classList.add('selected');
+  // Update color name label
+  const nameEl = document.getElementById('wiz-color-name');
+  const match = _wizardAccentColors.find(c => c.color === color);
+  if (nameEl && match) nameEl.textContent = match.name;
+}
+
+function _wizardAccentContinue() {
+  _renderWizardStep(2, 'forward');
+}
+
+// ── Step 2: Neuralook (optional) ──
+
+function _wizardNeuralookHTML() {
+  return `
+    <div style="text-align:center;">
+      <div style="font-size:20px;font-weight:600;color:var(--text-primary,#e0e0e0);margin-bottom:4px;">Eye tracking</div>
+      <div style="font-size:13px;color:var(--text-muted,#999);margin-bottom:20px;">Neuralook uses your camera for gaze-based navigation. A quick calibration is needed.</div>
+      <div style="margin-bottom:24px;">
+        <svg style="width:48px;height:48px;display:inline-block;" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </div>
+      <button class="wizard-btn wizard-btn-primary" onclick="_wizardStartNeuralook()">Calibrate now</button>
+      <button class="wizard-btn wizard-btn-secondary" onclick="_wizardFinish()">Set up later</button>
+    </div>
+  `;
+}
+
+function _wizardStartNeuralook() {
+  _onLoginSuccess();
+  if (typeof _nlStartCalibration === 'function') {
+    _nlStartCalibration();
+  }
+}
+
+function _wizardFinish() {
+  _onLoginSuccess();
 }
 
 // ── Auth actions ──
@@ -386,7 +589,7 @@ async function _doDeleteAccount() {
         localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
         if (!data.username) {
           _showLoginGate();
-          _showUsernamePicker();
+          _showOnboardingWizard();
         } else {
           _onLoginSuccess();
         }

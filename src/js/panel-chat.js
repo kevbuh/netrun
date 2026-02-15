@@ -78,23 +78,45 @@ function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiText, se
       _renderPopupChatLive(false);
     }
   } else if (agentEvent.type === 'tool_result') {
-    // After a tool completes, show a brief confirmation (display-only, not accumulated into aiText)
-    const confirmations = {
-      'browser-scroll': 'Scrolled.',
-      'browser-click': 'Clicked.',
-      'browser-type': 'Typed.',
-      'browser-navigate': 'Navigating…',
-      'browser-screenshot': 'Took screenshot.',
-      'browser-query-selector': 'Found elements.',
-      'browser-wait-for': 'Wait complete.',
-      'browser-get-url': 'Got URL.',
-      'browser-get-tabs': 'Listed tabs.',
-      'browser-switch-tab': 'Switched tab.',
-      'browser-back': 'Went back.',
-      'browser-forward': 'Went forward.',
-    };
-    if (confirmations[agentEvent.name]) {
-      _popupChatMessages[aiIdx].content = confirmations[agentEvent.name];
+    // After a tool completes, show a confirmation — format rich data for info tools
+    let confirmation = null;
+    const r = agentEvent.result;
+    const data = (typeof r === 'object' && r !== null) ? r : {};
+    switch (agentEvent.name) {
+      case 'browser-scroll': confirmation = 'Scrolled.'; break;
+      case 'browser-click': confirmation = 'Clicked.'; break;
+      case 'browser-type': confirmation = 'Typed.'; break;
+      case 'browser-navigate': confirmation = 'Navigating…'; break;
+      case 'browser-screenshot': confirmation = 'Took screenshot.'; break;
+      case 'browser-back': confirmation = data.url ? 'Back → ' + data.url : 'Went back.'; break;
+      case 'browser-forward': confirmation = data.url ? 'Forward → ' + data.url : 'Went forward.'; break;
+      case 'browser-get-url':
+        confirmation = data.url ? '**' + (data.title || 'Untitled') + '**\n' + data.url : 'Got URL.';
+        break;
+      case 'browser-get-tabs':
+        if (data.tabs && data.tabs.length) {
+          confirmation = data.tabs.map(function(t) {
+            return (t.active ? '→ ' : '  ') + '**' + (t.title || 'Untitled') + '** (tab ' + t.id + ')\n  ' + (t.url || '');
+          }).join('\n');
+        } else { confirmation = 'No tabs open.'; }
+        break;
+      case 'browser-switch-tab':
+        confirmation = data.url ? 'Switched → **' + (data.title || 'Tab') + '**\n' + data.url : 'Switched tab.';
+        break;
+      case 'browser-query-selector':
+        if (data.elements) {
+          confirmation = 'Found ' + (data.count || '?') + ' element(s):\n```\n' + data.elements + '\n```';
+        } else { confirmation = data.error || 'No elements found.'; }
+        break;
+      case 'browser-wait-for':
+        if (data.found) {
+          confirmation = 'Found: `<' + (data.tag || '?') + '>` ' + (data.text ? '"' + data.text.slice(0, 100) + '"' : '');
+        } else { confirmation = data.timeout ? 'Timed out waiting.' : 'Not found.'; }
+        break;
+      default: break;
+    }
+    if (confirmation) {
+      _popupChatMessages[aiIdx].content = confirmation;
       _popupChatMessages[aiIdx]._thinking = false;
       _renderPopupChatLive(false);
     }

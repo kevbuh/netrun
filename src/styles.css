@@ -1624,6 +1624,102 @@
       margin-bottom: 8px; min-height: 18px;
       text-align: center;
     }
+    /* ── Onboarding Wizard ── */
+    .auth-modal.wizard-mode {
+      width: 440px;
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #onboarding-wizard {
+      position: relative;
+      overflow: hidden;
+    }
+    .wizard-step {
+      opacity: 0;
+      transform: translateX(40px);
+      transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .wizard-step.active {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .wizard-step.exit-left {
+      opacity: 0;
+      transform: translateX(-40px);
+    }
+    .wizard-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .wizard-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .wizard-dot.active {
+      background: var(--accent);
+      transform: scale(1.25);
+    }
+    .wizard-dot.completed {
+      background: var(--accent);
+      opacity: 0.5;
+    }
+    .wizard-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s;
+      outline: none;
+    }
+    .wizard-btn:active {
+      transform: scale(0.96);
+    }
+    .wizard-btn-primary {
+      background: var(--accent);
+      color: #fff;
+      width: 100%;
+    }
+    .wizard-btn-primary:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+    .wizard-btn-primary:disabled:active {
+      transform: none;
+    }
+    .wizard-btn-secondary {
+      background: transparent;
+      color: var(--text-muted, #999);
+      width: 100%;
+      margin-top: 8px;
+    }
+    .wizard-btn-secondary:hover {
+      color: var(--text-primary, #e0e0e0);
+    }
+    .onboard-swatch {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s;
+      outline: none;
+    }
+    .onboard-swatch:hover {
+      transform: scale(1.12);
+    }
+    .onboard-swatch.selected {
+      border-color: #fff;
+      transform: scale(1.12);
+    }
 
     /* ── SVG Tree ── */
     .tree-node { cursor: pointer; }
