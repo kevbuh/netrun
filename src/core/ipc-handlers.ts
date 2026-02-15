@@ -2128,14 +2128,63 @@ ch.postMessage({type:'preview-ready'});
 
       const avgCommitsDay = projectAgeDays ? Math.round(totalCommits / projectAgeDays * 10) / 10 : 0;
 
+      // LOC history from git log (daily net lines over last 30 days)
+      const locHistory: any[] = [];
+      try {
+        const r = execFileSync('git', ['log', '--format=%ad', '--date=short', '--numstat', '--since=30 days ago'], { cwd: gitRoot, timeout: 15000, encoding: 'utf-8' });
+        const daily: Record<string, { added: number; deleted: number }> = {};
+        let currentDate = '';
+        for (const line of r.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          // Date line (yyyy-mm-dd)
+          if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+            currentDate = trimmed;
+            if (!daily[currentDate]) daily[currentDate] = { added: 0, deleted: 0 };
+          } else if (currentDate) {
+            // numstat line: added\tdeleted\tfile
+            const parts = trimmed.split('\t');
+            if (parts.length >= 3 && parts[0] !== '-') {
+              daily[currentDate].added += parseInt(parts[0]) || 0;
+              daily[currentDate].deleted += parseInt(parts[1]) || 0;
+            }
+          }
+        }
+        // Build cumulative LOC from current total backwards
+        const dates = Object.keys(daily).sort();
+        let running = totalLoc;
+        const dateLines: Record<string, number> = {};
+        // Walk backwards: each day's "lines" is the total at end-of-day
+        for (let i = dates.length - 1; i >= 0; i--) {
+          dateLines[dates[i]] = running;
+          running -= (daily[dates[i]].added - daily[dates[i]].deleted);
+        }
+        for (const d of dates) {
+          locHistory.push({ date: d, lines: dateLines[d], added: daily[d].added, deleted: daily[d].deleted });
+        }
+      } catch { /* skip */ }
+
+      // Usage history from DB (tool_call, aether_chat events)
+      const usageHistory: Record<string, Record<string, number>> = {};
+      try {
+        const thirtyDaysAgo = (Date.now() - 30 * 86400000) / 1000;
+        const rows = db.prepare(
+          "SELECT event, date(ts, 'unixepoch', 'localtime') as day, COUNT(*) as cnt FROM usage_log WHERE ts > ? GROUP BY event, day ORDER BY day"
+        ).all(thirtyDaysAgo) as any[];
+        for (const row of rows) {
+          if (!usageHistory[row.day]) usageHistory[row.day] = {};
+          usageHistory[row.day][row.event] = row.cnt;
+        }
+      } catch { /* skip */ }
+
       return {
         users, active_sessions: activeSess,
         total_loc: totalLoc, core_loc: coreLoc, test_loc: testLoc, files: fileCount,
         commits_today: commitsToday, total_commits: totalCommits,
         project_age_days: projectAgeDays, first_commit_date: firstCommitDate,
         avg_commits_day: avgCommitsDay,
-        loc_history: [], // Simplified: skip expensive LOC history calculation
-        usage_history: {},
+        loc_history: locHistory,
+        usage_history: usageHistory,
         git_log: gitLog, commits_per_day: commitsPerDay,
         ram_mb: ramMb, disk_total_gb: diskTotalGb, disk_used_gb: diskUsedGb, disk_free_gb: diskFreeGb,
         project_mb: projectMb,

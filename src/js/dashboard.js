@@ -1406,11 +1406,12 @@ async function _renderDevOverview() {
     `${h.lines.toLocaleString()} lines\n<span style="color:#3fb950">+${(h.added || 0).toLocaleString()}</span> <span style="color:#f85149">-${(h.deleted || 0).toLocaleString()}</span>`
   );
 
-  // Build usage history arrays
+  // Build usage history arrays from all available dates
   const usage = data.usage_history || {};
-  const allDates = hist.map(h => h.date);
+  const usageDates = Object.keys(usage).sort();
+  const chartDates = usageDates.length >= 2 ? usageDates : hist.map(h => h.date);
   function usageSeries(eventName) {
-    return allDates.map(d => ({ date: d, count: (usage[d] && usage[d][eventName]) || 0 }));
+    return chartDates.map(d => ({ date: d, count: (usage[d] && usage[d][eventName]) || 0 }));
   }
   const toolSeries = usageSeries('tool_call');
   const aetherSeries = usageSeries('aether_chat');
