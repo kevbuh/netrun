@@ -589,8 +589,8 @@ function _renderDoomScrollSites() {
   }
   // Add site row
   html += `<div class="flex items-center gap-2 mt-2 pt-2 border-t border-border-subtle">
-    <input type="text" id="doom-scroll-new-domain" placeholder="domain.com" class="flex-1 text-[0.8rem] px-2 py-1.5 rounded-md bg-transparent border border-border-input text-primary placeholder:text-dimmer focus:outline-none focus:border-accent" style="min-width:0">
-    <select id="doom-scroll-new-mode" class="text-[0.78rem] px-2 py-1.5 rounded-md bg-card border border-border-input text-primary focus:outline-none focus:border-accent" style="color:var(--text-primary);background:var(--bg-card)">
+    <input type="text" id="doom-scroll-new-domain" placeholder="domain.com" class="flex-1 text-[0.8rem] px-2 py-1.5 rounded-md bg-transparent border border-border-input text-primary placeholder:text-dimmer focus:outline-none focus:border-accent" style="min-width:0" onkeydown="if(event.key==='Enter')_addDoomScrollSite()">
+    <select id="doom-scroll-new-mode" class="text-[0.78rem] px-2 py-1.5 rounded-md bg-card border border-border-input text-primary focus:outline-none focus:border-accent" style="color:var(--text-primary);background:var(--bg-card)" onchange="document.getElementById('doom-scroll-new-minutes').style.display=this.value==='block'?'none':''">
       <option value="nudge">Nudge</option>
       <option value="block">Block</option>
     </select>

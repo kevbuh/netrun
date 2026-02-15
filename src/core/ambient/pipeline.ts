@@ -349,7 +349,7 @@ No other text. No markdown. No explanation outside the JSON.`;
 
   private _getModel(): string {
     // Default model; renderer can pass model preference via settings
-    return 'qwen2.5:3b';
+    return 'qwen2.5:7b';
   }
 
   private async checkHealth(): Promise<boolean> {

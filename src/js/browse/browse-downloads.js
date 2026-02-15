@@ -36,10 +36,21 @@ function _doomScrollMatch(url) {
 }
 
 // ── Focus Timer (pill-bar timer for doom scroll sites) ──
+// Per-domain start times survive tab switches and SPA navigations
+const _focusTimerStarts = {}; // { domain: timestamp }
 let _focusTimerInterval = null;
-let _focusTimerStart = 0;
 let _focusTimerDomain = '';
 let _focusTimerWarnMinutes = 0;
+
+// Restore persisted start times from sessionStorage (survives reload)
+try {
+  const saved = JSON.parse(sessionStorage.getItem('focusTimerStarts') || '{}');
+  Object.assign(_focusTimerStarts, saved);
+} catch {}
+
+function _persistFocusTimerStarts() {
+  try { sessionStorage.setItem('focusTimerStarts', JSON.stringify(_focusTimerStarts)); } catch {}
+}
 
 function _formatFocusTime(ms) {
   const totalSec = Math.floor(ms / 1000);
@@ -48,18 +59,27 @@ function _formatFocusTime(ms) {
   return m + ':' + (s < 10 ? '0' : '') + s;
 }
 
+function _focusTimerElapsed() {
+  const start = _focusTimerStarts[_focusTimerDomain];
+  return start ? Date.now() - start : 0;
+}
+
 function _startFocusTimer(domain, warnMinutes) {
-  _stopFocusTimer();
+  // Preserve existing start time for this domain (don't reset on SPA nav or tab switch)
+  if (!_focusTimerStarts[domain]) {
+    _focusTimerStarts[domain] = Date.now();
+    _persistFocusTimerStarts();
+  }
   _focusTimerDomain = domain;
-  _focusTimerStart = Date.now();
   _focusTimerWarnMinutes = warnMinutes || 0;
-  _focusTimerInterval = setInterval(_updateFocusTimerPill, 1000);
+  if (!_focusTimerInterval) {
+    _focusTimerInterval = setInterval(_updateFocusTimerPill, 1000);
+  }
   _updateFocusTimerPill();
 }
 
-function _stopFocusTimer() {
+function _hideFocusTimerPill() {
   if (_focusTimerInterval) { clearInterval(_focusTimerInterval); _focusTimerInterval = null; }
-  _focusTimerStart = 0;
   _focusTimerDomain = '';
   const el = document.getElementById('pill-focus-timer');
   if (el) { el.classList.remove('active', 'warn'); el.textContent = ''; }
@@ -67,8 +87,8 @@ function _stopFocusTimer() {
 
 function _updateFocusTimerPill() {
   const el = document.getElementById('pill-focus-timer');
-  if (!el || !_focusTimerStart) return;
-  const elapsed = Date.now() - _focusTimerStart;
+  if (!el || !_focusTimerDomain) return;
+  const elapsed = _focusTimerElapsed();
   el.textContent = _formatFocusTime(elapsed);
   el.classList.add('active');
   if (_focusTimerWarnMinutes > 0 && elapsed >= _focusTimerWarnMinutes * 60 * 1000) {
@@ -81,12 +101,12 @@ function _updateFocusTimerPill() {
 function _checkFocusTimer(url) {
   const match = _doomScrollMatch(url);
   if (match && match.mode === 'nudge') {
-    // Only restart if domain changed
-    if (_focusTimerDomain !== match.domain) _startFocusTimer(match.domain, match.minutes);
+    _startFocusTimer(match.domain, match.minutes);
   } else {
-    _stopFocusTimer();
+    _hideFocusTimerPill();
   }
 }
+
 
 // ── Download Manager ──
 const DOWNLOAD_RETENTION_MS = 60 * 60 * 1000; // 1 hour
@@ -396,9 +416,9 @@ function _browseHandleNavigation(tab, frame) {
     // Restore original file:// URL when navigating through the local-file proxy
     const navUrl = (e.url.includes('/api/local-file?path=') && frame.dataset.originalUrl)
       ? frame.dataset.originalUrl : e.url;
-    // Doom scroll: block mode — intercept before anything else
+    // Doom scroll: block mode — intercept before anything else (unless bypassed)
     const _dsMatch = _doomScrollMatch(navUrl);
-    if (_dsMatch && _dsMatch.mode === 'block') {
+    if (_dsMatch && _dsMatch.mode === 'block' && !_doomScrollBypass.has(_dsMatch.domain)) {
       _browseShowBlockedPage(tab, frame, navUrl, _dsMatch.domain);
       return;
     }
@@ -464,6 +484,8 @@ function _browseHandleNavigation(tab, frame) {
     }
     // YouTube: re-inject ad-block CSS on SPA navigation
     _browseInjectYouTubeCSS(frame, e.url);
+    // Focus timer: check on SPA navigation (don't reset for same domain)
+    if (tab.id === _browseActiveTab) _checkFocusTimer(e.url);
   });
   frame.addEventListener('page-title-updated', (e) => {
     tab.title = e.title || _browseTitleFromUrl(tab.url);
@@ -1056,6 +1078,26 @@ function _browseInjectContentScripts(tab, frame) {
     if (e.message === '__AETHER_CLOSE_TAB__') {
       if (typeof browseCloseTab === 'function') browseCloseTab(tab.id);
       return;
+    } else if (e.message && e.message.startsWith('__AETHER_BYPASS_BLOCK__')) {
+      const bypassUrl = e.message.slice('__AETHER_BYPASS_BLOCK__'.length);
+      try {
+        const host = new URL(bypassUrl).hostname.toLowerCase();
+        // Add all matching domains to bypass set
+        const sites = _getDoomScrollSites();
+        for (const s of sites) {
+          if (host === s.domain || host.endsWith('.' + s.domain)) _doomScrollBypass.add(s.domain);
+        }
+      } catch {}
+      frame.loadURL(bypassUrl);
+      return;
+    } else if (e.message === '__AETHER_DOOM_SNOOZE__') {
+      // "5 more minutes" — reset the persisted start time so pill restarts from 0
+      if (_focusTimerDomain && _focusTimerStarts[_focusTimerDomain]) {
+        _focusTimerStarts[_focusTimerDomain] = Date.now();
+        _persistFocusTimerStarts();
+        _updateFocusTimerPill();
+      }
+      return;
     } else if (e.message && e.message.startsWith('__AETHER_LINK_HOVER__')) {
       _showLinkPreview(e.message.slice('__AETHER_LINK_HOVER__'.length));
       return;
@@ -1242,14 +1284,19 @@ function _browseUpdateRssPill(tab) {
   });
 }
 
+// Temporary bypass list for "allow once" on blocked sites (cleared on app restart)
+const _doomScrollBypass = new Set();
+
 function _browseShowBlockedPage(tab, frame, url, domain) {
   const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
   const bg = isDark ? '#0a0a0a' : '#f5f5f5';
   const card = isDark ? '#151515' : '#fff';
   const text = isDark ? '#e0e0e0' : '#333';
   const dim = isDark ? '#777' : '#666';
+  const dimmer = isDark ? '#555' : '#999';
   const border = isDark ? '#222' : '#e0e0e0';
   const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
+  const safeUrl = url.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:${bg};color:${text};display:flex;align-items:center;justify-content:center;min-height:100vh}
@@ -1258,41 +1305,73 @@ function _browseShowBlockedPage(tab, frame, url, domain) {
     h1{font-size:18px;font-weight:600;margin-bottom:8px}
     p{font-size:13px;color:${dim};margin-bottom:24px;line-height:1.5}
     .domain{color:${text};font-weight:500}
+    .actions{display:flex;gap:8px;justify-content:center;margin-bottom:16px}
     button{padding:8px 20px;border-radius:8px;border:1px solid ${border};background:${card};color:${text};font-size:13px;cursor:pointer;font-family:inherit;transition:border-color .15s}
     button:hover{border-color:${accent};color:${accent}}
+    .bypass{font-size:11px;color:${dimmer};cursor:pointer;background:none;border:none;padding:4px 8px}
+    .bypass:hover{color:${dim}}
+    .bypass.waiting{pointer-events:none}
   </style></head><body><div class="c">
     <div class="icon">\u26D4</div>
     <h1>Site blocked</h1>
     <p><span class="domain">${domain}</span> is blocked by Focus Mode to help you stay on track.</p>
-    <button onclick="history.back()">Go back</button>
+    <div class="actions"><button onclick="history.back()">Go back</button></div>
+    <button class="bypass" id="__bypass" onclick="__doBypass()">Continue anyway</button>
+    <script>
+      var _countdown=3,_started=false;
+      var btn=document.getElementById('__bypass');
+      function __doBypass(){
+        if(!_started){_started=true;btn.classList.add('waiting');tick();return;}
+        console.log('__AETHER_BYPASS_BLOCK__${safeUrl}');
+      }
+      function tick(){
+        if(_countdown>0){btn.textContent='Continue anyway ('+_countdown+'s)';_countdown--;setTimeout(tick,1000);}
+        else{btn.textContent='Continue anyway';btn.classList.remove('waiting');}
+      }
+    </script>
   </div></body></html>`;
   try { frame.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html)); } catch {}
-  tab.title = 'Blocked — ' + domain;
+  tab.title = 'Blocked \u2014 ' + domain;
   tab.blank = false;
   _browseRenderTabs();
 }
 
 function _injectDoomScrollNudge(tab, el, config) {
-  const minutes = config.minutes || 5;
   const domain = config.domain;
+  // Compute delay from persisted start time so nudge survives reload/SPA nav
+  const startTime = _focusTimerStarts[domain] || Date.now();
+  const elapsedMs = Date.now() - startTime;
+  const thresholdMs = (config.minutes || 5) * 60 * 1000;
+  const remainingMs = Math.max(0, thresholdMs - elapsedMs);
+  // Read theme colors from parent frame (webview content can't access parent CSS vars)
+  const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
+  const cardBg = isDark ? '#181818' : '#fff';
+  const cardBorder = isDark ? '#333' : '#ddd';
+  const cardText = isDark ? '#e0e0e0' : '#333';
+  const cardDim = isDark ? '#999' : '#666';
+  const btnBorder = isDark ? '#444' : '#ccc';
+  const btnText = isDark ? '#ccc' : '#555';
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
+
   el.executeJavaScript(`(function(){
     if(window.__aetherDoomScrollInjected) return;
     window.__aetherDoomScrollInjected=true;
-    var minutes=${minutes};
     var domain=${JSON.stringify(domain)};
-    function showOverlay(elapsed){
+    var remainingMs=${remainingMs};
+    var thresholdMin=${config.minutes || 5};
+    function showOverlay(elapsedMin){
       if(document.getElementById('__aether-doom-overlay')) return;
       var ov=document.createElement('div');
       ov.id='__aether-doom-overlay';
-      ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:2147483647;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+      ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:2147483647;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
       var card=document.createElement('div');
-      card.style.cssText='background:#181818;border:1px solid #333;border-radius:16px;padding:32px 40px;text-align:center;max-width:380px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#e0e0e0;';
-      card.innerHTML='<div style="font-size:36px;margin-bottom:16px;opacity:.7">\u23F1</div>'
+      card.style.cssText='background:${cardBg};border:1px solid ${cardBorder};border-radius:16px;padding:32px 40px;text-align:center;max-width:380px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:${cardText};';
+      card.innerHTML='<div style="font-size:36px;margin-bottom:16px;opacity:.7">\\u23F1</div>'
         +'<div style="font-size:16px;font-weight:600;margin-bottom:8px">Time check</div>'
-        +'<div style="font-size:13px;color:#999;margin-bottom:24px;line-height:1.5">You\\u2019ve been on <strong style="color:#e0e0e0">'+domain+'</strong> for <strong style="color:#e0e0e0">'+elapsed+'</strong> minutes.</div>'
+        +'<div style="font-size:13px;color:${cardDim};margin-bottom:24px;line-height:1.5">You\\u2019ve been on <strong style="color:${cardText}">'+domain+'</strong> for <strong style="color:${cardText}">'+elapsedMin+'</strong> minutes.</div>'
         +'<div style="display:flex;gap:10px;justify-content:center">'
-        +'<button id="__aether-ds-close" style="padding:8px 18px;border-radius:8px;background:#b4451a;color:#fff;border:none;font-size:13px;cursor:pointer;font-family:inherit">Close tab</button>'
-        +'<button id="__aether-ds-more" style="padding:8px 18px;border-radius:8px;background:transparent;color:#ccc;border:1px solid #444;font-size:13px;cursor:pointer;font-family:inherit">5 more minutes</button>'
+        +'<button id="__aether-ds-close" style="padding:8px 18px;border-radius:8px;background:${accent};color:#fff;border:none;font-size:13px;cursor:pointer;font-family:inherit">Close tab</button>'
+        +'<button id="__aether-ds-more" style="padding:8px 18px;border-radius:8px;background:transparent;color:${btnText};border:1px solid ${btnBorder};font-size:13px;cursor:pointer;font-family:inherit">5 more minutes</button>'
         +'</div>';
       ov.appendChild(card);
       document.body.appendChild(ov);
@@ -1300,15 +1379,17 @@ function _injectDoomScrollNudge(tab, el, config) {
       document.getElementById('__aether-ds-more').onclick=function(){
         ov.remove();
         window.__aetherDoomScrollInjected=false;
+        console.log('__AETHER_DOOM_SNOOZE__');
         setTimeout(function(){
           if(!window.__aetherDoomScrollInjected){
             window.__aetherDoomScrollInjected=true;
-            showOverlay(elapsed+5);
+            showOverlay(elapsedMin+5);
           }
         },5*60*1000);
       };
     }
-    setTimeout(function(){showOverlay(minutes);},minutes*60*1000);
+    if(remainingMs<=0){showOverlay(thresholdMin);}
+    else{setTimeout(function(){showOverlay(thresholdMin);},remainingMs);}
   })();`).catch(() => {});
 }
 
