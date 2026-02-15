@@ -80,6 +80,9 @@ const _URL_BAR_SECTIONS = [
   { key: 'recent',     label: 'Recent Sites' },
   { key: 'suggestions',label: 'Suggestions' },
   { key: 'projects',   label: 'Projects' },
+  { key: 'users',      label: 'Users' },
+  { key: 'teams',      label: 'Teams' },
+  { key: 'notes',      label: 'Notes' },
   { key: 'history',    label: 'Search History' },
   { key: 'lucky',      label: 'Feeling Lucky' },
 ];
@@ -525,6 +528,57 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
           <svg style="width:${iconSize};height:${iconSize};color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(exp.title)}</span>
           ${updated ? `<span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;">${escapeHtml(updated)}</span>` : ''}
+        </div>`;
+      }).join('');
+      return h;
+    },
+    users: () => {
+      if (!filter) return '';
+      const users = typeof _cachedTeams !== 'undefined' && Array.isArray(_cachedTeams)
+        ? _cachedTeams.flatMap(t => (t.members || []).map(m => m.username)).filter(Boolean)
+        : [];
+      const unique = [...new Set(users)];
+      const matched = unique.filter(u => u.toLowerCase().includes(filter)).slice(0, 5);
+      if (!matched.length) return '';
+      const iconSize = ntp ? '16px' : '13px';
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Users</div>';
+      h += matched.map(username => {
+        const safeU = escapeHtml(username);
+        return `<div data-histq="user:${safeU}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof openUserProfile==='function') openUserProfile('${safeU.replace(/'/g, "\\'")}');">
+          <svg style="width:${iconSize};height:${iconSize};color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeU}</span>
+        </div>`;
+      }).join('');
+      return h;
+    },
+    teams: () => {
+      if (!filter) return '';
+      const teams = typeof _cachedTeams !== 'undefined' ? _cachedTeams : [];
+      const matched = teams.filter(t => t.name.toLowerCase().includes(filter)).slice(0, 5);
+      if (!matched.length) return '';
+      const iconSize = ntp ? '16px' : '13px';
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Teams</div>';
+      h += matched.map(t => {
+        const memberCount = (t.members || []).length;
+        return `<div data-histq="team:${t.id}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof showTeamDetailView==='function') showTeamDetailView(${t.id});">
+          <svg style="width:${iconSize};height:${iconSize};color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(t.name)}</span>
+          <span style="font-size:${ntp ? '0.75rem' : '0.68rem'};color:var(--text-dimmer);flex-shrink:0;">${memberCount} member${memberCount !== 1 ? 's' : ''}</span>
+        </div>`;
+      }).join('');
+      return h;
+    },
+    notes: () => {
+      if (!filter) return '';
+      const notes = typeof _vaultNotes !== 'undefined' ? _vaultNotes : [];
+      const matched = notes.filter(n => (n.title || '').toLowerCase().includes(filter)).slice(0, 5);
+      if (!matched.length) return '';
+      const iconSize = ntp ? '16px' : '13px';
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--text-dimmest);text-transform:uppercase;letter-spacing:0.05em;">Notes</div>';
+      h += matched.map(n => {
+        return `<div data-histq="note:${n.id}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof openVaultNote==='function') openVaultNote(${n.id});">
+          <svg style="width:${iconSize};height:${iconSize};color:var(--text-dimmer);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(n.title || 'Untitled')}</span>
         </div>`;
       }).join('');
       return h;

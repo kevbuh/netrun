@@ -514,8 +514,7 @@ function goHome() {
   loadAllFeeds();
 }
 
-async function openResearch(tab) {
-  if (tab) _researchActiveTab = tab;
+async function openResearch() {
   // Open browse and ensure a blank tab is active
   openBrowse();
   const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
@@ -527,87 +526,13 @@ async function openResearch(tab) {
       browseNewTab();
     }
   }
-  switchResearchTab(_researchActiveTab);
-}
-
-function switchResearchTab(tab) {
-  _researchActiveTab = tab;
-
-  // Update tab buttons
-  document.querySelectorAll('.research-tab').forEach(btn => btn.classList.remove('active'));
-  if (tab) {
-    const activeBtn = document.getElementById('research-tab-' + tab);
-    if (activeBtn) activeBtn.classList.add('active');
-  }
-
-  // Update panels
-  document.querySelectorAll('.research-panel').forEach(panel => panel.style.display = 'none');
-  if (tab) {
-    const activePanel = document.getElementById('research-panel-' + tab);
-    if (activePanel) activePanel.style.display = '';
-  }
-
-  // Focus search input on new tab page (always visible)
   const searchInput = document.getElementById('search-query');
   if (searchInput) setTimeout(() => searchInput.focus(), 50);
-
-  // Tab-specific initialization
-  if (tab === 'search') {
-    // focus already handled above
-  } else if (tab === 'users') {
-    const input = document.getElementById('user-search-query');
-    if (input) setTimeout(() => input.focus(), 50);
-    renderResearchUsers();
-  } else if (tab === 'teams') {
-    renderResearchTeams();
-  } else if (tab === 'vault') {
-    if (typeof renderNtpVaultPanel === 'function') renderNtpVaultPanel();
-  }
-}
-
-// User search in Research view
-async function submitUserSearch() {
-  const input = document.getElementById('user-search-query');
-  const query = input?.value.trim() || '';
-  renderResearchUsers(query);
-}
-
-async function renderResearchUsers(query = '') {
-  const container = document.getElementById('user-search-results');
-  if (!container) return;
-
-  container.innerHTML = '<div class="text-dimmer text-sm">Loading users...</div>';
-
-  try {
-    const url = query ? '/api/users?q=' + encodeURIComponent(query) : '/api/users';
-    const users = await apiGet(url);
-
-    if (!users.length) {
-      container.innerHTML = '<div class="text-dimmer text-sm py-4">No users found</div>';
-      return;
-    }
-
-    container.innerHTML = `<div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr))">` +
-      users.map(u => {
-        const joinDate = u.created ? new Date(u.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short' }) : '';
-        return `<a href="#profile/${encodeURIComponent(u.username)}" class="flex flex-col items-center gap-2 px-4 py-4 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors" style="text-decoration:none">
-          ${u.picture
-            ? `<img src="${escapeAttr(u.picture)}" class="w-12 h-12 rounded-full" referrerpolicy="no-referrer" />`
-            : `<div class="w-12 h-12 rounded-full bg-accent/20 text-accent flex items-center justify-center text-lg font-bold">${escapeHtml((u.username || '?')[0].toUpperCase())}</div>`
-          }
-          <span class="text-primary text-sm font-medium">${escapeHtml(u.username)}</span>
-          ${joinDate ? `<span class="text-dimmer text-[0.7rem]">Joined ${joinDate}</span>` : ''}
-        </a>`;
-      }).join('') + '</div>';
-  } catch (e) {
-    container.innerHTML = '<div class="text-dimmer text-sm">Failed to load users</div>';
-    console.error('User search error', e);
-  }
 }
 
 // Legacy functions for compatibility
 function openSearch() {
-  openResearch('search');
+  openResearch();
 }
 
 function openExperiments() {

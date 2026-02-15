@@ -89,11 +89,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onVaultChatEvent: (callback) => ipcRenderer.on('vault-chat:event', callback),
   removeVaultChatEventListener: (callback) => ipcRenderer.removeListener('vault-chat:event', callback),
 
-  // ── Ambient AI ──
-  ambientPageLoaded: (data) => ipcRenderer.invoke('ambient:page-loaded', data),
-  ambientSetEnabled: (enabled) => ipcRenderer.invoke('ambient:set-enabled', enabled),
-  onAmbientInsight: (callback) => ipcRenderer.on('ambient:insight', callback),
-  removeAmbientInsightListener: (callback) => ipcRenderer.removeListener('ambient:insight', callback),
+  // ── Insight (unified ambient + annotations) ──
+  insightPageLoaded: (data) => ipcRenderer.invoke('insight:page-loaded', data),
+  insightAnalyze: (data) => ipcRenderer.invoke('insight:analyze', data),
+  insightSetEnabled: (enabled) => ipcRenderer.invoke('insight:set-enabled', enabled),
+  onInsightResult: (cb) => ipcRenderer.on('insight:result', cb),
+  removeInsightResultListener: (cb) => ipcRenderer.removeListener('insight:result', cb),
 
   // ── DB query shortcuts (direct IPC, no Flask) ──
   dbQuery: (channel, ...args) => ipcRenderer.invoke('db:' + channel, ...args),

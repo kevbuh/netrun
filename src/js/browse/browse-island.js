@@ -63,6 +63,16 @@ function _pillSyncUrl() {
   if (_browseTabLayout === 'island') {
     const pill = document.getElementById('sidebar-nav');
     if (pill) pill.classList.remove('ntp-active');
+    // Hide URL input on NTP, show only tabs pill
+    input.style.display = isBlankNtp ? 'none' : '';
+    const reload = document.getElementById('pill-browse-reload');
+    if (reload) reload.style.display = isBlankNtp ? 'none' : '';
+    const divider = document.getElementById('pill-url-wrap')?.querySelector('.pill-url-divider');
+    if (divider) divider.style.display = isBlankNtp ? 'none' : '';
+    const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
+    if (tabsAnchor) tabsAnchor.classList.toggle('ntp-hide-divider', !!isBlankNtp);
+    const newtab = document.getElementById('pill-newtab-btn');
+    if (newtab) newtab.style.display = isBlankNtp ? 'none' : '';
   }
   // Safety net: ensure NTP is hidden when a non-blank tab is active in island mode
   if (!isBlankNtp) {

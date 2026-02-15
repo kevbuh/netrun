@@ -16,7 +16,8 @@ import * as feedQueries from './db/queries/feeds.js';
 import * as socialQueries from './db/queries/social.js';
 import * as embeddingQueries from './db/queries/embeddings.js';
 import * as contentQueries from './db/queries/content.js';
-import { ambientObserver } from './ambient/index.js';
+import { insightPipeline } from './ambient/index.js';
+import { snapQuoteToText } from './utils/text.js';
 import * as socialExtQueries from './db/queries/social-extended.js';
 import { getDb } from './db/connection.js';
 
@@ -53,82 +54,8 @@ async function cachedFetch(url: string, timeoutMs = 15_000): Promise<Buffer> {
   }
 }
 
-// ── Quote snapping (ported from Python _snap_quote_to_text) ──
-
-function _snapQuoteToText(quote: string, text: string): string | null {
-  if (!quote || !text) return null;
-  const textLower = text.toLowerCase();
-  const quoteLower = quote.toLowerCase();
-
-  // Exact match
-  const idx = textLower.indexOf(quoteLower);
-  if (idx !== -1) return text.slice(idx, idx + quote.length);
-
-  // Progressive prefix trimming
-  const quoteWords = quoteLower.split(/\s+/);
-  if (quoteWords.length < 3) return null;
-
-  for (let trim = 0; trim < Math.min(Math.floor(quoteWords.length / 2), 8); trim++) {
-    const end = quoteWords.length - trim;
-    const partial = quoteWords.slice(0, end).join(' ');
-    const pIdx = textLower.indexOf(partial);
-    if (pIdx !== -1) {
-      const grabLen = Math.min(quote.length + 20, text.length - pIdx);
-      const candidate = text.slice(pIdx, pIdx + grabLen);
-      const words = candidate.split(/\s+/);
-      const targetWords = quote.split(/\s+/).length;
-      const snapped = words.slice(0, targetWords).join(' ');
-      return snapped.length >= 15 ? snapped : null;
-    }
-  }
-
-  // Bigram sliding window
-  const bigrams = (s: string): Set<string> => {
-    const set = new Set<string>();
-    for (let i = 0; i < s.length - 1; i++) set.add(s.slice(i, i + 2));
-    return set;
-  };
-  const qBigrams = bigrams(quoteLower);
-  if (qBigrams.size === 0) return null;
-
-  let bestScore = 0;
-  let bestStart = -1;
-  const window = quote.length;
-  const step = Math.max(1, Math.floor(window / 4));
-
-  for (let start = 0; start <= textLower.length - window; start += step) {
-    const candidate = textLower.slice(start, start + window);
-    const cBigrams = bigrams(candidate);
-    const intersection = [...qBigrams].filter(b => cBigrams.has(b)).length;
-    const union = new Set([...qBigrams, ...cBigrams]).size;
-    const score = union > 0 ? intersection / union : 0;
-    if (score > bestScore) { bestScore = score; bestStart = start; }
-  }
-
-  // Refine
-  if (bestStart >= 0 && bestScore > 0.4) {
-    const searchStart = Math.max(0, bestStart - step);
-    const searchEnd = Math.min(textLower.length - window + 1, bestStart + step + 1);
-    for (let start = searchStart; start < searchEnd; start++) {
-      const candidate = textLower.slice(start, start + window);
-      const cBigrams = bigrams(candidate);
-      const intersection = [...qBigrams].filter(b => cBigrams.has(b)).length;
-      const union = new Set([...qBigrams, ...cBigrams]).size;
-      const score = union > 0 ? intersection / union : 0;
-      if (score > bestScore) { bestScore = score; bestStart = start; }
-    }
-  }
-
-  if (bestScore >= 0.55 && bestStart >= 0) {
-    while (bestStart > 0 && !' \t\n'.includes(text[bestStart - 1])) bestStart--;
-    let end = bestStart + window;
-    while (end < text.length && !' \t\n'.includes(text[end])) end++;
-    const snapped = text.slice(bestStart, end).trim();
-    return snapped.length >= 15 ? snapped : null;
-  }
-
-  return null;
-}
+// _snapQuoteToText is now imported from utils/text.ts as snapQuoteToText
+const _snapQuoteToText = snapQuoteToText;
 
 // ── Saved content cache (disk) ──
 
@@ -1459,116 +1386,17 @@ export function registerToolIPC(): void {
   // Phase 4: Complex Ollama / Streaming
   // ═══════════════════════════════════════════════════════════════════════
 
-  // ── Annotate ──
-  ipcMain.handle('db:annotate', async (_event, body: {
-    text: string; url?: string; otherTabs?: Array<{ title?: string; text?: string }>;
-    interest_context?: string; model?: string;
-  }) => {
-    const text = (body.text ?? '').trim();
-    if (!text) return { error: 'text required' };
-    try {
-      const mainText = text.slice(0, 12_000);
-      let tabContext = '';
-      for (const tab of (body.otherTabs ?? []).slice(0, 3)) {
-        const tTitle = (tab.title ?? '').slice(0, 100);
-        const tText = (tab.text ?? '').slice(0, 3000);
-        if (tText) tabContext += `\n\n--- OTHER TAB: "${tTitle}" ---\n${tText}\n--- END TAB ---`;
-      }
+  // ── Insight (unified ambient + annotations) ──
+  ipcMain.handle('insight:page-loaded', (event, data) => {
+    insightPipeline.onPageLoaded(data, event.sender);
+  });
 
-      // Build prompt
-      let prompt = _getAnnotationPrompt();
-      // Append custom categories
-      const customCats = contentQueries.listAnnotationCategories();
-      if (customCats.length) {
-        prompt += 'Additional annotation types:\n';
-        for (const cat of customCats) prompt += `- ${cat.key} — ${cat.description}\n`;
-        prompt += '\n';
-      }
-      // Append feedback examples
-      const goodExamples = contentQueries.listAnnotationFeedback('good', 10);
-      const badExamples = contentQueries.listAnnotationFeedback('bad', 10);
-      if (goodExamples.length) {
-        prompt += 'EXAMPLES OF GOOD ANNOTATIONS (produce more like these):\n';
-        for (const ex of goodExamples) prompt += `- "${(ex.quote ?? '').slice(0, 200)}"${ex.ann_type ? ` [${ex.ann_type}]` : ''}\n`;
-        prompt += '\n';
-      }
-      if (badExamples.length) {
-        prompt += 'EXAMPLES OF BAD ANNOTATIONS (avoid these):\n';
-        for (const ex of badExamples) prompt += `- "${(ex.quote ?? '').slice(0, 200)}"${ex.ann_type ? ` [${ex.ann_type}]` : ''}\n`;
-        prompt += '\n';
-      }
-      if (body.interest_context) prompt += 'USER INTERESTS:\n' + body.interest_context + '\n\n';
-      prompt += '--- MAIN PAGE TEXT ---\n' + mainText + '\n--- END PAGE TEXT ---';
-      if (tabContext) prompt += tabContext;
+  ipcMain.handle('insight:analyze', (event, data) => {
+    insightPipeline.processPage(data, event.sender, { manual: true });
+  });
 
-      const model = body.model ?? 'qwen2.5:3b';
-      const result = await ollamaProvider.chat({
-        model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0,
-        maxTokens: 6000,
-      });
-      let rawContent = (result.message.content ?? '').trim();
-      // Parse JSON
-      rawContent = rawContent.replace(/<think>[\s\S]*?<\/think>/g, '');
-      if (rawContent.includes('```')) {
-        rawContent = rawContent.replace(/```(?:json)?\s*/g, '').replace(/```/g, '');
-      }
-      rawContent = rawContent.trim();
-      const arrMatch = rawContent.match(/\[[\s\S]*\]/);
-      if (arrMatch) rawContent = arrMatch[0];
-      const parsed = JSON.parse(rawContent);
-
-      const validTypes = new Set(['ALPHA', 'CONTRADICTION', 'AD', ...customCats.map(c => c.key)]);
-      const annotations: any[] = [];
-      if (Array.isArray(parsed)) {
-        for (const item of parsed.slice(0, 15)) {
-          if (!item || typeof item !== 'object') continue;
-          const atype = item.type ?? '';
-          const quote = (item.quote ?? '').trim();
-          const explanation = (item.explanation ?? '').trim();
-          if (!validTypes.has(atype) || !quote) continue;
-          const snapped = _snapQuoteToText(quote, text);
-          if (!snapped) continue;
-          let confidence = 70;
-          try { confidence = Math.max(0, Math.min(100, parseInt(item.confidence ?? '70'))); } catch {}
-          const ann: any = { type: atype, quote: snapped.slice(0, 500), explanation: explanation.slice(0, 300), confidence };
-          if (atype === 'CONTRADICTION' && item.conflictsWith) ann.conflictsWith = item.conflictsWith.slice(0, 200);
-          annotations.push(ann);
-        }
-      }
-
-      // Cross-reference search
-      try {
-        const snippet = text.slice(0, 1500);
-        const xrefVec = await ollamaProvider.embed(snippet);
-        if (xrefVec.length) {
-          const connections: any[] = [];
-          const savedResults = embeddingQueries.searchEmbeddings(xrefVec, 'post', 3, body.url);
-          for (const r of savedResults) {
-            if (r.score > 0.75 && connections.length < 2) {
-              connections.push({
-                type: 'CONNECTION', explanation: `Related to saved post (similarity ${Math.round(r.score * 100)}%)`,
-                confidence: Math.round(r.score * 100), linkedTitle: (r.title ?? '').slice(0, 120), linkedUrl: r.link ?? '',
-              });
-            }
-          }
-          const memResults = embeddingQueries.searchChatMemories(xrefVec, 2);
-          for (const r of memResults) {
-            if (r.score > 0.75 && connections.length < 2) {
-              connections.push({
-                type: 'CONNECTION', explanation: `Related conversation: ${(r.topics ?? '').slice(0, 80)}`,
-                confidence: Math.round(r.score * 100),
-                linkedTitle: r.page_title || r.summary.slice(0, 60), linkedUrl: '',
-              });
-            }
-          }
-          annotations.push(...connections);
-        }
-      } catch { /* cross-ref failed, continue */ }
-
-      return { annotations };
-    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  ipcMain.handle('insight:set-enabled', (_event, enabled: boolean) => {
+    insightPipeline.setEnabled(enabled);
   });
 
   // ── Annotation prompt get/set ──
@@ -3094,15 +2922,6 @@ ch.postMessage({type:'preview-ready'});
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 
-  // ── Ambient AI ──
-
-  ipcMain.handle('ambient:page-loaded', (event, data) => {
-    ambientObserver.onPageLoaded(data, event.sender);
-  });
-
-  ipcMain.handle('ambient:set-enabled', (_event, enabled: boolean) => {
-    ambientObserver.setEnabled(enabled);
-  });
 }
 
 // ── Helpers used by phase 4/5 handlers (outside registerToolIPC) ──

@@ -1,7 +1,7 @@
-import { AmbientObserver } from './observer.js';
+import { PageInsightPipeline } from './pipeline.js';
 
-export const ambientObserver = new AmbientObserver();
+export const insightPipeline = new PageInsightPipeline();
 
-export function initAmbient(): void {
-  console.log('[ambient] Ambient observer initialized');
+export function initInsight(): void {
+  console.log('[insight] Page insight pipeline initialized');
 }

@@ -224,17 +224,13 @@ function _islandRenderPill(a) {
     html += '<span class="island-strip-overflow">' + nonBlank.length + ' tab' + (nonBlank.length !== 1 ? 's' : '') + '</span>';
     html += '</span>';
     return html;
-  } else if (a.type === 'annotate') {
-    const annPenIcon = icon('annotationPen', { size: 14, stroke: '#ffc107' });
-    if (a.offer) {
-      return annPenIcon + '<span>' + escapeHtml(a.label || 'Annotate') + '</span>';
-    }
+  } else if (a.type === 'insight') {
     if (a.loading) {
-      return '<span class="island-annotate-dot"></span><span>' + escapeHtml(a.label || 'Annotating…') + '</span>';
+      return '<span class="island-annotate-dot"></span><span>' + escapeHtml(a.label || 'Analyzing\u2026') + '</span>';
     }
     const _annModeColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
     const annColor = _annModeColors[a.modeType] || '#4caf50';
-    const annIcon = icon('comment', { size: 14, stroke: annColor });
+    const annIcon = a.insight ? icon('brain', { size: 14, stroke: annColor }) : icon('comment', { size: 14, stroke: annColor });
     return annIcon + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'calendar') {
     return icon('calendar', { size: 14, stroke: '#3b82f6' }) + '<span style="color:#3b82f6">' + escapeHtml(a.label || '') + '</span>';
@@ -289,7 +285,7 @@ function _islandBuildTray(a, isBrowse) {
         + '</div>';
     }
     return trayHtml;
-  } else if (a.type === 'annotate' && a.items && a.items.length) {
+  } else if (a.type === 'insight' && a.items && a.items.length) {
     const annColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
     const annLabels = { ALPHA: 'Alpha', CONTRADICTION: 'Contradiction', AD: 'Ad', CONNECTION: 'Connection' };
     // Extend with custom categories
@@ -301,6 +297,11 @@ function _islandBuildTray(a, isBrowse) {
       }
     }
     var trayHtml = '';
+    // Insight text at top of tray
+    if (a.insight) {
+      trayHtml += '<div style="padding:8px 10px;font-size:12px;color:var(--text-primary);line-height:1.5;opacity:0.9">' + escapeHtml(a.insight) + '</div>';
+      if (a.items.length) trayHtml += '<div style="height:1px;background:var(--aether-border, var(--border-card));margin:2px 0"></div>';
+    }
     for (let ai = 0; ai < a.items.length; ai++) {
       const ann = a.items[ai];
       const ac = annColors[ann.type] || '#888';
@@ -469,7 +470,7 @@ function _islandAttachHandlers(pill, a, hasTray) {
     }
     if (a.action) a.action();
   };
-  pill.style.cursor = (a.action || a.type === 'annotate' || a.type === 'tabs') ? 'pointer' : 'default';
+  pill.style.cursor = (a.action || a.type === 'insight' || a.type === 'tabs') ? 'pointer' : 'default';
 
   // Hover/click management for tray
   if (hasTray) {
@@ -560,7 +561,7 @@ function _islandRender() {
     const idx = ids.indexOf(pid);
     if (idx !== -1) { ids.splice(idx, 1); pinnedLeft.push(pid); }
   });
-  const priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, bookmark: 2.55, annotate: 2.5, 'feed-notif': 2, audio: 2, qf: 2, feed: 1, context: 0 };
+  const priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, bookmark: 2.55, insight: 2.5, 'feed-notif': 2, audio: 2, qf: 2, feed: 1, context: 0 };
   ids.sort(function(a, b) {
     const pa = priority[_islandActivities[a].type] || 0;
     const pb = priority[_islandActivities[b].type] || 0;
@@ -634,7 +635,7 @@ function _islandRender() {
       tray.innerHTML = _islandBuildTray(a, isBrowse);
     }
     const hasItems = !!(a.items && a.items.length);
-    const hasTray = (hasItems && (a.type === 'context' || a.type === 'download' || a.type === 'tabs' || a.type === 'annotate')) || a.type === 'achievement' || a.type === 'pulse';
+    const hasTray = (hasItems && (a.type === 'context' || a.type === 'download' || a.type === 'tabs' || a.type === 'insight')) || a.type === 'achievement' || a.type === 'pulse';
     pill.classList.toggle('island-context', a.type === 'context');
     pill.classList.toggle('island-download-pill', a.type === 'download');
     pill.classList.toggle('island-tabs-pill', a.type === 'tabs');
@@ -680,7 +681,7 @@ function _islandRender() {
     const targetContainer = (id === 'tabs' && isIslandMode && tabsAnchor) ? tabsAnchor : container;
     if (isNew) {
       // Pre-apply compact before entering so animation targets compact size
-      if ((a.type === 'rss' && a.subscribed) || (a.type === 'annotate' && !a.loading && !a.done && a._compact)) {
+      if ((a.type === 'rss' && a.subscribed) || (a.type === 'insight' && !a.loading && !a.done && a._compact)) {
         pill.classList.add('island-compact');
       }
       // Snapshot neighbors before insert so FLIP can animate them
@@ -747,8 +748,8 @@ function _islandRender() {
       }
     }
 
-    // Annotate: compact to icon-only after 15s (results and offers)
-    if (a.type === 'annotate' && !a.loading && !a.done) {
+    // Insight: compact to icon-only after 15s
+    if (a.type === 'insight' && !a.loading && !a.done) {
       if (!pill._annCompactTimer) {
         pill._annCompactTimer = setTimeout(function() {
           _islandSnapshotRects(targetContainer);
@@ -756,7 +757,7 @@ function _islandRender() {
           _islandFlipNeighbors(targetContainer);
         }, 15000);
       }
-    } else if (a.type === 'annotate' && (a.loading || a.done)) {
+    } else if (a.type === 'insight' && (a.loading || a.done)) {
       if (pill._annCompactTimer) { clearTimeout(pill._annCompactTimer); pill._annCompactTimer = null; }
       if (pill.classList.contains('island-compact')) {
         _islandSnapshotRects(targetContainer);

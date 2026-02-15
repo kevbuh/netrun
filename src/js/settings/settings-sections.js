@@ -995,8 +995,8 @@ function _renderAgentSettings() {
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <div class="flex items-center justify-between mb-3">
         <div>
-          <h3 class="text-white_ text-sm font-semibold">Auto Annotate</h3>
-          <p class="text-dim text-[0.8rem] mt-0.5">Automatically annotate pages when you navigate in the browser. Highlights key findings, contradictions, claims to verify, statistics, definitions, bias, and methodology.</p>
+          <h3 class="text-white_ text-sm font-semibold">Auto Insight</h3>
+          <p class="text-dim text-[0.8rem] mt-0.5">Automatically analyze pages when you navigate in the browser. Produces a short insight and highlights key findings, contradictions, and ads.</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
           <span class="toggle-switch">
@@ -1005,7 +1005,7 @@ function _renderAgentSettings() {
           </span>
         </label>
       </div>
-      <p class="text-dimmer text-[0.68rem]">When enabled, every page you visit in Browse will be annotated after a short delay. Cached annotations are reused for 5 minutes.</p>
+      <p class="text-dimmer text-[0.68rem]">When enabled, every page you visit in Browse will be analyzed with a single LLM call producing both an insight and annotations. Cached results are reused for 5 minutes.</p>
     </div>
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-3">Available Tools</h3>

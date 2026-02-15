@@ -834,9 +834,7 @@ async function ipcRoute(path, opts = {}) {
   // Phase 4: Complex Ollama / Streaming
   // ═══════════════════════════════════════════════════════════════════
 
-  if (pathOnly === '/api/annotate' && method === 'POST') {
-    return await window.electronAPI.dbQuery('annotate', body);
-  }
+  // /api/annotate removed — insight pipeline handles this via IPC directly
   if (pathOnly === '/api/annotation-prompt' && method === 'GET') {
     return await window.electronAPI.dbQuery('annotation-prompt-get');
   }

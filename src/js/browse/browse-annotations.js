@@ -1,209 +1,239 @@
-// browse-annotations.js — Extracted from browse-tabs.js
+// browse-annotations.js — Unified Insight (ambient + annotations)
 // Depends on: browse-state.js
 
-// ── Live Annotations ──
+// ── Insight state ──
 
 const _annotationsEnabled = new Map(); // tabId → bool
-const _annotationsCache = new Map();   // url → { annotations, ts }
+const _insightCache = new Map();       // url → { insight, annotations, related, ts }
 
-// Restore annotation cache from localStorage on load
+// Restore insight cache from localStorage on load
 try {
-  const _savedAnnCache = JSON.parse(localStorage.getItem('annotationsCache') || '{}');
-  const _annNow = Date.now();
-  for (const [url, entry] of Object.entries(_savedAnnCache)) {
-    if (_annNow - entry.ts < 300000) _annotationsCache.set(url, entry);
+  const _savedCache = JSON.parse(localStorage.getItem('insightCache') || '{}');
+  const _cacheNow = Date.now();
+  for (const [url, entry] of Object.entries(_savedCache)) {
+    if (_cacheNow - entry.ts < 300000) _insightCache.set(url, entry);
   }
 } catch {}
 
-function _persistAnnotationsCache() {
+function _persistInsightCache() {
   const obj = {};
   const now = Date.now();
-  for (const [url, entry] of _annotationsCache) {
+  for (const [url, entry] of _insightCache) {
     if (now - entry.ts < 300000) obj[url] = entry;
   }
-  localStorage.setItem('annotationsCache', JSON.stringify(obj));
+  localStorage.setItem('insightCache', JSON.stringify(obj));
 }
-let _annotationOfferTimer = null;
-let _annotationAbort = null; // AbortController for in-flight annotation
 
-function _offerAnnotation(tab) {
-  // Clear any previous offer timer
-  if (_annotationOfferTimer) { clearTimeout(_annotationOfferTimer); _annotationOfferTimer = null; }
-  // Don't offer if already annotating or on blank/internal pages
+// ── Trigger insight on page load ──
+
+function _triggerInsight(tab) {
   if (!tab || tab.blank) return;
   const url = tab.url || '';
   if (!url || url.startsWith('about:') || url.startsWith('chrome:')) return;
-  // Don't offer if annotations already enabled for this tab
-  if (_annotationsEnabled.get(tab.id)) return;
+
   // If we have a cached result for this URL, restore it directly
-  if (_restoreAnnotationPill(tab)) return;
-  // Remove any existing annotate pill
-  if (typeof islandRemove === 'function') islandRemove('annotate');
-  // Auto-annotate: skip the offer and annotate immediately
-  if (localStorage.getItem('autoAnnotate') === 'on') {
-    _annotationOfferTimer = setTimeout(() => {
-      if (_browseActiveTab !== tab.id) return;
-      if (_annotationsEnabled.get(tab.id)) return;
-      toggleAnnotations();
-    }, 1500);
-    return;
-  }
-  // Show offer after a short delay (let page settle)
-  _annotationOfferTimer = setTimeout(() => {
-    // Re-check tab is still active
-    if (_browseActiveTab !== tab.id) return;
-    if (_annotationsEnabled.get(tab.id)) return;
-    if (typeof islandUpdate === 'function') {
-      islandUpdate('annotate', {
-        type: 'annotate',
-        label: 'Annotate',
-        detail: 'Annotate this page',
-        loading: false,
-        offer: true,
-        action: () => {
-          toggleAnnotations();
-        }
-      });
-    }
-    // Compact offer to icon-only after 15s
-    _annotationOfferTimer = setTimeout(() => {
-      const pill = document.querySelector('.pill-island[data-island-id="annotate"]');
-      if (pill) pill.classList.add('island-compact');
-    }, 15000);
-  }, 1500);
+  if (_restoreInsightPill(tab)) return;
+
+  // Remove any existing insight pill
+  if (typeof islandRemove === 'function') islandRemove('insight');
+
+  // Extract text and send to pipeline
+  _triggerInsightExtract(tab);
 }
 
-function _restoreAnnotationPill(tab) {
+async function _triggerInsightExtract(tab) {
+  if (!window.electronAPI || !window.electronAPI.insightPageLoaded) return;
+  if (!tab || !tab.el) return;
+
+  try {
+    const pageText = await _extractTextFromFrame(tab);
+    if (!pageText || pageText.length < 100) return;
+
+    // Show loading pill immediately
+    if (typeof islandUpdate === 'function') {
+      islandUpdate('insight', {
+        type: 'insight',
+        label: 'Analyzing\u2026',
+        loading: true,
+        offer: false,
+      });
+    }
+
+    window.electronAPI.insightPageLoaded({
+      url: tab.url,
+      title: tab.title || '',
+      text: pageText.slice(0, 12000),
+      tabId: tab.id,
+    });
+  } catch (e) { /* silent */ }
+}
+
+function _restoreInsightPill(tab) {
   if (!tab || !tab.url) return false;
-  const cached = _annotationsCache.get(tab.url);
+  const cached = _insightCache.get(tab.url);
   if (!cached || Date.now() - cached.ts > 300000) return false;
   const annotations = cached.annotations || [];
-  if (!annotations.length) return false;
+  const insight = cached.insight || null;
+  if (!annotations.length && !insight) return false;
+
+  // Auto-enable and inject cached annotations
+  if (annotations.length) {
+    _annotationsEnabled.set(tab.id, true);
+    injectAnnotations(tab, annotations);
+    _updateAnnotateButtonState();
+  }
+
+  // Build pill
   const typeCounts = {};
   for (const a of annotations) { typeCounts[a.type] = (typeCounts[a.type] || 0) + 1; }
   const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'ALPHA';
-  // Auto-enable and inject cached annotations into the page
-  _annotationsEnabled.set(tab.id, true);
-  injectAnnotations(tab, annotations);
-  _updateAnnotateButtonState();
+
   if (typeof islandUpdate === 'function') {
-    islandUpdate('annotate', {
-      type: 'annotate',
-      label: `${annotations.length} annotations`,
-      detail: `${annotations.length} annotations on this page`,
+    const label = insight
+      ? (insight.length > 60 ? insight.slice(0, 57) + '\u2026' : insight)
+      : (annotations.length + ' annotations');
+    islandUpdate('insight', {
+      type: 'insight',
+      label: label,
+      detail: insight || (annotations.length + ' annotations on this page'),
+      insight: insight,
       items: annotations,
+      related: cached.related || [],
       modeType,
       loading: false,
-      offer: false
+      offer: false,
     });
   }
   return true;
 }
 
-function toggleAnnotations() {
+// ── Toggle insight (clear/restore) ──
+
+function toggleInsight() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
-  logger.debug('annotate toggleAnnotations tab=', tab?.id, 'blank=', tab?.blank, 'url=', tab?.url, 'el=', tab?.el?.tagName);
   if (!tab || tab.blank) return;
-  // Clear any pending offer timer
-  if (_annotationOfferTimer) { clearTimeout(_annotationOfferTimer); _annotationOfferTimer = null; }
   const enabled = !_annotationsEnabled.get(tab.id);
   _annotationsEnabled.set(tab.id, enabled);
   _updateAnnotateButtonState();
   if (enabled) {
-    annotateCurrentPage(tab);
+    // Try to restore from cache or re-trigger
+    if (!_restoreInsightPill(tab)) {
+      _triggerInsight(tab);
+    }
   } else {
     clearAnnotations(tab);
   }
 }
 
-async function annotateCurrentPage(tab) {
-  logger.debug('annotate annotateCurrentPage tab=', tab?.id, 'el=', tab?.el?.tagName, 'url=', tab?.url);
+// Keep old name as alias for browse-pill.js compatibility
+function toggleAnnotations() { toggleInsight(); }
+
+// ── Manual re-analyze ──
+
+async function _manualInsightAnalyze(tab) {
   if (!tab || !tab.el) return;
-  const url = tab.url || '';
+  if (!window.electronAPI || !window.electronAPI.insightAnalyze) return;
 
-  // Check cache (5 min)
-  const cached = _annotationsCache.get(url);
-  if (cached && Date.now() - cached.ts < 300000) {
-    injectAnnotations(tab, cached.annotations);
-    _restoreAnnotationPill(tab);
-    return;
-  }
+  // Clear cache for this URL
+  _insightCache.delete(tab.url);
+  clearAnnotations(tab);
 
-  // Abort any previous in-flight annotation
-  if (_annotationAbort) { _annotationAbort.abort(); _annotationAbort = null; }
-  const abortCtrl = new AbortController();
-  _annotationAbort = abortCtrl;
-
-  // Show island with yellow dot; delay before showing cancel button
+  // Show loading
   if (typeof islandUpdate === 'function') {
-    const dismissFn = () => {
-      abortCtrl.abort();
-      _annotationsEnabled.delete(tab.id);
-      _updateAnnotateButtonState();
-      islandRemove('annotate');
-    };
-    islandUpdate('annotate', {
-      type: 'annotate', label: 'Annotating…', loading: true, offer: false, action: null,
-      showCancel: false, dismiss: dismissFn
+    islandUpdate('insight', {
+      type: 'insight',
+      label: 'Analyzing\u2026',
+      loading: true,
+      offer: false,
     });
-    setTimeout(() => {
-      const act = typeof _islandActivities !== 'undefined' ? _islandActivities['annotate'] : null;
-      if (act && act.loading) {
-        islandUpdate('annotate', Object.assign({}, act, { showCancel: true }));
-      }
-    }, 1500);
   }
 
   try {
-    // Extract text directly from the webview/iframe (already loaded)
     const pageText = await _extractTextFromFrame(tab);
-    if (abortCtrl.signal.aborted) return;
-    if (!pageText) {
+    if (!pageText || pageText.length < 100) return;
+
+    window.electronAPI.insightAnalyze({
+      url: tab.url,
+      title: tab.title || '',
+      text: pageText.slice(0, 12000),
+      tabId: tab.id,
+    });
+  } catch (e) { /* silent */ }
+}
+
+// ── Insight result listener ──
+
+function _initInsightListener() {
+  if (!window.electronAPI || !window.electronAPI.onInsightResult) return;
+
+  window.electronAPI.onInsightResult(function (_event, result) {
+    if (!result || !result.tabId) return;
+
+    // Only process if this is for the currently active tab
+    if (typeof _browseActiveTab !== 'undefined' && result.tabId !== _browseActiveTab) return;
+
+    // Handle error (manual trigger, Ollama down)
+    if (result.error) {
       if (typeof islandUpdate === 'function') {
-        islandUpdate('annotate', { type: 'annotate', label: 'No text found', loading: false, done: true });
+        islandUpdate('insight', {
+          type: 'insight',
+          label: result.error,
+          loading: false,
+          done: true,
+        });
       }
       return;
     }
 
-    // Call annotate API (current tab only — no cross-tab context)
-    const model = localStorage.getItem('annotateModel') || '';
-    const interestCtx = typeof buildInterestContext === 'function' ? buildInterestContext() : '';
-    const data = await apiPost('/api/annotate', { url, text: pageText, otherTabs: [], model, interest_context: interestCtx });
-    if (abortCtrl.signal.aborted) return;
-    const annotations = data.annotations || [];
+    const tab = _browseTabs.find(function(t) { return t.id === result.tabId; });
+    const annotations = result.annotations || [];
+    const insight = result.insight || null;
+    const related = result.related || [];
 
-    // Cache
-    _annotationsCache.set(url, { annotations, ts: Date.now() });
-    _persistAnnotationsCache();
+    // Cache result
+    _insightCache.set(result.url, { insight, annotations, related, ts: Date.now() });
+    _persistInsightCache();
 
-    // Only inject if still enabled
-    if (_annotationsEnabled.get(tab.id)) {
+    // Inject annotations on page
+    if (tab && annotations.length) {
+      _annotationsEnabled.set(tab.id, true);
       injectAnnotations(tab, annotations);
+      _updateAnnotateButtonState();
     }
 
-    // Keep pill persistent with annotation items (clickable list)
-    // Icon color = mode (most frequent type)
+    // Update island pill
     const typeCounts = {};
     for (const a of annotations) { typeCounts[a.type] = (typeCounts[a.type] || 0) + 1; }
     const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'ALPHA';
+
     if (typeof islandUpdate === 'function') {
-      islandUpdate('annotate', {
-        type: 'annotate',
-        label: `${annotations.length} annotations`,
-        detail: `${annotations.length} annotations on this page`,
+      const label = insight
+        ? (insight.length > 60 ? insight.slice(0, 57) + '\u2026' : insight)
+        : (annotations.length ? annotations.length + ' annotations' : 'No insights');
+      islandUpdate('insight', {
+        type: 'insight',
+        label: label,
+        detail: insight || (annotations.length + ' annotations on this page'),
+        insight: insight,
         items: annotations,
+        related: related,
         modeType,
-        loading: false
+        loading: false,
+        offer: false,
+        done: (!insight && !annotations.length),
       });
     }
-  } catch (err) {
-    if (abortCtrl.signal.aborted) return; // cancelled by user
-    console.error('[annotate] Error:', err);
-    if (typeof islandUpdate === 'function') {
-      islandUpdate('annotate', { type: 'annotate', label: 'Failed', loading: false, done: true });
-    }
-  }
+  });
 }
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _initInsightListener);
+} else {
+  _initInsightListener();
+}
+
+// ── Text extraction (unchanged) ──
 
 async function _extractTextFromFrame(tab) {
   if (!tab || !tab.el) return '';
@@ -233,7 +263,7 @@ async function _extractTextFromFrame(tab) {
     } else if (frame.tagName === 'IFRAME') {
       return frame.contentDocument.body.innerText || '';
     }
-  } catch (err) { console.error('[annotate] _extractTextFromFrame error:', err); }
+  } catch (err) { console.error('[insight] _extractTextFromFrame error:', err); }
   return '';
 }
 
@@ -544,7 +574,7 @@ function injectAnnotations(tab, annotations) {
 
 function clearAnnotations(tab) {
   if (!tab || !tab.el) return;
-  if (typeof islandRemove === 'function') islandRemove('annotate');
+  if (typeof islandRemove === 'function') islandRemove('insight');
   const hostTooltip = document.getElementById('aether-annotation-tooltip');
   if (hostTooltip) hostTooltip.remove();
   const frame = tab.el;
@@ -643,4 +673,3 @@ function _updateAnnotateButtonState() {
   btn.classList.toggle('text-accent', !!enabled);
   btn.classList.toggle('text-dimmer', !enabled);
 }
-

@@ -38,8 +38,6 @@ let _spinnerInterval = null;
 // ── Views ──
 let _lastActiveView = localStorage.getItem('_lastActiveView') || 'feed';
 const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-settings': 'settings', 'sb-neuralook': 'neuralook' };
-let _researchActiveTab = null;
-
 // ── Sidebar navigation ──
 let _sidebarFocused = false;
 let _sidebarSelectedIndex = -1;

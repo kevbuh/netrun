@@ -1570,7 +1570,6 @@ function removeSearchHistory(index) {
   const hist = getSearchHistory();
   hist.splice(index, 1);
   setLS('searchHistory', hist);
-  showSearchHistoryView();
 }
 
 /**

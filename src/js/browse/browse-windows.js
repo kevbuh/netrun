@@ -212,7 +212,7 @@ function openBrowse(url) {
     const tab = win?.tabs.find(t => t.id === win.activeTab);
     if (tab && tab.url && !tab.blank) {
       if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(tab.url);
-      if (!_restoreAnnotationPill(tab)) _offerAnnotation(tab);
+      if (!_restoreInsightPill(tab)) _triggerInsight(tab);
     }
   }
   _browseInstallPinchOverlay();

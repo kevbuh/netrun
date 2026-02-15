@@ -340,15 +340,15 @@ function _browseHandleNavigation(tab, frame) {
     _annotationsEnabled.delete(tab.id);
     _updateAnnotateButtonState();
     // Offer to annotate the new page
-    if (_browseActiveTab === tab.id) _offerAnnotation(tab);
+    if (_browseActiveTab === tab.id) _triggerInsight(tab);
     // Adblock: reset count for this webview on navigation
     if (window.electronAPI && window.electronAPI.adblockResetCount && typeof frame.getWebContentsId === 'function') {
       try { window.electronAPI.adblockResetCount(frame.getWebContentsId()); } catch {}
     }
     // YouTube: inject ad-block CSS immediately on navigation (before dom-ready / first paint)
     _browseInjectYouTubeCSS(frame, navUrl);
-    // Ambient AI: dismiss current insight on navigation
-    if (typeof _ambientOnNavigate === 'function') _ambientOnNavigate();
+    // Clear insight pill on navigation
+    if (typeof islandRemove === 'function') islandRemove('insight');
   });
   frame.addEventListener('did-navigate-in-page', (e) => {
     if (!e.isMainFrame) return;
@@ -437,8 +437,8 @@ function _browseHandleNavigation(tab, frame) {
         }).catch(() => {});
       } catch {}
       // Ambient AI: extract page text and send to main process
-      if (typeof _ambientExtractAndSend === 'function') {
-        _ambientExtractAndSend(tab, frame);
+      if (typeof _triggerInsight === 'function') {
+        _triggerInsight(tab);
       }
     });
   }
