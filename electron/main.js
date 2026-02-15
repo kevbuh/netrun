@@ -437,10 +437,10 @@ async function createWindow() {
     else if (cmd === 'browser-forward') mainWindow.webContents.send('browse-command', 'forward');
   });
 
-  // Two-finger trackpad swipe (macOS — requires "Swipe between pages" trackpad setting)
+  // Two-finger trackpad swipe (macOS)
   mainWindow.on('swipe', (e, direction) => {
-    if (direction === 'left') mainWindow.webContents.send('browse-command', 'back');
-    else if (direction === 'right') mainWindow.webContents.send('browse-command', 'forward');
+    if (direction === 'right') mainWindow.webContents.send('browse-swipe', 'back');
+    else if (direction === 'left') mainWindow.webContents.send('browse-swipe', 'forward');
   });
 
   // Save window state on resize/move with debouncing

@@ -56,12 +56,9 @@ export class OllamaProvider implements LLMProvider {
   name = 'ollama';
   private baseURL: string;
   private defaultModel: string;
-  private embeddingModel: string;
-
-  constructor(options?: { baseURL?: string; model?: string; embeddingModel?: string }) {
+  constructor(options?: { baseURL?: string; model?: string }) {
     this.baseURL = options?.baseURL ?? 'http://127.0.0.1:11434';
     this.defaultModel = options?.model ?? 'qwen2.5:7b';
-    this.embeddingModel = options?.embeddingModel ?? 'nomic-embed-text';
   }
 
   /** Create an OpenAI-compatible provider pointing at Ollama's /v1 endpoint */
@@ -153,21 +150,6 @@ export class OllamaProvider implements LLMProvider {
       } else if (p.type === 'error') {
         yield { type: 'error', error: String(p.error) };
       }
-    }
-  }
-
-  async embed(text: string, model?: string): Promise<number[]> {
-    // Use Ollama's native embedding endpoint
-    try {
-      const resp = await fetch(`${this.baseURL}/api/embed`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: model ?? this.embeddingModel, input: text }),
-      });
-      const data = await resp.json() as any;
-      return data.embeddings?.[0] ?? [];
-    } catch {
-      return [];
     }
   }
 

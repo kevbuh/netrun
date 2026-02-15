@@ -60,6 +60,8 @@ export interface AgentContext {
   toolsEnabled?: boolean;
   /** Model override */
   model?: string;
+  /** Living context document (injected from context files) */
+  contextDocument?: string;
 }
 
 /** A message in the agent conversation */

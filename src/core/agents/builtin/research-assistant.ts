@@ -1,5 +1,6 @@
 import type { AgentDefinition, AgentContext } from '../types.js';
 import { getContextBudget } from '../context.js';
+import { contextManager } from '../../context/manager.js';
 
 function getCurrentDateString(): string {
   const now = new Date();
@@ -13,6 +14,17 @@ function getCurrentDateString(): string {
     hour12: true,
   };
   return now.toLocaleDateString('en-US', options);
+}
+
+function buildLivingContext(budgetChars: number): string {
+  try {
+    let ctx = contextManager.getMainContext();
+    if (!ctx) return '';
+    if (ctx.length > budgetChars) ctx = ctx.slice(0, budgetChars);
+    return '\n\n--- USER CONTEXT ---\n' + ctx + '\n--- END USER CONTEXT ---';
+  } catch {
+    return '';
+  }
 }
 
 function buildBrowserToolsDescription(hasDom: boolean): string {
@@ -77,6 +89,7 @@ export const researchAssistant: AgentDefinition = {
     'browser-switch-tab',
     'browser-back',
     'browser-forward',
+    'context-update',
   ],
 
   model: 'qwen3:8b',
@@ -93,9 +106,18 @@ export const researchAssistant: AgentDefinition = {
 
     // Build document context section — use ~40% of model context for doc text
     const model = context.model ?? this.model ?? 'default';
-    const docCharLimit = Math.floor(getContextBudget(model) * 0.4 / 0.3);
+    const budget = getContextBudget(model);
+    const docCharLimit = Math.floor(budget * 0.4 / 0.3);
     const truncatedDoc = context.documentText
       ? context.documentText.slice(0, docCharLimit)
+      : '';
+
+    // Living context — allocate ~20% of context window
+    const contextCharLimit = Math.floor(budget * 0.2 / 0.3);
+    const livingCtx = buildLivingContext(contextCharLimit);
+
+    const contextToolNote = context.toolsEnabled !== false
+      ? ' You have a context-update tool to remember information across conversations — use it when the user asks you to remember something or when you learn important facts.'
       : '';
 
     if (truncatedDoc && context.toolsEnabled !== false) {
@@ -108,8 +130,9 @@ export const researchAssistant: AgentDefinition = {
         'You have tools that perform real actions in the app. IMPORTANT: You MUST actually ' +
         'call the tools to perform actions — never pretend you performed an action or describe ' +
         'the result without calling the tool first. Never say you ' +
-        'cannot open tabs or navigate — you can, using your tools. ' +
-        browserDesc + pageCtx + '\n\n' +
+        'cannot open tabs or navigate — you can, using your tools.' +
+        contextToolNote + ' ' +
+        browserDesc + pageCtx + livingCtx + '\n\n' +
         '--- DOCUMENT TEXT ---\n' + truncatedDoc + '\n--- END ---'
       );
     }
@@ -120,7 +143,7 @@ export const researchAssistant: AgentDefinition = {
         dateStr +
         'You are a helpful research assistant. The user is reading a document. ' +
         'Answer their questions based ONLY on the document text below. ' +
-        'Do not make up information that is not in the document.\n\n' +
+        'Do not make up information that is not in the document.' + livingCtx + '\n\n' +
         '--- DOCUMENT TEXT ---\n' + truncatedDoc + '\n--- END ---'
       );
     }
@@ -136,12 +159,13 @@ export const researchAssistant: AgentDefinition = {
         'without calling the tool first. Never say you cannot open tabs or ' +
         'navigate — you can, using your tools. Available tools: web-search, paper-search, ' +
         'extract-text, save-to-reading-list, navigate, create-experiment, ' +
-        'create-calendar-event, open-tab. ' +
-        browserDesc + pageCtx
+        'create-calendar-event, open-tab, context-update.' +
+        contextToolNote + ' ' +
+        browserDesc + pageCtx + livingCtx
       );
     }
 
     // No document, no tools
-    return dateStr + 'You are a helpful assistant.';
+    return dateStr + 'You are a helpful assistant.' + livingCtx;
   },
 };

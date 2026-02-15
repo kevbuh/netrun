@@ -7,7 +7,6 @@ function makeProvider(name: string): LLMProvider {
     name,
     chat: async () => ({ message: { role: 'assistant', content: 'hi' } }),
     chatStream: async function* () { yield { type: 'done' as const }; },
-    embed: async () => [0.1, 0.2],
     listModels: async () => ['model-1'],
   };
 }

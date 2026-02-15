@@ -115,27 +115,3 @@ export function deleteAnnotationCategory(key: string): void {
   db.prepare('DELETE FROM annotation_categories WHERE key = ?').run(key);
 }
 
-// ── Chat memory (list/delete/stats — search is in embeddings.ts) ──
-
-export function getChatMemoryStats(): { total: number; earliest: number | null; latest: number | null; topTopics: string[] } {
-  const db = getDb();
-  const total = (db.prepare('SELECT COUNT(*) as count FROM chat_memories').get() as { count: number }).count;
-  const earliest = (db.prepare('SELECT MIN(created_at) as val FROM chat_memories').get() as { val: number | null }).val;
-  const latest = (db.prepare('SELECT MAX(created_at) as val FROM chat_memories').get() as { val: number | null }).val;
-  // Gather topics from recent memories
-  const rows = db.prepare(
-    'SELECT topics FROM chat_memories WHERE topics != \'\' ORDER BY created_at DESC LIMIT 50'
-  ).all() as Array<{ topics: string }>;
-  const topicCounts = new Map<string, number>();
-  for (const row of rows) {
-    for (const t of row.topics.split(',')) {
-      const topic = t.trim().toLowerCase();
-      if (topic) topicCounts.set(topic, (topicCounts.get(topic) ?? 0) + 1);
-    }
-  }
-  const topTopics = [...topicCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([t]) => t);
-  return { total, earliest, latest, topTopics };
-}

@@ -14,12 +14,13 @@ import * as calendarQueries from './db/queries/calendar.js';
 import * as userQueries from './db/queries/users.js';
 import * as feedQueries from './db/queries/feeds.js';
 import * as socialQueries from './db/queries/social.js';
-import * as embeddingQueries from './db/queries/embeddings.js';
 import * as contentQueries from './db/queries/content.js';
 import { insightPipeline } from './ambient/index.js';
 import { snapQuoteToText } from './utils/text.js';
 import * as socialExtQueries from './db/queries/social-extended.js';
 import { getDb } from './db/connection.js';
+import { contextManager } from './context/manager.js';
+import { runCompaction } from './context/compaction.js';
 
 // ── Ollama provider (singleton) ──
 
@@ -355,16 +356,6 @@ export function registerToolIPC(): void {
     return socialQueries.toggleReaction(messageId, googleId, emoji);
   });
 
-  // Embeddings
-  ipcMain.handle('db:embed', (_event, text: string, model?: string) => {
-    return embeddingQueries.embeddingHash(text);
-  });
-  ipcMain.handle('db:embedding-store', (_event, hash: string, embedding: number[]) => {
-    const packed = embeddingQueries.packEmbedding(embedding);
-    // Store via getDb - handled by tools, this is a lower-level util
-    return { hash, size: packed.length };
-  });
-
   // ── Auth extensions ──
   ipcMain.handle('db:user-set-username', (_event, googleId: string, username: string) => {
     return userQueries.setUsername(googleId, username);
@@ -431,17 +422,6 @@ export function registerToolIPC(): void {
   });
   ipcMain.handle('db:ann-category-delete', (_event, key: string) => {
     contentQueries.deleteAnnotationCategory(key);
-  });
-
-  // ── Chat memory (list/delete/stats) ──
-  ipcMain.handle('db:chat-memories-list', (_event, limit?: number, offset?: number) => {
-    return embeddingQueries.listChatMemories(limit, offset);
-  });
-  ipcMain.handle('db:chat-memory-delete', (_event, memoryId: number) => {
-    embeddingQueries.deleteChatMemory(memoryId);
-  });
-  ipcMain.handle('db:chat-memory-stats', () => {
-    return contentQueries.getChatMemoryStats();
   });
 
   // ── Social extended: team invites ──
@@ -1326,70 +1306,39 @@ export function registerToolIPC(): void {
   });
 
   // ═══════════════════════════════════════════════════════════════════════
-  // Phase 3: Embedding + Vector Search
+  // Living Context
   // ═══════════════════════════════════════════════════════════════════════
 
-  ipcMain.handle('db:embed-content', async (_event, body: { title: string; link: string; source?: string; description?: string; type?: string }) => {
-    const { title, link, source = '', description = '', type: contentType = 'post' } = body;
-    if (!title || !link) return { ok: true };
-    // Fire-and-forget
-    (async () => {
-      try {
-        const text = description ? `${title}. ${description.slice(0, 500)}` : title;
-        const vec = await ollamaProvider.embed(text);
-        if (vec.length) embeddingQueries.storeEmbedding(text, title, link, source, contentType, vec);
-      } catch { /* ignore */ }
-    })();
+  ipcMain.handle('context:read', (_event, file: string) => {
+    return { content: contextManager.readContextFile(file || 'main.md') };
+  });
+
+  ipcMain.handle('context:list', () => {
+    return { files: contextManager.listContextFiles() };
+  });
+
+  ipcMain.handle('context:update', (_event, body: { file?: string; section: string; content: string; action?: 'append' | 'replace' }) => {
+    const file = body.file || 'main.md';
+    if (body.action === 'replace') {
+      contextManager.replaceSection(file, body.section, body.content);
+    } else {
+      contextManager.appendContext(file, body.section, body.content);
+    }
+    return { ok: true, charCount: contextManager.getContextSize(file) };
+  });
+
+  ipcMain.handle('context:compact', async (_event, file?: string) => {
+    await runCompaction(file || 'main.md');
+    return { ok: true, charCount: contextManager.getContextSize(file || 'main.md') };
+  });
+
+  ipcMain.handle('context:delete', (_event, file: string) => {
+    contextManager.deleteContextFile(file);
     return { ok: true };
   });
 
-  ipcMain.handle('db:semantic-search', async (_event, body: { query: string; type?: string; limit?: number }) => {
-    if (!body.query) return { error: 'query required' };
-    try {
-      const queryVec = await ollamaProvider.embed(body.query);
-      if (!queryVec.length) return { error: 'embedding failed' };
-      const limit = Math.min(body.limit ?? 20, 50);
-      const results = embeddingQueries.searchEmbeddings(queryVec, body.type, limit);
-      return { results };
-    } catch (e: any) { return { error: e.message ?? String(e) }; }
-  });
-
-  ipcMain.handle('db:find-similar', async (_event, body: { title: string; link?: string; description?: string; limit?: number }) => {
-    if (!body.title) return { error: 'title required' };
-    try {
-      const text = body.description ? `${body.title}. ${body.description.slice(0, 500)}` : body.title;
-      const queryVec = await ollamaProvider.embed(text);
-      if (!queryVec.length) return { error: 'embedding failed' };
-      const limit = Math.min(body.limit ?? 20, 50);
-      const results = embeddingQueries.searchEmbeddings(queryVec, undefined, limit, body.link);
-      return { results };
-    } catch (e: any) { return { error: e.message ?? String(e) }; }
-  });
-
-  ipcMain.handle('db:reading-connections', async (_event, body: { title: string; description?: string; readLinks: string[] }) => {
-    if (!body.title || !body.readLinks?.length) return { results: [] };
-    try {
-      const text = body.description ? `${body.title}. ${body.description.slice(0, 500)}` : body.title;
-      const queryVec = await ollamaProvider.embed(text);
-      if (!queryVec.length) return { results: [] };
-      const db = getDb();
-      const links = body.readLinks.slice(0, 200);
-      const placeholders = links.map(() => '?').join(',');
-      const rows = db.prepare(
-        `SELECT title, link, source, embedding, dim FROM embeddings WHERE link IN (${placeholders})`
-      ).all(...links) as Array<{ title: string; link: string; source: string; embedding: Buffer; dim: number }>;
-      const results = rows.map(row => {
-        const vec = embeddingQueries.unpackEmbedding(row.embedding, row.dim);
-        const score = embeddingQueries.cosineSimilarity(queryVec, vec);
-        return { title: row.title, link: row.link, source: row.source, score: Math.round(score * 10000) / 10000 };
-      }).filter(r => r.score > 0.4).sort((a, b) => b.score - a.score).slice(0, 10);
-      return { results };
-    } catch { return { results: [] }; }
-  });
-
-
   // ═══════════════════════════════════════════════════════════════════════
-  // Phase 4: Complex Ollama / Streaming
+  // Phase 3: Complex Ollama / Streaming
   // ═══════════════════════════════════════════════════════════════════════
 
   // ── Insight (unified ambient + annotations) ──
@@ -1502,78 +1451,8 @@ export function registerToolIPC(): void {
     return { cancelled: false };
   });
 
-  // ── Vault-chat (streaming via IPC events) ──
-  ipcMain.handle('db:vault-chat-start', async (event, options: {
-    sessionId: string; googleId: string; messages: any[]; query?: string; min_similarity?: number;
-  }) => {
-    const { sessionId, googleId, messages, query = '', min_similarity = 0.7 } = options;
-    if (!messages?.length) return { error: 'messages required' };
-
-    const abortController = new AbortController();
-    activeDocChatSessions.set(sessionId, abortController);
-    const webContents = event.sender;
-
-    const sendEvent = (ev: string, data: any) => {
-      if (!webContents.isDestroyed()) webContents.send('vault-chat:event', sessionId, { event: ev, data });
-    };
-
-    (async () => {
-      try {
-        // Embed query and search notes
-        const sources: any[] = [];
-        const contextChunks: string[] = [];
-        if (query) {
-          const queryVec = await ollamaProvider.embed(query);
-          if (queryVec.length) {
-            const results = embeddingQueries.searchEmbeddings(queryVec, 'note', 5);
-            const userVault = _getUserVaultPath(googleId);
-            for (const r of results) {
-              if (r.score < min_similarity) continue;
-              if (!r.link.startsWith('vault://')) continue;
-              const noteId = r.link.slice('vault://'.length);
-              // Read note content
-              const notePath = path.join(userVault, noteId + '.md');
-              if (!fs.existsSync(notePath)) continue;
-              const content = fs.readFileSync(notePath, 'utf-8').slice(0, 4096);
-              sources.push({ id: noteId, title: r.title, score: r.score });
-              contextChunks.push(`--- Note: ${r.title} ---\n${content}`);
-            }
-          }
-        }
-
-        sendEvent('sources', sources);
-
-        let systemMsg: string;
-        if (contextChunks.length) {
-          const numbered = contextChunks.map((c, i) => `[${i + 1}] ${c}`).join('\n\n');
-          systemMsg = 'You are a helpful assistant with access to the user\'s personal notes. Answer based on the notes below. Cite sources inline using [1], [2], etc.\n\n--- NOTES ---\n' + numbered + '\n--- END NOTES ---';
-        } else {
-          systemMsg = 'You are a helpful assistant. No relevant notes were found. Answer as best you can.';
-        }
-
-        const ollamaMessages = [{ role: 'system', content: systemMsg }, ...messages];
-
-        for await (const ev of ollamaProvider.chatStream({
-          model: 'qwen2.5:3b',
-          messages: ollamaMessages,
-          signal: abortController.signal,
-        })) {
-          if (ev.type === 'token') sendEvent('token', ev.content);
-          else if (ev.type === 'done') sendEvent('done', {});
-          else if (ev.type === 'error') sendEvent('error', ev.error);
-        }
-      } catch (err: any) {
-        if (err?.name !== 'AbortError') sendEvent('error', err.message ?? String(err));
-      } finally {
-        activeDocChatSessions.delete(sessionId);
-      }
-    })();
-
-    return { sessionId };
-  });
-
   // ═══════════════════════════════════════════════════════════════════════
-  // Phase 5: Filesystem Routes + Client Config
+  // Phase 4: Filesystem Routes + Client Config
   // ═══════════════════════════════════════════════════════════════════════
 
   ipcMain.handle('db:read-view', (_event, viewPath: string) => {

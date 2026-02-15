@@ -41,8 +41,8 @@ export { mediaTranscribe, mediaTts } from './media/index.js';
 // Calendar tools
 export { calendarList, calendarCreate, calendarUpdate, calendarDelete } from './calendar/index.js';
 
-// Memory tools
-export { memoryEmbedContent, memorySemanticSearch, memorySaveChatMemory, memoryRecallChat } from './memory/index.js';
+// Context tools
+export { contextUpdate } from './context/index.js';
 
 import { toolRegistry } from './registry.js';
 import { webSearch, paperSearch } from './search/index.js';
@@ -55,7 +55,7 @@ import { feedList, feedFetch, feedQualityFilter } from './feed/index.js';
 import { socialListTeams, socialSendMessage, socialGetMessages, socialUserProfile } from './social/index.js';
 import { mediaTranscribe, mediaTts } from './media/index.js';
 import { calendarList, calendarCreate, calendarUpdate, calendarDelete } from './calendar/index.js';
-import { memoryEmbedContent, memorySemanticSearch, memorySaveChatMemory, memoryRecallChat } from './memory/index.js';
+import { contextUpdate } from './context/index.js';
 
 /** Register all built-in tools with the global registry */
 export function registerAllTools(): void {
@@ -126,9 +126,6 @@ export function registerAllTools(): void {
   toolRegistry.register(calendarUpdate);
   toolRegistry.register(calendarDelete);
 
-  // Memory (4)
-  toolRegistry.register(memoryEmbedContent);
-  toolRegistry.register(memorySemanticSearch);
-  toolRegistry.register(memorySaveChatMemory);
-  toolRegistry.register(memoryRecallChat);
+  // Context (1)
+  toolRegistry.register(contextUpdate);
 }

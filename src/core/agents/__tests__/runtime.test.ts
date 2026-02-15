@@ -64,7 +64,6 @@ function makeMockProvider(options: {
       }
       yield { type: 'done', usage: { promptTokens: 10, completionTokens: 5 } };
     },
-    embed: async () => [0.1, 0.2],
     listModels: async () => ['test-model'],
   };
 }

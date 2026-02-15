@@ -2,9 +2,9 @@ import type { WebContents } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { OllamaProvider } from '../providers/ollama.js';
-import * as embeddingQueries from '../db/queries/embeddings.js';
 import * as contentQueries from '../db/queries/content.js';
 import { snapQuoteToText } from '../utils/text.js';
+import { contextManager } from '../context/manager.js';
 
 const SKIP_PATTERNS = ['about:', 'data:', 'file:', 'chrome:', 'devtools:', 'netrun://'];
 const MIN_TEXT_LENGTH = 100;
@@ -148,27 +148,23 @@ export class PageInsightPipeline {
       const controller = new AbortController();
       this.abortControllers.set(data.tabId, controller);
 
-      // Truncate text for embedding
       const truncated = data.text.slice(0, 2000);
       const fullText = data.text.slice(0, 12_000);
 
-      // 1. Embed the page text
-      const vec = await this.ollama.embed(truncated);
-      if (controller.signal.aborted || vec.length === 0) return;
-
-      // 2. Store the embedding
+      // Mark as recently seen
       this.recentUrls.add(data.url);
-      embeddingQueries.storeEmbedding(
-        truncated, data.title, data.url, 'insight', 'browse', vec
-      );
 
-      // 3. Search for related pages
-      const related = embeddingQueries.searchEmbeddings(vec, 'browse', 5, data.url)
-        .filter(r => r.score > 0.6);
+      // Write browsing context to living context file
+      try {
+        const summary = `[${data.title}](${data.url})`;
+        contextManager.appendContext('main.md', '## Recent Browsing', summary + '\n');
+      } catch { /* context write failed, continue */ }
+
+      const related: RelatedPage[] = [];
 
       if (controller.signal.aborted) return;
 
-      // 4. Build unified prompt — single LLM call for insight + annotations
+      // Build unified prompt — single LLM call for insight + annotations
       const annotationPrompt = this._buildAnnotationPrompt(fullText, data.url);
 
       let userMessage = `Current page: "${data.title}"\nURL: ${data.url}\n\nPage excerpt:\n${truncated.slice(0, 800)}`;
@@ -332,35 +328,7 @@ No other text. No markdown. No explanation outside the JSON.`;
         }
       }
 
-      // Cross-reference search (CONNECTION annotations)
-      try {
-        const xrefVec = vec; // reuse embedding
-        const connections: Annotation[] = [];
-        const savedResults = embeddingQueries.searchEmbeddings(xrefVec, 'post', 3, data.url);
-        for (const r of savedResults) {
-          if (r.score > 0.75 && connections.length < 2) {
-            connections.push({
-              type: 'CONNECTION', explanation: `Related to saved post (similarity ${Math.round(r.score * 100)}%)`,
-              confidence: Math.round(r.score * 100), linkedTitle: (r.title ?? '').slice(0, 120), linkedUrl: r.link ?? '',
-              quote: '',
-            });
-          }
-        }
-        const memResults = embeddingQueries.searchChatMemories(xrefVec, 2);
-        for (const r of memResults) {
-          if (r.score > 0.75 && connections.length < 2) {
-            connections.push({
-              type: 'CONNECTION', explanation: `Related conversation: ${(r.topics ?? '').slice(0, 80)}`,
-              confidence: Math.round(r.score * 100),
-              linkedTitle: r.page_title || r.summary.slice(0, 60), linkedUrl: '',
-              quote: '',
-            });
-          }
-        }
-        annotations.push(...connections);
-      } catch { /* cross-ref failed, continue */ }
-
-      // 5. Send result to renderer
+      // Send result to renderer
       if (!insight && annotations.length === 0) return;
 
       const insightResult: InsightResult = {

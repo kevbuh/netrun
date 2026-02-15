@@ -228,24 +228,6 @@ async function ipcRoute(path, opts = {}) {
     return { models };
   }
 
-  // ── Chat memory — via tools ──
-  if (pathOnly === '/api/chat-memory' && method === 'POST') {
-    if (!googleId) return null;
-    const result = await window.electronAPI.toolExecute('memory-save-chat', body, { googleId });
-    return _unwrapTool(result) ?? { ok: true };
-  }
-  if (pathOnly.startsWith('/api/chat-memories') && method === 'GET') {
-    if (!googleId) return null;
-    const urlParams = new URLSearchParams(queryStr || '');
-    const query = urlParams.get('query');
-    if (query) {
-      const result = await window.electronAPI.toolExecute('memory-recall-chat', { query }, { googleId });
-      return _unwrapTool(result);
-    }
-    const result = await window.electronAPI.toolExecute('memory-recall-chat', {}, { googleId });
-    return _unwrapTool(result);
-  }
-
   // ── TTS — via tools ──
   if (pathOnly === '/api/tts' && method === 'POST') {
     const result = await window.electronAPI.toolExecute('media-tts', body, { googleId });
@@ -641,23 +623,6 @@ async function ipcRoute(path, opts = {}) {
     const key = pathOnly.split('/').pop();
     await window.electronAPI.dbQuery('ann-category-delete', key);
     return { ok: true };
-  }
-
-  // ── Chat memory list/delete/stats ──
-  if (pathOnly === '/api/chat-memories/list' && method === 'GET') {
-    const urlParams = new URLSearchParams(queryStr || '');
-    return await window.electronAPI.dbQuery('chat-memories-list',
-      parseInt(urlParams.get('limit') || '50'),
-      parseInt(urlParams.get('offset') || '0')
-    );
-  }
-  if (pathOnly.match(/^\/api\/chat-memories\/\d+$/) && method === 'DELETE') {
-    const memId = parseInt(pathOnly.split('/').pop());
-    await window.electronAPI.dbQuery('chat-memory-delete', memId);
-    return { ok: true };
-  }
-  if (pathOnly === '/api/chat-memories/stats' && method === 'GET') {
-    return await window.electronAPI.dbQuery('chat-memory-stats');
   }
 
   // ── Blog votes ──

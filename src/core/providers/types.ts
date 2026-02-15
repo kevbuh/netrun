@@ -56,9 +56,6 @@ export interface LLMProvider {
   /** Streaming chat completion */
   chatStream(options: ChatOptions): AsyncIterable<StreamEvent>;
 
-  /** Generate embeddings for text */
-  embed(text: string, model?: string): Promise<number[]>;
-
   /** List available models */
   listModels(): Promise<string[]>;
 }

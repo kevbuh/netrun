@@ -50,7 +50,7 @@ async function ensureView(viewId, fetchFn) {
   const div = document.createElement('div');
   div.id = viewId;
   div.className = 'hidden view';
-  if (viewId === 'vault-view' || viewId === 'blog-view' || viewId === 'knowledge-graph-view') div.style.height = '100%';
+  if (viewId === 'vault-view' || viewId === 'blog-view') div.style.height = '100%';
   if (viewId === 'dashboard-view') div.classList.add('overflow-x-hidden');
   div.innerHTML = _viewTemplateCache[viewId];
   document.getElementById('view-mount').appendChild(div);

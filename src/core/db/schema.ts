@@ -229,35 +229,16 @@ export function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_fi_pubdate ON feed_items(pub_date DESC);
   `);
 
-  // ── Embeddings ──
+  // ── Context meta (living context file tracking) ──
   db.exec(`
-    CREATE TABLE IF NOT EXISTS embeddings (
-      content_hash TEXT PRIMARY KEY,
-      content_type TEXT NOT NULL,
-      title TEXT NOT NULL,
-      link TEXT NOT NULL,
-      source TEXT DEFAULT '',
-      embedding BLOB NOT NULL,
-      dim INTEGER NOT NULL,
-      created_at REAL NOT NULL
+    CREATE TABLE IF NOT EXISTS context_meta (
+      file_id TEXT PRIMARY KEY,
+      file_path TEXT NOT NULL,
+      created_at REAL NOT NULL,
+      updated_at REAL NOT NULL,
+      compacted_at REAL,
+      char_count INTEGER DEFAULT 0
     );
-    CREATE INDEX IF NOT EXISTS idx_emb_type ON embeddings(content_type);
-  `);
-
-  // ── Chat memory ──
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS chat_memories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      summary TEXT NOT NULL,
-      topics TEXT DEFAULT '',
-      page_url TEXT DEFAULT '',
-      page_title TEXT DEFAULT '',
-      message_count INTEGER DEFAULT 0,
-      embedding BLOB,
-      dim INTEGER DEFAULT 0,
-      created_at REAL NOT NULL
-    );
-    CREATE INDEX IF NOT EXISTS idx_chatmem_created ON chat_memories(created_at DESC);
   `);
 
   // ── Annotations ──
