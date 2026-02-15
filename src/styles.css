@@ -475,6 +475,24 @@
       --tooltip-border: #2a1830;
     }
 
+    [data-theme="clear"] {
+      --bg-body: transparent;
+      --bg-sidebar: transparent;
+      --bg-header: transparent;
+      --bg-canvas: transparent;
+      --bg-card: rgba(255,255,255,0.04);
+      --bg-input: rgba(255,255,255,0.06);
+      --bg-input-alt: rgba(255,255,255,0.04);
+      --bg-hover: rgba(255,255,255,0.08);
+      --bg-popup: rgba(20,20,20,0.85);
+      --border-card: rgba(255,255,255,0.08);
+      --border-input: rgba(255,255,255,0.12);
+      --border-sidebar: rgba(255,255,255,0.06);
+      --border-subtle: rgba(255,255,255,0.06);
+      --border-dim: rgba(255,255,255,0.04);
+      --aether-bg: transparent;
+    }
+
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -690,6 +708,9 @@
       border-radius: 14px;
       gap: 2px;
       width: fit-content;
+      background: none;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
     }
     .browse-mode.island-mode #pill-browse-more {
       display: none;
@@ -1922,6 +1943,8 @@
       transform: translate(-50%, -50%);
       z-index: 1;
       background: var(--pill-surface, var(--aether-hover));
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border-radius: 12px;
       height: 24px;
       overflow: visible;
@@ -2052,6 +2075,8 @@
       overflow-x: hidden;
       border-radius: 0 0 12px 12px;
       background: var(--pill-surface, var(--aether-hover));
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       z-index: 10;
       /* Closed state */
       opacity: 0;
