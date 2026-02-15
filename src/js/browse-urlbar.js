@@ -122,6 +122,13 @@ const _instantCache = {};
 
 // Returns the active omnibox input & dropdown elements (NTP search or URL bar)
 function _getOmniInput() {
+  // Island mode: always use pill input + pill dropdown (must check before NTP since browse-bar is hidden in island mode)
+  const nav = document.getElementById('sidebar-nav');
+  if (nav && nav.classList.contains('island-mode') && nav.classList.contains('browse-mode')) {
+    const pillInput = document.getElementById('pill-browse-url-input');
+    const pillDd = document.getElementById('pill-url-dropdown');
+    if (pillInput && pillDd) return { input: pillInput, dd: pillDd, ntp: false, island: true };
+  }
   const bar = document.getElementById('browse-bar');
   if (bar && bar.style.display === 'none') {
     const input = document.getElementById('search-query');
@@ -309,13 +316,25 @@ function _browseUrlRenderHistoryCommand(dd, input) {
   _browseUrlHistIdx = -1;
   _browseUrlOriginalInput = '/history';
 
-  const rect = input.getBoundingClientRect();
-  dd.style.position = 'fixed';
-  dd.style.left = rect.left + 'px';
-  dd.style.top = (rect.bottom + 2) + 'px';
-  dd.style.width = rect.width + 'px';
-  dd.style.maxHeight = '380px';
-  dd.style.overflowY = 'auto';
+  const isIsland = dd.id === 'pill-url-dropdown';
+  if (isIsland) {
+    dd.style.position = '';
+    dd.style.left = '';
+    dd.style.top = '';
+    dd.style.width = '';
+    dd.style.maxHeight = '';
+    dd.style.overflowY = '';
+    const pillWrap = document.getElementById('pill-url-wrap');
+    if (pillWrap) pillWrap.classList.add('pill-dropdown-open');
+  } else {
+    const rect = input.getBoundingClientRect();
+    dd.style.position = 'fixed';
+    dd.style.left = rect.left + 'px';
+    dd.style.top = (rect.bottom + 2) + 'px';
+    dd.style.width = rect.width + 'px';
+    dd.style.maxHeight = '380px';
+    dd.style.overflowY = 'auto';
+  }
 
   if (!hist.length) {
     dd.innerHTML = '<div style="padding:12px;font-size:0.8rem;color:var(--text-dim);text-align:center;">No browsing history</div>';
@@ -335,7 +354,7 @@ function _browseUrlRenderHistoryCommand(dd, input) {
     try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
     const safeUrl = escapeHtml(h.url).replace(/"/g, '&quot;');
     const time = _relativeTime(h.ts);
-    return `<div data-idx="${i}" data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('browse-url-input').value='${escapeHtml(h.url).replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${escapeHtml(h.url).replace(/'/g, "\\'")}');">
+    return `<div data-idx="${i}" data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); var _i=_getOmniInput().input; if(_i)_i.value='${escapeHtml(h.url).replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${escapeHtml(h.url).replace(/'/g, "\\'")}');">
       <img src="${escapeHtml(favicon)}" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.title || domain)}</span>
       <span style="font-size:0.68rem;color:var(--text-dimmer);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
@@ -356,7 +375,14 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
   const { ntp } = _getOmniInput();
   const showLucky = !filter && !ntp;
 
-  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length) { dd.style.display = 'none'; dd.classList.add('hidden'); return; }
+  const pillWrap = document.getElementById('pill-url-wrap');
+  const isIsland = dd.id === 'pill-url-dropdown';
+
+  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length) {
+    dd.style.display = 'none'; dd.classList.add('hidden');
+    if (isIsland && pillWrap) pillWrap.classList.remove('pill-dropdown-open');
+    return;
+  }
 
   _browseUrlHistIdx = -1;
 
@@ -368,6 +394,15 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
     dd.style.width = '';
     dd.style.maxHeight = '320px';
     dd.style.overflowY = 'auto';
+  } else if (isIsland) {
+    // Island mode: dropdown flows inside the pill, no fixed positioning
+    dd.style.position = '';
+    dd.style.left = '';
+    dd.style.top = '';
+    dd.style.width = '';
+    dd.style.maxHeight = '';
+    dd.style.overflowY = '';
+    if (pillWrap) pillWrap.classList.add('pill-dropdown-open');
   } else {
     const rect = input.getBoundingClientRect();
     dd.style.position = 'fixed';
@@ -508,7 +543,11 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
     if (renderer) html += renderer();
   }
 
-  if (!html) { dd.style.display = 'none'; dd.classList.add('hidden'); return; }
+  if (!html) {
+    dd.style.display = 'none'; dd.classList.add('hidden');
+    if (isIsland && pillWrap) pillWrap.classList.remove('pill-dropdown-open');
+    return;
+  }
 
   dd.innerHTML = html;
   dd.style.display = '';
@@ -989,6 +1028,10 @@ function _browseUrlHideHistory() {
   if (dd) dd.style.display = 'none';
   const ntpDd = document.getElementById('search-history-dropdown-view');
   if (ntpDd) { ntpDd.style.display = 'none'; ntpDd.classList.add('hidden'); }
+  const pillDd = document.getElementById('pill-url-dropdown');
+  if (pillDd) { pillDd.style.display = 'none'; pillDd.classList.add('hidden'); }
+  const pillWrap = document.getElementById('pill-url-wrap');
+  if (pillWrap) pillWrap.classList.remove('pill-dropdown-open');
   _browseUrlHistIdx = -1;
 }
 

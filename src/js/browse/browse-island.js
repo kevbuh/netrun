@@ -153,18 +153,15 @@ function _historyDropdownNavigate(direction, steps) {
   }
 }
 
-/* Keydown for pill URL input */
+/* Keydown for pill URL input — delegates to shared dropdown navigation */
 function _pillUrlKeydown(e) {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    const input = document.getElementById('pill-browse-url-input');
-    if (!input) return;
-    const val = input.value.trim();
-    if (!val) return;
-    browseNavigate(val);
-    input.blur();
-  } else if (e.key === 'Escape') {
-    e.target.blur();
+  // Delegate to the shared keydown handler which handles arrow keys, Enter on dropdown items, Escape
+  if (typeof _browseUrlKeydown === 'function') {
+    _browseUrlKeydown(e);
+    // _browseUrlKeydown handles Enter (navigate/select), ArrowUp/Down, Escape
+    // If it handled Enter or arrows, it already took action — don't duplicate
+    if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'ArrowUp') return;
+    if (e.key === 'Escape') { e.target.blur(); return; }
   }
 }
 
