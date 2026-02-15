@@ -529,9 +529,19 @@ function _browseUpdateNewTabPage(tab) {
       });
     }
     ntp.style.display = '';
-    // Clear search input and reset to default state
+    // Clear search input, focus it, and enable focus-on-type
     const ntpInput = ntp.querySelector('#search-query');
-    if (ntpInput) ntpInput.value = '';
+    if (ntpInput) {
+      ntpInput.value = '';
+      requestAnimationFrame(() => ntpInput.focus());
+      if (!ntp._focusOnType) {
+        ntp._focusOnType = true;
+        ntp.addEventListener('keydown', (e) => {
+          if (e.target === ntpInput || e.metaKey || e.ctrlKey || e.altKey) return;
+          if (e.key.length === 1) ntpInput.focus();
+        });
+      }
+    }
   } else if (ntp) {
     ntp.style.display = 'none';
   }

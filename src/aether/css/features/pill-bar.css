@@ -143,8 +143,6 @@
     body.electron-app .pill-bar.browse-mode .browse-tab,
     body.electron-app .pill-bar.browse-mode .browse-split-pill,
     body.electron-app .pill-bar.browse-mode .browse-window-switcher,
-    body.electron-app .pill-bar.browse-mode #pill-window-list-btn,
-    body.electron-app .pill-bar.browse-mode .browse-window-list-btn,
     body.electron-app .pill-bar.browse-mode #pill-browse-url-input,
     body.electron-app .pill-bar.browse-mode #pill-island-tabs-anchor {
       -webkit-app-region: no-drag;
@@ -340,7 +338,6 @@
     /* NTP: hide all browse chrome, show only island + nav icons */
     .browse-mode.ntp-active #pill-menu-btn,
     .browse-mode.ntp-active #pill-browse-hamburger,
-    .browse-mode.ntp-active #pill-window-list-btn,
     .browse-mode.ntp-active #pill-browse-url,
     .browse-mode.ntp-active #pill-browse-url-input,
     .browse-mode.ntp-active #pill-browse-reload,

@@ -129,10 +129,7 @@ function _pillSyncTabs() {
     }
   }
 
-  // Window list button removed — #pill-window-list-btn in the pill bar handles this
-
   pillTabs.innerHTML = html;
-  _syncWindowListBadge();
 
   // Attach event listeners
   pillTabs.querySelectorAll('.browse-tab').forEach(tabEl => {
@@ -168,6 +165,24 @@ function _populatePillMenuMoreItems() {
   const hasTab = tab && !tab.blank && tab.url;
 
   let html = '';
+
+  // Windows section
+  if (typeof _browseWindows !== 'undefined' && _browseWindows.length > 0) {
+    html += '<div style="font-size:0.65rem;color:var(--nr-text-quaternary);padding:4px 12px 2px;text-transform:uppercase;letter-spacing:0.05em">Windows</div>';
+    for (var i = 0; i < _browseWindows.length; i++) {
+      var w = _browseWindows[i];
+      var isActiveWin = w.id === _browseActiveWindow;
+      var wTabCount = w.tabs.length;
+      html += '<button onclick="browseSelectWindow(' + w.id + ');_closePillMenu()" style="' + (isActiveWin ? 'color:var(--nr-accent);font-weight:600' : '') + '">' +
+        '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 9h18" stroke-linecap="round" stroke-linejoin="round"/></svg> ' +
+        escapeHtml(w.name) +
+        ' <span style="margin-left:auto;font-size:0.7rem;color:var(--nr-text-quaternary)">' + wTabCount + '</span>' +
+        ((!isActiveWin && _browseWindows.length > 1) ? '<span class="pill-menu-win-close" onclick="event.stopPropagation();browseCloseWindow(' + w.id + ');_populatePillMenuMoreItems()" title="Close window" style="margin-left:4px;opacity:0.4;cursor:pointer">&times;</span>' : '') +
+      '</button>';
+    }
+    html += '<button onclick="browseCreateWindow();_closePillMenu()"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg> New Window</button>';
+    html += '<div style="height:1px;background:var(--aether-border);margin:2px 0"></div>';
+  }
 
   // Nav buttons
   html += '<button ' + (hasTab ? '' : 'disabled') + ' onclick="browseBack();_closePillMenu()"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg> Back</button>';
@@ -249,70 +264,4 @@ function _closePillMenu() {
   document.removeEventListener('mousedown', _pillMenuOutsideClick);
 }
 
-// ── Window list dropdown ──
-
-function _syncWindowListBadge() {
-  const badge = document.getElementById('pill-window-list-badge');
-  if (badge) badge.textContent = _browseWindows.length;
-}
-
-let _windowListOutsideHandler = null;
-
-function toggleWindowListDropdown(btnEl) {
-  const dd = document.getElementById('browse-window-list-dd');
-  if (!dd) return;
-  if (dd.style.display !== 'none') {
-    _closeWindowListDropdown();
-    return;
-  }
-  _renderWindowListDropdown();
-  dd.style.display = '';
-  // Position below the button
-  const rect = btnEl.getBoundingClientRect();
-  dd.style.position = 'fixed';
-  dd.style.top = (rect.bottom + 4) + 'px';
-  dd.style.left = Math.max(4, rect.left - 80) + 'px';
-  // Ensure it doesn't overflow right edge
-  requestAnimationFrame(() => {
-    const ddRect = dd.getBoundingClientRect();
-    if (ddRect.right > window.innerWidth - 4) {
-      dd.style.left = (window.innerWidth - ddRect.width - 4) + 'px';
-    }
-  });
-  // Close on outside click
-  _windowListOutsideHandler = function(e) {
-    if (dd.contains(e.target) || e.target.closest('.browse-window-list-btn')) return;
-    _closeWindowListDropdown();
-  };
-  setTimeout(() => document.addEventListener('mousedown', _windowListOutsideHandler), 0);
-}
-
-function _closeWindowListDropdown() {
-  const dd = document.getElementById('browse-window-list-dd');
-  if (dd) dd.style.display = 'none';
-  if (_windowListOutsideHandler) {
-    document.removeEventListener('mousedown', _windowListOutsideHandler);
-    _windowListOutsideHandler = null;
-  }
-}
-
-function _renderWindowListDropdown() {
-  const dd = document.getElementById('browse-window-list-dd');
-  if (!dd) return;
-  let html = '';
-  for (const w of _browseWindows) {
-    const isActive = w.id === _browseActiveWindow;
-    const tabCount = w.tabs.length;
-    html += '<div class="browse-window-list-item' + (isActive ? ' active' : '') + '" data-win-id="' + w.id + '" onclick="browseSelectWindow(' + w.id + ');_closeWindowListDropdown()">' +
-      '<span class="browse-window-list-name">' + escapeHtml(w.name) + '</span>' +
-      '<span class="browse-window-list-count">' + tabCount + ' tab' + (tabCount !== 1 ? 's' : '') + '</span>' +
-      '<button class="browse-window-list-close" onclick="event.stopPropagation();browseCloseWindow(' + w.id + ');_renderWindowListDropdown()" title="Close window">&times;</button>' +
-    '</div>';
-  }
-  html += '<div class="browse-window-list-new" onclick="browseCreateWindow();_closeWindowListDropdown()">' +
-    '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>' +
-    '<span>New Window</span>' +
-  '</div>';
-  dd.innerHTML = html;
-}
 

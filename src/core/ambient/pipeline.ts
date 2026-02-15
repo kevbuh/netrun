@@ -77,6 +77,7 @@ export interface InsightResult {
   insight: string | null;
   annotations: Annotation[];
   related: RelatedPage[];
+  ocrText?: string;
 }
 
 export class PageInsightPipeline {
@@ -155,11 +156,19 @@ export class PageInsightPipeline {
       let fullText = data.text.slice(0, 12_000);
 
       // OCR pre-pass: extract visual text from screenshot
+      let extractedOcrText: string | undefined;
       if (data.screenshot) {
+        console.debug(`[insight] OCR: screenshot received, extracting with ${this._getOcrModel(data.ocrModel)}…`);
         const ocrText = await this._ocrExtract(data.screenshot, data.ocrModel, controller.signal);
-        if (ocrText && ocrText.length > 50) {
-          fullText = fullText + '\n\n--- VISUAL TEXT (extracted from screenshot) ---\n' + ocrText.slice(0, 4000);
+        if (ocrText && ocrText.length >= 20) {
+          console.debug(`[insight] OCR: extracted ${ocrText.length} chars of visual text`);
+          extractedOcrText = ocrText.slice(0, 4000);
+          fullText = fullText + '\n\n--- VISUAL TEXT (extracted from screenshot) ---\n' + extractedOcrText;
+        } else {
+          console.debug('[insight] OCR: no usable text extracted, length =', ocrText?.length ?? 0, ocrText ? `preview: "${ocrText.slice(0, 80)}"` : '');
         }
+      } else {
+        console.debug('[insight] OCR: no screenshot provided (disabled or capture failed)');
       }
 
       // Mark as recently seen
@@ -201,7 +210,7 @@ Respond ONLY with valid JSON in this exact format:
   "annotations": [array of annotation objects]
 }
 
-No other text. No markdown. No explanation outside the JSON.`;
+No other text. No markdown. No explanation outside the JSON. /no_think`;
 
       const model = data.model || this._getModel();
       const customCats = contentQueries.listAnnotationCategories();
@@ -275,7 +284,9 @@ No other text. No markdown. No explanation outside the JSON.`;
                     objCount++;
                     if (objCount > emittedAnnotationCount) {
                       // New complete annotation object
-                      const objStr = rawContent.slice(objStart, i + 1);
+                      let objStr = rawContent.slice(objStart, i + 1);
+                      // Fix unquoted string values (e.g. "type": ALPHA → "type": "ALPHA")
+                      objStr = objStr.replace(/:\s*([A-Z_]{2,})\s*([,}\]])/g, ': "$1"$2');
                       try {
                         const item = JSON.parse(objStr);
                         const ann = this._validateAnnotation(item, validTypes, data.text);
@@ -317,27 +328,62 @@ No other text. No markdown. No explanation outside the JSON.`;
         cleanContent = cleanContent.replace(/```(?:json)?\s*/g, '').replace(/```/g, '');
       }
       cleanContent = cleanContent.trim();
-      const objMatch = cleanContent.match(/\{[\s\S]*\}/);
-      if (objMatch) {
-        try {
-          const parsed = JSON.parse(objMatch[0]);
-          // Pick up insight if we missed it during streaming
-          if (!insight) {
-            const rawInsight = (parsed.insight ?? '').trim();
-            if (rawInsight && rawInsight !== 'SKIP' && rawInsight !== 'null') {
-              insight = rawInsight;
+
+      // Fix unquoted string values (e.g. "type": ALPHA → "type": "ALPHA")
+      cleanContent = cleanContent.replace(/:\s*([A-Z_]{2,})\s*([,}\]])/g, ': "$1"$2');
+
+      // Try to find the top-level JSON object by matching balanced braces
+      let parsed: any = null;
+      const firstBrace = cleanContent.indexOf('{');
+      if (firstBrace !== -1) {
+        // Attempt 1: balanced brace matching for the outermost object
+        let depth = 0, end = -1;
+        for (let i = firstBrace; i < cleanContent.length; i++) {
+          const ch = cleanContent[i];
+          if (ch === '"') {
+            let j = i + 1;
+            while (j < cleanContent.length && cleanContent[j] !== '"') {
+              if (cleanContent[j] === '\\') j++;
+              j++;
             }
+            i = j;
+            continue;
           }
-          // Pick up any annotations we missed
-          if (Array.isArray(parsed.annotations)) {
-            for (const item of parsed.annotations.slice(emittedAnnotationCount, 15)) {
-              const ann = this._validateAnnotation(item, validTypes, data.text);
-              if (ann) annotations.push(ann);
-            }
+          if (ch === '{') depth++;
+          else if (ch === '}') {
+            depth--;
+            if (depth === 0) { end = i; break; }
           }
-        } catch {
-          console.debug('[insight] Final JSON parse failed');
         }
+        if (end !== -1) {
+          try { parsed = JSON.parse(cleanContent.slice(firstBrace, end + 1)); } catch {}
+        }
+        // Attempt 2: greedy regex fallback
+        if (!parsed) {
+          const objMatch = cleanContent.match(/\{[\s\S]*\}/);
+          if (objMatch) {
+            try { parsed = JSON.parse(objMatch[0]); } catch {}
+          }
+        }
+      }
+
+      if (parsed) {
+        // Pick up insight if we missed it during streaming
+        if (!insight) {
+          const rawInsight = (parsed.insight ?? '').trim();
+          if (rawInsight && rawInsight !== 'SKIP' && rawInsight !== 'null') {
+            insight = rawInsight;
+          }
+        }
+        // Pick up any annotations we missed
+        if (Array.isArray(parsed.annotations)) {
+          for (const item of parsed.annotations.slice(emittedAnnotationCount, 15)) {
+            const ann = this._validateAnnotation(item, validTypes, data.text);
+            if (ann) annotations.push(ann);
+          }
+        }
+      } else if (firstBrace !== -1) {
+        console.debug('[insight] Final JSON parse failed, raw length =', cleanContent.length, 'preview:', cleanContent.slice(0, 200));
       }
 
       // Capture high-confidence annotations into living context
@@ -352,7 +398,7 @@ No other text. No markdown. No explanation outside the JSON.`;
       }
 
       // Send result to renderer
-      if (!insight && annotations.length === 0) return;
+      if (!insight && annotations.length === 0 && !extractedOcrText) return;
 
       const insightResult: InsightResult = {
         tabId: data.tabId,
@@ -360,6 +406,7 @@ No other text. No markdown. No explanation outside the JSON.`;
         insight,
         annotations,
         related: related.slice(0, 3),
+        ocrText: extractedOcrText,
       };
 
       if (!sender.isDestroyed()) {
@@ -432,7 +479,7 @@ No other text. No markdown. No explanation outside the JSON.`;
 
   private _getModel(): string {
     // Default model; renderer can pass model preference via settings
-    return 'qwen2.5:7b';
+    return 'qwen3:8b';
   }
 
   private _getOcrModel(override?: string): string {

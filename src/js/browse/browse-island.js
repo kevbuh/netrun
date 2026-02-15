@@ -391,10 +391,6 @@ function _browseRenderTabs() {
   }
   if (!bar) return;
 
-  // Window list button for horizontal layout (inline in tab bar)
-  const windowSelector = `<button class="sidebar-icon browse-window-list-btn" onclick="event.stopPropagation();toggleWindowListDropdown(this)" title="All windows">
-    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 9h18M9 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  </button>`;
 
   // Split into pinned (left) and unpinned (right)
   const pinned = tabs.filter(t => t.pinned);
@@ -405,7 +401,7 @@ function _browseRenderTabs() {
   const groupChipClass = 'browse-tab-group-chip';
 
   // Build pinned section
-  let html = windowSelector;
+  let html = '';
   html += pinned.map(t => renderTab(t, activeTab)).join('');
   if (pinned.length > 0 && unpinned.length > 0) {
     html += `<div class="${pinSepClass}"></div>`;
@@ -467,7 +463,6 @@ function _browseRenderTabs() {
   }
 
   bar.innerHTML = html;
-  _syncWindowListBadge();
 
   // Attach tab drag-to-reorder handlers
   bar.querySelectorAll('.browse-tab').forEach(tabEl => {

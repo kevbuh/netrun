@@ -55,10 +55,50 @@ function toAIMessages(messages: ChatMessage[]): any[] {
 export class OllamaProvider implements LLMProvider {
   name = 'ollama';
   private baseURL: string;
-  private defaultModel: string;
+  private preferredModel: string;
+  private resolvedDefault: string | null = null;
+  private resolving: Promise<string> | null = null;
+
+  /** Preferred chat models in order of preference */
+  private static readonly MODEL_PREFERENCE = [
+    'qwen2.5:7b', 'qwen2.5:3b', 'qwen3:8b', 'qwen2.5:1.5b', 'qwen3:0.6b',
+  ];
+
   constructor(options?: { baseURL?: string; model?: string }) {
     this.baseURL = options?.baseURL ?? 'http://127.0.0.1:11434';
-    this.defaultModel = options?.model ?? 'qwen2.5:7b';
+    this.preferredModel = options?.model ?? 'qwen2.5:7b';
+  }
+
+  /** Resolve the default model: use preferred if available, otherwise pick best installed */
+  private async resolveDefaultModel(): Promise<string> {
+    if (this.resolvedDefault) return this.resolvedDefault;
+    if (this.resolving) return this.resolving;
+    this.resolving = (async () => {
+      try {
+        const models = await this.listModels();
+        const installed = new Set(models.map(m => m.replace(/:latest$/, '')));
+        // Check preferred first
+        if (installed.has(this.preferredModel) || installed.has(this.preferredModel.replace(/:latest$/, ''))) {
+          this.resolvedDefault = this.preferredModel;
+          return this.preferredModel;
+        }
+        // Fall back to preference list
+        for (const candidate of OllamaProvider.MODEL_PREFERENCE) {
+          const base = candidate.replace(/:latest$/, '');
+          if (installed.has(candidate) || installed.has(base)) {
+            console.debug(`[ollama] Preferred model ${this.preferredModel} not found, using ${candidate}`);
+            this.resolvedDefault = candidate;
+            return candidate;
+          }
+        }
+      } catch {}
+      // Last resort: use preferred and let it fail visibly
+      this.resolvedDefault = this.preferredModel;
+      return this.preferredModel;
+    })();
+    const result = await this.resolving;
+    this.resolving = null;
+    return result;
   }
 
   /** Create an OpenAI-compatible provider pointing at Ollama's /v1 endpoint */
@@ -72,7 +112,8 @@ export class OllamaProvider implements LLMProvider {
 
   async chat(options: ChatOptions): Promise<ChatResponse> {
     const provider = this.getProvider();
-    const model = provider.chat(options.model ?? this.defaultModel);
+    const modelName = options.model ?? await this.resolveDefaultModel();
+    const model = provider.chat(modelName);
 
     const aiMsgs = toAIMessages(options.messages);
     const convertedTools = options.tools ? this.convertTools(options.tools) : undefined;
@@ -112,7 +153,8 @@ export class OllamaProvider implements LLMProvider {
 
   async *chatStream(options: ChatOptions): AsyncIterable<StreamEvent> {
     const provider = this.getProvider();
-    const model = provider.chat(options.model ?? this.defaultModel);
+    const modelName = options.model ?? await this.resolveDefaultModel();
+    const model = provider.chat(modelName);
 
     const convertedTools = options.tools ? this.convertTools(options.tools) : undefined;
     const result = streamText({

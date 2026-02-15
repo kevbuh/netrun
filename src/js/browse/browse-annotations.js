@@ -57,12 +57,32 @@ async function _triggerInsightExtract(tab) {
       });
     }
 
-    // Capture screenshot for OCR if enabled
+    // Capture screenshot for OCR if enabled — only for the active tab
     let screenshot = null;
-    if (localStorage.getItem('insightOcr') !== 'off') {
-      const wc = tab.el.getWebContentsId?.();
+    if (localStorage.getItem('insightOcr') !== 'off' && tab.id === _browseActiveTab) {
+      // Wait for webview guest process to be ready (getWebContentsId returns 0 until loaded)
+      let wc = tab.el.getWebContentsId ? tab.el.getWebContentsId() : null;
+      if (!wc) {
+        for (let i = 0; i < 5; i++) {
+          await new Promise(r => setTimeout(r, 400));
+          wc = tab.el.getWebContentsId ? tab.el.getWebContentsId() : null;
+          if (wc) break;
+        }
+      }
+      console.debug('[insight] OCR capture: webContentsId =', wc, 'tag =', tab.el.tagName);
       if (wc) {
-        try { screenshot = await window.electronAPI.captureWebview(wc); } catch {}
+        try {
+          screenshot = await window.electronAPI.captureWebview(wc);
+          // capturePage() can return an empty base64 string if the page hasn't painted yet
+          if (screenshot && screenshot.length < 100) {
+            console.debug('[insight] OCR capture: image too small, retrying after delay');
+            await new Promise(r => setTimeout(r, 500));
+            screenshot = await window.electronAPI.captureWebview(wc);
+          }
+          console.debug('[insight] OCR capture: got screenshot, length =', screenshot?.length ?? 0);
+        } catch (e) {
+          console.debug('[insight] OCR capture failed:', e);
+        }
       }
     }
 
@@ -165,9 +185,22 @@ async function _manualInsightAnalyze(tab) {
     // Capture screenshot for OCR if enabled
     let screenshot = null;
     if (localStorage.getItem('insightOcr') !== 'off') {
-      const wc = tab.el.getWebContentsId?.();
+      let wc = tab.el.getWebContentsId?.();
+      if (!wc) {
+        for (let i = 0; i < 5; i++) {
+          await new Promise(r => setTimeout(r, 400));
+          wc = tab.el.getWebContentsId?.();
+          if (wc) break;
+        }
+      }
       if (wc) {
-        try { screenshot = await window.electronAPI.captureWebview(wc); } catch {}
+        try {
+          screenshot = await window.electronAPI.captureWebview(wc);
+          if (screenshot && screenshot.length < 100) {
+            await new Promise(r => setTimeout(r, 500));
+            screenshot = await window.electronAPI.captureWebview(wc);
+          }
+        } catch {}
       }
     }
 
@@ -211,12 +244,13 @@ function _initInsightListener() {
     const annotations = result.annotations || [];
     const insight = result.insight || null;
     const related = result.related || [];
+    const ocrText = result.ocrText || null;
 
     // Cache result
-    _insightCache.set(result.url, { insight, annotations, related, ts: Date.now() });
+    _insightCache.set(result.url, { insight, annotations, related, ocrText, ts: Date.now() });
     _persistInsightCache();
 
-    // Inject annotations on page
+    // Auto-inject annotations on page
     if (tab && annotations.length) {
       _annotationsEnabled.set(tab.id, true);
       injectAnnotations(tab, annotations);
@@ -237,6 +271,7 @@ function _initInsightListener() {
         label: label,
         detail: insight || (annotations.length + ' insights on this page'),
         insight: insight,
+        ocrText: ocrText,
         items: annotations,
         related: related,
         modeType,
@@ -278,7 +313,6 @@ function _initInsightPartialListener() {
         injectSingleAnnotation(tab, partial.annotation);
         _updateAnnotateButtonState();
       }
-      // Update pill count
       if (typeof islandUpdate === 'function') {
         var count = partial.annotationCount || 0;
         var currentLabel = partial.insight

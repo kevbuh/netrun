@@ -342,8 +342,15 @@ function _islandBuildTray(a, isBrowse) {
     // Insight text
     if (a.insight) {
       trayHtml += '<div style="padding:8px 10px;font-size:12px;color:var(--nr-text-primary);line-height:1.5;opacity:0.9">' + escapeHtml(a.insight) + '</div>';
-      if (a.items && a.items.length) trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 0"></div>';
     }
+    // OCR text
+    if (a.ocrText) {
+      trayHtml += '<div style="padding:6px 10px;font-size:11px;color:var(--nr-text-tertiary);line-height:1.4;border-top:1px solid var(--aether-border, var(--nr-border-default))">';
+      trayHtml += '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--nr-text-quaternary)">OCR</span><br>';
+      trayHtml += escapeHtml(a.ocrText.length > 300 ? a.ocrText.slice(0, 297) + '\u2026' : a.ocrText);
+      trayHtml += '</div>';
+    }
+    if ((a.insight || a.ocrText) && a.items && a.items.length) trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 0"></div>';
     for (let ai = 0; ai < (a.items || []).length; ai++) {
       const ann = a.items[ai];
       const ac = annColors[ann.type] || '#888';
