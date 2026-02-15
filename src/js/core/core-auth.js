@@ -217,6 +217,7 @@ async function _submitUsername() {
 }
 
 // ── Onboarding Wizard ──
+// Steps: 0=Username, 1=Accent Color, 2=Theme, 3=Neuralook
 
 let _wizardStep = 0;
 
@@ -230,6 +231,14 @@ const _wizardAccentColors = [
   { color: '#d53f8c', name: 'Pink' },
   { color: '#718096', name: 'Gray' },
   { color: '#111111', name: 'Black' },
+];
+
+const _wizardThemes = [
+  { id: 'dark', name: 'Dark', desc: 'Easy on the eyes' },
+  { id: 'light', name: 'Light', desc: 'Bright and clean' },
+  { id: 'daylight', name: 'Daylight', desc: 'Warm and natural' },
+  { id: 'clear', name: 'Clear', desc: 'Minimal dark' },
+  { id: 'auto', name: 'Auto', desc: 'Matches your system' },
 ];
 
 function _showOnboardingWizard() {
@@ -257,7 +266,7 @@ function _renderWizardStep(stepIndex, direction) {
   const delay = prev ? 350 : 0;
   setTimeout(() => {
     _wizardStep = stepIndex;
-    const totalSteps = 3;
+    const totalSteps = 4;
     // Build dots
     let dotsHTML = '<div class="wizard-dots">';
     for (let i = 0; i < totalSteps; i++) {
@@ -269,7 +278,8 @@ function _renderWizardStep(stepIndex, direction) {
     let contentHTML = '';
     if (stepIndex === 0) contentHTML = _wizardUsernameHTML();
     else if (stepIndex === 1) contentHTML = _wizardAccentHTML();
-    else if (stepIndex === 2) contentHTML = _wizardNeuralookHTML();
+    else if (stepIndex === 2) contentHTML = _wizardThemeHTML();
+    else if (stepIndex === 3) contentHTML = _wizardNeuralookHTML();
 
     const step = document.createElement('div');
     step.className = 'wizard-step';
@@ -285,6 +295,7 @@ function _renderWizardStep(stepIndex, direction) {
     // Init step-specific behavior
     if (stepIndex === 0) _wizardUsernameInit();
     else if (stepIndex === 1) _wizardAccentInit();
+    else if (stepIndex === 2) _wizardThemeInit();
   }, delay);
 }
 
@@ -372,10 +383,13 @@ function _wizardAccentHTML() {
 function _wizardAccentInit() {
   const current = localStorage.getItem('accentColor') || '#b4451a';
   if (typeof applyAccentColor === 'function') applyAccentColor(current);
+  if (typeof window._updateCircuitColors === 'function') window._updateCircuitColors();
 }
 
 function _wizardPickAccent(color, el) {
   if (typeof setAccentColor === 'function') setAccentColor(color);
+  // Update circuit board background to match
+  if (typeof window._updateCircuitColors === 'function') window._updateCircuitColors();
   // Update swatch selection visuals
   const wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
@@ -392,7 +406,46 @@ function _wizardAccentContinue() {
   _renderWizardStep(2, 'forward');
 }
 
-// ── Step 2: Neuralook (optional) ──
+// ── Step 2: Theme ──
+
+function _wizardThemeHTML() {
+  const current = localStorage.getItem('theme') || 'dark';
+  return `
+    <div style="text-align:center;">
+      <div style="font-size:20px;font-weight:600;color:var(--text-primary,#e0e0e0);margin-bottom:4px;">Choose a theme</div>
+      <div style="font-size:13px;color:var(--text-muted,#999);margin-bottom:20px;">Sets the overall look and feel.</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+        ${_wizardThemes.map(t => `
+          <button class="wizard-theme-option${t.id === current ? ' selected' : ''}" data-theme="${t.id}" onclick="_wizardPickTheme('${t.id}', this)">
+            <span class="wizard-theme-name">${t.name}</span>
+            <span class="wizard-theme-desc">${t.desc}</span>
+          </button>
+        `).join('')}
+      </div>
+      <button class="wizard-btn wizard-btn-primary" onclick="_wizardThemeContinue()">Continue</button>
+    </div>
+  `;
+}
+
+function _wizardThemeInit() {
+  const current = localStorage.getItem('theme') || 'dark';
+  if (typeof setTheme === 'function') setTheme(current);
+}
+
+function _wizardPickTheme(themeId, el) {
+  if (typeof setTheme === 'function') setTheme(themeId);
+  const wizard = document.getElementById('onboarding-wizard');
+  if (wizard) {
+    wizard.querySelectorAll('.wizard-theme-option').forEach(b => b.classList.remove('selected'));
+  }
+  if (el) el.classList.add('selected');
+}
+
+function _wizardThemeContinue() {
+  _renderWizardStep(3, 'forward');
+}
+
+// ── Step 3: Neuralook (optional) ──
 
 function _wizardNeuralookHTML() {
   return `

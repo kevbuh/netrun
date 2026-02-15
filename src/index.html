@@ -377,9 +377,23 @@
       const ctx = canvas.getContext('2d');
       let traces = [], nodes = [], pulses = [], running = false;
       const GRID = 30;
-      const TRACE_COLOR = 'rgba(0,220,180,0.12)';
-      const NODE_COLOR = 'rgba(0,220,180,0.25)';
-      const PULSE_COLOR = '#00e0b0';
+      let TRACE_COLOR = 'rgba(0,220,180,0.12)';
+      let NODE_COLOR = 'rgba(0,220,180,0.25)';
+      let PULSE_COLOR = '#00e0b0';
+
+      // Derive circuit colors from accent
+      function updateCircuitColors() {
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00e0b0';
+        const hex = accent.replace('#', '');
+        const r = parseInt(hex.slice(0,2), 16) || 0;
+        const g = parseInt(hex.slice(2,4), 16) || 0;
+        const b = parseInt(hex.slice(4,6), 16) || 0;
+        TRACE_COLOR = `rgba(${r},${g},${b},0.12)`;
+        NODE_COLOR = `rgba(${r},${g},${b},0.25)`;
+        PULSE_COLOR = accent;
+      }
+      // Expose so wizard can trigger it
+      window._updateCircuitColors = updateCircuitColors;
       const DIRS = [[1,0],[0,1],[-1,0],[0,-1]];
 
       function resize() {
