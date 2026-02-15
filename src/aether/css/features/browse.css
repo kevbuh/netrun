@@ -245,7 +245,63 @@
       gap: 8px;
       margin-top: 10px;
     }
-    /* ntp-file-card → migrated to nr-card (src/aether/css/components/cards.css) */
+    .ntp-file-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--nr-bg-surface);
+      border: 1px solid var(--nr-border-default);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      position: relative;
+      text-align: left;
+      font-family: inherit;
+      color: inherit;
+    }
+    .ntp-file-card:hover {
+      background: var(--nr-bg-raised);
+      border-color: color-mix(in srgb, var(--nr-accent) 30%, transparent);
+    }
+    .ntp-file-card-icon {
+      width: 28px;
+      height: 28px;
+      color: var(--nr-text-quaternary);
+      flex-shrink: 0;
+    }
+    .ntp-file-card-info {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .ntp-file-card-name {
+      font-size: 0.82rem;
+      color: var(--nr-text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ntp-file-card-type {
+      font-size: 0.72rem;
+      color: var(--nr-text-quaternary);
+    }
+    .ntp-file-card-remove {
+      position: absolute;
+      top: 4px;
+      right: 6px;
+      font-size: 0.9rem;
+      line-height: 1;
+      color: var(--nr-text-quaternary);
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s;
+      background: none;
+      border: none;
+      padding: 2px;
+    }
+    .ntp-file-card:hover .ntp-file-card-remove { opacity: 0.6; }
+    .ntp-file-card-remove:hover { opacity: 1 !important; color: var(--nr-accent); }
 
     /* ── Download Indicator ── */
     .browse-download-ring {

@@ -198,7 +198,7 @@ async function _fetchSemanticPreview(text, containerDiv) {
 }
 
 async function _doAetherWebSearch(popup) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (!input) return;
   const q = input.value.trim();
   if (!q) return;
@@ -279,7 +279,7 @@ function _aetherFilterCommands(query) {
 }
 
 function _aetherRenderCmdDropdown(popup, query) {
-  let dropdown = popup.querySelector('.aether-cmd-dropdown.nr-menu');
+  let dropdown = popup.querySelector('.aether-cmd-dropdown');
   const matches = _aetherFilterCommands(query);
   if (!matches.length) {
     if (dropdown) dropdown.remove();
@@ -287,7 +287,7 @@ function _aetherRenderCmdDropdown(popup, query) {
   }
   if (!dropdown) {
     dropdown = document.createElement('div');
-    dropdown.className = 'aether-cmd-dropdown nr-menu';
+    dropdown.className = 'aether-cmd-dropdown';
     dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
     // Insert before askWrap
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
@@ -309,7 +309,7 @@ function _aetherRenderCmdDropdown(popup, query) {
       if (!cmd) return;
       if (cmd.hasArgs) {
         // Fill input with command name + space so user can type args
-        const askInput = popup.querySelector('.nr-input') || popup.querySelector('.doc-ask-inline');
+        const askInput = popup.querySelector('.doc-ask-inline-input') || popup.querySelector('.doc-ask-inline');
         if (askInput) { askInput.value = '/' + cmd.name + ' '; askInput.focus(); }
         _aetherHideCmdDropdown(popup);
       } else if (cmd._special) {
@@ -333,12 +333,12 @@ function _aetherRenderCmdDropdown(popup, query) {
 }
 
 function _aetherHideCmdDropdown(popup) {
-  const dropdown = popup.querySelector('.aether-cmd-dropdown.nr-menu');
+  const dropdown = popup.querySelector('.aether-cmd-dropdown');
   if (dropdown) dropdown.remove();
 }
 
 function _aetherHideNoteDropdown(popup) {
-  const dropdown = popup.querySelector('.aether-note-dropdown.nr-menu');
+  const dropdown = popup.querySelector('.aether-note-dropdown');
   if (dropdown) dropdown.remove();
   _aetherNoteResults = [];
   _aetherNoteIdx = 0;
@@ -346,7 +346,7 @@ function _aetherHideNoteDropdown(popup) {
 }
 
 function _aetherHideTabDropdown(popup) {
-  const dropdown = popup.querySelector('.aether-tab-dropdown.nr-menu');
+  const dropdown = popup.querySelector('.aether-tab-dropdown');
   if (dropdown) dropdown.remove();
   _aetherTabList = [];
   _aetherTabIdx = 0;
@@ -363,7 +363,7 @@ function _aetherHideHistoryDropdown(popup) {
 }
 
 function _doAetherHistory(popup) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) { input.value = '/history '; input.style.height = 'auto'; }
   _aetherHideCmdDropdown(popup);
   _aetherTrackMode = false;
@@ -383,7 +383,7 @@ function _aetherRenderHistoryDropdown(popup, query) {
   if (!_aetherHistoryList.length) {
     if (!dropdown) {
       dropdown = document.createElement('div');
-      dropdown.className = 'aether-history-dropdown aether-note-dropdown nr-menu';
+      dropdown.className = 'aether-history-dropdown aether-note-dropdown';
       dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
       const askWrap = popup.querySelector('.doc-ask-inline-wrap');
       if (askWrap) popup.insertBefore(dropdown, askWrap);
@@ -396,7 +396,7 @@ function _aetherRenderHistoryDropdown(popup, query) {
 
   if (!dropdown) {
     dropdown = document.createElement('div');
-    dropdown.className = 'aether-history-dropdown aether-note-dropdown nr-menu';
+    dropdown.className = 'aether-history-dropdown aether-note-dropdown';
     dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
@@ -487,11 +487,11 @@ async function _aetherRenderNoteDropdown(popup, query) {
     _aetherNoteResults = notes.slice(0, 12);
   }
 
-  let dropdown = popup.querySelector('.aether-note-dropdown.nr-menu');
+  let dropdown = popup.querySelector('.aether-note-dropdown');
   if (!_aetherNoteResults.length) {
     if (!dropdown) {
       dropdown = document.createElement('div');
-      dropdown.className = 'aether-note-dropdown nr-menu';
+      dropdown.className = 'aether-note-dropdown';
       dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
       const askWrap = popup.querySelector('.doc-ask-inline-wrap');
       if (askWrap) popup.insertBefore(dropdown, askWrap);
@@ -509,7 +509,7 @@ async function _aetherRenderNoteDropdown(popup, query) {
 
   if (!dropdown) {
     dropdown = document.createElement('div');
-    dropdown.className = 'aether-note-dropdown nr-menu';
+    dropdown.className = 'aether-note-dropdown';
     dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
@@ -549,7 +549,7 @@ function _aetherOpenSelectedNote(popup) {
 }
 
 async function _doAetherNotesBrowse(popup) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) { input.value = ''; input.style.height = 'auto'; }
   _aetherHideCmdDropdown(popup);
   _aetherTrackMode = false;
@@ -676,7 +676,7 @@ async function _aetherCreateAndOpenNote(popup, title) {
 }
 
 async function _doAetherCapture(popup) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) { input.value = ''; }
   _aetherHideCmdDropdown(popup);
   _aetherTrackMode = false;
@@ -733,7 +733,7 @@ async function _doAetherCapture(popup) {
 // State variables declared in panel-state.js: _aetherModelIdx, _aetherModelList
 
 async function _doAetherModel(popup) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
   _aetherTrackMode = false;
@@ -766,7 +766,7 @@ function _aetherRenderModelDropdown(popup) {
   let dropdown = popup.querySelector('.aether-model-dropdown');
   if (!dropdown) {
     dropdown = document.createElement('div');
-    dropdown.className = 'aether-note-dropdown nr-menu aether-model-dropdown';
+    dropdown.className = 'aether-note-dropdown aether-model-dropdown';
     dropdown.addEventListener('mousedown', ev => ev.stopPropagation());
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
@@ -792,7 +792,7 @@ function _aetherRenderModelDropdown(popup) {
         _aetherRenderModelDropdown(popup);
         const label = popup.querySelector('.aether-model-label');
         if (label) label.textContent = model;
-        const input = popup.querySelector('.nr-input');
+        const input = popup.querySelector('.doc-ask-inline-input');
         if (input) { input.value = ''; input.focus(); }
         // Achievement: first model switch
         if (!localStorage.getItem('ach_model_switch')) {
@@ -819,7 +819,7 @@ function _aetherSelectModel(popup) {
     _aetherHideModelDropdown(popup);
     const label = popup.querySelector('.aether-model-label');
     if (label) label.textContent = model;
-    const input = popup.querySelector('.nr-input');
+    const input = popup.querySelector('.doc-ask-inline-input');
     if (input) { input.value = ''; input.placeholder = 'Ask anything…'; input.focus(); }
   }
 }
@@ -835,7 +835,7 @@ function _doAetherSearchNewTab(popup, query) {
 
 // ── /links command — list all links on current page ──
 async function _doAetherLinks(popup) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
   _aetherTrackMode = false;
@@ -891,7 +891,7 @@ async function _doAetherLinks(popup) {
 // State variable declared in panel-state.js: _aetherTabAutoAdding
 
 async function _doAetherTab(popup) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
   _aetherTrackMode = false;
@@ -938,14 +938,14 @@ async function _doAetherTab(popup) {
 }
 
 function _renderTabDropdown(popup) {
-  let dropdown = popup.querySelector('.aether-tab-dropdown.nr-menu');
+  let dropdown = popup.querySelector('.aether-tab-dropdown');
   if (!_aetherTabList.length) {
     if (dropdown) dropdown.remove();
     return;
   }
   if (!dropdown) {
     dropdown = document.createElement('div');
-    dropdown.className = 'aether-tab-dropdown nr-menu';
+    dropdown.className = 'aether-tab-dropdown';
     dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
@@ -980,7 +980,7 @@ async function _aetherSelectTab(popup) {
   const tab = _aetherTabList[_aetherTabIdx];
   if (!tab) return;
 
-  const dropdown = popup.querySelector('.aether-tab-dropdown.nr-menu');
+  const dropdown = popup.querySelector('.aether-tab-dropdown');
   const items = dropdown ? dropdown.querySelectorAll('.aether-tab-item') : [];
   const el = items[_aetherTabIdx];
   if (el) {
@@ -1002,13 +1002,13 @@ async function _aetherSelectTab(popup) {
     return;
   }
   _aetherHideTabDropdown(popup);
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.focus();
 }
 
 // ── /tabs command — switch to an open tab ──
 function _doAetherTabs(popup) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
   _aetherTrackMode = false;
@@ -1070,7 +1070,7 @@ function _aetherSwitchToTab(popup) {
 
 // ── /help command — show all commands & features ──
 function _doAetherHelp(popup) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
   _aetherTrackMode = false;
@@ -1197,7 +1197,7 @@ Type in the browser URL bar:
 
 // ── /define command — dictionary lookup ──
 async function _doAetherDefine(popup, word) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
   _aetherTrackMode = false;
@@ -1295,7 +1295,7 @@ function _aetherExecCommand(popup, text) {
 
 // Paper search from aether panel (/paper query)
 async function _doAetherPaperSearch(popup, query) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
 
   _aetherTrackMode = false;
@@ -1351,7 +1351,7 @@ async function _doAetherPaperSearch(popup, query) {
 }
 
 async function _doAetherNoteSearch(popup, query) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) { input.value = ''; input.style.height = 'auto'; }
   _aetherHideCmdDropdown(popup);
   _aetherTrackMode = false;
@@ -1400,7 +1400,7 @@ async function _doAetherNoteSearch(popup, query) {
 }
 
 async function _doAetherUserSearch(popup, query) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) { input.value = ''; input.style.height = 'auto'; }
   _aetherHideCmdDropdown(popup);
   _aetherTrackMode = false;

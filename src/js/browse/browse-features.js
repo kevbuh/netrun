@@ -1,6 +1,91 @@
 // browse-features.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
 
+// ── Two-finger swipe navigation ──
+
+let _swipeIndicator = null;
+let _swipeChevronPill = null;
+let _swipeChevronSvg = null;
+const _SWIPE_THRESHOLD = 100;
+const _SWIPE_MAX = 200;
+
+function _swipeCanGo(direction) {
+  try {
+    const el = typeof _browseActiveEl === 'function' ? _browseActiveEl() : null;
+    if (_browseIsElectron && el) {
+      if (direction === 'back' && el.canGoBack) return el.canGoBack();
+      if (direction === 'forward' && el.canGoForward) return el.canGoForward();
+    }
+    const tab = _browseTabs && _browseTabs.find(t => t.id === _browseActiveTab);
+    if (!tab) return false;
+    if (direction === 'back') return !!(tab.backStack && tab.backStack.length);
+    return !!(tab.forwardStack && tab.forwardStack.length);
+  } catch { return false; }
+}
+
+function _swipeEnsureIndicator() {
+  if (_swipeIndicator) return;
+  const el = document.createElement('div');
+  el.style.cssText = 'position:absolute;top:0;width:36px;height:100%;z-index:99;pointer-events:none;' +
+    'display:flex;align-items:center;justify-content:center;opacity:0;';
+  const pill = document.createElement('div');
+  pill.style.cssText = 'width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;' +
+    'background:rgba(255,255,255,0.12);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);' +
+    'box-shadow:0 2px 8px rgba(0,0,0,0.2);transform:scale(0.5);';
+  pill.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 3 5 8 10 13"/></svg>';
+  el.appendChild(pill);
+  const container = document.getElementById('browse-content');
+  if (container) container.appendChild(el);
+  _swipeIndicator = el;
+  _swipeChevronPill = pill;
+  _swipeChevronSvg = pill.querySelector('svg');
+}
+
+function _browseSwipeProgress(dx) {
+  // dx > 0 = swiping right = back, dx < 0 = swiping left = forward
+  const direction = dx > 0 ? 'back' : 'forward';
+  if (!_swipeCanGo(direction)) return;
+
+  _swipeEnsureIndicator();
+  const absDx = Math.abs(dx);
+  const progress = Math.min(1, absDx / _SWIPE_MAX);
+  const pastThreshold = absDx >= _SWIPE_THRESHOLD;
+
+  if (direction === 'back') {
+    _swipeIndicator.style.left = '0';
+    _swipeIndicator.style.right = '';
+    _swipeChevronSvg.style.transform = '';
+  } else {
+    _swipeIndicator.style.left = '';
+    _swipeIndicator.style.right = '0';
+    _swipeChevronSvg.style.transform = 'rotate(180deg)';
+  }
+
+  _swipeIndicator.style.transition = 'none';
+  _swipeChevronPill.style.transition = 'none';
+  _swipeIndicator.style.opacity = String(Math.min(1, progress * 1.5));
+  _swipeChevronPill.style.transform = 'scale(' + (0.5 + progress * 0.5) + ')';
+  _swipeChevronPill.style.background = pastThreshold
+    ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.12)';
+}
+
+function _browseSwipeEnd(dx) {
+  const direction = dx > 0 ? 'back' : 'forward';
+  const absDx = Math.abs(dx);
+
+  if (absDx >= _SWIPE_THRESHOLD && _swipeCanGo(direction)) {
+    if (direction === 'back') browseBack();
+    else browseForward();
+  }
+
+  if (_swipeIndicator) {
+    _swipeIndicator.style.transition = 'opacity 0.2s ease-out';
+    _swipeChevronPill.style.transition = 'transform 0.2s ease-out';
+    _swipeIndicator.style.opacity = '0';
+    _swipeChevronPill.style.transform = 'scale(0.5)';
+  }
+}
+
 // ── Find in page ──
 
 let _browseFindBarActive = false;
@@ -9,7 +94,7 @@ let _browseFindRequestId = 0;
 function _browseToggleFindBar() {
   if (_browseFindBarActive) {
     // If already open, focus and select the input
-    const input = document.getElementById('nr-input');
+    const input = document.getElementById('browse-find-input');
     if (input) { input.focus(); input.select(); }
     return;
   }
@@ -23,13 +108,13 @@ function _browseToggleFindBar() {
   bar.id = 'browse-find-bar';
   bar.className = 'browse-find-bar';
   bar.innerHTML =
-    `<input type="text" id="nr-input" class="nr-input" placeholder="Find…" autocomplete="off" spellcheck="false">` +
+    `<input type="text" id="browse-find-input" class="browse-find-input" placeholder="Find…" autocomplete="off" spellcheck="false">` +
     `<span id="browse-find-count" class="browse-find-count"></span>` +
-    `<button class="nr-btn nr-btn-icon" id="browse-find-prev" title="Previous">` +
+    `<button class="browse-find-btn" id="browse-find-prev" title="Previous">` +
     `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg></button>` +
-    `<button class="nr-btn nr-btn-icon" id="browse-find-next" title="Next">` +
+    `<button class="browse-find-btn" id="browse-find-next" title="Next">` +
     `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg></button>` +
-    `<button class="nr-btn nr-btn-icon" id="browse-find-close" title="Close">&times;</button>`;
+    `<button class="browse-find-btn" id="browse-find-close" title="Close">&times;</button>`;
 
   // Insert into browse-content so it floats over the page
   const content = document.getElementById('browse-content');
@@ -39,7 +124,7 @@ function _browseToggleFindBar() {
     browseView.appendChild(bar);
   }
 
-  const input = document.getElementById('nr-input');
+  const input = document.getElementById('browse-find-input');
   const countEl = document.getElementById('browse-find-count');
 
   const doFind = (forward) => {

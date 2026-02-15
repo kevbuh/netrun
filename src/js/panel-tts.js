@@ -275,7 +275,7 @@ function _ttsStopAll() {
   _ttsClearHighlights();
   _clearAudioUnified('tts');
   _ttsUpdateBtnIcon();
-  document.querySelectorAll('.nr-btn nr-btn-icon.doc-msg-speaking').forEach(function(b) { b.classList.remove('doc-msg-speaking'); });
+  document.querySelectorAll('.doc-msg-speak-btn.doc-msg-speaking').forEach(function(b) { b.classList.remove('doc-msg-speaking'); });
 }
 
 function _ttsPauseResume() {

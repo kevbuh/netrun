@@ -30,7 +30,7 @@ function submitSearch() {
       setTimeout(() => {
         const popup = document.getElementById('doc-chat-ask-float');
         if (popup) {
-          const input = popup.querySelector('.nr-input');
+          const input = popup.querySelector('.doc-ask-inline-input');
           if (input) { input.value = query; }
           if (typeof _sendPopupChatMessage === 'function') _sendPopupChatMessage(popup);
         }

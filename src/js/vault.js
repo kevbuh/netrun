@@ -494,7 +494,7 @@ async function vaultRenameNotePrompt(noteId) {
     renderVaultFileTree();
     // Update title input if this note is currently open
     if (_vaultCurrentNote?.id === noteId) {
-      const titleInput = document.getElementById('nr-input');
+      const titleInput = document.getElementById('vault-title-input');
       if (titleInput) titleInput.value = newName.trim();
     }
   } catch (e) {
@@ -744,7 +744,7 @@ async function saveCurrentNote() {
 
   try {
     await apiPut(`/api/vault/notes/${_vaultCurrentNote.id}`, { title, content });
-    renderVaultFileTree(document.getElementById('nr-input')?.value || '');
+    renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
     // Embed note for semantic search (fire-and-forget)
     apiPost('/api/embed-content', { title, link: 'vault://' + _vaultCurrentNote.id, source: 'vault', description: content.slice(0, 500), type: 'note' })
       .catch((e) => { /* fire-and-forget */ });
@@ -964,13 +964,13 @@ function vaultToggleProject(projectId) {
   } else {
     _vaultExpandedProjects.add(projectId);
   }
-  renderVaultFileTree(document.getElementById('nr-input')?.value || '');
+  renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
 }
 
 // Expand a specific project in the tree (e.g. from route)
 function vaultExpandProject(projectId) {
   _vaultExpandedProjects.add(projectId);
-  renderVaultFileTree(document.getElementById('nr-input')?.value || '');
+  renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
 }
 
 // Render children of a project folder
@@ -1517,7 +1517,7 @@ function updateVaultTags() {
 }
 
 function vaultFilterByTag(tag) {
-  document.getElementById('nr-input').value = '#' + tag;
+  document.getElementById('vault-search-input').value = '#' + tag;
   vaultFilterNotes('#' + tag);
 }
 
@@ -2768,7 +2768,7 @@ async function _vaultFetchGitStatus() {
       if (code && path) map[path] = code[0] === '?' ? '?' : code.replace(/\s/g, '');
     }
     _vaultGitStatus = map;
-    renderVaultFileTree(document.getElementById('nr-input')?.value || '');
+    renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
   } catch (e) { console.warn('vaultFetchGitStatus:', e); }
 }
 

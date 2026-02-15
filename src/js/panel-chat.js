@@ -215,7 +215,7 @@ function _handleAgentAction(act) {
 }
 
 function _sendPopupChatMessage(popup, capturedText) {
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (!input) return;
   const q = input.value.trim();
   // Allow sending if there's capturedText, screenshots, or a query
@@ -453,7 +453,7 @@ function _sendPopupChatMessage(popup, capturedText) {
     // Re-enable input via DOM lookup (panel may have been reopened)
     const _p = document.getElementById('doc-chat-ask-float');
     if (_p) {
-      const _inp = _p.querySelector('.nr-input');
+      const _inp = _p.querySelector('.doc-ask-inline-input');
       const _sb = _p.querySelector('.doc-ask-inline-send');
       if (_inp) { _inp.disabled = false; _inp.focus(); }
       if (_sb) _sb.disabled = false;
@@ -504,7 +504,7 @@ function _reopenAetherPanel() {
     const isStreaming = !!_popupChatAbort;
     _renderPopupChat(popup, !isStreaming);
     if (isStreaming) {
-      const input = popup.querySelector('.nr-input');
+      const input = popup.querySelector('.doc-ask-inline-input');
       const sendBtn = popup.querySelector('.doc-ask-inline-send');
       if (input) input.disabled = true;
       if (sendBtn) sendBtn.disabled = true;
@@ -603,7 +603,7 @@ function _renderPopupChat(popup, final) {
       const paperIcon = m._isPaperSearch ? '<span class="doc-search-badge doc-paper-badge">papers</span>' : '';
       const userIcon = m._isUserSearch ? '<span class="doc-search-badge doc-user-badge">users</span>' : '';
       const noteIcon = m._isNoteSearch ? '<span class="doc-search-badge doc-note-badge">notes</span>' : '';
-      const editBtn = `<button class="nr-btn nr-btn-icon" data-msg-idx="${i}" title="Edit and resend">${icon('edit', { size: 11 })}</button>`;
+      const editBtn = `<button class="doc-msg-edit-btn" data-msg-idx="${i}" title="Edit and resend">${icon('edit', { size: 11 })}</button>`;
       return `<div class="doc-msg-user" data-msg-idx="${i}">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${noteIcon}<span class="doc-msg-user-text">${escapeHtml(display)}</span>${editBtn}</div>`;
     }
     if (m._thinking) {
@@ -665,9 +665,9 @@ function _renderPopupChat(popup, final) {
       : escapeHtml(m.content);
     const thinkingBlock = m._thinkingText ? `<details class="doc-thinking-block"><summary>Thought for a moment</summary><div class="doc-thinking-content">${escapeHtml(m._thinkingText)}</div></details>` : '';
     const ctxBlock = _renderCtxPills(m._ctxSources, m);
-    const copyBtn = `<button class="nr-btn nr-btn-icon" title="Copy message">${icon('copy', { size: 12 })}</button>`;
-    const speakBtn = `<button class="nr-btn nr-btn-icon" title="Read aloud">${icon('speaker', { size: 12 })}</button>`;
-    const redoBtn = isLast ? `<button class="nr-btn nr-btn-icon" title="Redo last message">${icon('redo', { size: 12 })}</button>` : '';
+    const copyBtn = `<button class="doc-msg-copy-btn" title="Copy message">${icon('copy', { size: 12 })}</button>`;
+    const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud">${icon('speaker', { size: 12 })}</button>`;
+    const redoBtn = isLast ? `<button class="doc-msg-redo-btn" title="Redo last message">${icon('redo', { size: 12 })}</button>` : '';
     return `<div class="doc-msg-ai">${ctxBlock}${thinkingBlock}${content}<div class="doc-msg-actions">${copyBtn}${speakBtn}${redoBtn}</div></div>`;
   }).join('');
   // Render LaTeX in AI messages
@@ -727,14 +727,14 @@ function _renderPopupChat(popup, final) {
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
   // Attach speak button handlers (Kokoro TTS)
-  container.querySelectorAll('.nr-btn nr-btn-icon').forEach(btn => {
+  container.querySelectorAll('.doc-msg-speak-btn').forEach(btn => {
     btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
       if (_ttsAudio || _ttsChunks.length > 0) {
         const wasToggling = btn.classList.contains('doc-msg-speaking');
         _ttsStopAll();
-        container.querySelectorAll('.nr-btn nr-btn-icon').forEach(b => b.classList.remove('doc-msg-speaking'));
+        container.querySelectorAll('.doc-msg-speak-btn').forEach(b => b.classList.remove('doc-msg-speaking'));
         if (wasToggling) return; // was toggling off
       }
       const msgEl = btn.closest('.doc-msg-ai');
@@ -757,7 +757,7 @@ function _renderPopupChat(popup, final) {
     });
   });
   // Attach copy button handlers
-  container.querySelectorAll('.nr-btn nr-btn-icon').forEach(btn => {
+  container.querySelectorAll('.doc-msg-copy-btn').forEach(btn => {
     btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
@@ -774,7 +774,7 @@ function _renderPopupChat(popup, final) {
     });
   });
   // Attach redo button handlers
-  container.querySelectorAll('.nr-btn nr-btn-icon').forEach(btn => {
+  container.querySelectorAll('.doc-msg-redo-btn').forEach(btn => {
     btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
@@ -789,13 +789,13 @@ function _renderPopupChat(popup, final) {
       _popupChatMessages = _popupChatMessages.slice(0, lastUserIdx);
       if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       // Re-insert user message and re-send
-      const input = popup.querySelector('.nr-input');
+      const input = popup.querySelector('.doc-ask-inline-input');
       if (input) input.value = lastUserMsg._display || lastUserMsg.content;
       _sendPopupChatMessage(popup, popup._capturedText || '');
     });
   });
   // Attach edit button handlers
-  container.querySelectorAll('.nr-btn nr-btn-icon').forEach(btn => {
+  container.querySelectorAll('.doc-msg-edit-btn').forEach(btn => {
     btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
@@ -805,7 +805,7 @@ function _renderPopupChat(popup, final) {
       if (msg.role !== 'user') return;
 
       // Put the message content back in the input
-      const input = popup.querySelector('.nr-input');
+      const input = popup.querySelector('.doc-ask-inline-input');
       if (!input) return;
       input.value = msg.content;
       input.focus();
@@ -974,7 +974,7 @@ function _addNoteContextToPanel(popup, note) {
   chip.appendChild(removeBtn);
   strip.appendChild(chip);
 
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.focus();
   _updateContextBar(popup);
 }
@@ -1009,7 +1009,7 @@ function _addTabContextToPanel(popup, tabInfo) {
   chip.appendChild(removeBtn);
   strip.appendChild(chip);
 
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.focus();
   _updateContextBar(popup);
 }
@@ -1134,7 +1134,7 @@ function _addScreenshotToPanel(popup, base64) {
   thumb.appendChild(removeBtn);
   strip.appendChild(thumb);
 
-  const input = popup.querySelector('.nr-input');
+  const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.focus();
   _updateContextBar(popup);
 }

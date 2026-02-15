@@ -47,7 +47,7 @@ function renderMarkdownEditor(fname, content) {
   renderLatexIn('md-preview');
   _rewriteExpImages(document.getElementById('md-preview'));
   // Prevent toolbar buttons from stealing focus from textarea
-  editor.querySelectorAll('.nr-btn nr-btn-icon').forEach(btn => {
+  editor.querySelectorAll('.nr-btn.nr-btn-icon').forEach(btn => {
     btn.addEventListener('mousedown', e => e.preventDefault());
   });
 }
@@ -73,7 +73,7 @@ function _mdOnBlur() {
     const ta = document.getElementById('md-editor-textarea');
     if (!ta || document.activeElement === ta) return;
     // If focus went to a toolbar button, refocus textarea
-    if (document.activeElement && document.activeElement.closest && document.activeElement.closest('.nr-btn nr-btn-icon')) {
+    if (document.activeElement && document.activeElement.closest && document.activeElement.closest('.nr-btn.nr-btn-icon')) {
       ta.focus();
       return;
     }

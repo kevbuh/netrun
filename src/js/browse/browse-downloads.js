@@ -1023,32 +1023,31 @@ function _browseInjectContentScripts(tab, frame) {
             }
           }
         },true);
-      })();
-    `).catch(()=>{});
-
-    // Two-finger horizontal swipe detection
-    frame.executeJavaScript(`
-      (function(){
-        if(window.__aetherSwipeInjected)return;
-        window.__aetherSwipeInjected=true;
-        var accX=0,accY=0,locked=false,timer=null;
-        var THRESHOLD=80;
-        window.addEventListener('wheel',function(e){
-          if(e.ctrlKey||e.metaKey)return;
-          if(!locked){
-            accX+=e.deltaX;
-            accY+=e.deltaY;
-            if(Math.abs(accY)>30){accX=0;accY=0;return;}
+        // Two-finger horizontal swipe detection
+        var _swAccX=0,_swAccY=0,_swLocked=false,_swTimer=null,_swLastSend=0;
+        document.addEventListener('wheel',function(ev){
+          if(ev.ctrlKey||ev.metaKey)return;
+          if(!_swLocked){
+            _swAccX+=ev.deltaX;
+            _swAccY+=ev.deltaY;
+            if(Math.abs(_swAccY)>30){_swAccX=0;_swAccY=0;return;}
           }
-          clearTimeout(timer);
-          timer=setTimeout(function(){accX=0;accY=0;locked=false;},300);
-          if(Math.abs(accX)>=THRESHOLD&&!locked){
-            locked=true;
-            if(accX<0)console.log('__AETHER_SWIPE_BACK__');
-            else console.log('__AETHER_SWIPE_FORWARD__');
-            accX=0;accY=0;
+          clearTimeout(_swTimer);
+          _swTimer=setTimeout(function(){
+            if(_swLocked)console.log('__AETHER_SWIPE_END__'+Math.round(_swAccX));
+            _swAccX=0;_swAccY=0;_swLocked=false;
+          },150);
+          if(!_swLocked&&Math.abs(_swAccX)>=10){
+            _swLocked=true;
           }
-        },{passive:true});
+          if(_swLocked){
+            var now=Date.now();
+            if(now-_swLastSend>30){
+              _swLastSend=now;
+              console.log('__AETHER_SWIPE_PROGRESS__'+Math.round(_swAccX));
+            }
+          }
+        },{passive:true,capture:true});
       })();
     `).catch(()=>{});
 
@@ -1141,11 +1140,17 @@ function _browseInjectContentScripts(tab, frame) {
 
   // Listen for context menu via console message
   frame.addEventListener('console-message', (e) => {
-    if (e.message === '__AETHER_SWIPE_BACK__') {
-      browseBack();
-      return;
-    } else if (e.message === '__AETHER_SWIPE_FORWARD__') {
-      browseForward();
+    if (e.message && e.message.startsWith('__AETHER_SWIPE_')) {
+      try {
+        const isEnd = e.message.startsWith('__AETHER_SWIPE_END__');
+        const prefix = isEnd ? '__AETHER_SWIPE_END__' : '__AETHER_SWIPE_PROGRESS__';
+        const dx = parseInt(e.message.slice(prefix.length));
+        if (isEnd) {
+          if (typeof _browseSwipeEnd === 'function') _browseSwipeEnd(dx);
+        } else {
+          if (typeof _browseSwipeProgress === 'function') _browseSwipeProgress(dx);
+        }
+      } catch (err) { console.warn('[swipe]', err); }
       return;
     } else if (e.message === '__AETHER_CLOSE_TAB__') {
       if (typeof browseCloseTab === 'function') browseCloseTab(tab.id);

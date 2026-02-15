@@ -12,6 +12,9 @@
   --nr-border-strong:  rgba(255,255,255,0.12);
   --nr-border-subtle:  rgba(255,255,255,0.06);
   --nr-border-dim:     rgba(255,255,255,0.04);
+
+  --aether-bg: transparent;
+  --aether-dropdown-bg: rgba(10,10,10,0.92);
 }
 
 /* Glass material overrides for clear theme */
