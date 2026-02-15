@@ -51,6 +51,8 @@ interface PageData {
   text: string;
   tabId: string;
   model?: string;
+  screenshot?: string;
+  ocrModel?: string;
 }
 
 interface Annotation {
@@ -150,7 +152,15 @@ export class PageInsightPipeline {
       this.abortControllers.set(data.tabId, controller);
 
       const truncated = data.text.slice(0, 2000);
-      const fullText = data.text.slice(0, 12_000);
+      let fullText = data.text.slice(0, 12_000);
+
+      // OCR pre-pass: extract visual text from screenshot
+      if (data.screenshot) {
+        const ocrText = await this._ocrExtract(data.screenshot, data.ocrModel, controller.signal);
+        if (ocrText && ocrText.length > 50) {
+          fullText = fullText + '\n\n--- VISUAL TEXT (extracted from screenshot) ---\n' + ocrText.slice(0, 4000);
+        }
+      }
 
       // Mark as recently seen
       this.recentUrls.add(data.url);
@@ -423,6 +433,31 @@ No other text. No markdown. No explanation outside the JSON.`;
   private _getModel(): string {
     // Default model; renderer can pass model preference via settings
     return 'qwen2.5:7b';
+  }
+
+  private _getOcrModel(override?: string): string {
+    return override || 'glm-ocr';
+  }
+
+  private async _ocrExtract(screenshot: string, ocrModel: string | undefined, signal: AbortSignal): Promise<string | null> {
+    try {
+      const resp = await fetch(`${OLLAMA_HOST}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: this._getOcrModel(ocrModel),
+          prompt: 'Text Recognition:',
+          images: [screenshot],
+          stream: false,
+        }),
+        signal,
+      });
+      if (!resp.ok) return null;
+      const data = await resp.json() as { response?: string };
+      return data.response?.trim() || null;
+    } catch {
+      return null;
+    }
   }
 
   private async checkHealth(): Promise<boolean> {

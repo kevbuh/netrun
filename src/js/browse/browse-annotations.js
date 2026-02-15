@@ -57,12 +57,23 @@ async function _triggerInsightExtract(tab) {
       });
     }
 
+    // Capture screenshot for OCR if enabled
+    let screenshot = null;
+    if (localStorage.getItem('insightOcr') !== 'off') {
+      const wc = tab.el.getWebContentsId?.();
+      if (wc) {
+        try { screenshot = await window.electronAPI.captureWebview(wc); } catch {}
+      }
+    }
+
     window.electronAPI.insightPageLoaded({
       url: tab.url,
       title: tab.title || '',
       text: pageText.slice(0, 12000),
       tabId: tab.id,
       model: localStorage.getItem('annotateModel') || '',
+      screenshot: screenshot || undefined,
+      ocrModel: localStorage.getItem('ocrModel') || undefined,
     });
   } catch (e) { /* silent */ }
 }
@@ -151,12 +162,23 @@ async function _manualInsightAnalyze(tab) {
     const pageText = await _extractTextFromFrame(tab);
     if (!pageText || pageText.length < 100) return;
 
+    // Capture screenshot for OCR if enabled
+    let screenshot = null;
+    if (localStorage.getItem('insightOcr') !== 'off') {
+      const wc = tab.el.getWebContentsId?.();
+      if (wc) {
+        try { screenshot = await window.electronAPI.captureWebview(wc); } catch {}
+      }
+    }
+
     window.electronAPI.insightAnalyze({
       url: tab.url,
       title: tab.title || '',
       text: pageText.slice(0, 12000),
       tabId: tab.id,
       model: localStorage.getItem('annotateModel') || '',
+      screenshot: screenshot || undefined,
+      ocrModel: localStorage.getItem('ocrModel') || undefined,
     });
   } catch (e) { /* silent */ }
 }

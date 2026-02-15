@@ -1088,6 +1088,25 @@ function _renderAgentSettings() {
         </label>
       </div>
       <p class="text-dimmer text-[0.68rem] mt-1">Cached results are reused for 5 minutes.</p>
+      <div class="flex items-center justify-between mt-4">
+        <div>
+          <h3 class="text-white_ text-sm font-semibold">Visual OCR</h3>
+          <p class="text-dim text-[0.8rem] mt-0.5">Capture a screenshot and extract visual text (charts, infographics) before analysis.</p>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <span class="nr-switch">
+            <input type="checkbox" ${localStorage.getItem('insightOcr') !== 'off' ? 'checked' : ''} onchange="localStorage.setItem('insightOcr', this.checked ? 'on' : 'off')">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+      <p class="text-dimmer text-[0.68rem] mt-1 mb-3">Adds ~1-2s per page. Requires an OCR model (e.g. glm-ocr) in Ollama.</p>
+      <div>
+        <span class="text-primary text-sm">OCR Model</span>
+        <select data-key="ocrModel" data-fallback="glm-ocr" onchange="localStorage.setItem('ocrModel', this.value)" class="settings-model-select ml-3 px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer">
+          <option value="${escapeAttr(localStorage.getItem('ocrModel') || 'glm-ocr')}" selected>${escapeHtml(localStorage.getItem('ocrModel') || 'glm-ocr')}</option>
+        </select>
+      </div>
     </div>
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-3">Available Tools</h3>
@@ -1191,6 +1210,7 @@ function _renderHelpSettings() {
         <code class="text-muted">nomic-embed-text</code><span class="text-dim">Semantic search embeddings (768-dim)</span>
         <code class="text-muted">qwen3:8b</code><span class="text-dim">Chat with tools (autonomous agent mode)</span>
         <code class="text-muted">qwen3-vl:8b</code><span class="text-dim">Vision chat (screenshot analysis)</span>
+        <code class="text-muted">glm-ocr</code><span class="text-dim">Visual OCR for Insight (extracts text from screenshots)</span>
       </div>
     </div>
   `;
@@ -1223,7 +1243,8 @@ function _renderContextSettings() {
 
 function _renderContextFileCard(f) {
   const name = f.file_id || f.fileId || '';
-  const chars = (f.char_count || f.charCount || 0).toLocaleString();
+  const charCount = f.char_count || f.charCount || 0;
+  const kb = (charCount / 1024).toFixed(1);
   const updatedTs = f.updated_at || f.updatedAt || 0;
   const compactedTs = f.compacted_at || f.compactedAt || null;
   const updatedAgo = typeof timeAgo === 'function' && updatedTs ? timeAgo(updatedTs * 1000) : 'unknown';
@@ -1233,7 +1254,7 @@ function _renderContextFileCard(f) {
     (selected ? 'border-accent/50 bg-accent/5' : 'border-border-subtle bg-card/50 hover:border-accent/30') + '">' +
     '<div class="flex items-center justify-between">' +
     '<span class="text-[0.8rem] ' + (selected ? 'text-accent' : 'text-primary') + ' font-medium">' + escapeHtml(name) + '</span>' +
-    '<span class="text-dimmer text-[0.7rem]">' + chars + ' chars</span></div>' +
+    '<span class="text-dimmer text-[0.7rem]">' + kb + ' KB</span></div>' +
     '<div class="flex items-center gap-3 mt-1">' +
     '<span class="text-dimmer text-[0.65rem]">Updated ' + updatedAgo + '</span>' +
     '<span class="text-dimmer text-[0.65rem]">Compacted ' + compactedLabel + '</span></div></button>';
@@ -1258,11 +1279,12 @@ function _loadContextFiles() {
       }
       if (empty) empty.style.display = 'none';
       var totalChars = _contextFiles.reduce(function(sum, f) { return sum + (f.char_count || f.charCount || 0); }, 0);
+      var totalKb = (totalChars / 1024).toFixed(1);
       if (countLabel) countLabel.textContent = _contextFiles.length + ' file' + (_contextFiles.length !== 1 ? 's' : '');
       if (infoBar) {
         infoBar.innerHTML = '<div class="flex items-center gap-3">' +
           '<span class="text-primary text-[0.8rem] font-medium">' + _contextFiles.length + ' file' + (_contextFiles.length !== 1 ? 's' : '') + '</span>' +
-          '<span class="text-dimmer text-[0.7rem]">' + totalChars.toLocaleString() + ' total chars</span>' +
+          '<span class="text-dimmer text-[0.7rem]">' + totalKb + ' KB total</span>' +
           (_contextDir ? '<span class="text-dimmer text-[0.65rem] font-mono">' + escapeHtml(_contextDir) + '</span>' : '') + '</div>';
       }
       var html = '';
@@ -1301,7 +1323,8 @@ function _selectContextFile(fileId) {
         textarea.oninput = function() {
           if (charsLabel) {
             var len = textarea.value.length;
-            charsLabel.textContent = len.toLocaleString() + ' chars' + (len > 8000 ? ' (over threshold)' : '');
+            var kbStr = (len / 1024).toFixed(1);
+            charsLabel.textContent = kbStr + ' KB' + (len > 8000 ? ' (over threshold)' : '');
             charsLabel.className = 'text-[0.7rem] ' + (len > 8000 ? 'text-amber-400' : 'text-dimmer');
           }
         };

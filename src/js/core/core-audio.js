@@ -76,7 +76,6 @@ function _renderAudioPill() {
   if (!dropdown) {
     dropdown = document.createElement('div');
     dropdown.className = 'audio-pill-dropdown';
-    if (window.Aether && Aether.materials) Aether.materials.apply(dropdown, 'regular');
     el.appendChild(dropdown);
   }
 
@@ -84,97 +83,60 @@ function _renderAudioPill() {
 
   // Tab audio source
   if (tab) {
-    rows += '<div class="audio-pill-row audio-pill-source" onclick="if(typeof goToAudioTab===\'function\')goToAudioTab()">'
+    rows += '<button onclick="if(typeof goToAudioTab===\'function\')goToAudioTab()">'
       + _islandAudioBars
-      + '<span class="audio-pill-row-label">' + escapeHtml(tab.label || 'Tab Audio') + '</span></div>';
+      + ' ' + escapeHtml(tab.label || 'Tab Audio') + '</button>';
   }
 
   // TTS status
   if (tts) {
-    const ttsIcon = tts.paused
-      ? icon('play', { size: 14 })
-      : _islandWaveformBars;
-    rows += '<div class="audio-pill-row audio-pill-tts-status">'
-      + ttsIcon
-      + '<span class="audio-pill-row-label">' + escapeHtml(tts.label || 'TTS') + '</span>'
-      + '<span class="island-tts-speed" onclick="event.stopPropagation();_ttsCycleSpeed()" title="Click to change speed">' + (parseFloat(localStorage.getItem('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x</span>';
-    // Pause/stop controls
-    rows += '<button class="audio-pill-ctrl" onclick="_ttsPauseResume()" title="' + (tts.paused ? 'Resume' : 'Pause') + '">'
-      + (tts.paused
-        ? icon('play', { size: 12, strokeWidth: '2.5' })
-        : icon('pause', { size: 12, strokeWidth: '2.5' }))
+    rows += '<button onclick="_ttsPauseResume();_renderAudioPill()" style="color:var(--nr-accent)">'
+      + (tts.paused ? icon('play', { size: 14 }) : icon('pause', { size: 14 }))
+      + ' ' + (tts.paused ? 'Resume TTS' : 'Pause TTS')
+      + ' <span style="margin-left:auto;font-size:0.7rem;opacity:0.5">' + (parseFloat(localStorage.getItem('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x</span>'
       + '</button>';
-    rows += '<button class="audio-pill-ctrl audio-pill-stop" onclick="_ttsStopAll()" title="Stop">'
-      + icon('close', { size: 12, strokeWidth: '2.5' })
-      + '</button>';
-    rows += '</div>';
+    rows += '<button onclick="_ttsStopAll();_renderAudioPill()">'
+      + icon('close', { size: 14 }) + ' Stop TTS</button>';
   }
 
   // CC row
   if (cc) {
-    const ccIcon = icon('cc', { size: 14 });
-    rows += '<div class="audio-pill-row audio-pill-cc" onclick="if(typeof toggleCaptions===\'function\')toggleCaptions()">'
-      + ccIcon
-      + '<span class="audio-pill-row-label">' + escapeHtml(cc.label || 'CC') + '</span>';
-    if (cc.active) {
-      rows += '<button class="audio-pill-ctrl audio-pill-stop" onclick="event.stopPropagation();if(typeof stopCaptions===\'function\')stopCaptions()" title="Stop CC">'
-        + icon('close', { size: 12, strokeWidth: '2.5' })
-        + '</button>';
-    }
-    rows += '</div>';
+    rows += '<button onclick="if(typeof toggleCaptions===\'function\')toggleCaptions()" style="color:var(--nr-accent)">'
+      + icon('cc', { size: 14 }) + ' ' + escapeHtml(cc.label || 'CC') + '</button>';
   } else if (tab) {
-    // Only show CC available option when tab audio is playing but CC isn't active
-    rows += '<div class="audio-pill-row" onclick="if(typeof toggleCaptions===\'function\')toggleCaptions()">'
-      + icon('cc', { size: 14 })
-      + '<span class="audio-pill-row-label">Captions</span></div>';
+    rows += '<button onclick="if(typeof toggleCaptions===\'function\')toggleCaptions()">'
+      + icon('cc', { size: 14 }) + ' Captions</button>';
   }
 
-  // Mic — recording, transcribing, or idle
-  var micRecording = typeof _pillMicRecorder !== 'undefined' && _pillMicRecorder;
+  // Mic
   if (micRecording) {
-    rows += '<div class="audio-pill-row audio-pill-mic-active" onclick="_pillMicClick()">'
-      + icon('microphone', { size: 14, stroke: '#ef4444' })
-      + '<span class="audio-pill-row-label" style="color:#ef4444">Stop recording</span></div>';
-    // Show live transcript if available
-    const liveText = (typeof _pillMicLiveText !== 'undefined' && _pillMicLiveText) ? _pillMicLiveText : '';
-    if (liveText) {
-      rows += '<div class="audio-pill-row audio-pill-transcript">'
-        + '<span class="audio-pill-row-label" style="font-size:12px;opacity:0.7;white-space:pre-wrap;max-height:60px;overflow-y:auto">' + escapeHtml(liveText) + '</span></div>';
-    }
+    rows += '<button onclick="_pillMicClick()" style="color:#ef4444">'
+      + icon('microphone', { size: 14, stroke: '#ef4444' }) + ' Stop recording</button>';
   } else if (mic) {
-    // Transcribing phase (after recording stopped, waiting for Whisper)
-    rows += '<div class="audio-pill-row">'
-      + icon('microphone', { size: 14 })
-      + '<span class="audio-pill-row-label">' + escapeHtml(mic.label || 'Transcribing…') + '</span></div>';
+    rows += '<button disabled>'
+      + icon('microphone', { size: 14 }) + ' ' + escapeHtml(mic.label || 'Transcribing…') + '</button>';
   } else {
-    rows += '<div class="audio-pill-row" onclick="_pillMicClick()">'
-      + icon('microphone', { size: 14 })
-      + '<span class="audio-pill-row-label">Voice input</span></div>';
+    rows += '<button onclick="_pillMicClick()">'
+      + icon('microphone', { size: 14 }) + ' Voice input</button>';
   }
 
-  // White noise row
+  // White noise
   if (rainActive) {
-    const noiseLabel = (typeof NOISE_PRESETS !== 'undefined' && NOISE_PRESETS[_rainNoiseType]) ? NOISE_PRESETS[_rainNoiseType].label : _rainNoiseType;
-    const noiseTypes = typeof NOISE_PRESETS !== 'undefined' ? Object.keys(NOISE_PRESETS) : [];
-    rows += '<div class="audio-pill-row audio-pill-noise-active">'
-      + icon('rain', { size: 14 })
-      + '<span class="audio-pill-noise-type" onclick="event.stopPropagation();_pillNoiseCycle()" title="Click to change type">' + escapeHtml(noiseLabel) + '</span>'
-      + '<input type="range" class="audio-pill-noise-vol" min="0" max="100" value="' + Math.round(_rainVolume * 100) + '" onclick="event.stopPropagation()" oninput="event.stopPropagation();setRainVolume(this.value/100)" title="Volume">'
-      + '<button class="audio-pill-ctrl audio-pill-stop" onclick="event.stopPropagation();stopRain()" title="Stop">'
-      + icon('close', { size: 12, strokeWidth: '2.5' })
-      + '</button></div>';
+    var noiseLabel = (typeof NOISE_PRESETS !== 'undefined' && typeof _rainNoiseType !== 'undefined' && NOISE_PRESETS[_rainNoiseType]) ? NOISE_PRESETS[_rainNoiseType].label : 'White noise';
+    rows += '<button onclick="event.stopPropagation();_pillNoiseCycle();_renderAudioPill()" style="color:var(--nr-accent)">'
+      + icon('rain', { size: 14 }) + ' ' + escapeHtml(noiseLabel) + '</button>';
+    rows += '<button onclick="stopRain();_renderAudioPill()">'
+      + icon('close', { size: 14 }) + ' Stop noise</button>';
   } else {
-    rows += '<div class="audio-pill-row" onclick="startRain()">'
-      + icon('rain', { size: 14 })
-      + '<span class="audio-pill-row-label">White noise</span></div>';
+    rows += '<button onclick="startRain();_renderAudioPill()">'
+      + icon('rain', { size: 14 }) + ' White noise</button>';
   }
 
-  // Read aloud button
-  rows += '<div class="audio-pill-row" onclick="_readPageAloud()">'
-    + icon('speaker', { size: 14 })
-    + '<span class="audio-pill-row-label">Read aloud</span></div>';
+  // Read aloud
+  rows += '<button onclick="_readPageAloud()">'
+    + icon('speaker', { size: 14 }) + ' Read aloud</button>';
 
-  dropdown.innerHTML = '<div class="audio-pill-dropdown-inner nr-menu">' + rows + '</div>';
+  dropdown.innerHTML = rows;
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _renderAudioPill);
 else setTimeout(_renderAudioPill, 0);

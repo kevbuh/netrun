@@ -5,6 +5,7 @@ import { registerToolIPC } from './ipc-handlers.js';
 import { initInsight } from './ambient/index.js';
 import { contextManager } from './context/manager.js';
 import { contextIntake } from './context/intake.js';
+import { parakeetManager } from './parakeet-manager.js';
 
 /**
  * Initialize the core system: tools, providers, IPC handlers.
@@ -38,3 +39,4 @@ export { toolRegistry } from './tools/index.js';
 export { providerRegistry } from './providers/registry.js';
 export { getDb, closeDb } from './db/connection.js';
 export { contextIntake } from './context/intake.js';
+export { parakeetManager } from './parakeet-manager.js';

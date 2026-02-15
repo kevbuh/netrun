@@ -327,31 +327,42 @@ function _pillMicClick() {
 
     _renderAudioPill();
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-    recorder.onstop = () => {
+    recorder.onstop = async () => {
       _pillMicRecorder = null;
       if (_pillMicRecognition) { try { _pillMicRecognition.stop(); } catch(e) {} _pillMicRecognition = null; }
       stream.getTracks().forEach(t => t.stop());
       _renderAudioPill();
       const blob = new Blob(chunks, { type: 'audio/webm' });
       _updateAudioUnified('mic', { label: 'Transcribing…' });
-      // Use raw fetch for blob upload with custom Content-Type
-      fetch('/api/transcribe', { method: 'POST', headers: { 'Content-Type': 'audio/webm', 'Authorization': 'Bearer ' + (localStorage.getItem('authToken') || '') }, body: blob })
-        .then(r => r.json())
-        .then(data => {
-          _clearAudioUnified('mic');
-          if (data.text) {
-            const pill = document.getElementById('pill-audio-unified');
-            const rect = pill ? pill.getBoundingClientRect() : { x: window.innerWidth / 2 - 100, bottom: 60 };
-            _showPanel({ anchor: { x: rect.x, y: rect.bottom + 4 }, initialValue: data.text, finalized: true });
-            if (localStorage.getItem('voiceAutoSend') === 'on') {
-              setTimeout(() => {
-                const popup = document.getElementById('doc-chat-ask-float');
-                if (popup) _sendPopupChatMessage(popup, '');
-              }, 50);
-            }
+      try {
+        // Decode webm/opus → PCM float32 via AudioContext, then transcribe via IPC
+        const arrayBuf = await blob.arrayBuffer();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        const decoded = await audioCtx.decodeAudioData(arrayBuf);
+        const pcmFloat32 = decoded.getChannelData(0);
+        audioCtx.close();
+        const bytes = new Uint8Array(pcmFloat32.buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += 8192) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+        }
+        const pcmBase64 = btoa(binary);
+        const data = await electronAPI.captionsTranscribe(pcmBase64, 16000);
+        _clearAudioUnified('mic');
+        if (data && data.text) {
+          const pill = document.getElementById('pill-audio-unified');
+          const rect = pill ? pill.getBoundingClientRect() : { x: window.innerWidth / 2 - 100, bottom: 60 };
+          _showPanel({ anchor: { x: rect.x, y: rect.bottom + 4 }, initialValue: data.text, finalized: true });
+          if (localStorage.getItem('voiceAutoSend') === 'on') {
+            setTimeout(() => {
+              const popup = document.getElementById('doc-chat-ask-float');
+              if (popup) _sendPopupChatMessage(popup, '');
+            }, 50);
           }
-        })
-        .catch(() => { _clearAudioUnified('mic'); });
+        }
+      } catch {
+        _clearAudioUnified('mic');
+      }
     };
     recorder.start();
   }).catch(() => {});

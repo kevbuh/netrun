@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Tool, ToolResult } from '../types.js';
 import { pythonManager } from '../../python/process-manager.js';
+import { parakeetManager } from '../../parakeet-manager.js';
 
 const transcribeParams = z.object({
   audioPath: z.string().describe('Path to the audio file to transcribe'),
@@ -8,25 +9,14 @@ const transcribeParams = z.object({
 
 export const mediaTranscribe: Tool<z.infer<typeof transcribeParams>, { text: string }> = {
   name: 'media-transcribe',
-  description: 'Transcribe audio to text using Whisper.',
+  description: 'Transcribe audio to text using Parakeet TDT.',
   category: 'media',
   access: ['agent', 'mcp', 'ui'],
   parameters: transcribeParams,
   async execute(input): Promise<ToolResult<{ text: string }>> {
     try {
-      const result = await pythonManager.runCode(`
-import sys, json
-try:
-    from pywhispercpp.model import Model
-    model = Model('base.en')
-    segments = model.transcribe(sys.argv[1])
-    text = ' '.join(s.text.strip() for s in segments if s.text.strip())
-    print(json.dumps({"text": text}))
-except Exception as e:
-    print(json.dumps({"error": str(e)}))
-`, [input.audioPath]) as any;
-
-      if (result.error) return { success: false, error: result.error };
+      const result = await parakeetManager.transcribe(input.audioPath);
+      if (!result.text) return { success: false, error: 'No speech detected' };
       return { success: true, data: { text: result.text } };
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) };

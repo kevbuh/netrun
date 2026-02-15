@@ -64,7 +64,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('terminal:exit');
   },
 
-  // ── Captions (whisper.cpp via IPC) ──
+  // ── Captions (Parakeet TDT via IPC) ──
   captionsTranscribe: (pcmBase64, sampleRate) => ipcRenderer.invoke('captions:transcribe', pcmBase64, sampleRate),
 
   // ── Core tool system (TypeScript backend) ──

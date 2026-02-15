@@ -1620,7 +1620,7 @@ function _panelBuildChatInput(popup, config) {
     }
   });
   askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  // Mic button for voice input (MediaRecorder + Whisper)
+  // Mic button for voice input (MediaRecorder + Parakeet TDT via IPC)
   const micBtn = document.createElement('button');
   micBtn.className = 'aether-input-btn doc-ask-mic-btn';
   micBtn.innerHTML = icon('microphone', { size: 14 });
@@ -1639,30 +1639,42 @@ function _panelBuildChatInput(popup, config) {
       micRecorder = recorder;
       micBtn.classList.add('doc-ask-mic-active');
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         micRecorder = null;
         micBtn.classList.remove('doc-ask-mic-active');
         stream.getTracks().forEach(t => t.stop());
         const blob = new Blob(chunks, { type: 'audio/webm' });
-        // Show transcribing state
         const prevPlaceholder = askInput.placeholder;
         askInput.placeholder = 'Transcribing…';
-        islandUpdate('ai-transcribe', { type: 'ai', label: 'whisper', detail: 'Transcribing \u00B7 whisper' });
-        // raw fetch: audio/webm upload (non-JSON Content-Type)
-        fetch('/api/transcribe', { method: 'POST', headers: { 'Content-Type': 'audio/webm', ..._authHeaders() }, body: blob })
-          .then(r => r.json())
-          .then(data => {
-            islandRemove('ai-transcribe');
-            askInput.placeholder = prevPlaceholder;
-            if (data.text) {
-              askInput.value = askInput.value + (askInput.value ? ' ' : '') + data.text;
-              askInput.focus();
-              if (localStorage.getItem('voiceAutoSend') === 'on') {
-                setTimeout(() => _sendPopupChatMessage(popup, capturedText), 50);
-              }
+        islandUpdate('ai-transcribe', { type: 'ai', label: 'parakeet', detail: 'Transcribing · parakeet' });
+        try {
+          // Decode webm/opus → PCM float32 via AudioContext
+          const arrayBuf = await blob.arrayBuffer();
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+          const decoded = await audioCtx.decodeAudioData(arrayBuf);
+          const pcmFloat32 = decoded.getChannelData(0);
+          audioCtx.close();
+          // Convert float32 bytes → base64 for IPC (chunked to avoid call stack overflow)
+          const bytes = new Uint8Array(pcmFloat32.buffer);
+          let binary = '';
+          for (let i = 0; i < bytes.length; i += 8192) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+          }
+          const pcmBase64 = btoa(binary);
+          const data = await electronAPI.captionsTranscribe(pcmBase64, 16000);
+          islandRemove('ai-transcribe');
+          askInput.placeholder = prevPlaceholder;
+          if (data && data.text) {
+            askInput.value = askInput.value + (askInput.value ? ' ' : '') + data.text;
+            askInput.focus();
+            if (localStorage.getItem('voiceAutoSend') === 'on') {
+              setTimeout(() => _sendPopupChatMessage(popup, capturedText), 50);
             }
-          })
-          .catch(() => { islandRemove('ai-transcribe'); askInput.placeholder = prevPlaceholder; });
+          }
+        } catch {
+          islandRemove('ai-transcribe');
+          askInput.placeholder = prevPlaceholder;
+        }
       };
       recorder.start();
     }).catch(() => {});

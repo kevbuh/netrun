@@ -145,17 +145,15 @@ window.addEventListener('resize', function() {
       dot.style.boxShadow = '';
     }
 
-    // Build dropdown tray
+    // Build dropdown
     let dropdown = el.querySelector('.pulse-dropdown');
     if (!dropdown) {
       dropdown = document.createElement('div');
       dropdown.className = 'pulse-dropdown';
-      if (window.Aether && Aether.materials) Aether.materials.apply(dropdown, 'regular');
       el.appendChild(dropdown);
     }
     var recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];
-    let html = '<div class="pulse-dropdown-inner nr-menu">';
-    html += '<div style="padding:6px 8px;font-size:0.6rem;color:var(--aether-text-muted);text-transform:uppercase;letter-spacing:0.5px">Live Pulse</div>';
+    let html = '<div class="pulse-dropdown-header">Live Pulse</div>';
     const start = Math.max(0, recent.length - 30);
     for (let ri = recent.length - 1; ri >= start; ri--) {
       const ev = recent[ri];
@@ -166,7 +164,6 @@ window.addEventListener('resize', function() {
       html += '<div class="pulse-event-row"><span class="pulse-status-dot" style="background:' + statusDot + '"></span><span class="pulse-cat" style="color:' + col + '">' + escapeHtml(ev.category) + '</span><span class="pulse-label">' + escapeHtml(ev.label) + '</span><span class="pulse-age">' + ageStr + '</span></div>';
     }
     if (!recent.length) html += '<div style="padding:8px;opacity:0.3;font-size:0.65rem;text-align:center">No events yet</div>';
-    html += '</div>';
     dropdown.innerHTML = html;
   }
   function _initPulse() {

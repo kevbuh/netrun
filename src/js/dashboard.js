@@ -933,10 +933,21 @@ async function renderDashboard() {
     if (_todayActivity.length) _statsItems.push(_todayActivity.length + ' activities');
     if (_openTaskCount) _statsItems.push(_openTaskCount + ' open tasks');
     if (_unreadSavedCount) _statsItems.push(_unreadSavedCount + ' unread saved');
-    if (_statsItems.length) {
-      contextIngest('dashboard', '## Stats', '- ' + _statsItems.join(', '),
-        { dedupeKey: 'dash-' + Math.floor(Date.now() / 3600000) });
-    }
+    // Fetch context file size and include in stats
+    electronAPI.dbQuery('context-list').then(function(res) {
+      var mainFile = (res.files || []).find(function(f) { return f.file_id === 'main.md' || f.filePath === 'main.md'; });
+      var kb = mainFile ? (mainFile.char_count / 1024).toFixed(1) : '0';
+      _statsItems.push(kb + ' KB context');
+      if (_statsItems.length) {
+        contextIngest('dashboard', '## Stats', '- ' + _statsItems.join(', '),
+          { dedupeKey: 'dash-' + Math.floor(Date.now() / 3600000) });
+      }
+    }).catch(function() {
+      if (_statsItems.length) {
+        contextIngest('dashboard', '## Stats', '- ' + _statsItems.join(', '),
+          { dedupeKey: 'dash-' + Math.floor(Date.now() / 3600000) });
+      }
+    });
   }
 
   // ── LLM daily summary (async, streamed) ──

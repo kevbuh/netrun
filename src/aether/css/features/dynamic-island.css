@@ -1282,27 +1282,33 @@
     .browse-mode #pill-live-pulse {
       display: flex;
     }
+    /* Pulse dropdown — same style as hamburger menu */
     .pulse-dropdown {
       display: none;
       position: absolute;
       top: 100%;
       right: 0;
-      padding-top: 4px;
+      margin-top: 4px;
       min-width: 240px;
       max-height: 360px;
-      z-index: 9999;
-    }
-    .pulse-dropdown-inner {
-      background: var(--aether-dropdown-bg);
-      border: 1px solid var(--aether-border);
-      border-radius: 10px;
-      padding: 4px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-      max-height: 340px;
       overflow-y: auto;
+      background: var(--aether-dropdown-bg);
+      border-radius: 14px;
+      padding: 6px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      z-index: 9999;
+      flex-direction: column;
+      gap: 1px;
     }
     #pill-live-pulse:hover .pulse-dropdown {
-      display: block;
+      display: flex;
+    }
+    .pulse-dropdown-header {
+      padding: 6px 12px;
+      font-size: 0.6rem;
+      color: var(--aether-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     .pulse-event-row {
       display: flex;
@@ -1391,24 +1397,50 @@
     }
     .audio-pill-active .island-waveform { height: 14px; }
     .audio-pill-active .island-waveform-bar { background: var(--nr-accent); }
+    /* Audio pill dropdown — same style as hamburger menu */
     .audio-pill-dropdown {
       display: none;
       position: absolute;
       top: 100%;
       right: 0;
-      padding-top: 4px;
-      min-width: 180px;
-      z-index: 9999;
-    }
-    .audio-pill-dropdown-inner {
+      margin-top: 4px;
+      min-width: 200px;
+      width: max-content;
       background: var(--aether-dropdown-bg);
-      border: 1px solid var(--aether-border);
-      border-radius: 10px;
-      padding: 4px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      border-radius: 14px;
+      padding: 6px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      z-index: 9999;
+      flex-direction: column;
+      gap: 1px;
     }
     #pill-audio-unified:hover .audio-pill-dropdown {
-      display: block;
+      display: flex;
+    }
+    .audio-pill-dropdown button {
+      width: 100%;
+      text-align: left;
+      padding: 6px 12px;
+      border: none;
+      background: none;
+      color: var(--aether-text);
+      font-size: 0.78rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+    .audio-pill-dropdown button:hover {
+      background: var(--aether-hover);
+    }
+    .audio-pill-dropdown button:disabled {
+      color: var(--aether-text-dimmest);
+      cursor: default;
+    }
+    .audio-pill-dropdown button:disabled:hover {
+      background: none;
     }
     .audio-pill-row {
       display: flex;
