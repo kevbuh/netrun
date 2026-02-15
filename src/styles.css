@@ -2000,7 +2000,7 @@
     }
     /* NTP: tabs pill sits to the left of the centered nav icons */
     .browse-mode.island-mode.ntp-active #pill-url-wrap {
-      position: static;
+      position: relative;
       transform: none;
       display: flex;
       align-items: center;
@@ -2008,6 +2008,9 @@
       margin-right: 0;
       gap: 0;
       height: 24px;
+    }
+    .browse-mode.island-mode.ntp-active #pill-url-wrap #pill-url-dropdown {
+      min-width: 300px;
     }
     .browse-mode.island-mode.ntp-active #pill-url-wrap > * {
       margin: 0;

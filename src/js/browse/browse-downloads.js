@@ -1,6 +1,40 @@
 // browse-downloads.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
 
+// ── Doom Scroll Prevention ──
+const _DOOM_SCROLL_DEFAULTS = [
+  { domain: 'twitter.com', mode: 'nudge', minutes: 5 },
+  { domain: 'x.com', mode: 'nudge', minutes: 5 },
+  { domain: 'reddit.com', mode: 'nudge', minutes: 5 },
+  { domain: 'tiktok.com', mode: 'block', minutes: 0 },
+  { domain: 'instagram.com', mode: 'nudge', minutes: 10 },
+  { domain: 'facebook.com', mode: 'nudge', minutes: 10 },
+];
+
+function _getDoomScrollSites() {
+  try {
+    const saved = localStorage.getItem('doomScrollSites');
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return _DOOM_SCROLL_DEFAULTS.slice();
+}
+
+function _saveDoomScrollSites(list) {
+  localStorage.setItem('doomScrollSites', JSON.stringify(list));
+}
+
+function _doomScrollMatch(url) {
+  if (localStorage.getItem('doomScrollEnabled') === 'false') return null;
+  let hostname;
+  try { hostname = new URL(url).hostname.toLowerCase(); } catch { return null; }
+  const sites = _getDoomScrollSites();
+  for (const site of sites) {
+    const d = site.domain.toLowerCase();
+    if (hostname === d || hostname.endsWith('.' + d)) return site;
+  }
+  return null;
+}
+
 // ── Download Manager ──
 const DOWNLOAD_RETENTION_MS = 60 * 60 * 1000; // 1 hour
 
@@ -309,6 +343,12 @@ function _browseHandleNavigation(tab, frame) {
     // Restore original file:// URL when navigating through the local-file proxy
     const navUrl = (e.url.includes('/api/local-file?path=') && frame.dataset.originalUrl)
       ? frame.dataset.originalUrl : e.url;
+    // Doom scroll: block mode — intercept before anything else
+    const _dsMatch = _doomScrollMatch(navUrl);
+    if (_dsMatch && _dsMatch.mode === 'block') {
+      _browseShowBlockedPage(tab, frame, navUrl, _dsMatch.domain);
+      return;
+    }
     tab.url = navUrl;
     tab.title = _browseTitleFromUrl(navUrl);
     tab.favicon = _browseFaviconUrl(navUrl);
@@ -958,7 +998,10 @@ function _browseInjectContentScripts(tab, frame) {
 
   // Listen for context menu via console message
   frame.addEventListener('console-message', (e) => {
-    if (e.message && e.message.startsWith('__AETHER_LINK_HOVER__')) {
+    if (e.message === '__AETHER_CLOSE_TAB__') {
+      if (typeof browseCloseTab === 'function') browseCloseTab(tab.id);
+      return;
+    } else if (e.message && e.message.startsWith('__AETHER_LINK_HOVER__')) {
       _showLinkPreview(e.message.slice('__AETHER_LINK_HOVER__'.length));
       return;
     } else if (e.message === '__AETHER_LINK_LEAVE__') {
@@ -1144,6 +1187,76 @@ function _browseUpdateRssPill(tab) {
   });
 }
 
+function _browseShowBlockedPage(tab, frame, url, domain) {
+  const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
+  const bg = isDark ? '#0a0a0a' : '#f5f5f5';
+  const card = isDark ? '#151515' : '#fff';
+  const text = isDark ? '#e0e0e0' : '#333';
+  const dim = isDark ? '#777' : '#666';
+  const border = isDark ? '#222' : '#e0e0e0';
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:${bg};color:${text};display:flex;align-items:center;justify-content:center;min-height:100vh}
+    .c{text-align:center;max-width:400px;padding:40px}
+    .icon{font-size:48px;margin-bottom:20px;opacity:.6}
+    h1{font-size:18px;font-weight:600;margin-bottom:8px}
+    p{font-size:13px;color:${dim};margin-bottom:24px;line-height:1.5}
+    .domain{color:${text};font-weight:500}
+    button{padding:8px 20px;border-radius:8px;border:1px solid ${border};background:${card};color:${text};font-size:13px;cursor:pointer;font-family:inherit;transition:border-color .15s}
+    button:hover{border-color:${accent};color:${accent}}
+  </style></head><body><div class="c">
+    <div class="icon">\u26D4</div>
+    <h1>Site blocked</h1>
+    <p><span class="domain">${domain}</span> is blocked by Focus Mode to help you stay on track.</p>
+    <button onclick="history.back()">Go back</button>
+  </div></body></html>`;
+  try { frame.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html)); } catch {}
+  tab.title = 'Blocked — ' + domain;
+  tab.blank = false;
+  _browseRenderTabs();
+}
+
+function _injectDoomScrollNudge(tab, el, config) {
+  const minutes = config.minutes || 5;
+  const domain = config.domain;
+  el.executeJavaScript(`(function(){
+    if(window.__aetherDoomScrollInjected) return;
+    window.__aetherDoomScrollInjected=true;
+    var minutes=${minutes};
+    var domain=${JSON.stringify(domain)};
+    function showOverlay(elapsed){
+      if(document.getElementById('__aether-doom-overlay')) return;
+      var ov=document.createElement('div');
+      ov.id='__aether-doom-overlay';
+      ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:2147483647;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+      var card=document.createElement('div');
+      card.style.cssText='background:#181818;border:1px solid #333;border-radius:16px;padding:32px 40px;text-align:center;max-width:380px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#e0e0e0;';
+      card.innerHTML='<div style="font-size:36px;margin-bottom:16px;opacity:.7">\u23F1</div>'
+        +'<div style="font-size:16px;font-weight:600;margin-bottom:8px">Time check</div>'
+        +'<div style="font-size:13px;color:#999;margin-bottom:24px;line-height:1.5">You\\u2019ve been on <strong style="color:#e0e0e0">'+domain+'</strong> for <strong style="color:#e0e0e0">'+elapsed+'</strong> minutes.</div>'
+        +'<div style="display:flex;gap:10px;justify-content:center">'
+        +'<button id="__aether-ds-close" style="padding:8px 18px;border-radius:8px;background:#b4451a;color:#fff;border:none;font-size:13px;cursor:pointer;font-family:inherit">Close tab</button>'
+        +'<button id="__aether-ds-more" style="padding:8px 18px;border-radius:8px;background:transparent;color:#ccc;border:1px solid #444;font-size:13px;cursor:pointer;font-family:inherit">5 more minutes</button>'
+        +'</div>';
+      ov.appendChild(card);
+      document.body.appendChild(ov);
+      document.getElementById('__aether-ds-close').onclick=function(){console.log('__AETHER_CLOSE_TAB__');};
+      document.getElementById('__aether-ds-more').onclick=function(){
+        ov.remove();
+        window.__aetherDoomScrollInjected=false;
+        setTimeout(function(){
+          if(!window.__aetherDoomScrollInjected){
+            window.__aetherDoomScrollInjected=true;
+            showOverlay(elapsed+5);
+          }
+        },5*60*1000);
+      };
+    }
+    setTimeout(function(){showOverlay(minutes);},minutes*60*1000);
+  })();`).catch(() => {});
+}
+
 function _browseBindFrame(tab) {
   if (tab.contentType === 'reader') return;
   const el = tab.el;
@@ -1287,15 +1400,23 @@ function _browseBindFrame(tab) {
       })();`).catch(() => {});
     };
 
+    // Doom scroll nudge injection
+    const _injectDoomNudge = (url) => {
+      const match = _doomScrollMatch(url);
+      if (match && match.mode === 'nudge') _injectDoomScrollNudge(tab, el, match);
+    };
+
     el.addEventListener('dom-ready', () => {
       _injectPlaceholderCSS(tab.url || '');
       _injectCosmetic(tab.url || '');
       _hideYTShorts(tab.url || '');
+      _injectDoomNudge(tab.url || '');
     });
     el.addEventListener('did-navigate', (e) => {
       _injectPlaceholderCSS(e.url || '');
       _injectCosmetic(e.url || '');
       _hideYTShorts(e.url || '');
+      _injectDoomNudge(e.url || '');
     });
     el.addEventListener('did-finish-load', () => {
       // Update badge count after requests finish

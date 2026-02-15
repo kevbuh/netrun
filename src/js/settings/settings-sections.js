@@ -572,6 +572,63 @@ function _renderToolsSettings() {
   `;
 }
 
+function _renderDoomScrollSites() {
+  const sites = typeof _getDoomScrollSites === 'function' ? _getDoomScrollSites() : [];
+  let html = '';
+  for (let i = 0; i < sites.length; i++) {
+    const s = sites[i];
+    const pillColor = s.mode === 'block' ? 'bg-red-500/15 text-red-400' : 'bg-yellow-500/15 text-yellow-400';
+    const pillLabel = s.mode === 'block' ? 'Block' : s.minutes + ' min';
+    html += `<div class="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-hover group" style="margin-bottom:2px">
+      <span class="text-primary text-[0.8rem] flex-1">${escapeHtml(s.domain)}</span>
+      <span class="text-[0.7rem] font-medium px-2 py-0.5 rounded-full ${pillColor}">${pillLabel}</span>
+      <button onclick="_removeDoomScrollSite(${i})" class="text-dimmer hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" style="background:none;border:none;cursor:pointer;padding:2px">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`;
+  }
+  // Add site row
+  html += `<div class="flex items-center gap-2 mt-2 pt-2 border-t border-border-subtle">
+    <input type="text" id="doom-scroll-new-domain" placeholder="domain.com" class="flex-1 text-[0.8rem] px-2 py-1.5 rounded-md bg-transparent border border-border-input text-primary placeholder:text-dimmer focus:outline-none focus:border-accent" style="min-width:0">
+    <select id="doom-scroll-new-mode" class="text-[0.78rem] px-2 py-1.5 rounded-md bg-card border border-border-input text-primary focus:outline-none focus:border-accent" style="color:var(--text-primary);background:var(--bg-card)">
+      <option value="nudge">Nudge</option>
+      <option value="block">Block</option>
+    </select>
+    <input type="number" id="doom-scroll-new-minutes" value="5" min="1" max="120" class="text-[0.8rem] px-2 py-1.5 rounded-md bg-transparent border border-border-input text-primary focus:outline-none focus:border-accent" style="width:52px">
+    <button onclick="_addDoomScrollSite()" class="text-[0.78rem] px-3 py-1.5 rounded-md border border-border-input bg-card text-primary hover:border-accent hover:text-accent transition-colors cursor-pointer" style="background:var(--bg-card)">Add</button>
+  </div>`;
+  html += `<div class="mt-2"><a href="#" onclick="event.preventDefault();_resetDoomScrollSites()" class="text-dimmer text-[0.72rem] hover:text-dim transition-colors">Reset to defaults</a></div>`;
+  return html;
+}
+
+function _addDoomScrollSite() {
+  const domainInput = document.getElementById('doom-scroll-new-domain');
+  const modeSelect = document.getElementById('doom-scroll-new-mode');
+  const minutesInput = document.getElementById('doom-scroll-new-minutes');
+  if (!domainInput) return;
+  const domain = domainInput.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  if (!domain) return;
+  const mode = modeSelect ? modeSelect.value : 'nudge';
+  const minutes = minutesInput ? parseInt(minutesInput.value) || 5 : 5;
+  const sites = _getDoomScrollSites();
+  if (sites.some(s => s.domain === domain)) return;
+  sites.push({ domain, mode, minutes });
+  _saveDoomScrollSites(sites);
+  document.getElementById('doom-scroll-sites-list').innerHTML = _renderDoomScrollSites();
+}
+
+function _removeDoomScrollSite(index) {
+  const sites = _getDoomScrollSites();
+  sites.splice(index, 1);
+  _saveDoomScrollSites(sites);
+  document.getElementById('doom-scroll-sites-list').innerHTML = _renderDoomScrollSites();
+}
+
+function _resetDoomScrollSites() {
+  localStorage.removeItem('doomScrollSites');
+  document.getElementById('doom-scroll-sites-list').innerHTML = _renderDoomScrollSites();
+}
+
 function _renderBrowserSettings() {
   return `
     <div class="mb-8">
@@ -594,6 +651,19 @@ function _renderBrowserSettings() {
           <div class="w-9 h-5 bg-gray-600 peer-checked:bg-accent rounded-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
         </label>
       </div>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
+      <div class="flex items-center justify-between mb-1">
+        <div>
+          <h3 class="text-white_ text-sm font-semibold">Focus Mode</h3>
+          <p class="text-dim text-[0.8rem]">Block or limit time on distracting sites to prevent doom scrolling.</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="doom-scroll-toggle" class="sr-only peer" ${localStorage.getItem('doomScrollEnabled') !== 'false' ? 'checked' : ''} onchange="localStorage.setItem('doomScrollEnabled', this.checked ? 'true' : 'false')">
+          <div class="w-9 h-5 bg-gray-600 peer-checked:bg-accent rounded-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+        </label>
+      </div>
+      <div id="doom-scroll-sites-list" class="mt-3">${_renderDoomScrollSites()}</div>
     </div>
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-1">Site Permissions</h3>
