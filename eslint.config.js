@@ -32,6 +32,31 @@ export default [
     },
   },
   {
+    // Aether design system — loaded via <script> tags, not modules
+    files: ['src/aether/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: {
+        ...globals.browser,
+        AetherTokens: 'readonly',
+        Motion: 'readonly',
+      },
+    },
+    rules: {
+      'no-constant-condition': 'warn',
+      'no-dupe-keys': 'error',
+      'no-duplicate-case': 'error',
+      'no-unreachable': 'warn',
+      'no-self-assign': 'error',
+      'use-isnan': 'error',
+      'valid-typeof': 'error',
+      'no-var': 'warn',
+      'prefer-const': 'warn',
+      'eqeqeq': ['warn', 'smart'],
+    },
+  },
+  {
     // Electron main process — Node modules, can check undef/unused
     files: ['electron/**/*.js'],
     ignores: ['**/*.test.js', '**/*.spec.js'],

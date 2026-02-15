@@ -1,0 +1,81 @@
+/* Aether Surfaces — surface hierarchy + material blur/glass layers */
+
+/* ── Surface Hierarchy ── */
+
+.nr-surface {
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-default);
+  border-radius: var(--nr-radius-lg);
+}
+
+.nr-surface-raised {
+  background: var(--nr-bg-raised);
+  border: 1px solid var(--nr-border-default);
+  border-radius: var(--nr-radius-lg);
+}
+
+.nr-surface-sunken {
+  background: var(--nr-bg-sunken);
+  border-radius: var(--nr-radius-md);
+}
+
+.nr-surface-overlay {
+  background: var(--nr-bg-overlay);
+  border: 1px solid var(--nr-border-subtle);
+  border-radius: var(--nr-radius-xl);
+  box-shadow: 0 16px 48px var(--nr-shadow-popup);
+}
+
+/* ── Material Layers (vibrancy/translucency) ── */
+
+.nr-material-ultra-thin {
+  backdrop-filter: blur(var(--nr-material-blur-ultra-thin)) saturate(110%);
+  -webkit-backdrop-filter: blur(var(--nr-material-blur-ultra-thin)) saturate(110%);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.nr-material-thin {
+  backdrop-filter: blur(var(--nr-material-blur-thin)) saturate(120%);
+  -webkit-backdrop-filter: blur(var(--nr-material-blur-thin)) saturate(120%);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.nr-material-regular {
+  backdrop-filter: blur(var(--nr-material-blur-regular)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--nr-material-blur-regular)) saturate(140%);
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.nr-material-thick {
+  backdrop-filter: blur(var(--nr-material-blur-thick)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--nr-material-blur-thick)) saturate(160%);
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.nr-material-chrome {
+  backdrop-filter: blur(var(--nr-material-blur-chrome)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--nr-material-blur-chrome)) saturate(180%);
+  background: rgba(0, 0, 0, 0.85);
+}
+
+/* Light theme material overrides */
+[data-theme="light"] .nr-material-ultra-thin,
+[data-theme="daylight"] .nr-material-ultra-thin {
+  background: rgba(255, 255, 255, 0.3);
+}
+[data-theme="light"] .nr-material-thin,
+[data-theme="daylight"] .nr-material-thin {
+  background: rgba(255, 255, 255, 0.4);
+}
+[data-theme="light"] .nr-material-regular,
+[data-theme="daylight"] .nr-material-regular {
+  background: rgba(255, 255, 255, 0.55);
+}
+[data-theme="light"] .nr-material-thick,
+[data-theme="daylight"] .nr-material-thick {
+  background: rgba(255, 255, 255, 0.7);
+}
+[data-theme="light"] .nr-material-chrome,
+[data-theme="daylight"] .nr-material-chrome {
+  background: rgba(255, 255, 255, 0.85);
+}

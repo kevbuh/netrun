@@ -1,0 +1,91 @@
+/* Aether Menus — .nr-menu dropdown/context menus */
+
+.nr-menu {
+  min-width: 180px;
+  padding: 6px 0;
+  background: var(--nr-bg-overlay);
+  border: 1px solid var(--nr-border-subtle);
+  border-radius: var(--nr-radius-lg);
+  box-shadow: 0 16px 48px var(--nr-shadow-popup);
+  overflow: hidden;
+}
+
+.nr-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--nr-space-2);
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  color: var(--nr-text-primary);
+  cursor: pointer;
+  transition: background 0.1s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+
+.nr-menu-item:hover {
+  background: var(--nr-bg-raised);
+}
+
+.nr-menu-item:active {
+  background: var(--nr-accent);
+  color: #fff;
+}
+
+.nr-menu-item-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--nr-text-tertiary);
+}
+
+.nr-menu-item:hover .nr-menu-item-icon {
+  color: var(--nr-text-primary);
+}
+
+.nr-menu-item-label {
+  flex: 1;
+}
+
+.nr-menu-item-shortcut {
+  font-size: 0.6875rem;
+  color: var(--nr-text-quaternary);
+  margin-left: auto;
+}
+
+.nr-menu-separator {
+  height: 1px;
+  background: var(--nr-border-dim);
+  margin: 4px 0;
+}
+
+.nr-menu-header {
+  padding: 6px 12px 4px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--nr-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Destructive menu item */
+.nr-menu-item-danger {
+  color: #ef4444;
+}
+.nr-menu-item-danger:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
+/* Disabled */
+.nr-menu-item:disabled,
+.nr-menu-item[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.nr-menu-item:disabled:hover {
+  background: none;
+}

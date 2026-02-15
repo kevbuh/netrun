@@ -1,0 +1,64 @@
+/* Aether Cards — .nr-card variants */
+
+.nr-card {
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-default);
+  border-radius: var(--nr-radius-lg);
+  padding: var(--nr-space-4);
+  transition: border-color 0.15s ease;
+}
+
+.nr-card:hover {
+  border-color: var(--nr-border-strong);
+}
+
+.nr-card-raised {
+  background: var(--nr-bg-raised);
+  border: 1px solid var(--nr-border-default);
+  border-radius: var(--nr-radius-lg);
+  padding: var(--nr-space-4);
+  box-shadow: 0 6px 20px var(--nr-shadow-card);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.nr-card-raised:hover {
+  border-color: var(--nr-border-strong);
+  box-shadow: 0 8px 28px var(--nr-shadow-card);
+}
+
+.nr-card-flat {
+  background: transparent;
+  border: none;
+  border-radius: var(--nr-radius-lg);
+  padding: var(--nr-space-4);
+}
+
+.nr-card-interactive {
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.nr-card-interactive:hover {
+  transform: translateY(-1px);
+}
+
+.nr-card-interactive:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* Card sections */
+.nr-card-header {
+  padding-bottom: var(--nr-space-3);
+  border-bottom: 1px solid var(--nr-border-dim);
+  margin-bottom: var(--nr-space-3);
+}
+
+.nr-card-body {
+  flex: 1;
+}
+
+.nr-card-footer {
+  padding-top: var(--nr-space-3);
+  border-top: 1px solid var(--nr-border-dim);
+  margin-top: var(--nr-space-3);
+}

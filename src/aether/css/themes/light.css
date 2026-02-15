@@ -1,0 +1,29 @@
+/* Aether Light Theme — [data-theme="light"] overrides */
+
+[data-theme="light"] {
+  --nr-bg-body:    #f5f5f5;
+  --nr-bg-surface: #fff;
+  --nr-bg-raised:  #f0f0f0;
+  --nr-bg-sunken:  #fafafa;
+  --nr-bg-overlay: #fff;
+  --nr-bg-input:   #f8f8f8;
+
+  --nr-text-primary:    #333;
+  --nr-text-secondary:  #666;
+  --nr-text-tertiary:   #888;
+  --nr-text-quaternary: #999;
+  --nr-text-inverse:    #111;
+  --nr-text-link:       var(--nr-accent);
+
+  --nr-border-default: #e0e0e0;
+  --nr-border-strong:  #ccc;
+  --nr-border-subtle:  #e0e0e0;
+  --nr-border-dim:     #eee;
+
+  --nr-shadow-card:    rgba(0,0,0,0.08);
+  --nr-shadow-popup:   rgba(0,0,0,0.15);
+  --nr-shadow-overlay: rgba(0,0,0,0.3);
+
+  --nr-tooltip-bg:     #fff;
+  --nr-tooltip-border: #ddd;
+}

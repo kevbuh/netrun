@@ -1,0 +1,82 @@
+/* Aether Design Tokens — CSS Custom Properties
+   --nr-* prefix. Dark theme defaults.
+   During migration, both old vars and new nr-* vars coexist. */
+
+:root {
+  /* ── Background: Semantic Surface Hierarchy ── */
+  --nr-bg-body:    #0a0a0a;
+  --nr-bg-surface: #151515;
+  --nr-bg-raised:  #1e1e1e;
+  --nr-bg-sunken:  #0d0d0d;
+  --nr-bg-overlay: #181818;
+  --nr-bg-input:   #1a1a1a;
+
+  /* ── Text ── */
+  --nr-text-primary:    #e0e0e0;
+  --nr-text-secondary:  #888;
+  --nr-text-tertiary:   #666;
+  --nr-text-quaternary: #555;
+  --nr-text-inverse:    #fff;
+  --nr-text-link:       #d4845a;
+
+  /* ── Borders ── */
+  --nr-border-default: #222;
+  --nr-border-strong:  #333;
+  --nr-border-subtle:  #252525;
+  --nr-border-dim:     #1a1a1a;
+
+  /* ── Accent ── */
+  --nr-accent:       #b4451a;
+  --nr-accent-hover: #c9562a;
+
+  /* ── Shadows ── */
+  --nr-shadow-card:    rgba(0,0,0,0.3);
+  --nr-shadow-popup:   rgba(0,0,0,0.5);
+  --nr-shadow-overlay: rgba(0,0,0,0.5);
+
+  /* ── Feedback ── */
+  --nr-tooltip-bg:     #222;
+  --nr-tooltip-border: #333;
+
+  /* ── Spacing (4px grid) ── */
+  --nr-space-0:  0;
+  --nr-space-1:  4px;
+  --nr-space-2:  8px;
+  --nr-space-3:  12px;
+  --nr-space-4:  16px;
+  --nr-space-5:  20px;
+  --nr-space-6:  24px;
+  --nr-space-8:  32px;
+  --nr-space-10: 40px;
+  --nr-space-12: 48px;
+  --nr-space-16: 64px;
+
+  /* ── Radii ── */
+  --nr-radius-xs:   4px;
+  --nr-radius-sm:   6px;
+  --nr-radius-md:   8px;
+  --nr-radius-lg:   12px;
+  --nr-radius-xl:   16px;
+  --nr-radius-2xl:  20px;
+  --nr-radius-full: 9999px;
+
+  /* ── Typography ── */
+  --nr-font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --nr-font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, monospace;
+
+  /* ── Z-Index ── */
+  --nr-z-base:    0;
+  --nr-z-raised:  10;
+  --nr-z-sticky:  100;
+  --nr-z-overlay: 1000;
+  --nr-z-modal:   5000;
+  --nr-z-toast:   8000;
+  --nr-z-pill:    9999;
+
+  /* ── Materials ── */
+  --nr-material-blur-ultra-thin: 4px;
+  --nr-material-blur-thin:       8px;
+  --nr-material-blur-regular:    16px;
+  --nr-material-blur-thick:      24px;
+  --nr-material-blur-chrome:     32px;
+}

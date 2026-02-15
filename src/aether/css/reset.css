@@ -1,0 +1,26 @@
+/* Aether Reset — minimal reset + base defaults
+   Does NOT reset * { margin:0; padding:0; } — that stays in styles.css until migration. */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+[class^="nr-"],
+[class*=" nr-"] {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font: inherit;
+  vertical-align: baseline;
+}
+
+/* Base body defaults for Aether context */
+.nr-root {
+  font-family: var(--nr-font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--nr-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}

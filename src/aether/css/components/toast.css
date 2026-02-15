@@ -1,0 +1,39 @@
+/* Aether Toast — .nr-toast notification */
+
+.nr-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--nr-z-toast, 8000);
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--nr-text-primary);
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-default);
+  border-radius: var(--nr-radius-lg);
+  box-shadow: 0 8px 24px var(--nr-shadow-card);
+  pointer-events: none;
+  white-space: nowrap;
+  backdrop-filter: blur(var(--nr-material-blur-thin)) saturate(120%);
+  -webkit-backdrop-filter: blur(var(--nr-material-blur-thin)) saturate(120%);
+}
+
+.nr-toast-success {
+  border-color: #22c55e;
+}
+
+.nr-toast-error {
+  border-color: #ef4444;
+}
+
+.nr-toast-warning {
+  border-color: #f59e0b;
+}
+
+/* Top position variant */
+.nr-toast-top {
+  bottom: auto;
+  top: 48px;
+}

@@ -1,0 +1,39 @@
+/* Aether Ambient — breathing, glow, living gradient animations */
+
+.nr-breathe {
+  animation: nr-breathe 4s ease-in-out infinite;
+}
+
+.nr-glow {
+  animation: nr-glow 3s ease-in-out infinite;
+}
+
+.nr-living-gradient {
+  background-size: 200% 200%;
+  animation: nr-living-gradient 8s ease infinite;
+}
+
+@keyframes nr-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.008); }
+}
+
+@keyframes nr-glow {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50%      { box-shadow: 0 0 20px 2px var(--nr-accent); }
+}
+
+@keyframes nr-living-gradient {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .nr-breathe,
+  .nr-glow,
+  .nr-living-gradient {
+    animation: none;
+  }
+}

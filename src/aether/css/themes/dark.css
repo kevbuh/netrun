@@ -1,0 +1,6 @@
+/* Aether Dark Theme — default values (already in tokens.css :root)
+   This file is intentionally minimal. Dark theme is the default.
+   Only include overrides specific to [data-theme="dark"] if needed. */
+
+/* Dark theme is the default — no overrides needed.
+   All --nr-* values in tokens.css are dark theme. */

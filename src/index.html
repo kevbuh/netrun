@@ -71,6 +71,21 @@
           tooltip: 'var(--tooltip-bg)',
           'tooltip-border': 'var(--tooltip-border)',
           overlay: 'var(--overlay-bg)',
+          // Aether (nr-*) semantic tokens
+          'nr-body':       'var(--nr-bg-body)',
+          'nr-surface':    'var(--nr-bg-surface)',
+          'nr-raised':     'var(--nr-bg-raised)',
+          'nr-sunken':     'var(--nr-bg-sunken)',
+          'nr-overlay':    'var(--nr-bg-overlay)',
+          'nr-input':      'var(--nr-bg-input)',
+          'nr-text':       'var(--nr-text-primary)',
+          'nr-text-sec':   'var(--nr-text-secondary)',
+          'nr-text-ter':   'var(--nr-text-tertiary)',
+          'nr-text-quat':  'var(--nr-text-quaternary)',
+          'nr-accent':     'var(--nr-accent)',
+          'nr-accent-h':   'var(--nr-accent-hover)',
+          'nr-border':     'var(--nr-border-default)',
+          'nr-border-s':   'var(--nr-border-strong)',
         },
         boxShadow: {
           card: '0 6px 20px var(--shadow-card)',
@@ -80,6 +95,26 @@
     }
   }
   </script>
+  <!-- Aether Design System CSS -->
+  <link rel="stylesheet" href="/aether/css/tokens.css">
+  <link rel="stylesheet" href="/aether/css/reset.css">
+  <link rel="stylesheet" href="/aether/css/typography.css">
+  <link rel="stylesheet" href="/aether/css/surfaces.css">
+  <link rel="stylesheet" href="/aether/css/layout.css">
+  <link rel="stylesheet" href="/aether/css/ambient.css">
+  <link rel="stylesheet" href="/aether/css/animations.css">
+  <link rel="stylesheet" href="/aether/css/components/buttons.css">
+  <link rel="stylesheet" href="/aether/css/components/cards.css">
+  <link rel="stylesheet" href="/aether/css/components/inputs.css">
+  <link rel="stylesheet" href="/aether/css/components/pills.css">
+  <link rel="stylesheet" href="/aether/css/components/menus.css">
+  <link rel="stylesheet" href="/aether/css/components/modals.css">
+  <link rel="stylesheet" href="/aether/css/components/toast.css">
+  <link rel="stylesheet" href="/aether/css/components/tooltips.css">
+  <link rel="stylesheet" href="/aether/css/themes/light.css">
+  <link rel="stylesheet" href="/aether/css/themes/daylight.css">
+  <link rel="stylesheet" href="/aether/css/themes/clear.css">
+  <!-- Legacy styles (being decomposed into Aether) -->
   <link rel="stylesheet" href="/styles.css">
   <script>
     // Apply theme + accent before paint to prevent flash
@@ -291,7 +326,12 @@
   <script defer src="/js/core/core-audio.js"></script>
   <script defer src="/js/core/core-sounds.js"></script>
   <script defer src="/js/core/core-profile.js"></script>
-  <script defer src="/js/motion.js"></script>
+  <!-- Aether Design System JS -->
+  <script defer src="/aether/tokens.js"></script>
+  <script defer src="/aether/motion.js"></script>
+  <script defer src="/aether/materials.js"></script>
+  <script defer src="/aether/ambient.js"></script>
+  <script defer src="/aether/aether.js"></script>
   <script defer src="/js/pixel-pet.js"></script>
   <script defer src="/js/feed.js"></script>
   <script defer src="/js/quality.js"></script>
