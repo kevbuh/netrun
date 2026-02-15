@@ -225,10 +225,9 @@ function _renderAppearanceSettings() {
         </div>
         <div class="flex flex-wrap gap-1 mt-2">
           ${Object.entries(NOISE_PRESETS).map(([key, p]) => {
-            const sel = isRainSidebarVisible() && _rainNoiseType === key;
-            return `<button onclick="setRainSidebarVisible(true); setRainNoiseType('${key}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${p.label}</button>`;
+            const sel = _rainNoiseType === key;
+            return `<button onclick="setRainNoiseType('${key}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${p.label}</button>`;
           }).join('')}
-          <button onclick="setRainSidebarVisible(false); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${!isRainSidebarVisible() ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">none</button>
         </div>
         <div class="flex items-center gap-2 mt-2">
           <span class="text-[0.7rem] text-dimmer whitespace-nowrap">Volume</span>
@@ -283,7 +282,7 @@ function _renderAppearanceSettings() {
       </div>
       <div id="sb-icon-list" onpointerdown="_sbDragDown(event)">
       ${(function() {
-        const labels = { 'sb-dashboard': 'Home', 'sb-home': 'Feed', 'sb-vault': 'Vault', 'sb-browse': 'Browse', 'sb-neuralook': 'Neuralook', 'sb-dev': 'Dev Stats', 'sb-rain': 'White Noise', 'sb-settings': 'Settings' };
+        const labels = { 'sb-dashboard': 'Home', 'sb-home': 'Feed', 'sb-vault': 'Vault', 'sb-browse': 'Browse', 'sb-neuralook': 'Neuralook', 'sb-dev': 'Dev Stats', 'sb-settings': 'Settings' };
         const order = getSidebarOrder();
         let hidden = [];
         hidden = getLS('hiddenSidebarIcons', []);
@@ -995,8 +994,21 @@ function _renderAgentSettings() {
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <div class="flex items-center justify-between mb-3">
         <div>
+          <h3 class="text-white_ text-sm font-semibold">Insight</h3>
+          <p class="text-dim text-[0.8rem] mt-0.5">Analyze pages in the browser with a local LLM. Produces a short insight and highlights key findings, contradictions, and ads.</p>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <span class="toggle-switch">
+            <input type="checkbox" ${localStorage.getItem('insightEnabled') !== 'off' ? 'checked' : ''} onchange="var on = this.checked; localStorage.setItem('insightEnabled', on ? 'on' : 'off'); if (window.electronAPI && window.electronAPI.insightSetEnabled) window.electronAPI.insightSetEnabled(on);">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+      <p class="text-dimmer text-[0.68rem] mb-4">When disabled, pages will not be analyzed and no insight pills will appear. You can still manually trigger insight from the pill menu.</p>
+      <div class="flex items-center justify-between">
+        <div>
           <h3 class="text-white_ text-sm font-semibold">Auto Insight</h3>
-          <p class="text-dim text-[0.8rem] mt-0.5">Automatically analyze pages when you navigate in the browser. Produces a short insight and highlights key findings, contradictions, and ads.</p>
+          <p class="text-dim text-[0.8rem] mt-0.5">Automatically run insight on every page you navigate to.</p>
         </div>
         <label class="flex items-center gap-2 cursor-pointer">
           <span class="toggle-switch">
@@ -1005,7 +1017,7 @@ function _renderAgentSettings() {
           </span>
         </label>
       </div>
-      <p class="text-dimmer text-[0.68rem]">When enabled, every page you visit in Browse will be analyzed with a single LLM call producing both an insight and annotations. Cached results are reused for 5 minutes.</p>
+      <p class="text-dimmer text-[0.68rem] mt-1">Cached results are reused for 5 minutes.</p>
     </div>
     <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-3">Available Tools</h3>

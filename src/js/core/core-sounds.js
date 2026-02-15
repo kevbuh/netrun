@@ -114,9 +114,8 @@ function toggleRain() {
 function startRain() {
   if (_rainOn) return;
   _rainOn = true;
-  const btn = document.getElementById('sb-rain');
-  if (btn) btn.classList.add('active');
   localStorage.setItem('rainOn', '1');
+  if (typeof _renderAudioPill === 'function') _renderAudioPill();
 
   const preset = NOISE_PRESETS[_rainNoiseType] || NOISE_PRESETS.rain;
 
@@ -144,8 +143,6 @@ function startRain() {
 function stopRain() {
   if (!_rainOn) return;
   _rainOn = false;
-  const btn = document.getElementById('sb-rain');
-  if (btn) btn.classList.remove('active');
   localStorage.removeItem('rainOn');
   if (_rainAudio) {
     _rainAudio.pause();
@@ -156,12 +153,14 @@ function stopRain() {
     _rainCtx = null;
   }
   _rainNodes = [];
+  if (typeof _renderAudioPill === 'function') _renderAudioPill();
 }
 
 function setRainNoiseType(type) {
   _rainNoiseType = type;
   localStorage.setItem('rainNoiseType', type);
   if (_rainOn) { stopRain(); startRain(); }
+  else if (typeof _renderAudioPill === 'function') _renderAudioPill();
 }
 
 function setRainFreq(hz) {
@@ -184,92 +183,7 @@ function setRainVolume(v) {
   // Update settings percentage if visible
   const sliderVal = document.getElementById('rain-volume-value');
   if (sliderVal) sliderVal.textContent = Math.round(_rainVolume * 100) + '%';
-  // Update sidebar tooltip if dragging
-  const tooltip = document.querySelector('#sb-rain .sidebar-tooltip');
-  if (tooltip && tooltip.dataset.volDrag) tooltip.textContent = Math.round(_rainVolume * 100) + '%';
 }
-
-function setRainSidebarVisible(show) {
-  localStorage.setItem('rainSidebarVisible', show ? '1' : '0');
-  const btn = document.getElementById('sb-rain');
-  if (btn) btn.style.display = show ? '' : 'none';
-  if (!show) stopRain();
-}
-
-function isRainSidebarVisible() {
-  const v = localStorage.getItem('rainSidebarVisible');
-  return v !== '0'; // default visible
-}
-
-// ── Rain button drag-to-adjust-volume ──
-(function() {
-  let _rainDragging = false;
-  let _rainDragStartY = 0;
-  let _rainDragStartVol = 0;
-
-  function showVolInTooltip() {
-    const tooltip = document.querySelector('#sb-rain .sidebar-tooltip');
-    if (tooltip) {
-      tooltip.dataset.volDrag = '1';
-      tooltip.style.opacity = '1';
-      tooltip.style.visibility = 'visible';
-      tooltip.textContent = Math.round(_rainVolume * 100) + '%';
-    }
-  }
-
-  function restoreTooltip() {
-    const tooltip = document.querySelector('#sb-rain .sidebar-tooltip');
-    if (tooltip) {
-      delete tooltip.dataset.volDrag;
-      tooltip.textContent = 'White noise';
-      tooltip.style.opacity = '';
-      tooltip.style.visibility = '';
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded', function() {
-    const btn = document.getElementById('sb-rain');
-    if (!btn) return;
-    // Apply initial sidebar visibility
-    if (!isRainSidebarVisible()) btn.style.display = 'none';
-
-    btn.addEventListener('mousedown', function(e) {
-      if (e.button !== 0) return;
-      _rainDragStartY = e.clientY;
-      _rainDragStartVol = _rainVolume;
-      _rainDragging = false;
-
-      function onMove(ev) {
-        const dy = ev.clientY - _rainDragStartY;
-        if (!_rainDragging && Math.abs(dy) > 4) {
-          _rainDragging = true;
-          showVolInTooltip();
-        }
-        if (_rainDragging) {
-          // drag down = lower volume, drag up = raise volume; 150px = full range
-          const newVol = Math.max(0, Math.min(1, _rainDragStartVol - dy / 150));
-          setRainVolume(newVol);
-        }
-      }
-      function onUp() {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        if (_rainDragging) {
-          restoreTooltip();
-          // Delay reset so click handler can see the flag
-          setTimeout(function() { _rainDragging = false; }, 50);
-        }
-      }
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
-
-    btn.addEventListener('click', function(e) {
-      if (_rainDragging) { e.preventDefault(); e.stopPropagation(); return; }
-      toggleRain();
-    });
-  });
-})();
 
 function _makeNoise(ctx, dest, type, amp) {
   const bufSize = ctx.sampleRate * 4;
@@ -351,11 +265,6 @@ if (localStorage.getItem('rainOn') === '1') {
     document.removeEventListener('click', _resumeRain);
     startRain();
   }, { once: true });
-  // Visually mark button as active immediately
-  requestAnimationFrame(function() {
-    const btn = document.getElementById('sb-rain');
-    if (btn) btn.classList.add('active');
-  });
 }
 
 // ── User accounts & sync ──

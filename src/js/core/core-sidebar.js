@@ -2,7 +2,7 @@
 // Extracted from core.js
 
 // ── Sidebar icon visibility & order ──
-const SIDEBAR_ICON_IDS = ['sb-dashboard','sb-home','sb-vault','sb-browse','sb-neuralook','sb-dev','sb-rain','sb-settings'];
+const SIDEBAR_ICON_IDS = ['sb-dashboard','sb-home','sb-vault','sb-browse','sb-neuralook','sb-dev','sb-settings'];
 
 function _sidebarEl(id) {
   return document.getElementById(id + '-wrap') || document.getElementById(id);

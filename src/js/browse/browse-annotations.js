@@ -28,6 +28,7 @@ function _persistInsightCache() {
 
 function _triggerInsight(tab) {
   if (!tab || tab.blank) return;
+  if (localStorage.getItem('insightEnabled') === 'off') return;
   const url = tab.url || '';
   if (!url || url.startsWith('about:') || url.startsWith('chrome:')) return;
 
@@ -91,11 +92,11 @@ function _restoreInsightPill(tab) {
   if (typeof islandUpdate === 'function') {
     const label = insight
       ? (insight.length > 60 ? insight.slice(0, 57) + '\u2026' : insight)
-      : (annotations.length + ' annotations');
+      : (annotations.length + ' insights');
     islandUpdate('insight', {
       type: 'insight',
       label: label,
-      detail: insight || (annotations.length + ' annotations on this page'),
+      detail: insight || (annotations.length + ' insights on this page'),
       insight: insight,
       items: annotations,
       related: cached.related || [],
@@ -209,11 +210,11 @@ function _initInsightListener() {
     if (typeof islandUpdate === 'function') {
       const label = insight
         ? (insight.length > 60 ? insight.slice(0, 57) + '\u2026' : insight)
-        : (annotations.length ? annotations.length + ' annotations' : 'No insights');
+        : (annotations.length ? annotations.length + ' insights' : 'No insights');
       islandUpdate('insight', {
         type: 'insight',
         label: label,
-        detail: insight || (annotations.length + ' annotations on this page'),
+        detail: insight || (annotations.length + ' insights on this page'),
         insight: insight,
         items: annotations,
         related: related,
@@ -227,10 +228,17 @@ function _initInsightListener() {
 }
 
 // Initialize when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', _initInsightListener);
-} else {
+function _initInsightSystem() {
   _initInsightListener();
+  // Sync enabled state with backend
+  if (localStorage.getItem('insightEnabled') === 'off' && window.electronAPI && window.electronAPI.insightSetEnabled) {
+    window.electronAPI.insightSetEnabled(false);
+  }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _initInsightSystem);
+} else {
+  _initInsightSystem();
 }
 
 // ── Text extraction (unchanged) ──

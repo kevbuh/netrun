@@ -14,7 +14,6 @@ const SIDEBAR_ICON_IDS = [
   'sb-browse',
   'sb-neuralook',
   'sb-dev',
-  'sb-rain',
   'sb-settings'
 ];
 
@@ -116,8 +115,8 @@ function reorderArray(arr, fromIndex, toIndex) {
 // ──────────────────────────────────────────────────────────
 
 describe('Sidebar Icon Constants', () => {
-  it('should have 8 default icons', () => {
-    expect(SIDEBAR_ICON_IDS).toHaveLength(8);
+  it('should have 7 default icons', () => {
+    expect(SIDEBAR_ICON_IDS).toHaveLength(7);
   });
 
   it('should include core navigation icons', () => {
@@ -145,8 +144,8 @@ describe('Sidebar Icon Constants', () => {
 
 describe('Hidden Icons Parsing', () => {
   it('should parse valid JSON array', () => {
-    const json = JSON.stringify(['sb-dev', 'sb-rain']);
-    expect(parseHiddenIcons(json)).toEqual(['sb-dev', 'sb-rain']);
+    const json = JSON.stringify(['sb-dev', 'sb-browse']);
+    expect(parseHiddenIcons(json)).toEqual(['sb-dev', 'sb-browse']);
   });
 
   it('should return empty array for null', () => {
@@ -221,7 +220,7 @@ describe('Sidebar Order Merging', () => {
   });
 
   it('should handle all icons in custom order', () => {
-    const saved = ['sb-settings', 'sb-dashboard', 'sb-home', 'sb-vault', 'sb-browse', 'sb-neuralook', 'sb-dev', 'sb-rain'];
+    const saved = ['sb-settings', 'sb-dashboard', 'sb-home', 'sb-vault', 'sb-browse', 'sb-neuralook', 'sb-dev'];
     const result = mergeSidebarOrder(saved, SIDEBAR_ICON_IDS);
     expect(result).toEqual(saved);
   });
@@ -236,11 +235,11 @@ describe('Sidebar Order Merging', () => {
 
 describe('Icon Hidden Check', () => {
   it('should return true when icon is hidden', () => {
-    expect(isIconHidden('sb-dev', ['sb-dev', 'sb-rain'])).toBe(true);
+    expect(isIconHidden('sb-dev', ['sb-dev', 'sb-browse'])).toBe(true);
   });
 
   it('should return false when icon is not hidden', () => {
-    expect(isIconHidden('sb-home', ['sb-dev', 'sb-rain'])).toBe(false);
+    expect(isIconHidden('sb-home', ['sb-dev', 'sb-browse'])).toBe(false);
   });
 
   it('should return false for empty hidden list', () => {

@@ -3,6 +3,15 @@
 
 // ── Unified Audio Pill ──
 
+function _pillNoiseCycle() {
+  const types = typeof NOISE_PRESETS !== 'undefined' ? Object.keys(NOISE_PRESETS) : [];
+  if (!types.length) return;
+  const cur = typeof _rainNoiseType !== 'undefined' ? _rainNoiseType : 'rain';
+  const idx = types.indexOf(cur);
+  const next = types[(idx + 1) % types.length];
+  setRainNoiseType(next);
+}
+
 function _ttsCycleSpeed() {
   const cur = parseFloat(localStorage.getItem('ttsSpeed')) || 1;
   let next = _ttsSpeeds[0];
@@ -37,7 +46,8 @@ function _renderAudioPill() {
   const cc = _audioUnifiedState.cc;
   const mic = _audioUnifiedState.mic;
   var micRecording = typeof _pillMicRecorder !== 'undefined' && _pillMicRecorder;
-  const active = !!(tab || tts || cc || mic || micRecording);
+  const rainActive = typeof _rainOn !== 'undefined' && _rainOn;
+  const active = !!(tab || tts || cc || mic || micRecording || rainActive);
 
   // Build pill indicator
   let indicator = el.querySelector('.audio-pill-indicator');
@@ -139,6 +149,23 @@ function _renderAudioPill() {
     rows += '<div class="audio-pill-row" onclick="_pillMicClick()">'
       + icon('microphone', { size: 14 })
       + '<span class="audio-pill-row-label">Voice input</span></div>';
+  }
+
+  // White noise row
+  if (rainActive) {
+    const noiseLabel = (typeof NOISE_PRESETS !== 'undefined' && NOISE_PRESETS[_rainNoiseType]) ? NOISE_PRESETS[_rainNoiseType].label : _rainNoiseType;
+    const noiseTypes = typeof NOISE_PRESETS !== 'undefined' ? Object.keys(NOISE_PRESETS) : [];
+    rows += '<div class="audio-pill-row audio-pill-noise-active">'
+      + icon('rain', { size: 14 })
+      + '<span class="audio-pill-noise-type" onclick="event.stopPropagation();_pillNoiseCycle()" title="Click to change type">' + escapeHtml(noiseLabel) + '</span>'
+      + '<input type="range" class="audio-pill-noise-vol" min="0" max="100" value="' + Math.round(_rainVolume * 100) + '" onclick="event.stopPropagation()" oninput="event.stopPropagation();setRainVolume(this.value/100)" title="Volume">'
+      + '<button class="audio-pill-ctrl audio-pill-stop" onclick="event.stopPropagation();stopRain()" title="Stop">'
+      + icon('close', { size: 12, strokeWidth: '2.5' })
+      + '</button></div>';
+  } else {
+    rows += '<div class="audio-pill-row" onclick="startRain()">'
+      + icon('rain', { size: 14 })
+      + '<span class="audio-pill-row-label">White noise</span></div>';
   }
 
   // Read aloud button
