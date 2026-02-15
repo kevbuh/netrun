@@ -219,6 +219,7 @@ function _openPillMenuHover() {
   const pill = document.getElementById('sidebar-nav');
   if (!pill || pill.classList.contains('menu-expanded')) return;
   pill.classList.add('menu-expanded');
+  _populatePillMenuMoreItems();
 }
 
 function _closePillMenuHover() {
