@@ -18,6 +18,10 @@ FEED_CATALOG = [
     {'key': 'lobsters', 'url': 'https://lobste.rs/rss'},
     # AI & Machine Learning
     {'key': 'gradient', 'url': 'https://thegradient.pub/rss/'},
+    {'key': 'nvidia-blog', 'url': 'https://blogs.nvidia.com/feed/'},
+    {'key': 'openai-blog', 'url': 'https://openai.com/news/rss.xml'},
+    {'key': 'anthropic-blog', 'url': 'https://www.anthropic.com/rss/news.xml'},
+    {'key': 'meta-engineering', 'url': 'https://engineering.fb.com/feed/'},
     # Security
     {'key': 'krebs', 'url': 'https://krebsonsecurity.com/feed/'},
     # Ideas & Culture

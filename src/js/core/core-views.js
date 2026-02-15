@@ -21,6 +21,10 @@ const FEED_CATALOG = [
   { key: 'lobsters', name: 'Lobsters', desc: 'Community-curated programming links', cat: 'Programming', url: 'https://lobste.rs/rss', letter: 'L', bg: '#ac130d', fg: '#fff', favicon: 'lobste.rs' },
   // AI & Machine Learning
   { key: 'gradient', name: 'The Gradient', desc: 'AI research perspectives', cat: 'AI & Machine Learning', url: 'https://thegradient.pub/rss/', letter: 'G', bg: '#6b21a8', fg: '#fff', favicon: 'thegradient.pub' },
+  { key: 'nvidia-blog', name: 'NVIDIA Blog', desc: 'AI, GPUs, and deep learning updates', cat: 'AI & Machine Learning', url: 'https://blogs.nvidia.com/feed/', letter: 'N', bg: '#76b900', fg: '#fff', favicon: 'nvidia.com' },
+  { key: 'openai-blog', name: 'OpenAI', desc: 'AI research and product announcements', cat: 'AI & Machine Learning', url: 'https://openai.com/news/rss.xml', letter: 'O', bg: '#000', fg: '#fff', favicon: 'openai.com' },
+  { key: 'anthropic-blog', name: 'Anthropic', desc: 'AI safety research and updates', cat: 'AI & Machine Learning', url: 'https://www.anthropic.com/rss/news.xml', letter: 'A', bg: '#d4a27f', fg: '#1a1a1a', favicon: 'anthropic.com' },
+  { key: 'meta-engineering', name: 'Engineering at Meta', desc: 'AI infrastructure and engineering', cat: 'AI & Machine Learning', url: 'https://engineering.fb.com/feed/', letter: 'M', bg: '#0668e1', fg: '#fff', favicon: 'engineering.fb.com' },
   // Security
   { key: 'krebs', name: 'Krebs on Security', desc: 'Cybersecurity news and investigations', cat: 'Security', url: 'https://krebsonsecurity.com/feed/', letter: 'K', bg: '#2d3436', fg: '#00b894', favicon: 'krebsonsecurity.com' },
   // Ideas & Culture
