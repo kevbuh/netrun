@@ -604,12 +604,16 @@
       text-align: center;
     }
     /* ── Onboarding Wizard ── */
-    .auth-modal.wizard-mode {
+    .auth-modal.wizard-mode,
+    .nr-modal.wizard-mode {
       width: 440px;
+      padding: 28px;
+      color: var(--nr-text-primary, #e0e0e0);
       transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
                   box-shadow 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .auth-modal.wizard-glow {
+    .auth-modal.wizard-glow,
+    .nr-modal.wizard-glow {
       box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 80px var(--accent-glow, transparent);
     }
     #onboarding-wizard {
@@ -821,6 +825,19 @@
     .wizard-tab-layout-desc {
       font-size: 11px;
       color: var(--nr-text-secondary, #999);
+    }
+    #wiz-model-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    #wiz-model-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    #wiz-model-list::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.15);
+      border-radius: 3px;
+    }
+    #wiz-model-list::-webkit-scrollbar-thumb:hover {
+      background: rgba(255,255,255,0.25);
     }
     .wizard-model-option {
       padding: 8px 14px;

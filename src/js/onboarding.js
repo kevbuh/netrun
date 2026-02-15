@@ -137,6 +137,7 @@ function _renderWizardStep(stepIndex, direction) {
     else if (stepIndex === 2) _wizardAccentInit();
     else if (stepIndex === 3) _wizardThemeInit();
     else if (stepIndex === 5) _wizardChatModelInit();
+    else if (stepIndex === 6) _wizardPixelPetInit();
   }, delay);
 }
 
@@ -435,19 +436,38 @@ function _wizardPixelPetHTML() {
     <div style="text-align:center;">
       <div style="font-size:20px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:4px;">Pick a companion</div>
       <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:20px;">A pixel pet that lives on your screen. Or go solo.</div>
-      <div id="wiz-pet-preview" style="height:48px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;">
-        <canvas id="wiz-pet-canvas" width="48" height="48" style="image-rendering:pixelated;width:48px;height:48px;"></canvas>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:20px;">
+      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:20px;">
         ${_wizardPetTypes.map(p => {
           const sel = petOn && currentType === p.id;
-          return `<button class="wizard-pet-option${sel ? ' selected' : ''}" data-pet="${p.id}" onclick="_wizardPickPet('${p.id}', this)">${p.name}</button>`;
+          return `<button class="wizard-pet-option${sel ? ' selected' : ''}" data-pet="${p.id}" onclick="_wizardPickPet('${p.id}', this)" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 12px;">
+            <canvas class="wiz-pet-sprite" data-pet-id="${p.id}" width="48" height="48" style="image-rendering:pixelated;width:48px;height:48px;"></canvas>
+            <span style="font-size:11px;">${p.name}</span>
+          </button>`;
         }).join('')}
-        <button class="wizard-pet-option${!petOn ? ' selected' : ''}" data-pet="none" onclick="_wizardPickPet('none', this)">None</button>
+        <button class="wizard-pet-option${!petOn ? ' selected' : ''}" data-pet="none" onclick="_wizardPickPet('none', this)" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 12px;">
+          <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--nr-text-secondary,#999)" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </div>
+          <span style="font-size:11px;">None</span>
+        </button>
       </div>
       <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(7, 'forward')">Continue</button>
     </div>
   `;
+}
+
+function _wizardPixelPetInit() {
+  const sprites = _wizardPetSprites();
+  const G = 16, S = 48 / G;
+  document.querySelectorAll('.wiz-pet-sprite').forEach(canvas => {
+    const id = canvas.dataset.petId;
+    const draw = sprites[id];
+    if (!draw) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 48, 48);
+    function px(x, y, c) { ctx.fillStyle = c; ctx.fillRect(x * S, y * S, S, S); }
+    draw(px, { sitting: true, blink: false, legFrame: 0 });
+  });
 }
 
 function _wizardPickPet(petId, el) {
@@ -459,36 +479,117 @@ function _wizardPickPet(petId, el) {
 
   if (petId === 'none') {
     localStorage.setItem('pixelPet', 'off');
-    const canvas = document.getElementById('wiz-pet-canvas');
-    if (canvas) { const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 48, 48); }
   } else {
     localStorage.setItem('pixelPet', 'on');
     localStorage.setItem('pixelPetType', petId);
-    _wizardDrawPetPreview(petId);
   }
 }
 
-function _wizardDrawPetPreview(petId) {
-  const canvas = document.getElementById('wiz-pet-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, 48, 48);
-  // Draw a simple colored square placeholder with the pet's initial
-  // The actual pet sprite system uses PET_TYPES which is scoped inside pixel-pet.js IIFE
-  const colors = {
-    cat: '#e8a87c', blackCat: '#1a1a1a', dog: '#c49a6c',
-    poodle: '#E87830', bunny: '#eee', froog: '#ef4444', pacman: '#ffd700'
+function _wizardPetSprites() {
+  return {
+    cat(px, o) {
+      const B='#e8a87c',D='#c4855c',I='#d4846a',O='#2a2a2a',E='#2a2a2a';
+      px(4,3,O);px(5,2,O);px(6,3,O);px(5,3,I);px(9,3,O);px(10,2,O);px(11,3,O);px(10,3,I);
+      for(let x=4;x<=11;x++)px(x,4,O);
+      px(3,5,O);px(12,5,O);px(3,6,O);px(12,6,O);px(3,7,O);px(12,7,O);
+      for(let x=4;x<=11;x++)px(x,8,O);
+      for(let y=5;y<=7;y++)for(let x=4;x<=11;x++)px(x,y,B);
+      px(6,6,E);px(10,6,E);px(8,7,I);
+      px(4,9,O);px(11,9,O);for(let x=5;x<=10;x++)px(x,9,B);
+      for(let x=4;x<=11;x++)px(x,10,O);
+      px(4,11,O);px(5,11,O);px(10,11,O);px(11,11,O);
+      px(12,9,D);px(13,9,D);px(13,8,D);
+    },
+    blackCat(px, o) {
+      const B='#1a1a1a',I='#333',O='#111',E='#7cfc00',N='#444';
+      px(4,2,O);px(5,1,O);px(6,2,O);px(5,2,I);px(9,2,O);px(10,1,O);px(11,2,O);px(10,2,I);
+      for(let x=4;x<=11;x++)px(x,3,O);
+      px(3,4,O);px(12,4,O);px(3,5,O);px(12,5,O);px(3,6,O);px(12,6,O);
+      for(let x=4;x<=11;x++)px(x,7,O);
+      for(let y=4;y<=6;y++)for(let x=4;x<=11;x++)px(x,y,B);
+      px(6,5,E);px(10,5,E);px(8,6,N);
+      px(4,8,O);px(11,8,O);for(let x=5;x<=10;x++)px(x,8,B);
+      for(let x=4;x<=11;x++)px(x,9,O);
+      px(4,10,O);px(5,10,O);px(10,10,O);px(11,10,O);
+      px(12,8,I);px(13,8,I);px(14,7,I);px(14,6,I);
+    },
+    dog(px, o) {
+      const B='#c49a6c',D='#a07848',I='#dbb88c',O='#3a2a1a',E='#2a2a2a';
+      px(3,4,O);px(4,3,O);px(5,3,O);px(3,5,O);px(3,6,D);px(4,4,D);
+      px(12,4,O);px(11,3,O);px(10,3,O);px(12,5,O);px(12,6,D);px(11,4,D);
+      for(let x=5;x<=10;x++)px(x,3,O);
+      px(4,4,O);px(11,4,O);px(4,5,O);px(11,5,O);px(4,6,O);px(11,6,O);
+      for(let x=5;x<=10;x++)px(x,7,O);
+      for(let y=4;y<=6;y++)for(let x=5;x<=10;x++)px(x,y,B);
+      px(6,5,E);px(9,5,E);px(7,6,O);px(8,6,O);
+      px(4,8,O);px(11,8,O);for(let x=5;x<=10;x++)px(x,8,B);
+      for(let x=4;x<=11;x++)px(x,9,O);
+      px(4,10,O);px(5,10,O);px(10,10,O);px(11,10,O);
+      px(12,8,D);px(13,7,D);px(14,7,D);
+    },
+    poodle(px, o) {
+      const B='#E87830',D='#CC6020',O='#994400',E='#2a2a2a',N='#222',P='#F09048';
+      px(5,1,P);px(6,1,P);px(9,1,P);px(10,1,P);
+      px(4,2,P);px(5,2,P);px(6,2,P);px(7,2,P);px(8,2,P);px(9,2,P);px(10,2,P);px(11,2,P);
+      px(3,3,P);px(4,3,P);px(11,3,P);px(12,3,P);
+      for(let x=4;x<=11;x++)px(x,4,O);px(3,4,O);px(12,4,O);
+      px(3,5,O);px(12,5,O);px(3,6,O);px(12,6,O);px(3,7,O);px(12,7,O);
+      for(let x=4;x<=11;x++)px(x,8,O);
+      for(let y=5;y<=7;y++)for(let x=4;x<=11;x++)px(x,y,B);
+      px(2,5,P);px(2,6,P);px(3,5,P);px(3,6,P);px(12,5,P);px(12,6,P);px(13,5,P);px(13,6,P);
+      px(6,6,E);px(10,6,E);px(8,7,N);
+      px(4,9,O);px(11,9,O);for(let x=5;x<=10;x++)px(x,9,B);
+      for(let x=4;x<=11;x++)px(x,10,O);
+      px(3,10,P);px(4,11,P);px(5,11,P);px(10,11,P);px(11,11,P);px(12,10,P);
+      px(12,9,P);px(13,8,P);px(13,9,P);px(14,8,P);
+    },
+    bunny(px, o) {
+      const B='#eee',D='#ccc',I='#f5b0b0',O='#4a4a4a',E='#2a2a2a';
+      px(5,0,O);px(5,1,O);px(5,2,O);px(6,0,O);px(6,1,I);px(6,2,I);px(6,3,O);
+      px(9,0,O);px(9,1,O);px(9,2,O);px(10,0,O);px(10,1,I);px(10,2,I);px(10,3,O);
+      for(let x=4;x<=11;x++)px(x,4,O);
+      px(3,5,O);px(12,5,O);px(3,6,O);px(12,6,O);px(3,7,O);px(12,7,O);
+      for(let x=4;x<=11;x++)px(x,8,O);
+      for(let y=5;y<=7;y++)for(let x=4;x<=11;x++)px(x,y,B);
+      px(6,6,E);px(10,6,E);px(8,7,I);
+      px(4,9,O);px(11,9,O);for(let x=5;x<=10;x++)px(x,9,B);
+      for(let x=4;x<=11;x++)px(x,10,O);
+      px(4,11,O);px(5,11,O);px(10,11,O);px(11,11,O);
+      px(12,9,B);px(13,9,B);
+    },
+    froog(px, o) {
+      const B='#ef4444',D='#dc2626',F='#c084fc',O='#7a1a1a',W='#fff',hi='#f87171';
+      for(let x=5;x<=10;x++)px(x,1,B);px(4,1,O);px(11,1,O);
+      for(let x=3;x<=12;x++)px(x,2,B);px(2,2,O);px(13,2,O);
+      for(let x=2;x<=13;x++)px(x,3,B);px(1,3,O);px(14,3,O);
+      for(let y=4;y<=10;y++){px(0,y,O);px(15,y,O);for(let x=1;x<=14;x++)px(x,y,B);}
+      for(let x=1;x<=14;x++)px(x,11,B);px(0,11,O);px(15,11,O);
+      for(let x=2;x<=13;x++)px(x,12,B);px(1,12,O);px(14,12,O);
+      for(let x=3;x<=12;x++)px(x,13,O);
+      px(10,2,hi);px(11,2,hi);px(12,2,hi);px(11,3,hi);px(12,3,hi);px(13,3,hi);px(12,4,hi);px(13,4,hi);
+      for(let x=4;x<=11;x++)px(x,3,F);
+      for(let x=3;x<=12;x++)px(x,4,F);
+      for(let x=2;x<=12;x++){px(x,5,F);px(x,6,F);px(x,7,F);px(x,8,F);}
+      for(let x=3;x<=11;x++)px(x,9,F);
+      for(let x=4;x<=10;x++)px(x,10,F);
+      for(let x=5;x<=9;x++)px(x,11,F);
+      [[4,5],[9,5]].forEach(([ex,ey])=>{px(ex,ey,W);px(ex+1,ey,W);px(ex,ey+1,W);px(ex+1,ey+1,W);px(ex,ey,'#000');px(ex+1,ey,'#000');});
+      px(4,8,O);px(5,9,O);px(6,9,O);px(7,9,O);px(8,9,O);px(9,9,O);px(10,9,O);px(11,8,O);
+      px(2,13,D);px(3,13,D);px(4,13,D);px(11,13,D);px(12,13,D);px(13,13,D);
+      px(2,14,O);px(3,14,O);px(12,14,O);px(13,14,O);
+    },
+    pacman(px, o) {
+      const B='#ffd700',D='#e6c200',O='#b8860b',E='#2a2a2a';
+      for(let x=6;x<=9;x++)px(x,2,O);
+      px(4,3,O);px(5,3,O);px(10,3,O);px(11,3,O);for(let x=5;x<=10;x++)px(x,3,B);
+      px(3,4,O);px(12,4,O);for(let x=4;x<=11;x++)px(x,4,B);
+      for(let y=5;y<=9;y++){px(2,y,O);px(13,y,O);for(let x=3;x<=12;x++)px(x,y,B);}
+      px(3,10,O);px(12,10,O);for(let x=4;x<=11;x++)px(x,10,B);
+      px(4,11,O);px(5,11,O);px(10,11,O);px(11,11,O);for(let x=5;x<=10;x++)px(x,11,B);
+      for(let x=6;x<=9;x++)px(x,12,O);
+      px(9,4,E);px(10,4,E);
+    }
   };
-  const color = colors[petId] || '#999';
-  // Draw a chunky pixel-art style circle
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.arc(24, 24, 16, 0, Math.PI * 2);
-  ctx.fill();
-  // Eyes
-  ctx.fillStyle = petId === 'blackCat' ? '#7cfc00' : '#2a2a2a';
-  ctx.fillRect(18, 20, 4, 4);
-  ctx.fillRect(28, 20, 4, 4);
 }
 
 // ── Step 7: Neuralook (optional) ──
