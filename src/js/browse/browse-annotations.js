@@ -62,6 +62,7 @@ async function _triggerInsightExtract(tab) {
       title: tab.title || '',
       text: pageText.slice(0, 12000),
       tabId: tab.id,
+      model: localStorage.getItem('annotateModel') || '',
     });
   } catch (e) { /* silent */ }
 }
@@ -155,6 +156,7 @@ async function _manualInsightAnalyze(tab) {
       title: tab.title || '',
       text: pageText.slice(0, 12000),
       tabId: tab.id,
+      model: localStorage.getItem('annotateModel') || '',
     });
   } catch (e) { /* silent */ }
 }

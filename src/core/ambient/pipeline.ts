@@ -49,6 +49,7 @@ interface PageData {
   title: string;
   text: string;
   tabId: string;
+  model?: string;
 }
 
 interface Annotation {
@@ -194,7 +195,7 @@ Respond ONLY with valid JSON in this exact format:
 
 No other text. No markdown. No explanation outside the JSON.`;
 
-      const model = this._getModel();
+      const model = data.model || this._getModel();
       const customCats = contentQueries.listAnnotationCategories();
       const validTypes = new Set(['ALPHA', 'CONTRADICTION', 'AD', ...customCats.map(c => c.key)]);
       const annotations: Annotation[] = [];
