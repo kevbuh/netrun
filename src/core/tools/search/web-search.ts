@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Tool, ToolResult } from '../types.js';
+import { contextIntake } from '../../context/intake.js';
 
 interface SearchResult {
   title: string;
@@ -58,6 +59,16 @@ export const webSearch: Tool<z.infer<typeof parameters>, { results: SearchResult
       }
 
       results.push({ title: cleanTitle, url, snippet });
+    }
+
+    // Capture top results into living context
+    if (results.length > 0) {
+      const lines = results.slice(0, 3).map(r => `- [${r.title}](${r.url})`).join('\n');
+      contextIntake.ingest({
+        source: 'search', section: '## Research',
+        content: `**Web:** "${input.query}"\n${lines}`,
+        dedupeKey: `ws-${input.query.toLowerCase().trim()}`,
+      });
     }
 
     return { success: true, data: { results } };

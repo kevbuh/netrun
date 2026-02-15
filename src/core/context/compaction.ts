@@ -7,6 +7,11 @@ const pendingCompactions = new Map<string, ReturnType<typeof setTimeout>>();
 const COMPACTION_PROMPT =
   'Summarize this context document, preserving all key facts, decisions, and active tasks. ' +
   'Remove redundancy. Be concise. Keep the markdown section structure (## headings). ' +
+  'Content has provenance tags like <!-- ctx:SOURCE t:TIMESTAMP -->. Use them to prioritize:\n' +
+  '- KEEP: Chat Insights, Research results, Notebook Results (these are high-value)\n' +
+  '- COMPRESS: Browsing links (keep only notable pages with annotations, drop plain link lists)\n' +
+  '- LATEST ONLY: Stats snapshots (keep only the most recent)\n' +
+  '- PRESERVE: Section headings and source markers on retained content\n' +
   'Output only the compacted markdown, nothing else.';
 
 /** Schedule compaction for a file if it exceeds the threshold. Debounced to avoid thrashing. */

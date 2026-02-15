@@ -5,6 +5,7 @@ import { OllamaProvider } from '../providers/ollama.js';
 import * as contentQueries from '../db/queries/content.js';
 import { snapQuoteToText } from '../utils/text.js';
 import { contextManager } from '../context/manager.js';
+import { contextIntake } from '../context/intake.js';
 
 const SKIP_PATTERNS = ['about:', 'data:', 'file:', 'chrome:', 'devtools:', 'netrun://'];
 const MIN_TEXT_LENGTH = 100;
@@ -154,11 +155,12 @@ export class PageInsightPipeline {
       // Mark as recently seen
       this.recentUrls.add(data.url);
 
-      // Write browsing context to living context file
-      try {
-        const summary = `[${data.title}](${data.url})`;
-        contextManager.appendContext('main.md', '## Recent Browsing', summary + '\n');
-      } catch { /* context write failed, continue */ }
+      // Write browsing context to living context via intake pipeline
+      contextIntake.ingest({
+        source: 'browse', section: '## Browsing',
+        content: `[${data.title}](${data.url})`,
+        dedupeKey: `browse-${data.url}`,
+      });
 
       const related: RelatedPage[] = [];
 
@@ -325,6 +327,17 @@ No other text. No markdown. No explanation outside the JSON.`;
           }
         } catch {
           console.debug('[insight] Final JSON parse failed');
+        }
+      }
+
+      // Capture high-confidence annotations into living context
+      for (const ann of annotations.slice(0, 3)) {
+        if (ann.explanation) {
+          contextIntake.ingest({
+            source: 'browse', section: '## Browsing',
+            content: `**${data.title}**: ${ann.explanation}`,
+            dedupeKey: `ann-${data.url}-${ann.type}`,
+          });
         }
       }
 

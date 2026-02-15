@@ -927,6 +927,18 @@ async function renderDashboard() {
     }
   }
 
+  // ── Snapshot stats into living context (hourly) ──
+  if (typeof contextIngest === 'function') {
+    var _statsItems = [];
+    if (_todayActivity.length) _statsItems.push(_todayActivity.length + ' activities');
+    if (_openTaskCount) _statsItems.push(_openTaskCount + ' open tasks');
+    if (_unreadSavedCount) _statsItems.push(_unreadSavedCount + ' unread saved');
+    if (_statsItems.length) {
+      contextIngest('dashboard', '## Stats', '- ' + _statsItems.join(', '),
+        { dedupeKey: 'dash-' + Math.floor(Date.now() / 3600000) });
+    }
+  }
+
   // ── LLM daily summary (async, streamed) ──
   const _summaryModel = localStorage.getItem('summaryModel') || 'qwen3:0.6b';
   const summaryEl = document.getElementById('dash-day-summary');

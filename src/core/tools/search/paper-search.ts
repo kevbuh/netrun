@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Tool, ToolResult } from '../types.js';
+import { contextIntake } from '../../context/intake.js';
 
 interface PaperResult {
   title: string;
@@ -108,6 +109,16 @@ export const paperSearch: Tool<z.infer<typeof parameters>, { papers: PaperResult
       });
 
       if (papers.length >= 5) break;
+    }
+
+    // Capture top results into living context
+    if (papers.length > 0) {
+      const lines = papers.slice(0, 3).map(p => `- [${p.title}](${p.url})`).join('\n');
+      contextIntake.ingest({
+        source: 'search', section: '## Research',
+        content: `**Papers:** "${input.query}"\n${lines}`,
+        dedupeKey: `ps-${input.query.toLowerCase().trim()}`,
+      });
     }
 
     return { success: true, data: { papers } };

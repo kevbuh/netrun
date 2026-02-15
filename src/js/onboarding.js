@@ -1,5 +1,5 @@
 // onboarding.js — Onboarding wizard (standalone page)
-// Steps: 0=Welcome, 1=Username, 2=Accent Color, 3=Theme, 4=Tab Layout, 5=Chat Model, 6=Pixel Pet, 7=Neuralook, 8=Finale
+// Steps: 0=Welcome, 1=Username, 2=Accent Color, 3=Theme, 4=Tab Layout, 5=Feed Selection, 6=Chat Model, 7=Pixel Pet, 8=Neuralook, 9=Finale
 
 // Auth guard: no token → redirect to login
 (function() {
@@ -9,7 +9,7 @@
 })();
 
 let _wizardStep = 0;
-const _wizardTotalSteps = 9;
+const _wizardTotalSteps = 10;
 
 const _wizardAccentColors = [
   { color: '#b4451a', name: 'Orange' },
@@ -115,10 +115,11 @@ function _renderWizardStep(stepIndex, direction) {
     else if (stepIndex === 2) contentHTML = _wizardAccentHTML();
     else if (stepIndex === 3) contentHTML = _wizardThemeHTML();
     else if (stepIndex === 4) contentHTML = _wizardTabLayoutHTML();
-    else if (stepIndex === 5) contentHTML = _wizardChatModelHTML();
-    else if (stepIndex === 6) contentHTML = _wizardPixelPetHTML();
-    else if (stepIndex === 7) contentHTML = _wizardNeuralookHTML();
-    else if (stepIndex === 8) contentHTML = _wizardFinaleHTML();
+    else if (stepIndex === 5) contentHTML = _wizardFeedsHTML();
+    else if (stepIndex === 6) contentHTML = _wizardChatModelHTML();
+    else if (stepIndex === 7) contentHTML = _wizardPixelPetHTML();
+    else if (stepIndex === 8) contentHTML = _wizardNeuralookHTML();
+    else if (stepIndex === 9) contentHTML = _wizardFinaleHTML();
 
     const step = document.createElement('div');
     step.className = 'wizard-step';
@@ -136,8 +137,9 @@ function _renderWizardStep(stepIndex, direction) {
     if (stepIndex === 1) _wizardUsernameInit();
     else if (stepIndex === 2) _wizardAccentInit();
     else if (stepIndex === 3) _wizardThemeInit();
-    else if (stepIndex === 5) _wizardChatModelInit();
-    else if (stepIndex === 6) _wizardPixelPetInit();
+    else if (stepIndex === 5) _wizardFeedsInit();
+    else if (stepIndex === 6) _wizardChatModelInit();
+    else if (stepIndex === 7) _wizardPixelPetInit();
   }, delay);
 }
 
@@ -380,7 +382,125 @@ function _wizardPickTabLayout(layout, el) {
   if (el) el.classList.add('selected');
 }
 
-// ── Step 5: Chat Model ──
+// ── Step 5: Feed Selection ──
+
+const _wizardFeedSelected = new Set();
+let _wizardFeedCategory = null;
+
+function _wizardFeedsHTML() {
+  const cats = [];
+  FEED_CATALOG.forEach(f => { if (!cats.includes(f.cat)) cats.push(f.cat); });
+
+  let tabsHTML = `<button class="wizard-feed-tab${_wizardFeedCategory === null ? ' active' : ''}" onclick="_wizardFeedSelectCategory(null)">All</button>`;
+  cats.forEach(cat => {
+    tabsHTML += `<button class="wizard-feed-tab${_wizardFeedCategory === cat ? ' active' : ''}" onclick="_wizardFeedSelectCategory('${cat.replace(/'/g, "\\'")}')">${cat}</button>`;
+  });
+
+  return `
+    <div style="text-align:center;">
+      <div style="font-size:20px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:4px;">Choose your feeds</div>
+      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:16px;">Pick RSS feeds to follow. You can change these later.</div>
+      <div id="wiz-feed-tabs" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:12px;">${tabsHTML}</div>
+      <div id="wiz-feed-grid" style="max-height:280px;overflow-y:auto;text-align:left;margin-bottom:16px;"></div>
+      <button id="wiz-feed-continue" class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(6, 'forward')">Continue</button>
+    </div>
+  `;
+}
+
+function _wizardFeedsInit() {
+  // Select all feeds by default on first visit
+  if (_wizardFeedSelected.size === 0) {
+    FEED_CATALOG.forEach(f => _wizardFeedSelected.add(f.key));
+  }
+  _wizardFeedRenderGrid();
+}
+
+function _wizardFeedSelectCategory(cat) {
+  _wizardFeedCategory = cat;
+  // Update tabs
+  const tabsContainer = document.getElementById('wiz-feed-tabs');
+  if (tabsContainer) {
+    const cats = [];
+    FEED_CATALOG.forEach(f => { if (!cats.includes(f.cat)) cats.push(f.cat); });
+    let tabsHTML = `<button class="wizard-feed-tab${_wizardFeedCategory === null ? ' active' : ''}" onclick="_wizardFeedSelectCategory(null)">All</button>`;
+    cats.forEach(c => {
+      tabsHTML += `<button class="wizard-feed-tab${_wizardFeedCategory === c ? ' active' : ''}" onclick="_wizardFeedSelectCategory('${c.replace(/'/g, "\\'")}')">${c}</button>`;
+    });
+    tabsContainer.innerHTML = tabsHTML;
+  }
+  _wizardFeedRenderGrid();
+}
+
+function _wizardFeedRenderGrid() {
+  const grid = document.getElementById('wiz-feed-grid');
+  if (!grid) return;
+
+  const entries = _wizardFeedCategory
+    ? FEED_CATALOG.filter(f => f.cat === _wizardFeedCategory)
+    : FEED_CATALOG;
+
+  const byCategory = {};
+  entries.forEach(f => {
+    if (!byCategory[f.cat]) byCategory[f.cat] = [];
+    byCategory[f.cat].push(f);
+  });
+
+  let html = '';
+  for (const cat of Object.keys(byCategory)) {
+    const items = byCategory[cat];
+    const allOn = items.every(f => _wizardFeedSelected.has(f.key));
+    html += `<div style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;padding:0 4px;">
+        <span style="font-size:0.72rem;color:var(--nr-text-secondary,#999);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">${_wizEsc(cat)}</span>
+        <span style="flex:1;height:1px;background:rgba(255,255,255,0.06);"></span>
+        <button style="font-size:0.68rem;color:var(--nr-text-secondary,#777);background:none;border:none;cursor:pointer;" onclick="_wizardFeedToggleCategory('${cat.replace(/'/g, "\\'")}')">${allOn ? 'Deselect all' : 'Select all'}</button>
+      </div>`;
+    for (const f of items) {
+      const sel = _wizardFeedSelected.has(f.key);
+      const favicon = f.favicon
+        ? `<img src="https://www.google.com/s2/favicons?domain=${f.favicon}&sz=32" style="width:20px;height:20px;border-radius:4px;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:${f.bg || '#333'};color:${f.fg || '#fff'}">${f.letter || f.name[0]}</span>`
+        : `<span style="display:flex;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:${f.bg || '#333'};color:${f.fg || '#fff'}">${f.letter || f.name[0]}</span>`;
+      const checkSvg = sel ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>` : '';
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:8px;cursor:pointer;transition:background 0.15s;${sel ? 'background:rgba(255,255,255,0.04);' : ''}" onclick="_wizardFeedToggle('${f.key}')" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background='${sel ? 'rgba(255,255,255,0.04)' : 'transparent'}'">
+        ${favicon}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:0.82rem;font-weight:500;color:${sel ? 'var(--nr-text-primary,#e0e0e0)' : 'var(--nr-text-secondary,#999)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_wizEsc(f.name)}</div>
+          <div style="font-size:0.7rem;color:var(--nr-text-secondary,#777);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_wizEsc(f.desc)}</div>
+        </div>
+        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${sel ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.15)'};background:${sel ? 'var(--accent,#b4451a)' : 'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;">${checkSvg}</div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+  grid.innerHTML = html;
+
+  const btn = document.getElementById('wiz-feed-continue');
+  if (btn) btn.disabled = _wizardFeedSelected.size === 0;
+}
+
+function _wizardFeedToggle(key) {
+  if (_wizardFeedSelected.has(key)) _wizardFeedSelected.delete(key);
+  else _wizardFeedSelected.add(key);
+  _wizardFeedRenderGrid();
+}
+
+function _wizardFeedToggleCategory(cat) {
+  const items = FEED_CATALOG.filter(f => f.cat === cat);
+  const allOn = items.every(f => _wizardFeedSelected.has(f.key));
+  items.forEach(f => {
+    if (allOn) _wizardFeedSelected.delete(f.key);
+    else _wizardFeedSelected.add(f.key);
+  });
+  _wizardFeedRenderGrid();
+}
+
+function _wizEsc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ── Step 6: Chat Model ──
 
 function _wizardChatModelHTML() {
   return `
@@ -390,7 +510,7 @@ function _wizardChatModelHTML() {
       <div id="wiz-model-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px;max-height:200px;overflow-y:auto;">
         <div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;">Loading models...</div>
       </div>
-      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(6, 'forward')">Continue</button>
+      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(7, 'forward')">Continue</button>
     </div>
   `;
 }
@@ -427,7 +547,7 @@ function _wizardPickModel(model, el) {
   if (el) el.classList.add('selected');
 }
 
-// ── Step 6: Pixel Pet ──
+// ── Step 7: Pixel Pet ──
 
 function _wizardPixelPetHTML() {
   const petOn = localStorage.getItem('pixelPet') === 'on';
@@ -451,7 +571,7 @@ function _wizardPixelPetHTML() {
           <span style="font-size:11px;">None</span>
         </button>
       </div>
-      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(7, 'forward')">Continue</button>
+      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(8, 'forward')">Continue</button>
     </div>
   `;
 }
@@ -592,7 +712,7 @@ function _wizardPetSprites() {
   };
 }
 
-// ── Step 7: Neuralook (optional) ──
+// ── Step 8: Neuralook (optional) ──
 
 function _wizardNeuralookHTML() {
   return `
@@ -603,18 +723,29 @@ function _wizardNeuralookHTML() {
         <svg style="width:48px;height:48px;display:inline-block;" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       </div>
       <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_wizardStartNeuralook()">Calibrate now</button>
-      <button class="nr-btn nr-btn nr-btn-ghost" onclick="_renderWizardStep(8, 'forward')">Set up later</button>
+      <button class="nr-btn nr-btn nr-btn-ghost" onclick="_renderWizardStep(9, 'forward')">Set up later</button>
     </div>
   `;
 }
 
 async function _wizardStartNeuralook() {
   await _wizardCommitAccount();
+  // Save feed selections before leaving
+  if (_wizardFeedSelected.size > 0) {
+    const sources = {};
+    const notifSources = {};
+    FEED_CATALOG.forEach(f => {
+      sources[f.key] = _wizardFeedSelected.has(f.key);
+      notifSources[f.key] = false;
+    });
+    localStorage.setItem('feedSources', JSON.stringify(sources));
+    localStorage.setItem('feedNotifSources', JSON.stringify(notifSources));
+  }
   // Redirect to main app with neuralook hash for calibration
   window.location.href = '/#neuralook';
 }
 
-// ── Step 8: Finale ──
+// ── Step 9: Finale ──
 
 function _wizardFinaleHTML() {
   const username = _wizardPendingUsername || (_authUserInfo && _authUserInfo.username) || 'you';
@@ -632,6 +763,17 @@ function _wizardFinaleHTML() {
 
 async function _wizardFinish() {
   await _wizardCommitAccount();
+  // Save feed selections
+  if (_wizardFeedSelected.size > 0) {
+    const sources = {};
+    const notifSources = {};
+    FEED_CATALOG.forEach(f => {
+      sources[f.key] = _wizardFeedSelected.has(f.key);
+      notifSources[f.key] = false;
+    });
+    localStorage.setItem('feedSources', JSON.stringify(sources));
+    localStorage.setItem('feedNotifSources', JSON.stringify(notifSources));
+  }
   _wizardComplete();
 }
 

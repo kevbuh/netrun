@@ -4,6 +4,7 @@ import { OllamaProvider } from './providers/ollama.js';
 import { registerToolIPC } from './ipc-handlers.js';
 import { initInsight } from './ambient/index.js';
 import { contextManager } from './context/manager.js';
+import { contextIntake } from './context/intake.js';
 
 /**
  * Initialize the core system: tools, providers, IPC handlers.
@@ -23,8 +24,9 @@ export function initCore(): void {
   // Initialize insight pipeline
   initInsight();
 
-  // Ensure context directory exists
+  // Ensure context directory exists and intake is ready
   contextManager.getContextDir();
+  void contextIntake;
 
   console.log(
     `[core] Initialized: ${toolRegistry.names().length} tools, ` +
@@ -35,3 +37,4 @@ export function initCore(): void {
 export { toolRegistry } from './tools/index.js';
 export { providerRegistry } from './providers/registry.js';
 export { getDb, closeDb } from './db/connection.js';
+export { contextIntake } from './context/intake.js';

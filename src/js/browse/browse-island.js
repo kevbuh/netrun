@@ -365,8 +365,13 @@ function _browseRenderTabs() {
   const activeTab = win ? win.activeTab : null;
   const groups = win ? (win.groups || []) : [];
 
-  // Always sync the Dynamic Island tabs pill
-  _islandSyncTabs();
+  // Sync the Dynamic Island tabs pill only in island mode
+  // (horizontal mode shows tabs inline, so the pill is redundant)
+  if (isIsland) {
+    _islandSyncTabs();
+  } else {
+    islandRemove('tabs');
+  }
 
   // In island mode, only sync island — no DOM tab bar to render
   if (isIsland) {

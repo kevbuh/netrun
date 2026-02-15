@@ -97,6 +97,28 @@
       background: color-mix(in srgb, var(--nr-accent) 10%, transparent);
     }
 
+    /* Wizard feed step tabs (reuse hc-tab styles) */
+    .wizard-feed-tab {
+      font-size: 0.7rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--nr-border-default);
+      background: transparent;
+      color: var(--nr-text-tertiary);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .wizard-feed-tab:hover {
+      border-color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
+    }
+    .wizard-feed-tab.active {
+      border-color: var(--nr-accent);
+      color: var(--nr-accent);
+      background: color-mix(in srgb, var(--nr-accent) 10%, transparent);
+    }
+
     .onboard-source.onboard-selected {
       background: color-mix(in srgb, var(--nr-accent) 8%, transparent);
     }

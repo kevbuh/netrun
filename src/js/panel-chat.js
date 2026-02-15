@@ -13,6 +13,13 @@ function _saveChatMemory() {
   const pageUrl = (paper && paper.link) || (browseTab && browseTab.url) || '';
   const pageTitle = (paper && paper.title) || (browseTab && browseTab.title) || '';
   apiPost('/api/chat-memory', { messages: msgs, pageUrl, pageTitle }).catch(() => {});
+  // Capture conversation summary into living context
+  if (msgs.length >= 4 && typeof contextIngest === 'function') {
+    var summary = userMsgs.map(function(m) { return (m.content || '').slice(0, 80); }).join('; ').slice(0, 200);
+    contextIngest('chat', '## Chat Insights',
+      '- ' + (pageTitle || 'Chat') + ': ' + summary,
+      { dedupeKey: 'chat-' + pageUrl });
+  }
 }
 
 /** Handle a single agent event from IPC streaming */

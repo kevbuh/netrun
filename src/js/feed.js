@@ -126,6 +126,13 @@ function markPostAsRead(link) {
   const read = getReadPosts();
   if (!read.includes(link)) { read.push(link); setLS('readPosts', read); }
   _embedPost(link);
+  // Capture read article into living context
+  if (typeof contextIngest === 'function') {
+    var paper = allPapers.find(function(p) { return p.link === link; });
+    if (paper) {
+      contextIngest('feed', '## Reading', '- Read: [' + (paper.title || 'Untitled') + '](' + link + ')', { dedupeKey: 'read-' + link });
+    }
+  }
 }
 
 function _embedPost(link) {
@@ -362,6 +369,10 @@ function toggleSavePost(paper, event) {
   renderPapers();
   if (wasAdding) {
     _embedPost(paper.link);
+    // Capture saved article into living context
+    if (typeof contextIngest === 'function') {
+      contextIngest('feed', '## Reading', '- Saved: [' + (paper.title || 'Untitled') + '](' + paper.link + ')', { dedupeKey: 'saved-' + paper.link });
+    }
     if (event) _showBookmarkFly(event);
     const _bmTitle = (paper.title || '').length > 40 ? paper.title.slice(0, 38) + '\u2026' : (paper.title || 'Saved');
     islandUpdate('bookmark', { type: 'bookmark', label: 'Saved', detail: _bmTitle });

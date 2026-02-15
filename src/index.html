@@ -338,6 +338,7 @@
   <!-- Core modules (split from core.js) -->
   <script defer src="/js/core/icons.js"></script>
   <script defer src="/js/core/core-state.js"></script>
+  <script defer src="/js/core/core-context-intake.js"></script>
   <script defer src="/js/api-ipc.js"></script>
   <script defer src="/js/api.js"></script>
   <script defer src="/js/core/core-auth.js"></script>
@@ -529,7 +530,7 @@
     <button id="pill-browse-more" class="sidebar-icon" onclick="toggleBrowseMoreMenu()" title="More options">
       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
     </button>
-    <button id="pill-browse-hamburger" class="sidebar-icon" onclick="_togglePillMenu()" title="Menu">
+    <button id="pill-browse-hamburger" class="sidebar-icon" onclick="_togglePillMenu()" onmouseenter="_openPillMenuHover()" onmouseleave="_closePillMenuHover()" title="Menu">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
     </button>
     <button id="pill-window-list-btn" class="sidebar-icon browse-window-list-btn" onclick="event.stopPropagation();toggleWindowListDropdown(this)" title="All windows">

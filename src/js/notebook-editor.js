@@ -674,6 +674,15 @@ async function runNbCell(i) {
       _execAbort = null;
       _swapToRun(document.querySelector(`[data-cell="${i}"]`), i);
       scheduleNbSave();
+      // Capture last text output into living context
+      if (typeof contextIngest === 'function' && collectedOutputs.length) {
+        var lastText = collectedOutputs.filter(function(o) { return o.text; }).pop();
+        if (lastText) {
+          contextIngest('notebook', '## Notebook Results',
+            '- Cell ' + i + ': ' + (lastText.text || '').slice(0, 200),
+            { dedupeKey: 'nb-' + (typeof currentExpId !== 'undefined' ? currentExpId : '') + '-cell-' + i });
+        }
+      }
       if (!localStorage.getItem('ach_its_alive')) {
         localStorage.setItem('ach_its_alive', '1');
         if (typeof showAchievement === 'function') showAchievement("It's Alive!", 'Ran an experiment kernel for the first time');

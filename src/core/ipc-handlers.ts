@@ -21,6 +21,8 @@ import * as socialExtQueries from './db/queries/social-extended.js';
 import { getDb } from './db/connection.js';
 import { contextManager } from './context/manager.js';
 import { runCompaction } from './context/compaction.js';
+import { contextIntake } from './context/intake.js';
+import type { IntakeEntry } from './context/intake.js';
 
 // ── Ollama provider (singleton) ──
 
@@ -1344,6 +1346,11 @@ export function registerToolIPC(): void {
 
   ipcMain.handle('db:context-create', (_event, file: string) => {
     contextManager.writeContextFile(file, `# ${file.replace('.md', '')}\n\n`);
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:context-ingest', (_event, entry: IntakeEntry) => {
+    contextIntake.ingest(entry);
     return { ok: true };
   });
 

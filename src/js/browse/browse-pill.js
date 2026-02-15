@@ -43,11 +43,21 @@ function _setPillBrowseMode(enabled) {
     if (tabRow) tabRow.style.display = 'none';
     const bar = document.getElementById('browse-bar');
     if (bar) bar.style.display = '';
+    // Hide More and sidebar toggle — redundant in horizontal pill mode
+    const moreBtn = document.getElementById('browse-more-btn');
+    const sidebarToggle = document.getElementById('browse-sidebar-toggle');
+    if (moreBtn) moreBtn.style.display = 'none';
+    if (sidebarToggle) sidebarToggle.style.display = 'none';
     _pillSyncTabs();
   } else {
     if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('island-mode'); }
     const pillTabs = document.getElementById('pill-browse-tabs');
     if (pillTabs) pillTabs.innerHTML = '';
+    // Restore More and sidebar toggle
+    const moreBtn = document.getElementById('browse-more-btn');
+    const sidebarToggle = document.getElementById('browse-sidebar-toggle');
+    if (moreBtn) moreBtn.style.display = '';
+    if (sidebarToggle) sidebarToggle.style.display = '';
     _closePillMenu();
     _applyBrowseTabLayout();
   }
@@ -119,11 +129,7 @@ function _pillSyncTabs() {
     }
   }
 
-  // Window list button at the end
-  html += '<button class="browse-window-list-btn" onclick="event.stopPropagation();toggleWindowListDropdown(this)" title="All windows">' +
-    '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 9h18M9 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-    '<span class="browse-window-list-badge">' + _browseWindows.length + '</span>' +
-  '</button>';
+  // Window list button removed — #pill-window-list-btn in the pill bar handles this
 
   pillTabs.innerHTML = html;
   _syncWindowListBadge();
@@ -155,7 +161,7 @@ function _togglePillMenu() {
 function _populatePillMenuMoreItems() {
   const container = document.getElementById('pill-menu-more-items');
   const pill = document.getElementById('sidebar-nav');
-  if (!container || !pill || !pill.classList.contains('island-mode')) return;
+  if (!container || !pill || !pill.classList.contains('browse-mode')) return;
 
   const tab = (typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined')
     ? _browseTabs.find(function(t) { return t.id === _browseActiveTab; }) : null;
