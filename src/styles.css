@@ -708,7 +708,7 @@
       border-radius: 14px;
       gap: 2px;
       width: fit-content;
-      background: none;
+      background: var(--aether-bg);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
     }
