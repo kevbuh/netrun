@@ -1,5 +1,6 @@
 // browse-sessions.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+if (window.AetherUI) AetherUI.globals();
 
 // ── Tab Sessions (save/restore named tab groups) ──
 
@@ -39,37 +40,67 @@ function _renderTabStateDropdown() {
   const openTabs = _browseTabs.filter(t => !t.blank && t.url);
   const canSave = openTabs.length > 0;
 
-  let html = `<div style="position:absolute;right:0;top:calc(100% + 4px);min-width:260px;max-height:360px;overflow-y:auto;background:var(--nr-bg-overlay);border:1px solid var(--nr-border-default);border-radius:8px;box-shadow:0 4px 16px var(--nr-shadow-popup);z-index:10000;padding:4px 0;">`;
+  // Save row
+  var nameInput = new View('input');
+  nameInput.el.type = 'text';
+  nameInput.el.id = 'tab-session-name-input';
+  nameInput.el.placeholder = 'Session name\u2026';
+  nameInput.el.style.cssText = 'flex:1;min-width:0;padding:5px 8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:0.78rem;border-radius:6px;outline:none;';
+  nameInput.on('keydown', function(e) { if (e.key === 'Enter') confirmSaveTabSession(); });
+  if (!canSave) nameInput.el.disabled = true;
 
-  // Save current tabs section
-  html += `<div style="padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);">
-    <div id="tab-session-save-row" style="display:flex;align-items:center;gap:4px;">
-      <input id="tab-session-name-input" type="text" placeholder="Session name…" style="flex:1;min-width:0;padding:5px 8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:0.78rem;border-radius:6px;outline:none;" onkeydown="if(event.key==='Enter')confirmSaveTabSession()" ${canSave ? '' : 'disabled'}>
-      <button onclick="confirmSaveTabSession()" style="padding:5px 10px;border:none;background:${canSave ? 'var(--nr-accent)' : 'var(--nr-bg-raised)'};color:${canSave ? '#fff' : 'var(--nr-text-quaternary)'};font-size:0.78rem;border-radius:6px;cursor:${canSave ? 'pointer' : 'default'};white-space:nowrap;" ${canSave ? '' : 'disabled'}>Save ${openTabs.length} tab${openTabs.length !== 1 ? 's' : ''}</button>
-    </div>
-  </div>`;
+  var saveBtn = new View('button');
+  saveBtn.el.textContent = 'Save ' + openTabs.length + ' tab' + (openTabs.length !== 1 ? 's' : '');
+  saveBtn.el.style.cssText = 'padding:5px 10px;border:none;background:' + (canSave ? 'var(--nr-accent)' : 'var(--nr-bg-raised)') + ';color:' + (canSave ? '#fff' : 'var(--nr-text-quaternary)') + ';font-size:0.78rem;border-radius:6px;cursor:' + (canSave ? 'pointer' : 'default') + ';white-space:nowrap;';
+  if (!canSave) saveBtn.el.disabled = true;
+  saveBtn.onTap(function() { confirmSaveTabSession(); });
 
+  var saveRow = HStack([nameInput, saveBtn]).spacing(1).alignment('center').id('tab-session-save-row');
+  var saveSection = new View('div');
+  saveSection.el.style.cssText = 'padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);';
+  saveSection.el.appendChild(saveRow.build());
+
+  // Session list
+  var listItems = [];
   if (!sessions.length) {
-    html += `<div style="padding:12px;font-size:0.75rem;color:var(--nr-text-quaternary);text-align:center">No saved sessions</div>`;
+    listItems.push(Text('No saved sessions').font('caption1').foreground('quaternary')
+      .style('padding', '12px').style('textAlign', 'center'));
   } else {
-    for (let i = 0; i < sessions.length; i++) {
-      const s = sessions[i];
-      const count = s.tabs ? s.tabs.length : (s.windows ? s.windows.reduce((n, w) => n + w.tabs.length, 0) : 0);
-      const winCount = s.windows ? s.windows.length : 1;
-      const date = new Date(s.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-      const subtitle = winCount > 1 ? `${winCount} windows · ${count} tabs · ${date}` : `${count} tab${count !== 1 ? 's' : ''} · ${date}`;
-      html += `<div class="tab-session-row" style="display:flex;align-items:center;gap:6px;padding:6px 12px;cursor:pointer;transition:background 0.1s;" onmouseenter="this.style.background='var(--aether-hover)'" onmouseleave="this.style.background='none'">
-        <button onclick="loadTabSession(${i})" style="flex:1;min-width:0;text-align:left;border:none;background:none;cursor:pointer;padding:0;display:flex;flex-direction:column;gap:1px;">
-          <span style="font-size:0.8rem;color:var(--nr-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${escapeHtml(s.name)}</span>
-          <span style="font-size:0.68rem;color:var(--nr-text-quaternary)">${subtitle}</span>
-        </button>
-        <button onclick="event.stopPropagation();deleteTabSession(${i})" style="border:none;background:none;color:var(--nr-text-quaternary);cursor:pointer;padding:2px;font-size:0.9rem;line-height:1;flex-shrink:0;" title="Delete session" onmouseenter="this.style.color='var(--nr-text-primary)'" onmouseleave="this.style.color='var(--nr-text-quaternary)'">&times;</button>
-      </div>`;
-    }
+    sessions.forEach(function(s, i) {
+      var count = s.tabs ? s.tabs.length : (s.windows ? s.windows.reduce(function(n, w) { return n + w.tabs.length; }, 0) : 0);
+      var winCount = s.windows ? s.windows.length : 1;
+      var date = new Date(s.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      var subtitle = winCount > 1 ? winCount + ' windows \u00b7 ' + count + ' tabs \u00b7 ' + date : count + ' tab' + (count !== 1 ? 's' : '') + ' \u00b7 ' + date;
+
+      var infoBtn = VStack([
+        Text(s.name).font('callout').foreground('primary')
+          .style('overflow', 'hidden').style('textOverflow', 'ellipsis').style('whiteSpace', 'nowrap'),
+        Text(subtitle).font('caption2').foreground('quaternary')
+      ]).spacing(0).style('flex', '1').style('minWidth', '0').style('textAlign', 'left')
+        .style('border', 'none').style('background', 'none').style('cursor', 'pointer').style('padding', '0');
+      infoBtn.onTap(function() { loadTabSession(i); });
+
+      var delBtn = Text('\u00d7').foreground('quaternary')
+        .style('border', 'none').style('background', 'none').style('cursor', 'pointer')
+        .style('padding', '2px').style('fontSize', '0.9rem').style('lineHeight', '1').style('flexShrink', '0')
+        .onHover(function() { delBtn.el.style.color = 'var(--nr-text-primary)'; }, function() { delBtn.el.style.color = 'var(--nr-text-quaternary)'; })
+        .onTap(function(e) { e.stopPropagation(); deleteTabSession(i); });
+      delBtn.el.title = 'Delete session';
+
+      var row = HStack([infoBtn, delBtn]).spacing(2).alignment('center').className('tab-session-row')
+        .style('padding', '6px 12px').style('cursor', 'pointer').style('transition', 'background 0.1s')
+        .onHover(function() { row.el.style.background = 'var(--aether-hover)'; }, function() { row.el.style.background = 'none'; });
+      listItems.push(row);
+    });
   }
 
-  html += '</div>';
-  dd.innerHTML = html;
+  var panel = VStack([saveSection].concat(listItems))
+    .style('position', 'absolute').style('right', '0').style('top', 'calc(100% + 4px)')
+    .style('minWidth', '260px').style('maxHeight', '360px').style('overflowY', 'auto')
+    .background('overlay').border('border-default').cornerRadius('md')
+    .shadow('popup').zIndex('overlay').style('padding', '4px 0');
+
+  AetherUI.mount(panel, dd);
 }
 
 function confirmSaveTabSession() {
@@ -174,41 +205,66 @@ function _renderToolbarSessions() {
   if (!container) return;
 
   const sessions = _getTabSessions();
-  const totalTabs = _browseWindows.reduce((n, w) => n + w.tabs.filter(t => !t.blank && t.url).length, 0);
+  const totalTabs = _browseWindows.reduce(function(n, w) { return n + w.tabs.filter(function(t) { return !t.blank && t.url; }).length; }, 0);
   const canSave = totalTabs > 0;
 
-  container.innerHTML = `
-    <button class="browse-sessions-toggle" onclick="_toggleSessionsDropdown()">
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
-      <svg class="w-3 h-3 chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-    </button>
-    <div class="browse-sessions-menu" style="display:none;">
-      <div class="browse-sessions-menu-header">
-        <button class="browse-save-session-btn" onclick="_promptSaveSessionFromOverview()" ${canSave ? '' : 'disabled'}>
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-          Save current
-        </button>
-      </div>
-      <div class="browse-sessions-list">
-        ${sessions.length === 0 ? '<div class="browse-sessions-empty">No saved sessions</div>' : sessions.map((s, i) => {
-          const count = s.tabs ? s.tabs.length : (s.windows ? s.windows.reduce((n, w) => n + w.tabs.length, 0) : 0);
-          const winCount = s.windows ? s.windows.length : 1;
-          const date = new Date(s.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-          const subtitle = winCount > 1 ? `${winCount} win · ${count} tabs` : `${count} tab${count !== 1 ? 's' : ''}`;
-          return `
-            <div class="browse-session-item">
-              <button class="browse-session-info" onclick="_loadSessionFromOverview(${i})" title="Replace current tabs">
-                <span class="browse-session-name">${escapeHtml(s.name)}</span>
-                <span class="browse-session-meta">${subtitle} · ${date}</span>
-              </button>
-              <button class="browse-session-add" onclick="_loadSessionFromOverview(${i}, true)" title="Add to existing">+</button>
-              <button class="browse-session-delete" onclick="deleteTabSession(${i})" title="Delete">&times;</button>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    </div>
-  `;
+  // Toggle button
+  var toggleBtn = RawHTML('<button class="browse-sessions-toggle" onclick="_toggleSessionsDropdown()">' +
+    '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>' +
+    '<svg class="w-3 h-3 chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>' +
+    '</button>');
+
+  // Save current button
+  var saveCurrentBtn = new View('button');
+  saveCurrentBtn.el.className = 'browse-save-session-btn';
+  saveCurrentBtn.el.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg> Save current';
+  if (!canSave) saveCurrentBtn.el.disabled = true;
+  saveCurrentBtn.onTap(function() { _promptSaveSessionFromOverview(); });
+
+  var header = new View('div');
+  header.el.className = 'browse-sessions-menu-header';
+  header.el.appendChild(saveCurrentBtn.build());
+
+  // Session list items
+  var listChildren = [];
+  if (sessions.length === 0) {
+    listChildren.push(new View('div').className('browse-sessions-empty')._bindText('No saved sessions'));
+  } else {
+    sessions.forEach(function(s, i) {
+      var count = s.tabs ? s.tabs.length : (s.windows ? s.windows.reduce(function(n, w) { return n + w.tabs.length; }, 0) : 0);
+      var winCount = s.windows ? s.windows.length : 1;
+      var date = new Date(s.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      var subtitle = winCount > 1 ? winCount + ' win \u00b7 ' + count + ' tabs' : count + ' tab' + (count !== 1 ? 's' : '');
+
+      var infoBtn = new View('button');
+      infoBtn.el.className = 'browse-session-info';
+      infoBtn.el.title = 'Replace current tabs';
+      infoBtn.el.appendChild(Text(s.name).className('browse-session-name').build());
+      infoBtn.el.appendChild(Text(subtitle + ' \u00b7 ' + date).className('browse-session-meta').build());
+      infoBtn.onTap(function() { _loadSessionFromOverview(i); });
+
+      var addBtn = new View('button');
+      addBtn.el.className = 'browse-session-add';
+      addBtn.el.title = 'Add to existing';
+      addBtn.el.textContent = '+';
+      addBtn.onTap(function() { _loadSessionFromOverview(i, true); });
+
+      var delBtn = new View('button');
+      delBtn.el.className = 'browse-session-delete';
+      delBtn.el.title = 'Delete';
+      delBtn.el.textContent = '\u00d7';
+      delBtn.onTap(function() { deleteTabSession(i); });
+
+      var item = HStack([infoBtn, addBtn, delBtn]).className('browse-session-item');
+      listChildren.push(item);
+    });
+  }
+
+  var sessionsList = VStack(listChildren).className('browse-sessions-list');
+  var menuDiv = VStack([header, sessionsList]).className('browse-sessions-menu').style('display', 'none');
+  var wrapper = VStack([toggleBtn, menuDiv]);
+
+  AetherUI.mount(wrapper, container);
 }
 
 // Prompt to save session from overview - show inline input in sessions menu
@@ -223,13 +279,20 @@ function _promptSaveSessionFromOverview() {
   if (sessionsList.querySelector('.browse-session-input-row')) return;
 
   // Create input row at top
-  const inputRow = document.createElement('div');
-  inputRow.className = 'browse-session-input-row';
-  inputRow.innerHTML = `
-    <input type="text" placeholder="Session name..." autofocus>
-    <button class="save-confirm">Save</button>
-    <button class="save-cancel">&times;</button>
-  `;
+  var inputView = new View('input');
+  inputView.el.type = 'text';
+  inputView.el.placeholder = 'Session name...';
+  inputView.el.autofocus = true;
+
+  var confirmBtnView = new View('button');
+  confirmBtnView.el.className = 'save-confirm';
+  confirmBtnView.el.textContent = 'Save';
+
+  var cancelBtnView = new View('button');
+  cancelBtnView.el.className = 'save-cancel';
+  cancelBtnView.el.textContent = '\u00d7';
+
+  var inputRow = HStack([inputView, confirmBtnView, cancelBtnView]).className('browse-session-input-row').build();
   sessionsList.insertBefore(inputRow, sessionsList.firstChild);
 
   const input = inputRow.querySelector('input');

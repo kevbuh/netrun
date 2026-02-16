@@ -1,5 +1,6 @@
 // browse-passwords.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+if (window.AetherUI) AetherUI.globals();
 
 // ── Password Manager ──
 
@@ -58,15 +59,27 @@ function _pwShowAutofillPicker(tab, frame, entries) {
   _pwHideSavePrompt();
   const container = document.getElementById('browse-content');
   if (!container) return;
-  const bar = document.createElement('div');
-  bar.className = 'browse-pw-save-bar';
-  bar.id = 'browse-pw-bar';
-  const pills = entries.map(e =>
-    `<button onclick="_pwDoAutofill(_browseTabs.find(t=>t.id===${tab.id}), document.querySelector('#browse-content webview'), '${e.id}'); _pwHideSavePrompt();" style="padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.78rem;cursor:pointer;">${escapeHtml(e.username || 'No username')}</button>`
-  ).join('');
-  bar.innerHTML = `<span style="font-size:0.8rem;color:var(--nr-text-tertiary);">Choose account:</span> ${pills}
-    <button onclick="_pwHideSavePrompt()" style="margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;">Dismiss</button>`;
-  container.prepend(bar);
+
+  var pillBtns = entries.map(function(e) {
+    var btn = new View('button');
+    btn.el.textContent = e.username || 'No username';
+    btn.el.style.cssText = 'padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.78rem;cursor:pointer;';
+    btn.onTap(function() {
+      _pwDoAutofill(_browseTabs.find(function(t) { return t.id === tab.id; }), document.querySelector('#browse-content webview'), e.id);
+      _pwHideSavePrompt();
+    });
+    return btn;
+  });
+
+  var label = Text('Choose account:').font('callout').foreground('tertiary');
+  var dismissBtn = new View('button');
+  dismissBtn.el.textContent = 'Dismiss';
+  dismissBtn.el.style.cssText = 'margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;';
+  dismissBtn.onTap(function() { _pwHideSavePrompt(); });
+
+  var row = HStack([label].concat(pillBtns, [dismissBtn])).spacing(2).alignment('center');
+  row.className('browse-pw-save-bar').id('browse-pw-bar');
+  container.prepend(row.build());
 }
 
 function _pwShowSavePrompt(tab, data) {
@@ -82,30 +95,43 @@ function _pwShowSavePrompt(tab, data) {
   _pwHideSavePrompt();
   const container = document.getElementById('browse-content');
   if (!container) return;
-  const bar = document.createElement('div');
-  bar.className = 'browse-pw-save-bar';
-  bar.id = 'browse-pw-bar';
+
   const displayUser = data.username || 'this site';
-  bar.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--nr-accent);flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-    <span style="font-size:0.8rem;color:var(--nr-text-primary);">Save password for <strong>${escapeHtml(displayUser)}</strong>?</span>
-    <button id="pw-save-btn" style="padding:3px 12px;border-radius:4px;border:none;background:var(--nr-accent);color:#fff;font-size:0.78rem;cursor:pointer;font-weight:500;">Save</button>
-    <button id="pw-never-btn" style="padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-tertiary);font-size:0.78rem;cursor:pointer;">Never</button>
-    <button onclick="_pwHideSavePrompt(true)" style="margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;">&times;</button>
-  `;
-  container.prepend(bar);
   // Keep password in closure, not DOM
   const password = data.password;
-  bar.querySelector('#pw-save-btn').addEventListener('click', () => {
-    window.electronAPI.pwSave({ origin: data.origin, username: data.username, password }).catch(() => {});
+
+  var lockIcon = RawHTML('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--nr-accent);flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>');
+
+  var promptText = RawHTML('<span style="font-size:0.8rem;color:var(--nr-text-primary);">Save password for <strong>' + escapeHtml(displayUser) + '</strong>?</span>');
+
+  var saveBtn = new View('button');
+  saveBtn.el.textContent = 'Save';
+  saveBtn.el.style.cssText = 'padding:3px 12px;border-radius:4px;border:none;background:var(--nr-accent);color:#fff;font-size:0.78rem;cursor:pointer;font-weight:500;';
+  saveBtn.onTap(function() {
+    window.electronAPI.pwSave({ origin: data.origin, username: data.username, password: password }).catch(function() {});
     _pwHideSavePrompt(true);
   });
-  bar.querySelector('#pw-never-btn').addEventListener('click', () => {
+
+  var neverBtn = new View('button');
+  neverBtn.el.textContent = 'Never';
+  neverBtn.el.style.cssText = 'padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-tertiary);font-size:0.78rem;cursor:pointer;';
+  neverBtn.onTap(function() {
     _pwSaveDismissed.set(key, true);
     _pwHideSavePrompt(true);
   });
+
+  var closeBtn = new View('button');
+  closeBtn.el.textContent = '\u00d7';
+  closeBtn.el.style.cssText = 'margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;';
+  closeBtn.onTap(function() { _pwHideSavePrompt(true); });
+
+  var row = HStack([lockIcon, promptText, saveBtn, neverBtn, closeBtn]).spacing(2).alignment('center');
+  row.className('browse-pw-save-bar').id('browse-pw-bar');
+  var bar = row.build();
+  container.prepend(bar);
+
   // Auto-dismiss after 15s
-  const timer = setTimeout(() => _pwHideSavePrompt(true), 15000);
+  var timer = setTimeout(function() { _pwHideSavePrompt(true); }, 15000);
   bar._pwDismissTimer = timer;
 }
 
@@ -134,79 +160,57 @@ function _showBrowseContextMenu(x, y, data) {
   _hideBrowseContextMenu();
   _browseContextData = data;
 
-  const menu = document.createElement('div');
-  menu.className = 'browse-link-menu';
+  var linkUrl = data.linkUrl || '';
+  var linkText = data.linkText || '';
+  var imgUrl = data.imgUrl || '';
 
-  let html = '';
-  const linkUrl = data.linkUrl || '';
-  const linkText = data.linkText || '';
-  const imgUrl = data.imgUrl || '';
+  function _ctxItem(label, action) {
+    return new View('div').className('blm-item')._bindText(label)
+      .onTap(function() { action(); _hideBrowseContextMenu(); });
+  }
+  function _ctxSep() { return new View('div').className('blm-sep'); }
+
+  var items = [];
 
   // Link options
   if (linkUrl) {
-    const truncatedText = linkText.length > 25 ? linkText.slice(0, 22) + '...' : linkText;
-    html += `<div class="blm-item" data-action="newtab">Open Link in New Tab</div>`;
-    html += `<div class="blm-item" data-action="here">Open Link Here</div>`;
-    html += `<div class="blm-sep"></div>`;
-    html += `<div class="blm-item" data-action="savelink">Save Link As...</div>`;
-    html += `<div class="blm-item" data-action="copylink">Copy Link Address</div>`;
+    items.push(_ctxItem('Open Link in New Tab', function() { browseNewTab(linkUrl); }));
+    items.push(_ctxItem('Open Link Here', function() { browseNavigate(linkUrl); }));
+    items.push(_ctxSep());
+    items.push(_ctxItem('Save Link As...', function() { _browseSaveLink(linkUrl); }));
+    items.push(_ctxItem('Copy Link Address', function() { navigator.clipboard.writeText(linkUrl).catch(function() {}); }));
     if (linkText) {
-      html += `<div class="blm-item" data-action="copytext">Copy Link Text</div>`;
+      items.push(_ctxItem('Copy Link Text', function() { navigator.clipboard.writeText(linkText).catch(function() {}); }));
     }
   }
 
   // Image options
   if (imgUrl) {
-    if (linkUrl) html += `<div class="blm-sep"></div>`;
-    html += `<div class="blm-item" data-action="openimg">Open Image in New Tab</div>`;
-    html += `<div class="blm-item" data-action="saveimg">Save Image As...</div>`;
-    html += `<div class="blm-item" data-action="copyimg">Copy Image Address</div>`;
+    if (linkUrl) items.push(_ctxSep());
+    items.push(_ctxItem('Open Image in New Tab', function() { browseNewTab(imgUrl); }));
+    items.push(_ctxItem('Save Image As...', function() { _browseSaveImage(imgUrl); }));
+    items.push(_ctxItem('Copy Image Address', function() { navigator.clipboard.writeText(imgUrl).catch(function() {}); }));
   }
 
   // Search option
   if (linkText && linkUrl) {
-    const truncatedText = linkText.length > 25 ? linkText.slice(0, 22) + '...' : linkText;
-    html += `<div class="blm-sep"></div>`;
-    html += `<div class="blm-item" data-action="search">Search Google for "${escapeHtml(truncatedText)}"</div>`;
+    var truncatedText = linkText.length > 25 ? linkText.slice(0, 22) + '...' : linkText;
+    items.push(_ctxSep());
+    items.push(_ctxItem('Search Google for "' + truncatedText + '"', function() {
+      browseNewTab('https://www.google.com/search?q=' + encodeURIComponent(linkText));
+    }));
   }
 
-  menu.innerHTML = html;
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  var menuView = VStack(items).className('browse-link-menu')
+    .style('left', x + 'px').style('top', y + 'px');
+  var menu = menuView.build();
   document.body.appendChild(menu);
   _browseContextMenu = menu;
 
   // Adjust if off screen
-  const rect = menu.getBoundingClientRect();
+  var rect = menu.getBoundingClientRect();
   if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
   if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
-
-  menu.addEventListener('click', (e) => {
-    const item = e.target.closest('.blm-item');
-    if (!item) return;
-    const action = item.dataset.action;
-
-    if (action === 'newtab') {
-      browseNewTab(linkUrl);
-    } else if (action === 'here') {
-      browseNavigate(linkUrl);
-    } else if (action === 'savelink') {
-      _browseSaveLink(linkUrl);
-    } else if (action === 'copylink') {
-      navigator.clipboard.writeText(linkUrl).catch(() => {});
-    } else if (action === 'copytext') {
-      navigator.clipboard.writeText(linkText).catch(() => {});
-    } else if (action === 'search') {
-      browseNewTab('https://www.google.com/search?q=' + encodeURIComponent(linkText));
-    } else if (action === 'openimg') {
-      browseNewTab(imgUrl);
-    } else if (action === 'saveimg') {
-      _browseSaveImage(imgUrl);
-    } else if (action === 'copyimg') {
-      navigator.clipboard.writeText(imgUrl).catch(() => {});
-    }
-    _hideBrowseContextMenu();
-  });
 }
 
 // Helper to trigger download
@@ -455,7 +459,7 @@ function _browseUpdateBarForTab(tab) {
       citeBtn.className = 'browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center';
       citeBtn.onclick = function() { if (typeof showCitePopup === 'function') showCitePopup(); };
       citeBtn.title = 'Cite';
-      citeBtn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>';
+      AetherUI.mount(RawHTML('<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>'), citeBtn);
       if (moreBtn) moreBtn.parentElement.insertBefore(citeBtn, moreBtn);
     }
     citeBtn.style.display = '';
@@ -472,7 +476,7 @@ function _browseUpdateBarForTab(tab) {
     const isSaved = typeof isPostSaved === 'function' && isPostSaved(tab.paper.link);
     bookmarkBtn.className = 'browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none cursor-pointer hover:bg-hover flex items-center justify-center ' + (isSaved ? 'text-accent' : 'text-dimmer hover:text-primary');
     bookmarkBtn.title = isSaved ? 'Saved' : 'Save';
-    bookmarkBtn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="' + (isSaved ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
+    AetherUI.mount(RawHTML('<svg class="w-4 h-4" viewBox="0 0 24 24" fill="' + (isSaved ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>'), bookmarkBtn);
     bookmarkBtn.style.display = '';
   } else {
     if (citeBtn) citeBtn.style.display = 'none';

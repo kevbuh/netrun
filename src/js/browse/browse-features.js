@@ -1,5 +1,6 @@
 // browse-features.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+if (window.AetherUI) AetherUI.globals();
 
 // ── Two-finger swipe navigation ──
 // Injected script in the webview (browse-downloads.js) accumulates horizontal
@@ -111,17 +112,39 @@ function _browseToggleFindBar() {
   if (!browseView) return;
 
   // Create the find bar
-  const bar = document.createElement('div');
-  bar.id = 'browse-find-bar';
-  bar.className = 'browse-find-bar';
-  bar.innerHTML =
-    `<input type="text" id="browse-find-input" class="browse-find-input" placeholder="Find…" autocomplete="off" spellcheck="false">` +
-    `<span id="browse-find-count" class="browse-find-count"></span>` +
-    `<button class="browse-find-btn" id="browse-find-prev" title="Previous">` +
-    `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg></button>` +
-    `<button class="browse-find-btn" id="browse-find-next" title="Next">` +
-    `<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg></button>` +
-    `<button class="browse-find-btn" id="browse-find-close" title="Close">&times;</button>`;
+  var findInput = new View('input');
+  findInput.el.type = 'text';
+  findInput.el.id = 'browse-find-input';
+  findInput.el.className = 'browse-find-input';
+  findInput.el.placeholder = 'Find\u2026';
+  findInput.el.autocomplete = 'off';
+  findInput.el.spellcheck = false;
+
+  var countSpan = new View('span');
+  countSpan.el.id = 'browse-find-count';
+  countSpan.el.className = 'browse-find-count';
+
+  var prevBtn = new View('button');
+  prevBtn.el.className = 'browse-find-btn';
+  prevBtn.el.id = 'browse-find-prev';
+  prevBtn.el.title = 'Previous';
+  prevBtn.el.innerHTML = '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>';
+
+  var nextBtn = new View('button');
+  nextBtn.el.className = 'browse-find-btn';
+  nextBtn.el.id = 'browse-find-next';
+  nextBtn.el.title = 'Next';
+  nextBtn.el.innerHTML = '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>';
+
+  var closeBtn = new View('button');
+  closeBtn.el.className = 'browse-find-btn';
+  closeBtn.el.id = 'browse-find-close';
+  closeBtn.el.title = 'Close';
+  closeBtn.el.textContent = '\u00d7';
+
+  var barView = HStack([findInput, countSpan, prevBtn, nextBtn, closeBtn])
+    .id('browse-find-bar').className('browse-find-bar');
+  var bar = barView.build();
 
   // Insert into browse-content so it floats over the page
   const content = document.getElementById('browse-content');
@@ -575,7 +598,7 @@ function browseShare() {
       const btn = document.querySelector('#browse-bar button[onclick="browseShare()"]');
       if (btn) {
         const orig = btn.innerHTML;
-        btn.innerHTML = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>';
+        AetherUI.mount(RawHTML('<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>'), btn);
         btn.classList.add('text-primary');
         setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('text-primary'); }, 1500);
       }
