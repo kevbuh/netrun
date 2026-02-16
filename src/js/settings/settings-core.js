@@ -40,45 +40,53 @@ function renderSettingsView() {
   // Render sidebar
   const sidebar = document.getElementById('settings-sidebar');
   if (sidebar) {
-    let sbHtml = '<div style="padding:0 12px 12px;"><span class="text-[1.1rem] font-semibold text-primary">Settings</span></div>';
-    for (const s of _SETTINGS_SECTIONS) {
-      const active = _settingsSection === s.key;
-      sbHtml += '<button onclick="_setSettingsSection(\'' + s.key + '\')" class="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[0.8rem] rounded-md transition-colors ' + (active ? 'bg-accent/10 text-accent' : 'text-muted hover:text-primary hover:bg-hover') + '" style="width:calc(100% - 16px);margin:0 8px;">' + s.icon + ' ' + s.label + '</button>';
-    }
-    sbHtml += '<div style="margin-top:auto;padding:12px 16px;"><div id="settings-version" style="color:var(--nr-text-quaternary);font-size:0.65rem;"></div></div>';
-    sidebar.innerHTML = sbHtml;
+    var sbViews = [
+      RawHTML('<div style="padding:0 12px 12px;"><span class="text-[1.1rem] font-semibold text-primary">Settings</span></div>')
+    ];
+    _SETTINGS_SECTIONS.forEach(function(s) {
+      var active = _settingsSection === s.key;
+      var btn = new (window._AetherUIView || View)('button');
+      btn.el.className = 'w-full flex items-center gap-2.5 px-3 py-2 text-left text-[0.8rem] rounded-md transition-colors ' + (active ? 'bg-accent/10 text-accent' : 'text-muted hover:text-primary hover:bg-hover');
+      btn.el.style.cssText = 'width:calc(100% - 16px);margin:0 8px;';
+      btn.el.innerHTML = s.icon + ' ' + s.label;
+      btn.el.addEventListener('click', function() { _setSettingsSection(s.key); });
+      sbViews.push(btn);
+    });
+    sbViews.push(RawHTML('<div style="margin-top:auto;padding:12px 16px;"><div id="settings-version" style="color:var(--nr-text-quaternary);font-size:0.65rem;"></div></div>'));
+    AetherUI.mount(VStack(sbViews), sidebar);
   }
 
   // Render content pane
   const pane = document.getElementById('settings-content-pane');
   if (pane) {
     const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser', panel: 'Lookup Panel', agent: 'Agent', prompts: 'Prompts', context: 'Context', help: 'Help' };
-    let content = '<h2 class="text-[1.2rem] font-semibold text-primary mb-5">' + (titles[_settingsSection] || 'Settings') + '</h2>';
+    var titleView = RawHTML('<h2 class="text-[1.2rem] font-semibold text-primary mb-5">' + (titles[_settingsSection] || 'Settings') + '</h2>');
+    var sectionView;
 
     if (_settingsSection === 'profile') {
-      content += _renderAccountSettings();
-      content += '<div class="mt-6 p-3 rounded-lg border border-border-subtle bg-card/50"><div class="flex items-center gap-2 text-[0.8rem]">' + icon('helpCircle', { size: 15, stroke: 'var(--nr-accent)' }) + '<span class="text-primary">Right-click anywhere and type <kbd class="kbd-key" style="font-size:0.7rem">/help</kbd> to see all commands, instant answers & shortcuts.</span></div></div>';
+      var helpTip = RawHTML('<div class="mt-6 p-3 rounded-lg border border-border-subtle bg-card/50"><div class="flex items-center gap-2 text-[0.8rem]">' + icon('helpCircle', { size: 15, stroke: 'var(--nr-accent)' }) + '<span class="text-primary">Right-click anywhere and type <kbd class="kbd-key" style="font-size:0.7rem">/help</kbd> to see all commands, instant answers & shortcuts.</span></div></div>');
+      sectionView = VStack([_renderAccountSettings(), helpTip]);
     } else if (_settingsSection === 'appearance') {
-      content += _renderAppearanceSettings();
+      sectionView = _renderAppearanceSettings();
     } else if (_settingsSection === 'feed') {
-      content += _renderFeedSettings();
+      sectionView = _renderFeedSettings();
     } else if (_settingsSection === 'tools') {
-      content += _renderToolsSettings();
+      sectionView = _renderToolsSettings();
     } else if (_settingsSection === 'browser') {
-      content += _renderBrowserSettings();
+      sectionView = _renderBrowserSettings();
     } else if (_settingsSection === 'panel') {
-      content += _renderPanelSettings();
+      sectionView = _renderPanelSettings();
     } else if (_settingsSection === 'agent') {
-      content += _renderAgentSettings();
+      sectionView = _renderAgentSettings();
     } else if (_settingsSection === 'prompts') {
-      content += _renderPromptsSettings();
+      sectionView = _renderPromptsSettings();
     } else if (_settingsSection === 'context') {
-      content += _renderContextSettings();
+      sectionView = _renderContextSettings();
     } else if (_settingsSection === 'help') {
-      content += _renderHelpSettings();
+      sectionView = _renderHelpSettings();
     }
 
-    pane.innerHTML = content;
+    AetherUI.mount(VStack([titleView, sectionView]), pane);
   }
 
   // Load version

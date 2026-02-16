@@ -1,5 +1,7 @@
+if (window.AetherUI) AetherUI.globals();
+
 function _renderAccountSettings() {
-  return `
+  return RawHTML(`
     <!-- PROFILE -->
     <div class="mb-8">
       <h3 class="text-white_ text-sm font-semibold mb-3">Profile</h3>
@@ -34,7 +36,7 @@ function _renderAccountSettings() {
         <button onclick="_doDeleteAccount()" class="px-3 py-1 rounded-md text-[0.78rem] border border-red-800/50 text-red-400/70 bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors">Delete Account</button>
       </div>
     </div>
-  `;
+  `);
 }
 
 function toggleSidebarIcon(id, visible) {
@@ -132,7 +134,7 @@ function _renderAppearanceSettings() {
     { color: '#111111', name: 'Black' },
   ];
 
-  return `
+  return RawHTML(`
     <!-- APPEARANCE -->
     <div class="mb-8">
       <h3 class="text-white_ text-sm font-semibold mb-3">Appearance</h3>
@@ -300,7 +302,7 @@ function _renderAppearanceSettings() {
       })()}
       </div>
     </div>
-  `;
+  `);
 }
 
 function _feedTabBtn(key, label) {
@@ -309,15 +311,16 @@ function _feedTabBtn(key, label) {
 }
 
 function _renderFeedSettings() {
-  const tabs = '<div class="flex gap-1.5 mb-6">' + _feedTabBtn('insights', 'Insights') + _feedTabBtn('quality', 'Quality Filter') + _feedTabBtn('algorithm', 'Algorithm') + '</div>';
-
-  if (_settingsFeedTab === 'quality') return tabs + _renderFeedQualityTab();
-  if (_settingsFeedTab === 'algorithm') return tabs + _renderFeedAlgorithmTab();
-  return tabs + _renderFeedInsightsTab();
+  var tabs = RawHTML('<div class="flex gap-1.5 mb-6">' + _feedTabBtn('insights', 'Insights') + _feedTabBtn('quality', 'Quality Filter') + _feedTabBtn('algorithm', 'Algorithm') + '</div>');
+  var content;
+  if (_settingsFeedTab === 'quality') content = _renderFeedQualityTab();
+  else if (_settingsFeedTab === 'algorithm') content = _renderFeedAlgorithmTab();
+  else content = _renderFeedInsightsTab();
+  return VStack([tabs, content]);
 }
 
 function _renderFeedInsightsTab() {
-  return `
+  return RawHTML(`
     <div class="mb-8">
       <h3 class="text-white_ text-sm font-semibold mb-1">Paper Insights</h3>
       <p class="text-dim text-[0.8rem] mb-3">Extracts key insights when viewing a paper. Uses local LLM (qwen2.5:3b).</p>
@@ -334,7 +337,7 @@ function _renderFeedInsightsTab() {
         </label>
       </div>
     </div>
-  `;
+  `);
 }
 
 function _renderFeedQualityTab() {
@@ -343,7 +346,7 @@ function _renderFeedQualityTab() {
   const keptCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'keep').length;
   const skippedCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'skip').length;
 
-  return `
+  return RawHTML(`
     <div class="flex items-center gap-3 mb-1">
       <h3 class="text-white_ text-sm font-semibold">Quality Filter</h3>
       <span class="text-dimmer text-[0.62rem]">qwen3:8b</span>
@@ -410,7 +413,7 @@ function _renderFeedQualityTab() {
       </div>
       <button onclick="resetEverything()" class="text-red-400/80 text-[0.75rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset all &amp; clear cache</button>
     </div>
-  `;
+  `);
 }
 
 function _renderFeedAlgorithmTab() {
@@ -430,7 +433,7 @@ function _renderFeedAlgorithmTab() {
   const exampleRecency = Math.max(0, 10 - exampleAge * 0.5) * wRec;
   const exampleScore = (exampleLlm * (wBase + exampleAffVal * wAff) + exampleRecency).toFixed(1);
 
-  return `
+  return RawHTML(`
     <h3 class="text-white_ text-sm font-semibold mb-1">How the Algorithm Works</h3>
     <p class="text-dim text-[0.78rem] mb-5">Your feed is ranked using a personalized composite score that combines LLM relevance scoring, source affinity from your reading habits, and recency.</p>
 
@@ -526,11 +529,11 @@ function _renderFeedAlgorithmTab() {
       <button onclick="resetPersonalization();renderSettingsView()" class="text-red-400/80 text-[0.75rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset all personalization</button>
       <span class="text-dimmer text-[0.68rem]">Clears your interest profile, resets all weights to defaults</span>
     </div>
-  `;
+  `);
 }
 
 function _renderToolsSettings() {
-  return `
+  return RawHTML(`
     <div class="mb-8">
       <div class="flex items-center justify-between mb-1">
         <div>
@@ -569,7 +572,7 @@ function _renderToolsSettings() {
       </div>
       <div id="vault-path-status" class="text-[0.75rem] mt-2 text-dimmer"></div>
     </div>
-  `;
+  `);
 }
 
 function _renderDoomScrollSites() {
@@ -614,23 +617,23 @@ function _addDoomScrollSite() {
   if (sites.some(s => s.domain === domain)) return;
   sites.push({ domain, mode, minutes });
   _saveDoomScrollSites(sites);
-  document.getElementById('doom-scroll-sites-list').innerHTML = _renderDoomScrollSites();
+  AetherUI.mount(RawHTML(_renderDoomScrollSites()), '#doom-scroll-sites-list');
 }
 
 function _removeDoomScrollSite(index) {
   const sites = _getDoomScrollSites();
   sites.splice(index, 1);
   _saveDoomScrollSites(sites);
-  document.getElementById('doom-scroll-sites-list').innerHTML = _renderDoomScrollSites();
+  AetherUI.mount(RawHTML(_renderDoomScrollSites()), '#doom-scroll-sites-list');
 }
 
 function _resetDoomScrollSites() {
   localStorage.removeItem('doomScrollSites');
-  document.getElementById('doom-scroll-sites-list').innerHTML = _renderDoomScrollSites();
+  AetherUI.mount(RawHTML(_renderDoomScrollSites()), '#doom-scroll-sites-list');
 }
 
 function _renderBrowserSettings() {
-  return `
+  return RawHTML(`
     <div class="mb-8">
       <div class="flex items-center gap-3 mb-1">
         <h3 class="text-white_ text-sm font-semibold">Ad Blocker</h3>
@@ -693,7 +696,7 @@ function _renderBrowserSettings() {
       <p class="text-dim text-[0.8rem] mb-3">Passwords are encrypted via your system keychain.</p>
       <div id="settings-passwords"><div class="text-dimmer text-[0.75rem]">Loading...</div></div>
     </div>
-  `;
+  `);
 }
 
 const _expandedPermDomain = null;
@@ -711,11 +714,11 @@ function _renderSettingsSitePermissions() {
     const isExpanded = _expandedPermDomain === domain;
     const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
     html += '<div style="border:1px solid var(--nr-border-strong);border-radius:8px;margin-bottom:6px;overflow:hidden;">';
-    html += '<div style="display:flex;align-items:center;padding:8px 12px;cursor:pointer;gap:8px;" onclick="_expandedPermDomain=(_expandedPermDomain===\'' + safeDomain + '\'?null:\'' + safeDomain + '\');document.getElementById(\'settings-site-permissions\').innerHTML=_renderSettingsSitePermissions();">';
+    html += '<div style="display:flex;align-items:center;padding:8px 12px;cursor:pointer;gap:8px;" onclick="_expandedPermDomain=(_expandedPermDomain===\'' + safeDomain + '\'?null:\'' + safeDomain + '\');_remountSitePermissions();">';
     html += icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') });
     html += '<span style="flex:1;font-size:0.8rem;color:var(--nr-text-primary);font-weight:500;">' + escapeHtml(domain) + '</span>';
     html += '<span style="font-size:0.68rem;color:var(--nr-text-quaternary);">' + count + ' permission' + (count !== 1 ? 's' : '') + '</span>';
-    html += '<button onclick="event.stopPropagation(); _clearSitePermissions(\'' + safeDomain + '\'); document.getElementById(\'settings-site-permissions\').innerHTML=_renderSettingsSitePermissions();" style="padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-tertiary);font-size:0.7rem;cursor:pointer;">Clear</button>';
+    html += '<button onclick="event.stopPropagation(); _clearSitePermissions(\'' + safeDomain + '\'); _remountSitePermissions();" style="padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-tertiary);font-size:0.7rem;cursor:pointer;">Clear</button>';
     html += '</div>';
     if (isExpanded) {
       html += '<div style="padding:0 12px 8px;border-top:1px solid var(--nr-border-subtle);">';
@@ -731,7 +734,7 @@ function _renderSettingsSitePermissions() {
           const active = current === val;
           const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--nr-bg-surface))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--nr-bg-surface))' : 'color-mix(in srgb, var(--nr-accent) 20%, var(--nr-bg-surface))') : 'var(--nr-bg-surface)';
           const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--nr-accent)') : 'var(--nr-text-quaternary)';
-          html += '<button onclick="_setSitePermission(\'' + safeDomain + '\',\'' + key + '\',\'' + val + '\'); document.getElementById(\'settings-site-permissions\').innerHTML=_renderSettingsSitePermissions();" style="padding:2px 8px;font-size:0.68rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;">' + val + '</button>';
+          html += '<button onclick="_setSitePermission(\'' + safeDomain + '\',\'' + key + '\',\'' + val + '\'); _remountSitePermissions();" style="padding:2px 8px;font-size:0.68rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;">' + val + '</button>';
         }
         html += '</div></div>';
       }
@@ -740,6 +743,10 @@ function _renderSettingsSitePermissions() {
     html += '</div>';
   }
   return html;
+}
+
+function _remountSitePermissions() {
+  AetherUI.mount(RawHTML(_renderSettingsSitePermissions()), '#settings-site-permissions');
 }
 
 function _renderUrlBarSectionsSettings() {
@@ -845,19 +852,19 @@ function _loadSettingsPasswords() {
   const container = document.getElementById('settings-passwords');
   if (!container) return;
   if (!window.electronAPI || !window.electronAPI.pwList) {
-    container.innerHTML = '<div class="text-dimmer text-[0.75rem]">Password storage requires the desktop app.</div>';
+    AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem]">Password storage requires the desktop app.</div>'), container);
     return;
   }
   window.electronAPI.pwList().then(entries => {
     _renderPasswordsList(container, entries || []);
   }).catch(() => {
-    container.innerHTML = '<div class="text-dimmer text-[0.75rem]">Failed to load passwords.</div>';
+    AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem]">Failed to load passwords.</div>'), container);
   });
 }
 
 function _renderPasswordsList(container, entries) {
   if (!entries.length) {
-    container.innerHTML = '<div class="text-dimmer text-[0.75rem]">No saved passwords.</div>';
+    AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem]">No saved passwords.</div>'), container);
     return;
   }
   // Group by origin
@@ -893,7 +900,7 @@ function _renderPasswordsList(container, entries) {
     }
     html += '</div>';
   }
-  container.innerHTML = html;
+  AetherUI.mount(RawHTML(html), container);
 }
 
 function _pwDeleteEntry(id) {
@@ -938,7 +945,7 @@ function _renderPanelSettings() {
   const semMin = parseInt(localStorage.getItem('panelSemanticMin') || '80', 10);
   const vaultMin = parseInt(localStorage.getItem('vaultChatMinSimilarity') || '70', 10);
   setTimeout(_loadSettingsModels, 0);
-  return `
+  return RawHTML(`
     <div class="mb-8">
       <h3 class="text-white_ text-sm font-semibold mb-1">Default Chat Model</h3>
       <p class="text-dim text-[0.8rem] mb-3">The model used for aether panel chat and document Q&A.</p>
@@ -1012,16 +1019,16 @@ function _renderPanelSettings() {
         <span id="vault-min-val" class="text-muted text-[0.78rem] w-10 text-right">${vaultMin}%</span>
       </div>
     </div>
-  `;
+  `);
 }
 
 function _renderPromptsSettings() {
-  return '<p class="text-dim text-sm">Prompts settings coming soon.</p>';
+  return RawHTML('<p class="text-dim text-sm">Prompts settings coming soon.</p>');
 }
 
 function _renderAgentSettings() {
   const toolsOn = localStorage.getItem('chatTools') !== 'off';
-  return `
+  return RawHTML(`
     <div class="mb-8">
       <div class="flex items-center justify-between mb-3">
         <div>
@@ -1159,11 +1166,11 @@ function _renderAgentSettings() {
         <p>The model automatically upgrades to <code class="text-muted">qwen3:8b</code> when tools are on, since smaller models don't reliably handle function calling. You can override this in Lookup Panel settings.</p>
       </div>
     </div>
-  `;
+  `);
 }
 
 function _renderHelpSettings() {
-  return `
+  return RawHTML(`
     <div class="mb-8">
       <h3 class="text-white_ text-sm font-semibold mb-3">Search</h3>
       <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">
@@ -1217,7 +1224,7 @@ function _renderHelpSettings() {
         <code class="text-muted">glm-ocr</code><span class="text-dim">Visual OCR for Insight (extracts text from screenshots)</span>
       </div>
     </div>
-  `;
+  `);
 }
 
 let _contextFiles = [];
@@ -1225,7 +1232,7 @@ let _contextDir = '';
 let _selectedContextFile = null;
 
 function _renderContextSettings() {
-  return '<div id="context-info-bar" class="mb-4 p-3 rounded-lg border border-border-subtle bg-card/50">' +
+  return RawHTML('<div id="context-info-bar" class="mb-4 p-3 rounded-lg border border-border-subtle bg-card/50">' +
     '<div class="text-dimmer text-[0.75rem]">Loading context info...</div></div>' +
     '<div class="flex items-center justify-between mb-3">' +
     '<span class="text-muted text-[0.75rem]" id="context-count-label"></span>' +
@@ -1242,7 +1249,7 @@ function _renderContextSettings() {
     '<button onclick="_saveContextFile()" class="px-3 py-1.5 text-[0.75rem] rounded-md bg-accent text-white hover:bg-accent/80 transition-colors">Save</button>' +
     '<button id="context-compact-btn" onclick="_compactContextFile()" class="px-3 py-1.5 text-[0.75rem] rounded-md border border-border-subtle text-muted hover:text-primary hover:border-accent/50 transition-colors">Compact Now</button>' +
     '<button onclick="_deleteContextFile()" class="px-3 py-1.5 text-[0.75rem] rounded-md text-red-400 hover:text-red-300 border border-transparent hover:border-red-400/30 transition-colors ml-auto">Delete</button>' +
-    '</div></div>';
+    '</div></div>');
 }
 
 function _renderContextFileCard(f) {
@@ -1275,10 +1282,10 @@ function _loadContextFiles() {
       var infoBar = document.getElementById('context-info-bar');
       if (!list) return;
       if (_contextFiles.length === 0) {
-        list.innerHTML = '';
+        AetherUI.mount(RawHTML(''), list);
         if (empty) empty.style.display = '';
         if (countLabel) countLabel.textContent = '';
-        if (infoBar) infoBar.innerHTML = '<div class="text-dimmer text-[0.75rem]">No context files.</div>';
+        if (infoBar) AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem]">No context files.</div>'), infoBar);
         return;
       }
       if (empty) empty.style.display = 'none';
@@ -1286,16 +1293,16 @@ function _loadContextFiles() {
       var totalKb = (totalChars / 1024).toFixed(1);
       if (countLabel) countLabel.textContent = _contextFiles.length + ' file' + (_contextFiles.length !== 1 ? 's' : '');
       if (infoBar) {
-        infoBar.innerHTML = '<div class="flex items-center gap-3">' +
+        AetherUI.mount(RawHTML('<div class="flex items-center gap-3">' +
           '<span class="text-primary text-[0.8rem] font-medium">' + _contextFiles.length + ' file' + (_contextFiles.length !== 1 ? 's' : '') + '</span>' +
           '<span class="text-dimmer text-[0.7rem]">' + totalKb + ' KB total</span>' +
-          (_contextDir ? '<span class="text-dimmer text-[0.65rem] font-mono">' + escapeHtml(_contextDir) + '</span>' : '') + '</div>';
+          (_contextDir ? '<span class="text-dimmer text-[0.65rem] font-mono">' + escapeHtml(_contextDir) + '</span>' : '') + '</div>'), infoBar);
       }
       var html = '';
       for (var i = 0; i < _contextFiles.length; i++) {
         html += _renderContextFileCard(_contextFiles[i]);
       }
-      list.innerHTML = html;
+      AetherUI.mount(RawHTML(html), list);
     }).catch(function(e) { console.warn('loadContextFiles:', e); });
 }
 
@@ -1308,7 +1315,7 @@ function _selectContextFile(fileId) {
     for (var i = 0; i < _contextFiles.length; i++) {
       html += _renderContextFileCard(_contextFiles[i]);
     }
-    list.innerHTML = html;
+    AetherUI.mount(RawHTML(html), list);
   }
   // Fetch content and show editor
   var editor = document.getElementById('context-editor');
@@ -1365,7 +1372,7 @@ function _saveContextFile() {
         for (var j = 0; j < _contextFiles.length; j++) {
           html += _renderContextFileCard(_contextFiles[j]);
         }
-        list.innerHTML = html;
+        AetherUI.mount(RawHTML(html), list);
       }
     }).catch(function(e) { console.warn('saveContextFile:', e); });
 }
@@ -1408,99 +1415,6 @@ function _createTaskContext() {
       _loadContextFiles();
       setTimeout(function() { _selectContextFile(file); }, 300);
     }).catch(function(e) { console.warn('createTaskContext:', e); });
-}
-
-function renderSettingsView() {
-  // Render sidebar
-  const sidebar = document.getElementById('settings-sidebar');
-  if (sidebar) {
-    let sbHtml = '<div style="padding:0 12px 12px;"><span class="text-[1.1rem] font-semibold text-primary">Settings</span></div>';
-    for (const s of _SETTINGS_SECTIONS) {
-      const active = _settingsSection === s.key;
-      sbHtml += '<button onclick="_setSettingsSection(\'' + s.key + '\')" class="w-full flex items-center gap-2.5 px-3 py-2 text-left text-[0.8rem] rounded-md transition-colors ' + (active ? 'bg-accent/10 text-accent' : 'text-muted hover:text-primary hover:bg-hover') + '" style="width:calc(100% - 16px);margin:0 8px;">' + s.icon + ' ' + s.label + '</button>';
-    }
-    sbHtml += '<div style="margin-top:auto;padding:12px 16px;"><div id="settings-version" style="color:var(--nr-text-quaternary);font-size:0.65rem;"></div></div>';
-    sidebar.innerHTML = sbHtml;
-  }
-
-  // Render content pane
-  const pane = document.getElementById('settings-content-pane');
-  if (pane) {
-    const titles = { profile: 'Profile', appearance: 'Appearance', feed: 'Feed & Reading', tools: 'Tools', browser: 'Browser', panel: 'Lookup Panel', agent: 'Agent', prompts: 'Prompts', context: 'Context', help: 'Help' };
-    let content = '<h2 class="text-[1.2rem] font-semibold text-primary mb-5">' + (titles[_settingsSection] || 'Settings') + '</h2>';
-
-    if (_settingsSection === 'profile') {
-      content += _renderAccountSettings();
-      content += '<div class="mt-6 p-3 rounded-lg border border-border-subtle bg-card/50"><div class="flex items-center gap-2 text-[0.8rem]">' + icon('helpCircle', { size: 15, stroke: 'var(--nr-accent)' }) + '<span class="text-primary">Right-click anywhere and type <kbd class="kbd-key" style="font-size:0.7rem">/help</kbd> to see all commands, instant answers & shortcuts.</span></div></div>';
-    } else if (_settingsSection === 'appearance') {
-      content += _renderAppearanceSettings();
-    } else if (_settingsSection === 'feed') {
-      content += _renderFeedSettings();
-    } else if (_settingsSection === 'tools') {
-      content += _renderToolsSettings();
-    } else if (_settingsSection === 'browser') {
-      content += _renderBrowserSettings();
-    } else if (_settingsSection === 'panel') {
-      content += _renderPanelSettings();
-    } else if (_settingsSection === 'agent') {
-      content += _renderAgentSettings();
-    } else if (_settingsSection === 'prompts') {
-      content += _renderPromptsSettings();
-    } else if (_settingsSection === 'context') {
-      content += _renderContextSettings();
-    } else if (_settingsSection === 'help') {
-      content += _renderHelpSettings();
-    }
-
-    pane.innerHTML = content;
-  }
-
-  // Load version
-  apiGet('/api/version').then(v => {
-    const el = document.getElementById('settings-version');
-    if (el && v.version) el.textContent = 'v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
-  }).catch((e) => { /* fire-and-forget */ });
-
-  // Section-specific post-render hooks
-  if (_settingsSection === 'appearance') {
-    updateSpinnerPreview(getSelectedSpinner());
-  } else if (_settingsSection === 'feed') {
-    if (_settingsFeedTab === 'quality') {
-      if (typeof renderBlockedWordsList === 'function') renderBlockedWordsList();
-      apiGet('/api/quality-prompt').then(function(data) {
-        if (data.prompt) {
-          localStorage.setItem('qualityPrompt', data.prompt);
-          const el = document.getElementById('quality-prompt-input');
-          if (el) el.value = data.prompt;
-        }
-        const scoringEl = document.getElementById('scoring-prompt-display');
-        if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
-      }).catch(function(e){ console.warn('loadQualityPrompt:', e); });
-    } else if (_settingsFeedTab === 'algorithm') {
-      if (typeof _renderPersonalizationPanel === 'function') _renderPersonalizationPanel();
-    }
-  } else if (_settingsSection === 'tools') {
-    loadVaultPath();
-  } else if (_settingsSection === 'browser') {
-    _urlBarSectionDragSetup();
-    _loadSettingsPasswords();
-    if (window.electronAPI && window.electronAPI.adblockStats) {
-      window.electronAPI.adblockStats().then(stats => {
-        const el = document.getElementById('adblock-rules-info');
-        if (!el) return;
-        if (stats.lists && stats.lists.length > 0) {
-          const count = (stats.ruleCount || 0).toLocaleString();
-          el.textContent = `${stats.lists.join(' + ')}: ${count} rules loaded.`;
-        } else {
-          el.textContent = 'No filter lists loaded yet. Click "Update filter lists" to download.';
-        }
-      }).catch((e) => { /* fire-and-forget */ });
-    }
-  } else if (_settingsSection === 'prompts') {
-    _loadPromptsData();
-  } else if (_settingsSection === 'context') {
-    _loadContextFiles();
-  }
 }
 
 async function loadVaultPath() {
