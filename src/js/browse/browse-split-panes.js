@@ -1,5 +1,6 @@
 // browse-split-panes.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+if (window.AetherUI) AetherUI.globals();
 
 // ── Split Pane System ──
 
@@ -255,7 +256,7 @@ function _browseRebuildSplitLayout() {
     // Close button
     const closeBtn = document.createElement('button');
     closeBtn.className = 'browse-pane-close';
-    closeBtn.innerHTML = '&times;';
+    closeBtn.textContent = '\u00d7';
     closeBtn.title = 'Close split pane';
     closeBtn.onclick = (e) => { e.stopPropagation(); browseUnsplitPane(pane.id); };
     wrapper.appendChild(closeBtn);

@@ -1,5 +1,6 @@
 // browse-downloads.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+if (window.AetherUI) AetherUI.globals();
 
 // ── Doom Scroll Prevention ──
 const _DOOM_SCROLL_DEFAULTS = [
@@ -216,48 +217,69 @@ function _browseRenderDownloads() {
   if (!dropdown) return;
 
   if (_browseDownloads.length === 0) {
-    dropdown.innerHTML = '<div class="browse-downloads-empty">No downloads</div>';
+    AetherUI.mount(
+      new View('div').className('browse-downloads-empty')._bindText('No downloads'),
+      dropdown
+    );
     return;
   }
 
-  let html = `<div class="browse-downloads-header">
-    <span class="browse-downloads-title">Downloads</span>
-    <button class="browse-downloads-clear" onclick="event.stopPropagation();clearBrowseDownloads()">Clear all</button>
-  </div>`;
+  var completedSvg = '<svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+  var fileSvg = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
+  var folderSvg = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>';
+  var closeSvg = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
 
-  for (const dl of _browseDownloads) {
-    const icon = dl.state === 'completed'
-      ? '<svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>'
-      : '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
+  var clearBtn = new View('button').className('browse-downloads-clear')._bindText('Clear all')
+    .onTap(function(e) { e.stopPropagation(); clearBrowseDownloads(); });
+  var header = HStack([
+    new View('span').className('browse-downloads-title')._bindText('Downloads'),
+    clearBtn
+  ]).className('browse-downloads-header');
 
-    const pct = dl.totalBytes > 0 ? Math.round((dl.receivedBytes / dl.totalBytes) * 100) : 0;
-    const size = dl.totalBytes > 0 ? _formatBytes(dl.totalBytes) : '';
-    const status = dl.state === 'completed' ? 'Completed' + (size ? ' · ' + size : '')
-      : dl.state === 'cancelled' ? 'Cancelled'
-      : pct + '% · ' + _formatBytes(dl.receivedBytes) + (dl.totalBytes > 0 ? ' / ' + size : '');
+  var items = [header];
+  for (var i = 0; i < _browseDownloads.length; i++) {
+    (function(dl) {
+      var icon = RawHTML(dl.state === 'completed' ? completedSvg : fileSvg).className('browse-download-item-icon');
 
-    const progressBar = dl.state === 'progressing'
-      ? `<div class="browse-download-item-progress"><div class="browse-download-item-progress-bar" style="width:${pct}%"></div></div>`
-      : '';
+      var pct = dl.totalBytes > 0 ? Math.round((dl.receivedBytes / dl.totalBytes) * 100) : 0;
+      var size = dl.totalBytes > 0 ? _formatBytes(dl.totalBytes) : '';
+      var status = dl.state === 'completed' ? 'Completed' + (size ? ' \u00b7 ' + size : '')
+        : dl.state === 'cancelled' ? 'Cancelled'
+        : pct + '% \u00b7 ' + _formatBytes(dl.receivedBytes) + (dl.totalBytes > 0 ? ' / ' + size : '');
 
-    html += `<div class="browse-download-item" onclick="openDownloadFile('${dl.id}')">
-      <div class="browse-download-item-icon">${icon}</div>
-      <div class="browse-download-item-info">
-        <div class="browse-download-item-name">${escapeHtml(dl.filename)}</div>
-        <div class="browse-download-item-status">${status}</div>
-        ${progressBar}
-      </div>
-      <div class="browse-download-item-actions">
-        ${dl.state === 'completed' ? `<button class="nr-btn nr-btn-ghost nr-btn-sm" onclick="event.stopPropagation();showDownloadInFolder('${dl.id}')" title="Show in folder"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg></button>` : ''}
-        <button class="nr-btn nr-btn-ghost nr-btn-sm" onclick="event.stopPropagation();removeBrowseDownload('${dl.id}')" title="Remove"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-      </div>
-    </div>`;
+      var infoChildren = [
+        new View('div').className('browse-download-item-name')._bindText(escapeHtml(dl.filename)),
+        new View('div').className('browse-download-item-status')._bindText(status)
+      ];
+      if (dl.state === 'progressing') {
+        var bar = new View('div').className('browse-download-item-progress-bar').style('width', pct + '%');
+        infoChildren.push(new View('div').className('browse-download-item-progress')._appendChildren([bar]));
+      }
+      var info = VStack(infoChildren).className('browse-download-item-info');
+
+      var actionChildren = [];
+      if (dl.state === 'completed') {
+        actionChildren.push(
+          new View('button').className('nr-btn nr-btn-ghost nr-btn-sm').attr('title', 'Show in folder')
+            .onTap(function(e) { e.stopPropagation(); showDownloadInFolder(dl.id); })
+            ._appendChildren([RawHTML(folderSvg)])
+        );
+      }
+      actionChildren.push(
+        new View('button').className('nr-btn nr-btn-ghost nr-btn-sm').attr('title', 'Remove')
+          .onTap(function(e) { e.stopPropagation(); removeBrowseDownload(dl.id); })
+          ._appendChildren([RawHTML(closeSvg)])
+      );
+      var actions = HStack(actionChildren).className('browse-download-item-actions');
+
+      var row = HStack([icon, info, actions]).className('browse-download-item')
+        .onTap(function() { openDownloadFile(dl.id); });
+      items.push(row);
+    })(_browseDownloads[i]);
   }
 
-  dropdown.innerHTML = html;
-
-  // Stop propagation on clicks inside dropdown to prevent closing
-  dropdown.onclick = (e) => e.stopPropagation();
+  AetherUI.mount(VStack(items), dropdown);
+  dropdown.onclick = function(e) { e.stopPropagation(); };
 }
 
 function _formatBytes(bytes) {

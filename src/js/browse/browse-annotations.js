@@ -1,5 +1,6 @@
 // browse-annotations.js — Unified Insight (ambient + annotations)
 // Depends on: browse-state.js
+if (window.AetherUI) AetherUI.globals();
 
 // ── Insight state ──
 
@@ -447,38 +448,61 @@ function _showAnnotationTooltip(data, frame, pinned) {
     document.body.appendChild(tip);
   }
   _annTooltipPinned = !!pinned;
-  const confBadge = data.confidence != null ? '<span class="aether-ann-confidence">' + data.confidence + '%</span>' : '';
-  // Rate buttons — small icons, top-right
-  const rateEl = '<div style="position:absolute;top:6px;right:6px;display:flex;gap:2px">'
-    + '<button data-ann-tip-rate="good" style="background:none;border:none;cursor:pointer;padding:2px;opacity:0.5;color:rgba(255,255,255,0.7)" title="Good" onmouseenter="this.style.opacity=1;this.style.color=\'#4caf50\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'rgba(255,255,255,0.7)\'"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg></button>'
-    + '<button data-ann-tip-rate="bad" style="background:none;border:none;cursor:pointer;padding:2px;opacity:0.5;color:rgba(255,255,255,0.7)" title="Bad" onmouseenter="this.style.opacity=1;this.style.color=\'#ef5350\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'rgba(255,255,255,0.7)\'"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg></button>'
-    + '</div>';
-  const labelEl = '<div class="aether-ann-label" style="color:' + (data.labelColor || '#4caf50') + ';padding-right:36px">' + (data.label || data.type) + confBadge + '</div>';
-  const explEl = '<div class="aether-ann-explanation">' + data.explanation + '</div>';
-  const conflictEl = data.conflictsWith ? '<div class="aether-ann-conflict">Conflicts with: ' + data.conflictsWith + '</div>' : '';
   tip.style.position = 'fixed';
-  tip.innerHTML = rateEl + labelEl + explEl + conflictEl;
-  // Wire rating buttons
-  tip.querySelectorAll('[data-ann-tip-rate]').forEach(function(btn) {
-    btn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
-    btn.addEventListener('click', function(ev) {
+
+  var thumbUpSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>';
+  var thumbDownSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>';
+  var checkSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  var rateBtnStyle = { background: 'none', border: 'none', cursor: 'pointer', padding: '2px', opacity: '0.5', color: 'rgba(255,255,255,0.7)' };
+
+  function _makeRateBtn(svgHtml, rating, title, hoverColor) {
+    var btn = new View('button').attr('title', title);
+    Object.keys(rateBtnStyle).forEach(function(k) { btn.style(k, rateBtnStyle[k]); });
+    btn._appendChildren([RawHTML(svgHtml)]);
+    btn.onHover(
+      function() { btn.el.style.opacity = '1'; btn.el.style.color = hoverColor; },
+      function() { btn.el.style.opacity = '0.5'; btn.el.style.color = 'rgba(255,255,255,0.7)'; }
+    );
+    btn.on('mousedown', function(ev) { ev.stopPropagation(); ev.preventDefault(); });
+    btn.onTap(function(ev) {
       ev.stopPropagation(); ev.preventDefault();
-      if (btn.disabled) return;
-      const rating = btn.getAttribute('data-ann-tip-rate');
-      const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+      if (btn.el.disabled) return;
+      var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
       apiPost('/api/annotation-feedback', { quote: data.quote || data.explanation || '', explanation: data.explanation || '', annType: data.type || '', rating: rating, url: (tab && tab.url) || '', pageTitle: (tab && tab.title) || '' })
         .then(function() {
-          btn.style.opacity = '1';
-          btn.style.color = rating === 'good' ? '#4caf50' : '#ef5350';
-          btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-          btn.disabled = true;
-          const sibling = btn.parentElement.querySelector('[data-ann-tip-rate]:not([disabled])');
+          btn.el.style.opacity = '1';
+          btn.el.style.color = rating === 'good' ? '#4caf50' : '#ef5350';
+          AetherUI.mount(RawHTML(checkSvg), btn.el);
+          btn.el.disabled = true;
+          var sibling = btn.el.parentElement.querySelector('button:not([disabled])');
           if (sibling) sibling.style.display = 'none';
         }).catch(function() {
-          btn.style.opacity = '0.5';
+          btn.el.style.opacity = '0.5';
         });
     });
-  });
+    return btn;
+  }
+
+  var rateRow = HStack([
+    _makeRateBtn(thumbUpSvg, 'good', 'Good', '#4caf50'),
+    _makeRateBtn(thumbDownSvg, 'bad', 'Bad', '#ef5350')
+  ]).style('position', 'absolute').style('top', '6px').style('right', '6px').style('display', 'flex').style('gap', '2px');
+
+  var labelChildren = [Text(data.label || data.type)];
+  if (data.confidence != null) {
+    labelChildren.push(new View('span').className('aether-ann-confidence')._bindText(data.confidence + '%'));
+  }
+  var labelEl = HStack(labelChildren).className('aether-ann-label')
+    .style('color', data.labelColor || '#4caf50').style('padding-right', '36px');
+
+  var explEl = new View('div').className('aether-ann-explanation')._bindText(data.explanation);
+
+  var tipChildren = [rateRow, labelEl, explEl];
+  if (data.conflictsWith) {
+    tipChildren.push(new View('div').className('aether-ann-conflict')._bindText('Conflicts with: ' + data.conflictsWith));
+  }
+
+  AetherUI.mount(VStack(tipChildren), tip);
   tip.style.opacity = '1';
   tip.style.pointerEvents = 'auto';
   const fRect = frame.getBoundingClientRect();

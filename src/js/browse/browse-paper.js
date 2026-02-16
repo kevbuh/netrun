@@ -1,5 +1,6 @@
 // browse-paper.js — Academic paper detection, metadata, and reference tooltips
 // Depends on: browse-state.js, browse-downloads.js, core-ui.js
+if (window.AetherUI) AetherUI.globals();
 
 // ── Paper site detection ──
 
@@ -320,14 +321,16 @@ function _paperShowRefTooltip(data, frame) {
   const tip = _refTooltipEl;
   const refNum = data.refNum;
 
-  let html = '<div class="nr-ref-tooltip-num">[' + refNum + ']</div>';
+  var tipChildren = [
+    new View('div').className('nr-ref-tooltip-num')._bindText('[' + refNum + ']')
+  ];
   if (data.title) {
-    html += '<div class="nr-ref-tooltip-title">' + escapeHtml(data.title) + '</div>';
+    tipChildren.push(new View('div').className('nr-ref-tooltip-title')._bindText(escapeHtml(data.title)));
   } else if (data.text) {
-    html += '<div class="nr-ref-tooltip-text">' + escapeHtml(data.text.slice(0, 200)) + '</div>';
+    tipChildren.push(new View('div').className('nr-ref-tooltip-text')._bindText(escapeHtml(data.text.slice(0, 200))));
   }
-  html += '<div class="nr-ref-tooltip-loading">Looking up\u2026</div>';
-  tip.innerHTML = html;
+  tipChildren.push(new View('div').className('nr-ref-tooltip-loading')._bindText('Looking up\u2026'));
+  AetherUI.mount(VStack(tipChildren), tip);
   tip.style.display = 'block';
 
   const fRect = frame.getBoundingClientRect();
@@ -353,22 +356,30 @@ async function _paperLookupRef(data, frame) {
   if (loading) loading.remove();
 
   if (result) {
-    let extra = '';
+    var extraEls = [];
     const authors = (result.authors || []).slice(0, 3).map(a => a.name);
     if (result.authors && result.authors.length > 3) authors.push('et al.');
-    if (authors.length) extra += '<div class="nr-ref-tooltip-authors">' + escapeHtml(authors.join(', ')) + '</div>';
+    if (authors.length) {
+      extraEls.push(new View('div').className('nr-ref-tooltip-authors')._bindText(escapeHtml(authors.join(', '))));
+    }
     const details = [];
     if (result.year) details.push(result.year);
     if (result.venue) details.push(result.venue);
     if (result.citationCount != null) details.push(result.citationCount + ' citations');
-    if (details.length) extra += '<div class="nr-ref-tooltip-details">' + escapeHtml(details.join(' \u00b7 ')) + '</div>';
+    if (details.length) {
+      extraEls.push(new View('div').className('nr-ref-tooltip-details')._bindText(escapeHtml(details.join(' \u00b7 '))));
+    }
 
     const titleEl = _refTooltipEl.querySelector('.nr-ref-tooltip-title, .nr-ref-tooltip-text');
-    if (titleEl) {
-      titleEl.insertAdjacentHTML('afterend', extra);
-    } else {
-      _refTooltipEl.insertAdjacentHTML('beforeend', extra);
-    }
+    var insertPoint = titleEl || _refTooltipEl.lastElementChild || _refTooltipEl;
+    extraEls.forEach(function(v) {
+      var built = v.build();
+      if (titleEl && titleEl.nextSibling) {
+        titleEl.parentNode.insertBefore(built, titleEl.nextSibling);
+      } else {
+        _refTooltipEl.appendChild(built);
+      }
+    });
 
     const fRect = frame.getBoundingClientRect();
     const cy = data.y + fRect.top;
