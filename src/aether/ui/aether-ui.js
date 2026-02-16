@@ -96,6 +96,7 @@
     // Put all primitives, controls, containers on window for convenience
     globals: function() {
       var names = [
+        'View',
         'State', 'Computed', 'Effect', 'Binding', 'batch',
         'VStack', 'HStack', 'ZStack', 'Spacer', 'Divider', 'ScrollView',
         'Text', 'Label', 'Link', 'Image', 'Icon', 'RawHTML',

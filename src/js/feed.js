@@ -1,3 +1,5 @@
+if (window.AetherUI) AetherUI.globals();
+
 // ── Auto-refresh timer ──
 let _refreshTimer = null;
 let _refreshSecondsLeft = 300;
@@ -141,6 +143,13 @@ function _embedPost(link) {
   apiPost('/api/embed-content', { title: paper.title, link: paper.link, source: paper.source || '', description: paper.description || '', type: 'post' })
     .catch((e) => { /* fire-and-forget */ });
 }
+function _menuBtn(label, fn) {
+  var b = new View('button');
+  b.el.textContent = label;
+  b.el.addEventListener('mousedown', function(e) { e.stopPropagation(); fn(); });
+  return b;
+}
+
 function openCardMenu(btn, ev, index) {
   ev.stopPropagation();
   ev.preventDefault();
@@ -150,17 +159,23 @@ function openCardMenu(btn, ev, index) {
   const sourceKey = p.source;
   const sourceName = SOURCE_NAMES[p.source] || p.source;
 
-  const menu = document.createElement('div');
+  var menu = document.createElement('div');
   menu.id = 'card-menu-portal';
   menu.className = 'card-menu';
-  const isQuote = p.source === 'quote' && p._quoteId;
-  menu.innerHTML = isQuote ? `
-    <button onmousedown="event.stopPropagation(); deleteUserQuote('${escapeAttr(p._quoteId)}'); closeCardMenu()">Delete quote</button>
-  ` : `
-    <button onmousedown="event.stopPropagation(); findSimilarPosts(${index}); closeCardMenu()">Find similar</button>
-    <button onmousedown="event.stopPropagation(); hidePost('${escapeAttr(p.link)}', '${escapeAttr(p.title)}'); closeCardMenu()">Block post</button>
-    <button onmousedown="event.stopPropagation(); unsubscribeSource('${escapeAttr(sourceKey)}'); closeCardMenu()">Unsubscribe from ${escapeHtml(sourceName)}</button>
-  `;
+  var isQuote = p.source === 'quote' && p._quoteId;
+  var menuItems;
+  if (isQuote) {
+    menuItems = VStack(
+      _menuBtn('Delete quote', function() { deleteUserQuote(p._quoteId); closeCardMenu(); })
+    );
+  } else {
+    menuItems = VStack(
+      _menuBtn('Find similar', function() { findSimilarPosts(index); closeCardMenu(); }),
+      _menuBtn('Block post', function() { hidePost(p.link, p.title); closeCardMenu(); }),
+      _menuBtn('Unsubscribe from ' + sourceName, function() { unsubscribeSource(sourceKey); closeCardMenu(); })
+    );
+  }
+  menu.appendChild(menuItems.build());
   document.body.appendChild(menu);
 
   const rect = btn.getBoundingClientRect();
@@ -225,7 +240,7 @@ async function findSimilarPosts(index) {
   if (!p) return;
   openResearch('search');
   const container = document.getElementById('search-feed-results');
-  if (container) container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]"><div class="spinner"></div><div>Finding similar posts...</div></div>';
+  if (container) AetherUI.mount(VStack(RawHTML('<div class="spinner"></div>'), Text('Finding similar posts...')).alignment('center').className('text-dim text-[0.9rem] py-8'), container);
   const hints = document.getElementById('search-hints');
   if (hints) hints.style.display = 'none';
   const arxiv = document.getElementById('search-arxiv-results');
@@ -239,27 +254,30 @@ async function findSimilarPosts(index) {
     _renderSemanticResults(container, data.results || [], `Similar to "${p.title}"`);
   } catch (err) {
     islandRemove('ai-similar');
-    if (container) container.innerHTML = `<div class="text-center py-8 text-dim text-[0.9rem]">${err.message === 'HTTP 503' ? 'Embedding model not available. Run: <code>ollama pull nomic-embed-text</code>' : 'Search failed: ' + escapeHtml(err.message)}</div>`;
+    if (container) AetherUI.mount(RawHTML('<div class="text-center py-8 text-dim text-[0.9rem]">' + (err.message === 'HTTP 503' ? 'Embedding model not available. Run: <code>ollama pull nomic-embed-text</code>' : 'Search failed: ' + escapeHtml(err.message)) + '</div>'), container);
   }
 }
 
 function _renderSemanticResults(container, results, heading) {
   if (!container) return;
   if (!results.length) {
-    container.innerHTML = '<div class="text-center py-8 text-dim text-[0.9rem]">No similar posts found. Read more posts to build the semantic index.</div>';
+    AetherUI.mount(Text('No similar posts found. Read more posts to build the semantic index.').className('text-center py-8 text-dim text-[0.9rem]'), container);
     return;
   }
-  container.innerHTML = `<div class="mt-6 mb-2 text-[0.75rem] text-dimmer uppercase tracking-wide">${escapeHtml(heading)} (${results.length})</div>` +
-    results.map(r => {
-      const sourceChip = getSourceChip(r.source);
-      const scorePct = Math.round(r.score * 100);
-      const scoreColor = scorePct >= 80 ? 'text-green-400' : scorePct >= 60 ? 'text-yellow-400' : 'text-dimmer';
-      return `<div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openPaperByUrl('${escapeAttr(r.link)}', event)">
-        ${sourceChip}
-        <span class="text-[0.82rem] text-primary truncate">${escapeHtml(r.title)}</span>
-        <span class="text-[0.68rem] ${scoreColor} shrink-0 ml-auto">${scorePct}%</span>
-      </div>`;
-    }).join('');
+  var headingView = Text(escapeHtml(heading) + ' (' + results.length + ')').className('mt-6 mb-2 text-[0.75rem] text-dimmer uppercase tracking-wide');
+  var rows = results.map(function(r) {
+    var sourceChip = getSourceChip(r.source);
+    var scorePct = Math.round(r.score * 100);
+    var scoreColor = scorePct >= 80 ? 'text-green-400' : scorePct >= 60 ? 'text-yellow-400' : 'text-dimmer';
+    return HStack(
+      RawHTML(sourceChip),
+      Text(r.title).className('text-[0.82rem] text-primary truncate'),
+      Text(scorePct + '%').className('text-[0.68rem] ' + scoreColor + ' shrink-0 ml-auto')
+    ).spacing(2).className('py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors')
+      .onTap(function(e) { openPaperByUrl(r.link, e); });
+  });
+  var wrap = VStack([headingView].concat(rows));
+  AetherUI.mount(wrap, container);
 }
 
 // ── Blocked Words ──
@@ -294,16 +312,26 @@ function removeBlockedWord(word) {
   renderPapers();
 }
 function renderBlockedWordsList() {
-  const el = document.getElementById('blocked-words-list');
+  var el = document.getElementById('blocked-words-list');
   if (!el) return;
-  const words = getBlockedWords();
+  var words = getBlockedWords();
   if (!words.length) {
-    el.innerHTML = '<span class="text-dimmer text-[0.75rem]">No blocked words yet.</span>';
+    AetherUI.mount(Text('No blocked words yet.').className('text-dimmer text-[0.75rem]'), el);
     return;
   }
-  el.innerHTML = words.map(w =>
-    `<span class="inline-flex items-center gap-1 bg-input border border-border-input rounded-full px-2.5 py-0.5 text-primary text-[0.78rem]">${escapeHtml(w)}<button onclick="removeBlockedWord('${escapeHtml(w.replace(/'/g, "\\'"))}')" class="text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-sm leading-none ml-0.5">&times;</button></span>`
-  ).join('');
+  var chips = words.map(function(w) {
+    var btn = new View('button').className('text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-sm leading-none ml-0.5');
+    btn.el.textContent = '\u00d7';
+    btn.onTap(function() { removeBlockedWord(w); });
+    return HStack(
+      Text(w),
+      btn
+    ).spacing(1).className('inline-flex items-center bg-input border border-border-input rounded-full px-2.5 py-0.5 text-primary text-[0.78rem]');
+  });
+  var wrap = new View('div');
+  wrap.el.className = 'flex flex-wrap gap-1.5';
+  chips.forEach(function(c) { wrap.el.appendChild(c.build()); });
+  AetherUI.mount(wrap, el);
 }
 
 // ── Offline caching ──
@@ -319,7 +347,7 @@ function isPostCached(link) {
 async function cachePostOffline(link, paper, btnEl) {
   if (isPostCached(link)) return;
   if (btnEl) {
-    btnEl.innerHTML = '<span class="text-dimmer text-[0.7rem]">Caching…</span>';
+    AetherUI.mount(Text('Caching\u2026').className('text-dimmer text-[0.7rem]'), btnEl);
     btnEl.disabled = true;
   }
   try {
@@ -490,41 +518,48 @@ function unsubscribeSource(key) {
 }
 
 function renderSourceBubbles() {
-  const el = document.getElementById('source-bubbles');
+  var el = document.getElementById('source-bubbles');
   if (!el) return;
-  const sourceCounts = {};
-  for (const p of allPapers) {
-    sourceCounts[p.source] = (sourceCounts[p.source] || 0) + 1;
+  var sourceCounts = {};
+  for (var _i = 0; _i < allPapers.length; _i++) {
+    var _p = allPapers[_i];
+    sourceCounts[_p.source] = (sourceCounts[_p.source] || 0) + 1;
   }
-  const sources = Object.keys(sourceCounts);
-  const catSelect = document.getElementById('category');
-  const currentCat = catSelect ? catSelect.value : '';
+  var sources = Object.keys(sourceCounts);
+  var catSelect = document.getElementById('category');
+  var currentCat = catSelect ? catSelect.value : '';
+  var wrap = new View('div');
+  wrap.el.className = 'flex flex-wrap gap-1.5';
 
-  el.innerHTML = sources.map(key => {
-    const entry = FEED_CATALOG.find(f => f.key === key);
-    const name = entry ? entry.name : (key.startsWith('custom:') ? key.slice(7) : key);
-    const logo = SOURCE_LOGO_INLINE[key] || '';
-    const count = sourceCounts[key];
-    const dimmed = hiddenSourceFilters.has(key);
-    const baseClass = `inline-flex items-center gap-1 px-2.5 py-1 rounded-full border ${dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15'} text-[0.78rem] cursor-pointer transition-all duration-150 whitespace-nowrap select-none`;
+  sources.forEach(function(key) {
+    var entry = FEED_CATALOG.find(function(f) { return f.key === key; });
+    var name = entry ? entry.name : (key.startsWith('custom:') ? key.slice(7) : key);
+    var logo = SOURCE_LOGO_INLINE[key] || '';
+    var count = sourceCounts[key];
+    var dimmed = hiddenSourceFilters.has(key);
 
     if (key === 'arxiv' && catSelect) {
-      const opts = Array.from(catSelect.options);
-      const selectOpts = opts.map(o => {
-        const label = o.value ? o.textContent : `arXiv (${count})`;
-        return `<option value="${escapeHtml(o.value)}"${o.value === currentCat ? ' selected' : ''}>${escapeHtml(label)}</option>`;
+      var opts = Array.from(catSelect.options);
+      var selectOpts = opts.map(function(o) {
+        var label = o.value ? o.textContent : 'arXiv (' + count + ')';
+        return '<option value="' + escapeHtml(o.value) + '"' + (o.value === currentCat ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
       }).join('');
-      return `<span class="inline-flex items-center rounded-full border ${dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15'} text-[0.78rem] transition-all duration-150 whitespace-nowrap select-none">
-        <span class="inline-flex items-center pl-2.5 pointer-events-none">${logo}</span>
-        <select class="arxiv-cat-select bg-transparent border-none text-[0.78rem] ${dimmed ? 'text-dim' : 'text-primary'} cursor-pointer outline-none appearance-none py-1 pl-1 pr-5" onchange="document.getElementById('category').value=this.value; renderPapers(); renderSourceBubbles(); _fitArxivSelect(this)">${selectOpts}</select>
-      </span>`;
+      var arxivBubble = RawHTML('<span class="inline-flex items-center rounded-full border ' + (dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15') + ' text-[0.78rem] transition-all duration-150 whitespace-nowrap select-none"><span class="inline-flex items-center pl-2.5 pointer-events-none">' + logo + '</span><select class="arxiv-cat-select bg-transparent border-none text-[0.78rem] ' + (dimmed ? 'text-dim' : 'text-primary') + ' cursor-pointer outline-none appearance-none py-1 pl-1 pr-5" onchange="document.getElementById(\'category\').value=this.value; renderPapers(); renderSourceBubbles(); _fitArxivSelect(this)">' + selectOpts + '</select></span>');
+      wrap.el.appendChild(arxivBubble.build());
+    } else {
+      var bubble = HStack(
+        logo ? RawHTML(logo) : null,
+        Text(name).className(dimmed ? 'text-dim' : 'text-primary'),
+        Text(String(count)).className('text-[0.68rem] ' + (dimmed ? 'text-dimmer' : 'text-dim'))
+      ).spacing(1).className('inline-flex items-center px-2.5 py-1 rounded-full border ' + (dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15') + ' text-[0.78rem] cursor-pointer transition-all duration-150 whitespace-nowrap select-none')
+        .onTap(function() { toggleSourceBubble(key); });
+      wrap.el.appendChild(bubble.build());
     }
+  });
 
-    return `<span class="${baseClass}" onclick="toggleSourceBubble('${escapeHtml(key)}')">${logo}<span class="${dimmed ? 'text-dim' : 'text-primary'}">${escapeHtml(name)}</span><span class="text-[0.68rem] ${dimmed ? 'text-dimmer' : 'text-dim'}">${count}</span></span>`;
-  }).join('');
-
+  AetherUI.mount(wrap, el);
   // Auto-size the arxiv select after rendering
-  const arxivSel = el.querySelector('.arxiv-cat-select');
+  var arxivSel = el.querySelector('.arxiv-cat-select');
   if (arxivSel) _fitArxivSelect(arxivSel);
 }
 
@@ -625,15 +660,23 @@ const _hcHoveredIdx = -1;
 const _hcZoom = 1;
 
 function _renderHcCategoryTabs() {
-  const container = document.getElementById('hc-category-tabs');
+  var container = document.getElementById('hc-category-tabs');
   if (!container) return;
-  const cats = [];
-  FEED_CATALOG.forEach(f => { if (!cats.includes(f.cat)) cats.push(f.cat); });
-  let html = `<button class="hc-tab${_hcActiveCategory === null ? ' active' : ''}" onclick="_hcSelectCategory(null)">All</button>`;
-  cats.forEach(cat => {
-    html += `<button class="hc-tab${_hcActiveCategory === cat ? ' active' : ''}" onclick="_hcSelectCategory('${cat.replace(/'/g, "\\'")}')">${cat}</button>`;
+  var cats = [];
+  FEED_CATALOG.forEach(function(f) { if (!cats.includes(f.cat)) cats.push(f.cat); });
+  var tabs = [
+    new View('button').className('hc-tab' + (_hcActiveCategory === null ? ' active' : ''))
+      .onTap(function() { _hcSelectCategory(null); })
+  ];
+  tabs[0].el.textContent = 'All';
+  cats.forEach(function(cat) {
+    var tab = new View('button').className('hc-tab' + (_hcActiveCategory === cat ? ' active' : ''));
+    tab.el.textContent = cat;
+    tab.onTap(function() { _hcSelectCategory(cat); });
+    tabs.push(tab);
   });
-  container.innerHTML = html;
+  var wrap = HStack(tabs).spacing(1);
+  AetherUI.mount(wrap, container);
 }
 
 function _hcSelectCategory(cat) {
@@ -644,49 +687,55 @@ function _hcSelectCategory(cat) {
 }
 
 function renderOnboardGrid() {
-  const grid = document.getElementById('onboard-grid');
-  const entries = _hcActiveCategory
-    ? FEED_CATALOG.filter(f => f.cat === _hcActiveCategory)
+  var grid = document.getElementById('onboard-grid');
+  var entries = _hcActiveCategory
+    ? FEED_CATALOG.filter(function(f) { return f.cat === _hcActiveCategory; })
     : FEED_CATALOG;
 
   // Group by category
-  const byCategory = {};
-  entries.forEach(f => {
+  var byCategory = {};
+  entries.forEach(function(f) {
     if (!byCategory[f.cat]) byCategory[f.cat] = [];
     byCategory[f.cat].push(f);
   });
 
-  let html = '';
-  for (const cat of Object.keys(byCategory)) {
-    const items = byCategory[cat];
-    const allOn = items.every(f => onboardSelected.has(f.key));
-    html += `<div class="mb-4">
-      <div class="flex items-center gap-2 mb-1.5 px-1">
-        <span class="text-[0.72rem] text-dim uppercase tracking-wider font-medium">${escapeHtml(cat)}</span>
-        <span class="flex-1 h-px bg-border-subtle"></span>
-        <button class="text-[0.68rem] text-dimmer hover:text-primary cursor-pointer bg-transparent border-none transition-colors" onclick="_toggleOnboardCategory('${cat.replace(/'/g, "\\'")}')">
-          ${allOn ? 'Deselect all' : 'Select all'}
-        </button>
-      </div>`;
-    for (const f of items) {
-      const sel = onboardSelected.has(f.key);
-      const icon = f.favicon
-        ? `<img src="https://www.google.com/s2/favicons?domain=${f.favicon}&sz=32" class="w-5 h-5 rounded" onerror="this.outerHTML='<span class=\\'inline-flex items-center justify-center w-5 h-5 rounded text-[0.6rem] font-bold\\' style=\\'background:${f.bg || '#333'};color:${f.fg || '#fff'}\\'>${f.letter || f.name[0]}</span>'">`
-        : `<span class="inline-flex items-center justify-center w-5 h-5 rounded text-[0.6rem] font-bold" style="background:${f.bg || '#333'};color:${f.fg || '#fff'}">${f.letter || f.name[0]}</span>`;
-      html += `<div class="onboard-source flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors hover:bg-hover${sel ? ' onboard-selected' : ''}" data-source="${f.key}" onclick="toggleOnboardSource('${f.key}')">
-        ${icon}
-        <div class="flex-1 min-w-0">
-          <div class="text-[0.82rem] font-medium ${sel ? 'text-primary' : 'text-muted'} truncate">${escapeHtml(f.name)}</div>
-          <div class="text-[0.7rem] text-dimmer truncate">${escapeHtml(f.desc)}</div>
-        </div>
-        <div class="w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${sel ? 'border-accent bg-accent' : 'border-border-input bg-transparent'}">
-          ${sel ? icon('check', {size: 12, class: 'w-3 h-3 text-white', strokeWidth: '3'}) : ''}
-        </div>
-      </div>`;
-    }
-    html += `</div>`;
-  }
-  grid.innerHTML = html;
+  var sections = [];
+  Object.keys(byCategory).forEach(function(cat) {
+    var items = byCategory[cat];
+    var allOn = items.every(function(f) { return onboardSelected.has(f.key); });
+    var toggleBtn = new View('button').className('text-[0.68rem] text-dimmer hover:text-primary cursor-pointer bg-transparent border-none transition-colors');
+    toggleBtn.el.textContent = allOn ? 'Deselect all' : 'Select all';
+    toggleBtn.onTap(function() { _toggleOnboardCategory(cat); });
+
+    var header = HStack(
+      Text(cat).className('text-[0.72rem] text-dim uppercase tracking-wider font-medium'),
+      new View('span').className('flex-1 h-px bg-border-subtle'),
+      toggleBtn
+    ).spacing(2).className('mb-1.5 px-1');
+
+    var itemViews = items.map(function(f) {
+      var sel = onboardSelected.has(f.key);
+      var iconHtml = f.favicon
+        ? '<img src="https://www.google.com/s2/favicons?domain=' + f.favicon + '&sz=32" class="w-5 h-5 rounded" onerror="this.outerHTML=\'<span class=\\\'inline-flex items-center justify-center w-5 h-5 rounded text-[0.6rem] font-bold\\\' style=\\\'background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '\\\'>' + (f.letter || f.name[0]) + '</span>\'">'
+        : '<span class="inline-flex items-center justify-center w-5 h-5 rounded text-[0.6rem] font-bold" style="background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>';
+      var checkHtml = sel ? icon('check', {size: 12, class: 'w-3 h-3 text-white', strokeWidth: '3'}) : '';
+      return HStack(
+        RawHTML(iconHtml),
+        VStack(
+          Text(f.name).className('text-[0.82rem] font-medium ' + (sel ? 'text-primary' : 'text-muted') + ' truncate'),
+          Text(f.desc).className('text-[0.7rem] text-dimmer truncate')
+        ).className('flex-1 min-w-0'),
+        RawHTML('<div class="w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ' + (sel ? 'border-accent bg-accent' : 'border-border-input bg-transparent') + '">' + checkHtml + '</div>')
+      ).spacing(2).className('onboard-source flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors hover:bg-hover' + (sel ? ' onboard-selected' : ''))
+        .attr('data-source', f.key)
+        .onTap(function() { toggleOnboardSource(f.key); });
+    });
+
+    var section = VStack([header].concat(itemViews)).className('mb-4');
+    sections.push(section);
+  });
+
+  AetherUI.mount(VStack(sections), grid);
 }
 
 
@@ -773,22 +822,22 @@ function getCustomFeeds() {
 }
 
 function renderCustomFeedsList() {
-  const list = document.getElementById('custom-feeds-list');
+  var list = document.getElementById('custom-feeds-list');
   if (!list) return;
-  const feeds = getCustomFeeds();
-  if (!feeds.length) { list.innerHTML = '<div class="text-dim text-[0.78rem]">No custom feeds added.</div>'; return; }
-  list.innerHTML = feeds.map((f, i) => `
-    <div class="flex items-center justify-between gap-2 bg-input rounded-md px-3 py-2">
-      <span class="text-primary text-[0.78rem] truncate flex-1" title="${escapeHtml(f.url)}">${escapeHtml(f.name || f.url)}</span>
-      <div class="flex items-center gap-2 shrink-0">
-        <span class="nr-switch">
-          <input type="checkbox" ${f.enabled !== false ? 'checked' : ''} onchange="toggleCustomFeed(${i}, this.checked)">
-          <span class="slider"></span>
-        </span>
-        <button onclick="removeCustomFeed(${i})" class="text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-base leading-none" title="Remove">&times;</button>
-      </div>
-    </div>
-  `).join('');
+  var feeds = getCustomFeeds();
+  if (!feeds.length) { AetherUI.mount(Text('No custom feeds added.').className('text-dim text-[0.78rem]'), list); return; }
+  var rows = feeds.map(function(f, i) {
+    var toggle = RawHTML('<span class="nr-switch"><input type="checkbox" ' + (f.enabled !== false ? 'checked' : '') + '><span class="slider"></span></span>');
+    toggle.el.querySelector('input').addEventListener('change', function() { toggleCustomFeed(i, this.checked); });
+    var removeBtn = new View('button').className('text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-base leading-none').attr('title', 'Remove');
+    removeBtn.el.textContent = '\u00d7';
+    removeBtn.onTap(function() { removeCustomFeed(i); });
+    return HStack(
+      Text(f.name || f.url).className('text-primary text-[0.78rem] truncate flex-1').attr('title', f.url),
+      HStack(toggle, removeBtn).spacing(2).className('shrink-0')
+    ).spacing(2).className('flex items-center justify-between bg-input rounded-md px-3 py-2');
+  });
+  AetherUI.mount(VStack(rows).spacing(2), list);
 }
 
 async function addCustomFeed() {
@@ -873,173 +922,155 @@ function _qualityPanelOutsideClick(e) {
 }
 
 function renderQualityPanel() {
-  const panel = document.getElementById('quality-filter-panel');
+  var panel = document.getElementById('quality-filter-panel');
   if (!panel) return;
-  const cache = getQualityCache();
-  const cacheEntries = Object.entries(cache);
-  const keptCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'keep').length;
-  const skippedCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'skip').length;
+  var cache = getQualityCache();
+  var cacheEntries = Object.entries(cache);
+  var keptCount = cacheEntries.filter(function(e) { return (e[1]?.v || e[1]) === 'keep'; }).length;
+  var skippedCount = cacheEntries.filter(function(e) { return (e[1]?.v || e[1]) === 'skip'; }).length;
 
-  panel.innerHTML = `
-    <div class="flex items-center justify-between mb-2.5">
-      <div class="flex items-center gap-2">
-        <span class="text-primary text-[0.78rem] font-medium">Quality Filter</span>
-        <span class="text-dimmer text-[0.62rem]">qwen3:8b</span>
-        <span id="qf-progress"></span>
-      </div>
-      <label class="flex items-center gap-1.5 cursor-pointer">
-        <span class="text-dim text-[0.7rem]">${isQualityFilterOn() ? 'On' : 'Off'}</span>
-        <span class="nr-switch" style="transform:scale(0.8)">
-          <input type="checkbox" ${isQualityFilterOn() ? 'checked' : ''} onchange="setQualityFilter(this.checked); renderQualityPanel()">
-          <span class="slider"></span>
-        </span>
-      </label>
-    </div>
-    <div class="text-[0.7rem] text-dim space-y-1 mb-2.5">
-      <div class="flex justify-between"><span>Threshold</span><span class="text-primary">${getQualityThreshold()}%</span></div>
-      <div class="flex justify-between"><span>Kept</span><span class="text-green-400/80">${keptCount}</span></div>
-      <div class="flex justify-between"><span>Skipped</span><span class="text-red-400/80">${skippedCount}</span></div>
-    </div>
-    ${getQualityPrompt() !== DEFAULT_QUALITY_PROMPT ? '<div class="text-[0.65rem] text-accent bg-accent/10 border border-accent/30 rounded px-1.5 py-0.5 mb-2.5 inline-block">Custom prompt</div>' : ''}
-    <a href="#quality" onclick="toggleQualityPanel()" class="flex items-center justify-center gap-1.5 text-[0.72rem] text-accent hover:text-accent-hover cursor-pointer w-full py-1.5 rounded-md border border-border-input hover:border-accent transition-colors" style="text-decoration:none">
-      Manage filters
-      ${icon('settings', {size: 12, class: 'w-3 h-3'})}
-    </a>
-    <a href="#algorithm" onclick="toggleQualityPanel()" class="flex items-center justify-center gap-1.5 text-[0.65rem] text-dimmer hover:text-dim cursor-pointer w-full py-1 transition-colors mt-1" style="text-decoration:none">
-      How the algorithm works
-    </a>
-  `;
+  var qfOn = isQualityFilterOn();
+  var toggleSwitch = RawHTML('<span class="nr-switch" style="transform:scale(0.8)"><input type="checkbox" ' + (qfOn ? 'checked' : '') + '><span class="slider"></span></span>');
+  toggleSwitch.el.querySelector('input').addEventListener('change', function() { setQualityFilter(this.checked); renderQualityPanel(); });
+
+  var customPromptChip = getQualityPrompt() !== DEFAULT_QUALITY_PROMPT
+    ? Text('Custom prompt').className('text-[0.65rem] text-accent bg-accent/10 border border-accent/30 rounded px-1.5 py-0.5 mb-2.5 inline-block')
+    : null;
+
+  var manageLink = RawHTML('<a href="#quality" class="flex items-center justify-center gap-1.5 text-[0.72rem] text-accent hover:text-accent-hover cursor-pointer w-full py-1.5 rounded-md border border-border-input hover:border-accent transition-colors" style="text-decoration:none">Manage filters ' + icon('settings', {size: 12, class: 'w-3 h-3'}) + '</a>');
+  manageLink.el.querySelector('a').addEventListener('click', function() { toggleQualityPanel(); });
+
+  var algoLink = RawHTML('<a href="#algorithm" class="flex items-center justify-center gap-1.5 text-[0.65rem] text-dimmer hover:text-dim cursor-pointer w-full py-1 transition-colors mt-1" style="text-decoration:none">How the algorithm works</a>');
+  algoLink.el.querySelector('a').addEventListener('click', function() { toggleQualityPanel(); });
+
+  var view = VStack(
+    HStack(
+      HStack(
+        Text('Quality Filter').className('text-primary text-[0.78rem] font-medium'),
+        Text('qwen3:8b').className('text-dimmer text-[0.62rem]'),
+        new View('span').id('qf-progress')
+      ).spacing(2),
+      HStack(
+        Text(qfOn ? 'On' : 'Off').className('text-dim text-[0.7rem]'),
+        toggleSwitch
+      ).spacing(1).className('cursor-pointer')
+    ).className('flex items-center justify-between mb-2.5'),
+    VStack(
+      HStack(Text('Threshold'), Text(getQualityThreshold() + '%').className('text-primary')).className('flex justify-between'),
+      HStack(Text('Kept'), Text(String(keptCount)).className('text-green-400/80')).className('flex justify-between'),
+      HStack(Text('Skipped'), Text(String(skippedCount)).className('text-red-400/80')).className('flex justify-between')
+    ).spacing(1).className('text-[0.7rem] text-dim mb-2.5'),
+    customPromptChip,
+    manageLink,
+    algoLink
+  );
+  AetherUI.mount(view, panel);
 }
 
 // ── Quality Filter Dedicated View ──
 
 function renderAlgorithmView() {
-  const container = document.getElementById('algorithm-view-content');
+  var container = document.getElementById('algorithm-view-content');
   if (!container) return;
 
-  const profile = typeof getInterestProfile === 'function' ? getInterestProfile() : null;
-  const affinity = typeof getSourceAffinity === 'function' ? getSourceAffinity() : {};
-  const readCount = getReadPosts().length;
-  const savedCount = Object.keys(getSavedPosts()).length;
-  const hiddenCount = getHiddenPosts().length;
-  const topTopics = profile?.topTopics || [];
-  const topCats = profile?.topCategories || [];
+  var profile = typeof getInterestProfile === 'function' ? getInterestProfile() : null;
+  var readCount = getReadPosts().length;
+  var savedCount = Object.keys(getSavedPosts()).length;
+  var hiddenCount = getHiddenPosts().length;
+  var topTopics = profile ? (profile.topTopics || []) : [];
+  var topCats = profile ? (profile.topCategories || []) : [];
 
-  const wBase = parseFloat(localStorage.getItem('fyWeightBase') || '0.7');
-  const wAff = parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3');
-  const wRec = parseFloat(localStorage.getItem('fyWeightRecency') || '1.0');
-  const maxRun = parseInt(localStorage.getItem('maxPerCategoryRun') || '3', 10);
+  var wBase = parseFloat(localStorage.getItem('fyWeightBase') || '0.7');
+  var wAff = parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3');
+  var wRec = parseFloat(localStorage.getItem('fyWeightRecency') || '1.0');
+  var maxRun = parseInt(localStorage.getItem('maxPerCategoryRun') || '3', 10);
 
-  // Example scores for illustration
-  const exampleLlm = 72;
-  const exampleAff = 0.8;
-  const exampleAge = 3;
-  const exampleRecency = Math.max(0, 10 - exampleAge * 0.5) * wRec;
-  const exampleScore = (exampleLlm * (wBase + exampleAff * wAff) + exampleRecency).toFixed(1);
+  var exampleLlm = 72, exampleAff = 0.8, exampleAge = 3;
+  var exampleRecency = Math.max(0, 10 - exampleAge * 0.5) * wRec;
+  var exampleScore = (exampleLlm * (wBase + exampleAff * wAff) + exampleRecency).toFixed(1);
 
-  container.innerHTML = `
-    <a href="#quality" class="text-dim text-[0.72rem] hover:text-primary transition-colors inline-flex items-center gap-1 mb-4" style="text-decoration:none">
-      ${icon('arrowLeft', {size: 12, class: 'w-3 h-3'})}
-      Back to Quality Filter
-    </a>
-    <h2 class="text-[1.3rem] font-semibold text-white_ mb-1">How the Algorithm Works</h2>
-    <p class="text-dim text-[0.8rem] mb-6">Your feed is ranked using a personalized composite score that combines LLM relevance scoring, source affinity from your reading habits, and recency.</p>
+  var topicsHtml = topTopics.length ? topTopics.map(function(t) { return '<span class="bg-hover text-dim text-[0.68rem] px-1.5 py-0.5 rounded">' + escapeHtml(t) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>';
+  var catsHtml = topCats.length ? topCats.map(function(c) { return '<span class="bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20">' + escapeHtml(c) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>';
 
-    <div class="mb-6">
-      <h3 class="text-muted text-[0.85rem] font-medium mb-2">1. LLM Relevance Score</h3>
-      <p class="text-dim text-[0.78rem] leading-relaxed mb-2">Every post that passes the verdict filter (KEEP/SKIP) is scored 0\u2013100 by a local LLM (qwen3:8b). The scoring prompt asks the model to rate how interesting and relevant the post title is.</p>
-      <p class="text-dim text-[0.78rem] leading-relaxed">When you have an interest profile, your top topics and categories are appended to the scoring prompt, so the LLM boosts scores for content matching your interests while still scoring objectively.</p>
-    </div>
+  function _algoSlider(label, id, min, max, value, onInput, onChange) {
+    var slider = new View('input');
+    slider.el.type = 'range'; slider.el.min = min; slider.el.max = max; slider.el.value = value;
+    slider.el.className = 'flex-1 accent-[var(--nr-accent)]';
+    slider.el.addEventListener('input', onInput);
+    slider.el.addEventListener('change', onChange);
+    return HStack(
+      Text(label).className('text-dim text-[0.72rem] w-16 shrink-0'),
+      slider,
+      Text(String(typeof value === 'number' && max <= 10 ? value : (value / 100).toFixed(2))).id(id).className('text-dim text-[0.68rem] tabular-nums w-8 text-right')
+    ).spacing(3);
+  }
 
-    <div class="mb-6 pt-5 border-t border-border-subtle">
-      <h3 class="text-muted text-[0.85rem] font-medium mb-2">2. Interest Profile</h3>
-      <p class="text-dim text-[0.78rem] leading-relaxed mb-3">Built automatically from your reading behavior. Recomputed every 5 minutes.</p>
-      <div class="bg-input border border-border-input rounded-lg p-3 text-[0.75rem] space-y-2 mb-3">
-        <div class="flex justify-between"><span class="text-dim">Posts read</span><span class="text-primary font-mono">${readCount}</span></div>
-        <div class="flex justify-between"><span class="text-dim">Posts saved</span><span class="text-primary font-mono">${savedCount}</span></div>
-        <div class="flex justify-between"><span class="text-dim">Posts hidden</span><span class="text-primary font-mono">${hiddenCount}</span></div>
-      </div>
-      <div class="space-y-2 text-[0.75rem]">
-        <div>
-          <span class="text-dimmer text-[0.68rem]">Signal weights for topic extraction:</span>
-          <div class="text-dim mt-1">Read = <span class="text-primary">1x</span> &middot; Saved = <span class="text-primary">3x</span> &middot; Rated = <span class="text-primary">rating value</span> &middot; Hidden = negative signal</div>
-        </div>
-        <div>
-          <span class="text-dimmer text-[0.68rem]">Your top topics:</span>
-          <div class="flex flex-wrap gap-1 mt-1">${topTopics.length ? topTopics.map(t => `<span class="bg-hover text-dim text-[0.68rem] px-1.5 py-0.5 rounded">${escapeHtml(t)}</span>`).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>'}</div>
-        </div>
-        <div>
-          <span class="text-dimmer text-[0.68rem]">Your top categories:</span>
-          <div class="flex flex-wrap gap-1 mt-1">${topCats.length ? topCats.map(c => `<span class="bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20">${escapeHtml(c)}</span>`).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>'}</div>
-        </div>
-      </div>
-    </div>
+  var backLink = RawHTML('<a href="#quality" class="text-dim text-[0.72rem] hover:text-primary transition-colors inline-flex items-center gap-1 mb-4" style="text-decoration:none">' + icon('arrowLeft', {size: 12, class: 'w-3 h-3'}) + ' Back to Quality Filter</a>');
 
-    <div class="mb-6 pt-5 border-t border-border-subtle">
-      <h3 class="text-muted text-[0.85rem] font-medium mb-2">3. Source Affinity</h3>
-      <p class="text-dim text-[0.78rem] leading-relaxed mb-3">Each feed source gets an affinity score (0.1\u20131.0) based on how often you engage with its posts. Sources you read, save, and rate highly get boosted. Sources you frequently hide get penalized.</p>
-      <div class="bg-input border border-border-input rounded-lg p-3 text-[0.72rem] font-mono mb-3">
-        <div class="text-dim mb-1">engagement = (read + saved\u00d72 + rated\u00d73) / total</div>
-        <div class="text-dim mb-1">penalty = (hidden / total) \u00d7 0.5</div>
-        <div class="text-primary">affinity = clamp(engagement \u2212 penalty, 0.1, 1.0)</div>
-        <div class="text-dimmer text-[0.65rem] mt-1">Sources with &lt;3 posts default to 0.5</div>
-      </div>
-    </div>
+  var resetBtn = new View('button').className('text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
+  resetBtn.el.textContent = 'Reset all personalization';
+  resetBtn.onTap(function() { resetPersonalization(); renderAlgorithmView(); });
 
-    <div class="mb-6 pt-5 border-t border-border-subtle">
-      <h3 class="text-muted text-[0.85rem] font-medium mb-2">4. Composite Score</h3>
-      <p class="text-dim text-[0.78rem] leading-relaxed mb-3">When you use the "For You" sort, each post is ranked by a composite score combining all signals:</p>
-      <div class="bg-input border border-border-input rounded-lg p-3 text-[0.78rem] font-mono mb-3">
-        <div class="text-accent">score = LLM \u00d7 (base + affinity \u00d7 aff_weight) + recency_boost \u00d7 rec_weight</div>
-      </div>
-      <div class="space-y-1.5 text-[0.75rem] text-dim mb-4">
-        <div><span class="text-dimmer">LLM:</span> Quality score from local model (0\u2013100)</div>
-        <div><span class="text-dimmer">base:</span> Baseline multiplier \u2014 how much the LLM score matters on its own</div>
-        <div><span class="text-dimmer">affinity \u00d7 aff_weight:</span> Bonus for sources you engage with often</div>
-        <div><span class="text-dimmer">recency_boost:</span> max(0, 10 \u2212 age_hours \u00d7 0.5) \u2014 decays over 20h, max +10</div>
-        <div><span class="text-dimmer">rec_weight:</span> How much recency matters relative to quality</div>
-      </div>
+  var view = VStack(
+    backLink,
+    RawHTML('<h2 class="text-[1.3rem] font-semibold text-white_ mb-1">How the Algorithm Works</h2>'),
+    Text('Your feed is ranked using a personalized composite score that combines LLM relevance scoring, source affinity from your reading habits, and recency.').className('text-dim text-[0.8rem] mb-6'),
 
-      <div class="bg-input border border-border-input rounded-lg p-3 mb-4">
-        <div class="text-dimmer text-[0.68rem] mb-2">Example: LLM=${exampleLlm}, affinity=${exampleAff}, age=${exampleAge}h</div>
-        <div class="text-[0.75rem] font-mono text-dim">${exampleLlm} \u00d7 (${wBase.toFixed(2)} + ${exampleAff} \u00d7 ${wAff.toFixed(2)}) + ${exampleRecency.toFixed(1)} = <span class="text-accent font-semibold">${exampleScore}</span></div>
-      </div>
+    // 1. LLM Relevance
+    VStack(
+      RawHTML('<h3 class="text-muted text-[0.85rem] font-medium mb-2">1. LLM Relevance Score</h3>'),
+      Text('Every post that passes the verdict filter (KEEP/SKIP) is scored 0\u2013100 by a local LLM (qwen3:8b). The scoring prompt asks the model to rate how interesting and relevant the post title is.').className('text-dim text-[0.78rem] leading-relaxed mb-2'),
+      Text('When you have an interest profile, your top topics and categories are appended to the scoring prompt, so the LLM boosts scores for content matching your interests while still scoring objectively.').className('text-dim text-[0.78rem] leading-relaxed')
+    ).className('mb-6'),
 
-      <div class="text-dimmer text-[0.68rem] mb-2">Current weights</div>
-      <div class="space-y-2">
-        <div class="flex items-center gap-3">
-          <span class="text-dim text-[0.72rem] w-16 shrink-0">Base</span>
-          <input type="range" min="0" max="100" value="${Math.round(wBase * 100)}" oninput="document.getElementById('algo-base-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightBase',(this.value/100).toFixed(2));renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--nr-accent)]" />
-          <span id="algo-base-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wBase.toFixed(2)}</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="text-dim text-[0.72rem] w-16 shrink-0">Affinity</span>
-          <input type="range" min="0" max="100" value="${Math.round(wAff * 100)}" oninput="document.getElementById('algo-aff-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightAffinity',(this.value/100).toFixed(2));renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--nr-accent)]" />
-          <span id="algo-aff-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wAff.toFixed(2)}</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="text-dim text-[0.72rem] w-16 shrink-0">Recency</span>
-          <input type="range" min="0" max="200" value="${Math.round(wRec * 100)}" oninput="document.getElementById('algo-rec-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightRecency',(this.value/100).toFixed(2));renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--nr-accent)]" />
-          <span id="algo-rec-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wRec.toFixed(2)}</span>
-        </div>
-      </div>
-    </div>
+    // 2. Interest Profile
+    RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">2. Interest Profile</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">Built automatically from your reading behavior. Recomputed every 5 minutes.</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.75rem] space-y-2 mb-3"><div class="flex justify-between"><span class="text-dim">Posts read</span><span class="text-primary font-mono">' + readCount + '</span></div><div class="flex justify-between"><span class="text-dim">Posts saved</span><span class="text-primary font-mono">' + savedCount + '</span></div><div class="flex justify-between"><span class="text-dim">Posts hidden</span><span class="text-primary font-mono">' + hiddenCount + '</span></div></div><div class="space-y-2 text-[0.75rem]"><div><span class="text-dimmer text-[0.68rem]">Signal weights for topic extraction:</span><div class="text-dim mt-1">Read = <span class="text-primary">1x</span> &middot; Saved = <span class="text-primary">3x</span> &middot; Rated = <span class="text-primary">rating value</span> &middot; Hidden = negative signal</div></div><div><span class="text-dimmer text-[0.68rem]">Your top topics:</span><div class="flex flex-wrap gap-1 mt-1">' + topicsHtml + '</div></div><div><span class="text-dimmer text-[0.68rem]">Your top categories:</span><div class="flex flex-wrap gap-1 mt-1">' + catsHtml + '</div></div></div></div>'),
 
-    <div class="mb-6 pt-5 border-t border-border-subtle">
-      <h3 class="text-muted text-[0.85rem] font-medium mb-2">5. Category Diversity</h3>
-      <p class="text-dim text-[0.78rem] leading-relaxed mb-3">After scoring, posts are reordered to prevent any single category from dominating a run. If more than <span class="text-primary">${maxRun}</span> consecutive posts come from the same category, a post from a different category is pulled forward.</p>
-      <div class="flex items-center gap-3">
-        <span class="text-dim text-[0.72rem] shrink-0">Max same-category run</span>
-        <input type="range" min="1" max="10" value="${maxRun}" oninput="document.getElementById('algo-div-val').textContent=this.value" onchange="localStorage.setItem('maxPerCategoryRun',this.value);renderPapers();renderAlgorithmView()" class="flex-1 accent-[var(--nr-accent)]" />
-        <span id="algo-div-val" class="text-dim text-[0.68rem] tabular-nums w-4 text-right">${maxRun}</span>
-      </div>
-    </div>
+    // 3. Source Affinity
+    RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">3. Source Affinity</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">Each feed source gets an affinity score (0.1\u20131.0) based on how often you engage with its posts. Sources you read, save, and rate highly get boosted. Sources you frequently hide get penalized.</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.72rem] font-mono mb-3"><div class="text-dim mb-1">engagement = (read + saved\u00d72 + rated\u00d73) / total</div><div class="text-dim mb-1">penalty = (hidden / total) \u00d7 0.5</div><div class="text-primary">affinity = clamp(engagement \u2212 penalty, 0.1, 1.0)</div><div class="text-dimmer text-[0.65rem] mt-1">Sources with &lt;3 posts default to 0.5</div></div></div>'),
 
-    <div class="pt-5 border-t border-border-subtle flex items-center gap-3">
-      <button onclick="resetPersonalization();renderAlgorithmView()" class="text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset all personalization</button>
-      <span class="text-dimmer text-[0.68rem]">Clears your interest profile, resets all weights to defaults</span>
-    </div>
-  `;
+    // 4. Composite Score
+    RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">4. Composite Score</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">When you use the &quot;For You&quot; sort, each post is ranked by a composite score combining all signals:</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.78rem] font-mono mb-3"><div class="text-accent">score = LLM \u00d7 (base + affinity \u00d7 aff_weight) + recency_boost \u00d7 rec_weight</div></div><div class="space-y-1.5 text-[0.75rem] text-dim mb-4"><div><span class="text-dimmer">LLM:</span> Quality score from local model (0\u2013100)</div><div><span class="text-dimmer">base:</span> Baseline multiplier \u2014 how much the LLM score matters on its own</div><div><span class="text-dimmer">affinity \u00d7 aff_weight:</span> Bonus for sources you engage with often</div><div><span class="text-dimmer">recency_boost:</span> max(0, 10 \u2212 age_hours \u00d7 0.5) \u2014 decays over 20h, max +10</div><div><span class="text-dimmer">rec_weight:</span> How much recency matters relative to quality</div></div><div class="bg-input border border-border-input rounded-lg p-3 mb-4"><div class="text-dimmer text-[0.68rem] mb-2">Example: LLM=' + exampleLlm + ', affinity=' + exampleAff + ', age=' + exampleAge + 'h</div><div class="text-[0.75rem] font-mono text-dim">' + exampleLlm + ' \u00d7 (' + wBase.toFixed(2) + ' + ' + exampleAff + ' \u00d7 ' + wAff.toFixed(2) + ') + ' + exampleRecency.toFixed(1) + ' = <span class="text-accent font-semibold">' + exampleScore + '</span></div></div></div>'),
+
+    // Weight sliders
+    VStack(
+      Text('Current weights').className('text-dimmer text-[0.68rem] mb-2'),
+      _algoSlider('Base', 'algo-base-val', 0, 100, Math.round(wBase * 100),
+        function() { document.getElementById('algo-base-val').textContent = (this.value / 100).toFixed(2); },
+        function() { localStorage.setItem('fyWeightBase', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); }),
+      _algoSlider('Affinity', 'algo-aff-val', 0, 100, Math.round(wAff * 100),
+        function() { document.getElementById('algo-aff-val').textContent = (this.value / 100).toFixed(2); },
+        function() { localStorage.setItem('fyWeightAffinity', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); }),
+      _algoSlider('Recency', 'algo-rec-val', 0, 200, Math.round(wRec * 100),
+        function() { document.getElementById('algo-rec-val').textContent = (this.value / 100).toFixed(2); },
+        function() { localStorage.setItem('fyWeightRecency', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); })
+    ).spacing(2),
+
+    // 5. Category Diversity
+    VStack(
+      RawHTML('<h3 class="text-muted text-[0.85rem] font-medium mb-2">5. Category Diversity</h3>'),
+      RawHTML('<p class="text-dim text-[0.78rem] leading-relaxed mb-3">After scoring, posts are reordered to prevent any single category from dominating a run. If more than <span class="text-primary">' + maxRun + '</span> consecutive posts come from the same category, a post from a different category is pulled forward.</p>'),
+      (function() {
+        var s = new View('input');
+        s.el.type = 'range'; s.el.min = '1'; s.el.max = '10'; s.el.value = maxRun;
+        s.el.className = 'flex-1 accent-[var(--nr-accent)]';
+        s.el.addEventListener('input', function() { document.getElementById('algo-div-val').textContent = this.value; });
+        s.el.addEventListener('change', function() { localStorage.setItem('maxPerCategoryRun', this.value); renderPapers(); renderAlgorithmView(); });
+        return HStack(
+          Text('Max same-category run').className('text-dim text-[0.72rem] shrink-0'),
+          s,
+          Text(String(maxRun)).id('algo-div-val').className('text-dim text-[0.68rem] tabular-nums w-4 text-right')
+        ).spacing(3);
+      })()
+    ).className('mb-6 pt-5 border-t border-border-subtle'),
+
+    // Reset
+    HStack(
+      resetBtn,
+      Text('Clears your interest profile, resets all weights to defaults').className('text-dimmer text-[0.68rem]')
+    ).spacing(3).className('pt-5 border-t border-border-subtle')
+  );
+  AetherUI.mount(view, container);
 }
 
 function _toggleBlockedPostsList() {
@@ -1070,203 +1101,246 @@ function _cancelEditVerdictPrompt() {
 }
 
 function renderQualityView() {
-  const container = document.getElementById('quality-view-content');
+  var container = document.getElementById('quality-view-content');
   if (!container) return;
-  const cache = getQualityCache();
-  const cacheEntries = Object.entries(cache);
-  const keptCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'keep').length;
-  const skippedCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'skip').length;
+  var cache = getQualityCache();
+  var cacheEntries = Object.entries(cache);
+  var keptCount = cacheEntries.filter(function(e) { return (e[1]?.v || e[1]) === 'keep'; }).length;
+  var skippedCount = cacheEntries.filter(function(e) { return (e[1]?.v || e[1]) === 'skip'; }).length;
+  var qfOn = isQualityFilterOn();
+  var qPrompt = getQualityPrompt();
+  var isCustomPrompt = qPrompt !== DEFAULT_QUALITY_PROMPT;
+  var threshold = getQualityThreshold();
 
-  container.innerHTML = `
-    <div class="flex items-center gap-3 mb-1">
-      <h2 class="text-[1.3rem] font-semibold text-white_">Quality Filter</h2>
-      <span class="text-dimmer text-[0.68rem]">qwen3:8b</span>
-      <label class="flex items-center gap-2 cursor-pointer ml-auto">
-        <span class="text-primary text-sm">Enable</span>
-        <span class="nr-switch">
-          <input type="checkbox" id="toggle-quality-filter" ${isQualityFilterOn() ? 'checked' : ''} onchange="setQualityFilter(this.checked)">
-          <span class="slider"></span>
-        </span>
-      </label>
-    </div>
-    <p class="text-dim text-[0.8rem] mb-6">Uses a local LLM (Ollama) to hide low-quality posts. Two phases: verdict (KEEP/SKIP), then scoring.</p>
+  // Toggle switch
+  var toggleSwitch = RawHTML('<span class="nr-switch"><input type="checkbox" id="toggle-quality-filter" ' + (qfOn ? 'checked' : '') + '><span class="slider"></span></span>');
+  toggleSwitch.el.querySelector('input').addEventListener('change', function() { setQualityFilter(this.checked); });
 
-    <div class="mb-6">
-      <div class="flex items-center gap-2 mb-2">
-        <h3 class="text-muted text-[0.8rem] font-medium">Verdict Prompt</h3>
-        ${getQualityPrompt() !== DEFAULT_QUALITY_PROMPT ? '<span class="text-[0.65rem] text-accent bg-accent/10 border border-accent/30 rounded px-1.5 py-0.5">Edited</span>' : ''}
-      </div>
-      <p class="text-dimmer text-[0.72rem] mb-2">Classifies each post title as KEEP or SKIP.</p>
-      <div id="verdict-prompt-readonly" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-2 max-h-[200px] overflow-y-auto">${escapeHtml(getQualityPrompt())}</div>
-      <textarea id="quality-prompt-input" rows="6" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-primary text-[0.78rem] font-mono leading-relaxed outline-none focus:border-accent resize-y" spellcheck="false" style="display:none">${escapeHtml(getQualityPrompt())}</textarea>
-      <div id="verdict-prompt-actions" class="flex items-center gap-2 justify-end">
-        <button onclick="_editVerdictPrompt()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Edit</button>
-        ${getQualityPrompt() !== DEFAULT_QUALITY_PROMPT ? '<button onclick="resetQualityPrompt(); renderQualityView()" class="text-dim text-[0.78rem] hover:text-red-400 bg-transparent border border-border-input hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset</button>' : ''}
-      </div>
-      <div id="verdict-prompt-edit-actions" class="flex items-center gap-2 justify-end" style="display:none">
-        <button onclick="_cancelEditVerdictPrompt()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input rounded-md px-3 py-1 cursor-pointer transition-colors">Cancel</button>
-        <button onclick="saveQualityPrompt().then(function(){ renderQualityView(); })" class="bg-accent text-white text-[0.78rem] px-3 py-1 rounded-md border-none cursor-pointer hover:bg-accent-hover">Save</button>
-      </div>
-    </div>
+  // Verdict prompt section
+  var editBtn = new View('button').className('text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors');
+  editBtn.el.textContent = 'Edit';
+  editBtn.onTap(function() { _editVerdictPrompt(); });
+  var resetPromptBtn = null;
+  if (isCustomPrompt) {
+    resetPromptBtn = new View('button').className('text-dim text-[0.78rem] hover:text-red-400 bg-transparent border border-border-input hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
+    resetPromptBtn.el.textContent = 'Reset';
+    resetPromptBtn.onTap(function() { resetQualityPrompt(); renderQualityView(); });
+  }
+  var cancelBtn = new View('button').className('text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input rounded-md px-3 py-1 cursor-pointer transition-colors');
+  cancelBtn.el.textContent = 'Cancel';
+  cancelBtn.onTap(function() { _cancelEditVerdictPrompt(); });
+  var saveBtn = new View('button').className('bg-accent text-white text-[0.78rem] px-3 py-1 rounded-md border-none cursor-pointer hover:bg-accent-hover');
+  saveBtn.el.textContent = 'Save';
+  saveBtn.onTap(function() { saveQualityPrompt().then(function() { renderQualityView(); }); });
 
-    <div class="mb-6 pt-5 border-t border-border-subtle">
-      <h3 class="text-muted text-[0.8rem] font-medium mb-2">Scoring Threshold</h3>
-      <p class="text-dimmer text-[0.72rem] mb-2">Posts passing the verdict are scored 0\u2013100%. Below threshold = hidden.</p>
-      <div id="scoring-prompt-display" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-3">Loading\u2026</div>
-      <div class="flex items-center gap-3">
-        <input type="range" id="quality-threshold-slider" min="0" max="100" value="${getQualityThreshold()}" oninput="document.getElementById('quality-threshold-value').textContent=this.value+'%'" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--nr-accent)]" />
-        <span id="quality-threshold-value" class="text-primary text-sm font-mono w-10 text-right">${getQualityThreshold()}%</span>
-      </div>
-      <p class="text-dimmer text-[0.68rem] mt-1">Minimum score to display (0% = show all kept, 100% = strictest)</p>
-    </div>
+  // Threshold slider
+  var thresholdSlider = new View('input');
+  thresholdSlider.el.type = 'range'; thresholdSlider.el.min = '0'; thresholdSlider.el.max = '100';
+  thresholdSlider.el.value = threshold; thresholdSlider.el.id = 'quality-threshold-slider';
+  thresholdSlider.el.className = 'flex-1 accent-[var(--nr-accent)]';
+  thresholdSlider.el.addEventListener('input', function() { document.getElementById('quality-threshold-value').textContent = this.value + '%'; });
+  thresholdSlider.el.addEventListener('change', function() { setQualityThreshold(parseInt(this.value)); });
 
-    <div class="mb-6 pt-5 border-t border-border-subtle">
-      <h3 class="text-muted text-[0.8rem] font-medium mb-2">Blocked Words</h3>
-      <p class="text-dimmer text-[0.75rem] mb-3">Posts with titles containing any of these words will be automatically hidden.</p>
-      <div class="flex gap-2 mb-3">
-        <input type="text" id="blocked-word-input" placeholder="e.g. politics, lawsuit, review" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();addBlockedWord()}">
-        <button onclick="addBlockedWord()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover">Add</button>
-      </div>
-      <div id="blocked-words-list" class="flex flex-wrap gap-1.5"></div>
-    </div>
+  // Blocked word input
+  var wordInput = new View('input');
+  wordInput.el.type = 'text'; wordInput.el.id = 'blocked-word-input';
+  wordInput.el.placeholder = 'e.g. politics, lawsuit, review';
+  wordInput.el.className = 'flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent';
+  wordInput.el.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); addBlockedWord(); } });
+  var addWordBtn = new View('button').className('bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover');
+  addWordBtn.el.textContent = 'Add';
+  addWordBtn.onTap(function() { addBlockedWord(); });
 
-    <div class="mb-6 pt-5 border-t border-border-subtle">
-      <button onclick="_toggleBlockedPostsList()" class="flex items-center gap-2 text-muted text-[0.8rem] font-medium bg-transparent border-none cursor-pointer p-0 hover:text-primary transition-colors">
-        <span id="blocked-posts-chevron" style="transform:rotate(-90deg);display:inline-block" class="transition-transform">${icon('chevronDown', {size: 14, class: 'w-3.5 h-3.5'})}</span>
-        Blocked Posts
-      </button>
-      <div id="quality-blocked-list" class="text-[0.78rem] text-muted max-h-[300px] overflow-y-auto mt-2" style="display:none"></div>
-    </div>
+  // Blocked posts toggle
+  var blockedPostsBtn = RawHTML('<button class="flex items-center gap-2 text-muted text-[0.8rem] font-medium bg-transparent border-none cursor-pointer p-0 hover:text-primary transition-colors"><span id="blocked-posts-chevron" style="transform:rotate(-90deg);display:inline-block" class="transition-transform">' + icon('chevronDown', {size: 14, class: 'w-3.5 h-3.5'}) + '</span> Blocked Posts</button>');
+  blockedPostsBtn.el.querySelector('button').addEventListener('click', function() { _toggleBlockedPostsList(); });
 
-    <div id="personalization-panel-container" class="mb-6 pt-5 border-t border-border-subtle"></div>
+  // Reset everything button
+  var resetAllBtn = new View('button').className('text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
+  resetAllBtn.el.innerHTML = 'Reset all &amp; clear cache';
+  resetAllBtn.onTap(function() { resetEverything(); });
 
-    <div class="flex items-center justify-between pt-5 border-t border-border-subtle">
-      <div class="text-dim text-[0.78rem]">
-        Cached: ${cacheEntries.length} &middot; Kept: ${keptCount} &middot; Skipped: ${skippedCount}
-      </div>
-      <button onclick="resetEverything()" class="text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset all &amp; clear cache</button>
-    </div>
-  `;
+  var view = VStack(
+    // Header
+    HStack(
+      RawHTML('<h2 class="text-[1.3rem] font-semibold text-white_">Quality Filter</h2>'),
+      Text('qwen3:8b').className('text-dimmer text-[0.68rem]'),
+      HStack(Text('Enable').className('text-primary text-sm'), toggleSwitch).spacing(2).className('cursor-pointer ml-auto')
+    ).spacing(3).className('mb-1'),
+    Text('Uses a local LLM (Ollama) to hide low-quality posts. Two phases: verdict (KEEP/SKIP), then scoring.').className('text-dim text-[0.8rem] mb-6'),
+
+    // Verdict Prompt
+    VStack(
+      HStack(
+        RawHTML('<h3 class="text-muted text-[0.8rem] font-medium">Verdict Prompt</h3>'),
+        isCustomPrompt ? Text('Edited').className('text-[0.65rem] text-accent bg-accent/10 border border-accent/30 rounded px-1.5 py-0.5') : null
+      ).spacing(2).className('mb-2'),
+      Text('Classifies each post title as KEEP or SKIP.').className('text-dimmer text-[0.72rem] mb-2'),
+      new View('div').id('verdict-prompt-readonly').className('w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-2 max-h-[200px] overflow-y-auto').onAppear(function() { document.getElementById('verdict-prompt-readonly').textContent = qPrompt; }),
+      RawHTML('<textarea id="quality-prompt-input" rows="6" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-primary text-[0.78rem] font-mono leading-relaxed outline-none focus:border-accent resize-y" spellcheck="false" style="display:none">' + escapeHtml(qPrompt) + '</textarea>'),
+      HStack(editBtn, resetPromptBtn).spacing(2).className('justify-end').id('verdict-prompt-actions'),
+      HStack(cancelBtn, saveBtn).spacing(2).className('justify-end').id('verdict-prompt-edit-actions').style('display', 'none')
+    ).className('mb-6'),
+
+    // Scoring Threshold
+    VStack(
+      RawHTML('<h3 class="text-muted text-[0.8rem] font-medium mb-2">Scoring Threshold</h3>'),
+      Text('Posts passing the verdict are scored 0\u2013100%. Below threshold = hidden.').className('text-dimmer text-[0.72rem] mb-2'),
+      new View('div').id('scoring-prompt-display').className('w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-3').onAppear(function() { document.getElementById('scoring-prompt-display').textContent = 'Loading\u2026'; }),
+      HStack(thresholdSlider, Text(threshold + '%').id('quality-threshold-value').className('text-primary text-sm font-mono w-10 text-right')).spacing(3),
+      Text('Minimum score to display (0% = show all kept, 100% = strictest)').className('text-dimmer text-[0.68rem] mt-1')
+    ).className('mb-6 pt-5 border-t border-border-subtle'),
+
+    // Blocked Words
+    VStack(
+      RawHTML('<h3 class="text-muted text-[0.8rem] font-medium mb-2">Blocked Words</h3>'),
+      Text('Posts with titles containing any of these words will be automatically hidden.').className('text-dimmer text-[0.75rem] mb-3'),
+      HStack(wordInput, addWordBtn).spacing(2).className('mb-3'),
+      new View('div').id('blocked-words-list').className('flex flex-wrap gap-1.5')
+    ).className('mb-6 pt-5 border-t border-border-subtle'),
+
+    // Blocked Posts
+    VStack(
+      blockedPostsBtn,
+      new View('div').id('quality-blocked-list').className('text-[0.78rem] text-muted max-h-[300px] overflow-y-auto mt-2').style('display', 'none')
+    ).className('mb-6 pt-5 border-t border-border-subtle'),
+
+    // Personalization
+    new View('div').id('personalization-panel-container').className('mb-6 pt-5 border-t border-border-subtle'),
+
+    // Footer
+    HStack(
+      RawHTML('<div class="text-dim text-[0.78rem]">Cached: ' + cacheEntries.length + ' &middot; Kept: ' + keptCount + ' &middot; Skipped: ' + skippedCount + '</div>'),
+      resetAllBtn
+    ).className('flex items-center justify-between pt-5 border-t border-border-subtle')
+  );
+  AetherUI.mount(view, container);
 
   renderBlockedWordsList();
   _renderPersonalizationPanel();
-  apiGet('/api/quality-prompt').then(data => {
+  apiGet('/api/quality-prompt').then(function(data) {
     if (data.prompt) {
       localStorage.setItem('qualityPrompt', data.prompt);
-      const el = document.getElementById('quality-prompt-input');
+      var el = document.getElementById('quality-prompt-input');
       if (el) el.value = data.prompt;
     }
-    const scoringEl = document.getElementById('scoring-prompt-display');
+    var scoringEl = document.getElementById('scoring-prompt-display');
     if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
-  }).catch((e) => { console.warn('loadQualityPrompt:', e); });
+  }).catch(function(e) { console.warn('loadQualityPrompt:', e); });
 }
 
 function _renderPersonalizationPanel() {
-  const container = document.getElementById('personalization-panel-container');
+  var container = document.getElementById('personalization-panel-container');
   if (!container) return;
-  const profile = typeof getInterestProfile === 'function' ? getInterestProfile() : null;
-  const readCount = getReadPosts().length;
+  var profile = typeof getInterestProfile === 'function' ? getInterestProfile() : null;
+  var readCount = getReadPosts().length;
 
   if (readCount < 10 || !profile) {
-    container.innerHTML = `
-      <h3 class="text-muted text-[0.8rem] font-medium mb-2">Personalization</h3>
-      <p class="text-dimmer text-[0.75rem]">Read more posts to build your profile (${readCount}/10).</p>`;
+    AetherUI.mount(VStack(
+      RawHTML('<h3 class="text-muted text-[0.8rem] font-medium mb-2">Personalization</h3>'),
+      Text('Read more posts to build your profile (' + readCount + '/10).').className('text-dimmer text-[0.75rem]')
+    ), container);
     return;
   }
 
-  // Topic chips
-  const topicChips = (profile.topTopics || []).map(t =>
-    `<span class="bg-hover text-dim text-[0.68rem] px-1.5 py-0.5 rounded">${escapeHtml(t)}</span>`
-  ).join('');
-
-  // Category chips
-  const catChips = (profile.topCategories || []).map(c =>
-    `<span class="bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20">${escapeHtml(c)}</span>`
-  ).join('');
+  var topicChips = (profile.topTopics || []).map(function(t) {
+    return Text(t).className('bg-hover text-dim text-[0.68rem] px-1.5 py-0.5 rounded');
+  });
+  var catChips = (profile.topCategories || []).map(function(c) {
+    return Text(c).className('bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20');
+  });
 
   // Source engagement table
-  const affinity = typeof getSourceAffinity === 'function' ? getSourceAffinity() : {};
-  const sourceRows = Object.entries(profile.sourceCounts || {})
-    .filter(([, c]) => c.total > 0)
-    .sort((a, b) => (affinity[b[0]] || 0) - (affinity[a[0]] || 0))
-    .map(([src, c]) => {
-      const name = SOURCE_NAMES[src] || (src.startsWith('custom:') ? src.slice(7) : src);
-      const readPct = c.total > 0 ? Math.round(c.read / c.total * 100) : 0;
-      const savedPct = c.total > 0 ? Math.round(c.saved / c.total * 100) : 0;
-      const aff = affinity[src] ?? 0.5;
-      const barW = Math.round(aff * 100);
-      return `<tr class="border-b border-border-subtle last:border-0">
-        <td class="py-1 pr-2 text-[0.72rem] text-primary truncate max-w-[120px]">${escapeHtml(name)}</td>
-        <td class="py-1 px-2 text-[0.68rem] text-dim text-right tabular-nums">${readPct}%</td>
-        <td class="py-1 px-2 text-[0.68rem] text-dim text-right tabular-nums">${savedPct}%</td>
-        <td class="py-1 pl-2 w-20"><div class="h-1.5 rounded-full bg-hover overflow-hidden"><div class="h-full rounded-full bg-accent" style="width:${barW}%"></div></div></td>
-      </tr>`;
+  var affinity = typeof getSourceAffinity === 'function' ? getSourceAffinity() : {};
+  var sourceRowsHtml = Object.entries(profile.sourceCounts || {})
+    .filter(function(e) { return e[1].total > 0; })
+    .sort(function(a, b) { return (affinity[b[0]] || 0) - (affinity[a[0]] || 0); })
+    .map(function(e) {
+      var src = e[0], c = e[1];
+      var name = SOURCE_NAMES[src] || (src.startsWith('custom:') ? src.slice(7) : src);
+      var readPct = c.total > 0 ? Math.round(c.read / c.total * 100) : 0;
+      var savedPct = c.total > 0 ? Math.round(c.saved / c.total * 100) : 0;
+      var aff = affinity[src] != null ? affinity[src] : 0.5;
+      var barW = Math.round(aff * 100);
+      return '<tr class="border-b border-border-subtle last:border-0"><td class="py-1 pr-2 text-[0.72rem] text-primary truncate max-w-[120px]">' + escapeHtml(name) + '</td><td class="py-1 px-2 text-[0.68rem] text-dim text-right tabular-nums">' + readPct + '%</td><td class="py-1 px-2 text-[0.68rem] text-dim text-right tabular-nums">' + savedPct + '%</td><td class="py-1 pl-2 w-20"><div class="h-1.5 rounded-full bg-hover overflow-hidden"><div class="h-full rounded-full bg-accent" style="width:' + barW + '%"></div></div></td></tr>';
     }).join('');
 
-  const maxRun = parseInt(localStorage.getItem('maxPerCategoryRun') || '3', 10) || 3;
+  var maxRun = parseInt(localStorage.getItem('maxPerCategoryRun') || '3', 10) || 3;
 
-  container.innerHTML = `
-    <h3 class="text-muted text-[0.8rem] font-medium mb-3">Personalization</h3>
+  function _pSlider(label, id, min, max, value, onInput, onChange) {
+    var s = new View('input');
+    s.el.type = 'range'; s.el.min = min; s.el.max = max; s.el.value = value;
+    s.el.className = 'flex-1 accent-[var(--nr-accent)]';
+    s.el.addEventListener('input', onInput);
+    s.el.addEventListener('change', onChange);
+    return HStack(
+      Text(label).className('text-dim text-[0.68rem] w-16 shrink-0'),
+      s,
+      Text(String(max <= 10 ? value : (value / 100).toFixed(2))).id(id).className('text-dim text-[0.68rem] tabular-nums w-8 text-right')
+    ).spacing(3);
+  }
 
-    <div class="mb-3">
-      <span class="text-dimmer text-[0.68rem]">Top Topics</span>
-      <div class="flex flex-wrap gap-1 mt-1">${topicChips || '<span class="text-dimmer text-[0.68rem]">None yet</span>'}</div>
-    </div>
+  var diversitySlider = (function() {
+    var s = new View('input');
+    s.el.type = 'range'; s.el.min = '1'; s.el.max = '10'; s.el.value = maxRun;
+    s.el.className = 'flex-1 accent-[var(--nr-accent)]';
+    s.el.addEventListener('input', function() { document.getElementById('diversity-val').textContent = this.value; });
+    s.el.addEventListener('change', function() { localStorage.setItem('maxPerCategoryRun', this.value); renderPapers(); });
+    return HStack(
+      Text('Category diversity').className('text-dimmer text-[0.68rem]'),
+      s,
+      Text(String(maxRun)).id('diversity-val').className('text-dim text-[0.68rem] tabular-nums w-4 text-right')
+    ).spacing(3);
+  })();
 
-    <div class="mb-4">
-      <span class="text-dimmer text-[0.68rem]">Top Categories</span>
-      <div class="flex flex-wrap gap-1 mt-1">${catChips || '<span class="text-dimmer text-[0.68rem]">None yet</span>'}</div>
-    </div>
+  var resetBtn = new View('button').className('text-red-400/80 text-[0.72rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-2.5 py-0.5 cursor-pointer transition-colors shrink-0');
+  resetBtn.el.textContent = 'Reset personalization';
+  resetBtn.onTap(function() { resetPersonalization(); });
 
-    ${sourceRows ? `
-    <div class="mb-4">
-      <span class="text-dimmer text-[0.68rem]">Source Engagement</span>
-      <div class="max-h-[240px] overflow-y-auto mt-1">
-        <table class="w-full text-left">
-          <thead><tr class="text-dimmer text-[0.62rem]">
-            <th class="pb-1 font-normal">Source</th>
-            <th class="pb-1 font-normal text-right pr-2">Read</th>
-            <th class="pb-1 font-normal text-right pr-2">Saved</th>
-            <th class="pb-1 font-normal pl-2">Affinity</th>
-          </tr></thead>
-          <tbody>${sourceRows}</tbody>
-        </table>
-      </div>
-    </div>` : ''}
+  var wBase = parseFloat(localStorage.getItem('fyWeightBase') || '0.7');
+  var wAff = parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3');
+  var wRec = parseFloat(localStorage.getItem('fyWeightRecency') || '1.0');
 
-    <div class="mb-4">
-      <div class="flex items-center gap-3">
-        <span class="text-dimmer text-[0.68rem]">Category diversity</span>
-        <input type="range" min="1" max="10" value="${maxRun}" oninput="document.getElementById('diversity-val').textContent=this.value" onchange="localStorage.setItem('maxPerCategoryRun',this.value);renderPapers()" class="flex-1 accent-[var(--nr-accent)]" />
-        <span id="diversity-val" class="text-dim text-[0.68rem] tabular-nums w-4 text-right">${maxRun}</span>
-      </div>
-      <p class="text-dimmer text-[0.62rem] mt-0.5">Max posts from same category in a row before mixing in others.</p>
-    </div>
+  var view = VStack(
+    RawHTML('<h3 class="text-muted text-[0.8rem] font-medium mb-3">Personalization</h3>'),
 
-    <div class="mb-4">
-      <span class="text-dimmer text-[0.68rem]">Composite Score Weights</span>
-      <p class="text-dimmer text-[0.62rem] mt-0.5 mb-2">score = LLM × (base + affinity × aff_weight) + recency_boost × recency_weight</p>
-      <div class="flex items-center gap-3 mb-1.5">
-        <span class="text-dim text-[0.68rem] w-16 shrink-0">Base</span>
-        <input type="range" min="0" max="100" value="${Math.round(parseFloat(localStorage.getItem('fyWeightBase') || '0.7') * 100)}" oninput="document.getElementById('fy-base-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightBase',(this.value/100).toFixed(2));renderPapers()" class="flex-1 accent-[var(--nr-accent)]" />
-        <span id="fy-base-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${parseFloat(localStorage.getItem('fyWeightBase') || '0.7').toFixed(2)}</span>
-      </div>
-      <div class="flex items-center gap-3 mb-1.5">
-        <span class="text-dim text-[0.68rem] w-16 shrink-0">Affinity</span>
-        <input type="range" min="0" max="100" value="${Math.round(parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3') * 100)}" oninput="document.getElementById('fy-aff-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightAffinity',(this.value/100).toFixed(2));renderPapers()" class="flex-1 accent-[var(--nr-accent)]" />
-        <span id="fy-aff-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3').toFixed(2)}</span>
-      </div>
-      <div class="flex items-center gap-3">
-        <span class="text-dim text-[0.68rem] w-16 shrink-0">Recency</span>
-        <input type="range" min="0" max="200" value="${Math.round(parseFloat(localStorage.getItem('fyWeightRecency') || '1.0') * 100)}" oninput="document.getElementById('fy-rec-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightRecency',(this.value/100).toFixed(2));renderPapers()" class="flex-1 accent-[var(--nr-accent)]" />
-        <span id="fy-rec-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${parseFloat(localStorage.getItem('fyWeightRecency') || '1.0').toFixed(2)}</span>
-      </div>
-    </div>
+    VStack(
+      Text('Top Topics').className('text-dimmer text-[0.68rem]'),
+      topicChips.length ? HStack(topicChips).className('flex flex-wrap gap-1 mt-1') : Text('None yet').className('text-dimmer text-[0.68rem] mt-1')
+    ).className('mb-3'),
 
-    <div class="flex items-center gap-3">
-      <button onclick="resetPersonalization()" class="text-red-400/80 text-[0.72rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-2.5 py-0.5 cursor-pointer transition-colors shrink-0">Reset personalization</button>
-    </div>
-  `;
+    VStack(
+      Text('Top Categories').className('text-dimmer text-[0.68rem]'),
+      catChips.length ? HStack(catChips).className('flex flex-wrap gap-1 mt-1') : Text('None yet').className('text-dimmer text-[0.68rem] mt-1')
+    ).className('mb-4'),
+
+    sourceRowsHtml ? VStack(
+      Text('Source Engagement').className('text-dimmer text-[0.68rem]'),
+      RawHTML('<div class="max-h-[240px] overflow-y-auto mt-1"><table class="w-full text-left"><thead><tr class="text-dimmer text-[0.62rem]"><th class="pb-1 font-normal">Source</th><th class="pb-1 font-normal text-right pr-2">Read</th><th class="pb-1 font-normal text-right pr-2">Saved</th><th class="pb-1 font-normal pl-2">Affinity</th></tr></thead><tbody>' + sourceRowsHtml + '</tbody></table></div>')
+    ).className('mb-4') : null,
+
+    VStack(
+      diversitySlider,
+      Text('Max posts from same category in a row before mixing in others.').className('text-dimmer text-[0.62rem] mt-0.5')
+    ).className('mb-4'),
+
+    VStack(
+      Text('Composite Score Weights').className('text-dimmer text-[0.68rem]'),
+      RawHTML('<p class="text-dimmer text-[0.62rem] mt-0.5 mb-2">score = LLM \u00d7 (base + affinity \u00d7 aff_weight) + recency_boost \u00d7 recency_weight</p>'),
+      _pSlider('Base', 'fy-base-val', 0, 100, Math.round(wBase * 100),
+        function() { document.getElementById('fy-base-val').textContent = (this.value / 100).toFixed(2); },
+        function() { localStorage.setItem('fyWeightBase', (this.value / 100).toFixed(2)); renderPapers(); }),
+      _pSlider('Affinity', 'fy-aff-val', 0, 100, Math.round(wAff * 100),
+        function() { document.getElementById('fy-aff-val').textContent = (this.value / 100).toFixed(2); },
+        function() { localStorage.setItem('fyWeightAffinity', (this.value / 100).toFixed(2)); renderPapers(); }),
+      _pSlider('Recency', 'fy-rec-val', 0, 200, Math.round(wRec * 100),
+        function() { document.getElementById('fy-rec-val').textContent = (this.value / 100).toFixed(2); },
+        function() { localStorage.setItem('fyWeightRecency', (this.value / 100).toFixed(2)); renderPapers(); })
+    ).spacing(1).className('mb-4'),
+
+    resetBtn
+  );
+  AetherUI.mount(view, container);
 }
 
 async function fetchGenericRSS(feedUrl, sourceName) {
@@ -1346,7 +1420,7 @@ async function loadAllFeeds() {
   // Show spinner only if we have nothing to show yet
   const container = document.getElementById('papers');
   if (allPapers.length === 0) {
-    container.innerHTML = `<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>`;
+    AetherUI.mount(RawHTML('<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>'), container);
   }
 
   // Build list of enabled catalog source keys
@@ -1407,8 +1481,10 @@ async function loadAllFeeds() {
     if (abort.signal.aborted) return;
     if (typeof islandRemove === 'function') islandRemove('feed');
     // Fallback: show error
-    container.innerHTML = `<div class="text-center py-20 text-red-400"><p>Failed to load feed: ${e.message}</p>
-       <p class="mt-2 text-[0.85rem] text-muted">Try refreshing or check your connection.</p></div>`;
+    AetherUI.mount(VStack(
+      Text('Failed to load feed: ' + e.message).foreground('red'),
+      Text('Try refreshing or check your connection.').className('mt-2 text-[0.85rem] text-muted')
+    ).className('text-center py-20 text-red-400'), container);
   }
 }
 
@@ -1756,63 +1832,70 @@ function getFilteredPapers(ctx) {
 }
 
 function _renderPaperCompactRow(p, i, ctx) {
-  const { readSet } = ctx;
-  const sourceChip = getSourceChip(p.source, p.arxivId);
-  const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
-  const isRead = readSet.has(p.link);
-  const newDot = isNew && !isRead ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0"></span>' : '';
-  const date = p.date ? `<span class="text-[0.68rem] text-dim shrink-0">${escapeHtml(p.date)}</span>` : '';
-  return `<div class="group${isRead ? ' opacity-50' : ''}" data-link="${escapeAttr(p.link)}">
-    <div class="flex items-center gap-2 py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors" onclick="openPaper(${i}, event)">
-      ${newDot}${sourceChip}
-      <span class="text-[0.82rem] ${isRead ? 'text-muted' : 'text-primary'} truncate">${renderTitle(p.title)}</span>
-      <span class="ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">${_cardActionRow(p, i, ctx)}</span>
-      ${date}
-    </div>
-    ${_cardCommentContainer(p, i)}
-  </div>`;
+  var readSet = ctx.readSet;
+  var sourceChip = getSourceChip(p.source, p.arxivId);
+  var isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+  var isRead = readSet.has(p.link);
+  var actionWrap = new View('span').className('ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity');
+  actionWrap.el.appendChild(_cardActionRow(p, i, ctx).build());
+  var row = HStack(
+    isNew && !isRead ? new View('span').className('inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0') : null,
+    RawHTML(sourceChip),
+    RawHTML('<span class="text-[0.82rem] ' + (isRead ? 'text-muted' : 'text-primary') + ' truncate">' + renderTitle(p.title) + '</span>'),
+    actionWrap,
+    p.date ? Text(p.date).className('text-[0.68rem] text-dim shrink-0') : null
+  ).spacing(2).className('py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors')
+    .onTap(function(e) { openPaper(i, e); });
+  return VStack(row, _cardCommentContainer(p, i))
+    .className('group' + (isRead ? ' opacity-50' : ''))
+    .attr('data-link', p.link);
 }
 
 function _renderPaperCard(p, i, ctx) {
-  const { qfOn, qCache, readSet } = ctx;
-  const isHN = p.source === 'hn';
-  const isArxiv = p.source === 'arxiv';
-  const _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
-  const sourceChip = _hasExternalLink ? (() => { try { const h = new URL(p.link).hostname.replace(/^www\./, ''); return `<span class="text-[0.75rem] text-dim">${escapeHtml(h)}</span>`; } catch { return `<span class="text-[0.75rem] text-dim">${escapeHtml(SOURCE_NAMES[p.source] || p.source)}</span>`; } })() : `<span class="text-[0.75rem] text-dim">${escapeHtml(SOURCE_NAMES[p.source] || p.source)}</span>`;
-  const viaInfo = _hasExternalLink ? `<span class="text-[0.68rem] text-dimmer">via ${escapeHtml(SOURCE_NAMES[p.source] || p.source)}${isHN ? ` · ${p.hnScore} pts` : ''}</span>` : '';
-  const aiEntry = qfOn ? qCache[p.title] : null;
-  const aiVerdict = aiEntry?.v || aiEntry;
-  const aiScore = aiEntry?.s;
-  const aiChip = qfOn && aiVerdict === 'keep' ? `<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ${aiScore != null ? aiScore + '%' : 'scoring…'}">${aiScore != null ? `<span class="text-dim">${aiScore}%</span>` : '<span class="text-dim animate-pulse">…</span>'}<span class="text-green-500">&#10003;</span></span>` : '';
-  const isPoly = p.source === 'polymarket';
-  const statsChips = (isHN && _hasExternalLink)
-    ? ''
-    : isHN
-    ? `<span class="text-[0.68rem] text-dim">${p.hnScore} pts</span>`
-    : isPoly
-    ? `<span class="text-[0.68rem] font-semibold ${p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400'}">${p.polyYesPct}%</span>`
-    : (p.citations !== undefined ? `<span class="text-[0.68rem] text-dim">${p.citations} cited</span>` : '');
-  const dateChip = p.date ? `<span class="text-[0.68rem] text-dim">${escapeHtml(p.date)}</span>` : '';
-  const snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
-  const nLink = _normalizeRatingKey(p.link);
-  const userRating = ctx.ratings ? (ctx.ratings[nLink] || ctx.ratings[p.link] || 0) : getPaperRating(p.link);
-  const ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
-  const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
-  const isRead = readSet.has(p.link);
-  const newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
-  // Card image: polymarket uses polyImage, others use favicon, fallback to pixel art
-  const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (() => { try { return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(p.link).hostname)}&sz=64`; } catch { return ''; } })();
-  const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
-  const cardImg = cardImgSrc
-    ? `<img src="${cardImgSrc}" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
-    : pixelFallback;
-  return `
-  <div class="paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" data-link="${escapeAttr(p.link)}" onclick="openPaper(${i}, event)">
-    <div class="flex gap-2.5 items-center">${cardImg}<div class="text-[0.92rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} leading-snug min-w-0">${newDot}${renderTitle(p.title)}</div></div>
-    ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">${escapeHtml(p._quoteText)}</div><div class="text-[0.68rem] text-dim truncate">${escapeHtml(p.link)}</div>` : snippet ? `<div class="text-[0.78rem] text-muted leading-relaxed mt-1.5">${escapeHtml(snippet)}</div>` : ''}
-    <div class="flex gap-2 flex-wrap items-center mt-2">${sourceChip}${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${_cardActionRow(p, i, ctx)}</div>
-    ${_cardCommentContainer(p, i)}
-  </div>`;
+  var qfOn = ctx.qfOn, qCache = ctx.qCache, readSet = ctx.readSet;
+  var isHN = p.source === 'hn';
+  var _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
+  var sourceLabel = _hasExternalLink ? (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
+  var viaInfo = _hasExternalLink ? '<span class="text-[0.68rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>' : '';
+  var aiEntry = qfOn ? qCache[p.title] : null;
+  var aiVerdict = aiEntry ? (aiEntry.v || aiEntry) : null;
+  var aiScore = aiEntry ? aiEntry.s : null;
+  var aiChip = qfOn && aiVerdict === 'keep' ? '<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ' + (aiScore != null ? aiScore + '%' : 'scoring\u2026') + '">' + (aiScore != null ? '<span class="text-dim">' + aiScore + '%</span>' : '<span class="text-dim animate-pulse">\u2026</span>') + '<span class="text-green-500">&#10003;</span></span>' : '';
+  var isPoly = p.source === 'polymarket';
+  var statsChips = (isHN && _hasExternalLink) ? '' : isHN ? '<span class="text-[0.68rem] text-dim">' + p.hnScore + ' pts</span>' : isPoly ? '<span class="text-[0.68rem] font-semibold ' + (p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400') + '">' + p.polyYesPct + '%</span>' : (p.citations !== undefined ? '<span class="text-[0.68rem] text-dim">' + p.citations + ' cited</span>' : '');
+  var dateChip = p.date ? '<span class="text-[0.68rem] text-dim">' + escapeHtml(p.date) + '</span>' : '';
+  var snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
+  var nLink = _normalizeRatingKey(p.link);
+  var userRating = ctx.ratings ? (ctx.ratings[nLink] || ctx.ratings[p.link] || 0) : getPaperRating(p.link);
+  var ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
+  var isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+  var isRead = readSet.has(p.link);
+  var newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
+  var cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
+  var pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
+  var cardImg = cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback;
+
+  var bodyHtml = '';
+  if (p.source === 'quote' && p._quoteText) {
+    bodyHtml = '<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">' + escapeHtml(p._quoteText) + '</div><div class="text-[0.68rem] text-dim truncate">' + escapeHtml(p.link) + '</div>';
+  } else if (snippet) {
+    bodyHtml = '<div class="text-[0.78rem] text-muted leading-relaxed mt-1.5">' + escapeHtml(snippet) + '</div>';
+  }
+
+  var metaHtml = '<span class="text-[0.75rem] text-dim">' + escapeHtml(sourceLabel) + '</span>' + viaInfo + aiChip + statsChips + ratingChip + dateChip;
+  var metaRow = new View('div');
+  metaRow.el.className = 'flex gap-2 flex-wrap items-center mt-2';
+  metaRow.el.innerHTML = metaHtml;
+  metaRow.el.appendChild(_cardActionRow(p, i, ctx).build());
+
+  var card = new View('div');
+  card.el.className = 'paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150' + (isRead ? ' opacity-50' : '');
+  card.attr('data-link', p.link);
+  card.el.innerHTML = '<div class="flex gap-2.5 items-center">' + cardImg + '<div class="text-[0.92rem] font-semibold ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug min-w-0">' + newDot + renderTitle(p.title) + '</div></div>' + bodyHtml;
+  card.el.appendChild(metaRow.el);
+  card.el.appendChild(_cardCommentContainer(p, i).build());
+  card.onTap(function(e) { openPaper(i, e); });
+  return card;
 }
 
 // ── Debounced renderPapers ──
@@ -1840,29 +1923,150 @@ function _buildRenderCtx() {
 }
 
 function _renderFeedEmptyState(container, qfOn) {
-  const threshold = qfOn ? getQualityThreshold() : 0;
-  const filledDots = Math.round(threshold / 10);
-  const dots = Array.from({ length: 10 }, (_, i) =>
-    `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 4px;background:${i < filledDots ? 'var(--nr-accent)' : 'var(--nr-border-default)'};transition:background 0.2s" title="${(i + 1) * 10}%"></span>`
-  ).join('');
-  container.innerHTML = `<div style="column-span:all;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5rem 0;gap:16px">
-    <div class="text-dim" style="font-size:0.9rem">No papers match your filter</div>
-    ${qfOn ? `<div style="display:flex;align-items:center;justify-content:center">${dots}</div>
-    <div class="text-dimmer" style="font-size:0.75rem">Quality threshold: ${threshold}%</div>` : ''}
-  </div>`;
+  var threshold = qfOn ? getQualityThreshold() : 0;
+  var filledDots = Math.round(threshold / 10);
+  var dotViews = Array.from({ length: 10 }, function(_, i) {
+    return new View('span')
+      .style('display', 'inline-block').style('width', '10px').style('height', '10px')
+      .style('borderRadius', '50%').style('margin', '0 4px')
+      .style('background', i < filledDots ? 'var(--nr-accent)' : 'var(--nr-border-default)')
+      .style('transition', 'background 0.2s')
+      .attr('title', (i + 1) * 10 + '%');
+  });
+  var children = [
+    Text('No papers match your filter').className('text-dim').style('fontSize', '0.9rem')
+  ];
+  if (qfOn) {
+    children.push(HStack(dotViews).style('justifyContent', 'center'));
+    children.push(Text('Quality threshold: ' + threshold + '%').className('text-dimmer').style('fontSize', '0.75rem'));
+  }
+  var v = VStack(children).alignment('center').style('justifyContent', 'center')
+    .style('columnSpan', 'all').style('padding', '5rem 0').spacing(4);
+  AetherUI.mount(v, container);
+}
+
+function _renderPaperVerboseCard(p, i, ctx) {
+  var qfOn = ctx.qfOn, qCache = ctx.qCache, readSet = ctx.readSet;
+  var isHN = p.source === 'hn';
+  var _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
+  var sourceName = _hasExternalLink ? (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
+  var viaInfo = _hasExternalLink ? '<span class="text-[0.72rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>' : '';
+  var aiEntry = qfOn ? qCache[p.title] : null;
+  var aiVerdict = aiEntry ? (aiEntry.v || aiEntry) : null;
+  var aiScore = aiEntry ? aiEntry.s : null;
+  var aiChip = qfOn && aiVerdict === 'keep' ? '<span class="inline-flex items-center gap-0.5 text-[0.72rem]" title="AI quality score: ' + (aiScore != null ? aiScore + '%' : 'scoring\u2026') + '">' + (aiScore != null ? '<span class="text-dim">' + aiScore + '%</span>' : '<span class="text-dim animate-pulse">\u2026</span>') + '<span class="text-green-500">&#10003;</span></span>' : '';
+  var isPoly = p.source === 'polymarket';
+  var statsChips = (isHN && _hasExternalLink) ? '' : isHN ? '<span class="text-[0.72rem] text-dim">' + p.hnScore + ' pts</span>' : isPoly ? '<span class="text-[0.72rem] font-semibold ' + (p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400') + '">' + p.polyYesPct + '%</span>' : (p.citations !== undefined ? '<span class="text-[0.72rem] text-dim">' + p.citations + ' cited</span>' : '');
+  var dateChip = p.date ? '<span class="text-[0.72rem] text-dim">' + escapeHtml(p.date) + '</span>' : '';
+  var fullDesc = isPoly ? '' : (p.description || '');
+  var authors = p.authors ? '<div class="text-[0.76rem] text-dimmer mt-1">' + escapeHtml(truncate(p.authors, 200)) + '</div>' : '';
+  var pCats = Array.isArray(p.categories) ? p.categories : [];
+  var categories = pCats.length ? '<div class="flex gap-1 flex-wrap mt-1.5">' + pCats.slice(0, 6).map(function(c) { return '<span class="text-[0.65rem] px-1.5 py-0.5 rounded bg-hover text-dim">' + escapeHtml(c) + '</span>'; }).join('') + '</div>' : '';
+  var nLink = _normalizeRatingKey(p.link);
+  var userRating = ctx.ratings[nLink] || ctx.ratings[p.link] || 0;
+  var ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
+  var isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+  var isRead = readSet.has(p.link);
+  var newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
+  var cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
+  var pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
+  var cardImg = cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback;
+
+  var metaHtml = '<span class="text-[0.72rem] text-dim">' + escapeHtml(sourceName) + '</span>' + viaInfo + aiChip + statsChips + ratingChip + dateChip;
+  var metaRow = new View('div');
+  metaRow.el.className = 'flex gap-2 flex-wrap items-center mt-3';
+  metaRow.el.innerHTML = metaHtml;
+  metaRow.el.appendChild(_cardActionRow(p, i, ctx).build());
+
+  var card = new View('div');
+  card.el.className = 'paper bg-card border border-border-card rounded-xl p-5 cursor-pointer transition-all duration-150' + (isRead ? ' opacity-50' : '');
+  card.attr('data-link', p.link);
+  card.el.innerHTML = '<div class="flex gap-2.5 items-center">' + cardImg + '<div class="text-[1rem] font-semibold ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug min-w-0">' + newDot + renderTitle(p.title) + '</div></div>' + authors + (fullDesc ? '<div class="text-[0.82rem] text-muted leading-relaxed mt-2">' + escapeHtml(fullDesc) + '</div>' : '') + categories;
+  card.el.appendChild(metaRow.el);
+  card.el.appendChild(_cardCommentContainer(p, i).build());
+  card.onTap(function(e) { openPaper(i, e); });
+  return card;
+}
+
+function _renderPaperTwitterCard(p, i, ctx) {
+  var qfOn = ctx.qfOn, qCache = ctx.qCache, readSet = ctx.readSet;
+  var isHN = p.source === 'hn';
+  var sourceName = SOURCE_NAMES[p.source] || p.source;
+  var handle = (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return p.source; } })();
+  var isPoly = p.source === 'polymarket';
+  var snippet = isPoly ? '' : (p.description ? truncate(p.description, 280) : '');
+  var isSaved = !!ctx.savedPosts[p.link];
+  var bmFill = isSaved ? 'var(--nr-accent)' : 'none';
+  var bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
+  var isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+  var isRead = readSet.has(p.link);
+  var newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
+  var cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
+  var pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
+  var avatar = cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-10 h-10 rounded-full shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback;
+  var timeAgo = p.pubDate && typeof _relativeTime === 'function' ? _relativeTime(p.pubDate) : (p.date || '');
+  var aiEntry = qfOn ? qCache[p.title] : null;
+  var aiScore = aiEntry ? aiEntry.s : null;
+  var hnPts = isHN ? p.hnScore || 0 : 0;
+  var citations = p.citations !== undefined ? p.citations : null;
+  var statsNum = isPoly ? p.polyYesPct + '%' : isHN ? String(hnPts) : (citations !== null ? String(citations) : '');
+  var reposted = ctx.repostedSet.has(p.link);
+  var commentCount = _tweetCommentCounts[p.link] || '';
+
+  // Build action buttons
+  var actionBar = new View('div');
+  actionBar.el.className = 'flex items-center justify-between mt-2.5 max-w-[400px]';
+  actionBar.el.innerHTML =
+    '<button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors">' + icon('chatBubble', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]" data-tweet-comment-count="' + escapeAttr(p.link) + '">' + commentCount + '</span></button>' +
+    '<button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors ' + (reposted ? '' : 'text-dimmer hover:text-green-400') + '" style="' + (reposted ? 'color:rgb(74,222,128)' : '') + '">' + icon('repost', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]">' + statsNum + '</span></button>' +
+    '<button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:' + (bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)') + '">' + icon('bookmark', {size: 16, class: 'w-4 h-4', fill: bmFill, stroke: bmStroke}) + '</button>' +
+    '<button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-primary transition-colors">' + icon('moreVertical', {size: 16, class: 'w-4 h-4'}) + '</button>';
+  var btns = actionBar.el.querySelectorAll('button');
+  btns[0].addEventListener('click', function(e) { e.stopPropagation(); _toggleTweetComments(p.link, i); });
+  btns[1].addEventListener('click', function(e) { e.stopPropagation(); _tweetRepost(i, btns[1]); });
+  btns[2].addEventListener('click', function(e) { e.stopPropagation(); toggleSavePost(lastFilteredPapers[i], e); });
+  btns[3].addEventListener('click', function(e) { openCardMenu(btns[3], e, i); });
+
+  var bodyHtml = '<div class="flex items-center gap-1.5 flex-wrap">' + newDot +
+    '<span class="text-[0.88rem] font-bold ' + (isRead ? 'text-muted' : 'text-primary') + '">' + escapeHtml(sourceName) + '</span>' +
+    '<span class="text-[0.8rem] text-dimmer">@' + escapeHtml(handle) + '</span>' +
+    '<span class="text-dimmer">\u00b7</span>' +
+    '<span class="text-[0.8rem] text-dimmer">' + escapeHtml(timeAgo) + '</span>' +
+    (aiScore != null ? '<span class="text-[0.72rem] text-dim ml-auto">' + aiScore + '% <span class="text-green-500">&#10003;</span></span>' : '') +
+    '</div>' +
+    '<div class="text-[0.92rem] ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug mt-1 font-semibold">' + renderTitle(p.title) + '</div>' +
+    (snippet ? '<div class="text-[0.84rem] text-muted leading-relaxed mt-1">' + escapeHtml(snippet) + '</div>' : '') +
+    (p.source === 'quote' && p._quoteText ? '<div class="text-[0.84rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 mt-2">' + escapeHtml(p._quoteText) + '</div>' : '');
+
+  var content = new View('div');
+  content.el.className = 'min-w-0 flex-1';
+  content.el.innerHTML = bodyHtml;
+  content.el.appendChild(actionBar.el);
+  content.el.appendChild(_cardCommentContainer(p, i).build());
+
+  var card = new View('div');
+  card.el.className = 'py-3 px-4 border-b border-border-card cursor-pointer transition-colors hover:bg-hover' + (isRead ? ' opacity-50' : '');
+  card.attr('data-link', p.link);
+  var inner = new View('div');
+  inner.el.className = 'flex gap-3';
+  inner.el.innerHTML = avatar;
+  inner.el.appendChild(content.el);
+  card.el.appendChild(inner.el);
+  card.onTap(function(e) { openPaper(i, e); });
+  return card;
 }
 
 function _renderPapersNow() {
   _syncUserQuotesIntoAllPapers();
-  const ctx = _buildRenderCtx();
-  const { qfOn, qCache, hiddenSet, readSet, bypass } = ctx;
-  const filtered = getFilteredPapers(ctx);
+  var ctx = _buildRenderCtx();
+  var qfOn = ctx.qfOn, qCache = ctx.qCache, hiddenSet = ctx.hiddenSet, readSet = ctx.readSet, bypass = ctx.bypass;
+  var filtered = getFilteredPapers(ctx);
   lastFilteredPapers = filtered;
-  const visible = filtered.slice(0, visibleCount);
-  const pendingCount = qfOn ? allPapers.filter(p => !hiddenSet.has(p.link) && !bypass[p.source] && p.source !== 'quote' && !(p.title in qCache)).length : 0;
-  document.getElementById('stats').textContent = `Showing ${visible.length} of ${filtered.length} papers`;
-  const evalEl = document.getElementById('eval-indicator');
-  const evalCountEl = document.getElementById('eval-count');
+  var visible = filtered.slice(0, visibleCount);
+  var pendingCount = qfOn ? allPapers.filter(function(p) { return !hiddenSet.has(p.link) && !bypass[p.source] && p.source !== 'quote' && !(p.title in qCache); }).length : 0;
+  document.getElementById('stats').textContent = 'Showing ' + visible.length + ' of ' + filtered.length + ' papers';
+  var evalEl = document.getElementById('eval-indicator');
+  var evalCountEl = document.getElementById('eval-count');
   if (evalEl) {
     if (pendingCount > 0) {
       evalCountEl.textContent = pendingCount;
@@ -1871,132 +2075,56 @@ function _renderPapersNow() {
       evalEl.classList.add('hidden');
     }
   }
-  const container = document.getElementById('papers');
+  var container = document.getElementById('papers');
   if (!filtered.length && pendingCount > 0) return;
   if (!filtered.length) {
     _renderFeedEmptyState(container, qfOn);
     return;
   }
+
+  container.innerHTML = '';
+
   if (feedViewMode === 'compact') {
-    container.innerHTML = `<div style="column-span:all" class="flex flex-col">` + visible.map((p, i) => _renderPaperCompactRow(p, i, ctx)).join('') + `</div>`;
+    var compactWrap = new View('div');
+    compactWrap.el.style.columnSpan = 'all';
+    compactWrap.el.className = 'flex flex-col';
+    visible.forEach(function(p, i) {
+      compactWrap.el.appendChild(_renderPaperCompactRow(p, i, ctx).build());
+    });
+    container.appendChild(compactWrap.el);
   } else if (feedViewMode === 'verbose') {
-    container.innerHTML = `<div style="column-span:all" class="flex flex-col gap-3">` + visible.map((p, i) => {
-      const isHN = p.source === 'hn';
-      const _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
-      const sourceName = _hasExternalLink ? (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
-      const viaInfo = _hasExternalLink ? `<span class="text-[0.72rem] text-dimmer">via ${escapeHtml(SOURCE_NAMES[p.source] || p.source)}${isHN ? ` · ${p.hnScore} pts` : ''}</span>` : '';
-      const aiEntry = qfOn ? qCache[p.title] : null;
-      const aiVerdict = aiEntry?.v || aiEntry;
-      const aiScore = aiEntry?.s;
-      const aiChip = qfOn && aiVerdict === 'keep' ? `<span class="inline-flex items-center gap-0.5 text-[0.72rem]" title="AI quality score: ${aiScore != null ? aiScore + '%' : 'scoring…'}">${aiScore != null ? `<span class="text-dim">${aiScore}%</span>` : '<span class="text-dim animate-pulse">…</span>'}<span class="text-green-500">&#10003;</span></span>` : '';
-      const isPoly = p.source === 'polymarket';
-      const statsChips = (isHN && _hasExternalLink) ? '' : isHN ? `<span class="text-[0.72rem] text-dim">${p.hnScore} pts</span>` : isPoly ? `<span class="text-[0.72rem] font-semibold ${p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400'}">${p.polyYesPct}%</span>` : (p.citations !== undefined ? `<span class="text-[0.72rem] text-dim">${p.citations} cited</span>` : '');
-      const dateChip = p.date ? `<span class="text-[0.72rem] text-dim">${escapeHtml(p.date)}</span>` : '';
-      const fullDesc = isPoly ? '' : (p.description || '');
-      const authors = p.authors ? `<div class="text-[0.76rem] text-dimmer mt-1">${escapeHtml(truncate(p.authors, 200))}</div>` : '';
-      const pCats = Array.isArray(p.categories) ? p.categories : [];
-      const categories = pCats.length ? `<div class="flex gap-1 flex-wrap mt-1.5">${pCats.slice(0, 6).map(c => `<span class="text-[0.65rem] px-1.5 py-0.5 rounded bg-hover text-dim">${escapeHtml(c)}</span>`).join('')}</div>` : '';
-      const nLink = _normalizeRatingKey(p.link);
-      const userRating = ctx.ratings[nLink] || ctx.ratings[p.link] || 0;
-      const ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
-      const isSaved = !!ctx.savedPosts[p.link];
-      const bmFill = isSaved ? 'var(--nr-accent)' : 'none';
-      const bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
-      const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
-      const isRead = readSet.has(p.link);
-      const newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
-      const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (() => { try { return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(p.link).hostname)}&sz=64`; } catch { return ''; } })();
-      const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
-      const cardImg = cardImgSrc
-        ? `<img src="${cardImgSrc}" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
-        : pixelFallback;
-      return `
-      <div class="paper bg-card border border-border-card rounded-xl p-5 cursor-pointer transition-all duration-150${isRead ? ' opacity-50' : ''}" data-link="${escapeAttr(p.link)}" onclick="openPaper(${i}, event)">
-        <div class="flex gap-2.5 items-center">${cardImg}<div class="text-[1rem] font-semibold ${isRead ? 'text-muted' : 'text-primary'} leading-snug min-w-0">${newDot}${renderTitle(p.title)}</div></div>
-        ${authors}
-        ${fullDesc ? `<div class="text-[0.82rem] text-muted leading-relaxed mt-2">${escapeHtml(fullDesc)}</div>` : ''}
-        ${categories}
-        <div class="flex gap-2 flex-wrap items-center mt-3"><span class="text-[0.72rem] text-dim">${escapeHtml(sourceName)}</span>${viaInfo}${aiChip}${statsChips}${ratingChip}${dateChip}${_cardActionRow(p, i, ctx)}</div>
-        ${_cardCommentContainer(p, i)}
-      </div>`;
-    }).join('') + `</div>`;
+    var verboseWrap = new View('div');
+    verboseWrap.el.style.columnSpan = 'all';
+    verboseWrap.el.className = 'flex flex-col gap-3';
+    visible.forEach(function(p, i) {
+      verboseWrap.el.appendChild(_renderPaperVerboseCard(p, i, ctx).build());
+    });
+    container.appendChild(verboseWrap.el);
   } else if (feedViewMode === 'twitter') {
-    container.innerHTML = `<div style="column-span:all" class="flex flex-col max-w-[600px] mx-auto">` + visible.map((p, i) => {
-      const isHN = p.source === 'hn';
-      const _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
-      const sourceName = SOURCE_NAMES[p.source] || p.source;
-      const handle = (() => { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch { return p.source; } })();
-      const isPoly = p.source === 'polymarket';
-      const snippet = isPoly ? '' : (p.description ? truncate(p.description, 280) : '');
-      const isSaved = !!ctx.savedPosts[p.link];
-      const bmFill = isSaved ? 'var(--nr-accent)' : 'none';
-      const bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
-      const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
-      const isRead = readSet.has(p.link);
-      const newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
-      const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (() => { try { return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(p.link).hostname)}&sz=64`; } catch { return ''; } })();
-      const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
-      const avatar = cardImgSrc
-        ? `<img src="${cardImgSrc}" class="w-10 h-10 rounded-full shrink-0 object-cover" onerror="this.outerHTML=${escapeAttr(JSON.stringify(pixelFallback))}">`
-        : pixelFallback;
-      const timeAgo = p.pubDate && typeof _relativeTime === 'function' ? _relativeTime(p.pubDate) : (p.date || '');
-      const aiEntry = qfOn ? qCache[p.title] : null;
-      const aiScore = aiEntry?.s;
-      const hnPts = isHN ? p.hnScore || 0 : 0;
-      const citations = p.citations !== undefined ? p.citations : null;
-      const statsNum = isPoly ? `${p.polyYesPct}%` : isHN ? `${hnPts}` : (citations !== null ? `${citations}` : '');
-      const statsLabel = isPoly ? (p.polyYesPct >= 50 ? 'Yes' : 'No') : isHN ? (hnPts === 1 ? 'point' : 'points') : (citations !== null ? (citations === 1 ? 'citation' : 'citations') : '');
-      return `
-      <div class="py-3 px-4 border-b border-border-card cursor-pointer transition-colors hover:bg-hover${isRead ? ' opacity-50' : ''}" data-link="${escapeAttr(p.link)}" onclick="openPaper(${i}, event)">
-        <div class="flex gap-3">
-          ${avatar}
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-1.5 flex-wrap">
-              ${newDot}
-              <span class="text-[0.88rem] font-bold ${isRead ? 'text-muted' : 'text-primary'}">${escapeHtml(sourceName)}</span>
-              <span class="text-[0.8rem] text-dimmer">@${escapeHtml(handle)}</span>
-              <span class="text-dimmer">·</span>
-              <span class="text-[0.8rem] text-dimmer">${escapeHtml(timeAgo)}</span>
-              ${aiScore != null ? `<span class="text-[0.72rem] text-dim ml-auto">${aiScore}% <span class="text-green-500">&#10003;</span></span>` : ''}
-            </div>
-            <div class="text-[0.92rem] ${isRead ? 'text-muted' : 'text-primary'} leading-snug mt-1 font-semibold">${renderTitle(p.title)}</div>
-            ${snippet ? `<div class="text-[0.84rem] text-muted leading-relaxed mt-1">${escapeHtml(snippet)}</div>` : ''}
-            ${p.source === 'quote' && p._quoteText ? `<div class="text-[0.84rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 mt-2">${escapeHtml(p._quoteText)}</div>` : ''}
-            <div class="flex items-center justify-between mt-2.5 max-w-[400px]">
-              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors" onclick="event.stopPropagation(); _toggleTweetComments('${escapeAttr(p.link)}', ${i})">
-                ${icon('chatBubble', {size: 16, class: 'w-4 h-4'})}
-                <span class="text-[0.72rem]" data-tweet-comment-count="${escapeAttr(p.link)}">${_tweetCommentCounts[p.link] || ''}</span>
-              </button>
-              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors ${ctx.repostedSet.has(p.link) ? '' : 'text-dimmer hover:text-green-400'}" style="${ctx.repostedSet.has(p.link) ? 'color:rgb(74,222,128)' : ''}" onclick="event.stopPropagation(); _tweetRepost(${i}, this)">
-                ${icon('repost', {size: 16, class: 'w-4 h-4'})}
-                <span class="text-[0.72rem]">${statsNum ? statsNum : ''}</span>
-              </button>
-              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:${bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)'}" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)">
-                ${icon('bookmark', {size: 16, class: 'w-4 h-4', fill: bmFill, stroke: bmStroke})}
-              </button>
-              <button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})">
-                ${icon('moreVertical', {size: 16, class: 'w-4 h-4'})}
-              </button>
-            </div>
-            <div id="tweet-comments-${i}" style="display:${_tweetCommentsOpen.has(p.link) ? 'block' : 'none'}"></div>
-          </div>
-        </div>
-      </div>`;
-    }).join('') + `</div>`;
+    var twitterWrap = new View('div');
+    twitterWrap.el.style.columnSpan = 'all';
+    twitterWrap.el.className = 'flex flex-col max-w-[600px] mx-auto';
+    visible.forEach(function(p, i) {
+      twitterWrap.el.appendChild(_renderPaperTwitterCard(p, i, ctx).build());
+    });
+    container.appendChild(twitterWrap.el);
   } else {
-    container.innerHTML = visible.map((p, i) => _renderPaperCard(p, i, ctx)).join('');
+    // Block view: cards are direct children of container for CSS columns
+    visible.forEach(function(p, i) {
+      container.appendChild(_renderPaperCard(p, i, ctx).build());
+    });
   }
+
   // Animate cards that are new since the last render
-  const prevLinks = _renderedLinks;
-  _renderedLinks = new Set(visible.map(p => p.link));
+  var prevLinks = _renderedLinks;
+  _renderedLinks = new Set(visible.map(function(p) { return p.link; }));
   if (prevLinks.size > 0) {
-    let _feedNewIdx = 0;
-    container.querySelectorAll('[data-link]').forEach(el => {
+    var _feedNewIdx = 0;
+    container.querySelectorAll('[data-link]').forEach(function(el) {
       if (!prevLinks.has(el.dataset.link)) {
         Motion.fadeIn(el, { y: 8, delay: _feedNewIdx * Motion.stagger.tight });
         _feedNewIdx++;
-        // Add a notification dot that fades after 10s
-        const dot = document.createElement('span');
+        var dot = document.createElement('span');
         dot.className = 'feed-new-dot';
         el.style.position = 'relative';
         el.appendChild(dot);
@@ -2004,16 +2132,15 @@ function _renderPapersNow() {
     });
   }
   fetchCitationsFor(visible);
-  // Fetch comment counts & re-expand open comment sections
   _fetchTweetCommentCounts(visible);
-  visible.forEach((p, i) => {
+  visible.forEach(function(p, i) {
     if (_tweetCommentsOpen.has(p.link)) {
-      const container = document.getElementById('tweet-comments-' + i);
-      if (container) {
-        container.style.display = 'block';
+      var cmtContainer = document.getElementById('tweet-comments-' + i);
+      if (cmtContainer) {
+        cmtContainer.style.display = 'block';
         apiGet('/api/comments?paperLink=' + encodeURIComponent(p.link))
-          .then(comments => _renderTweetComments(container, comments, p.link, i))
-          .catch((e) => { console.warn('loadTweetComments:', e); });
+          .then(function(comments) { _renderTweetComments(cmtContainer, comments, p.link, i); })
+          .catch(function(e) { console.warn('loadTweetComments:', e); });
       }
     }
   });
@@ -2053,7 +2180,7 @@ async function _toggleTweetComments(link, idx) {
   }
   _tweetCommentsOpen.add(link);
   container.style.display = 'block';
-  container.innerHTML = '<div class="text-dim text-[0.75rem] py-2">Loading...</div>';
+  AetherUI.mount(Text('Loading...').className('text-dim text-[0.75rem] py-2'), container);
   try {
     const comments = await apiGet('/api/comments?paperLink=' + encodeURIComponent(link));
     _tweetCommentCounts[link] = comments.length;
@@ -2062,56 +2189,73 @@ async function _toggleTweetComments(link, idx) {
     if (badge) badge.textContent = comments.length || '';
     _renderTweetComments(container, comments, link, idx);
   } catch {
-    container.innerHTML = '<div class="text-red-400 text-[0.75rem] py-2">Failed to load comments</div>';
+    AetherUI.mount(Text('Failed to load comments').className('text-red-400 text-[0.75rem] py-2'), container);
   }
 }
 
 function _renderTweetComments(container, comments, link, idx) {
-  const topLevel = comments.filter(c => !c.parentId).sort((a, b) => a.timestamp - b.timestamp);
-  const byParent = {};
-  comments.forEach(c => { if (c.parentId) (byParent[c.parentId] = byParent[c.parentId] || []).push(c); });
-  const currentUser = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || '';
+  var topLevel = comments.filter(function(c) { return !c.parentId; }).sort(function(a, b) { return a.timestamp - b.timestamp; });
+  var byParent = {};
+  comments.forEach(function(c) { if (c.parentId) (byParent[c.parentId] = byParent[c.parentId] || []).push(c); });
+  var currentUser = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || '';
 
   function renderThread(c, depth) {
-    const replies = (byParent[c.id] || []).sort((a, b) => a.timestamp - b.timestamp);
-    const ml = depth > 0 ? `margin-left:${Math.min(depth, 4) * 16}px; border-left: 2px solid var(--nr-border-default); padding-left: 8px;` : '';
-    const initial = (c.author || '?')[0].toUpperCase();
-    const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
-    const isOwn = c.author === currentUser;
-    const delBtn = isOwn ? `<button onclick="event.stopPropagation(); _deleteTweetComment('${c.id}', '${escapeAttr(link)}', ${idx})" class="text-dimmest hover:text-red-400 text-[0.65rem] ml-auto bg-transparent border-none cursor-pointer">x</button>` : '';
-    let html = `<div style="${ml}; margin-bottom: 6px;">
-      <div class="flex items-start gap-1.5">
-        <div style="width:20px;height:20px;min-width:20px;border-radius:50%;background:var(--nr-accent);color:#fff;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;">${escapeHtml(initial)}</div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-1.5">
-            <a href="#profile/${encodeURIComponent(c.author)}" onclick="event.stopPropagation()" class="text-[0.72rem] font-medium text-primary hover:text-accent" style="text-decoration:none">${escapeHtml(c.author)}</a>
-            <span class="text-[0.65rem] text-dimmer">${timeAgo}</span>${delBtn}
-          </div>
-          <div class="text-[0.78rem] text-primary mt-0.5 leading-relaxed">${escapeHtml(c.content).replace(/\n/g, '<br>')}</div>
-          <button onclick="event.stopPropagation(); _showTweetReply('${c.id}')" class="text-[0.68rem] text-dim hover:text-accent mt-0.5 bg-transparent border-none cursor-pointer p-0">Reply</button>
-          <div id="tweet-reply-${c.id}" class="hidden mt-1">
-            <textarea id="tweet-reply-ta-${c.id}" onclick="event.stopPropagation()" class="w-full text-[0.75rem] bg-input border border-border-input rounded px-2 py-1 text-primary resize-none outline-none focus:border-accent" rows="2" placeholder="Write a reply..."></textarea>
-            <div class="flex gap-1 mt-1">
-              <button onclick="event.stopPropagation(); _postTweetReply('${c.id}', '${escapeAttr(link)}', ${idx})" class="px-2 py-0.5 text-[0.68rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none">Reply</button>
-              <button onclick="event.stopPropagation(); _hideTweetReply('${c.id}')" class="px-2 py-0.5 text-[0.68rem] rounded border border-border-input text-dim hover:text-primary cursor-pointer bg-transparent">Cancel</button>
-            </div>
-          </div>
-        </div>
-      </div>`;
-    replies.forEach(r => { html += renderThread(r, depth + 1); });
-    html += '</div>';
-    return html;
+    var replies = (byParent[c.id] || []).sort(function(a, b) { return a.timestamp - b.timestamp; });
+    var ml = depth > 0 ? 'margin-left:' + Math.min(depth, 4) * 16 + 'px; border-left: 2px solid var(--nr-border-default); padding-left: 8px;' : '';
+    var initial = (c.author || '?')[0].toUpperCase();
+    var timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
+    var isOwn = c.author === currentUser;
+
+    var threadEl = new View('div');
+    threadEl.el.style.cssText = ml + '; margin-bottom: 6px;';
+
+    var delBtnHtml = isOwn ? '<button class="cmt-del text-dimmest hover:text-red-400 text-[0.65rem] ml-auto bg-transparent border-none cursor-pointer" data-cid="' + c.id + '">x</button>' : '';
+    var replyFormHtml = '<div id="tweet-reply-' + c.id + '" class="hidden mt-1"><textarea id="tweet-reply-ta-' + c.id + '" class="w-full text-[0.75rem] bg-input border border-border-input rounded px-2 py-1 text-primary resize-none outline-none focus:border-accent" rows="2" placeholder="Write a reply..."></textarea><div class="flex gap-1 mt-1"><button class="cmt-reply-submit px-2 py-0.5 text-[0.68rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none" data-cid="' + c.id + '">Reply</button><button class="cmt-reply-cancel px-2 py-0.5 text-[0.68rem] rounded border border-border-input text-dim hover:text-primary cursor-pointer bg-transparent" data-cid="' + c.id + '">Cancel</button></div></div>';
+
+    threadEl.el.innerHTML = '<div class="flex items-start gap-1.5"><div style="width:20px;height:20px;min-width:20px;border-radius:50%;background:var(--nr-accent);color:#fff;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;">' + escapeHtml(initial) + '</div><div class="flex-1 min-w-0"><div class="flex items-center gap-1.5"><a href="#profile/' + encodeURIComponent(c.author) + '" class="text-[0.72rem] font-medium text-primary hover:text-accent" style="text-decoration:none">' + escapeHtml(c.author) + '</a><span class="text-[0.65rem] text-dimmer">' + timeAgo + '</span>' + delBtnHtml + '</div><div class="text-[0.78rem] text-primary mt-0.5 leading-relaxed">' + escapeHtml(c.content).replace(/\n/g, '<br>') + '</div><button class="cmt-show-reply text-[0.68rem] text-dim hover:text-accent mt-0.5 bg-transparent border-none cursor-pointer p-0" data-cid="' + c.id + '">Reply</button>' + replyFormHtml + '</div></div>';
+
+    // Attach event listeners
+    var showReplyBtn = threadEl.el.querySelector('.cmt-show-reply[data-cid="' + c.id + '"]');
+    if (showReplyBtn) showReplyBtn.addEventListener('click', function(e) { e.stopPropagation(); _showTweetReply(c.id); });
+    var delBtnEl = threadEl.el.querySelector('.cmt-del[data-cid="' + c.id + '"]');
+    if (delBtnEl) delBtnEl.addEventListener('click', function(e) { e.stopPropagation(); _deleteTweetComment(c.id, link, idx); });
+    var replySubmit = threadEl.el.querySelector('.cmt-reply-submit[data-cid="' + c.id + '"]');
+    if (replySubmit) replySubmit.addEventListener('click', function(e) { e.stopPropagation(); _postTweetReply(c.id, link, idx); });
+    var replyCancel = threadEl.el.querySelector('.cmt-reply-cancel[data-cid="' + c.id + '"]');
+    if (replyCancel) replyCancel.addEventListener('click', function(e) { e.stopPropagation(); _hideTweetReply(c.id); });
+    var ta = threadEl.el.querySelector('textarea');
+    if (ta) ta.addEventListener('click', function(e) { e.stopPropagation(); });
+    var profileLink = threadEl.el.querySelector('a');
+    if (profileLink) profileLink.addEventListener('click', function(e) { e.stopPropagation(); });
+
+    replies.forEach(function(r) { threadEl.el.appendChild(renderThread(r, depth + 1).build()); });
+    return threadEl;
   }
 
-  const author = currentUser || 'Anonymous';
-  container.innerHTML = `
-    <div class="mt-2 pt-2 border-t border-border-card">
-      ${topLevel.length ? topLevel.map(c => renderThread(c, 0)).join('') : '<div class="text-dim text-[0.75rem] py-1">No comments yet</div>'}
-      <div class="flex gap-2 mt-2">
-        <textarea id="tweet-comment-input-${idx}" onclick="event.stopPropagation()" class="flex-1 text-[0.75rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent" rows="1" placeholder="Add a comment..."></textarea>
-        <button onclick="event.stopPropagation(); _postTweetComment('${escapeAttr(link)}', ${idx})" class="px-3 py-1 text-[0.72rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none shrink-0">Post</button>
-      </div>
-    </div>`;
+  var wrap = new View('div');
+  wrap.el.className = 'mt-2 pt-2 border-t border-border-card';
+  if (topLevel.length) {
+    topLevel.forEach(function(c) { wrap.el.appendChild(renderThread(c, 0).build()); });
+  } else {
+    wrap.el.appendChild(Text('No comments yet').className('text-dim text-[0.75rem] py-1').build());
+  }
+
+  var inputRow = new View('div');
+  inputRow.el.className = 'flex gap-2 mt-2';
+  var commentTa = new View('textarea');
+  commentTa.el.id = 'tweet-comment-input-' + idx;
+  commentTa.el.className = 'flex-1 text-[0.75rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent';
+  commentTa.el.rows = 1;
+  commentTa.el.placeholder = 'Add a comment...';
+  commentTa.el.addEventListener('click', function(e) { e.stopPropagation(); });
+  var postBtn = new View('button').className('px-3 py-1 text-[0.72rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none shrink-0');
+  postBtn.el.textContent = 'Post';
+  postBtn.el.addEventListener('click', function(e) { e.stopPropagation(); _postTweetComment(link, idx); });
+  inputRow.el.appendChild(commentTa.el);
+  inputRow.el.appendChild(postBtn.el);
+  wrap.el.appendChild(inputRow.el);
+
+  AetherUI.mount(wrap, container);
 }
 
 async function _postTweetComment(link, idx) {
@@ -2223,30 +2367,30 @@ function _tweetRepost(idx, btn) {
 
 // Shared comment & repost action buttons for all card views
 function _cardActionRow(p, i, ctx) {
-  const isSaved = ctx ? !!ctx.savedPosts[p.link] : isPostSaved(p.link);
-  const bmFill = isSaved ? 'var(--nr-accent)' : 'none';
-  const bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
-  const commentCount = _tweetCommentCounts[p.link] || '';
-  const reposted = ctx ? ctx.repostedSet.has(p.link) : _isReposted(p.link);
-  return `<div class="flex items-center gap-3 shrink-0 ml-auto">
-    <button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors" onclick="event.stopPropagation(); _toggleTweetComments('${escapeAttr(p.link)}', ${i})" title="Comments">
-      ${icon('chatBubble', {size: 14, class: 'w-3.5 h-3.5'})}
-      <span class="text-[0.68rem]" data-tweet-comment-count="${escapeAttr(p.link)}">${commentCount}</span>
-    </button>
-    <button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 transition-colors ${reposted ? '' : 'text-dimmer hover:text-green-400'}" style="${reposted ? 'color:rgb(74,222,128)' : ''}" onclick="event.stopPropagation(); _tweetRepost(${i}, this)" title="Repost">
-      ${icon('repost', {size: 14, class: 'w-3.5 h-3.5'})}
-    </button>
-    <button class="bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:${bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)'}" onclick="event.stopPropagation(); toggleSavePost(lastFilteredPapers[${i}], event)" title="${isSaved ? 'Remove from Reading List' : 'Save to Reading List'}">
-      ${icon('bookmark', {size: 14, class: 'w-3.5 h-3.5', fill: bmFill, stroke: bmStroke})}
-    </button>
-    <button class="bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-primary transition-colors" onclick="openCardMenu(this, event, ${i})">
-      ${icon('moreVertical', {size: 14, class: 'w-3.5 h-3.5'})}
-    </button>
-  </div>`;
+  var isSaved = ctx ? !!ctx.savedPosts[p.link] : isPostSaved(p.link);
+  var bmFill = isSaved ? 'var(--nr-accent)' : 'none';
+  var bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
+  var commentCount = _tweetCommentCounts[p.link] || '';
+  var reposted = ctx ? ctx.repostedSet.has(p.link) : _isReposted(p.link);
+  var v = new View('div');
+  v.el.className = 'flex items-center gap-3 shrink-0 ml-auto';
+  v.el.innerHTML =
+    '<button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors" title="Comments">' + icon('chatBubble', {size: 14, class: 'w-3.5 h-3.5'}) + '<span class="text-[0.68rem]" data-tweet-comment-count="' + escapeAttr(p.link) + '">' + commentCount + '</span></button>' +
+    '<button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 transition-colors ' + (reposted ? '' : 'text-dimmer hover:text-green-400') + '" style="' + (reposted ? 'color:rgb(74,222,128)' : '') + '" title="Repost">' + icon('repost', {size: 14, class: 'w-3.5 h-3.5'}) + '</button>' +
+    '<button class="bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:' + (bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)') + '" title="' + (isSaved ? 'Remove from Reading List' : 'Save to Reading List') + '">' + icon('bookmark', {size: 14, class: 'w-3.5 h-3.5', fill: bmFill, stroke: bmStroke}) + '</button>' +
+    '<button class="bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-primary transition-colors">' + icon('moreVertical', {size: 14, class: 'w-3.5 h-3.5'}) + '</button>';
+  var btns = v.el.querySelectorAll('button');
+  btns[0].addEventListener('click', function(e) { e.stopPropagation(); _toggleTweetComments(p.link, i); });
+  btns[1].addEventListener('click', function(e) { e.stopPropagation(); _tweetRepost(i, btns[1]); });
+  btns[2].addEventListener('click', function(e) { e.stopPropagation(); toggleSavePost(lastFilteredPapers[i], e); });
+  btns[3].addEventListener('click', function(e) { openCardMenu(btns[3], e, i); });
+  return v;
 }
 
 function _cardCommentContainer(p, i) {
-  return `<div id="tweet-comments-${i}" style="display:${_tweetCommentsOpen.has(p.link) ? 'block' : 'none'}"></div>`;
+  var v = new View('div').id('tweet-comments-' + i);
+  v.el.style.display = _tweetCommentsOpen.has(p.link) ? 'block' : 'none';
+  return v;
 }
 
 // Infinite scroll
