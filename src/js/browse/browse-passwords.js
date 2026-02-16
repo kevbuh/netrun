@@ -497,7 +497,7 @@ function _browseUpdateNewTabPage(tab) {
               <div class="ntp-search-box max-w-[680px] mx-auto">
                 <div class="ntp-search-row">
                   <svg class="ntp-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-                  <input type="text" id="search-query" placeholder="Ask anything..." autocomplete="off" class="ntp-search-input" oninput="onSearchInput(); _browseUrlShowHistory()" onfocus="_browseUrlCancelHide(); this.select(); _browseUrlShowHistory()" onblur="_browseUrlScheduleHide()" onkeydown="_browseUrlKeydown(event)" />
+                  <input type="text" id="search-query" placeholder="Ask anything..." autocomplete="off" class="ntp-search-input" oninput="onSearchInput()" onfocus="_browseUrlCancelHide(); this.select(); _browseUrlShowHistory()" onblur="_browseUrlScheduleHide()" onkeydown="_browseUrlKeydown(event)" />
                 </div>
                 <div id="search-history-dropdown-view" class="ntp-dropdown" style="display:none;"></div>
                 <div id="ntp-file-chips" class="ntp-file-chips-container"></div>
