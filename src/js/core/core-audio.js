@@ -1,5 +1,6 @@
 // core-audio.js — Audio pill
 // Extracted from core.js
+if (window.AetherUI) AetherUI.globals();
 
 // ── Unified Audio Pill ──
 
@@ -58,15 +59,15 @@ function _renderAudioPill() {
   }
 
   if (micRecording) {
-    indicator.innerHTML = icon('microphone', { size: 14, stroke: '#ef4444' });
+    AetherUI.mount(RawHTML(icon('microphone', { size: 14, stroke: '#ef4444' })), indicator);
     indicator.classList.add('audio-pill-active', 'nr-breathe');
     indicator.classList.remove('audio-pill-idle');
   } else if (active) {
-    indicator.innerHTML = _islandAudioBars;
+    AetherUI.mount(RawHTML(_islandAudioBars), indicator);
     indicator.classList.add('audio-pill-active');
     indicator.classList.remove('audio-pill-idle', 'nr-breathe');
   } else {
-    indicator.innerHTML = '<span class="audio-pill-dot"></span>';
+    AetherUI.mount(new View('span').className('audio-pill-dot'), indicator);
     indicator.classList.remove('audio-pill-active', 'nr-breathe');
     indicator.classList.add('audio-pill-idle');
   }
@@ -79,64 +80,65 @@ function _renderAudioPill() {
     el.appendChild(dropdown);
   }
 
-  let rows = '';
+  function _audioBtn(iconName, label, action, opts) {
+    opts = opts || {};
+    var btn = new View('button');
+    btn._appendChildren([RawHTML(icon(iconName, opts.iconOpts || { size: 14 }))]);
+    btn._appendChildren([Text(' ' + label)]);
+    if (opts.trailing) btn._appendChildren([opts.trailing]);
+    if (opts.color) btn.style('color', opts.color);
+    if (opts.disabled) btn.el.disabled = true;
+    btn.onTap(function(e) { if (opts.stopProp) e.stopPropagation(); if (action) action(); });
+    return btn;
+  }
+
+  var items = [];
 
   // Tab audio source
   if (tab) {
-    rows += '<button onclick="if(typeof goToAudioTab===\'function\')goToAudioTab()">'
-      + _islandAudioBars
-      + ' ' + escapeHtml(tab.label || 'Tab Audio') + '</button>';
+    var tabBtn = new View('button');
+    tabBtn._appendChildren([RawHTML(_islandAudioBars), Text(' ' + escapeHtml(tab.label || 'Tab Audio'))]);
+    tabBtn.onTap(function() { if (typeof goToAudioTab === 'function') goToAudioTab(); });
+    items.push(tabBtn);
   }
 
   // TTS status
   if (tts) {
-    rows += '<button onclick="_ttsPauseResume();_renderAudioPill()" style="color:var(--nr-accent)">'
-      + (tts.paused ? icon('play', { size: 14 }) : icon('pause', { size: 14 }))
-      + ' ' + (tts.paused ? 'Resume TTS' : 'Pause TTS')
-      + ' <span style="margin-left:auto;font-size:0.7rem;opacity:0.5">' + (parseFloat(localStorage.getItem('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x</span>'
-      + '</button>';
-    rows += '<button onclick="_ttsStopAll();_renderAudioPill()">'
-      + icon('close', { size: 14 }) + ' Stop TTS</button>';
+    var spdText = (parseFloat(localStorage.getItem('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x';
+    var spdSpan = new View('span').style('margin-left', 'auto').style('font-size', '0.7rem').style('opacity', '0.5')._bindText(spdText);
+    items.push(_audioBtn(tts.paused ? 'play' : 'pause', tts.paused ? 'Resume TTS' : 'Pause TTS', function() { _ttsPauseResume(); _renderAudioPill(); }, { color: 'var(--nr-accent)', trailing: spdSpan }));
+    items.push(_audioBtn('close', 'Stop TTS', function() { _ttsStopAll(); _renderAudioPill(); }));
   }
 
   // CC row
   if (cc) {
-    rows += '<button onclick="if(typeof toggleCaptions===\'function\')toggleCaptions()" style="color:var(--nr-accent)">'
-      + icon('cc', { size: 14 }) + ' ' + escapeHtml(cc.label || 'CC') + '</button>';
+    items.push(_audioBtn('cc', escapeHtml(cc.label || 'CC'), function() { if (typeof toggleCaptions === 'function') toggleCaptions(); }, { color: 'var(--nr-accent)' }));
   } else if (tab) {
-    rows += '<button onclick="if(typeof toggleCaptions===\'function\')toggleCaptions()">'
-      + icon('cc', { size: 14 }) + ' Captions</button>';
+    items.push(_audioBtn('cc', 'Captions', function() { if (typeof toggleCaptions === 'function') toggleCaptions(); }));
   }
 
   // Mic
   if (micRecording) {
-    rows += '<button onclick="_pillMicClick()" style="color:#ef4444">'
-      + icon('microphone', { size: 14, stroke: '#ef4444' }) + ' Stop recording</button>';
+    items.push(_audioBtn('microphone', 'Stop recording', function() { _pillMicClick(); }, { color: '#ef4444', iconOpts: { size: 14, stroke: '#ef4444' } }));
   } else if (mic) {
-    rows += '<button disabled>'
-      + icon('microphone', { size: 14 }) + ' ' + escapeHtml(mic.label || 'Transcribing…') + '</button>';
+    items.push(_audioBtn('microphone', escapeHtml(mic.label || 'Transcribing\u2026'), null, { disabled: true }));
   } else {
-    rows += '<button onclick="_pillMicClick()">'
-      + icon('microphone', { size: 14 }) + ' Voice input</button>';
+    items.push(_audioBtn('microphone', 'Voice input', function() { _pillMicClick(); }));
   }
 
   // White noise
   if (rainActive) {
     var noiseLabel = (typeof NOISE_PRESETS !== 'undefined' && typeof _rainNoiseType !== 'undefined' && NOISE_PRESETS[_rainNoiseType]) ? NOISE_PRESETS[_rainNoiseType].label : 'White noise';
-    rows += '<button onclick="event.stopPropagation();_pillNoiseCycle();_renderAudioPill()" style="color:var(--nr-accent)">'
-      + icon('rain', { size: 14 }) + ' ' + escapeHtml(noiseLabel) + '</button>';
-    rows += '<button onclick="stopRain();_renderAudioPill()">'
-      + icon('close', { size: 14 }) + ' Stop noise</button>';
+    items.push(_audioBtn('rain', escapeHtml(noiseLabel), function() { _pillNoiseCycle(); _renderAudioPill(); }, { color: 'var(--nr-accent)', stopProp: true }));
+    items.push(_audioBtn('close', 'Stop noise', function() { stopRain(); _renderAudioPill(); }));
   } else {
-    rows += '<button onclick="startRain();_renderAudioPill()">'
-      + icon('rain', { size: 14 }) + ' White noise</button>';
+    items.push(_audioBtn('rain', 'White noise', function() { startRain(); _renderAudioPill(); }));
   }
 
   // Read aloud
-  rows += '<button onclick="_readPageAloud()">'
-    + icon('speaker', { size: 14 }) + ' Read aloud</button>';
+  items.push(_audioBtn('speaker', 'Read aloud', function() { _readPageAloud(); }));
 
-  dropdown.innerHTML = rows;
+  AetherUI.mount(VStack(items), dropdown);
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _renderAudioPill);
 else setTimeout(_renderAudioPill, 0);
@@ -480,7 +482,7 @@ function _islandAttachHandlers(pill, a, hasTray) {
         const rBtn = rateGoodBtn || rateBadBtn;
         rBtn.style.opacity = '1';
         rBtn.style.color = rateGoodBtn ? '#4caf50' : '#ef5350';
-        rBtn.innerHTML = icon('check', { size: 12, strokeWidth: '2.5' });
+        AetherUI.mount(RawHTML(icon('check', { size: 12, strokeWidth: '2.5' })), rBtn);
       }
       return;
     }

@@ -1,5 +1,6 @@
 // core-nav.js — Navigation history, side panel
 // Extracted from core.js
+if (window.AetherUI) AetherUI.globals();
 
 // ── Navigation history stack (survives Cmd+Shift+R via localStorage) ──
 
@@ -75,9 +76,17 @@ function showPanelForView(viewKey) {
   }
 
   // Render tab buttons
-  tabBar.innerHTML = reg.tabs.map(t =>
-    `<button class="universal-panel-tab-btn${_panelActiveTab === t.id ? ' active' : ''}" data-tab-id="${t.id}" onclick="switchPanelTab('${t.id}')" title="${t.label}">${t.icon ? t.icon : ''}<span class="panel-tab-label">${t.label}</span></button>`
-  ).join('');
+  var tabBtns = reg.tabs.map(function(t) {
+    var btn = new View('button')
+      .className('universal-panel-tab-btn' + (_panelActiveTab === t.id ? ' active' : ''))
+      .attr('data-tab-id', t.id)
+      .attr('title', t.label)
+      .onTap(function() { switchPanelTab(t.id); });
+    if (t.icon) btn._appendChildren([RawHTML(t.icon)]);
+    btn._appendChildren([new View('span').className('panel-tab-label')._bindText(t.label)]);
+    return btn;
+  });
+  AetherUI.mount(HStack(tabBtns), tabBar);
 
   // For renderAll mode, render all panes once
   const container = document.getElementById('universal-panel-content');

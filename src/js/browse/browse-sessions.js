@@ -217,7 +217,8 @@ function _renderToolbarSessions() {
   // Save current button
   var saveCurrentBtn = new View('button');
   saveCurrentBtn.el.className = 'browse-save-session-btn';
-  saveCurrentBtn.el.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg> Save current';
+  saveCurrentBtn.el.appendChild(RawHTML('<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>').build());
+  saveCurrentBtn.el.appendChild(document.createTextNode(' Save current'));
   if (!canSave) saveCurrentBtn.el.disabled = true;
   saveCurrentBtn.onTap(function() { _promptSaveSessionFromOverview(); });
 

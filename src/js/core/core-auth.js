@@ -1,5 +1,6 @@
 // core-auth.js — Auth system, sync
 // Extracted from core.js
+if (window.AetherUI) AetherUI.globals();
 
 // ── User accounts & sync ──
 
@@ -125,10 +126,24 @@ function _updateAccountUI() {
   }
   if (_authUserInfo && (_authUserInfo.username || _authUserInfo.name)) {
     if (_authUserInfo.picture) {
-      avatarSpan.innerHTML = `<img src="${_authUserInfo.picture.replace(/"/g, '&quot;')}" style="width:22px;height:22px;object-fit:cover;border-radius:50%;display:block;" referrerpolicy="no-referrer" />`;
+      AetherUI.mount(
+        Image(_authUserInfo.picture)
+          .style('width', '22px').style('height', '22px').style('object-fit', 'cover')
+          .style('border-radius', '50%').style('display', 'block')
+          .attr('referrerpolicy', 'no-referrer'),
+        avatarSpan
+      );
     } else {
       const letter = (_authUserInfo.username || _authUserInfo.name || '?')[0].toUpperCase();
-      avatarSpan.innerHTML = `<span style="width:22px;height:22px;border-radius:50%;background:var(--nr-accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;">${letter}</span>`;
+      AetherUI.mount(
+        new View('span')
+          .style('width', '22px').style('height', '22px').style('border-radius', '50%')
+          .style('background', 'var(--nr-accent)').style('display', 'flex')
+          .style('align-items', 'center').style('justify-content', 'center')
+          .style('font-size', '11px').style('font-weight', '600').style('color', '#fff')
+          ._bindText(letter),
+        avatarSpan
+      );
     }
     avatarSpan.style.display = '';
     if (avatarIcon) avatarIcon.style.display = 'none';

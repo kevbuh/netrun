@@ -1,4 +1,5 @@
 // ── Lazygit-style Git Dashboard (embedded in Vault) ──
+if (window.AetherUI) AetherUI.globals();
 
 let _vibeActivePane = 0;
 let _vibeData = {};
@@ -26,9 +27,16 @@ function _vibeLogCmd(cmd, ms) {
   if (_vibeCmdLog.length > 50) _vibeCmdLog.shift();
   const el = document.getElementById('vibe-cmdlog-body');
   if (!el) return;
-  el.innerHTML = _vibeCmdLog.map(c =>
-    `<span class="text-dimmer">${c.ts}</span> <span class="text-accent">git ${escapeHtml(c.cmd)}</span> <span class="text-dimmest">${c.ms}ms</span>`
-  ).reverse().join('<br>');
+  var rows = _vibeCmdLog.slice().reverse().map(function(c) {
+    return HStack([
+      new View('span').className('text-dimmer')._bindText(c.ts),
+      Text(' '),
+      new View('span').className('text-accent')._bindText('git ' + escapeHtml(c.cmd)),
+      Text(' '),
+      new View('span').className('text-dimmest')._bindText(c.ms + 'ms')
+    ]);
+  });
+  AetherUI.mount(VStack(rows), el);
 }
 
 async function _vibeRefresh() {
@@ -53,58 +61,80 @@ async function _vibeRefresh() {
 function _vibeRenderStatus(data) {
   const el = document.getElementById('vibe-status-body');
   if (!el) return;
-  if (data.error) { el.innerHTML = `<span class="text-red-400">${escapeHtml(data.error)}</span>`; return; }
+  if (data.error) { AetherUI.mount(new View('span').className('text-red-400')._bindText(escapeHtml(data.error)), el); return; }
   const lines = (data.output || '').split('\n').filter(Boolean);
-  el.innerHTML = lines.map(l => {
-    if (l.startsWith('## ')) return `<div class="vibe-status-branch">${escapeHtml(l.slice(3))}</div>`;
-    return `<div class="vibe-row">${_vibeColorStatus(l)}</div>`;
-  }).join('') || '<span class="text-dimmer">Clean working tree</span>';
+  if (!lines.length) { AetherUI.mount(new View('span').className('text-dimmer')._bindText('Clean working tree'), el); return; }
+  var rows = lines.map(function(l) {
+    if (l.startsWith('## ')) return new View('div').className('vibe-status-branch')._bindText(escapeHtml(l.slice(3)));
+    return RawHTML('<div class="vibe-row">' + _vibeColorStatus(l) + '</div>');
+  });
+  AetherUI.mount(VStack(rows), el);
 }
 
 function _vibeRenderFiles(data) {
   const el = document.getElementById('vibe-files-body');
   if (!el) return;
-  if (data.error) { el.innerHTML = `<span class="text-red-400">${escapeHtml(data.error)}</span>`; return; }
+  if (data.error) { AetherUI.mount(new View('span').className('text-red-400')._bindText(escapeHtml(data.error)), el); return; }
   const files = data.files || [];
-  if (!files.length) { el.innerHTML = '<span class="text-dimmer vibe-row">No files</span>'; return; }
-  el.innerHTML = files.map((f, i) =>
-    `<div class="vibe-row vibe-selectable" data-pane="1" data-idx="${i}" onclick="_vibeSelectFile(${i})">${_vibeFileStatusBadge(f.status)} ${escapeHtml(f.path)}</div>`
-  ).join('');
+  if (!files.length) { AetherUI.mount(new View('span').className('text-dimmer vibe-row')._bindText('No files'), el); return; }
+  var rows = files.map(function(f, i) {
+    return RawHTML('<div class="vibe-row vibe-selectable" data-pane="1" data-idx="' + i + '">' + _vibeFileStatusBadge(f.status) + ' ' + escapeHtml(f.path) + '</div>')
+      .onTap(function() { _vibeSelectFile(i); });
+  });
+  AetherUI.mount(VStack(rows), el);
 }
 
 function _vibeRenderBranches(data) {
   const el = document.getElementById('vibe-branches-body');
   if (!el) return;
-  if (data.error) { el.innerHTML = `<span class="text-red-400">${escapeHtml(data.error)}</span>`; return; }
+  if (data.error) { AetherUI.mount(new View('span').className('text-red-400')._bindText(escapeHtml(data.error)), el); return; }
   const branches = data.branches || [];
-  if (!branches.length) { el.innerHTML = '<span class="text-dimmer vibe-row">No branches</span>'; return; }
-  el.innerHTML = branches.map((b, i) => {
-    const star = b.current ? '<span class="text-green-400">* </span>' : '  ';
-    const icon = '<span class="text-accent">\u2387 </span>';
-    return `<div class="vibe-row vibe-selectable" data-pane="2" data-idx="${i}" onclick="_vibeSelectBranch(${i})">${star}${icon}${escapeHtml(b.name)} <span class="text-dimmer">${escapeHtml(b.track || '')}</span></div>`;
-  }).join('');
+  if (!branches.length) { AetherUI.mount(new View('span').className('text-dimmer vibe-row')._bindText('No branches'), el); return; }
+  var rows = branches.map(function(b, i) {
+    var children = [];
+    if (b.current) children.push(new View('span').className('text-green-400')._bindText('* '));
+    else children.push(Text('  '));
+    children.push(new View('span').className('text-accent')._bindText('\u2387 '));
+    children.push(Text(escapeHtml(b.name) + ' '));
+    if (b.track) children.push(new View('span').className('text-dimmer')._bindText(escapeHtml(b.track)));
+    return HStack(children).className('vibe-row vibe-selectable').attr('data-pane', '2').attr('data-idx', String(i))
+      .onTap(function() { _vibeSelectBranch(i); });
+  });
+  AetherUI.mount(VStack(rows), el);
 }
 
 function _vibeRenderCommits(data) {
   const el = document.getElementById('vibe-commits-body');
   if (!el) return;
-  if (data.error) { el.innerHTML = `<span class="text-red-400">${escapeHtml(data.error)}</span>`; return; }
+  if (data.error) { AetherUI.mount(new View('span').className('text-red-400')._bindText(escapeHtml(data.error)), el); return; }
   const commits = data.commits || [];
-  if (!commits.length) { el.innerHTML = '<span class="text-dimmer vibe-row">No commits</span>'; return; }
-  el.innerHTML = commits.map((c, i) =>
-    `<div class="vibe-row vibe-selectable" data-pane="3" data-idx="${i}" onclick="_vibeSelectCommit(${i})"><span class="text-yellow-400">\u25C6</span> <span class="text-accent">${escapeHtml(c.hash)}</span> <span class="text-dimmer">${escapeHtml(c.author.substring(0, 2).toUpperCase())}</span> \u25CB ${escapeHtml(c.subject)}</div>`
-  ).join('');
+  if (!commits.length) { AetherUI.mount(new View('span').className('text-dimmer vibe-row')._bindText('No commits'), el); return; }
+  var rows = commits.map(function(c, i) {
+    return HStack([
+      new View('span').className('text-yellow-400')._bindText('\u25C6'),
+      Text(' '),
+      new View('span').className('text-accent')._bindText(escapeHtml(c.hash)),
+      Text(' '),
+      new View('span').className('text-dimmer')._bindText(escapeHtml(c.author.substring(0, 2).toUpperCase())),
+      Text(' \u25CB ' + escapeHtml(c.subject))
+    ]).className('vibe-row vibe-selectable').attr('data-pane', '3').attr('data-idx', String(i))
+      .onTap(function() { _vibeSelectCommit(i); });
+  });
+  AetherUI.mount(VStack(rows), el);
 }
 
 function _vibeRenderStash(data) {
   const el = document.getElementById('vibe-stash-body');
   if (!el) return;
-  if (data.error) { el.innerHTML = `<span class="text-red-400">${escapeHtml(data.error)}</span>`; return; }
+  if (data.error) { AetherUI.mount(new View('span').className('text-red-400')._bindText(escapeHtml(data.error)), el); return; }
   const entries = data.entries || [];
-  if (!entries.length) { el.innerHTML = '<span class="text-dimmer vibe-row">No stash entries</span>'; return; }
-  el.innerHTML = entries.map((s, i) =>
-    `<div class="vibe-row vibe-selectable" data-pane="4" data-idx="${i}" onclick="_vibeSelectStash(${i})">${escapeHtml(s)}</div>`
-  ).join('');
+  if (!entries.length) { AetherUI.mount(new View('span').className('text-dimmer vibe-row')._bindText('No stash entries'), el); return; }
+  var rows = entries.map(function(s, i) {
+    return new View('div').className('vibe-row vibe-selectable').attr('data-pane', '4').attr('data-idx', String(i))
+      ._bindText(escapeHtml(s))
+      .onTap(function() { _vibeSelectStash(i); });
+  });
+  AetherUI.mount(VStack(rows), el);
 }
 
 // ── Status helpers ──
@@ -190,10 +220,15 @@ async function _vibeSelectStash(idx) {
 
 function _vibeShowDetail(title, content) {
   const header = document.querySelector('#vibe-pane-detail .vibe-pane-header');
-  if (header) header.innerHTML = `<span class="vibe-pane-key">0</span> ${escapeHtml(title)}`;
+  if (header) {
+    AetherUI.mount(HStack([
+      new View('span').className('vibe-pane-key')._bindText('0'),
+      Text(' ' + escapeHtml(title))
+    ]), header);
+  }
   const body = document.getElementById('vibe-detail-body');
   if (!body) return;
-  body.innerHTML = `<pre class="vibe-detail-pre">${_vibeColorDiff(escapeHtml(content))}</pre>`;
+  AetherUI.mount(RawHTML('<pre class="vibe-detail-pre">' + _vibeColorDiff(escapeHtml(content)) + '</pre>'), body);
 }
 
 function _vibeColorDiff(escaped) {

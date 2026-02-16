@@ -37,7 +37,7 @@ function _swipeEnsureIndicator() {
     'backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);' +
     'box-shadow:0 2px 8px var(--nr-shadow-card);' +
     'transform:scale(0.6);transition:transform 0.2s ease-out;';
-  pill.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--nr-text-inverse)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 3 5 8 10 13"/></svg>';
+  AetherUI.mount(RawHTML('<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--nr-text-inverse)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 3 5 8 10 13"/></svg>'), pill);
   el.appendChild(pill);
   const container = document.getElementById('browse-content');
   if (container) container.appendChild(el);
@@ -128,13 +128,13 @@ function _browseToggleFindBar() {
   prevBtn.el.className = 'browse-find-btn';
   prevBtn.el.id = 'browse-find-prev';
   prevBtn.el.title = 'Previous';
-  prevBtn.el.innerHTML = '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>';
+  AetherUI.mount(RawHTML('<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>'), prevBtn.el);
 
   var nextBtn = new View('button');
   nextBtn.el.className = 'browse-find-btn';
   nextBtn.el.id = 'browse-find-next';
   nextBtn.el.title = 'Next';
-  nextBtn.el.innerHTML = '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>';
+  AetherUI.mount(RawHTML('<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>'), nextBtn.el);
 
   var closeBtn = new View('button');
   closeBtn.el.className = 'browse-find-btn';
@@ -597,10 +597,10 @@ function browseShare() {
     navigator.clipboard.writeText(tab.url).then(() => {
       const btn = document.querySelector('#browse-bar button[onclick="browseShare()"]');
       if (btn) {
-        const orig = btn.innerHTML;
+        var origNodes = Array.from(btn.childNodes).map(function(n) { return n.cloneNode(true); });
         AetherUI.mount(RawHTML('<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>'), btn);
         btn.classList.add('text-primary');
-        setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('text-primary'); }, 1500);
+        setTimeout(function() { btn.textContent = ''; origNodes.forEach(function(n) { btn.appendChild(n); }); btn.classList.remove('text-primary'); }, 1500);
       }
     });
   }

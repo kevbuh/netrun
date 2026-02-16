@@ -73,7 +73,7 @@ function toggleBrowseMoreMenu() {
   var permsBtn = _mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>', 'Site Permissions', function(e) { _togglePermissionsInMenu(e || window.event); }, { disabled: !hasTab });
   // Append arrow icon
   var arrowEl = document.createElement('span');
-  arrowEl.innerHTML = '<svg id="browse-menu-perms-arrow" class="w-3 h-3" style="margin-left:auto;color:var(--aether-text-dimmest);transition:transform .15s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/></svg>';
+  AetherUI.mount(RawHTML('<svg id="browse-menu-perms-arrow" class="w-3 h-3" style="margin-left:auto;color:var(--aether-text-dimmest);transition:transform .15s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/></svg>'), arrowEl);
   permsBtn.el.appendChild(arrowEl);
   items.push(permsBtn);
 

@@ -259,9 +259,6 @@ function _browseRenderTabView(t, activeTab) {
   return row;
 }
 
-function _browseRenderTabHtml(t, activeTab) {
-  return _browseRenderTabView(t, activeTab).build().outerHTML;
-}
 
 function _browseRenderSplitPillView(panes, tabs, activeTab) {
   const focusedPaneId = _browseGetFocusedPane();
@@ -306,9 +303,6 @@ function _browseRenderSplitPillView(panes, tabs, activeTab) {
   return HStack(children).className('browse-split-pill active').attr('data-split-pill', '1');
 }
 
-function _browseRenderSplitPillHtml(panes, tabs, activeTab) {
-  return _browseRenderSplitPillView(panes, tabs, activeTab).build().outerHTML;
-}
 
 function _browseGetGroupColor(groupId) {
   const win = _getCurrentWindow();
