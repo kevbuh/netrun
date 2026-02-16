@@ -315,44 +315,11 @@ export function registerToolIPC(): void {
   });
 
   // Social
-  ipcMain.handle('db:teams-list', (_event, googleId: string) => {
-    return socialQueries.getUserTeams(googleId);
-  });
-  ipcMain.handle('db:team-get', (_event, teamId: number) => {
-    return socialQueries.getTeam(teamId);
-  });
-  ipcMain.handle('db:team-create', (_event, name: string, ownerGoogleId: string, options?: { private?: boolean; parentId?: number }) => {
-    return socialQueries.createTeam(name, ownerGoogleId, options);
-  });
-  ipcMain.handle('db:team-delete', (_event, teamId: number, ownerGoogleId: string) => {
-    return socialQueries.deleteTeam(teamId, ownerGoogleId);
-  });
-  ipcMain.handle('db:team-members', (_event, teamId: number) => {
-    return socialQueries.getTeamMembers(teamId);
-  });
-  ipcMain.handle('db:team-is-member', (_event, teamId: number, googleId: string) => {
-    return socialQueries.isTeamMember(teamId, googleId);
-  });
-  ipcMain.handle('db:team-messages', (_event, teamId: number, limit?: number) => {
-    return socialQueries.getTeamMessages(teamId, limit);
-  });
-  ipcMain.handle('db:team-message-send', (_event, teamId: number, googleId: string, content: string) => {
-    return socialQueries.sendTeamMessage(teamId, googleId, content);
-  });
-  ipcMain.handle('db:team-message-delete', (_event, messageId: string, googleId: string) => {
-    return socialQueries.deleteTeamMessage(messageId, googleId);
-  });
   ipcMain.handle('db:direct-messages', (_event, googleId: string) => {
     return socialQueries.getDirectMessages(googleId);
   });
   ipcMain.handle('db:direct-message-send', (_event, fromGoogleId: string, toGoogleId: string, content: string) => {
     return socialQueries.sendDirectMessage(fromGoogleId, toGoogleId, content);
-  });
-  ipcMain.handle('db:team-todos', (_event, teamId: number) => {
-    return socialQueries.getTeamTodos(teamId);
-  });
-  ipcMain.handle('db:team-todo-create', (_event, teamId: number, googleId: string, data: any) => {
-    return socialQueries.createTeamTodo(teamId, googleId, data);
   });
   ipcMain.handle('db:reaction-toggle', (_event, messageId: string, googleId: string, emoji: string) => {
     return socialQueries.toggleReaction(messageId, googleId, emoji);
@@ -426,67 +393,6 @@ export function registerToolIPC(): void {
     contentQueries.deleteAnnotationCategory(key);
   });
 
-  // ── Social extended: team invites ──
-  ipcMain.handle('db:team-invite', (_event, teamId: number, fromGoogleId: string, toUsername: string) => {
-    return socialExtQueries.inviteToTeam(teamId, fromGoogleId, toUsername);
-  });
-  ipcMain.handle('db:pending-invites', (_event, googleId: string) => {
-    return socialExtQueries.getPendingInvites(googleId);
-  });
-  ipcMain.handle('db:invite-respond', (_event, inviteId: number, googleId: string, accept: boolean) => {
-    return socialExtQueries.respondToInvite(inviteId, googleId, accept);
-  });
-
-  // ── Social extended: team management ──
-  ipcMain.handle('db:team-detail', (_event, teamId: number) => {
-    return socialExtQueries.getTeamDetail(teamId);
-  });
-  ipcMain.handle('db:team-remove-member', (_event, teamId: number, ownerGoogleId: string, targetGoogleId: string) => {
-    return socialExtQueries.removeTeamMember(teamId, ownerGoogleId, targetGoogleId);
-  });
-  ipcMain.handle('db:team-rename', (_event, teamId: number, newName: string, googleId: string) => {
-    return socialExtQueries.renameTeam(teamId, newName, googleId);
-  });
-  ipcMain.handle('db:team-set-private', (_event, teamId: number, isPrivate: boolean, googleId: string) => {
-    return socialExtQueries.setTeamPrivate(teamId, isPrivate, googleId);
-  });
-  ipcMain.handle('db:team-set-parent', (_event, teamId: number, parentId: number | null, googleId: string) => {
-    return socialExtQueries.setTeamParent(teamId, parentId, googleId);
-  });
-  ipcMain.handle('db:team-children', (_event, teamId: number) => {
-    return socialExtQueries.getTeamChildren(teamId);
-  });
-  ipcMain.handle('db:team-ancestors', (_event, teamId: number) => {
-    return socialExtQueries.getTeamAncestors(teamId);
-  });
-
-  // ── Social extended: message edit ──
-  ipcMain.handle('db:team-message-edit', (_event, teamId: number, messageId: string, googleId: string, content: string) => {
-    return socialExtQueries.updateTeamMessage(teamId, messageId, googleId, content);
-  });
-
-  // ── Social extended: chat read ──
-  ipcMain.handle('db:team-chat-mark-read', (_event, teamId: number, googleId: string) => {
-    socialExtQueries.markTeamChatRead(teamId, googleId);
-  });
-  ipcMain.handle('db:unread-team-chats', (_event, googleId: string) => {
-    return socialExtQueries.getUnreadTeamChats(googleId);
-  });
-  ipcMain.handle('db:unread-counts', (_event, googleId: string) => {
-    return socialExtQueries.getUnreadCounts(googleId);
-  });
-
-  // ── Social extended: todo update/delete ──
-  ipcMain.handle('db:team-todo-update', (_event, teamId: number, todoId: string, updates: Record<string, unknown>) => {
-    return socialExtQueries.updateTeamTodo(teamId, todoId, updates);
-  });
-  ipcMain.handle('db:team-todo-delete', (_event, teamId: number, todoId: string) => {
-    return socialExtQueries.deleteTeamTodo(teamId, todoId);
-  });
-  ipcMain.handle('db:my-tasks', (_event, googleId: string) => {
-    return socialExtQueries.getMyAssignedTodos(googleId);
-  });
-
   // ── Social extended: DM operations ──
   ipcMain.handle('db:dm-mark-read', (_event, googleId: string, messageId: string) => {
     socialExtQueries.markMessageRead(googleId, messageId);
@@ -543,19 +449,12 @@ export function registerToolIPC(): void {
   ipcMain.handle('db:user-recent-comments', (_event, googleId: string, limit?: number) => {
     return socialExtQueries.getUserRecentComments(googleId, limit);
   });
-  ipcMain.handle('db:user-public-teams', (_event, googleId: string, viewerGoogleId?: string) => {
-    return socialExtQueries.getUserPublicTeams(googleId, viewerGoogleId);
-  });
   ipcMain.handle('db:user-feed-sources', (_event, googleId: string) => {
     return socialExtQueries.getUserFeedSources(googleId);
   });
   ipcMain.handle('db:user-accent-color', (_event, googleId: string) => {
     return socialExtQueries.getUserAccentColor(googleId);
   });
-  ipcMain.handle('db:are-teammates', (_event, gidA: string, gidB: string) => {
-    return socialExtQueries.areTeammates(gidA, gidB);
-  });
-
   // ── Feed extensions ──
   ipcMain.handle('db:blocked-titles-get', () => {
     return feedQueries.getBlockedTitles();

@@ -15,7 +15,6 @@ const ROUTE_TABLE_KEYS = [
   '#algorithm',
   '#calendar',
   '#inbox',
-  '#teams',
   '#vault',
   '#profile',
   '#saved-all',
@@ -34,7 +33,6 @@ const ROUTE_TABLE_KEYS = [
  */
 const ROUTE_PREFIXES = [
   '#blog/',
-  '#team/',
   '#profile/',
   '#experiment/',
 ];
@@ -85,16 +83,6 @@ function parseBlogRoute(hash) {
 }
 
 /**
- * Parse team route
- */
-function parseTeamRoute(hash) {
-  if (!hash.startsWith('#team/')) return null;
-  const rest = hash.slice(6); // Remove '#team/'
-  const teamId = parseInt(rest, 10);
-  return teamId || null;
-}
-
-/**
  * Parse profile route
  */
 function parseProfileRoute(hash) {
@@ -124,8 +112,8 @@ function parseExperimentRoute(hash) {
 // ──────────────────────────────────────────────────────────
 
 describe('Route Table Coverage', () => {
-  it('should have 20 exact routes', () => {
-    expect(ROUTE_TABLE_KEYS).toHaveLength(19);
+  it('should have 18 exact routes', () => {
+    expect(ROUTE_TABLE_KEYS).toHaveLength(18);
   });
 
   it('should include core routes', () => {
@@ -138,7 +126,6 @@ describe('Route Table Coverage', () => {
   it('should include utility routes', () => {
     expect(ROUTE_TABLE_KEYS).toContain('#calendar');
     expect(ROUTE_TABLE_KEYS).toContain('#inbox');
-    expect(ROUTE_TABLE_KEYS).toContain('#teams');
   });
 
   it('should include dev routes', () => {
@@ -159,13 +146,12 @@ describe('Route Table Coverage', () => {
 });
 
 describe('Route Prefix Patterns', () => {
-  it('should have 4 prefix patterns', () => {
-    expect(ROUTE_PREFIXES).toHaveLength(4);
+  it('should have 3 prefix patterns', () => {
+    expect(ROUTE_PREFIXES).toHaveLength(3);
   });
 
   it('should include dynamic routes', () => {
     expect(ROUTE_PREFIXES).toContain('#blog/');
-    expect(ROUTE_PREFIXES).toContain('#team/');
     expect(ROUTE_PREFIXES).toContain('#profile/');
     expect(ROUTE_PREFIXES).toContain('#experiment/');
   });
@@ -186,7 +172,6 @@ describe('Exact Route Matching', () => {
 
   it('should not match prefix routes', () => {
     expect(isExactRoute('#blog/user/post')).toBe(false);
-    expect(isExactRoute('#team/123')).toBe(false);
   });
 
   it('should not match unknown routes', () => {
@@ -203,7 +188,6 @@ describe('Exact Route Matching', () => {
 describe('Prefix Route Matching', () => {
   it('should match prefix routes', () => {
     expect(isPrefixRoute('#blog/user/post')).toBe(true);
-    expect(isPrefixRoute('#team/123')).toBe(true);
     expect(isPrefixRoute('#profile/alice')).toBe(true);
     expect(isPrefixRoute('#experiment/exp1')).toBe(true);
   });
@@ -216,17 +200,12 @@ describe('Prefix Route Matching', () => {
   it('should require content after prefix', () => {
     // These still match the prefix but would fail to parse
     expect(isPrefixRoute('#blog/')).toBe(true);
-    expect(isPrefixRoute('#team/')).toBe(true);
   });
 });
 
 describe('Route Prefix Extraction', () => {
   it('should extract blog prefix', () => {
     expect(getRoutePrefix('#blog/user/post')).toBe('#blog/');
-  });
-
-  it('should extract team prefix', () => {
-    expect(getRoutePrefix('#team/123')).toBe('#team/');
   });
 
   it('should return null for exact routes', () => {
@@ -242,7 +221,6 @@ describe('Route Prefix Extraction', () => {
 describe('Route Remainder Extraction', () => {
   it('should extract remainder after prefix', () => {
     expect(getRouteRemainder('#blog/user/post')).toBe('user/post');
-    expect(getRouteRemainder('#team/123')).toBe('123');
     expect(getRouteRemainder('#profile/alice')).toBe('alice');
   });
 
@@ -280,27 +258,6 @@ describe('Blog Route Parsing', () => {
     expect(parseBlogRoute('#blog/')).toBeNull();
     expect(parseBlogRoute('#blog/onlyuser')).toBeNull();
     expect(parseBlogRoute('#notblog/user/post')).toBeNull();
-  });
-});
-
-describe('Team Route Parsing', () => {
-  it('should parse valid team ID', () => {
-    expect(parseTeamRoute('#team/123')).toBe(123);
-    expect(parseTeamRoute('#team/456')).toBe(456);
-  });
-
-  it('should return null for invalid team IDs', () => {
-    expect(parseTeamRoute('#team/abc')).toBeNull();
-    expect(parseTeamRoute('#team/')).toBeNull();
-  });
-
-  it('should return null for non-team routes', () => {
-    expect(parseTeamRoute('#notteam/123')).toBeNull();
-  });
-
-  it('should parse only integers', () => {
-    expect(parseTeamRoute('#team/12.5')).toBe(12);
-    expect(parseTeamRoute('#team/0')).toBeNull(); // 0 is falsy
   });
 });
 

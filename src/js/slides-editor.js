@@ -1195,32 +1195,7 @@ function _toggleSlidesShareMenu(btn) {
       <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-4.122a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.34 8.374" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <span>Copy link</span>
     </div>
-    <div style="margin:4px 12px;border-top:1px solid var(--nr-border-dim)"></div>
-    <div style="padding:4px 12px 6px;color:var(--nr-text-quaternary);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Share to team</div>
-    <div id="slides-share-teams" style="padding:2px 0">
-      <div style="padding:6px 12px;color:var(--nr-text-quaternary);font-size:11px">Loading...</div>
-    </div>
   `;
-
-  // Load teams
-  _loadSlidesShareTeams();
-}
-
-async function _loadSlidesShareTeams() {
-  const container = document.getElementById('slides-share-teams');
-  if (!container) return;
-  if (typeof _cachedTeams !== 'undefined' && !_cachedTeams.length && typeof fetchTeams === 'function') await fetchTeams();
-  const teams = typeof _cachedTeams !== 'undefined' ? _cachedTeams : [];
-  if (!teams.length) {
-    container.innerHTML = '<div style="padding:6px 12px;color:var(--nr-text-quaternary);font-size:11px">No teams yet</div>';
-    return;
-  }
-  container.innerHTML = teams.map(t => `
-    <div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--nr-text-primary);display:flex;align-items:center;gap:8px" onclick="shareFileToTeam(${t.id}, this)">
-      <div style="width:24px;height:24px;border-radius:6px;background:color-mix(in srgb, var(--nr-accent) 20%, transparent);color:var(--nr-accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${escapeHtml(t.name[0].toUpperCase())}</div>
-      <span>${escapeHtml(t.name)}</span>
-    </div>
-  `).join('');
 }
 
 function _slidesExportCurrentPNG() {

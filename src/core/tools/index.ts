@@ -33,7 +33,7 @@ export {
 export { feedList, feedFetch, feedQualityFilter } from './feed/index.js';
 
 // Social tools
-export { socialListTeams, socialSendMessage, socialGetMessages, socialUserProfile } from './social/index.js';
+export { socialUserProfile } from './social/index.js';
 
 // Media tools
 export { mediaTranscribe, mediaTts } from './media/index.js';
@@ -52,7 +52,7 @@ import { browserReadPage, browserClick, browserType, browserScroll, browserNavig
 import { vaultListNotes, vaultGetNote, vaultCreateNote, vaultUpdateNote, vaultDeleteNote, vaultSearch } from './vault/index.js';
 import { experimentList, experimentCreate, experimentListFiles, experimentGetFile, experimentWriteFile, experimentDelete, experimentExecuteCode } from './experiment/index.js';
 import { feedList, feedFetch, feedQualityFilter } from './feed/index.js';
-import { socialListTeams, socialSendMessage, socialGetMessages, socialUserProfile } from './social/index.js';
+import { socialUserProfile } from './social/index.js';
 import { mediaTranscribe, mediaTts } from './media/index.js';
 import { calendarList, calendarCreate, calendarUpdate, calendarDelete } from './calendar/index.js';
 import { contextUpdate } from './context/index.js';
@@ -110,10 +110,7 @@ export function registerAllTools(): void {
   toolRegistry.register(feedFetch);
   toolRegistry.register(feedQualityFilter);
 
-  // Social (4)
-  toolRegistry.register(socialListTeams);
-  toolRegistry.register(socialSendMessage);
-  toolRegistry.register(socialGetMessages);
+  // Social (1)
   toolRegistry.register(socialUserProfile);
 
   // Media (2)

@@ -10,7 +10,6 @@ var _ROUTE_TABLE = {
   '#algorithm':   () => { _settingsSection = 'feed'; _settingsFeedTab = 'algorithm'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); },
   '#calendar':    () => wmOpen('dashboard'),
   '#inbox':       () => wmOpen('inbox'),
-  '#teams':       () => openTeams(),
   '#vault':       () => wmOpen('vault'),
   '#profile':     () => openUserProfile(''),
   '#saved-all':   () => openAllSaved(),
@@ -27,7 +26,6 @@ var _ROUTE_TABLE = {
 // ── Prefix route handlers — hash prefix → handler(remainder) ──
 var _ROUTE_PREFIX_HANDLERS = [
   ['#blog/',       (rest) => { const parts = rest.split('/'); if (parts.length >= 2) { const username = decodeURIComponent(parts[0]); const slug = decodeURIComponent(parts.slice(1).join('/')); if (typeof openBlogPost === 'function') openBlogPost(username, slug); } }],
-  ['#team/',       (rest) => { const teamId = parseInt(rest, 10); if (teamId && typeof showTeamDetailView === 'function') showTeamDetailView(teamId); }],
   ['#profile/',    (rest) => openUserProfile(decodeURIComponent(rest))],
   ['#experiment/', (rest) => { const qIdx = rest.indexOf('?'); const expId = qIdx >= 0 ? decodeURIComponent(rest.slice(0, qIdx)) : decodeURIComponent(rest); const params = qIdx >= 0 ? new URLSearchParams(rest.slice(qIdx)) : null; const autoFile = params && params.get('file'); wmOpen('vault'); setTimeout(() => { if (typeof vaultExpandProject === 'function') vaultExpandProject(expId); if (autoFile && typeof vaultOpenProjectFile === 'function') vaultOpenProjectFile(expId, decodeURIComponent(autoFile)); }, 300); }],
 ];

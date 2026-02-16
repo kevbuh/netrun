@@ -233,7 +233,7 @@ function parseRoute(hash) {
   if (!route || route === 'feed') return { view: 'feed', params: {} };
 
   // Simple views (no params)
-  const simpleViews = ['research', 'browse', 'settings', 'vault', 'inbox', 'calendar', 'teams', 'dev', 'graph'];
+  const simpleViews = ['research', 'browse', 'settings', 'vault', 'inbox', 'calendar', 'dev', 'graph'];
   if (simpleViews.includes(route)) return { view: route, params: {} };
 
   // Special redirects
@@ -255,11 +255,6 @@ function parseRoute(hash) {
   if (route.startsWith('experiment/')) {
     const id = route.slice(11);
     return { view: 'experiment', params: { id } };
-  }
-
-  if (route.startsWith('team/')) {
-    const id = route.slice(5);
-    return { view: 'team', params: { id } };
   }
 
   if (route.startsWith('author/')) {
@@ -717,12 +712,6 @@ describe('Route Parser', () => {
       const result = parseRoute('#experiment/my-experiment');
       expect(result.view).toBe('experiment');
       expect(result.params).toEqual({ id: 'my-experiment' });
-    });
-
-    it('should parse team route with ID', () => {
-      const result = parseRoute('#team/456');
-      expect(result.view).toBe('team');
-      expect(result.params).toEqual({ id: '456' });
     });
 
     it('should parse author route with ID', () => {

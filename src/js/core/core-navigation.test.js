@@ -27,7 +27,7 @@ const _wmViewMeta = {
 
 const _ROUTE_TABLE_KEYS = [
   '#research', '#experiments', '#settings', '#quality', '#algorithm',
-  '#calendar', '#inbox', '#teams', '#vault', '#profile', '#saved-all',
+  '#calendar', '#inbox', '#vault', '#profile', '#saved-all',
   '#saved', '#browse', '#search', '#terminal', '#neuralook', '#dev',
   '#vibe', '#feed',
 ];
@@ -63,7 +63,7 @@ function resolveRoute(hash) {
   // Exact match
   if (_ROUTE_TABLE_KEYS.includes(hash)) return { type: 'exact', hash };
   // Prefix match
-  const prefixes = ['#blog/', '#team/', '#profile/', '#experiment/'];
+  const prefixes = ['#blog/', '#profile/', '#experiment/'];
   for (const prefix of prefixes) {
     if (hash.startsWith(prefix)) return { type: 'prefix', prefix, remainder: hash.slice(prefix.length) };
   }
@@ -252,13 +252,6 @@ describe('resolveRoute', () => {
     expect(result.type).toBe('prefix');
     expect(result.prefix).toBe('#experiment/');
     expect(result.remainder).toBe('exp1?file=main.py');
-  });
-
-  it('should resolve team prefix', () => {
-    const result = resolveRoute('#team/42');
-    expect(result.type).toBe('prefix');
-    expect(result.prefix).toBe('#team/');
-    expect(result.remainder).toBe('42');
   });
 
   it('should default for unknown routes', () => {

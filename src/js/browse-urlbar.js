@@ -82,7 +82,6 @@ const _URL_BAR_SECTIONS = [
   { key: 'suggestions',label: 'Suggestions' },
   { key: 'projects',   label: 'Projects' },
   { key: 'users',      label: 'Users' },
-  { key: 'teams',      label: 'Teams' },
   { key: 'notes',      label: 'Notes' },
   { key: 'history',    label: 'Search History' },
   { key: 'lucky',      label: 'Feeling Lucky' },
@@ -656,10 +655,7 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
     },
     users: () => {
       if (!filter) return '';
-      const users = typeof _cachedTeams !== 'undefined' && Array.isArray(_cachedTeams)
-        ? _cachedTeams.flatMap(t => (t.members || []).map(m => m.username)).filter(Boolean)
-        : [];
-      const unique = [...new Set(users)];
+      const unique = [];
       const matched = unique.filter(u => u.toLowerCase().includes(filter)).slice(0, 5);
       if (!matched.length) return '';
       const iconSize = ntp ? '16px' : '13px';
@@ -669,23 +665,6 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
         return `<div data-histq="user:${safeU}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof openUserProfile==='function') openUserProfile('${safeU.replace(/'/g, "\\'")}');">
           <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeU}</span>
-        </div>`;
-      }).join('');
-      return h;
-    },
-    teams: () => {
-      if (!filter) return '';
-      const teams = typeof _cachedTeams !== 'undefined' ? _cachedTeams : [];
-      const matched = teams.filter(t => t.name.toLowerCase().includes(filter)).slice(0, 5);
-      if (!matched.length) return '';
-      const iconSize = ntp ? '16px' : '13px';
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Teams</div>';
-      h += matched.map(t => {
-        const memberCount = (t.members || []).length;
-        return `<div data-histq="team:${t.id}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof showTeamDetailView==='function') showTeamDetailView(${t.id});">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(t.name)}</span>
-          <span style="font-size:${ntp ? '0.75rem' : '0.68rem'};color:var(--nr-text-quaternary);flex-shrink:0;">${memberCount} member${memberCount !== 1 ? 's' : ''}</span>
         </div>`;
       }).join('');
       return h;

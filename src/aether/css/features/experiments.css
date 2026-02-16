@@ -38,24 +38,4 @@
       display: none !important;
     }
 
-    /* ── Teams sidebar collapse ── */
-    #teams-view-detail .grid.team-sidebar-collapsed {
-      grid-template-columns: 44px 0 1fr;
-    }
-    .team-sidebar-collapsed #team-sidebar {
-      padding: 8px 4px;
-      overflow: hidden;
-      align-items: center;
-      gap: 6px;
-    }
-    .team-sidebar-collapsed #team-sidebar > div:first-child {
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 0;
-    }
-    .team-sidebar-collapsed #team-sidebar-header,
-    .team-sidebar-collapsed #team-sidebar-tabs,
-    .team-sidebar-collapsed .team-sidebar-label {
-      display: none;
-    }
 

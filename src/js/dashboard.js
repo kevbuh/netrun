@@ -14,12 +14,6 @@ function _closeDashSearch(e) {
   }
 }
 
-async function dashToggleTask(teamId, todoId, done) {
-  try {
-    await apiPut(`/api/teams/${teamId}/todos/${todoId}`, { done });
-    renderDashboard();
-  } catch (err) { /* ignore */ }
-}
 
 function dashRemoveSaved(link) {
   toggleSavePostByLink(link);
@@ -72,13 +66,12 @@ function _dashTrending(limit) {
   }).filter(p => p._trendScore > 0).sort((a, b) => b._trendScore - a._trendScore).slice(0, limit);
 }
 
-function _dashBuildStatsRow(papersRead, streak, savedCount, projectCount, taskCount) {
+function _dashBuildStatsRow(papersRead, streak, savedCount, projectCount) {
   var stats = [
     { value: papersRead, label: 'Papers Read', sub: 'in feed', color: '#60a5fa' },
     { value: streak, label: 'Streak', sub: streak === 1 ? 'day' : 'days', color: '#f97316', suffix: streak > 0 ? ' \u{1F525}' : '' },
     { value: savedCount, label: 'Saved', sub: 'reading list', color: '#34d399' },
     { value: projectCount, label: 'Projects', sub: 'active', color: '#a78bfa' },
-    { value: taskCount, label: 'Tasks', sub: 'open', color: '#fbbf24' },
   ];
   return HStack(stats.map(function(s) {
     return VStack(
@@ -130,22 +123,17 @@ async function renderDashboard() {
   AetherUI.mount(RawHTML('<div class="text-center py-20 text-dim"><div class="spinner"></div></div>'), container);
 
   const _uname = _authUserInfo?.username;
-  const [expResp, calResp, tasksResp, teamsResp, profileResp, commentsResp, repostsResp, inboxInvites, inboxMessages] = await Promise.all([
+  const [expResp, calResp, profileResp, commentsResp, repostsResp, inboxMessages] = await Promise.all([
     apiGet('/api/experiments').catch(() => []),
     apiGet('/api/calendar').catch(() => []),
-    apiGet('/api/my-tasks').catch(() => []),
-    apiGet('/api/teams').catch(() => []),
     _uname ? apiGet('/api/users/' + encodeURIComponent(_uname)).catch(() => null) : Promise.resolve(null),
     _uname ? apiGet('/api/users/' + encodeURIComponent(_uname) + '/comments').catch(() => []) : Promise.resolve([]),
     _uname ? apiGet('/api/users/' + encodeURIComponent(_uname) + '/reposts').catch(() => []) : Promise.resolve([]),
-    apiGet('/api/inbox').catch(() => []),
     apiGet('/api/messages').catch(() => []),
   ]);
 
   const experiments = expResp || [];
   const events = calResp || [];
-  const myTasks = tasksResp || [];
-  const teams = teamsResp || [];
   const profile = profileResp || {};
   const myComments = commentsResp || [];
   const myReposts = repostsResp || [];
@@ -184,11 +172,6 @@ async function renderDashboard() {
     _todayActivity.push({ type: 'repost', title: r.paperTitle || r.paperLink, time: r.timestamp, link: r.paperLink, icon: 'repost' });
   });
 
-  // Tasks created today
-  myTasks.filter(t => _isToday(t.timestamp)).forEach(t => {
-    _todayActivity.push({ type: 'task', title: t.title, time: t.timestamp, icon: 'task' });
-  });
-
   // Feed searches today
   const _searchHist = JSON.parse(localStorage.getItem('searchHistory') || '[]');
   _searchHist.filter(s => s.ts && _isToday(s.ts)).forEach(s => {
@@ -210,8 +193,6 @@ async function renderDashboard() {
   // Sort by time descending (most recent first)
   _todayActivity.sort((a, b) => (b.time || 0) - (a.time || 0));
 
-  // Open tasks (not time-filtered — these are ongoing)
-  const _openTaskCount = myTasks.length;
   const _unreadSavedCount = Object.values(mergedSaved).filter(e => !e.read).length;
 
   const _todayDateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -242,7 +223,6 @@ async function renderDashboard() {
   const _todayEvents = events.filter(ev => ev.date === _todayKey);
   const _todayEvtCount = _todayEvents.length;
   if (_todayEvtCount) _chips.push(_todayEvtCount + ' event' + (_todayEvtCount > 1 ? 's' : ''));
-  if (_openTaskCount) _chips.push(_openTaskCount + ' open task' + (_openTaskCount > 1 ? 's' : ''));
   if (_unreadSavedCount) _chips.push(_unreadSavedCount + ' unread');
   const _todaySavedCount = _todayActivity.filter(a => a.type === 'saved').length;
   if (_todaySavedCount) _chips.push(_todaySavedCount + ' saved');
@@ -333,7 +313,7 @@ async function renderDashboard() {
       _buildChipsView('mb-3'),
       timelineView
     );
-  } else if (_openTaskCount || _unreadSavedCount) {
+  } else if (_unreadSavedCount) {
     overviewView = VStack(
       HStack(
         Text(_todayDateStr).className('text-[0.82rem] text-primary font-medium')
@@ -350,9 +330,8 @@ async function renderDashboard() {
 
   // ── Inbox card ──
   const _inboxFeedNotifs = typeof _getFeedNotifications === 'function' ? _getFeedNotifications() : [];
-  const _inboxInvites = inboxInvites || [];
   const _inboxMsgs = inboxMessages || [];
-  const _inboxTotal = _inboxFeedNotifs.length + _inboxInvites.length + _inboxMsgs.length;
+  const _inboxTotal = _inboxFeedNotifs.length + _inboxMsgs.length;
   var inboxView = null;
   if (_inboxTotal > 0) {
     var inboxItems = [];
@@ -373,21 +352,6 @@ async function renderDashboard() {
       ).className('flex items-center gap-2 px-1.5 py-1 rounded-md hover:bg-hover transition-colors cursor-pointer')
        .onTap(function() { clearFeedNotification(n.link); _setBrowseReturnView('dashboard'); openBrowse(n.link); });
       inboxItems.push(row);
-    });
-    _inboxInvites.slice(0, 3).forEach(function(inv) {
-      var dot = new (window._AetherUIView || AetherUI.View)('span');
-      dot.className('w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0');
-      var msgHtml = '<a href="#profile/' + encodeURIComponent(inv.from_username) + '" class="text-primary hover:text-accent" style="text-decoration:none">' + escapeHtml(inv.from_username) + '</a> invited you to <span class="text-accent font-medium">' + escapeHtml(inv.team_name) + '</span>';
-      var acceptBtn = Button('Accept').className('px-2 py-0.5 rounded text-[0.65rem] bg-accent text-white border-none cursor-pointer')
-        .onTap(function() { respondToInvite(inv.id, true); renderDashboard(); });
-      var declineBtn = Button('Decline').className('px-2 py-0.5 rounded text-[0.65rem] border border-border-input text-muted bg-card cursor-pointer')
-        .onTap(function() { respondToInvite(inv.id, false); renderDashboard(); });
-      inboxItems.push(HStack(
-        dot,
-        RawHTML('<span class="text-[0.78rem] text-primary truncate flex-1">' + msgHtml + '</span>'),
-        acceptBtn,
-        declineBtn
-      ).className('flex items-center gap-2 px-1.5 py-1 rounded-md hover:bg-hover transition-colors'));
     });
     _inboxMsgs.slice(0, 3).forEach(function(m) {
       var dot = new (window._AetherUIView || AetherUI.View)('span');
@@ -759,14 +723,12 @@ async function renderDashboard() {
     expsView = VStack(recentExps.map(function(exp) {
       var runCount = exp.runCount || 0;
       var lastUpdated = exp.lastUpdated ? new Date(exp.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-      var teamBadge = exp.team_name ? Text(exp.team_name).className('text-[0.65rem] px-1.5 py-0.5 rounded bg-accent/15 text-accent shrink-0') : null;
       return HStack(
         RawHTML(_pixelArt(exp.id)),
         VStack(
           Text(exp.title).className('text-[0.85rem] font-medium text-primary truncate'),
           Text(runCount + ' run' + (runCount !== 1 ? 's' : '') + (lastUpdated ? ' \u00b7 ' + lastUpdated : '')).className('text-[0.72rem] text-dimmer mt-0.5')
-        ).className('min-w-0 flex-1'),
-        teamBadge
+        ).className('min-w-0 flex-1')
       ).className('flex items-center gap-2.5')
        .className('p-3 rounded-lg border border-border-card bg-card cursor-pointer hover:border-border-input transition-colors')
        .onTap(function(e) { openExperimentDetail(exp.id, e); });
@@ -878,7 +840,6 @@ async function renderDashboard() {
   var countersRow = HStack(
     _counterView(profile.comment_count, 'comments'),
     _counterView(profile.repost_count, 'reposts'),
-    _counterView(profile.team_count, 'teams'),
     _counterView(profile.experiment_count, 'projects')
   ).className('flex gap-6 mb-6 text-[0.82rem]');
 
@@ -891,44 +852,7 @@ async function renderDashboard() {
   const _streak = _dashReadingStreak(activityItems);
   const _savedCount = Object.keys(mergedSaved).length;
   const _projectCount = experiments.length;
-  const _taskCount = myTasks.length;
   const _trending = _dashTrending(5);
-
-  // Tasks card view
-  var _bentoTasksView = myTasks.length ? VStack(myTasks.slice(0, 5).map(function(t) {
-    var cb = new (window._AetherUIView || AetherUI.View)('input');
-    cb.el.type = 'checkbox';
-    cb.className('accent-[var(--nr-accent)] cursor-pointer shrink-0');
-    cb.onChange(function() { dashToggleTask(t.team_id, t.id, cb.el.checked); });
-    var priBadge = Text(_priLabels[t.priority])
-      .className('text-[0.55rem] px-1.5 py-0.5 rounded-full font-medium shrink-0')
-      .style('background', _priColors[t.priority] + '20')
-      .style('color', _priColors[t.priority]);
-    return HStack(
-      cb,
-      VStack(
-        Text(t.title).className('text-[0.78rem] text-primary truncate'),
-        Text(t.team_name).className('text-[0.65rem] text-dimmest')
-      ).className('flex-1 min-w-0').onTap(function() {
-        window.location.hash = 'teams';
-        setTimeout(function() { showTeamDetailView(t.team_id); }, 100);
-      }),
-      priBadge
-    ).className('flex items-center gap-2 px-1 py-1.5 rounded-md hover:bg-hover transition-colors');
-  })) : null;
-
-  // Teams card view
-  var _bentoTeamsView = teams.length ? VStack(teams.slice(0, 4).map(function(t) {
-    var pixelHtml = typeof _pixelArt === 'function' ? _pixelArt(t.name) : '';
-    return HStack(
-      pixelHtml ? RawHTML(pixelHtml) : null,
-      VStack(
-        Text(t.name).className('text-[0.8rem] text-primary truncate'),
-        Text(t.member_count + ' member' + (t.member_count !== 1 ? 's' : '')).className('text-[0.65rem] text-dimmest')
-      ).className('min-w-0 flex-1')
-    ).className('flex items-center gap-2 px-1 py-1.5 rounded-md hover:bg-hover transition-colors cursor-pointer')
-     .onTap(function(e) { showTeamDetailView(t.id, e); });
-  })) : null;
 
   // Comments card view
   var _bentoCommentsView = myComments.length ? VStack(myComments.slice(0, 4).map(function(c) {
@@ -966,7 +890,7 @@ async function renderDashboard() {
   })) : null;
 
   // Bottom row: only show if there's content
-  const _hasBottomRow = teams.length || myComments.length || myReposts.length;
+  const _hasBottomRow = myComments.length || myReposts.length;
 
   // Helper to wrap a view in a bento card
   function _bentoCard(view, cls) {
@@ -1018,26 +942,12 @@ async function renderDashboard() {
   heatmapCard.el.appendChild(popoverEl);
   bentoGrid.el.appendChild(heatmapCard.build());
 
-  // Tasks + Trending
-  if (_taskCount) {
-    var tasksCard = _bentoCard(VStack(
-      _cardHeader('My Tasks', Text(_taskCount + ' open').className('text-[0.68rem] text-dimmest')),
-      _bentoTasksView
-    ), 'bento-2x1');
-    bentoGrid.el.appendChild(tasksCard.build());
-
-    var trendCard = _bentoCard(VStack(
-      _cardHeader('Trending', null),
-      _dashBuildTrendingCard(_trending)
-    ), 'bento-2x1');
-    bentoGrid.el.appendChild(trendCard.build());
-  } else {
-    var trendCard = _bentoCard(VStack(
-      _cardHeader('Trending', null),
-      _dashBuildTrendingCard(_trending)
-    ), 'bento-4x1');
-    bentoGrid.el.appendChild(trendCard.build());
-  }
+  // Trending
+  var trendCard = _bentoCard(VStack(
+    _cardHeader('Trending', null),
+    _dashBuildTrendingCard(_trending)
+  ), 'bento-4x1');
+  bentoGrid.el.appendChild(trendCard.build());
 
   // Reading List (2x2)
   var readingScroll = VStack(readingView).className('scrollbar-hide').style('maxHeight', '320px').style('overflowY', 'auto');
@@ -1065,21 +975,10 @@ async function renderDashboard() {
   ), 'bento-2x1');
   bentoGrid.el.appendChild(quotesCard.build());
 
-  // Bottom row: teams, comments, reposts
-  if (_hasBottomRow) {
-    if (teams.length) {
-      var teamsCls = !myComments.length && !myReposts.length ? 'bento-4x1' : myComments.length && myReposts.length ? 'bento-1x1' : 'bento-2x1';
-      var viewAllTeams = Button('View all').ghost()
-        .className('text-[0.7rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer')
-        .onTap(function() { openTeams(); });
-      var teamsCard = _bentoCard(VStack(
-        _cardHeader('Teams', viewAllTeams),
-        _bentoTeamsView
-      ), teamsCls);
-      bentoGrid.el.appendChild(teamsCard.build());
-    }
+  // Bottom row: comments, reposts
+  if (myComments.length || myReposts.length) {
     if (myComments.length) {
-      var commentsCls = !teams.length && !myReposts.length ? 'bento-4x1' : 'bento-2x1';
+      var commentsCls = !myReposts.length ? 'bento-4x1' : 'bento-2x1';
       var commentsCard = _bentoCard(VStack(
         _cardHeader('Recent Comments', Text(String(myComments.length)).className('text-[0.68rem] text-dimmest')),
         _bentoCommentsView
@@ -1087,7 +986,7 @@ async function renderDashboard() {
       bentoGrid.el.appendChild(commentsCard.build());
     }
     if (myReposts.length) {
-      var repostsCls = !teams.length && !myComments.length ? 'bento-4x1' : teams.length && myComments.length ? 'bento-1x1' : 'bento-2x1';
+      var repostsCls = !myComments.length ? 'bento-4x1' : 'bento-2x1';
       var repostsCard = _bentoCard(VStack(
         _cardHeader('Reposts', Text(String(myReposts.length)).className('text-[0.68rem] text-dimmest')),
         _bentoRepostsView
@@ -1097,7 +996,7 @@ async function renderDashboard() {
   }
 
   // ── Mount the full dashboard view ──
-  var dashView = VStack(profileHeaderView, _dashBuildStatsRow(_papersRead, _streak, _savedCount, _projectCount, _taskCount), bentoGrid);
+  var dashView = VStack(profileHeaderView, _dashBuildStatsRow(_papersRead, _streak, _savedCount, _projectCount), bentoGrid);
   AetherUI.mount(dashView, container);
 
   document.removeEventListener('mousedown', _closeDashSearch);
@@ -1119,7 +1018,6 @@ async function renderDashboard() {
   if (typeof contextIngest === 'function') {
     var _statsItems = [];
     if (_todayActivity.length) _statsItems.push(_todayActivity.length + ' activities');
-    if (_openTaskCount) _statsItems.push(_openTaskCount + ' open tasks');
     if (_unreadSavedCount) _statsItems.push(_unreadSavedCount + ' unread saved');
     // Fetch context file size and include in stats
     electronAPI.dbQuery('context-list').then(function(res) {
@@ -1143,12 +1041,12 @@ async function renderDashboard() {
   const summaryEl = document.getElementById('dash-day-summary');
   if (summaryEl && _summaryModel && _summaryModel !== 'off') {
     // Cache key: date + interaction count + task/unread counts
-    const _sumCacheKey = `${_todayKey}:${_llmActivityData.length}:${_openTaskCount}:${_unreadSavedCount}`;
+    const _sumCacheKey = `${_todayKey}:${_llmActivityData.length}:${_unreadSavedCount}`;
     const _sumCache = JSON.parse(localStorage.getItem('daySummaryCache') || '{}');
     if (_sumCache.key === _sumCacheKey && _sumCache.text) {
       summaryEl.textContent = _sumCache.text;
     } else {
-      _streamDaySummary(summaryEl, _llmActivityData, _openTaskCount, _unreadSavedCount, _todayDateStr, _summaryModel, _sumCacheKey);
+      _streamDaySummary(summaryEl, _llmActivityData, 0, _unreadSavedCount, _todayDateStr, _summaryModel, _sumCacheKey);
     }
   } else if (summaryEl) {
     summaryEl.remove();

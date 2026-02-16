@@ -125,25 +125,6 @@ async function ipcRoute(path, opts = {}) {
     return await window.electronAPI.dbQuery('users-list');
   }
 
-  // ── Teams ──
-  if (pathOnly === '/api/teams' && method === 'GET') {
-    if (!googleId) return null;
-    return await window.electronAPI.dbQuery('teams-list', googleId);
-  }
-  if (pathOnly.match(/^\/api\/teams\/\d+\/messages$/) && method === 'GET') {
-    const teamId = parseInt(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('team-messages', teamId);
-  }
-  if (pathOnly.match(/^\/api\/teams\/\d+\/messages$/) && method === 'POST') {
-    if (!googleId) return null;
-    const teamId = parseInt(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('team-message-send', teamId, googleId, body.content);
-  }
-  if (pathOnly.match(/^\/api\/teams\/\d+\/todos$/) && method === 'GET') {
-    const teamId = parseInt(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('team-todos', teamId);
-  }
-
   // ── Experiments ──
   if (pathOnly === '/api/experiments' && method === 'GET') {
     if (!googleId) return null;
@@ -269,154 +250,6 @@ async function ipcRoute(path, opts = {}) {
     return { data: merged };
   }
 
-  // ── Teams: create ──
-  if (pathOnly === '/api/teams' && method === 'POST') {
-    if (!googleId) return null;
-    const teamId = await window.electronAPI.dbQuery('team-create', body.name, googleId, { private: body.private, parentId: body.parent_id });
-    return { ok: true, id: teamId };
-  }
-
-  // ── Teams: detail (GET /api/teams/<id>) ──
-  if (pathOnly.match(/^\/api\/teams\/\d+$/) && method === 'GET') {
-    if (!googleId) return null;
-    const teamId = parseInt(pathOnly.split('/').pop());
-    return await window.electronAPI.dbQuery('team-detail', teamId);
-  }
-
-  // ── Teams: rename (PUT /api/teams/<id>) ──
-  if (pathOnly.match(/^\/api\/teams\/\d+$/) && method === 'PUT') {
-    if (!googleId) return null;
-    const teamId = parseInt(pathOnly.split('/').pop());
-    const ok = await window.electronAPI.dbQuery('team-rename', teamId, body.name, googleId);
-    return ok ? { ok: true } : null;
-  }
-
-  // ── Teams: delete (DELETE /api/teams/<id>) ──
-  if (pathOnly.match(/^\/api\/teams\/\d+$/) && method === 'DELETE') {
-    if (!googleId) return null;
-    const teamId = parseInt(pathOnly.split('/').pop());
-    return await window.electronAPI.dbQuery('team-delete', teamId, googleId);
-  }
-
-  // ── Teams: invite ──
-  if (pathOnly.match(/^\/api\/teams\/\d+\/invite$/) && method === 'POST') {
-    if (!googleId) return null;
-    const teamId = parseInt(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('team-invite', teamId, googleId, body.username);
-  }
-
-  // ── Teams: remove member ──
-  if (pathOnly.match(/^\/api\/teams\/\d+\/remove$/) && method === 'POST') {
-    if (!googleId) return null;
-    const teamId = parseInt(pathOnly.split('/')[3]);
-    const ok = await window.electronAPI.dbQuery('team-remove-member', teamId, googleId, body.google_id);
-    return ok ? { ok: true } : null;
-  }
-
-  // ── Teams: privacy ──
-  if (pathOnly.match(/^\/api\/teams\/\d+\/privacy$/) && method === 'PUT') {
-    if (!googleId) return null;
-    const teamId = parseInt(pathOnly.split('/')[3]);
-    const ok = await window.electronAPI.dbQuery('team-set-private', teamId, !!body.private, googleId);
-    return ok ? { ok: true, private: !!body.private } : null;
-  }
-
-  // ── Teams: parent ──
-  if (pathOnly.match(/^\/api\/teams\/\d+\/parent$/) && method === 'PUT') {
-    if (!googleId) return null;
-    const teamId = parseInt(pathOnly.split('/')[3]);
-    const ok = await window.electronAPI.dbQuery('team-set-parent', teamId, body.parent_id ?? null, googleId);
-    return ok ? { ok: true } : null;
-  }
-
-  // ── Teams: chat read ──
-  if (pathOnly.match(/^\/api\/teams\/\d+\/chat-read$/) && method === 'POST') {
-    if (!googleId) return null;
-    const teamId = parseInt(pathOnly.split('/')[3]);
-    await window.electronAPI.dbQuery('team-chat-mark-read', teamId, googleId);
-    return { ok: true };
-  }
-
-  // ── Teams: edit message (PUT) ──
-  if (pathOnly.match(/^\/api\/teams\/\d+\/messages\/[^/]+$/) && method === 'PUT') {
-    if (!googleId) return null;
-    const parts = pathOnly.split('/');
-    const teamId = parseInt(parts[3]);
-    const msgId = parts[5];
-    const ok = await window.electronAPI.dbQuery('team-message-edit', teamId, msgId, googleId, body.content);
-    return ok ? { ok: true } : null;
-  }
-
-  // ── Teams: delete message ──
-  if (pathOnly.match(/^\/api\/teams\/\d+\/messages\/[^/]+$/) && method === 'DELETE') {
-    if (!googleId) return null;
-    const parts = pathOnly.split('/');
-    const teamId = parseInt(parts[3]);
-    const msgId = parts[5];
-    const ok = await window.electronAPI.dbQuery('team-message-delete', msgId, googleId);
-    return ok ? { ok: true } : null;
-  }
-
-  // ── Teams: reactions ──
-  if (pathOnly.match(/^\/api\/teams\/\d+\/messages\/[^/]+\/reactions$/) && method === 'POST') {
-    if (!googleId) return null;
-    const parts = pathOnly.split('/');
-    const msgId = parts[5];
-    return await window.electronAPI.dbQuery('reaction-toggle', msgId, googleId, body.emoji);
-  }
-
-  // ── Teams: todos — create ──
-  if (pathOnly.match(/^\/api\/teams\/\d+\/todos$/) && method === 'POST') {
-    if (!googleId) return null;
-    const teamId = parseInt(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('team-todo-create', teamId, googleId, body);
-  }
-
-  // ── Teams: todos — update (PUT) ──
-  if (pathOnly.match(/^\/api\/teams\/\d+\/todos\/[^/]+$/) && method === 'PUT') {
-    if (!googleId) return null;
-    const parts = pathOnly.split('/');
-    const teamId = parseInt(parts[3]);
-    const todoId = parts[5];
-    return await window.electronAPI.dbQuery('team-todo-update', teamId, todoId, body);
-  }
-
-  // ── Teams: todos — delete ──
-  if (pathOnly.match(/^\/api\/teams\/\d+\/todos\/[^/]+$/) && method === 'DELETE') {
-    if (!googleId) return null;
-    const parts = pathOnly.split('/');
-    const teamId = parseInt(parts[3]);
-    const todoId = parts[5];
-    const ok = await window.electronAPI.dbQuery('team-todo-delete', teamId, todoId);
-    return ok ? { ok: true } : null;
-  }
-
-  // ── Inbox ──
-  if (pathOnly === '/api/inbox' && method === 'GET') {
-    if (!googleId) return null;
-    return await window.electronAPI.dbQuery('pending-invites', googleId);
-  }
-
-  // ── Inbox: respond ──
-  if (pathOnly.match(/^\/api\/inbox\/\d+\/respond$/) && method === 'POST') {
-    if (!googleId) return null;
-    const inviteId = parseInt(pathOnly.split('/')[3]);
-    const ok = await window.electronAPI.dbQuery('invite-respond', inviteId, googleId, body.accept);
-    return ok ? { ok: true } : null;
-  }
-
-  // ── Inbox chats ──
-  if (pathOnly === '/api/inbox-chats' && method === 'GET') {
-    if (!googleId) return null;
-    return await window.electronAPI.dbQuery('unread-team-chats', googleId);
-  }
-
-  // ── My tasks ──
-  if (pathOnly === '/api/my-tasks' && method === 'GET') {
-    if (!googleId) return null;
-    return await window.electronAPI.dbQuery('my-tasks', googleId);
-  }
-
   // ── Messages: list ──
   if (pathOnly === '/api/messages' && method === 'GET') {
     if (!googleId) return null;
@@ -508,8 +341,7 @@ async function ipcRoute(path, opts = {}) {
     const info = await window.electronAPI.dbQuery('public-user-info', username);
     if (!info) return null; // fall back for 404
     if (info.profile_private && info.google_id !== googleId) {
-      const teammates = await window.electronAPI.dbQuery('are-teammates', googleId, info.google_id);
-      if (!teammates) return { username: info.username, picture: info.picture, profile_private: true };
+      return { username: info.username, picture: info.picture, profile_private: true };
     }
     const stats = await window.electronAPI.dbQuery('user-public-stats', info.google_id);
     const accentColor = await window.electronAPI.dbQuery('user-accent-color', info.google_id);
@@ -525,8 +357,7 @@ async function ipcRoute(path, opts = {}) {
     const info = await window.electronAPI.dbQuery('public-user-info', username);
     if (!info) return null;
     if (info.profile_private && info.google_id !== googleId) {
-      const teammates = await window.electronAPI.dbQuery('are-teammates', googleId, info.google_id);
-      if (!teammates) return { catalogFeeds: [], customFeeds: [] };
+      return { catalogFeeds: [], customFeeds: [] };
     }
     const data = await window.electronAPI.dbQuery('user-feed-sources', info.google_id);
     const catalogKeys = Object.entries(data.feedSources || {}).filter(([, v]) => v).map(([k]) => k);
@@ -540,10 +371,7 @@ async function ipcRoute(path, opts = {}) {
     const username = decodeURIComponent(pathOnly.split('/')[3]);
     const info = await window.electronAPI.dbQuery('public-user-info', username);
     if (!info) return null;
-    if (info.profile_private && info.google_id !== googleId) {
-      const teammates = await window.electronAPI.dbQuery('are-teammates', googleId, info.google_id);
-      if (!teammates) return [];
-    }
+    if (info.profile_private && info.google_id !== googleId) return [];
     return await window.electronAPI.dbQuery('user-recent-comments', info.google_id);
   }
 
@@ -553,29 +381,12 @@ async function ipcRoute(path, opts = {}) {
     const username = decodeURIComponent(pathOnly.split('/')[3]);
     const info = await window.electronAPI.dbQuery('public-user-info', username);
     if (!info) return null;
-    if (info.profile_private && info.google_id !== googleId) {
-      const teammates = await window.electronAPI.dbQuery('are-teammates', googleId, info.google_id);
-      if (!teammates) return [];
-    }
+    if (info.profile_private && info.google_id !== googleId) return [];
     return await window.electronAPI.dbQuery('user-reposts', info.google_id);
-  }
-
-  // ── User teams ──
-  if (pathOnly.match(/^\/api\/users\/[^/]+\/teams$/) && method === 'GET') {
-    if (!googleId) return null;
-    const username = decodeURIComponent(pathOnly.split('/')[3]);
-    const info = await window.electronAPI.dbQuery('public-user-info', username);
-    if (!info) return null;
-    return await window.electronAPI.dbQuery('user-public-teams', info.google_id, googleId);
   }
 
   // ── User experiments (stub) ──
   if (pathOnly.match(/^\/api\/users\/[^/]+\/experiments$/) && method === 'GET') {
-    return [];
-  }
-
-  // ── Team experiments (stub) ──
-  if (pathOnly === '/api/team-experiments' && method === 'GET') {
     return [];
   }
 

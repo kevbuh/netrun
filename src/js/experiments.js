@@ -34,7 +34,6 @@ env.close()
 
 // ── Projects (vault-backed) ──
 const allExperiments = [];
-const _teamExperiments = [];
 
 function _pixelArt(seed) {
   // Deterministic hash from string
@@ -1100,56 +1099,3 @@ openExperimentDetail = async function(id) {
   _initExpSidebarDrop();
 };
 
-// ── Share file to team chat ──
-
-const _fileShareSvg = icon('share', { size: 16, strokeWidth: '1.5' });
-
-function fileShareButton() {
-  return `<button onclick="toggleFileShareDropdown(this)" class="w-7 h-7 rounded flex items-center justify-center border-none bg-transparent text-dimmer cursor-pointer hover:text-primary transition-colors" title="Share to team chat">${_fileShareSvg}</button>`;
-}
-
-async function toggleFileShareDropdown(btn) {
-  const existing = document.getElementById('file-share-dropdown');
-  if (existing) { existing.remove(); return; }
-  if (!currentFile || !currentExpId) return;
-
-  const dd = document.createElement('div');
-  dd.id = 'file-share-dropdown';
-  dd.style.cssText = 'position:fixed;z-index:10001;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;padding:6px 0;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.3);font-size:12px';
-  dd.innerHTML = '<div style="padding:4px 12px;color:var(--nr-text-quaternary);font-size:11px">Loading teams...</div>';
-  if (window.Aether && Aether.materials) Aether.materials.apply(dd, 'thin');
-  document.body.appendChild(dd);
-  const rect = btn.getBoundingClientRect();
-  dd.style.top = (rect.bottom + 4) + 'px';
-  dd.style.right = (window.innerWidth - rect.right) + 'px';
-
-  const close = (e) => { if (!dd.contains(e.target) && e.target !== btn) { dd.remove(); document.removeEventListener('mousedown', close); } };
-  setTimeout(() => document.addEventListener('mousedown', close), 0);
-
-  if (!_cachedTeams.length) await fetchTeams();
-  if (!_cachedTeams.length) {
-    dd.innerHTML = '<div style="padding:8px 12px;color:var(--nr-text-quaternary)">No teams yet</div>';
-    return;
-  }
-
-  dd.innerHTML = '<div style="padding:4px 12px 6px;color:var(--nr-text-quaternary);font-size:10px;text-transform:uppercase;letter-spacing:0.5px">Share to team chat</div>' +
-    _cachedTeams.map(t => `
-      <div class="hover:bg-hover" style="padding:6px 12px;cursor:pointer;color:var(--nr-text-primary);display:flex;align-items:center;gap:8px" onclick="shareFileToTeam(${t.id}, this)">
-        <div style="width:24px;height:24px;border-radius:6px;background:color-mix(in srgb, var(--nr-accent) 20%, transparent);color:var(--nr-accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${escapeHtml(t.name[0].toUpperCase())}</div>
-        <span>${escapeHtml(t.name)}</span>
-      </div>
-    `).join('');
-}
-
-async function shareFileToTeam(teamId, el) {
-  if (!currentFile || !currentExpId) return;
-  if (el) { el.style.pointerEvents = 'none'; el.style.opacity = '0.5'; }
-  const content = '[file:' + currentExpId + '/' + currentFile + ']';
-  try {
-    await apiPost(`/api/teams/${teamId}/messages`, { content });
-    if (el) { el.innerHTML = '<span style="color:var(--nr-accent);font-size:11px">Shared ✓</span>'; }
-    setTimeout(() => { const dd = document.getElementById('file-share-dropdown'); if (dd) dd.remove(); }, 800);
-  } catch {
-    if (el) { el.innerHTML = '<span style="color:#f87171;font-size:11px">Failed</span>'; el.style.pointerEvents = ''; el.style.opacity = '1'; }
-  }
-}

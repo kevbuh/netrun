@@ -24,7 +24,7 @@ function _renderAccountSettings() {
       <div class="flex items-center justify-between mt-4 mb-4">
         <div>
           <span class="text-primary text-sm">Private profile</span>
-          <p class="text-dimmer text-[0.72rem] mt-0.5">Hide your profile from search and browse. Only teammates can see your full profile.</p>
+          <p class="text-dimmer text-[0.72rem] mt-0.5">Hide your profile from search and browse.</p>
         </div>
         <label class="nr-switch">
           <input type="checkbox" ${_authUserInfo?.profile_private ? 'checked' : ''} onchange="toggleProfilePrivacy(this.checked)">

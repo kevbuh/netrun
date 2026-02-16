@@ -16,7 +16,6 @@ const VIEW_REGISTRY = {
   'inbox-view':          { template: '/views/inbox.html',     tier: 2 },
   'profile-view':        { template: '/views/profile.html',   tier: 2 },
   'author-profile-view': { template: '/views/author-profile.html', tier: 2 },
-  'teams-view':          { template: '/views/teams.html',     tier: 2 },
   'neuralook-view':      { template: '/views/neuralook.html', tier: 2 },
   'dev-stats-view':      { template: '/views/dev.html',      tier: 2 },
 };
@@ -109,8 +108,8 @@ function wmOpen(key, wmWindows, state) {
 // ──────────────────────────────────────────────────────────
 
 describe('VIEW_REGISTRY', () => {
-  it('should have 14 registered views', () => {
-    expect(Object.keys(VIEW_REGISTRY)).toHaveLength(14);
+  it('should have 13 registered views', () => {
+    expect(Object.keys(VIEW_REGISTRY)).toHaveLength(13);
   });
 
   it('should have template paths for all views', () => {

@@ -94,11 +94,10 @@ async function renderUserProfile(username) {
   el.innerHTML = '<div class="text-dimmer text-sm mt-8 text-center">Loading profile...</div>';
 
   try {
-    const [profile, comments, experiments, teams, reposts, feeds, blog, achievementsData] = await Promise.all([
+    const [profile, comments, experiments, reposts, feeds, blog, achievementsData] = await Promise.all([
       apiGet('/api/users/' + encodeURIComponent(username)),
       apiGet('/api/users/' + encodeURIComponent(username) + '/comments'),
       apiGet('/api/users/' + encodeURIComponent(username) + '/experiments'),
-      apiGet('/api/users/' + encodeURIComponent(username) + '/teams'),
       apiGet('/api/users/' + encodeURIComponent(username) + '/reposts'),
       apiGet('/api/users/' + encodeURIComponent(username) + '/feeds'),
       apiGet('/api/blog/' + encodeURIComponent(username)),
@@ -178,7 +177,6 @@ async function renderUserProfile(username) {
         ${blogPosts.length ? `<a href="#profile-section-posts" onclick="document.getElementById('profile-section-posts')?.scrollIntoView({behavior:'smooth'});return false" class="hover:text-accent cursor-pointer" style="text-decoration:none"><span class="text-white_ font-semibold">${blogPosts.length}</span> <span class="text-dimmer">posts</span></a>` : ''}
         ${comments.length ? `<a href="#profile-section-comments" onclick="document.getElementById('profile-section-comments')?.scrollIntoView({behavior:'smooth'});return false" class="hover:text-accent cursor-pointer" style="text-decoration:none"><span class="text-white_ font-semibold">${comments.length}</span> <span class="text-dimmer">comments</span></a>` : `<div><span class="text-white_ font-semibold">0</span> <span class="text-dimmer">comments</span></div>`}
         ${reposts.length ? `<a href="#profile-section-reposts" onclick="document.getElementById('profile-section-reposts')?.scrollIntoView({behavior:'smooth'});return false" class="hover:text-accent cursor-pointer" style="text-decoration:none"><span class="text-white_ font-semibold">${reposts.length}</span> <span class="text-dimmer">reposts</span></a>` : `<div><span class="text-white_ font-semibold">0</span> <span class="text-dimmer">reposts</span></div>`}
-        ${teams.filter(t => !t.private).length ? `<a href="#profile-section-teams" onclick="document.getElementById('profile-section-teams')?.scrollIntoView({behavior:'smooth'});return false" class="hover:text-accent cursor-pointer" style="text-decoration:none"><span class="text-white_ font-semibold">${teams.filter(t => !t.private).length}</span> <span class="text-dimmer">teams</span></a>` : `<div><span class="text-white_ font-semibold">0</span> <span class="text-dimmer">teams</span></div>`}
         ${experiments.length ? `<a href="#profile-section-projects" onclick="document.getElementById('profile-section-projects')?.scrollIntoView({behavior:'smooth'});return false" class="hover:text-accent cursor-pointer" style="text-decoration:none"><span class="text-white_ font-semibold">${experiments.length}</span> <span class="text-dimmer">projects</span></a>` : `<div><span class="text-white_ font-semibold">0</span> <span class="text-dimmer">projects</span></div>`}
       </div>
     `;
@@ -234,22 +232,6 @@ async function renderUserProfile(username) {
             <div class="text-primary text-sm font-medium">${escapeHtml(exp.title || exp.id)}</div>
             ${exp.desc ? `<div class="text-dimmer text-[0.75rem] mt-1 line-clamp-1">${escapeHtml(exp.desc)}</div>` : ''}
           </a>`;
-      }
-      html += '</div></div>';
-    }
-
-    // Teams section (exclude private teams from public profile)
-    const publicTeams = teams.filter(t => !t.private);
-    if (publicTeams.length) {
-      html += `<div class="mb-8" id="profile-section-teams">
-        <h3 class="text-muted text-xs font-semibold mb-3 uppercase tracking-wide">Teams</h3>
-        <div class="flex flex-col gap-2">`;
-      for (const t of publicTeams) {
-        html += `
-          <div class="block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors cursor-pointer" style="text-decoration:none" onclick="showTeamDetailView(${t.id}, event)">
-            <div class="text-primary text-sm font-medium">${escapeHtml(t.name)}</div>
-            <div class="text-dimmer text-[0.75rem] mt-1">${t.member_count} member${t.member_count !== 1 ? 's' : ''}</div>
-          </div>`;
       }
       html += '</div></div>';
     }
@@ -324,7 +306,7 @@ async function renderUserProfile(username) {
       html += '</div></div>';
     }
 
-    if (!experiments.length && !comments.length && !teams.length && !reposts.length && !catalogFeeds.length && !customFeeds.length) {
+    if (!experiments.length && !comments.length && !reposts.length && !catalogFeeds.length && !customFeeds.length) {
       html += '<div class="text-dimmer text-sm mt-4">No shared activity yet.</div>';
     }
 
