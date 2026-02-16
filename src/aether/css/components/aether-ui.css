@@ -1,0 +1,53 @@
+/* AetherUI — minimal layout utility classes */
+
+/* List with dividers between items */
+.aether-ui-list-dividers > *:not(:last-child) {
+  border-bottom: 1px solid var(--nr-border-default);
+  padding-bottom: var(--nr-space-2);
+  margin-bottom: var(--nr-space-2);
+}
+
+/* Section */
+.aether-ui-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.aether-ui-section-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--nr-text-tertiary);
+  padding: var(--nr-space-2) var(--nr-space-1);
+}
+
+.aether-ui-section-content {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Toggle inline layout */
+.aether-ui-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nr-space-2);
+  cursor: pointer;
+}
+
+/* Popover */
+.aether-ui-popover {
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+
+/* Menu */
+.aether-ui-menu {
+  background: var(--nr-bg-overlay);
+  border: 1px solid var(--nr-border-subtle);
+  border-radius: var(--nr-radius-lg);
+  box-shadow: 0 8px 32px var(--nr-shadow-popup);
+  padding: var(--nr-space-1);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
