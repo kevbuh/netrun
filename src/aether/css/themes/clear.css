@@ -87,6 +87,44 @@
   color: rgba(0, 0, 0, 0.25);
 }
 
+/* Clear theme: island URL dropdown (recent sites, suggestions) */
+[data-theme="clear"] .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open {
+  background: rgba(235, 233, 231, 0.97) !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.9);
+}
+[data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown {
+  background: rgba(235, 233, 231, 0.97) !important;
+}
+[data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown [data-histq] {
+  color: rgba(0, 0, 0, 0.7);
+}
+[data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown [data-histq]:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+[data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-browse-url-input {
+  color: rgba(0, 0, 0, 0.85);
+}
+
+/* Clear theme: island tabs tray dropdown */
+[data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-ctx-tray {
+  background: rgba(235, 233, 231, 0.97) !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.9);
+}
+[data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-tab-item {
+  color: rgba(0, 0, 0, 0.7);
+}
+[data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-tab-item:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+
 /* Clear theme: audio & pulse dropdowns */
 [data-theme="clear"] .audio-pill-dropdown,
 [data-theme="clear"] .pulse-dropdown {

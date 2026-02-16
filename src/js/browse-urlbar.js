@@ -48,6 +48,7 @@ function _browseUrlOnFocus(input) {
 }
 
 function _browseUrlOnBlur(input) {
+  _browseUrlClearAutocomplete();
   const full = input.dataset.fullUrl || input.value;
   input.dataset.fullUrl = full;
   if (localStorage.getItem('urlShorten') !== 'false' && full && !full.startsWith('netrun://')) {
@@ -123,6 +124,67 @@ let _instantAnswer = null; // { type, html } for non-definition instant answers
 let _instantDebounce = null;
 const _instantCache = {};
 
+// ── Inline Autocomplete (Chrome-style selection) ──
+
+let _browseUrlAutocompleteSuggestion = ''; // full domain suggestion currently shown
+let _browseUrlTypedLength = 0; // length of the user's actual typed text
+let _browseUrlAcSuppressed = false; // suppress re-autocomplete after delete
+
+function _browseUrlGetAutocomplete(filter) {
+  if (!filter || filter.includes(' ') || filter.startsWith('/')) return '';
+  const lf = filter.toLowerCase();
+  const browseHist = _getBrowseHistory();
+  let best = '';
+  let bestTs = 0;
+  for (const h of browseHist) {
+    try {
+      const u = new URL(h.url);
+      const domain = u.hostname.replace(/^www\./, '');
+      if (domain.toLowerCase().startsWith(lf) && (h.ts || 0) > bestTs) {
+        best = domain;
+        bestTs = h.ts || 0;
+      }
+    } catch { /* skip invalid */ }
+  }
+  // Also check common TLDs for bare words (e.g. "x" → "x.com")
+  if (!best) {
+    const tlds = ['.com', '.org', '.net', '.io', '.dev', '.ai', '.co'];
+    for (const tld of tlds) {
+      const candidate = lf + tld;
+      for (const h of browseHist) {
+        try {
+          const domain = new URL(h.url).hostname.replace(/^www\./, '').toLowerCase();
+          if (domain === candidate && (h.ts || 0) > bestTs) {
+            best = domain;
+            bestTs = h.ts || 0;
+          }
+        } catch { /* skip */ }
+      }
+      if (best) break;
+    }
+  }
+  return best;
+}
+
+function _browseUrlApplyAutocomplete(input, suggestion) {
+  if (!input) return;
+  const typed = input.value;
+  if (!suggestion || suggestion.toLowerCase() === typed.toLowerCase()) {
+    _browseUrlAutocompleteSuggestion = '';
+    return;
+  }
+  _browseUrlAutocompleteSuggestion = suggestion;
+  _browseUrlTypedLength = typed.length;
+  // Set the full suggestion as the value, then select only the suffix
+  input.value = typed + suggestion.slice(typed.length);
+  input.setSelectionRange(typed.length, suggestion.length);
+}
+
+function _browseUrlClearAutocomplete() {
+  _browseUrlAutocompleteSuggestion = '';
+  _browseUrlTypedLength = 0;
+}
+
 // Returns the active omnibox input & dropdown elements (NTP search or URL bar)
 function _getOmniInput() {
   // NTP check first: if the NTP is visible, use its search input + dropdown
@@ -154,6 +216,32 @@ function _browseUrlKeydown(e) {
     ? !!(document.getElementById('pill-url-wrap') && document.getElementById('pill-url-wrap').classList.contains('pill-dropdown-open'))
     : dd && dd.style.display !== 'none' && !dd.classList.contains('hidden');
 
+  // Backspace/Delete: clear autocomplete, keep only the typed portion
+  if ((e.key === 'Backspace' || e.key === 'Delete') && _browseUrlAutocompleteSuggestion) {
+    e.preventDefault();
+    if (input) {
+      input.value = input.value.slice(0, _browseUrlTypedLength);
+      input.setSelectionRange(_browseUrlTypedLength, _browseUrlTypedLength);
+    }
+    _browseUrlClearAutocomplete();
+    _browseUrlAcSuppressed = true;
+    // Dispatch input event so oninput handler re-renders dropdown (with suppression flag active)
+    if (input) input.dispatchEvent(new Event('input', { bubbles: true }));
+    return;
+  }
+
+  // Tab: accept inline autocomplete suggestion
+  if (e.key === 'Tab' && _browseUrlAutocompleteSuggestion) {
+    e.preventDefault();
+    if (input) {
+      input.value = _browseUrlAutocompleteSuggestion;
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+    _browseUrlClearAutocomplete();
+    _browseAutoSizeUrlInput(input);
+    return;
+  }
+
   if (e.key === 'Enter') {
     if (visible && _browseUrlHistIdx >= 0) {
       e.preventDefault();
@@ -177,6 +265,7 @@ function _browseUrlKeydown(e) {
     return;
   }
   if (!visible) return;
+  _browseUrlClearAutocomplete();
   const items = dd.querySelectorAll('[data-histq]');
   if (e.key === 'ArrowDown') {
     e.preventDefault();
@@ -201,6 +290,11 @@ function _browseUrlKeydown(e) {
     }
   } else if (e.key === 'Escape') {
     e.preventDefault();
+    // Restore just the typed portion if autocomplete was active
+    if (_browseUrlAutocompleteSuggestion && input) {
+      input.value = input.value.slice(0, _browseUrlTypedLength);
+    }
+    _browseUrlClearAutocomplete();
     _browseUrlHideHistory();
   }
 }
@@ -260,7 +354,19 @@ function _browseUrlRenderLuckyRow(dd) {
 function _browseUrlShowHistory() {
   const { input, dd, ntp } = _getOmniInput();
   if (!input || !dd) return;
-  const filter = (input.value || '').trim().toLowerCase();
+  // When autocomplete was active and user types, the selection gets replaced.
+  // Detect this: if cursor is NOT at the autocomplete boundary, user typed new input.
+  let rawVal = input.value || '';
+  if (_browseUrlAutocompleteSuggestion) {
+    if (input.selectionStart !== _browseUrlTypedLength) {
+      // User typed something new — reset autocomplete state
+      _browseUrlClearAutocomplete();
+    } else {
+      // Autocomplete still active — use only the typed portion as filter
+      rawVal = rawVal.slice(0, _browseUrlTypedLength);
+    }
+  }
+  const filter = rawVal.trim().toLowerCase();
 
   // Don't show dropdown on blank new-tab pages with no input (URL bar only, NTP always shows)
   if (!filter && !ntp) {
@@ -326,6 +432,22 @@ function _browseUrlShowHistory() {
   _computeInstantAnswer(filter);
 
   _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBrowse);
+
+  // Update inline autocomplete (Chrome-style: fill input + select suffix)
+  if (_browseUrlAcSuppressed) {
+    _browseUrlAcSuppressed = false;
+  } else if (filter && document.activeElement === input) {
+    // Only apply autocomplete if cursor is at end and no selection active from user
+    const atEnd = input.selectionStart === filter.length && input.selectionEnd === filter.length;
+    // Also apply if our own autocomplete selection is active
+    const ownAcActive = _browseUrlAutocompleteSuggestion && input.selectionStart === _browseUrlTypedLength;
+    if (atEnd || ownAcActive) {
+      const ac = _browseUrlGetAutocomplete(filter.slice(0, atEnd ? filter.length : _browseUrlTypedLength));
+      _browseUrlApplyAutocomplete(input, ac);
+    }
+  } else {
+    _browseUrlClearAutocomplete();
+  }
 }
 
 function _browseUrlRenderHistoryCommand(dd, input) {
@@ -1091,6 +1213,7 @@ function _browseUrlCancelHide() {
 }
 
 function _browseUrlHideHistory() {
+  _browseUrlClearAutocomplete();
   _browseUrlHideTimeout = null;
   const dd = document.getElementById('browse-url-history-dd');
   if (dd) dd.style.display = 'none';
