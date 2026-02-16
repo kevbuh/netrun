@@ -62,6 +62,7 @@
     Link: prims.Link,
     Image: prims.Image,
     Icon: prims.Icon,
+    RawHTML: prims.RawHTML,
 
     // Controls
     Button: ctrls.Button,
@@ -97,7 +98,7 @@
       var names = [
         'State', 'Computed', 'Effect', 'Binding', 'batch',
         'VStack', 'HStack', 'ZStack', 'Spacer', 'Divider', 'ScrollView',
-        'Text', 'Label', 'Link', 'Image', 'Icon',
+        'Text', 'Label', 'Link', 'Image', 'Icon', 'RawHTML',
         'Button', 'TextField', 'Toggle', 'Slider', 'Picker', 'Stepper',
         'ForEach', 'List', 'Group', 'Section',
         'Sheet', 'Alert', 'Popover', 'Menu',

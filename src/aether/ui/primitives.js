@@ -222,13 +222,21 @@
     return v;
   }
 
+  // ─── RawHTML (trusted HTML string → View) ─────────────────
+
+  function RawHTML(htmlString) {
+    var v = new View('div');
+    v.el.innerHTML = htmlString || '';
+    return v;
+  }
+
   // ─── Export ───────────────────────────────────────────────
 
   window._AetherUIPrimitives = {
     VStack: VStack, HStack: HStack, ZStack: ZStack,
     Spacer: Spacer, Divider: Divider, ScrollView: ScrollView,
     Text: Text, Label: Label, Link: Link,
-    Image: Image, Icon: Icon
+    Image: Image, Icon: Icon, RawHTML: RawHTML
   };
 
 })();
