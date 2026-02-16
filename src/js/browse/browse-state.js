@@ -1,72 +1,12 @@
 // browse-state.js — Shared state for browse module
 // All state variables used across browse modules
 
-// Initialize AetherUI globals for reactive state
-if (typeof window.AetherUI !== 'undefined') {
-  const { State, Computed, Effect, batch } = window.AetherUI;
-  window._AetherBrowseState = { State, Computed, Effect, batch };
-}
-
 // Window & tab state
 let _browseWindows = []; // { id, name, tabs: [], activeTab, groups: [] }
 let _browseActiveWindow = null;
 let _browseNextWindowId = 1;
 let _browseNextTabId = 1;
 let _browseNextGroupId = 1;
-
-// ─────────────────────────────────────────────────────────────
-// Reactive state layer (Phase 2)
-// ─────────────────────────────────────────────────────────────
-let $browseWindows = null;
-let $browseActiveWindow = null;
-let $currentWindow = null;
-let $currentTabs = null;
-let $activeTab = null;
-
-function _initBrowseReactiveState() {
-  if (!window._AetherBrowseState) return;
-
-  const { State, Computed } = window._AetherBrowseState;
-
-  // Initialize reactive signals
-  $browseWindows = State(_browseWindows);
-  $browseActiveWindow = State(_browseActiveWindow);
-
-  // Computed derived state
-  $currentWindow = Computed(() =>
-    $browseWindows.value?.find(w => w?.id === $browseActiveWindow.value) || null
-  );
-
-  $currentTabs = Computed(() => $currentWindow.value?.tabs || []);
-
-  $activeTab = Computed(() => $currentWindow.value?.activeTab || null);
-}
-
-// Initialize on load if AetherUI is available
-if (typeof window.AetherUI !== 'undefined' && document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', _initBrowseReactiveState);
-} else if (typeof window.AetherUI !== 'undefined') {
-  _initBrowseReactiveState();
-}
-
-/**
- * Update browse state reactively
- * Usage: _updateBrowseState(() => { _browseWindows.push(newWindow); });
- */
-function _updateBrowseState(fn) {
-  if (!window._AetherBrowseState) {
-    fn(); // Fallback: no reactivity
-    return;
-  }
-
-  const { batch } = window._AetherBrowseState;
-  batch(() => {
-    fn(); // Mutate the legacy state vars
-    // Update signals to trigger reactive updates
-    if ($browseWindows) $browseWindows.value = [..._browseWindows];
-    if ($browseActiveWindow) $browseActiveWindow.value = _browseActiveWindow;
-  });
-}
 
 // Group configuration
 const _BROWSE_GROUP_COLORS = ['grey','blue','red','yellow','green','pink','purple','cyan'];
