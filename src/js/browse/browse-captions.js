@@ -1,5 +1,6 @@
 // browse-captions.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+if (window.AetherUI) AetherUI.globals();
 
 // ── Closed Captions ──
 
@@ -207,41 +208,106 @@ function _showCaption(text) {
   }, 8000);
 }
 
-function _browseRenderTabHtml(t, activeTab) {
+function _browseRenderTabView(t, activeTab) {
   const active = t.id === activeTab;
   const hasAudio = _browseAudioTabs.has(t.id);
   const audioInfo = _browseAudioTabs.get(t.id);
   const isMuted = audioInfo?.muted;
-  const title = escapeHtml(t.title);
-  const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : t.blank ? _ELL_SVG.replace('class="ell-favicon"', 'class="browse-tab-favicon ell-favicon"') : '';
-  const audioIcon = hasAudio ? `<button class="browse-tab-audio ${isMuted ? 'muted' : ''}" onclick="event.stopPropagation();toggleTabMute(${t.id})" title="${isMuted ? 'Unmute' : 'Mute'}">
-    ${isMuted ? '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>' : '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>'}</button>` : '';
   const isPinned = !!t.pinned;
   const groupColor = t.groupId != null ? _browseGetGroupColor(t.groupId) : null;
-  const groupStyle = groupColor ? ` style="--group-color:${groupColor}"` : '';
+
+  const children = [];
+
+  // Favicon
+  if (t.favicon) {
+    children.push(
+      Image(t.favicon).className('browse-tab-favicon')
+        .on('error', function() { this.style.display = 'none'; })
+    );
+  } else if (t.blank) {
+    children.push(RawHTML(_ELL_SVG.replace('class="ell-favicon"', 'class="browse-tab-favicon ell-favicon"')));
+  }
+
+  // Audio button
+  if (hasAudio) {
+    const muteIcon = isMuted
+      ? '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>'
+      : '<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>';
+    children.push(
+      RawHTML('<button class="browse-tab-audio ' + (isMuted ? 'muted' : '') + '" title="' + (isMuted ? 'Unmute' : 'Mute') + '">' + muteIcon + '</button>')
+        .on('click', function(e) { e.stopPropagation(); toggleTabMute(t.id); })
+    );
+  }
+
+  // Title
+  children.push(Text(t.title || 'New Tab').className('browse-tab-title'));
+
+  // Close button
+  const closeBtn = new View('button');
+  closeBtn.el.className = 'browse-tab-close';
+  closeBtn.el.title = 'Close tab';
+  closeBtn.el.textContent = '\u00d7';
+  closeBtn.on('click', function(e) { e.stopPropagation(); browseCloseTab(t.id); });
+  children.push(closeBtn);
+
   const classes = ['browse-tab', active ? 'active' : '', hasAudio ? 'has-audio' : '', isPinned ? 'browse-tab-pinned' : '', groupColor ? 'browse-tab-grouped' : ''].filter(Boolean).join(' ');
-  return `<div class="${classes}" data-tab-id="${t.id}"${groupStyle} onclick="_focusBrowseTabBar();browseSelectTab(${t.id})">
-    ${fav}${audioIcon}<span class="browse-tab-title">${title}</span>
-    <button class="browse-tab-close" onclick="event.stopPropagation();browseCloseTab(${t.id})" title="Close tab">&times;</button>
-  </div>`;
+
+  const row = HStack(children).className(classes).attr('data-tab-id', t.id);
+  if (groupColor) row.el.style.setProperty('--group-color', groupColor);
+  row.onTap(function() { _focusBrowseTabBar(); browseSelectTab(t.id); });
+
+  return row;
 }
 
-function _browseRenderSplitPillHtml(panes, tabs, activeTab) {
+function _browseRenderTabHtml(t, activeTab) {
+  return _browseRenderTabView(t, activeTab).build().outerHTML;
+}
+
+function _browseRenderSplitPillView(panes, tabs, activeTab) {
   const focusedPaneId = _browseGetFocusedPane();
-  let inner = '';
+  const children = [];
   panes.forEach((pane, i) => {
     const t = tabs.find(tab => tab.id === pane.tabId);
     if (!t) return;
     const focused = pane.id === focusedPaneId;
-    const title = escapeHtml(t.title);
-    const fav = t.favicon ? `<img class="browse-tab-favicon" src="${escapeHtml(t.favicon)}" onerror="this.style.display='none'">` : t.blank ? _ELL_SVG.replace('class="ell-favicon"', 'class="browse-tab-favicon ell-favicon"') : '';
-    inner += `<div class="browse-split-pill-tab${focused ? ' focused' : ''}" data-tab-id="${t.id}" data-pane-id="${pane.id}" onclick="event.stopPropagation();_browseFocusPane(${pane.id})">
-      ${fav}<span class="browse-tab-title">${title}</span>
-      <button class="browse-tab-close" onclick="event.stopPropagation();browseUnsplitPane(${pane.id})" title="Close split pane">&times;</button>
-    </div>`;
-    if (i < panes.length - 1) inner += '<div class="browse-split-pill-sep"></div>';
+
+    const tabChildren = [];
+    // Favicon
+    if (t.favicon) {
+      tabChildren.push(
+        Image(t.favicon).className('browse-tab-favicon')
+          .on('error', function() { this.style.display = 'none'; })
+      );
+    } else if (t.blank) {
+      tabChildren.push(RawHTML(_ELL_SVG.replace('class="ell-favicon"', 'class="browse-tab-favicon ell-favicon"')));
+    }
+    // Title
+    tabChildren.push(Text(t.title || 'New Tab').className('browse-tab-title'));
+    // Close
+    const closeBtn = new View('button');
+    closeBtn.el.className = 'browse-tab-close';
+    closeBtn.el.title = 'Close split pane';
+    closeBtn.el.textContent = '\u00d7';
+    closeBtn.on('click', function(e) { e.stopPropagation(); browseUnsplitPane(pane.id); });
+    tabChildren.push(closeBtn);
+
+    const paneView = HStack(tabChildren)
+      .className('browse-split-pill-tab' + (focused ? ' focused' : ''))
+      .attr('data-tab-id', t.id)
+      .attr('data-pane-id', pane.id)
+      .onTap(function(e) { e.stopPropagation(); _browseFocusPane(pane.id); });
+    children.push(paneView);
+
+    if (i < panes.length - 1) {
+      children.push(new View('div').className('browse-split-pill-sep'));
+    }
   });
-  return `<div class="browse-split-pill active" data-split-pill="1">${inner}</div>`;
+
+  return HStack(children).className('browse-split-pill active').attr('data-split-pill', '1');
+}
+
+function _browseRenderSplitPillHtml(panes, tabs, activeTab) {
+  return _browseRenderSplitPillView(panes, tabs, activeTab).build().outerHTML;
 }
 
 function _browseGetGroupColor(groupId) {

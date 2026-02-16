@@ -1,5 +1,6 @@
 // browse-island.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+if (window.AetherUI) AetherUI.globals();
 
 // ── Island mode tab renderer ──
 
@@ -116,29 +117,26 @@ function _showHistoryDropdown(direction, buttonEl) {
   const stack = direction === 'back' ? (tab.backStack || []) : (tab.forwardStack || []);
   if (!stack.length) return;
   _hideHistoryDropdownNow();
-  const dd = document.createElement('div');
-  dd.className = 'browse-history-dropdown nr-menu';
-  dd.onmouseenter = () => clearTimeout(_historyDropdownHideTimer);
-  dd.onmouseleave = () => _scheduleHideHistoryDropdown();
+
   // Show most recent first
   const items = stack.slice().reverse().slice(0, 15);
-  items.forEach((url, i) => {
-    const row = document.createElement('div');
-    row.className = 'browse-history-dropdown-item nr-menu-item';
-    const fav = document.createElement('img');
-    fav.src = _browseFaviconUrl(url);
-    fav.width = 14; fav.height = 14;
-    fav.style.cssText = 'border-radius:2px;flex-shrink:0;';
-    fav.onerror = function() { this.style.display = 'none'; };
-    const label = document.createElement('span');
-    label.textContent = _browseTitleFromUrl(url);
-    label.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-    row.appendChild(fav);
-    row.appendChild(label);
-    row.onclick = () => { _historyDropdownNavigate(direction, i + 1); _hideHistoryDropdownNow(); };
-    dd.appendChild(row);
+  const rows = items.map(function(url, i) {
+    var favImg = Image(_browseFaviconUrl(url))
+      .frame({ width: 14, height: 14 }).cornerRadius('xs')
+      .style('flexShrink', '0')
+      .on('error', function() { this.style.display = 'none'; });
+    var label = Text(_browseTitleFromUrl(url))
+      .style('overflow', 'hidden').style('textOverflow', 'ellipsis').style('whiteSpace', 'nowrap');
+    return HStack([favImg, label]).className('browse-history-dropdown-item nr-menu-item')
+      .onTap(function() { _historyDropdownNavigate(direction, i + 1); _hideHistoryDropdownNow(); });
   });
-  if (window.Aether && Aether.materials) Aether.materials.apply(dd, 'thin');
+
+  var ddView = VStack(rows).className('browse-history-dropdown nr-menu')
+    .material('thin')
+    .on('mouseenter', function() { clearTimeout(_historyDropdownHideTimer); })
+    .on('mouseleave', function() { _scheduleHideHistoryDropdown(); });
+
+  var dd = ddView.build();
   document.body.appendChild(dd);
   _historyDropdownEl = dd;
   // Position below the button
@@ -190,62 +188,68 @@ function _showTabsInPillDropdown() {
   const pinnedItems = tabs.filter(function(t) { return t.pinned; });
   const unpinnedItems = tabs.filter(function(t) { return !t.pinned; }).slice().sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
 
-  const rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--nr-text-primary);transition:background 0.1s;';
+  var rowBase = { gap: '8px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--nr-text-primary)', transition: 'background 0.1s' };
 
-  let html = '<div style="' + rowStyle + '" onmouseenter="this.style.background=\'var(--nr-bg-raised)\'" onmouseleave="this.style.background=\'none\'" data-pill-tab-new="1">';
-  html += '<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>';
-  html += '<span>New tab</span></div>';
+  function _ddRow(children, opts) {
+    opts = opts || {};
+    var row = HStack(children).alignment('center');
+    Object.assign(row.el.style, rowBase);
+    if (opts.bg) row.el.style.background = opts.bg;
+    row.onHover(
+      function() { row.el.style.background = 'var(--nr-bg-raised)'; },
+      function() { row.el.style.background = opts.bg || 'none'; }
+    );
+    return row;
+  }
 
-  function renderTab(t) {
-    const isActive = t.id === activeTab;
-    const title = (t.title || 'New Tab').length > 40 ? (t.title || 'New Tab').slice(0, 38) + '\u2026' : (t.title || 'New Tab');
-    const fav = t.favicon ? '<img src="' + escapeHtml(t.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-    const bg = isActive ? 'background:var(--nr-bg-raised);' : '';
-    html += '<div style="' + rowStyle + bg + '" onmouseenter="this.style.background=\'var(--nr-bg-raised)\'" onmouseleave="this.style.background=\'' + (isActive ? 'var(--nr-bg-raised)' : 'none') + '\'" data-pill-tab-switch="' + t.id + '">';
-    html += fav;
-    html += '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(title) + '</span>';
-    html += '<button data-pill-tab-close="' + t.id + '" style="background:none;border:none;cursor:pointer;color:var(--nr-text-quaternary);font-size:1rem;line-height:1;padding:0 2px;opacity:0.5" onmouseenter="this.style.opacity=\'1\'" onmouseleave="this.style.opacity=\'0.5\'">&times;</button>';
-    html += '</div>';
+  var globeSvg = '<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+
+  var views = [];
+
+  // New tab row
+  var newTabIcon = RawHTML('<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>');
+  views.push(_ddRow([newTabIcon, Text('New tab')]).onTap(function() {
+    if (typeof browseNewTab === 'function') browseNewTab();
+    _browseUrlHideHistory();
+  }));
+
+  function renderTabView(t) {
+    var isActive = t.id === activeTab;
+    var title = (t.title || 'New Tab').length > 40 ? (t.title || 'New Tab').slice(0, 38) + '\u2026' : (t.title || 'New Tab');
+    var favView = t.favicon
+      ? Image(t.favicon).frame({ width: 14, height: 14 }).cornerRadius('xs').style('flexShrink', '0')
+          .on('error', function() { this.style.display = 'none'; })
+      : RawHTML(globeSvg);
+    var titleView = Text(title).style('flex', '1').style('minWidth', '0')
+      .style('overflow', 'hidden').style('textOverflow', 'ellipsis').style('whiteSpace', 'nowrap');
+    var closeBtn = Text('\u00d7').foreground('quaternary').style('fontSize', '1rem')
+      .style('lineHeight', '1').style('padding', '0 2px').opacity(0.5)
+      .onHover(function() { closeBtn.el.style.opacity = '1'; }, function() { closeBtn.el.style.opacity = '0.5'; })
+      .onTap(function(e) {
+        e.stopPropagation();
+        if (typeof browseCloseTab === 'function') browseCloseTab(t.id);
+        setTimeout(_showTabsInPillDropdown, 50);
+      });
+    var row = _ddRow([favView, titleView, closeBtn], { bg: isActive ? 'var(--nr-bg-raised)' : '' });
+    row.onTap(function() {
+      if (typeof browseSelectTab === 'function') browseSelectTab(t.id);
+      _browseUrlHideHistory();
+    });
+    return row;
   }
 
   if (pinnedItems.length) {
-    pinnedItems.forEach(renderTab);
-    if (unpinnedItems.length) html += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 12px"></div>';
+    pinnedItems.forEach(function(t) { views.push(renderTabView(t)); });
+    if (unpinnedItems.length) {
+      views.push(new View('div').style('height', '1px').style('background', 'var(--aether-border, var(--nr-border-default))').style('margin', '2px 12px'));
+    }
   }
-  unpinnedItems.forEach(renderTab);
+  unpinnedItems.forEach(function(t) { views.push(renderTabView(t)); });
 
-  dd.innerHTML = html;
+  AetherUI.mount(VStack(views), dd);
   dd.style.display = '';
   dd.classList.remove('hidden');
   wrap.classList.add('pill-dropdown-open');
-
-  // Attach click handlers via delegation
-  dd.onclick = function(e) {
-    const closeBtn = e.target.closest('[data-pill-tab-close]');
-    if (closeBtn) {
-      e.stopPropagation();
-      const id = +closeBtn.getAttribute('data-pill-tab-close');
-      if (typeof browseCloseTab === 'function') browseCloseTab(id);
-      // Re-render after close
-      setTimeout(_showTabsInPillDropdown, 50);
-      return;
-    }
-    const newBtn = e.target.closest('[data-pill-tab-new]');
-    if (newBtn) {
-      e.stopPropagation();
-      if (typeof browseNewTab === 'function') browseNewTab();
-      _browseUrlHideHistory();
-      return;
-    }
-    const switchBtn = e.target.closest('[data-pill-tab-switch]');
-    if (switchBtn) {
-      e.stopPropagation();
-      const id = +switchBtn.getAttribute('data-pill-tab-switch');
-      if (typeof browseSelectTab === 'function') browseSelectTab(id);
-      _browseUrlHideHistory();
-      return;
-    }
-  };
 
   // Close when clicking outside or when webview steals focus
   _pillTabsDropdownCleanup();
@@ -255,7 +259,6 @@ function _showTabsInPillDropdown() {
     _pillTabsDropdownCleanup();
   }
   function _onBlur() {
-    // Delay to distinguish real blur from transient focus shifts
     _pillTabsBlurTimer = setTimeout(function() {
       var w = document.getElementById('pill-url-wrap');
       if (w && w.classList.contains('pill-dropdown-open')) {
@@ -377,7 +380,6 @@ function _browseRenderTabs() {
   const groups = win ? (win.groups || []) : [];
 
   // Sync the Dynamic Island tabs pill only in island mode
-  // (horizontal mode shows tabs inline, so the pill is redundant)
   if (isIsland) {
     _islandSyncTabs();
   } else {
@@ -391,27 +393,20 @@ function _browseRenderTabs() {
   }
   if (!bar) return;
 
+  const views = [];
 
   // Split into pinned (left) and unpinned (right)
   const pinned = tabs.filter(t => t.pinned);
   const unpinned = tabs.filter(t => !t.pinned);
 
-  const renderTab = _browseRenderTabHtml;
-  const pinSepClass = 'browse-tab-pin-separator';
-  const groupChipClass = 'browse-tab-group-chip';
-
-  // Build pinned section
-  let html = '';
-  html += pinned.map(t => renderTab(t, activeTab)).join('');
+  pinned.forEach(t => views.push(_browseRenderTabView(t, activeTab)));
   if (pinned.length > 0 && unpinned.length > 0) {
-    html += `<div class="${pinSepClass}"></div>`;
+    views.push(new View('div').className('browse-tab-pin-separator'));
   }
 
   // Sort unpinned: grouped tabs contiguous by group, ungrouped at end
   const groupedIds = new Set(groups.map(g => g.id));
   const groupOrder = groups.map(g => g.id);
-  const sortedUnpinned = [];
-  // Collect tabs per group (preserve relative order within group)
   const byGroup = new Map();
   const ungrouped = [];
   for (const t of unpinned) {
@@ -433,19 +428,26 @@ function _browseRenderTabs() {
     const gTabs = byGroup.get(gid);
     if (!gTabs || !gTabs.length) continue;
     const gc = _BROWSE_GROUP_COLOR_MAP[group.color] || group.color;
-    html += `<div class="${groupChipClass}" style="--group-color:${gc}" data-group-id="${gid}" onclick="_browseToggleGroupCollapse(${gid})" oncontextmenu="event.preventDefault();_browseShowGroupContextMenu(event,${gid})">
-      <span class="browse-tab-group-name">${escapeHtml(group.name)}</span>
-      <span class="browse-tab-group-count">${gTabs.length}</span>
-    </div>`;
+
+    const chip = HStack([
+      Text(group.name).className('browse-tab-group-name'),
+      Text(String(gTabs.length)).className('browse-tab-group-count')
+    ]).className('browse-tab-group-chip')
+      .attr('data-group-id', gid)
+      .onTap(function() { _browseToggleGroupCollapse(gid); })
+      .on('contextmenu', function(e) { e.preventDefault(); _browseShowGroupContextMenu(e, gid); });
+    chip.el.style.setProperty('--group-color', gc);
+    views.push(chip);
+
     if (!group.collapsed) {
       for (const t of gTabs) {
         if (splitTabIds.has(t.id)) {
           if (!splitPillInserted) {
-            html += _browseRenderSplitPillHtml(splitPanes, tabs, activeTab);
+            views.push(_browseRenderSplitPillView(splitPanes, tabs, activeTab));
             splitPillInserted = true;
           }
         } else {
-          html += renderTab(t, activeTab);
+          views.push(_browseRenderTabView(t, activeTab));
         }
       }
     }
@@ -453,22 +455,20 @@ function _browseRenderTabs() {
   for (const t of ungrouped) {
     if (splitTabIds.has(t.id)) {
       if (!splitPillInserted) {
-        html += _browseRenderSplitPillHtml(splitPanes, tabs, activeTab);
+        views.push(_browseRenderSplitPillView(splitPanes, tabs, activeTab));
         splitPillInserted = true;
       }
-      // Skip individual render — it's in the pill
     } else {
-      html += renderTab(t, activeTab);
+      views.push(_browseRenderTabView(t, activeTab));
     }
   }
 
-  bar.innerHTML = html;
+  AetherUI.mount(HStack(views), bar);
 
   // Attach tab drag-to-reorder handlers
   bar.querySelectorAll('.browse-tab').forEach(tabEl => {
     tabEl.addEventListener('mousedown', _tabDragStart);
   });
-  // Attach drag handler on the split pill (handles reorder + unsplit + click-to-focus)
   bar.querySelectorAll('.browse-split-pill').forEach(pillEl => {
     pillEl.addEventListener('mousedown', _splitPillDragStart);
   });
@@ -754,32 +754,56 @@ function _browseShowGroupContextMenu(e, groupId) {
   const group = (win.groups || []).find(g => g.id === groupId);
   if (!group) return;
 
-  const colorDots = _BROWSE_GROUP_COLORS.map(c => {
-    const hex = _BROWSE_GROUP_COLOR_MAP[c];
-    const sel = c === group.color ? ' browse-ctx-color-selected' : '';
-    return `<span class="browse-ctx-color-dot${sel}" style="background:${hex}" onclick="event.stopPropagation();_browseDismissTabContextMenu();_browseChangeGroupColor(${groupId},'${c}')"></span>`;
-  }).join('');
+  // Color dots
+  var dots = _BROWSE_GROUP_COLORS.map(function(c) {
+    var hex = _BROWSE_GROUP_COLOR_MAP[c];
+    var dot = new View('span').className('browse-ctx-color-dot' + (c === group.color ? ' browse-ctx-color-selected' : ''));
+    dot.el.style.background = hex;
+    dot.onTap(function(ev) {
+      ev.stopPropagation();
+      _browseDismissTabContextMenu();
+      _browseChangeGroupColor(groupId, c);
+    });
+    return dot;
+  });
 
-  const items = [
-    `<div class="browse-ctx-item" onclick="event.stopPropagation();_browseDismissTabContextMenu();setTimeout(()=>{const c=document.querySelector('.browse-tab-group-chip[data-group-id=\\'${groupId}\\'] .browse-tab-group-name');if(c)_browseStartRenameGroup(${groupId},c);},50)">Rename</div>`,
-    `<div class="browse-ctx-colors">${colorDots}</div>`,
-    '<div class="browse-ctx-sep"></div>',
-    `<div class="browse-ctx-item" onclick="_browseDismissTabContextMenu();_browseUngroupAll(${groupId})">Ungroup all</div>`,
-    `<div class="browse-ctx-item" onclick="_browseDismissTabContextMenu();_browseCloseGroup(${groupId})">Close group</div>`
+  var menuItems = [
+    // Rename
+    new View('div').className('browse-ctx-item')
+      ._bindText('Rename')
+      .onTap(function(ev) {
+        ev.stopPropagation();
+        _browseDismissTabContextMenu();
+        setTimeout(function() {
+          var c = document.querySelector('.browse-tab-group-chip[data-group-id="' + groupId + '"] .browse-tab-group-name');
+          if (c) _browseStartRenameGroup(groupId, c);
+        }, 50);
+      }),
+    // Color dots row
+    HStack(dots).className('browse-ctx-colors'),
+    // Separator
+    new View('div').className('browse-ctx-sep'),
+    // Ungroup all
+    new View('div').className('browse-ctx-item')
+      ._bindText('Ungroup all')
+      .onTap(function() { _browseDismissTabContextMenu(); _browseUngroupAll(groupId); }),
+    // Close group
+    new View('div').className('browse-ctx-item')
+      ._bindText('Close group')
+      .onTap(function() { _browseDismissTabContextMenu(); _browseCloseGroup(groupId); })
   ];
 
-  const menu = document.createElement('div');
-  menu.className = 'browse-ctx-menu nr-menu';
-  menu.innerHTML = items.join('');
-  menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:10002;`;
-  if (window.Aether && Aether.materials) Aether.materials.apply(menu, 'thick');
+  var menuView = VStack(menuItems).className('browse-ctx-menu nr-menu').material('thick')
+    .style('position', 'fixed').style('left', e.clientX + 'px').style('top', e.clientY + 'px').zIndex('max');
+
+  var menu = menuView.build();
   document.body.appendChild(menu);
 
-  const rect = menu.getBoundingClientRect();
+  var rect = menu.getBoundingClientRect();
   if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 4) + 'px';
   if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 4) + 'px';
 
-  setTimeout(() => {
+  setTimeout(function() {
     document.addEventListener('mousedown', _browseDismissTabContextMenu, { once: true });
   }, 0);
 }
