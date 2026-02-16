@@ -10,7 +10,9 @@ function browseCreateWindow(name) {
     name = `Window ${n}`;
   }
   const win = { id, name, tabs: [], activeTab: null, groups: [] };
-  _browseWindows.push(win);
+  _updateBrowseState(() => {
+    _browseWindows.push(win);
+  });
   browseSelectWindow(id);
   browseNewTab(); // Create initial tab
   _browseSaveTabs();
@@ -26,7 +28,9 @@ function browseSelectWindow(id) {
     w.tabs.forEach(t => { if (t.el) t.el.style.display = 'none'; });
   });
 
-  _browseActiveWindow = id;
+  _updateBrowseState(() => {
+    _browseActiveWindow = id;
+  });
   _browseRenderTabs();
 
   // Show active tab of this window
@@ -46,11 +50,14 @@ function browseCloseWindow(id) {
   const win = _browseWindows[idx];
   // Remove all tab elements
   win.tabs.forEach(t => { if (t.el) t.el.remove(); });
-  _browseWindows.splice(idx, 1);
-  _browseNextWindowId = _browseWindows.length ? Math.max(..._browseWindows.map(w => w.id)) + 1 : 1;
-  // Renumber auto-named windows (Window 1, Window 2, ...) to close gaps
-  let n = 1;
-  _browseWindows.forEach(w => { if (/^Window \d+$/.test(w.name)) w.name = `Window ${n++}`; });
+
+  _updateBrowseState(() => {
+    _browseWindows.splice(idx, 1);
+    _browseNextWindowId = _browseWindows.length ? Math.max(..._browseWindows.map(w => w.id)) + 1 : 1;
+    // Renumber auto-named windows (Window 1, Window 2, ...) to close gaps
+    let n = 1;
+    _browseWindows.forEach(w => { if (/^Window \d+$/.test(w.name)) w.name = `Window ${n++}`; });
+  });
 
   if (_browseWindows.length === 0) {
     browseCreateWindow();
@@ -250,17 +257,19 @@ function browseNewTab(url) {
 
   const tab = { id, url: resolved, title: isBlank ? 'New Tab' : _browseTitleFromUrl(resolved), favicon: isBlank ? '' : _browseFaviconUrl(resolved), el, blank: isBlank, backStack: [], forwardStack: [] };
   // Island mode: new tabs at top; horizontal: insert after active
-  if (_browseTabLayout === 'island') {
-    const firstUnpinned = win.tabs.findIndex(t => !t.pinned);
-    if (firstUnpinned >= 0) win.tabs.splice(firstUnpinned, 0, tab);
-    else win.tabs.push(tab);
-  } else if (isBlank) {
-    win.tabs.push(tab);
-  } else {
-    const activeIdx = win.tabs.findIndex(t => t.id === win.activeTab);
-    if (activeIdx >= 0) win.tabs.splice(activeIdx + 1, 0, tab);
-    else win.tabs.push(tab);
-  }
+  _updateBrowseState(() => {
+    if (_browseTabLayout === 'island') {
+      const firstUnpinned = win.tabs.findIndex(t => !t.pinned);
+      if (firstUnpinned >= 0) win.tabs.splice(firstUnpinned, 0, tab);
+      else win.tabs.push(tab);
+    } else if (isBlank) {
+      win.tabs.push(tab);
+    } else {
+      const activeIdx = win.tabs.findIndex(t => t.id === win.activeTab);
+      if (activeIdx >= 0) win.tabs.splice(activeIdx + 1, 0, tab);
+      else win.tabs.push(tab);
+    }
+  });
   if (el) _browseBindFrame(tab);
   if (!isBlank && resolved) _saveBrowseVisit(resolved, tab.title);
 

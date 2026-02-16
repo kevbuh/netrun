@@ -289,7 +289,9 @@ function browseSelectTab(id) {
   if (_browseIsSplitMode()) {
     const panes = _browseGetSplitPanes();
     const paneWithTab = panes.find(p => p.tabId === id);
-    win.activeTab = id;
+    _updateBrowseState(() => {
+      win.activeTab = id;
+    });
     const splitTab = win.tabs.find(t => t.id === id);
     if (splitTab) splitTab.lastVisited = Date.now();
     if (paneWithTab) {
@@ -340,7 +342,9 @@ function browseSelectTab(id) {
   // Clear scroll pill when switching tabs
   _browseUpdateScrollPill(-1);
 
-  win.activeTab = id;
+  _updateBrowseState(() => {
+    win.activeTab = id;
+  });
   const tab = win.tabs.find(t => t.id === id);
   // Focus timer: start/stop based on new tab's URL
   if (typeof _checkFocusTimer === 'function') _checkFocusTimer(tab ? (tab.url || '') : '');

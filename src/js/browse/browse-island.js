@@ -1,6 +1,95 @@
 // browse-island.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
 
+// ──────────────────────────────────────────────────────────
+// Phase 4: AetherUI Tab Rendering (Feature Flag)
+// ──────────────────────────────────────────────────────────
+const USE_AETHER_TABS = localStorage.getItem('useAetherTabs') === 'true';
+
+/**
+ * Render horizontal tab bar with AetherUI
+ * Simple version without drag-drop (can add later)
+ */
+function _browseRenderTabsAether() {
+  if (!window.AetherUI || !BrowseTabPill || !BrowseTabGroup) return;
+  AetherUI.globals();
+
+  const bar = document.getElementById('browse-tabs');
+  if (!bar) return;
+
+  const win = _getCurrentWindow();
+  if (!win) { bar.innerHTML = ''; return; }
+
+  const tabs = win.tabs || [];
+  const activeTabId = win.activeTab;
+  const groups = win.groups || [];
+
+  // Split into pinned/unpinned
+  const pinned = tabs.filter(t => t.pinned);
+  const unpinned = tabs.filter(t => !t.pinned);
+
+  const items = [];
+
+  // Add pinned tabs
+  pinned.forEach(t => {
+    items.push(
+      BrowseTabPill(t, t.id === activeTabId, () => browseSelectTab(t.id), () => browseCloseTab(t.id))
+    );
+  });
+
+  // Add separator if needed
+  if (pinned.length > 0 && unpinned.length > 0) {
+    items.push(
+      new View('div')
+        .className('browse-tab-pin-separator')
+        .frame({ width: 1, height: 24 })
+        .background('dim')
+    );
+  }
+
+  // Add groups with tabs
+  for (const group of groups) {
+    const groupTabs = unpinned.filter(t => t.groupId === group.id);
+    if (groupTabs.length === 0) continue;
+
+    items.push(
+      BrowseTabGroup(
+        group,
+        groupTabs,
+        () => _browseToggleGroupCollapse(group.id),
+        (e) => _browseShowGroupContextMenu(e, group.id)
+      )
+    );
+
+    // Render tabs in group if not collapsed
+    if (!group.collapsed) {
+      groupTabs.forEach(t => {
+        items.push(
+          BrowseTabPill(t, t.id === activeTabId, () => browseSelectTab(t.id), () => browseCloseTab(t.id))
+        );
+      });
+    }
+  }
+
+  // Add ungrouped tabs
+  unpinned
+    .filter(t => !t.groupId || !groups.find(g => g.id === t.groupId))
+    .forEach(t => {
+      items.push(
+        BrowseTabPill(t, t.id === activeTabId, () => browseSelectTab(t.id), () => browseCloseTab(t.id))
+      );
+    });
+
+  // Mount all items in horizontal stack
+  AetherUI.mount(
+    HStack(...items)
+      .spacing(1)
+      .alignment('center')
+      .padding(2, 1),
+    bar
+  );
+}
+
 // ── Island mode tab renderer ──
 
 function toggleBrowseTabLayout() {
@@ -390,6 +479,14 @@ function _browseRenderTabs() {
     return;
   }
   if (!bar) return;
+
+  // ─ Phase 4: Use AetherUI rendering if flag enabled
+  if (USE_AETHER_TABS && window.AetherUI) {
+    _browseRenderTabsAether();
+    if (_pillBrowseMode) _pillSyncTabs();
+    return;
+  }
+  // ─
 
 
   // Split into pinned (left) and unpinned (right)
