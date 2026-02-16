@@ -1,5 +1,7 @@
 // ── Vault (Obsidian-style notes + projects) ──
 
+if (window.AetherUI) AetherUI.globals();
+
 let _vaultNotes = [];
 let _vaultTree = []; // Full recursive file tree from /api/vault/tree
 let _vaultCurrentNote = null;
@@ -327,7 +329,7 @@ function renderVaultFileTree(filter = '') {
     });
   }
 
-  container.innerHTML = html || '<div class="text-dimmer text-[0.75rem] px-3 py-2">No files yet</div>';
+  AetherUI.mount(RawHTML(html || '<div class="text-dimmer text-[0.75rem] px-3 py-2">No files yet</div>'), container);
 
   // Setup root drop zone for moving notes out of folders
   container.ondragover = (e) => { e.preventDefault(); container.classList.add('vault-drop-target'); };
@@ -674,14 +676,14 @@ async function openVaultNote(noteId) {
         } catch (e) {
           if (attempts > 30) { // ~15 seconds
             clearInterval(poll);
-            if (loading) loading.innerHTML = '<div class="text-dimmer text-sm">Failed to start marimo. Is it installed?</div>';
+            if (loading) AetherUI.mount(RawHTML('<div class="text-dimmer text-sm">Failed to start marimo. Is it installed?</div>'), loading);
           }
         }
       }, 500);
     } catch (e) {
       console.error('Failed to start marimo', e);
       const loading = document.getElementById('vault-marimo-loading');
-      if (loading) loading.innerHTML = '<div class="text-dimmer text-sm">Failed to start marimo server</div>';
+      if (loading) AetherUI.mount(RawHTML('<div class="text-dimmer text-sm">Failed to start marimo server</div>'), loading);
     }
   } else {
     // Regular note — hide marimo, show editor/preview
@@ -718,9 +720,9 @@ function clearVaultEditor() {
   document.getElementById('vault-note-title').value = '';
   document.getElementById('vault-editor').value = '';
   const blList = document.getElementById('vault-backlinks-list');
-  if (blList) blList.innerHTML = '<div class="text-dimmer text-[0.75rem] px-3">No backlinks</div>';
+  if (blList) AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem] px-3">No backlinks</div>'), blList);
   const tgList = document.getElementById('vault-tags-list');
-  if (tgList) tgList.innerHTML = '<div class="text-dimmer text-[0.75rem] px-3">No tags</div>';
+  if (tgList) AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem] px-3">No tags</div>'), tgList);
   const pubSection = document.getElementById('vault-published-section');
   if (pubSection) pubSection.style.display = 'none';
   // Reset publish button
@@ -1382,7 +1384,7 @@ function updateVaultPreview() {
   }
 
   html += renderVaultMarkdown(content);
-  preview.innerHTML = html;
+  AetherUI.mount(RawHTML(html), preview);
 }
 
 // Render markdown with wiki links
@@ -1487,14 +1489,14 @@ function updateVaultBacklinks() {
   });
 
   if (backlinks.length === 0) {
-    container.innerHTML = '<div class="text-dimmer text-[0.75rem] px-3">No backlinks</div>';
+    AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem] px-3">No backlinks</div>'), container);
   } else {
-    container.innerHTML = backlinks.map(bl => `
+    AetherUI.mount(RawHTML(backlinks.map(bl => `
       <div class="vault-backlink-item" onclick="openVaultNote('${bl.note.id}')">
         <div class="vault-backlink-title">${escapeHtml(bl.note.title)}</div>
         <div class="vault-backlink-context">${escapeHtml(bl.context)}</div>
       </div>
-    `).join('');
+    `).join('')), container);
   }
 }
 
@@ -1508,11 +1510,11 @@ function updateVaultTags() {
   const tags = [...new Set(tagMatches)];
 
   if (tags.length === 0) {
-    container.innerHTML = '<div class="text-dimmer text-[0.75rem] px-3">No tags</div>';
+    AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem] px-3">No tags</div>'), container);
   } else {
-    container.innerHTML = '<div class="px-2">' + tags.map(tag => `
+    AetherUI.mount(RawHTML('<div class="px-2">' + tags.map(tag => `
       <span class="vault-tag-item" onclick="vaultFilterByTag('${tag.slice(1)}')">${escapeHtml(tag)}</span>
-    `).join('') + '</div>';
+    `).join('') + '</div>'), container);
   }
 }
 
@@ -1697,7 +1699,7 @@ function renderVaultGraph() {
   const width = container.clientWidth || 600;
   const height = container.clientHeight || 400;
 
-  container.innerHTML = `<canvas id="vault-graph-canvas" width="${width}" height="${height}"></canvas>`;
+  AetherUI.mount(RawHTML(`<canvas id="vault-graph-canvas" width="${width}" height="${height}"></canvas>`), container);
   const canvas = document.getElementById('vault-graph-canvas');
   const ctx = canvas.getContext('2d');
 
@@ -1910,13 +1912,13 @@ function updateVaultPublishButton() {
         ? new Date(_vaultCurrentNote.published_at * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : '';
       section.style.display = '';
-      info.innerHTML = `
+      AetherUI.mount(RawHTML(`
         <div class="vault-published-date">${pubDate}</div>
         <a href="${url}" class="vault-published-link" onclick="location.hash='${url}';return false;">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
           View published post
         </a>
-      `;
+      `), info);
     } else {
       section.style.display = 'none';
     }
@@ -1929,7 +1931,7 @@ function updateVaultPublishButton() {
 function vaultShowPublishModal(url) {
   const modal = document.createElement('div');
   modal.className = 'nr-modal-backdrop';
-  modal.innerHTML = `
+  AetherUI.mount(RawHTML(`
     <div class="nr-modal" style="max-width:400px">
       <div class="nr-modal-header"><span class="nr-modal-title">Published!</span></div>
       <div class="nr-modal-body">
@@ -1944,7 +1946,7 @@ function vaultShowPublishModal(url) {
         <button class="nr-btn nr-btn-ghost" onclick="this.closest('.nr-modal-backdrop').remove()">Close</button>
       </div>
     </div>
-  `;
+  `), modal);
   document.body.appendChild(modal);
   modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 }
@@ -1963,7 +1965,7 @@ async function openBlogPost(username, slug) {
 
   // Load blog post
   document.getElementById('blog-title').textContent = 'Loading...';
-  document.getElementById('blog-content').innerHTML = '';
+  AetherUI.mount(RawHTML(''), document.getElementById('blog-content'));
   document.getElementById('blog-author').textContent = '';
   document.getElementById('blog-date').textContent = '';
 
@@ -1971,11 +1973,11 @@ async function openBlogPost(username, slug) {
     const post = await apiGet(`/api/blog/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`);
     _currentBlogPost = post;
     document.getElementById('blog-title').textContent = post.title;
-    document.getElementById('blog-content').innerHTML = renderBlogMarkdown(post.content);
-    document.getElementById('blog-author').innerHTML = `
+    AetherUI.mount(RawHTML(renderBlogMarkdown(post.content)), document.getElementById('blog-content'));
+    AetherUI.mount(RawHTML(`
       ${post.picture ? `<img src="${escapeAttr(post.picture)}" class="blog-author-pic">` : ''}
       <a href="#profile/${encodeURIComponent(post.author)}">${escapeHtml(post.author)}</a>
-    `;
+    `), document.getElementById('blog-author'));
     if (post.published_at) {
       document.getElementById('blog-date').textContent = new Date(post.published_at * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     }
@@ -1988,7 +1990,7 @@ async function openBlogPost(username, slug) {
     if (unpostBtn) unpostBtn.style.display = isAuthor ? '' : 'none';
   } catch (e) {
     document.getElementById('blog-title').textContent = 'Post not found';
-    document.getElementById('blog-content').innerHTML = '<p>This post may have been unpublished or deleted.</p>';
+    AetherUI.mount(RawHTML('<p>This post may have been unpublished or deleted.</p>'), document.getElementById('blog-content'));
     const unpostBtn = document.getElementById('blog-unpost-btn');
     if (unpostBtn) unpostBtn.style.display = 'none';
   }
@@ -2229,7 +2231,7 @@ function renderBlogComments() {
   if (countEl) countEl.textContent = _blogComments.length;
 
   if (!_blogComments.length) {
-    list.innerHTML = '<div class="blog-comments-empty">No comments yet. Be the first to comment!</div>';
+    AetherUI.mount(RawHTML('<div class="blog-comments-empty">No comments yet. Be the first to comment!</div>'), list);
     return;
   }
 
@@ -2276,7 +2278,7 @@ function renderBlogComments() {
     return html;
   }
 
-  list.innerHTML = topLevel.map(c => renderComment(c)).join('');
+  AetherUI.mount(RawHTML(topLevel.map(c => renderComment(c)).join('')), list);
 }
 
 function _blogRelativeTime(ts) {
@@ -2352,7 +2354,7 @@ function hideBlogReplyForm(id) {
 
 // ── Universal Panel: Vault tabs ──
 function renderVaultBacklinksPanel(container) {
-  container.innerHTML = `
+  AetherUI.mount(RawHTML(`
     <div id="vault-published-section" class="vault-published-section" style="display:none;">
       <div class="vault-backlinks-header">
         <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>
@@ -2367,13 +2369,13 @@ function renderVaultBacklinksPanel(container) {
     <div id="vault-backlinks-list" class="vault-backlinks-list">
       <div class="text-dimmer text-[0.75rem] px-3">No backlinks</div>
     </div>
-  `;
+  `), container);
   updateVaultBacklinks();
   updateVaultPublishButton();
 }
 
 function renderVaultTagsPanel(container) {
-  container.innerHTML = `
+  AetherUI.mount(RawHTML(`
     <div class="vault-backlinks-header">
       <svg class="w-4 h-4 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5l-3.9 19.5m-2.1-19.5l-3.9 19.5"/></svg>
       <span class="text-[0.75rem] font-medium text-muted">Tags</span>
@@ -2381,7 +2383,7 @@ function renderVaultTagsPanel(container) {
     <div id="vault-tags-list" class="vault-tags-list">
       <div class="text-dimmer text-[0.75rem] px-3">No tags</div>
     </div>
-  `;
+  `), container);
   updateVaultTags();
 }
 
@@ -2415,14 +2417,14 @@ function clearVaultChat() {
 
 function renderVaultChatPanel(container) {
   _loadVaultChatMessages();
-  container.innerHTML = `
+  AetherUI.mount(RawHTML(`
     <div class="doc-chat-messages vault-chat-messages" id="vault-chat-msgs"></div>
     <div style="padding:6px 8px; display:flex; gap:4px; border-top:1px solid var(--border-color);">
       <input class="nr-input vault-chat-input" id="vault-chat-input" type="text" placeholder="Ask about your notes…" style="flex:1; background:var(--nr-bg-surface); color:var(--nr-text-primary); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; font-size:0.75rem; outline:none;" />
       <button id="vault-chat-send" style="background:var(--nr-accent); color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:0.7rem; cursor:pointer;">Send</button>
       <button id="vault-chat-clear" style="background:transparent; color:var(--nr-text-quaternary); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; font-size:0.7rem; cursor:pointer;" title="Clear chat">Clear</button>
     </div>
-  `;
+  `), container);
   _renderVaultChatMessages(true);
 
   const input = document.getElementById('vault-chat-input');
@@ -2440,10 +2442,10 @@ function _renderVaultChatMessages(final) {
   const container = document.getElementById('vault-chat-msgs');
   if (!container) return;
   if (_vaultChatMessages.length === 0) {
-    container.innerHTML = '<div style="padding:16px; text-align:center; color:var(--nr-text-quaternary); font-size:0.75rem;">Ask a question about your vault notes</div>';
+    AetherUI.mount(RawHTML('<div style="padding:16px; text-align:center; color:var(--nr-text-quaternary); font-size:0.75rem;">Ask a question about your vault notes</div>'), container);
     return;
   }
-  container.innerHTML = _vaultChatMessages.map((m, i) => {
+  AetherUI.mount(RawHTML(_vaultChatMessages.map((m, i) => {
     if (m.role === 'user') {
       return `<div class="doc-msg-user">${escapeHtml(m.content)}</div>`;
     }
@@ -2461,7 +2463,7 @@ function _renderVaultChatMessages(final) {
       ? marked.parse(m.content)
       : escapeHtml(m.content);
     return sourcesHtml + `<div class="doc-msg-ai">${content}</div>`;
-  }).join('');
+  }).join('')), container);
 
   // Attach click handlers for source chips
   container.querySelectorAll('.vault-chat-source-chip[data-note-id]').forEach(el => {
@@ -2562,7 +2564,7 @@ async function renderNtpVaultPanel() {
 
   _loadVaultChatMessages();
 
-  container.innerHTML = `
+  AetherUI.mount(RawHTML(`
     <div style="margin-bottom:10px;">
       <input type="text" id="ntp-vault-search" placeholder="Search notes…" autocomplete="off"
         class="w-full pl-3 pr-4 py-1.5 rounded-lg border border-border-input bg-card text-primary text-[0.8rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" />
@@ -2577,7 +2579,7 @@ async function renderNtpVaultPanel() {
         <button id="ntp-vault-chat-clear" style="background:transparent; color:var(--nr-text-quaternary); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; font-size:0.7rem; cursor:pointer;" title="Clear chat">Clear</button>
       </div>
     </div>
-  `;
+  `), container);
 
   // Render note list
   _renderNtpVaultNotes('');
@@ -2609,18 +2611,18 @@ function _renderNtpVaultNotes(filter) {
   ) : _vaultNotes;
 
   if (!filtered.length) {
-    container.innerHTML = `<div style="padding:12px; text-align:center; color:var(--nr-text-quaternary); font-size:0.75rem;">${lc ? 'No matching notes' : 'No notes yet'}</div>`;
+    AetherUI.mount(RawHTML(`<div style="padding:12px; text-align:center; color:var(--nr-text-quaternary); font-size:0.75rem;">${lc ? 'No matching notes' : 'No notes yet'}</div>`), container);
     return;
   }
 
-  container.innerHTML = filtered.slice(0, 30).map(n => {
+  AetherUI.mount(RawHTML(filtered.slice(0, 30).map(n => {
     const preview = (n.content || '').replace(/[#*_`>\-\[\]()]/g, '').replace(/\s+/g, ' ').trim();
     const snippet = preview.length > 80 ? preview.slice(0, 77) + '...' : preview;
     return `<div class="ntp-vault-note-row" data-note-id="${escapeAttr(n.id)}">` +
       `<div style="font-size:0.8rem; color:var(--nr-text-primary); font-weight:500;">${escapeHtml(n.title || 'Untitled')}</div>` +
       (snippet ? `<div style="font-size:0.7rem; color:var(--nr-text-quaternary); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(snippet)}</div>` : '') +
       `</div>`;
-  }).join('');
+  }).join('')), container);
 
   container.querySelectorAll('.ntp-vault-note-row[data-note-id]').forEach(el => {
     el.addEventListener('click', () => {
@@ -2635,10 +2637,10 @@ function _renderNtpVaultChatMessages(final) {
   const container = document.getElementById('ntp-vault-chat-msgs');
   if (!container) return;
   if (!_vaultChatMessages.length) {
-    container.innerHTML = '<div style="padding:12px; text-align:center; color:var(--nr-text-quaternary); font-size:0.75rem;">Ask a question about your notes</div>';
+    AetherUI.mount(RawHTML('<div style="padding:12px; text-align:center; color:var(--nr-text-quaternary); font-size:0.75rem;">Ask a question about your notes</div>'), container);
     return;
   }
-  container.innerHTML = _vaultChatMessages.map((m, i) => {
+  AetherUI.mount(RawHTML(_vaultChatMessages.map((m, i) => {
     if (m.role === 'user') return `<div class="doc-msg-user">${escapeHtml(m.content)}</div>`;
     if (m._thinking) return '<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>';
     let sourcesHtml = '';
@@ -2651,7 +2653,7 @@ function _renderNtpVaultChatMessages(final) {
     const content = (final || !isLast) && typeof marked !== 'undefined'
       ? marked.parse(m.content) : escapeHtml(m.content);
     return sourcesHtml + `<div class="doc-msg-ai">${content}</div>`;
-  }).join('');
+  }).join('')), container);
 
   container.querySelectorAll('.vault-chat-source-chip[data-note-id]').forEach(el => {
     el.addEventListener('click', () => {
@@ -2775,7 +2777,7 @@ async function _vaultFetchGitStatus() {
 // Terminal in right panel
 function renderVaultTerminalPanel(container) {
   if (typeof createTerminal !== 'function') {
-    container.innerHTML = '<div class="p-4 text-dimmer text-sm">Terminal not available</div>';
+    AetherUI.mount(RawHTML('<div class="p-4 text-dimmer text-sm">Terminal not available</div>'), container);
     return;
   }
   container.style.cssText = 'display:flex;flex-direction:column;overflow:hidden;height:100%;';
@@ -2785,8 +2787,7 @@ function renderVaultTerminalPanel(container) {
   }
   const pane = _vaultTerminal.container;
   pane.style.cssText = 'width:100%;flex:1;min-height:0;position:relative;';
-  container.innerHTML = '';
-  container.appendChild(pane);
+  AetherUI.mount(pane, container);
 
   if (!pane.querySelector('.xterm')) {
     _vaultTerminal.term.open(pane);
