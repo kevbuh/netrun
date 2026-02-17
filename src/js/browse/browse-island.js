@@ -1123,6 +1123,32 @@ function browseNavigate(input) {
   }
 }
 
+const _BANGS = {
+  g:        'https://www.google.com/search?q=%s',
+  ddg:      'https://duckduckgo.com/?q=%s',
+  b:        'https://www.bing.com/search?q=%s',
+  yt:       'https://www.youtube.com/results?search_query=%s',
+  w:        'https://en.wikipedia.org/wiki/Special:Search?search=%s',
+  r:        'https://www.reddit.com/search/?q=%s',
+  gh:       'https://github.com/search?q=%s',
+  so:       'https://stackoverflow.com/search?q=%s',
+  npm:      'https://www.npmjs.com/search?q=%s',
+  mdn:      'https://developer.mozilla.org/en-US/search?q=%s',
+  tw:       'https://x.com/search?q=%s',
+  twitch:   'https://www.twitch.tv/search?term=%s',
+  am:       'https://www.amazon.com/s?k=%s',
+  maps:     'https://www.google.com/maps/search/%s',
+  img:      'https://www.google.com/search?tbm=isch&q=%s',
+  imdb:     'https://www.imdb.com/find/?q=%s',
+  sp:       'https://open.spotify.com/search/%s',
+  arxiv:    'https://arxiv.org/search/?query=%s',
+  py:       'https://pypi.org/search/?q=%s',
+  crates:   'https://crates.io/search?q=%s',
+  hn:       'https://hn.algolia.com/?q=%s',
+  wa:       'https://www.wolframalpha.com/input?i=%s',
+  nix:      'https://search.nixos.org/packages?query=%s',
+};
+
 function _browseResolveUrl(input) {
   input = (input || '').trim();
   if (!input) return 'https://www.google.com';
@@ -1134,6 +1160,15 @@ function _browseResolveUrl(input) {
     if (tab && tab.url) {
       try { return new URL(input, tab.url).href; } catch {}
     }
+  }
+  // Check for bang syntax: "!g query" or "query !g"
+  const bangPrefix = input.match(/^!(\S+)\s+(.+)/);
+  const bangSuffix = input.match(/^(.+)\s+!(\S+)$/);
+  if (bangPrefix || bangSuffix) {
+    const bang = (bangPrefix ? bangPrefix[1] : bangSuffix[2]).toLowerCase();
+    const query = (bangPrefix ? bangPrefix[2] : bangSuffix[1]).trim();
+    const template = _BANGS[bang];
+    if (template) return template.replace('%s', encodeURIComponent(query));
   }
   // Detect domain-like input (e.g. "google.com") but not file extensions like "llama.cpp"
   const collapsed = input.replace(/\s+/g, '');

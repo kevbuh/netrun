@@ -2,7 +2,7 @@ import { ipcMain, BrowserWindow, shell } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { toolRegistry } from './tools/index.js';
 import type { ToolContext } from './tools/types.js';
 import { providerRegistry } from './providers/registry.js';
@@ -16,6 +16,7 @@ import * as feedQueries from './db/queries/feeds.js';
 import * as socialQueries from './db/queries/social.js';
 import * as contentQueries from './db/queries/content.js';
 import { insightPipeline } from './ambient/index.js';
+import { DEFAULT_ANNOTATION_PROMPT } from './ambient/annotation-prompt.js';
 
 import * as socialExtQueries from './db/queries/social-extended.js';
 import { getDb } from './db/connection.js';
@@ -108,6 +109,15 @@ function _resolveExpDir(googleId: string, expId: string): string | null {
   const d = path.join(vault, expId);
   if (!path.resolve(d).startsWith(path.resolve(vault) + path.sep)) return null;
   return d;
+}
+
+/** Resolve a user-supplied filename within an experiment dir, returning null if it escapes. */
+function _safePath(expDir: string, fname: string): string | null {
+  if (!fname) return null;
+  const resolved = path.resolve(expDir, fname);
+  const base = path.resolve(expDir);
+  if (resolved !== base && !resolved.startsWith(base + path.sep)) return null;
+  return resolved;
 }
 
 function _slugify(text: string): string {
@@ -560,8 +570,8 @@ export function registerToolIPC(): void {
 
   ipcMain.handle('db:exp-file-get', (_event, googleId: string, expId: string, fname: string) => {
     const expDir = _resolveExpDir(googleId, expId);
-    if (!expDir || fname.includes('..')) return { error: 'Invalid path' };
-    const fpath = path.join(expDir, fname);
+    const fpath = expDir ? _safePath(expDir, fname) : null;
+    if (!fpath) return { error: 'Invalid path' };
     if (!fs.existsSync(fpath) || !fs.statSync(fpath).isFile()) return { error: 'Not found' };
     const ext = path.extname(fname).toLowerCase();
     if (ext in BINARY_MIME) {
@@ -583,7 +593,8 @@ export function registerToolIPC(): void {
     if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
     const ALLOWED = ['.md', '.ipynb', '.py', '.tex', '.png', '.svg', '.mermaid', '.draw', '.slides'];
     if (!name || !ALLOWED.some(e => name.endsWith(e))) return { error: `Name must end with ${ALLOWED.join(', ')}` };
-    const fpath = path.join(expDir, name);
+    const fpath = _safePath(expDir, name);
+    if (!fpath) return { error: 'Invalid path' };
     if (fs.existsSync(fpath)) return { error: 'File already exists' };
     if (name.endsWith('.png') || name.endsWith('.svg')) {
       if (content) {
@@ -608,11 +619,12 @@ export function registerToolIPC(): void {
 
   ipcMain.handle('db:exp-file-update', (_event, googleId: string, expId: string, fname: string, body: { content?: string; rename?: string }) => {
     const expDir = _resolveExpDir(googleId, expId);
-    if (!expDir || fname.includes('..')) return { error: 'Invalid path' };
-    const fpath = path.join(expDir, fname);
+    const fpath = expDir ? _safePath(expDir, fname) : null;
+    if (!fpath) return { error: 'Invalid path' };
     if (body.rename) {
       if (!fs.existsSync(fpath)) return { error: 'Not found' };
-      const newPath = path.join(expDir, body.rename);
+      const newPath = expDir ? _safePath(expDir, body.rename) : null;
+      if (!newPath) return { error: 'Invalid path' };
       if (fs.existsSync(newPath)) return { error: 'File already exists' };
       fs.renameSync(fpath, newPath);
       return { ok: true, name: body.rename };
@@ -625,8 +637,8 @@ export function registerToolIPC(): void {
 
   ipcMain.handle('db:exp-file-delete', (_event, googleId: string, expId: string, fname: string) => {
     const expDir = _resolveExpDir(googleId, expId);
-    if (!expDir || fname.includes('..')) return { error: 'Invalid path' };
-    const fpath = path.join(expDir, fname);
+    const fpath = expDir ? _safePath(expDir, fname) : null;
+    if (!fpath) return { error: 'Invalid path' };
     if (!fs.existsSync(fpath) || !fs.statSync(fpath).isFile()) return { error: 'Not found' };
     fs.unlinkSync(fpath);
     return { ok: true };
@@ -635,8 +647,8 @@ export function registerToolIPC(): void {
   ipcMain.handle('db:exp-create-folder', (_event, googleId: string, expId: string, name: string) => {
     const expDir = _resolveExpDir(googleId, expId);
     if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
-    if (!name || name.includes('..') || name.includes('/')) return { error: 'Invalid folder name' };
-    const folderPath = path.join(expDir, name);
+    const folderPath = _safePath(expDir, name);
+    if (!folderPath) return { error: 'Invalid folder name' };
     if (fs.existsSync(folderPath)) return { error: 'Folder already exists' };
     fs.mkdirSync(folderPath);
     return { ok: true, name };
@@ -655,22 +667,21 @@ export function registerToolIPC(): void {
   ipcMain.handle('db:exp-rename-folder', (_event, googleId: string, expId: string, oldName: string, newName: string) => {
     const expDir = _resolveExpDir(googleId, expId);
     if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
-    if (!oldName || oldName.includes('..') || oldName.includes('/')) return { error: 'Invalid old folder name' };
-    if (!newName || newName.includes('..') || newName.includes('/')) return { error: 'Invalid new folder name' };
-    const oldPath = path.join(expDir, oldName);
-    const newPath = path.join(expDir, newName);
-    if (!fs.existsSync(oldPath) || !fs.statSync(oldPath).isDirectory()) return { error: 'Folder not found' };
-    if (fs.existsSync(newPath)) return { error: 'A folder with that name already exists' };
-    fs.renameSync(oldPath, newPath);
+    const oldFolderPath = _safePath(expDir, oldName);
+    const newFolderPath = _safePath(expDir, newName);
+    if (!oldFolderPath || !newFolderPath) return { error: 'Invalid folder name' };
+    if (!fs.existsSync(oldFolderPath) || !fs.statSync(oldFolderPath).isDirectory()) return { error: 'Folder not found' };
+    if (fs.existsSync(newFolderPath)) return { error: 'A folder with that name already exists' };
+    fs.renameSync(oldFolderPath, newFolderPath);
     return { ok: true, name: newName };
   });
 
   ipcMain.handle('db:exp-move-file', (_event, googleId: string, expId: string, oldPath: string, newFilePath: string) => {
     const expDir = _resolveExpDir(googleId, expId);
     if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
-    if (!oldPath || oldPath.includes('..') || !newFilePath || newFilePath.includes('..')) return { error: 'Invalid path' };
-    const src = path.join(expDir, oldPath);
-    const dst = path.join(expDir, newFilePath);
+    const src = _safePath(expDir, oldPath);
+    const dst = _safePath(expDir, newFilePath);
+    if (!src || !dst) return { error: 'Invalid path' };
     if (!fs.existsSync(src) || !fs.statSync(src).isFile()) return { error: 'Source file not found' };
     if (fs.existsSync(dst)) return { error: 'Destination already exists' };
     fs.mkdirSync(path.dirname(dst), { recursive: true });
@@ -680,8 +691,8 @@ export function registerToolIPC(): void {
 
   ipcMain.handle('db:exp-raw-file', (_event, googleId: string, expId: string, fname: string) => {
     const expDir = _resolveExpDir(googleId, expId);
-    if (!expDir || fname.includes('..')) return null;
-    const fpath = path.join(expDir, fname);
+    const fpath = expDir ? _safePath(expDir, fname) : null;
+    if (!fpath) return null;
     if (!fs.existsSync(fpath) || !fs.statSync(fpath).isFile()) return null;
     const ext = path.extname(fname).toLowerCase();
     const mimeMap: Record<string, string> = {
@@ -1384,11 +1395,11 @@ export function registerToolIPC(): void {
           let systemMsg: string;
           if (truncatedCtx) {
             systemMsg = toolsEnabled
-              ? dateStr + 'You are the AI assistant inside Aether, a desktop research app. Answer based on the document text below.\n\n--- DOCUMENT TEXT ---\n' + truncatedCtx + '\n--- END ---'
+              ? dateStr + 'You are the AI assistant inside Netrun, a desktop research app. Answer based on the document text below.\n\n--- DOCUMENT TEXT ---\n' + truncatedCtx + '\n--- END ---'
               : dateStr + 'You are a helpful research assistant. Answer based ONLY on the document text below.\n\n--- DOCUMENT TEXT ---\n' + truncatedCtx + '\n--- END ---';
           } else {
             systemMsg = toolsEnabled
-              ? dateStr + 'You are the AI assistant inside Aether, a desktop research app.'
+              ? dateStr + 'You are the AI assistant inside Netrun, a desktop research app.'
               : dateStr + 'You are a helpful assistant.';
           }
           if (!think) systemMsg += ' /no_think';
@@ -1688,13 +1699,7 @@ export function registerToolIPC(): void {
 
   ipcMain.handle('db:upload-image', (_event, imageB64: string) => {
     if (!imageB64) return { error: 'image required' };
-    const { v4: uuidv4 } = require('uuid') as { v4: () => string };
-    let filename: string;
-    try {
-      filename = require('crypto').randomUUID() + '.png';
-    } catch {
-      filename = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.png';
-    }
+    const filename = randomUUID() + '.png';
     const filepath = path.join(uploadsDir, filename);
     fs.writeFileSync(filepath, Buffer.from(imageB64, 'base64'));
     return { url: '/api/images/' + filename };
@@ -2532,8 +2537,8 @@ ch.postMessage({type:'preview-ready'});
 
   ipcMain.handle('db:exp-compile-tex', (_event, googleId: string, expId: string, fname: string) => {
     const expDir = _resolveExpDir(googleId, expId);
-    if (!expDir || !fname || fname.includes('..')) return { error: 'Invalid path' };
-    const fpath = path.join(expDir, fname);
+    const fpath = expDir ? _safePath(expDir, fname) : null;
+    if (!fpath) return { error: 'Invalid path' };
     if (!fs.existsSync(fpath)) return { error: 'File not found' };
     const texDir = path.dirname(fpath);
     const baseName = path.basename(fname, '.tex');
@@ -2830,26 +2835,6 @@ ch.postMessage({type:'preview-ready'});
 }
 
 // ── Helpers used by phase 4/5 handlers (outside registerToolIPC) ──
-
-const DEFAULT_ANNOTATION_PROMPT =
-  "You are a helpful assistant whose job it is twofold. First, you must point out AI slop and also point out redundant information to protect the user from potentially harmful, fearmongering, or biased sentences. At the same time, you are also in charge of highlighting IMPORTANT sentences and key ideas of the current article, book, paper, or general website page that the user is visiting. Read the page and return ONLY extremely high-signal annotations. Zero fluff. Do not point out anything that is obvious.\n\n" +
-  "Annotation types:\n" +
-  "- ALPHA — Something lowkey, an uncommon or surprising result or fact. The thing worth remembering. Only use for genuinely informative information.\n" +
-  "- CONTRADICTION — a sentence idea, or thought that shows a logical flaw. one that conflicts with previous sentences. You MUST explain the specific contradiction and why the two claims can't both be true.\n" +
-  "- AD — sponsored content, affiliate links, product placement, or advertorial disguised as editorial. Flag anything that looks like it's trying to sell you something while pretending to be informational. Do not flag pip installs.\n\n" +
-  "For each annotation provide a JSON object with:\n" +
-  '- "type": one of the types above\n' +
-  '- "quote": a passage copied EXACTLY from the page text (10-40 words). Do NOT paraphrase.\n' +
-  '- "explanation": 1-2 sentences. For ALPHA: why this matters. For CONTRADICTION: what it contradicts and why. For AD: what\'s being sold.\n' +
-  '- "confidence": 0-100 how confident you are\n' +
-  '- "conflictsWith": (only for CONTRADICTION) the sentence of the conflicting claim\n\n' +
-  "Rules:\n" +
-  "- CRITICAL: Every quote must be a VERBATIM substring of the page text. Do not change ANY words. It must be verbatim from the text.\n" +
-  "- Only use CONTRADICTION if there is a real logical flaw.\n" +
-  "- Always use AD if the sentence seems to be trying to sell a product or service.\n" +
-  "- Return 1-3 annotations for a typical page. 5-8 for longer textbooks and articles.\n" +
-  "- If the page has no key results and no ads, return an empty array [].\n" +
-  "- Respond ONLY with a JSON array, no other text\n\n";
 
 function _readAnnotationPrompt(): string | null {
   try {

@@ -76,6 +76,7 @@ function _browseUrlOnMouseLeave(input) {
 // ── Browse URL Bar History Dropdown ──
 
 const _URL_BAR_SECTIONS = [
+  { key: 'bangs',      label: 'Bangs' },
   { key: 'definition', label: 'Definition' },
   { key: 'instant',    label: 'Instant Answers' },
   { key: 'recent',     label: 'Recent Sites' },
@@ -505,6 +506,15 @@ function _browseUrlRenderHistoryCommand(dd, input) {
   dd.classList.remove('hidden');
 }
 
+const _BANG_LABELS = {
+  g: 'Google', ddg: 'DuckDuckGo', b: 'Bing', yt: 'YouTube', w: 'Wikipedia',
+  r: 'Reddit', gh: 'GitHub', so: 'Stack Overflow', npm: 'npm', mdn: 'MDN',
+  tw: 'X / Twitter', twitch: 'Twitch', am: 'Amazon', maps: 'Google Maps',
+  img: 'Google Images', imdb: 'IMDb', sp: 'Spotify', arxiv: 'arXiv',
+  py: 'PyPI', crates: 'crates.io', hn: 'Hacker News', wa: 'Wolfram Alpha',
+  nix: 'Nix Packages',
+};
+
 function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBrowse) {
   showBrowse = showBrowse || [];
   const suggestions = filter ? _currentSuggestions.filter(s => s.toLowerCase() !== filter) : [];
@@ -513,10 +523,16 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
   const { ntp } = _getOmniInput();
   const showLucky = !filter && !ntp;
 
+  // Match bangs: input starts with "!" and has no space yet (still picking a bang)
+  const bangFilter = filter && /^!(\S*)$/.test(filter) ? filter.slice(1).toLowerCase() : null;
+  const matchedBangs = bangFilter !== null && typeof _BANGS !== 'undefined'
+    ? Object.keys(_BANGS).filter(k => k.startsWith(bangFilter)).slice(0, 8)
+    : [];
+
   const pillWrap = document.getElementById('pill-url-wrap');
   const isIsland = dd.id === 'pill-url-dropdown';
 
-  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length) {
+  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length && !matchedBangs.length) {
     dd.style.display = 'none'; dd.classList.add('hidden');
     if (isIsland && pillWrap) pillWrap.classList.remove('pill-dropdown-open');
     return;
@@ -560,6 +576,23 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
 
   // Section renderers — each returns HTML string or '' if nothing to show
   const _urlBarRenderers = {
+    bangs: () => {
+      if (!matchedBangs.length) return '';
+      const iconSize = ntp ? '16px' : '13px';
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Bangs</div>';
+      h += matchedBangs.map(key => {
+        const label = _BANG_LABELS[key] || key;
+        const fillValue = '!' + key + ' ';
+        const setInput = ntp
+          ? `event.preventDefault(); var el=document.getElementById('search-query'); el.value='${fillValue}'; el.focus(); _browseUrlShowHistory();`
+          : `event.preventDefault(); var el=document.getElementById('browse-url-input'); el.value='${fillValue}'; el.focus(); _browseUrlShowHistory();`;
+        return `<div data-histq="bang:${escapeHtml(key)}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${setInput}">
+          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span style="font-weight:600;color:var(--nr-accent);">!${escapeHtml(key)}</span> <span style="color:var(--nr-text-tertiary);">${escapeHtml(label)}</span></span>
+        </div>`;
+      }).join('');
+      return h;
+    },
     lucky: () => {
       if (!showLucky) return '';
       const hasText = !!_feelingLuckyQuery;

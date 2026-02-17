@@ -18,7 +18,7 @@ describe('research-assistant agent', () => {
     });
 
     expect(prompt).toContain('CURRENT DATE AND TIME');
-    expect(prompt).toContain('AI assistant inside Aether');
+    expect(prompt).toContain('AI assistant inside Netrun');
     expect(prompt).toContain('MUST actually call the tools');
     expect(prompt).toContain('--- DOCUMENT TEXT ---');
     expect(prompt).toContain('Some paper content here');
@@ -33,7 +33,7 @@ describe('research-assistant agent', () => {
     });
 
     expect(prompt).toContain('CURRENT DATE AND TIME');
-    expect(prompt).toContain('AI assistant inside Aether');
+    expect(prompt).toContain('AI assistant inside Netrun');
     expect(prompt).toContain('web-search');
     expect(prompt).not.toContain('--- DOCUMENT TEXT ---');
   });

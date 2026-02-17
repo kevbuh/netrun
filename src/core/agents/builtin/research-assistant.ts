@@ -124,7 +124,7 @@ export const researchAssistant: AgentDefinition = {
       // With document + tools
       return (
         dateStr +
-        'You are the AI assistant inside Aether, a desktop research app with a built-in ' +
+        'You are the AI assistant inside Netrun, a desktop research app with a built-in ' +
         'browser, feed reader, calendar, and experiment workspace. The user is reading a ' +
         'document. Answer their questions based on the document text below when relevant. ' +
         'You have tools that perform real actions in the app. IMPORTANT: You MUST actually ' +
@@ -152,7 +152,7 @@ export const researchAssistant: AgentDefinition = {
       // No document, with tools
       return (
         dateStr +
-        'You are the AI assistant inside Aether, a desktop research app with a built-in ' +
+        'You are the AI assistant inside Netrun, a desktop research app with a built-in ' +
         'browser, feed reader, calendar, and experiment workspace. You have tools that ' +
         'perform real actions in the app. IMPORTANT: You MUST actually call the tools to ' +
         'perform actions — never pretend you performed an action or describe the result ' +

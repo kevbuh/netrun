@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Netrun — The Smart Browser</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+      background: #fff;
+      color: #111;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 14px 0;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    nav .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    .nav-brand img { width: 28px; height: 28px; border-radius: 7px; }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 0.875rem;
+      color: #666;
+      transition: color 0.15s;
+    }
+
+    .nav-links a:hover { color: #111; }
+
+    .nav-cta {
+      background: #111;
+      color: #fff !important;
+      padding: 7px 18px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+
+    .nav-cta:hover { background: #333; }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 160px 0 100px;
+      text-align: center;
+    }
+
+    .hero-logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      margin-bottom: 28px;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 3.5rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+
+    .hero p {
+      font-size: 1.1rem;
+      color: #666;
+      max-width: 480px;
+      margin: 0 auto 36px;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #111;
+      color: #fff;
+      padding: 12px 28px;
+      border-radius: 999px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+
+    .btn-primary:hover { background: #333; }
+
+    .btn-primary svg { width: 16px; height: 16px; }
+
+    /* ── Divider ── */
+    hr {
+      border: none;
+      border-top: 1px solid #eee;
+      margin: 0;
+    }
+
+    /* ── Section ── */
+    section {
+      padding: 80px 0;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #999;
+      margin-bottom: 8px;
+    }
+
+    section h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 40px;
+    }
+
+    /* ── Feature list ── */
+    .features {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .feature {
+      display: flex;
+      gap: 16px;
+    }
+
+    .feature-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ccc;
+      margin-top: 10px;
+      flex-shrink: 0;
+    }
+
+    .feature h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .feature p {
+      font-size: 0.9rem;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    /* ── Grid (for smaller items) ── */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px 40px;
+    }
+
+    .grid-item h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .grid-item p {
+      font-size: 0.85rem;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    /* ── CTA ── */
+    .cta {
+      text-align: center;
+      padding: 80px 0 100px;
+    }
+
+    .cta h2 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .cta p {
+      color: #666;
+      margin-bottom: 32px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid #eee;
+      padding: 32px 0;
+      text-align: center;
+    }
+
+    footer p {
+      font-size: 0.8rem;
+      color: #999;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .nav-links { display: none; }
+      section { padding: 56px 0; }
+      .hero { padding: 120px 0 64px; }
+      .grid { grid-template-columns: 1fr; gap: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="container">
+      <a href="#" class="nav-brand">
+        <img src="icon.png" alt="Netrun">
+        Netrun
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#ai">AI</a></li>
+        <li><a href="#tools">Tools</a></li>
+        <li><a href="index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <img src="icon.png" alt="Netrun" class="hero-logo">
+      <h1>The smart browser</h1>
+      <p>Web browsing, AI agent, terminal, notebooks, knowledge vault, and creative tools — in one window.</p>
+      <a href="index.html" class="btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- Browsing -->
+  <section id="features">
+    <div class="container">
+      <div class="section-label">Browsing</div>
+      <h2>A browser, but better</h2>
+      <div class="features">
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Multi-tab with session persistence</h3>
+            <p>Open unlimited tabs. Sessions restore automatically on restart.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Split panes</h3>
+            <p>View two pages side-by-side in the same window.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Built-in ad blocking</h3>
+            <p>Native ad blocker powered by adblock-rs. Fast and enabled by default.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Password manager</h3>
+            <p>Save and autofill passwords securely using macOS Keychain.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Annotations</h3>
+            <p>Highlight text and leave notes on any webpage. Persists across sessions.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Paper view</h3>
+            <p>A clean reading mode for academic papers and long-form articles.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Multi-window</h3>
+            <p>Drag tabs into new windows. Manage multiple browser windows.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Downloads manager</h3>
+            <p>Integrated download tracking with progress and file management.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>New tab page</h3>
+            <p>Customizable start page with quick links and shortcuts.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Media captions</h3>
+            <p>Display subtitles and captions for media playing in any tab.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- AI -->
+  <section id="ai">
+    <div class="container">
+      <div class="section-label">AI Agent</div>
+      <h2>Your browser has a brain</h2>
+      <div class="features">
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Research agent</h3>
+            <p>A built-in AI that searches the web, reads pages, extracts content, and synthesizes research.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Browser automation</h3>
+            <p>The agent can click, type, scroll, navigate, and take screenshots — full control via natural language.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Chat panel</h3>
+            <p>Floating AI chat. Ask about the current page, get summaries, or start a research session.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Visual context</h3>
+            <p>Include screenshots in your chat. The agent sees what you see.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>45 agent tools</h3>
+            <p>Search, extraction, vault, calendar, experiments, feeds, media, and browser control — all callable.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Chat memory</h3>
+            <p>Persistent conversation history across sessions.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Living context</h3>
+            <p>Markdown-based memory with automatic summarization and compaction.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Fully local</h3>
+            <p>Runs through Ollama on your machine. Your data never leaves your computer.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- Research -->
+  <section>
+    <div class="container">
+      <div class="section-label">Research</div>
+      <h2>Built for deep work</h2>
+      <div class="features">
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Knowledge vault</h3>
+            <p>Obsidian-style markdown notes with file trees, full-text search, auto-save, and git integration.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Jupyter notebooks</h3>
+            <p>Edit and execute .ipynb files with a full kernel manager. Run Python, see output inline.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Marimo notebooks</h3>
+            <p>Interactive Python notebooks with reactive execution and rich output.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Experiments</h3>
+            <p>Create research projects with notebooks, code execution, and file management.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>RSS feeds</h3>
+            <p>Subscribe to feeds. Read in a clean reader view with new item notifications.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>AI feed filter</h3>
+            <p>Quality filtering powered by Ollama. Score and prioritize items by your interests.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Paper search</h3>
+            <p>Search academic papers and research directly from the browser.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Reading list</h3>
+            <p>Save articles for later. Track your reading streak and daily activity.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Dashboard</h3>
+            <p>Home view with reading stats, quick links, and activity overview.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Content extraction</h3>
+            <p>Pull clean text from any webpage. Markdown with LaTeX and syntax highlighting.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- Dev tools -->
+  <section id="tools">
+    <div class="container">
+      <div class="section-label">Developer Tools</div>
+      <h2>Code where you browse</h2>
+      <div class="features">
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Terminal</h3>
+            <p>Full xterm emulator with multi-tab, split panes, search, and persistent sessions.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Git dashboard</h3>
+            <p>Lazygit-style interface with status, staging, commit history, branches, and stash.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Python execution</h3>
+            <p>Run Python in Jupyter kernels. Venv management and package installation built in.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Command palette</h3>
+            <p>Find any feature, run any command, navigate anywhere.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>Terminal themes</h3>
+            <p>Dark, Light, Dracula, and Solarized.</p>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature-dot"></div>
+          <div>
+            <h3>SQLite storage</h3>
+            <p>All data stored locally in SQLite with WAL mode. Fast, reliable, portable.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- Creative -->
+  <section>
+    <div class="container">
+      <div class="section-label">Creative</div>
+      <h2>Sketch, draw, present</h2>
+      <div class="grid">
+        <div class="grid-item">
+          <h3>Drawing editor</h3>
+          <p>Fabric.js canvas with drawing tools, shapes, undo/redo, and file saving.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Whiteboard</h3>
+          <p>Multi-tab freeform canvas with pen, eraser, and infinite space.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Slides editor</h3>
+          <p>Multi-slide presentations with themes and fullscreen mode.</p>
+        </div>
+        <div class="grid-item">
+          <h3>File sharing</h3>
+          <p>Share experiment files and notebooks directly from Netrun.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- Media -->
+  <section>
+    <div class="container">
+      <div class="section-label">Media</div>
+      <h2>Hear and speak</h2>
+      <div class="grid">
+        <div class="grid-item">
+          <h3>Text-to-speech</h3>
+          <p>Natural speech with Kokoro. Multiple voices, adjustable speed.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Speech-to-text</h3>
+          <p>Transcribe audio with Parakeet. Upload files or transcribe from the browser.</p>
+        </div>
+        <div class="grid-item">
+          <h3>TTS panel</h3>
+          <p>Dedicated panel for speech synthesis. Type or paste, hear it spoken.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Sound effects</h3>
+          <p>Subtle UI audio feedback. Toggle on or off.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- Neuralook -->
+  <section>
+    <div class="container">
+      <div class="section-label">Neuralook</div>
+      <h2>Eye tracking</h2>
+      <div class="grid">
+        <div class="grid-item">
+          <h3>Gaze tracking</h3>
+          <p>CNN/MobileNet gaze estimation from your webcam. Real-time.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Calibration</h3>
+          <p>Point-based and implicit calibration for accuracy.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Model training</h3>
+          <p>Train custom models. Auto-refine through passive learning.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Heat maps</h3>
+          <p>Visualize where you look with gaze heat maps and stats.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- Productivity -->
+  <section>
+    <div class="container">
+      <div class="section-label">Productivity</div>
+      <h2>Stay organized</h2>
+      <div class="grid">
+        <div class="grid-item">
+          <h3>Calendar</h3>
+          <p>Create, edit, and manage events. The agent can create entries too.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Activity tracking</h3>
+          <p>Reading streaks, daily interactions, and usage patterns.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Onboarding</h3>
+          <p>Guided setup wizard to configure Netrun to your liking.</p>
+        </div>
+        <div class="grid-item">
+          <h3>User profile</h3>
+          <p>Personal settings and preferences.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- Themes -->
+  <section>
+    <div class="container">
+      <div class="section-label">Design</div>
+      <h2>Beautiful by default</h2>
+      <div class="grid">
+        <div class="grid-item">
+          <h3>Four themes</h3>
+          <p>Dark, Light, Daylight (time-adaptive), and Clear (glassmorphic).</p>
+        </div>
+        <div class="grid-item">
+          <h3>Accent colors</h3>
+          <p>8+ colors to personalize the look and feel.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Ambient effects</h3>
+          <p>Breathing, glowing, and living gradient animations.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Glass materials</h3>
+          <p>Multi-level blur, transparency, and depth effects.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- Extras -->
+  <section>
+    <div class="container">
+      <div class="section-label">And more</div>
+      <h2>The little things</h2>
+      <div class="grid">
+        <div class="grid-item">
+          <h3>Pixel pets</h3>
+          <p>Animated pixel-art companions. Cat, dog, bunny, and more.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Achievements</h3>
+          <p>Unlock rewards as you use Netrun.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Privacy first</h3>
+          <p>No telemetry, no cloud accounts, no data collection.</p>
+        </div>
+        <div class="grid-item">
+          <h3>Fast &amp; native</h3>
+          <p>Electron with native integrations. Fast startup, smooth scrolling.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta">
+    <div class="container">
+      <h2>Ready to try Netrun?</h2>
+      <p>Free. No account required.</p>
+      <a href="index.html" class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 Netrun</p>
+    </div>
+  </footer>
+
+</body>
+</html>
