@@ -281,10 +281,13 @@ function enterGuestMode() {
   _authUser = null;
   _authUserInfo = null;
   _stopSyncInterval();
+  // Clear Google session cookies so the guest isn't signed into Google in the browser
+  if (window.electronAPI?.clearGoogleCookies) window.electronAPI.clearGoogleCookies();
   // Set guest mode flag
   _guestMode = true;
   sessionStorage.setItem('_guestMode', 'true');
   _updateAccountUI();
+  if (typeof renderSettingsView === 'function') renderSettingsView();
   if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Guest mode active');
 }
 
@@ -313,6 +316,7 @@ function exitGuestMode() {
   _guestMode = false;
   sessionStorage.removeItem('_guestMode');
   _onLoginSuccess();
+  if (typeof renderSettingsView === 'function') renderSettingsView();
   if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Welcome back, ' + (_authUser || 'User'));
 }
 

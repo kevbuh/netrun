@@ -852,6 +852,16 @@ app.whenReady().then(() => {
     } catch (_e) { /* no-op */ }
   });
 
+  ipcMain.handle('clear-google-cookies', async () => {
+    const ses = session.defaultSession;
+    const cookies = await ses.cookies.get({ domain: '.google.com' });
+    for (const cookie of cookies) {
+      const proto = cookie.secure ? 'https' : 'http';
+      const url = `${proto}://${cookie.domain.replace(/^\./, '')}${cookie.path}`;
+      await ses.cookies.remove(url, cookie.name);
+    }
+  });
+
   // ── Password Manager (encrypted via safeStorage) ──
   const { createPasswordStore } = require('./password-store');
   const pwStore = createPasswordStore({

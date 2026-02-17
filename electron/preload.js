@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAuthToken: () => ipcRenderer.invoke('get-auth-token'),
   saveAuthToken: (token) => ipcRenderer.invoke('save-auth-token', token),
   deleteAuthToken: () => ipcRenderer.invoke('delete-auth-token'),
+  clearGoogleCookies: () => ipcRenderer.invoke('clear-google-cookies'),
   // Password manager
   pwGet: (origin) => ipcRenderer.invoke('pw-get', origin),
   pwFill: (id) => ipcRenderer.invoke('pw-fill', id),

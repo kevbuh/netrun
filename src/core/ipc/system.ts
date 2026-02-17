@@ -1,0 +1,312 @@
+import { ipcMain, shell } from 'electron';
+import * as fs from 'fs';
+import * as path from 'path';
+import { createHash, randomUUID } from 'crypto';
+import * as userQueries from '../db/queries/users.js';
+import * as socialExtQueries from '../db/queries/social-extended.js';
+import {
+  OLLAMA_HOST, GOOGLE_CLIENT_ID, DATA_DIR,
+  contentPath, getUserVaultPath, uploadsDir,
+  parseFrontmatter, stripFrontmatter,
+} from './shared.js';
+
+export function registerSystemIPC(): void {
+  ipcMain.handle('db:read-view', (_event, viewPath: string) => {
+    const dataDir = process.env.ARXIV_DATA_DIR ?? process.cwd();
+    const filePath = path.join(dataDir, viewPath.replace(/^\//, ''));
+    try {
+      return { html: fs.readFileSync(filePath, 'utf-8') };
+    } catch { return { error: 'View not found: ' + viewPath }; }
+  });
+
+  ipcMain.handle('db:client-config', () => {
+    return { googleClientId: GOOGLE_CLIENT_ID, ollamaHost: OLLAMA_HOST };
+  });
+
+  ipcMain.handle('db:version', () => {
+    try {
+      // From dist/main/ipc/ we need ../../.. to reach project root
+      const pkgPath = path.resolve(__dirname, '..', '..', '..', 'package.json');
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+      return { version: pkg.version || '0.0', sha: '' };
+    } catch { return { version: '0.0', sha: '' }; }
+  });
+
+  ipcMain.handle('db:reveal-in-finder', (_event, filePath: string) => {
+    if (filePath) shell.showItemInFolder(filePath);
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:saved-content-get', (_event, url: string) => {
+    if (!url) return { error: 'url required' };
+    const p = contentPath(url);
+    if (!fs.existsSync(p)) return null;
+    try { return JSON.parse(fs.readFileSync(p, 'utf-8')); } catch { return null; }
+  });
+
+  ipcMain.handle('db:saved-content-set', (_event, url: string, data: { url: string; title: string; text: string; savedAt?: number }) => {
+    if (!url) return { error: 'url required' };
+    const p = contentPath(url);
+    fs.writeFileSync(p, JSON.stringify(data, null, 2));
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:blog-list', (_event, username: string) => {
+    const userInfo = socialExtQueries.getPublicUserInfo(username);
+    if (!userInfo) return { error: 'User not found' };
+    const userVault = getUserVaultPath(userInfo.google_id as string);
+    const posts: any[] = [];
+    if (fs.existsSync(userVault)) {
+      for (const fname of fs.readdirSync(userVault)) {
+        if (!fname.endsWith('.md')) continue;
+        try {
+          const content = fs.readFileSync(path.join(userVault, fname), 'utf-8');
+          const frontmatter = parseFrontmatter(content);
+          if (frontmatter?.published) {
+            posts.push({ title: frontmatter.title ?? 'Untitled', slug: frontmatter.slug, published_at: frontmatter.published_at });
+          }
+        } catch { /* skip */ }
+      }
+    }
+    posts.sort((a, b) => (b.published_at ?? 0) - (a.published_at ?? 0));
+    return { posts, author: username, picture: (userInfo as any).picture };
+  });
+
+  ipcMain.handle('db:blog-get', (_event, username: string, slug: string, viewerGoogleId?: string) => {
+    const userInfo = socialExtQueries.getPublicUserInfo(username);
+    if (!userInfo) return { error: 'User not found' };
+    const userVault = getUserVaultPath(userInfo.google_id as string);
+    if (fs.existsSync(userVault)) {
+      for (const fname of fs.readdirSync(userVault)) {
+        if (!fname.endsWith('.md')) continue;
+        try {
+          const raw = fs.readFileSync(path.join(userVault, fname), 'utf-8');
+          const frontmatter = parseFrontmatter(raw);
+          if (frontmatter?.published && frontmatter.slug === slug) {
+            const votes = socialExtQueries.getBlogVotes(username, slug, viewerGoogleId);
+            return {
+              title: frontmatter.title ?? 'Untitled', content: stripFrontmatter(raw),
+              author: username, published_at: frontmatter.published_at,
+              picture: (userInfo as any).picture,
+              upvotes: votes.upvotes, downvotes: votes.downvotes, userVote: votes.userVote,
+            };
+          }
+        } catch { /* skip */ }
+      }
+    }
+    return { error: 'Post not found' };
+  });
+
+  // ── Social uploads + blog unpublish ──
+
+  ipcMain.handle('db:upload-profile-picture', (_event, googleId: string, imageData: string) => {
+    if (!imageData || !imageData.startsWith('data:image/')) {
+      return { error: 'Invalid image data' };
+    }
+    const [header, b64] = imageData.split(',', 2);
+    let ext = 'jpg';
+    if (header.includes('png')) ext = 'png';
+    else if (header.includes('webp')) ext = 'webp';
+    const hash = createHash('sha256').update(googleId).digest('hex').slice(0, 16);
+    const fname = `${hash}_pic.${ext}`;
+    fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
+    const pictureUrl = '/uploads/' + fname;
+    userQueries.updateUserPicture(googleId, pictureUrl);
+    return { ok: true, picture: pictureUrl };
+  });
+
+  ipcMain.handle('db:upload-profile-background', (_event, googleId: string, imageData: string) => {
+    if (!imageData || !imageData.startsWith('data:image/')) {
+      return { error: 'Invalid image data' };
+    }
+    const [header, b64] = imageData.split(',', 2);
+    let ext = 'jpg';
+    if (header.includes('png')) ext = 'png';
+    else if (header.includes('webp')) ext = 'webp';
+    const hash = createHash('sha256').update(googleId).digest('hex').slice(0, 16);
+    const fname = `${hash}_bg.${ext}`;
+    fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
+    const bgUrl = '/uploads/' + fname;
+    userQueries.updateUserProfileBg(googleId, bgUrl);
+    return { ok: true, profile_bg: bgUrl };
+  });
+
+  ipcMain.handle('db:blog-unpublish', (_event, googleId: string, username: string, slug: string) => {
+    const userInfo = userQueries.getUser(googleId) as any;
+    if (!userInfo || userInfo.username !== username) {
+      return { error: 'Not authorized' };
+    }
+    const userVault = getUserVaultPath(googleId);
+    if (fs.existsSync(userVault)) {
+      for (const fname of fs.readdirSync(userVault)) {
+        if (!fname.endsWith('.md')) continue;
+        const fpath = path.join(userVault, fname);
+        try {
+          const content = fs.readFileSync(fpath, 'utf-8');
+          const frontmatter = parseFrontmatter(content);
+          if (frontmatter?.published && frontmatter.slug === slug) {
+            const lines = content.split('\n');
+            const newLines: string[] = [];
+            let inFrontmatter = false;
+            let fmCount = 0;
+            for (const line of lines) {
+              if (line.trim() === '---') {
+                fmCount++;
+                inFrontmatter = fmCount === 1;
+                newLines.push(line);
+                if (fmCount === 2) {
+                  // Add updated timestamp before closing ---
+                }
+                continue;
+              }
+              if (inFrontmatter) {
+                if (line.startsWith('published:')) {
+                  newLines.push('published: false');
+                } else if (line.startsWith('published_at:')) {
+                  newLines.push('published_at: null');
+                } else if (line.startsWith('updated:')) {
+                  newLines.push(`updated: ${Math.floor(Date.now() / 1000)}`);
+                } else {
+                  newLines.push(line);
+                }
+              } else {
+                newLines.push(line);
+              }
+            }
+            fs.writeFileSync(fpath, newLines.join('\n'));
+            return { ok: true };
+          }
+        } catch { /* skip */ }
+      }
+    }
+    return { error: 'Post not found' };
+  });
+
+  ipcMain.handle('db:settings', () => {
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:upload-image', (_event, imageB64: string) => {
+    if (!imageB64) return { error: 'image required' };
+    const filename = randomUUID() + '.png';
+    const filepath = path.join(uploadsDir, filename);
+    fs.writeFileSync(filepath, Buffer.from(imageB64, 'base64'));
+    return { url: '/api/images/' + filename };
+  });
+
+  ipcMain.handle('db:serve-image', (_event, filename: string) => {
+    const safeName = path.basename(filename);
+    const filepath = path.join(uploadsDir, safeName);
+    if (!fs.existsSync(filepath)) return { error: 'Not found' };
+    const data = fs.readFileSync(filepath).toString('base64');
+    return { _proxy: true, data, mime: 'image/png' };
+  });
+
+  ipcMain.handle('db:saved-posts', (_event, googleId: string, body: { url: string; title?: string; favicon?: string; hostname?: string }) => {
+    const url = (body.url ?? '').trim();
+    if (!url) return { error: 'url required' };
+    const title = body.title ?? url;
+    const favicon = body.favicon ?? '';
+    const hostname = body.hostname ?? '';
+    const allData = userQueries.getAllUserData(googleId);
+    let saved: Record<string, any> = {};
+    const savedRaw = allData.savedPosts;
+    if (savedRaw) {
+      const val = savedRaw.value;
+      if (typeof val === 'string') {
+        try { saved = JSON.parse(val); } catch { saved = {}; }
+      } else if (typeof val === 'object' && val !== null) {
+        saved = val as Record<string, any>;
+      }
+    }
+    if (url in saved) return { exists: true };
+    saved[url] = {
+      paper: { title, link: url, favicon, hostname },
+      savedAt: Date.now(),
+      read: false,
+    };
+    userQueries.setUserData(googleId, 'savedPosts', JSON.stringify(saved));
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:custom-feeds', (_event, googleId: string, body: { url: string; name?: string }) => {
+    const url = (body.url ?? '').trim();
+    const name = (body.name ?? '').trim();
+    if (!url) return { error: 'url required' };
+    const allData = userQueries.getAllUserData(googleId);
+    let feeds: any[] = [];
+    const feedsRaw = allData.customFeeds;
+    if (feedsRaw) {
+      const val = feedsRaw.value;
+      if (typeof val === 'string') {
+        try { feeds = JSON.parse(val); } catch { feeds = []; }
+      } else if (Array.isArray(val)) {
+        feeds = val;
+      }
+    }
+    if (!Array.isArray(feeds)) feeds = [];
+    if (feeds.some((f: any) => f.url === url)) return { exists: true };
+    feeds.push({ url, name: name || url, enabled: true });
+    userQueries.setUserData(googleId, 'customFeeds', JSON.stringify(feeds));
+    return { ok: true, name: name || url };
+  });
+
+  ipcMain.handle('db:local-file', (_event, filePath: string) => {
+    if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+      return { error: 'File not found' };
+    }
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      '.html': 'text/html', '.htm': 'text/html',
+      '.js': 'text/javascript', '.css': 'text/css',
+      '.json': 'application/json', '.xml': 'application/xml',
+      '.txt': 'text/plain', '.md': 'text/markdown',
+      '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp',
+      '.pdf': 'application/pdf',
+      '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
+      '.mp4': 'video/mp4', '.webm': 'video/webm',
+    };
+    const mime = mimeMap[ext] ?? 'application/octet-stream';
+    const data = fs.readFileSync(filePath).toString('base64');
+    return { _proxy: true, data, mime };
+  });
+
+  ipcMain.handle('db:tex-preview', () => {
+    return {
+      _proxy: true,
+      data: Buffer.from(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>LaTeX Preview</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#1a1a1a;font-family:system-ui,sans-serif;color:#aaa}
+#pdf-frame{width:100%;height:100%;border:none;display:none}
+#placeholder{display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px}
+#placeholder .spinner{width:24px;height:24px;border:2px solid #444;border-top-color:#b4451a;border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style></head><body>
+<iframe id="pdf-frame"></iframe>
+<div id="placeholder"><div class="spinner"></div><span>Waiting for compilation...</span></div>
+<script>
+const ch = new BroadcastChannel('tex-pdf-preview');
+const frame = document.getElementById('pdf-frame');
+const ph = document.getElementById('placeholder');
+let currentUrl = null;
+ch.onmessage = function(e) {
+  if (e.data && e.data.type === 'pdf-update') {
+    const bytes = new Uint8Array(e.data.pdf);
+    const blob = new Blob([bytes], {type:'application/pdf'});
+    if (currentUrl) URL.revokeObjectURL(currentUrl);
+    currentUrl = URL.createObjectURL(blob);
+    frame.src = currentUrl;
+    frame.style.display = 'block';
+    ph.style.display = 'none';
+    document.title = 'LaTeX Preview' + (e.data.fname ? ' - ' + e.data.fname : '');
+  }
+};
+ch.postMessage({type:'preview-ready'});
+</script></body></html>`).toString('base64'),
+      mime: 'text/html',
+    };
+  });
+}
