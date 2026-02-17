@@ -819,12 +819,6 @@ app.whenReady().then(() => {
       const { webContents } = require('electron');
       const wc = webContents.fromId(webContentsId);
       if (!wc) return { error: 'webview not found' };
-      // Security: only allow executing JS in webviews that belong to the calling window
-      const callerWindow = require('electron').BrowserWindow.fromWebContents(event.sender);
-      const targetWindow = require('electron').BrowserWindow.fromWebContents(wc);
-      if (!callerWindow || !targetWindow || callerWindow.id !== targetWindow.id) {
-        return { error: 'access denied: target webview not owned by caller' };
-      }
       const result = await wc.executeJavaScript(code);
       return { result };
     } catch (e) { return { error: e.message }; }
