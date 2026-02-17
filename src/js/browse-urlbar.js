@@ -73,6 +73,43 @@ function _browseUrlOnMouseLeave(input) {
   _browseAutoSizeUrlInput(input);
 }
 
+// ── Adaptive URL Bar Color ──
+
+function _browseParseColor(str) {
+  if (!str) return null;
+  str = str.trim().toLowerCase();
+  // Hex
+  const hex = str.match(/^#([0-9a-f]{3,8})$/);
+  if (hex) {
+    let h = hex[1];
+    if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    if (h.length === 6 || h.length === 8) {
+      return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) };
+    }
+  }
+  // rgb/rgba
+  const rgb = str.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (rgb) return { r: +rgb[1], g: +rgb[2], b: +rgb[3] };
+  return null;
+}
+
+function _browseApplyAdaptiveColor(tab) {
+  if (localStorage.getItem('adaptiveUrlBar') === 'off') {
+    _browseResetAdaptiveColor();
+    return;
+  }
+  const color = tab && tab.themeColor ? _browseParseColor(tab.themeColor) : null;
+  if (!color) {
+    _browseResetAdaptiveColor();
+    return;
+  }
+  document.documentElement.style.setProperty('--nr-bg-body', `rgb(${color.r},${color.g},${color.b})`);
+}
+
+function _browseResetAdaptiveColor() {
+  document.documentElement.style.removeProperty('--nr-bg-body');
+}
+
 // ── Browse URL Bar History Dropdown ──
 
 const _URL_BAR_SECTIONS = [
@@ -1386,17 +1423,7 @@ function _renderHelpPage(el) {
   html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">Type in the URL bar — results appear inline as you type.</p>';
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Type</th><th ${th}>Try</th></tr>`;
-  const answers = [
-    ['Definition', 'pug, ephemeral'],
-    ['Math', 'sqrt(144), 2^10, 15% of 230'],
-    ['Color', '#ff5733, rgb(20,120,200)'],
-    ['Convert', '5km to mi, 100f to c'],
-    ['Time zone', 'time in tokyo'],
-    ['Weather', 'weather boston'],
-    ['Sports', 'nba, lakers, premier league'],
-    ['Stocks', '$AAPL, TSLA stock'],
-  ];
-  answers.forEach(([k, v]) => {
+  _HELP_DATA.instantAnswers.forEach(([k, v]) => {
     html += `<tr><td ${tdk}>${k}</td><td ${tdv}>${v}</td></tr>`;
   });
   html += '</table></div>';
@@ -1406,47 +1433,30 @@ function _renderHelpPage(el) {
   html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">Use these in the Papers search on new tab pages.</p>';
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Syntax</th><th ${th}>Effect</th></tr>`;
-  const searchSyntax = [
-    ['"exact phrase"', 'Match exact phrase'],
-    ['title:word', 'Search in title only'],
-    ['title:"exact phrase"', 'Exact phrase in title only'],
-    ['by:author name', 'Search by author'],
-    ['source:arxiv', 'Filter by source'],
-    ['user:username', 'Search for a user'],
-    ['~neural networks', 'Semantic search over read posts'],
-  ];
-  searchSyntax.forEach(([k, v]) => {
+  _HELP_DATA.searchSyntax.forEach(([k, v]) => {
     html += `<tr><td ${tdk}><code style="font-size:0.8rem;">${k}</code></td><td ${tdv}>${v}</td></tr>`;
   });
   html += '</table></div>';
+
+  // Bangs
+  const bangs = _HELP_DATA.getBangs();
+  if (bangs.length) {
+    html += `<div ${section}><div ${h2}>Bangs</div>`;
+    html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">Type <code style="font-size:0.8rem;">!</code> followed by a shortcut and your query to search a specific site. Works at the start or end of input.</p>';
+    html += `<table ${table}>`;
+    html += `<tr><th ${th}>Bang</th><th ${th}>Site</th></tr>`;
+    bangs.forEach(([k, v]) => {
+      html += `<tr><td ${tdk}><code style="font-size:0.8rem;">${k}</code></td><td ${tdv}>${v}</td></tr>`;
+    });
+    html += '</table></div>';
+  }
 
   // Slash Commands
   html += `<div ${section}><div ${h2}>Slash Commands</div>`;
   html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">Right-click → type / in the aether panel.</p>';
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Command</th><th ${th}>Action</th></tr>`;
-  const cmds = [
-    ['/help', 'This help page'],
-    ['/define word', 'Dictionary lookup'],
-    ['/search query', 'Web search in new tab'],
-    ['/paper query', 'Search arXiv papers'],
-    ['/user query', 'Search for users'],
-    ['/notes', 'Browse your notes'],
-    ['/links', 'List links on page'],
-    ['/tab', 'Add tab to chat context'],
-    ['/model', 'Change chat model'],
-    ['/history', 'Browse visited sites'],
-    ['/capture', 'Screenshot the page'],
-    ['/bookmark', 'Save to reading list'],
-    ['/find', 'Find in page'],
-    ['/note', 'Open in note viewer'],
-    ['/upload', 'Open a local file'],
-    ['/close', 'Close tab'],
-    ['/copy', 'Copy page URL'],
-    ['/mute', 'Mute/unmute tab'],
-    ['/print', 'Print page'],
-  ];
-  cmds.forEach(([k, v]) => {
+  _HELP_DATA.slashCommands.forEach(([k, v]) => {
     html += `<tr><td ${tdk}>${k}</td><td ${tdv}>${v}</td></tr>`;
   });
   html += '</table></div>';
@@ -1455,40 +1465,7 @@ function _renderHelpPage(el) {
   html += `<div ${section}><div ${h2}>Keyboard Shortcuts</div>`;
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Key</th><th ${th}>Action</th></tr>`;
-  const shortcuts = [
-    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Global</strong>'],
-    ['Esc', 'Close panel / Go home'],
-    ['⌘T', 'New browser tab'],
-    ['⌘W', 'Close browser tab'],
-    ['⌘Y', 'History page'],
-    ['⌘L', 'Focus URL bar'],
-    ['⌘⇧T', 'Reopen closed tab'],
-    ['Enter', 'Send chat message'],
-    ['⇧Enter', 'Web search from panel'],
-    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Tab Overview</strong>'],
-    ['←→', 'Switch windows'],
-    ['↑↓', 'Switch tabs'],
-    ['Enter', 'Select tab'],
-    ['N', 'New window'],
-    ['T', 'New tab'],
-    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Browser</strong>'],
-    ['⌘+', 'Zoom in'],
-    ['⌘-', 'Zoom out'],
-    ['⌘0', 'Reset zoom'],
-    ['⌘F', 'Find in page'],
-    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">PDF Viewer</strong>'],
-    ['←', 'Previous page'],
-    ['→', 'Next page'],
-    ['⌘F', 'Find in document'],
-    ['H', 'Highlight mode'],
-    ['P', 'Pen mode'],
-    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Editors</strong>'],
-    ['⌘S', 'Save'],
-    ['⌘Z', 'Undo'],
-    ['⌘⇧Z', 'Redo'],
-    ['⇧Enter', 'Run cell (notebook)'],
-  ];
-  shortcuts.forEach(([k, v]) => {
+  _HELP_DATA.shortcuts.forEach(([k, v]) => {
     if (!k) {
       html += `<tr><td colspan="2" style="padding:10px 12px 4px;">${v}</td></tr>`;
     } else {
@@ -1511,15 +1488,7 @@ function _renderHelpPage(el) {
   html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">When enabled, the chat assistant can use these tools autonomously. Requires qwen3:8b.</p>';
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Tool</th><th ${th}>Description</th></tr>`;
-  const tools = [
-    ['Web Search', 'Searches DuckDuckGo for current info'],
-    ['Paper Search', 'Finds papers on arXiv'],
-    ['Fetch Page', 'Reads content from any URL'],
-    ['Bookmark', 'Saves posts to your reading list'],
-    ['Navigate', 'Opens views (home, experiments, etc.)'],
-    ['New Experiment', 'Creates a project from chat'],
-  ];
-  tools.forEach(([k, v]) => {
+  _HELP_DATA.chatTools.forEach(([k, v]) => {
     html += `<tr><td ${tdk}>${k}</td><td ${tdv}>${v}</td></tr>`;
   });
   html += '</table></div>';

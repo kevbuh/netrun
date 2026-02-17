@@ -341,8 +341,9 @@ function browseSelectTab(id) {
   // Stop captions when switching away from captured tab
   if (_ccTabId && _ccTabId !== id) stopCaptions();
 
-  // Clear scroll pill when switching tabs
+  // Clear scroll pill and token count when switching tabs
   _browseUpdateScrollPill(-1);
+  _browseUpdateTokenCount(0);
 
   win.activeTab = id;
   const tab = win.tabs.find(t => t.id === id);

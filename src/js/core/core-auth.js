@@ -124,6 +124,22 @@ function _updateAccountUI() {
     }
     return;
   }
+  if (_guestMode) {
+    if (typeof AetherUI !== 'undefined') {
+      AetherUI.mount(
+        new View('span')
+          .style('width', '22px').style('height', '22px').style('border-radius', '50%')
+          .style('background', 'var(--nr-bg-tertiary)').style('display', 'flex')
+          .style('align-items', 'center').style('justify-content', 'center')
+          .style('font-size', '13px').style('animation', 'nr-breathe 3s ease-in-out infinite')
+          ._bindText('\uD83D\uDC7B'),
+        avatarSpan
+      );
+    }
+    avatarSpan.style.display = '';
+    if (avatarIcon) avatarIcon.style.display = 'none';
+    return;
+  }
   if (_authUserInfo && (_authUserInfo.username || _authUserInfo.name)) {
     if (typeof AetherUI === 'undefined') {
       avatarSpan.style.display = '';
@@ -245,9 +261,110 @@ async function _doDeleteAccount() {
   window.location.href = '/login.html';
 }
 
+// ── Guest mode ──
+
+const _GUEST_STASH_PREFIX = '_guestStash_';
+
+function enterGuestMode() {
+  if (_guestMode) return;
+  // Stash auth state
+  sessionStorage.setItem(_GUEST_STASH_PREFIX + 'authToken', _authToken || '');
+  sessionStorage.setItem(_GUEST_STASH_PREFIX + 'authUser', _authUser || '');
+  sessionStorage.setItem(_GUEST_STASH_PREFIX + 'authUserInfo', JSON.stringify(_authUserInfo));
+  // Stash all sync keys
+  for (let i = 0; i < SYNC_KEYS.length; i++) {
+    const val = localStorage.getItem(SYNC_KEYS[i]);
+    if (val !== null) sessionStorage.setItem(_GUEST_STASH_PREFIX + SYNC_KEYS[i], val);
+  }
+  // Clear auth state
+  _authToken = null;
+  _authUser = null;
+  _authUserInfo = null;
+  _stopSyncInterval();
+  // Set guest mode flag
+  _guestMode = true;
+  sessionStorage.setItem('_guestMode', 'true');
+  _updateAccountUI();
+  if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Guest mode active');
+}
+
+function exitGuestMode() {
+  if (!_guestMode) return;
+  // Restore auth state
+  _authToken = sessionStorage.getItem(_GUEST_STASH_PREFIX + 'authToken') || null;
+  _authUser = sessionStorage.getItem(_GUEST_STASH_PREFIX + 'authUser') || null;
+  const uiRaw = sessionStorage.getItem(_GUEST_STASH_PREFIX + 'authUserInfo');
+  _authUserInfo = uiRaw ? JSON.parse(uiRaw) : null;
+  if (_authToken) localStorage.setItem('authToken', _authToken);
+  if (_authUser) localStorage.setItem('authUser', _authUser);
+  if (_authUserInfo) localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
+  // Restore sync keys
+  for (let i = 0; i < SYNC_KEYS.length; i++) {
+    const val = sessionStorage.getItem(_GUEST_STASH_PREFIX + SYNC_KEYS[i]);
+    if (val !== null) localStorage.setItem(SYNC_KEYS[i], val);
+  }
+  // Clear stash
+  const keys = [];
+  for (let j = 0; j < sessionStorage.length; j++) keys.push(sessionStorage.key(j));
+  for (let k = 0; k < keys.length; k++) {
+    if (keys[k].indexOf(_GUEST_STASH_PREFIX) === 0) sessionStorage.removeItem(keys[k]);
+  }
+  // Clear guest flag
+  _guestMode = false;
+  sessionStorage.removeItem('_guestMode');
+  _onLoginSuccess();
+  if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Welcome back, ' + (_authUser || 'User'));
+}
+
+// ── User menu popover ──
+
+function _toggleUserMenu() {
+  const pop = document.getElementById('user-menu-popover');
+  if (!pop) return;
+  const visible = pop.style.display !== 'none';
+  pop.style.display = visible ? 'none' : '';
+  if (!visible) {
+    _updateUserMenuLabels();
+    // Close on outside click
+    setTimeout(function() {
+      document.addEventListener('click', _closeUserMenuOutside, { once: true });
+    }, 0);
+  }
+}
+
+function _closeUserMenuOutside(e) {
+  const pop = document.getElementById('user-menu-popover');
+  const wrap = document.getElementById('sb-dashboard-wrap');
+  if (pop && wrap && !wrap.contains(e.target)) pop.style.display = 'none';
+}
+
+function _updateUserMenuLabels() {
+  const label = document.getElementById('user-menu-guest-label');
+  if (!label) return;
+  if (_guestMode) {
+    const name = sessionStorage.getItem(_GUEST_STASH_PREFIX + 'authUser') || 'Account';
+    label.textContent = 'Return to ' + name;
+  } else {
+    label.textContent = 'Guest Mode';
+  }
+}
+
+function _userMenuGuestAction() {
+  if (_guestMode) {
+    exitGuestMode();
+  } else {
+    enterGuestMode();
+  }
+}
+
 // ── Initialize: check session, redirect to login if needed ──
 (function _initAuth() {
   _updateAccountUI();
+  if (_guestMode) {
+    _authReady = true;
+    routeFromHash();
+    return;
+  }
   if (_authToken) {
     // Verify session is still valid
     apiGet('/api/auth/me')

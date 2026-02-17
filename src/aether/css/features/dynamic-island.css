@@ -156,6 +156,16 @@
       white-space: nowrap;
     }
     #pill-scroll-pct.active { display: inline; margin-right: 6px; }
+    /* Token count inside audio pill */
+    #pill-token-count {
+      display: none;
+      font-size: 0.6rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-secondary, #888);
+      opacity: 0.6;
+      white-space: nowrap;
+    }
+    #pill-token-count.active { display: inline; margin-right: 6px; }
     /* Focus timer inside audio pill */
     #pill-focus-timer {
       display: none;

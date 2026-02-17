@@ -69,6 +69,9 @@ let _navHistory = JSON.parse(localStorage.getItem('_navHistory') || '[]');
 let _navForward = JSON.parse(localStorage.getItem('_navForward') || '[]');
 let _navNavigating = false; // guard to prevent push while navigating back/forward
 
+// ── Guest mode ──
+let _guestMode = sessionStorage.getItem('_guestMode') === 'true';
+
 // ── Auth ──
 let _authToken = localStorage.getItem('authToken') || null;
 let _authUserInfo = JSON.parse(localStorage.getItem('authUserInfo') || 'null');

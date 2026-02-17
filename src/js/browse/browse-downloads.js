@@ -489,7 +489,7 @@ function _browseHandleNavigation(tab, frame) {
     // Clear RSS feeds and scroll pill on navigation
     tab.rssFeeds = null;
     _browseUpdateRssPill(tab);
-    if (tab.id === _browseActiveTab) _browseUpdateScrollPill(-1);
+    if (tab.id === _browseActiveTab) { _browseUpdateScrollPill(-1); _browseUpdateTokenCount(0); }
     // Focus timer: start/stop based on current site
     if (tab.id === _browseActiveTab) _checkFocusTimer(navUrl);
     // Clear any existing annotation state for this tab on navigation
@@ -509,6 +509,9 @@ function _browseHandleNavigation(tab, frame) {
     if (typeof islandRemove === 'function') islandRemove('insight');
     // Update nav buttons so back/forward reflect history stacks
     if (typeof _updateIslandNavButtons === 'function') _updateIslandNavButtons();
+    // Clear adaptive color on navigation (will re-extract on did-finish-load)
+    tab.themeColor = null;
+    if (_browseActiveTab === tab.id && typeof _browseApplyAdaptiveColor === 'function') _browseApplyAdaptiveColor(tab);
   });
   frame.addEventListener('did-navigate-in-page', (e) => {
     if (!e.isMainFrame) return;
@@ -625,6 +628,25 @@ function _browseHandleNavigation(tab, frame) {
       if (typeof _paperOnPageLoad === 'function') {
         _paperOnPageLoad(tab, frame);
       }
+      // Extract page color for adaptive URL bar (theme-color meta > body bg > html bg)
+      try {
+        frame.executeJavaScript(
+          `(() => {
+            try {
+              const meta = document.querySelector('meta[name="theme-color"]');
+              if (meta && meta.content) return meta.content;
+              const bodyBg = getComputedStyle(document.body).backgroundColor;
+              if (bodyBg && bodyBg !== 'rgba(0, 0, 0, 0)' && bodyBg !== 'transparent') return bodyBg;
+              const htmlBg = getComputedStyle(document.documentElement).backgroundColor;
+              if (htmlBg && htmlBg !== 'rgba(0, 0, 0, 0)' && htmlBg !== 'transparent') return htmlBg;
+              return null;
+            } catch(e) { return null; }
+          })()`
+        ).then(color => {
+          if (color) tab.themeColor = color;
+          if (_browseActiveTab === tab.id && typeof _browseApplyAdaptiveColor === 'function') _browseApplyAdaptiveColor(tab);
+        }).catch(() => {});
+      } catch {}
     });
   }
 
@@ -1088,6 +1110,23 @@ function _browseInjectContentScripts(tab, frame) {
       })();
     `).catch(()=>{});
 
+    // Token count estimation — report DOM text size as approximate token count
+    frame.executeJavaScript(`
+      (function(){
+        if(window.__aetherTokenInjected)return;
+        window.__aetherTokenInjected=true;
+        function reportTokens(){
+          var text=document.body?document.body.innerText:'';
+          var tokens=Math.round(text.length/4);
+          console.log('__AETHER_TOKENS__'+tokens);
+        }
+        setTimeout(reportTokens,1500);
+        var _mo=new MutationObserver(function(){clearTimeout(_mo._t);_mo._t=setTimeout(reportTokens,2000);});
+        if(document.body)_mo.observe(document.body,{childList:true,subtree:true});
+        else document.addEventListener('DOMContentLoaded',function(){_mo.observe(document.body,{childList:true,subtree:true});});
+      })();
+    `).catch(()=>{});
+
     // Two-finger horizontal swipe detection — relay to parent for back/forward nav
     frame.executeJavaScript(`
       (function(){
@@ -1295,6 +1334,10 @@ function _browseInjectContentScripts(tab, frame) {
     } else if (e.message && e.message.startsWith('__AETHER_SCROLL__')) {
       if (tab.id === _browseActiveTab) {
         _browseUpdateScrollPill(parseInt(e.message.slice('__AETHER_SCROLL__'.length)));
+      }
+    } else if (e.message && e.message.startsWith('__AETHER_TOKENS__')) {
+      if (tab.id === _browseActiveTab) {
+        _browseUpdateTokenCount(parseInt(e.message.slice('__AETHER_TOKENS__'.length)));
       }
     } else if (e.message && e.message.startsWith('__AETHER_SWIPE__')) {
       if (tab.id === _browseActiveTab && typeof _swipeCommit === 'function') {

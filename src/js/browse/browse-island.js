@@ -81,6 +81,8 @@ function _pillSyncUrl() {
     if (ntp) ntp.style.display = 'none';
   }
   _updateIslandNavButtons();
+  // Reapply adaptive URL bar color for the active tab
+  if (typeof _browseApplyAdaptiveColor === 'function') _browseApplyAdaptiveColor(tab);
 }
 
 function _updateIslandNavButtons() {

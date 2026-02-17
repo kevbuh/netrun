@@ -1,5 +1,108 @@
 if (window.AetherUI) AetherUI.globals();
 
+// ─── Shared Help Data ──────────────────────────────────────
+// Used by both _renderHelpSettings() and _renderHelpPage() (in browse-urlbar.js)
+
+const _HELP_DATA = {
+  instantAnswers: [
+    ['Definition', 'pug, ephemeral'],
+    ['Math', 'sqrt(144), 2^10, 15% of 230'],
+    ['Color', '#ff5733, rgb(20,120,200)'],
+    ['Convert', '5km to mi, 100f to c'],
+    ['Time zone', 'time in tokyo'],
+    ['Weather', 'weather boston'],
+    ['Sports', 'nba, lakers, premier league'],
+    ['Stocks', '$AAPL, TSLA stock'],
+  ],
+  searchSyntax: [
+    ['"exact phrase"', 'Match exact phrase'],
+    ['title:word', 'Search in title only'],
+    ['title:"exact phrase"', 'Exact phrase in title only'],
+    ['by:author name', 'Search by author'],
+    ['source:arxiv', 'Filter by source'],
+    ['user:username', 'Search for a user'],
+    ['~neural networks', 'Semantic search over read posts'],
+  ],
+  slashCommands: [
+    ['/help', 'This help page'],
+    ['/define word', 'Dictionary lookup'],
+    ['/search query', 'Web search in new tab'],
+    ['/paper query', 'Search arXiv papers'],
+    ['/user query', 'Search for users'],
+    ['/notes', 'Browse your notes'],
+    ['/links', 'List links on page'],
+    ['/tab', 'Add tab to chat context'],
+    ['/model', 'Change chat model'],
+    ['/history', 'Browse visited sites'],
+    ['/capture', 'Screenshot the page'],
+    ['/bookmark', 'Save to reading list'],
+    ['/find', 'Find in page'],
+    ['/note', 'Open in note viewer'],
+    ['/upload', 'Open a local file'],
+    ['/close', 'Close tab'],
+    ['/copy', 'Copy page URL'],
+    ['/mute', 'Mute/unmute tab'],
+    ['/print', 'Print page'],
+  ],
+  shortcuts: [
+    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Global</strong>'],
+    ['Esc', 'Close panel / Go home'],
+    ['\u2318T', 'New browser tab'],
+    ['\u2318W', 'Close browser tab'],
+    ['\u2318Y', 'History page'],
+    ['\u2318L', 'Focus URL bar'],
+    ['\u2318\u21e7T', 'Reopen closed tab'],
+    ['Enter', 'Send chat message'],
+    ['\u21e7Enter', 'Web search from panel'],
+    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Tab Overview</strong>'],
+    ['\u2190\u2192', 'Switch windows'],
+    ['\u2191\u2193', 'Switch tabs'],
+    ['Enter', 'Select tab'],
+    ['N', 'New window'],
+    ['T', 'New tab'],
+    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Browser</strong>'],
+    ['\u2318+', 'Zoom in'],
+    ['\u2318-', 'Zoom out'],
+    ['\u23180', 'Reset zoom'],
+    ['\u2318F', 'Find in page'],
+    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">PDF Viewer</strong>'],
+    ['\u2190', 'Previous page'],
+    ['\u2192', 'Next page'],
+    ['\u2318F', 'Find in document'],
+    ['H', 'Highlight mode'],
+    ['P', 'Pen mode'],
+    ['', '<strong style="color:var(--nr-text-quaternary);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;">Editors</strong>'],
+    ['\u2318S', 'Save'],
+    ['\u2318Z', 'Undo'],
+    ['\u2318\u21e7Z', 'Redo'],
+    ['\u21e7Enter', 'Run cell (notebook)'],
+  ],
+  chatTools: [
+    ['Web Search', 'Searches DuckDuckGo for current info'],
+    ['Paper Search', 'Finds papers on arXiv'],
+    ['Fetch Page', 'Reads content from any URL'],
+    ['Bookmark', 'Saves posts to your reading list'],
+    ['Navigate', 'Opens views (home, experiments, etc.)'],
+    ['New Experiment', 'Creates a project from chat'],
+  ],
+  semanticSearch: [
+    ['Setup', 'Run <code class="text-muted">ollama pull nomic-embed-text</code> once (~274MB)'],
+    ['Search', 'Type <code class="text-muted">~query</code> in Research > Papers search'],
+    ['Find similar', 'Click the three-dot menu on any card > "Find similar"'],
+    ['Notes', 'Vault notes are embedded when saved, searchable via <code class="text-muted">~</code>'],
+    ['Offline', 'Fully local \u2014 no data leaves your machine'],
+  ],
+  aiModels: [
+    ['qwen2.5:1.5b', 'Quality filter (KEEP/SKIP + scoring)'],
+    ['qwen2.5:3b', 'Document chat, paper insights'],
+    ['nomic-embed-text', 'Semantic search embeddings (768-dim)'],
+    ['qwen3:8b', 'Chat with tools (autonomous agent mode)'],
+    ['qwen3-vl:8b', 'Vision chat (screenshot analysis)'],
+    ['glm-ocr', 'Visual OCR for Insight (extracts text from screenshots)'],
+  ],
+  getBangs: () => typeof _BANGS !== 'undefined' ? Object.keys(_BANGS).map(k => ['!' + k, (typeof _BANG_LABELS !== 'undefined' && _BANG_LABELS[k]) || k]) : [],
+};
+
 // ─── AetherUI Settings Helpers ──────────────────────────────
 
 function _settingRow(label, desc, control) {
@@ -113,6 +216,20 @@ function _settingHeadingRow(title, desc, control) {
 // ─── Settings Sections ──────────────────────────────────────
 
 function _renderAccountSettings() {
+  if (_guestMode) {
+    var guestCard = HStack(
+      RawHTML('<div style="width:56px;height:56px;border-radius:50%;background:var(--nr-bg-tertiary);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">&#128123;</div>'),
+      VStack(
+        Text('Guest Mode').className('text-primary font-semibold text-[0.95rem]'),
+        Text('Browsing without an account').className('text-dim text-[0.8rem]')
+      )
+    ).spacing(3).className('mb-4');
+    var returnBtn = new View('button');
+    returnBtn.el.textContent = 'Return to Account';
+    returnBtn.el.className = 'px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors';
+    returnBtn.onTap(function() { exitGuestMode(); });
+    return _settingSection('Profile', [guestCard, returnBtn]);
+  }
   var avatarHtml = _authUserInfo?.picture
     ? '<img src="' + escapeAttr(_authUserInfo.picture) + '" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;" />'
     : '<div style="width:56px;height:56px;border-radius:50%;background:var(--nr-accent);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:600;color:#fff;">' + escapeHtml((_authUserInfo?.username || '?')[0].toUpperCase()) + '</div>';
@@ -143,10 +260,18 @@ function _renderAccountSettings() {
   deleteBtn.el.className = 'px-3 py-1 rounded-md text-[0.78rem] border border-red-800/50 text-red-400/70 bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors';
   deleteBtn.onTap(function() { _doDeleteAccount(); });
 
+  var guestBtn = new View('button');
+  guestBtn.el.textContent = _guestMode ? 'Return to Account' : 'Guest Mode';
+  guestBtn.el.className = 'px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors';
+  guestBtn.onTap(function() {
+    if (_guestMode) exitGuestMode();
+    else enterGuestMode();
+  });
+
   return _settingSection('Profile', [
     profileCard,
     privacyToggle,
-    HStack(signOutBtn, deleteBtn).spacing(2).className('mt-4')
+    HStack(guestBtn, signOutBtn, deleteBtn).spacing(2).className('mt-4')
   ]);
 }
 
@@ -836,6 +961,28 @@ function _renderBrowserSettings() {
     Text('Show only the domain name in the URL bar when not focused. Hover or click to see the full URL.').className('text-dim text-[0.8rem] mb-3')
   ).className('mb-8 pt-5 border-t border-border-subtle');
 
+  // Adaptive URL Colors
+  var adaptiveToggle = Toggle(null);
+  var adaptiveInput = adaptiveToggle.el.querySelector('input[type="checkbox"]');
+  if (adaptiveInput) adaptiveInput.checked = localStorage.getItem('adaptiveUrlBar') !== 'off';
+  adaptiveToggle.on('change', function(e) {
+    if (e.target.type !== 'checkbox') return;
+    localStorage.setItem('adaptiveUrlBar', e.target.checked ? 'on' : 'off');
+    if (!e.target.checked && typeof _browseResetAdaptiveColor === 'function') _browseResetAdaptiveColor();
+    else if (e.target.checked && typeof _browseApplyAdaptiveColor === 'function') {
+      var tab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
+        ? _browseTabs.find(function(t) { return t.id === _browseActiveTab; }) : null;
+      if (tab) _browseApplyAdaptiveColor(tab);
+    }
+  });
+  var adaptiveSection = VStack(
+    HStack(
+      Text('Adaptive Background').className('text-white_ text-sm font-semibold'), Spacer(),
+      Text('Enable').className('text-primary text-sm'), adaptiveToggle
+    ).spacing(2).className('mb-1'),
+    Text('Match the browser background to the current website\'s color for a seamless browsing feel.').className('text-dim text-[0.8rem] mb-3')
+  ).className('mb-8 pt-5 border-t border-border-subtle');
+
   // URL bar sections
   var urlBarSection = _settingSection('URL Bar Sections', [
     RawHTML('<div id="settings-urlbar-sections">' + _renderUrlBarSectionsSettings() + '</div>')
@@ -846,7 +993,7 @@ function _renderBrowserSettings() {
     RawHTML('<div id="settings-passwords"><div class="text-dimmer text-[0.75rem]">Loading...</div></div>')
   ], { borderTop: true, desc: 'Passwords are encrypted via your system keychain.' });
 
-  return VStack(adBlockSection, ytSection, focusSection, sitePermSection, urlSection, urlBarSection, pwSection);
+  return VStack(adBlockSection, ytSection, focusSection, sitePermSection, urlSection, adaptiveSection, urlBarSection, pwSection);
 }
 
 const _expandedPermDomain = null;
@@ -1244,61 +1391,66 @@ function _renderAgentSettings() {
 }
 
 function _renderHelpSettings() {
-  return RawHTML(`
-    <div class="mb-8">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Search</h3>
-      <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">
-        <code class="text-muted">"exact phrase"</code><span class="text-dim">Match exact phrase in feed + arXiv</span>
-        <code class="text-muted">title:word</code><span class="text-dim">Search in title only</span>
-        <code class="text-muted">by:author name</code><span class="text-dim">Search by author</span>
-        <code class="text-muted">source:arxiv</code><span class="text-dim">Filter by source</span>
-        <code class="text-muted">user:username</code><span class="text-dim">Search for a user</span>
-        <code class="text-muted">~neural networks</code><span class="text-dim">Semantic search over read/bookmarked posts</span>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Semantic Search</h3>
-      <p class="text-dim text-[0.8rem] mb-3">Posts you read or bookmark are automatically embedded using a local AI model. You can then search by meaning instead of keywords.</p>
-      <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">
-        <span class="text-muted font-medium">Setup</span><span class="text-dim">Run <code class="text-muted">ollama pull nomic-embed-text</code> once (~274MB)</span>
-        <span class="text-muted font-medium">Search</span><span class="text-dim">Type <code class="text-muted">~query</code> in Research > Papers search</span>
-        <span class="text-muted font-medium">Find similar</span><span class="text-dim">Click the three-dot menu on any card > "Find similar"</span>
-        <span class="text-muted font-medium">Notes</span><span class="text-dim">Vault notes are embedded when saved, searchable via <code class="text-muted">~</code></span>
-        <span class="text-muted font-medium">Offline</span><span class="text-dim">Fully local — no data leaves your machine</span>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Keyboard Shortcuts</h3>
-      <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">
-        <kbd class="kbd-key text-[0.7rem]">Cmd+T</kbd><span class="text-dim">Toggle tiling window manager</span>
-        <kbd class="kbd-key text-[0.7rem]">Right-click</kbd><span class="text-dim">Open aether panel (chat, search, actions)</span>
-        <kbd class="kbd-key text-[0.7rem]">Enter</kbd><span class="text-dim">Send chat message in aether panel</span>
-        <kbd class="kbd-key text-[0.7rem]">Shift+Enter</kbd><span class="text-dim">Web search in aether panel</span>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Aether Panel</h3>
-      <p class="text-dim text-[0.8rem] mb-2">Right-click anywhere to open an inline chat panel. Type <code class="text-muted">/help</code> in the panel for available commands.</p>
-      <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">
-        <span class="text-muted font-medium">Chat</span><span class="text-dim">Ask questions about the current page or anything</span>
-        <span class="text-muted font-medium">Screenshot</span><span class="text-dim">Drag to capture a region and chat about it (Electron only)</span>
-        <span class="text-muted font-medium">Web search</span><span class="text-dim">Shift+Enter to search the web inline</span>
-        <span class="text-muted font-medium">Context</span><span class="text-dim">Right-click on links/images for contextual actions</span>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-3">AI Models (Ollama)</h3>
-      <p class="text-dim text-[0.8rem] mb-3">The app uses local Ollama models. All are optional — features degrade gracefully without them.</p>
-      <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">
-        <code class="text-muted">qwen2.5:1.5b</code><span class="text-dim">Quality filter (KEEP/SKIP + scoring)</span>
-        <code class="text-muted">qwen2.5:3b</code><span class="text-dim">Document chat, paper insights</span>
-        <code class="text-muted">nomic-embed-text</code><span class="text-dim">Semantic search embeddings (768-dim)</span>
-        <code class="text-muted">qwen3:8b</code><span class="text-dim">Chat with tools (autonomous agent mode)</span>
-        <code class="text-muted">qwen3-vl:8b</code><span class="text-dim">Vision chat (screenshot analysis)</span>
-        <code class="text-muted">glm-ocr</code><span class="text-dim">Visual OCR for Insight (extracts text from screenshots)</span>
-      </div>
-    </div>
-  `);
+  var h = '';
+
+  // Search
+  h += '<div class="mb-8"><h3 class="text-white_ text-sm font-semibold mb-3">Search</h3>';
+  h += '<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">';
+  _HELP_DATA.searchSyntax.forEach(function(row) {
+    h += '<code class="text-muted">' + row[0] + '</code><span class="text-dim">' + row[1] + '</span>';
+  });
+  h += '</div></div>';
+
+  // Bangs
+  var bangs = _HELP_DATA.getBangs();
+  if (bangs.length) {
+    h += '<div class="mb-8 pt-5 border-t border-border-subtle"><h3 class="text-white_ text-sm font-semibold mb-3">Bangs</h3>';
+    h += '<p class="text-dim text-[0.8rem] mb-3">Type <code class="text-muted">!</code> followed by a shortcut and your query to search a specific site. Works at the start or end of input.</p>';
+    h += '<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">';
+    bangs.forEach(function(row) {
+      h += '<code class="text-muted">' + row[0] + '</code><span class="text-dim">' + row[1] + '</span>';
+    });
+    h += '</div></div>';
+  }
+
+  // Semantic Search
+  h += '<div class="mb-8 pt-5 border-t border-border-subtle"><h3 class="text-white_ text-sm font-semibold mb-3">Semantic Search</h3>';
+  h += '<p class="text-dim text-[0.8rem] mb-3">Posts you read or bookmark are automatically embedded using a local AI model. You can then search by meaning instead of keywords.</p>';
+  h += '<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">';
+  _HELP_DATA.semanticSearch.forEach(function(row) {
+    h += '<span class="text-muted font-medium">' + row[0] + '</span><span class="text-dim">' + row[1] + '</span>';
+  });
+  h += '</div></div>';
+
+  // Keyboard Shortcuts
+  h += '<div class="mb-8 pt-5 border-t border-border-subtle"><h3 class="text-white_ text-sm font-semibold mb-3">Keyboard Shortcuts</h3>';
+  h += '<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">';
+  _HELP_DATA.shortcuts.forEach(function(row) {
+    if (!row[0]) return;
+    h += '<kbd class="kbd-key text-[0.7rem]">' + row[0] + '</kbd><span class="text-dim">' + row[1] + '</span>';
+  });
+  h += '</div></div>';
+
+  // Aether Panel
+  h += '<div class="mb-8 pt-5 border-t border-border-subtle"><h3 class="text-white_ text-sm font-semibold mb-3">Aether Panel</h3>';
+  h += '<p class="text-dim text-[0.8rem] mb-2">Right-click anywhere to open an inline chat panel. Type <code class="text-muted">/help</code> in the panel for available commands.</p>';
+  h += '<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">';
+  h += '<span class="text-muted font-medium">Chat</span><span class="text-dim">Ask questions about the current page or anything</span>';
+  h += '<span class="text-muted font-medium">Screenshot</span><span class="text-dim">Drag to capture a region and chat about it (Electron only)</span>';
+  h += '<span class="text-muted font-medium">Web search</span><span class="text-dim">Shift+Enter to search the web inline</span>';
+  h += '<span class="text-muted font-medium">Context</span><span class="text-dim">Right-click on links/images for contextual actions</span>';
+  h += '</div></div>';
+
+  // AI Models
+  h += '<div class="mb-8 pt-5 border-t border-border-subtle"><h3 class="text-white_ text-sm font-semibold mb-3">AI Models (Ollama)</h3>';
+  h += '<p class="text-dim text-[0.8rem] mb-3">The app uses local Ollama models. All are optional \u2014 features degrade gracefully without them.</p>';
+  h += '<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">';
+  _HELP_DATA.aiModels.forEach(function(row) {
+    h += '<code class="text-muted">' + row[0] + '</code><span class="text-dim">' + row[1] + '</span>';
+  });
+  h += '</div></div>';
+
+  return RawHTML(h);
 }
 
 let _contextFiles = [];

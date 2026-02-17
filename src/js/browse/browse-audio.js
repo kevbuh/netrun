@@ -51,6 +51,19 @@ function _browseUpdateScrollPill(pct) {
   }
 }
 
+function _browseUpdateTokenCount(count) {
+  const el = document.getElementById('pill-token-count');
+  if (!el) return;
+  if (count <= 0) {
+    el.classList.remove('active');
+    el.textContent = '';
+  } else {
+    var label = count >= 1000 ? Math.round(count / 1000) + 'k' : String(count);
+    el.textContent = label + ' tok';
+    el.classList.add('active');
+  }
+}
+
 function _updateAudioIndicator() {
   // Remove legacy floating indicator if it exists
   const legacy = document.getElementById('audio-indicator');
