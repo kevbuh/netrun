@@ -540,6 +540,7 @@ function injectAnnotations(tab, annotations) {
   const colorMap = {
     ALPHA: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Alpha', labelColor: '#4caf50' },
     CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Contradiction', labelColor: '#ef5350' },
+    EXAGGERATION: { bg: 'rgba(255, 193, 7, 0.25)', border: '#ffc107', label: 'Exaggeration', labelColor: '#ffc107' },
     AD: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Ad', labelColor: '#ff9800' },
     CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Connection', labelColor: '#2196f3' }
   };
@@ -760,6 +761,7 @@ function injectSingleAnnotation(tab, ann) {
   const colorMap = {
     ALPHA: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Alpha', labelColor: '#4caf50' },
     CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Contradiction', labelColor: '#ef5350' },
+    EXAGGERATION: { bg: 'rgba(255, 193, 7, 0.25)', border: '#ffc107', label: 'Exaggeration', labelColor: '#ffc107' },
     AD: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Ad', labelColor: '#ff9800' },
     CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Connection', labelColor: '#2196f3' }
   };
