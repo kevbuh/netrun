@@ -1156,8 +1156,8 @@ function renderQualityView() {
   blockedPostsBtn.el.querySelector('button').addEventListener('click', function() { _toggleBlockedPostsList(); });
 
   // Reset everything button
-  var resetAllBtn = new View('button').className('text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
-  resetAllBtn.el.innerHTML = 'Reset all &amp; clear cache';
+  var resetAllBtn = new View('button').id('reset-everything-btn').className('text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
+  resetAllBtn.el.textContent = 'Reset all & clear cache';
   resetAllBtn.onTap(function() { resetEverything(); });
 
   var view = VStack(

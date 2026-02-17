@@ -1,5 +1,7 @@
 // ── AI Quality Filter (local Ollama) ──
 
+if (window.AetherUI) AetherUI.globals();
+
 const DEFAULT_QUALITY_PROMPT =
   'You are a topic filter. Your job is to remove obvious junk from a feed reader.\n\n' +
   'SKIP only if the title is clearly about: product reviews, buyer\'s guides, \'best X\' roundups, ' +
@@ -43,7 +45,7 @@ async function saveQualityPrompt() {
   renderPapers();
   if (isQualityFilterOn() && allPapers.length) qualityFilterPapers();
   const resultsEl = document.getElementById('prompt-test-results');
-  if (resultsEl) resultsEl.innerHTML = '<div class="text-green-400 text-[0.75rem]">Prompt saved &amp; cache cleared.</div>';
+  if (resultsEl) AetherUI.mount(Text('Prompt saved & cache cleared.').className('text-green-400 text-[0.75rem]'), resultsEl);
 }
 function resetQualityPrompt() {
   localStorage.removeItem('qualityPrompt');
@@ -53,14 +55,17 @@ function resetQualityPrompt() {
   runPromptTest();
 }
 
+function _mountTestResult(el, text, cls) {
+  AetherUI.mount(Text(text).className(cls + ' text-[0.75rem]'), el);
+}
 async function runPromptTestInternal() {
   const titles = getTestTitles();
   const resultsEl = document.getElementById('prompt-test-results');
   if (!titles.length) {
-    resultsEl.innerHTML = '<div class="text-dim text-[0.75rem]">No test titles collected yet. Hide posts with ✕ to add them.</div>';
+    _mountTestResult(resultsEl, 'No test titles collected yet. Hide posts with \u2715 to add them.', 'text-dim');
     return [];
   }
-  resultsEl.innerHTML = '<div class="text-dim text-[0.75rem]">Testing…</div>';
+  _mountTestResult(resultsEl, 'Testing\u2026', 'text-dim');
   const prompt = document.getElementById('quality-prompt-input').value.trim();
   const failures = [];
   try {
@@ -68,22 +73,26 @@ async function runPromptTestInternal() {
       const batch = titles.slice(i, i + 10);
       let results;
       try { results = await apiPost('/api/quality-filter', { titles: batch, prompt, mode: 'verdict' }); }
-      catch { resultsEl.innerHTML = '<div class="text-red-400 text-[0.75rem]">API error — is Ollama running?</div>'; return []; }
+      catch { _mountTestResult(resultsEl, 'API error \u2014 is Ollama running?', 'text-red-400'); return []; }
       for (const t of batch) {
         const verdict = results[t] || 'unknown';
         if (verdict !== 'skip') failures.push(t);
       }
     }
   } catch {
-    resultsEl.innerHTML = '<div class="text-red-400 text-[0.75rem]">Network error — is Ollama running?</div>';
+    _mountTestResult(resultsEl, 'Network error \u2014 is Ollama running?', 'text-red-400');
     return [];
   }
   const passed = titles.length - failures.length;
-  let html = `<div class="text-[0.75rem] mb-1 ${failures.length ? 'text-red-400' : 'text-green-400'}">${passed}/${titles.length} passed</div>`;
+  var views = [
+    Text(passed + '/' + titles.length + ' passed').className('text-[0.75rem] mb-1 ' + (failures.length ? 'text-red-400' : 'text-green-400'))
+  ];
   if (failures.length) {
-    html += failures.map(t => `<div class="text-red-400/80 text-[0.73rem] py-0.5 border-b border-border-subtle last:border-0">✗ ${escapeHtml(t)}</div>`).join('');
+    failures.forEach(function(t) {
+      views.push(Text('\u2717 ' + t).className('text-red-400/80 text-[0.73rem] py-0.5 border-b border-border-subtle last:border-0'));
+    });
   }
-  resultsEl.innerHTML = html;
+  AetherUI.mount(VStack(views), resultsEl);
   return failures;
 }
 async function runPromptTest() {
@@ -96,47 +105,54 @@ function resetEverything() {
   localStorage.removeItem('qualityCache');
   renderPapers();
   if (isQualityFilterOn() && allPapers.length) qualityFilterPapers();
-  const btn = document.querySelector('[onclick="resetEverything()"]');
+  var btn = document.getElementById('reset-everything-btn');
   if (btn) {
-    const orig = btn.innerHTML;
     btn.textContent = 'Cleared';
-    btn.classList.remove('text-red-400/80');
-    btn.classList.add('text-green-400');
-    setTimeout(() => {
-      btn.innerHTML = orig;
-      btn.classList.remove('text-green-400');
-      btn.classList.add('text-red-400/80');
-      const qView = document.getElementById('quality-view');
+    btn.className = 'text-green-400 text-[0.78rem] bg-transparent border border-green-400/30 rounded-md px-3 py-1 cursor-default transition-colors';
+    setTimeout(function() {
+      btn.textContent = 'Reset all & clear cache';
+      btn.className = 'text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors';
+      var qView = document.getElementById('quality-view');
       if (qView && !qView.classList.contains('hidden')) renderQualityView();
     }, 1500);
   }
 }
 function renderBlockedList() {
-  const cache = getQualityCache();
-  const aiBlocked = Object.entries(cache).filter(([, v]) => (v?.v || v) === 'skip').map(([t, v]) => ({ title: t, score: v?.s, source: 'ai' }));
-  const manualBlocked = getTestTitles().map(t => ({ title: t, score: null, source: 'manual' }));
-  const seen = new Set();
-  const all = [];
-  for (const b of aiBlocked) { seen.add(b.title); all.push(b); }
-  for (const b of manualBlocked) { if (!seen.has(b.title)) all.push(b); }
-  const el = document.getElementById('quality-blocked-list');
+  var cache = getQualityCache();
+  var aiBlocked = Object.entries(cache).filter(function(e) { return (e[1]?.v || e[1]) === 'skip'; }).map(function(e) { return { title: e[0], score: e[1]?.s, source: 'ai' }; });
+  var manualBlocked = getTestTitles().map(function(t) { return { title: t, score: null, source: 'manual' }; });
+  var seen = new Set();
+  var all = [];
+  for (var b of aiBlocked) { seen.add(b.title); all.push(b); }
+  for (var b of manualBlocked) { if (!seen.has(b.title)) all.push(b); }
+  var el = document.getElementById('quality-blocked-list');
   if (!el) return;
   if (!all.length) {
-    el.innerHTML = '<div class="text-dim text-[0.75rem]">No posts blocked yet.</div>';
+    AetherUI.mount(Text('No posts blocked yet.').className('text-dim text-[0.75rem]'), el);
     return;
   }
-  // Build title → link map from loaded papers + hidden posts
-  const titleToLink = {};
+  var titleToLink = {};
   if (typeof allPapers !== 'undefined') {
-    for (const p of allPapers) titleToLink[p.title] = p.link;
+    for (var p of allPapers) titleToLink[p.title] = p.link;
   }
-  const items = all.reverse();
-  el.innerHTML = items.map(b => {
-    const link = titleToLink[b.title];
-    const href = link || `https://www.google.com/search?q=${encodeURIComponent(b.title)}`;
-    const title = link ? 'Open post' : 'Search for this post';
-    return `<div class="py-1 border-b border-border-subtle last:border-0 flex items-center gap-2"><a href="${escapeHtml(href)}" target="_blank" rel="noopener" class="${b.source === 'manual' ? 'text-orange-400/70' : 'text-red-400/70'} flex-1 min-w-0 truncate hover:underline cursor-pointer" title="${title}">${escapeHtml(b.title)}</a>${b.source === 'manual' ? '<span class="text-dimmer text-[0.68rem] shrink-0">✕</span>' : ''}${b.score != null ? `<span class="text-dimmer text-[0.68rem] shrink-0">${b.score}</span>` : ''}</div>`;
-  }).join('');
+  var items = all.reverse();
+  var rows = items.map(function(b) {
+    var link = titleToLink[b.title];
+    var href = link || 'https://www.google.com/search?q=' + encodeURIComponent(b.title);
+    var linkTitle = link ? 'Open post' : 'Search for this post';
+    var a = new View('a');
+    a.el.href = href;
+    a.el.target = '_blank';
+    a.el.rel = 'noopener';
+    a.el.title = linkTitle;
+    a.el.textContent = b.title;
+    a.el.className = (b.source === 'manual' ? 'text-orange-400/70' : 'text-red-400/70') + ' flex-1 min-w-0 truncate hover:underline cursor-pointer';
+    var badges = [a];
+    if (b.source === 'manual') badges.push(Text('\u2715').className('text-dimmer text-[0.68rem] shrink-0'));
+    if (b.score != null) badges.push(Text(String(b.score)).className('text-dimmer text-[0.68rem] shrink-0'));
+    return HStack(badges).spacing(2).className('py-1 border-b border-border-subtle last:border-0 items-center');
+  });
+  AetherUI.mount(VStack(rows), el);
 }
 function getQualityCache() {
   return getLS('qualityCache', {});
@@ -284,12 +300,12 @@ async function _qualityFilterPapersInner() {
 }
 
 function _updateQfProgress() {
-  // Update the inline progress indicator in the quality panel popup
-  const el = document.getElementById('qf-progress');
+  var el = document.getElementById('qf-progress');
   if (!el) return;
   if (_qfRunning && _qfRemaining > 0) {
-    const label = _qfPhase === 'verdict' ? 'Filtering' : 'Scoring';
-    el.innerHTML = `<span class="inline-flex items-center gap-1.5 text-accent text-[0.65rem]"><span class="inline-block w-1.5 h-1.5 rounded-full bg-accent nr-breathe"></span>${label} ${_qfRemaining}</span>`;
+    var label = _qfPhase === 'verdict' ? 'Filtering' : 'Scoring';
+    var dot = new View('span').className('inline-block w-1.5 h-1.5 rounded-full bg-accent nr-breathe');
+    AetherUI.mount(HStack(dot, Text(label + ' ' + _qfRemaining)).spacing(1.5).className('inline-flex items-center text-accent text-[0.65rem]'), el);
     if (typeof islandUpdate === 'function') islandUpdate('qf', { type: 'ai', label: 'qwen2.5:1.5b', detail: label + ' ' + _qfRemaining + ' \u00B7 qwen2.5:1.5b' });
   } else {
     el.innerHTML = '';

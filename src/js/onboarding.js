@@ -8,6 +8,8 @@
   }
 })();
 
+if (window.AetherUI) AetherUI.globals();
+
 let _wizardStep = 0;
 const _wizardTotalSteps = 10;
 
@@ -44,91 +46,97 @@ let _wizardPendingUsername = null;
 let _wizardModelList = [];
 
 function openOnboarding() {
-  // Render directly into #onboarding-container (standalone page)
   _renderOnboardingWizard();
 }
 
 function _renderOnboardingWizard() {
-  const container = document.getElementById('onboarding-container');
+  var container = document.getElementById('onboarding-container');
   if (!container) return;
-  // Build the wizard shell — a floating card
-  container.innerHTML = `<div id="onboarding-wizard" class="nr-modal wizard-mode" style="position:relative;"></div>`;
+  container.innerHTML = '<div id="onboarding-wizard" class="nr-modal wizard-mode" style="position:relative;"></div>';
   _wizardStep = 0;
   _renderWizardStep(0, 'forward');
 }
 
 function _wizardUpdateAccentGlow() {
-  const modal = document.getElementById('onboarding-wizard');
+  var modal = document.getElementById('onboarding-wizard');
   if (!modal) return;
-  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
-  const hex = accent.replace('#', '');
-  const r = parseInt(hex.slice(0,2), 16) || 0;
-  const g = parseInt(hex.slice(2,4), 16) || 0;
-  const b = parseInt(hex.slice(4,6), 16) || 0;
-  modal.style.setProperty('--accent-glow', `rgba(${r},${g},${b},0.15)`);
+  var accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
+  var hex = accent.replace('#', '');
+  var r = parseInt(hex.slice(0,2), 16) || 0;
+  var g = parseInt(hex.slice(2,4), 16) || 0;
+  var b = parseInt(hex.slice(4,6), 16) || 0;
+  modal.style.setProperty('--accent-glow', 'rgba(' + r + ',' + g + ',' + b + ',0.15)');
   modal.classList.add('wizard-glow', 'nr-glow');
 }
 
 function _wizardAnimateHeight(wizard, step) {
-  const prevHeight = wizard.offsetHeight;
+  var prevHeight = wizard.offsetHeight;
   wizard.style.height = 'auto';
-  const newHeight = step.scrollHeight;
+  var newHeight = step.scrollHeight;
   wizard.style.height = prevHeight + 'px';
   void wizard.offsetHeight;
   wizard.style.height = newHeight + 'px';
-  const onEnd = () => { wizard.style.height = 'auto'; wizard.removeEventListener('transitionend', onEnd); };
+  var onEnd = function() { wizard.style.height = 'auto'; wizard.removeEventListener('transitionend', onEnd); };
   wizard.addEventListener('transitionend', onEnd);
 }
 
-function _wizardBackHTML(stepIndex) {
-  if (stepIndex === 0) return '';
-  const prevStep = stepIndex - 1;
-  return `<button class="wizard-back" onclick="_renderWizardStep(${prevStep}, 'back')" title="Back">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
-  </button>`;
+function _wizardBackView(stepIndex) {
+  if (stepIndex === 0) return null;
+  var prevStep = stepIndex - 1;
+  var btn = new View('button').className('wizard-back');
+  btn.el.title = 'Back';
+  btn.el.appendChild(RawHTML('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>').build());
+  btn.onTap(function() { _renderWizardStep(prevStep, 'back'); });
+  return btn;
+}
+
+function _wizardDotsView(stepIndex) {
+  var dots = [];
+  for (var i = 0; i < _wizardTotalSteps; i++) {
+    var cls = i === stepIndex ? 'active' : i < stepIndex ? 'completed' : '';
+    dots.push(new View('div').className('wizard-dot ' + cls));
+  }
+  return HStack(dots).className('wizard-dots');
 }
 
 function _renderWizardStep(stepIndex, direction) {
-  const wizard = document.getElementById('onboarding-wizard');
+  var wizard = document.getElementById('onboarding-wizard');
   if (!wizard) return;
 
-  const prev = wizard.querySelector('.wizard-step');
+  var prev = wizard.querySelector('.wizard-step');
   if (prev) {
     prev.classList.remove('active');
     prev.classList.add('exit-left');
-    setTimeout(() => { if (prev.parentNode) prev.remove(); }, 350);
+    setTimeout(function() { if (prev.parentNode) prev.remove(); }, 350);
   }
 
-  const delay = prev ? 350 : 0;
-  setTimeout(() => {
+  var delay = prev ? 350 : 0;
+  setTimeout(function() {
     _wizardStep = stepIndex;
-    let dotsHTML = '<div class="wizard-dots">';
-    for (let i = 0; i < _wizardTotalSteps; i++) {
-      const cls = i === stepIndex ? 'active' : i < stepIndex ? 'completed' : '';
-      dotsHTML += `<div class="wizard-dot ${cls}"></div>`;
-    }
-    dotsHTML += '</div>';
 
-    let contentHTML = '';
-    if (stepIndex === 0) contentHTML = _wizardWelcomeHTML();
-    else if (stepIndex === 1) contentHTML = _wizardUsernameHTML();
-    else if (stepIndex === 2) contentHTML = _wizardAccentHTML();
-    else if (stepIndex === 3) contentHTML = _wizardThemeHTML();
-    else if (stepIndex === 4) contentHTML = _wizardTabLayoutHTML();
-    else if (stepIndex === 5) contentHTML = _wizardFeedsHTML();
-    else if (stepIndex === 6) contentHTML = _wizardChatModelHTML();
-    else if (stepIndex === 7) contentHTML = _wizardPixelPetHTML();
-    else if (stepIndex === 8) contentHTML = _wizardNeuralookHTML();
-    else if (stepIndex === 9) contentHTML = _wizardFinaleHTML();
+    var contentView = null;
+    if (stepIndex === 0) contentView = _wizardWelcomeView();
+    else if (stepIndex === 1) contentView = _wizardUsernameView();
+    else if (stepIndex === 2) contentView = _wizardAccentView();
+    else if (stepIndex === 3) contentView = _wizardThemeView();
+    else if (stepIndex === 4) contentView = _wizardTabLayoutView();
+    else if (stepIndex === 5) contentView = _wizardFeedsView();
+    else if (stepIndex === 6) contentView = _wizardChatModelView();
+    else if (stepIndex === 7) contentView = _wizardPixelPetView();
+    else if (stepIndex === 8) contentView = _wizardNeuralookView();
+    else if (stepIndex === 9) contentView = _wizardFinaleView();
 
-    const step = document.createElement('div');
+    var step = document.createElement('div');
     step.className = 'wizard-step';
     step.style.position = 'relative';
-    step.innerHTML = _wizardBackHTML(stepIndex) + dotsHTML + contentHTML;
+    var backView = _wizardBackView(stepIndex);
+    if (backView) step.appendChild(backView.build());
+    step.appendChild(_wizardDotsView(stepIndex).build());
+    if (contentView) step.appendChild(contentView.build());
     wizard.appendChild(step);
 
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
         step.classList.add('active');
         _wizardAnimateHeight(wizard, step);
       });
@@ -145,54 +153,68 @@ function _renderWizardStep(stepIndex, direction) {
 
 // ── Step 0: Welcome ──
 
-function _wizardWelcomeHTML() {
-  const name = (_authUserInfo && (_authUserInfo.name || '')) || _authUser || '';
-  const firstName = name.split(' ')[0] || 'there';
-  const pic = _authUserInfo && _authUserInfo.picture;
-  const avatarHTML = pic
-    ? `<img class="wizard-welcome-avatar" src="${pic.replace(/"/g, '&quot;')}" referrerpolicy="no-referrer" />`
-    : `<div class="wizard-welcome-letter">${firstName[0].toUpperCase()}</div>`;
-  return `
-    <div style="text-align:center;">
-      ${avatarHTML}
-      <div style="font-size:22px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:6px;">Welcome, ${firstName}</div>
-      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:24px;">Let's get your workspace set up. This only takes a moment.</div>
-      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(1, 'forward')">Get started</button>
-    </div>
-  `;
+function _wizardWelcomeView() {
+  var name = (_authUserInfo && (_authUserInfo.name || '')) || _authUser || '';
+  var firstName = name.split(' ')[0] || 'there';
+  var pic = _authUserInfo && _authUserInfo.picture;
+  var avatarView;
+  if (pic) {
+    var img = new View('img').className('wizard-welcome-avatar');
+    img.el.src = pic;
+    img.el.referrerPolicy = 'no-referrer';
+    avatarView = img;
+  } else {
+    avatarView = new View('div').className('wizard-welcome-letter');
+    avatarView.el.textContent = firstName[0].toUpperCase();
+  }
+  var continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  continueBtn.el.textContent = 'Get started';
+  continueBtn.onTap(function() { _renderWizardStep(1, 'forward'); });
+  return VStack(
+    avatarView,
+    Text('Welcome, ' + firstName).style('font-size', '22px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '6px'),
+    Text("Let's get your workspace set up. This only takes a moment.").style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '24px'),
+    continueBtn
+  ).style('text-align', 'center');
 }
 
 // ── Step 1: Username ──
 
-function _wizardUsernameHTML() {
-  return `
-    <div style="text-align:center;">
-      <div style="font-size:20px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:4px;">Choose a username</div>
-      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:20px;">This will be your public identity.</div>
-      <input id="wiz-username" type="text" maxlength="20" placeholder="username"
-        style="width:100%;box-sizing:border-box;padding:10px 14px;font-size:15px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--nr-text-primary,#e0e0e0);outline:none;text-align:center;" />
-      <div id="wiz-username-hint" style="font-size:11px;color:var(--nr-text-secondary,#999);margin-top:6px;">2-20 characters: letters, numbers, hyphens, underscores</div>
-      <div id="wiz-username-error" style="font-size:12px;color:#e74c3c;margin-top:6px;min-height:18px;"></div>
-      <button id="wiz-username-btn" class="nr-btn nr-btn nr-btn-primary nr-btn-lg" style="margin-top:4px;" disabled onclick="_wizardSubmitUsername()">Continue</button>
-    </div>
-  `;
+function _wizardUsernameView() {
+  var input = new View('input').id('wiz-username');
+  input.el.type = 'text';
+  input.el.maxLength = 20;
+  input.el.placeholder = 'username';
+  input.el.style.cssText = 'width:100%;box-sizing:border-box;padding:10px 14px;font-size:15px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--nr-text-primary,#e0e0e0);outline:none;text-align:center;';
+  var submitBtn = new View('button').id('wiz-username-btn').className('nr-btn nr-btn-primary nr-btn-lg').style('margin-top', '4px');
+  submitBtn.el.textContent = 'Continue';
+  submitBtn.el.disabled = true;
+  submitBtn.onTap(function() { _wizardSubmitUsername(); });
+  return VStack(
+    Text('Choose a username').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
+    Text('This will be your public identity.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
+    input,
+    Text('2-20 characters: letters, numbers, hyphens, underscores').id('wiz-username-hint').style('font-size', '11px').style('color', 'var(--nr-text-secondary,#999)').style('margin-top', '6px'),
+    new View('div').id('wiz-username-error').style('font-size', '12px').style('color', '#e74c3c').style('margin-top', '6px').style('min-height', '18px'),
+    submitBtn
+  ).style('text-align', 'center');
 }
 
 function _wizardUsernameInit() {
-  const input = document.getElementById('wiz-username');
+  var input = document.getElementById('wiz-username');
   if (!input) return;
-  input.addEventListener('input', () => {
-    const val = input.value.replace(/[^a-zA-Z0-9_-]/g, '');
+  input.addEventListener('input', function() {
+    var val = input.value.replace(/[^a-zA-Z0-9_-]/g, '');
     if (val !== input.value) input.value = val;
-    const btn = document.getElementById('wiz-username-btn');
-    const valid = val.length >= 2 && val.length <= 20;
-    if (btn) { btn.disabled = !valid; }
-    const errEl = document.getElementById('wiz-username-error');
+    var btn = document.getElementById('wiz-username-btn');
+    var valid = val.length >= 2 && val.length <= 20;
+    if (btn) btn.disabled = !valid;
+    var errEl = document.getElementById('wiz-username-error');
     if (errEl) errEl.textContent = '';
   });
-  input.addEventListener('keydown', (e) => {
+  input.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
-      const btn = document.getElementById('wiz-username-btn');
+      var btn = document.getElementById('wiz-username-btn');
       if (btn && !btn.disabled) _wizardSubmitUsername();
     }
   });
@@ -200,10 +222,10 @@ function _wizardUsernameInit() {
 }
 
 function _wizardSubmitUsername() {
-  const input = document.getElementById('wiz-username');
-  const errEl = document.getElementById('wiz-username-error');
+  var input = document.getElementById('wiz-username');
+  var errEl = document.getElementById('wiz-username-error');
   if (!input || !errEl) return;
-  const username = input.value.trim();
+  var username = input.value.trim();
   if (username.length < 2 || username.length > 20 || !/^[a-zA-Z0-9_-]+$/.test(username)) {
     errEl.textContent = 'Invalid username format';
     return;
@@ -215,7 +237,7 @@ function _wizardSubmitUsername() {
 async function _wizardCommitAccount() {
   if (!_wizardPendingUsername) return;
   try {
-    const data = await apiPost('/api/auth/username', { username: _wizardPendingUsername });
+    var data = await apiPost('/api/auth/username', { username: _wizardPendingUsername });
     _authUserInfo.username = data.username;
     localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
   } catch (e) {
@@ -226,26 +248,31 @@ async function _wizardCommitAccount() {
 
 // ── Step 2: Accent Color ──
 
-function _wizardAccentHTML() {
-  const current = localStorage.getItem('accentColor') || '#b4451a';
-  const currentName = (_wizardAccentColors.find(c => c.color === current) || { name: 'Orange' }).name;
-  return `
-    <div style="text-align:center;">
-      <div style="font-size:20px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:4px;">Pick your color</div>
-      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:20px;">You can change this anytime in settings.</div>
-      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-bottom:14px;">
-        ${_wizardAccentColors.map(a => `
-          <button class="onboard-swatch${a.color === current ? ' selected' : ''}" style="background:${a.color};" data-color="${a.color}" data-name="${a.name}" onclick="_wizardPickAccent('${a.color}', this)"></button>
-        `).join('')}
-      </div>
-      <div id="wiz-color-name" style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:16px;">${currentName}</div>
-      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_wizardAccentContinue()">Continue</button>
-    </div>
-  `;
+function _wizardAccentView() {
+  var current = localStorage.getItem('accentColor') || '#b4451a';
+  var currentName = (_wizardAccentColors.find(function(c) { return c.color === current; }) || { name: 'Orange' }).name;
+  var swatches = _wizardAccentColors.map(function(a) {
+    var btn = new View('button').className('onboard-swatch' + (a.color === current ? ' selected' : ''));
+    btn.el.style.background = a.color;
+    btn.el.dataset.color = a.color;
+    btn.el.dataset.name = a.name;
+    btn.onTap(function() { _wizardPickAccent(a.color, btn.el); });
+    return btn;
+  });
+  var continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  continueBtn.el.textContent = 'Continue';
+  continueBtn.onTap(function() { _wizardAccentContinue(); });
+  return VStack(
+    Text('Pick your color').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
+    Text('You can change this anytime in settings.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
+    HStack(swatches).className('flex flex-wrap justify-center gap-3 mb-3.5'),
+    Text(currentName).id('wiz-color-name').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '16px'),
+    continueBtn
+  ).style('text-align', 'center');
 }
 
 function _wizardAccentInit() {
-  const current = localStorage.getItem('accentColor') || '#b4451a';
+  var current = localStorage.getItem('accentColor') || '#b4451a';
   if (typeof applyAccentColor === 'function') applyAccentColor(current);
   _wizardUpdateAccentGlow();
 }
@@ -253,13 +280,13 @@ function _wizardAccentInit() {
 function _wizardPickAccent(color, el) {
   if (typeof setAccentColor === 'function') setAccentColor(color);
   _wizardUpdateAccentGlow();
-  const wizard = document.getElementById('onboarding-wizard');
+  var wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
-    wizard.querySelectorAll('.onboard-swatch').forEach(s => s.classList.remove('selected'));
+    wizard.querySelectorAll('.onboard-swatch').forEach(function(s) { s.classList.remove('selected'); });
   }
   if (el) el.classList.add('selected');
-  const nameEl = document.getElementById('wiz-color-name');
-  const match = _wizardAccentColors.find(c => c.color === color);
+  var nameEl = document.getElementById('wiz-color-name');
+  var match = _wizardAccentColors.find(function(c) { return c.color === color; });
   if (nameEl && match) nameEl.textContent = match.name;
 }
 
@@ -269,58 +296,57 @@ function _wizardAccentContinue() {
 
 // ── Step 3: Theme ──
 
-function _wizardThemePreview(t) {
-  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
-  return `<div class="wizard-theme-preview" style="background:${t.bg};border-color:${t.id === 'dark' || t.id === 'clear' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'};">
-    <div class="wizard-theme-preview-bar" style="background:${t.bar};"></div>
-    <div class="wizard-theme-preview-body">
-      <div class="wizard-theme-preview-line" style="background:${t.text};opacity:0.5;"></div>
-      <div class="wizard-theme-preview-line" style="background:${accent};opacity:0.7;"></div>
-      <div class="wizard-theme-preview-line" style="background:${t.text};opacity:0.3;"></div>
-    </div>
-  </div>`;
+function _wizardThemePreviewHTML(t) {
+  var accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
+  return '<div class="wizard-theme-preview" style="background:' + t.bg + ';border-color:' + (t.id === 'dark' || t.id === 'clear' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)') + ';">' +
+    '<div class="wizard-theme-preview-bar" style="background:' + t.bar + ';"></div>' +
+    '<div class="wizard-theme-preview-body">' +
+      '<div class="wizard-theme-preview-line" style="background:' + t.text + ';opacity:0.5;"></div>' +
+      '<div class="wizard-theme-preview-line" style="background:' + accent + ';opacity:0.7;"></div>' +
+      '<div class="wizard-theme-preview-line" style="background:' + t.text + ';opacity:0.3;"></div>' +
+    '</div></div>';
 }
 
-function _wizardThemeHTML() {
-  const current = localStorage.getItem('theme') || 'clear';
-  return `
-    <div style="text-align:center;">
-      <div style="font-size:20px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:4px;">Choose a theme</div>
-      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:20px;">Sets the overall look and feel.</div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
-        ${_wizardThemes.map(t => `
-          <button class="wizard-theme-option${t.id === current ? ' selected' : ''}" data-theme="${t.id}" onclick="_wizardPickTheme('${t.id}', this)">
-            ${_wizardThemePreview(t)}
-            <div style="flex:1;text-align:left;margin-left:12px;">
-              <span class="wizard-theme-name">${t.name}</span><br/>
-              <span class="wizard-theme-desc">${t.desc}</span>
-            </div>
-          </button>
-        `).join('')}
-      </div>
-      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_wizardThemeContinue()">Continue</button>
-    </div>
-  `;
+function _wizardThemeView() {
+  var current = localStorage.getItem('theme') || 'clear';
+  var options = _wizardThemes.map(function(t) {
+    var btn = new View('button').className('wizard-theme-option' + (t.id === current ? ' selected' : ''));
+    btn.el.dataset.theme = t.id;
+    btn.el.appendChild(RawHTML(_wizardThemePreviewHTML(t)).build());
+    var labelWrap = new View('div').style('flex', '1').style('text-align', 'left').style('margin-left', '12px');
+    labelWrap.el.appendChild(RawHTML('<span class="wizard-theme-name">' + t.name + '</span><br/><span class="wizard-theme-desc">' + t.desc + '</span>').build());
+    btn.el.appendChild(labelWrap.el);
+    btn.onTap(function() { _wizardPickTheme(t.id, btn.el); });
+    return btn;
+  });
+  var continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  continueBtn.el.textContent = 'Continue';
+  continueBtn.onTap(function() { _wizardThemeContinue(); });
+  return VStack(
+    Text('Choose a theme').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
+    Text('Sets the overall look and feel.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
+    VStack(options).spacing(2).style('margin-bottom', '20px'),
+    continueBtn
+  ).style('text-align', 'center');
 }
 
 function _wizardThemeInit() {
-  const current = localStorage.getItem('theme') || 'clear';
+  var current = localStorage.getItem('theme') || 'clear';
   if (typeof setTheme === 'function') setTheme(current);
 }
 
 function _wizardPickTheme(themeId, el) {
   if (typeof setTheme === 'function') setTheme(themeId);
-  // Update wizard card to match theme
-  const modal = document.getElementById('onboarding-wizard');
-  const isLight = themeId === 'light' || themeId === 'daylight';
+  var modal = document.getElementById('onboarding-wizard');
+  var isLight = themeId === 'light' || themeId === 'daylight';
   if (modal) {
     modal.style.background = isLight ? 'rgba(255, 255, 255, 0.75)' : 'rgba(12, 12, 20, 0.7)';
     modal.style.borderColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
     modal.style.color = isLight ? '#333' : '#e0e0e0';
   }
-  const wizard = document.getElementById('onboarding-wizard');
+  var wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
-    wizard.querySelectorAll('.wizard-theme-option').forEach(b => b.classList.remove('selected'));
+    wizard.querySelectorAll('.wizard-theme-option').forEach(function(b) { b.classList.remove('selected'); });
   }
   if (el) el.classList.add('selected');
 }
@@ -331,53 +357,51 @@ function _wizardThemeContinue() {
 
 // ── Step 4: Tab Layout ──
 
-function _wizardTabLayoutHTML() {
-  const current = localStorage.getItem('browseTabLayout') || 'island';
-  return `
-    <div style="text-align:center;">
-      <div style="font-size:20px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:4px;">Browser tab style</div>
-      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:20px;">How should your browser tabs look?</div>
-      <div style="display:flex;gap:12px;justify-content:center;margin-bottom:20px;">
-        <button class="wizard-tab-layout-option${current === 'island' ? ' selected' : ''}" data-layout="island" onclick="_wizardPickTabLayout('island', this)">
-          <div class="wizard-tab-layout-preview">
-            <div style="display:flex;gap:4px;align-items:center;justify-content:center;height:100%;">
-              <div style="width:10px;height:100%;background:var(--nr-text-secondary,#999);opacity:0.2;border-radius:3px;"></div>
-              <div style="flex:1;display:flex;flex-direction:column;gap:3px;padding:4px;">
-                <div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:80%;"></div>
-                <div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:60%;"></div>
-                <div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:70%;"></div>
-              </div>
-            </div>
-          </div>
-          <span class="wizard-tab-layout-name">Island</span>
-          <span class="wizard-tab-layout-desc">Sidebar tabs</span>
-        </button>
-        <button class="wizard-tab-layout-option${current === 'horizontal' ? ' selected' : ''}" data-layout="horizontal" onclick="_wizardPickTabLayout('horizontal', this)">
-          <div class="wizard-tab-layout-preview">
-            <div style="display:flex;flex-direction:column;height:100%;">
-              <div style="display:flex;gap:2px;padding:3px 4px;">
-                <div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>
-                <div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>
-                <div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>
-              </div>
-              <div style="height:5px;background:var(--nr-text-secondary,#999);opacity:0.15;margin:0 4px;border-radius:2px;"></div>
-              <div style="flex:1;"></div>
-            </div>
-          </div>
-          <span class="wizard-tab-layout-name">Horizontal</span>
-          <span class="wizard-tab-layout-desc">Top tab bar</span>
-        </button>
-      </div>
-      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(5, 'forward')">Continue</button>
-    </div>
-  `;
+function _wizardTabLayoutView() {
+  var current = localStorage.getItem('browseTabLayout') || 'island';
+  function _layoutOption(layout, name, desc, previewHTML, selected) {
+    var btn = new View('button').className('wizard-tab-layout-option' + (selected ? ' selected' : ''));
+    btn.el.dataset.layout = layout;
+    btn.el.appendChild(RawHTML('<div class="wizard-tab-layout-preview">' + previewHTML + '</div>').build());
+    btn.el.appendChild(RawHTML('<span class="wizard-tab-layout-name">' + name + '</span>').build());
+    btn.el.appendChild(RawHTML('<span class="wizard-tab-layout-desc">' + desc + '</span>').build());
+    btn.onTap(function() { _wizardPickTabLayout(layout, btn.el); });
+    return btn;
+  }
+  var islandPreview = '<div style="display:flex;gap:4px;align-items:center;justify-content:center;height:100%;">' +
+    '<div style="width:10px;height:100%;background:var(--nr-text-secondary,#999);opacity:0.2;border-radius:3px;"></div>' +
+    '<div style="flex:1;display:flex;flex-direction:column;gap:3px;padding:4px;">' +
+      '<div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:80%;"></div>' +
+      '<div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:60%;"></div>' +
+      '<div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:70%;"></div>' +
+    '</div></div>';
+  var horizPreview = '<div style="display:flex;flex-direction:column;height:100%;">' +
+    '<div style="display:flex;gap:2px;padding:3px 4px;">' +
+      '<div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>' +
+      '<div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>' +
+      '<div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>' +
+    '</div>' +
+    '<div style="height:5px;background:var(--nr-text-secondary,#999);opacity:0.15;margin:0 4px;border-radius:2px;"></div>' +
+    '<div style="flex:1;"></div></div>';
+  var continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  continueBtn.el.textContent = 'Continue';
+  continueBtn.onTap(function() { _renderWizardStep(5, 'forward'); });
+  return VStack(
+    Text('Browser tab style').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
+    Text('How should your browser tabs look?').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
+    HStack(
+      _layoutOption('island', 'Island', 'Sidebar tabs', islandPreview, current === 'island'),
+      _layoutOption('horizontal', 'Horizontal', 'Top tab bar', horizPreview, current === 'horizontal')
+    ).spacing(3).className('justify-center mb-5'),
+    continueBtn
+  ).style('text-align', 'center');
 }
 
 function _wizardPickTabLayout(layout, el) {
   localStorage.setItem('browseTabLayout', layout);
-  const wizard = document.getElementById('onboarding-wizard');
+  var wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
-    wizard.querySelectorAll('.wizard-tab-layout-option').forEach(b => b.classList.remove('selected'));
+    wizard.querySelectorAll('.wizard-tab-layout-option').forEach(function(b) { b.classList.remove('selected'); });
   }
   if (el) el.classList.add('selected');
 }
@@ -387,94 +411,108 @@ function _wizardPickTabLayout(layout, el) {
 const _wizardFeedSelected = new Set();
 let _wizardFeedCategory = null;
 
-function _wizardFeedsHTML() {
-  const cats = [];
-  FEED_CATALOG.forEach(f => { if (!cats.includes(f.cat)) cats.push(f.cat); });
-
-  let tabsHTML = `<button class="wizard-feed-tab${_wizardFeedCategory === null ? ' active' : ''}" onclick="_wizardFeedSelectCategory(null)">All</button>`;
-  cats.forEach(cat => {
-    tabsHTML += `<button class="wizard-feed-tab${_wizardFeedCategory === cat ? ' active' : ''}" onclick="_wizardFeedSelectCategory('${cat.replace(/'/g, "\\'")}')">${cat}</button>`;
-  });
-
-  return `
-    <div style="text-align:center;">
-      <div style="font-size:20px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:4px;">Choose your feeds</div>
-      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:16px;">Pick RSS feeds to follow. You can change these later.</div>
-      <div id="wiz-feed-tabs" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:12px;">${tabsHTML}</div>
-      <div id="wiz-feed-grid" style="max-height:280px;overflow-y:auto;text-align:left;margin-bottom:16px;"></div>
-      <button id="wiz-feed-continue" class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(6, 'forward')">Continue</button>
-    </div>
-  `;
+function _wizardFeedsView() {
+  var continueBtn = new View('button').id('wiz-feed-continue').className('nr-btn nr-btn-primary nr-btn-lg');
+  continueBtn.el.textContent = 'Continue';
+  continueBtn.onTap(function() { _renderWizardStep(6, 'forward'); });
+  return VStack(
+    Text('Choose your feeds').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
+    Text('Pick RSS feeds to follow. You can change these later.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '16px'),
+    new View('div').id('wiz-feed-tabs').className('flex flex-wrap gap-1.5 justify-center mb-3'),
+    new View('div').id('wiz-feed-grid').style('max-height', '280px').style('overflow-y', 'auto').style('text-align', 'left').style('margin-bottom', '16px'),
+    continueBtn
+  ).style('text-align', 'center');
 }
 
 function _wizardFeedsInit() {
-  // Select all feeds by default on first visit
   if (_wizardFeedSelected.size === 0) {
-    FEED_CATALOG.forEach(f => _wizardFeedSelected.add(f.key));
+    FEED_CATALOG.forEach(function(f) { _wizardFeedSelected.add(f.key); });
   }
+  _wizardFeedRenderTabs();
   _wizardFeedRenderGrid();
+}
+
+function _wizardFeedRenderTabs() {
+  var tabsContainer = document.getElementById('wiz-feed-tabs');
+  if (!tabsContainer) return;
+  var cats = [];
+  FEED_CATALOG.forEach(function(f) { if (cats.indexOf(f.cat) === -1) cats.push(f.cat); });
+  var tabs = [];
+  var allTab = new View('button').className('wizard-feed-tab' + (_wizardFeedCategory === null ? ' active' : ''));
+  allTab.el.textContent = 'All';
+  allTab.onTap(function() { _wizardFeedSelectCategory(null); });
+  tabs.push(allTab);
+  cats.forEach(function(cat) {
+    var tab = new View('button').className('wizard-feed-tab' + (_wizardFeedCategory === cat ? ' active' : ''));
+    tab.el.textContent = cat;
+    tab.onTap(function() { _wizardFeedSelectCategory(cat); });
+    tabs.push(tab);
+  });
+  AetherUI.mount(HStack(tabs).className('flex flex-wrap gap-1.5 justify-center'), tabsContainer);
 }
 
 function _wizardFeedSelectCategory(cat) {
   _wizardFeedCategory = cat;
-  // Update tabs
-  const tabsContainer = document.getElementById('wiz-feed-tabs');
-  if (tabsContainer) {
-    const cats = [];
-    FEED_CATALOG.forEach(f => { if (!cats.includes(f.cat)) cats.push(f.cat); });
-    let tabsHTML = `<button class="wizard-feed-tab${_wizardFeedCategory === null ? ' active' : ''}" onclick="_wizardFeedSelectCategory(null)">All</button>`;
-    cats.forEach(c => {
-      tabsHTML += `<button class="wizard-feed-tab${_wizardFeedCategory === c ? ' active' : ''}" onclick="_wizardFeedSelectCategory('${c.replace(/'/g, "\\'")}')">${c}</button>`;
-    });
-    tabsContainer.innerHTML = tabsHTML;
-  }
+  _wizardFeedRenderTabs();
   _wizardFeedRenderGrid();
 }
 
 function _wizardFeedRenderGrid() {
-  const grid = document.getElementById('wiz-feed-grid');
+  var grid = document.getElementById('wiz-feed-grid');
   if (!grid) return;
 
-  const entries = _wizardFeedCategory
-    ? FEED_CATALOG.filter(f => f.cat === _wizardFeedCategory)
+  var entries = _wizardFeedCategory
+    ? FEED_CATALOG.filter(function(f) { return f.cat === _wizardFeedCategory; })
     : FEED_CATALOG;
 
-  const byCategory = {};
-  entries.forEach(f => {
+  var byCategory = {};
+  entries.forEach(function(f) {
     if (!byCategory[f.cat]) byCategory[f.cat] = [];
     byCategory[f.cat].push(f);
   });
 
-  let html = '';
-  for (const cat of Object.keys(byCategory)) {
-    const items = byCategory[cat];
-    const allOn = items.every(f => _wizardFeedSelected.has(f.key));
-    html += `<div style="margin-bottom:12px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;padding:0 4px;">
-        <span style="font-size:0.72rem;color:var(--nr-text-secondary,#999);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;">${_wizEsc(cat)}</span>
-        <span style="flex:1;height:1px;background:rgba(255,255,255,0.06);"></span>
-        <button style="font-size:0.68rem;color:var(--nr-text-secondary,#777);background:none;border:none;cursor:pointer;" onclick="_wizardFeedToggleCategory('${cat.replace(/'/g, "\\'")}')">${allOn ? 'Deselect all' : 'Select all'}</button>
-      </div>`;
-    for (const f of items) {
-      const sel = _wizardFeedSelected.has(f.key);
-      const favicon = f.favicon
-        ? `<img src="https://www.google.com/s2/favicons?domain=${f.favicon}&sz=32" style="width:20px;height:20px;border-radius:4px;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span style="display:none;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:${f.bg || '#333'};color:${f.fg || '#fff'}">${f.letter || f.name[0]}</span>`
-        : `<span style="display:flex;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:${f.bg || '#333'};color:${f.fg || '#fff'}">${f.letter || f.name[0]}</span>`;
-      const checkSvg = sel ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>` : '';
-      html += `<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:8px;cursor:pointer;transition:background 0.15s;${sel ? 'background:rgba(255,255,255,0.04);' : ''}" onclick="_wizardFeedToggle('${f.key}')" onmouseenter="this.style.background='rgba(255,255,255,0.06)'" onmouseleave="this.style.background='${sel ? 'rgba(255,255,255,0.04)' : 'transparent'}'">
-        ${favicon}
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:0.82rem;font-weight:500;color:${sel ? 'var(--nr-text-primary,#e0e0e0)' : 'var(--nr-text-secondary,#999)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_wizEsc(f.name)}</div>
-          <div style="font-size:0.7rem;color:var(--nr-text-secondary,#777);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_wizEsc(f.desc)}</div>
-        </div>
-        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${sel ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.15)'};background:${sel ? 'var(--accent,#b4451a)' : 'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;">${checkSvg}</div>
-      </div>`;
-    }
-    html += `</div>`;
-  }
-  grid.innerHTML = html;
+  var sections = [];
+  for (var cat of Object.keys(byCategory)) {
+    var items = byCategory[cat];
+    var allOn = items.every(function(f) { return _wizardFeedSelected.has(f.key); });
 
-  const btn = document.getElementById('wiz-feed-continue');
+    // Category header
+    var catLabel = Text(cat).style('font-size', '0.72rem').style('color', 'var(--nr-text-secondary,#999)').style('text-transform', 'uppercase').style('letter-spacing', '0.05em').style('font-weight', '500');
+    var sep = new View('span').style('flex', '1').style('height', '1px').style('background', 'rgba(255,255,255,0.06)');
+    var toggleAllBtn = new View('button').style('font-size', '0.68rem').style('color', 'var(--nr-text-secondary,#777)').style('background', 'none').style('border', 'none').style('cursor', 'pointer');
+    toggleAllBtn.el.textContent = allOn ? 'Deselect all' : 'Select all';
+    (function(c) { toggleAllBtn.onTap(function() { _wizardFeedToggleCategory(c); }); })(cat);
+    var header = HStack(catLabel, sep, toggleAllBtn).spacing(2).className('items-center').style('padding', '0 4px').style('margin-bottom', '4px');
+
+    // Feed items
+    var feedRows = items.map(function(f) {
+      var sel = _wizardFeedSelected.has(f.key);
+      var faviconView;
+      if (f.favicon) {
+        faviconView = RawHTML('<img src="https://www.google.com/s2/favicons?domain=' + f.favicon + '&sz=32" style="width:20px;height:20px;border-radius:4px;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><span style="display:none;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>');
+      } else {
+        faviconView = RawHTML('<span style="display:flex;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>');
+      }
+      var nameView = Text(f.name).style('font-size', '0.82rem').style('font-weight', '500').style('color', sel ? 'var(--nr-text-primary,#e0e0e0)' : 'var(--nr-text-secondary,#999)').style('overflow', 'hidden').style('text-overflow', 'ellipsis').style('white-space', 'nowrap');
+      var descView = Text(f.desc).style('font-size', '0.7rem').style('color', 'var(--nr-text-secondary,#777)').style('overflow', 'hidden').style('text-overflow', 'ellipsis').style('white-space', 'nowrap');
+      var textCol = VStack(nameView, descView).style('flex', '1').style('min-width', '0');
+      var checkSvg = sel ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : '';
+      var checkCircle = new View('div').style('width', '20px').style('height', '20px').style('border-radius', '50%').style('border', '2px solid ' + (sel ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.15)')).style('background', sel ? 'var(--accent,#b4451a)' : 'transparent').style('display', 'flex').style('align-items', 'center').style('justify-content', 'center').style('flex-shrink', '0').style('transition', 'all 0.15s');
+      if (checkSvg) checkCircle.el.appendChild(RawHTML(checkSvg).build());
+      var row = HStack(faviconView, textCol, checkCircle).spacing(2.5).style('padding', '6px 10px').style('border-radius', '8px').style('cursor', 'pointer').style('transition', 'background 0.15s').style('background', sel ? 'rgba(255,255,255,0.04)' : 'transparent');
+      (function(key, isSel) {
+        row.el.addEventListener('click', function() { _wizardFeedToggle(key); });
+        row.el.addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.06)'; });
+        row.el.addEventListener('mouseleave', function() { this.style.background = isSel ? 'rgba(255,255,255,0.04)' : 'transparent'; });
+      })(f.key, sel);
+      return row;
+    });
+
+    sections.push(VStack([header].concat(feedRows)).style('margin-bottom', '12px'));
+  }
+  AetherUI.mount(VStack(sections), grid);
+
+  var btn = document.getElementById('wiz-feed-continue');
   if (btn) btn.disabled = _wizardFeedSelected.size === 0;
 }
 
@@ -485,105 +523,109 @@ function _wizardFeedToggle(key) {
 }
 
 function _wizardFeedToggleCategory(cat) {
-  const items = FEED_CATALOG.filter(f => f.cat === cat);
-  const allOn = items.every(f => _wizardFeedSelected.has(f.key));
-  items.forEach(f => {
+  var items = FEED_CATALOG.filter(function(f) { return f.cat === cat; });
+  var allOn = items.every(function(f) { return _wizardFeedSelected.has(f.key); });
+  items.forEach(function(f) {
     if (allOn) _wizardFeedSelected.delete(f.key);
     else _wizardFeedSelected.add(f.key);
   });
   _wizardFeedRenderGrid();
 }
 
-function _wizEsc(str) {
-  const d = document.createElement('div');
-  d.textContent = str;
-  return d.innerHTML;
-}
-
 // ── Step 6: Chat Model ──
 
-function _wizardChatModelHTML() {
-  return `
-    <div style="text-align:center;">
-      <div style="font-size:20px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:4px;">Choose a model</div>
-      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:20px;">Pick the default Ollama model for chat and tools.</div>
-      <div id="wiz-model-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px;max-height:200px;overflow-y:auto;">
-        <div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;">Loading models...</div>
-      </div>
-      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(7, 'forward')">Continue</button>
-    </div>
-  `;
+function _wizardChatModelView() {
+  var continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  continueBtn.el.textContent = 'Continue';
+  continueBtn.onTap(function() { _renderWizardStep(7, 'forward'); });
+  return VStack(
+    Text('Choose a model').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
+    Text('Pick the default Ollama model for chat and tools.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
+    new View('div').id('wiz-model-list').className('flex flex-col gap-1.5 mb-5').style('max-height', '200px').style('overflow-y', 'auto'),
+    continueBtn
+  ).style('text-align', 'center');
 }
 
 async function _wizardChatModelInit() {
   try {
-    const data = await apiGet('/api/models');
+    var data = await apiGet('/api/models');
     _wizardModelList = data.models || [];
   } catch (e) {
     _wizardModelList = [];
   }
 
-  const container = document.getElementById('wiz-model-list');
+  var container = document.getElementById('wiz-model-list');
   if (!container) return;
 
   if (!_wizardModelList.length) {
-    container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;">No models found. Make sure Ollama is running.</div>';
+    AetherUI.mount(Text('No models found. Make sure Ollama is running.').style('font-size', '12px').style('color', 'var(--nr-text-secondary,#999)').style('padding', '16px 0'), container);
     return;
   }
 
-  const current = localStorage.getItem('chatModel') || 'qwen2.5:3b';
-  container.innerHTML = _wizardModelList.map(m => {
-    const sel = m === current;
-    return `<button class="wizard-model-option${sel ? ' selected' : ''}" onclick="_wizardPickModel('${m.replace(/'/g, "\\'")}', this)">${m}</button>`;
-  }).join('');
+  var current = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  var btns = _wizardModelList.map(function(m) {
+    var btn = new View('button').className('wizard-model-option' + (m === current ? ' selected' : ''));
+    btn.el.textContent = m;
+    (function(model) {
+      btn.onTap(function() { _wizardPickModel(model, btn.el); });
+    })(m);
+    return btn;
+  });
+  AetherUI.mount(VStack(btns).spacing(1.5), container);
 }
 
 function _wizardPickModel(model, el) {
   localStorage.setItem('chatModel', model);
-  const wizard = document.getElementById('onboarding-wizard');
+  var wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
-    wizard.querySelectorAll('.wizard-model-option').forEach(b => b.classList.remove('selected'));
+    wizard.querySelectorAll('.wizard-model-option').forEach(function(b) { b.classList.remove('selected'); });
   }
   if (el) el.classList.add('selected');
 }
 
 // ── Step 7: Pixel Pet ──
 
-function _wizardPixelPetHTML() {
-  const petOn = localStorage.getItem('pixelPet') === 'on';
-  const currentType = localStorage.getItem('pixelPetType') || 'cat';
-  return `
-    <div style="text-align:center;">
-      <div style="font-size:20px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:4px;">Pick a companion</div>
-      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:20px;">A pixel pet that lives on your screen. Or go solo.</div>
-      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:20px;">
-        ${_wizardPetTypes.map(p => {
-          const sel = petOn && currentType === p.id;
-          return `<button class="wizard-pet-option${sel ? ' selected' : ''}" data-pet="${p.id}" onclick="_wizardPickPet('${p.id}', this)" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 12px;">
-            <canvas class="wiz-pet-sprite" data-pet-id="${p.id}" width="48" height="48" style="image-rendering:pixelated;width:48px;height:48px;"></canvas>
-            <span style="font-size:11px;">${p.name}</span>
-          </button>`;
-        }).join('')}
-        <button class="wizard-pet-option${!petOn ? ' selected' : ''}" data-pet="none" onclick="_wizardPickPet('none', this)" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 12px;">
-          <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--nr-text-secondary,#999)" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </div>
-          <span style="font-size:11px;">None</span>
-        </button>
-      </div>
-      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_renderWizardStep(8, 'forward')">Continue</button>
-    </div>
-  `;
+function _wizardPixelPetView() {
+  var petOn = localStorage.getItem('pixelPet') === 'on';
+  var currentType = localStorage.getItem('pixelPetType') || 'cat';
+  var petBtns = _wizardPetTypes.map(function(p) {
+    var sel = petOn && currentType === p.id;
+    var btn = new View('button').className('wizard-pet-option' + (sel ? ' selected' : '')).style('display', 'flex').style('flex-direction', 'column').style('align-items', 'center').style('gap', '6px').style('padding', '10px 12px');
+    btn.el.dataset.pet = p.id;
+    btn.el.appendChild(RawHTML('<canvas class="wiz-pet-sprite" data-pet-id="' + p.id + '" width="48" height="48" style="image-rendering:pixelated;width:48px;height:48px;"></canvas>').build());
+    btn.el.appendChild(Text(p.name).style('font-size', '11px').build());
+    (function(petId) {
+      btn.onTap(function() { _wizardPickPet(petId, btn.el); });
+    })(p.id);
+    return btn;
+  });
+  // "None" option
+  var noneBtn = new View('button').className('wizard-pet-option' + (!petOn ? ' selected' : '')).style('display', 'flex').style('flex-direction', 'column').style('align-items', 'center').style('gap', '6px').style('padding', '10px 12px');
+  noneBtn.el.dataset.pet = 'none';
+  noneBtn.el.appendChild(RawHTML('<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--nr-text-secondary,#999)" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>').build());
+  noneBtn.el.appendChild(Text('None').style('font-size', '11px').build());
+  noneBtn.onTap(function() { _wizardPickPet('none', noneBtn.el); });
+  petBtns.push(noneBtn);
+
+  var continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  continueBtn.el.textContent = 'Continue';
+  continueBtn.onTap(function() { _renderWizardStep(8, 'forward'); });
+  return VStack(
+    Text('Pick a companion').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
+    Text('A pixel pet that lives on your screen. Or go solo.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
+    HStack(petBtns).className('flex flex-wrap justify-center gap-2.5 mb-5'),
+    continueBtn
+  ).style('text-align', 'center');
 }
 
 function _wizardPixelPetInit() {
-  const sprites = _wizardPetSprites();
-  const G = 16, S = 48 / G;
-  document.querySelectorAll('.wiz-pet-sprite').forEach(canvas => {
-    const id = canvas.dataset.petId;
-    const draw = sprites[id];
+  var sprites = _wizardPetSprites();
+  var G = 16, S = 48 / G;
+  document.querySelectorAll('.wiz-pet-sprite').forEach(function(canvas) {
+    var id = canvas.dataset.petId;
+    var draw = sprites[id];
     if (!draw) return;
-    const ctx = canvas.getContext('2d');
+    var ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, 48, 48);
     function px(x, y, c) { ctx.fillStyle = c; ctx.fillRect(x * S, y * S, S, S); }
     draw(px, { sitting: true, blink: false, legFrame: 0 });
@@ -591,9 +633,9 @@ function _wizardPixelPetInit() {
 }
 
 function _wizardPickPet(petId, el) {
-  const wizard = document.getElementById('onboarding-wizard');
+  var wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
-    wizard.querySelectorAll('.wizard-pet-option').forEach(b => b.classList.remove('selected'));
+    wizard.querySelectorAll('.wizard-pet-option').forEach(function(b) { b.classList.remove('selected'); });
   }
   if (el) el.classList.add('selected');
 
@@ -714,60 +756,58 @@ function _wizardPetSprites() {
 
 // ── Step 8: Neuralook (optional) ──
 
-function _wizardNeuralookHTML() {
-  return `
-    <div style="text-align:center;">
-      <div style="font-size:20px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:4px;">Eye tracking</div>
-      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:20px;">Neuralook uses your camera for gaze-based navigation. A quick calibration is needed.</div>
-      <div style="margin-bottom:24px;">
-        <svg style="width:48px;height:48px;display:inline-block;" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      </div>
-      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_wizardStartNeuralook()">Calibrate now</button>
-      <button class="nr-btn nr-btn nr-btn-ghost" onclick="_renderWizardStep(9, 'forward')">Set up later</button>
-    </div>
-  `;
+function _wizardNeuralookView() {
+  var calibrateBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  calibrateBtn.el.textContent = 'Calibrate now';
+  calibrateBtn.onTap(function() { _wizardStartNeuralook(); });
+  var skipBtn = new View('button').className('nr-btn nr-btn-ghost');
+  skipBtn.el.textContent = 'Set up later';
+  skipBtn.onTap(function() { _renderWizardStep(9, 'forward'); });
+  return VStack(
+    Text('Eye tracking').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
+    Text('Neuralook uses your camera for gaze-based navigation. A quick calibration is needed.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
+    RawHTML('<div style="margin-bottom:24px;"><svg style="width:48px;height:48px;display:inline-block;" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>'),
+    calibrateBtn,
+    skipBtn
+  ).style('text-align', 'center');
 }
 
 async function _wizardStartNeuralook() {
   await _wizardCommitAccount();
-  // Save feed selections before leaving
   if (_wizardFeedSelected.size > 0) {
-    const sources = {};
-    const notifSources = {};
-    FEED_CATALOG.forEach(f => {
+    var sources = {};
+    var notifSources = {};
+    FEED_CATALOG.forEach(function(f) {
       sources[f.key] = _wizardFeedSelected.has(f.key);
       notifSources[f.key] = false;
     });
     localStorage.setItem('feedSources', JSON.stringify(sources));
     localStorage.setItem('feedNotifSources', JSON.stringify(notifSources));
   }
-  // Redirect to main app with neuralook hash for calibration
   window.location.href = '/#neuralook';
 }
 
 // ── Step 9: Finale ──
 
-function _wizardFinaleHTML() {
-  const username = _wizardPendingUsername || (_authUserInfo && _authUserInfo.username) || 'you';
-  return `
-    <div style="text-align:center;">
-      <div class="wizard-finale-check">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <div style="font-size:22px;font-weight:600;color:var(--nr-text-primary,#e0e0e0);margin-bottom:6px;">You're all set, @${username}</div>
-      <div style="font-size:13px;color:var(--nr-text-secondary,#999);margin-bottom:24px;">Neural link established. Jack in.</div>
-      <button class="nr-btn nr-btn nr-btn-primary nr-btn-lg" onclick="_wizardFinish()">Enter the Net</button>
-    </div>
-  `;
+function _wizardFinaleView() {
+  var username = _wizardPendingUsername || (_authUserInfo && _authUserInfo.username) || 'you';
+  var enterBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  enterBtn.el.textContent = 'Enter the Net';
+  enterBtn.onTap(function() { _wizardFinish(); });
+  return VStack(
+    RawHTML('<div class="wizard-finale-check"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>'),
+    Text("You're all set, @" + username).style('font-size', '22px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '6px'),
+    Text('Neural link established. Jack in.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '24px'),
+    enterBtn
+  ).style('text-align', 'center');
 }
 
 async function _wizardFinish() {
   await _wizardCommitAccount();
-  // Save feed selections
   if (_wizardFeedSelected.size > 0) {
-    const sources = {};
-    const notifSources = {};
-    FEED_CATALOG.forEach(f => {
+    var sources = {};
+    var notifSources = {};
+    FEED_CATALOG.forEach(function(f) {
       sources[f.key] = _wizardFeedSelected.has(f.key);
       notifSources[f.key] = false;
     });
@@ -778,7 +818,6 @@ async function _wizardFinish() {
 }
 
 function _wizardComplete() {
-  // Navigate to main app
   window.location.href = '/';
 }
 
