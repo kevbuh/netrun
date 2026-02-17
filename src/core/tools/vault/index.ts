@@ -7,7 +7,7 @@ import type { Tool, ToolResult } from '../types.js';
 // Vault path resolution will use DB in full integration; for now use home dir
 function getVaultPath(googleId?: string): string {
   const home = process.env.HOME ?? process.env.USERPROFILE ?? '/tmp';
-  const base = join(home, 'Desktop', 'aether');
+  const base = join(home, 'Desktop', 'netrun');
   if (googleId) return join(base, googleId);
   return base;
 }

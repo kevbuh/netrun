@@ -13,7 +13,7 @@ const DEBOUNCE_MS = 2000;
 const HEALTH_CHECK_INTERVAL = 60_000;
 const OLLAMA_HOST = process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434';
 
-const DATA_DIR = path.join(process.env.HOME ?? '/tmp', '.aether_data');
+const DATA_DIR = path.join(process.env.HOME ?? '/tmp', '.netrun_data');
 const ANNOTATION_PROMPT_FILE = path.join(DATA_DIR, 'annotation_prompt.txt');
 
 const DEFAULT_ANNOTATION_PROMPT =

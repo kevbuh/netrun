@@ -1,5 +1,4 @@
 const { app, BrowserWindow, Menu, ipcMain, session, safeStorage, dialog } = require('electron');
-const { spawn } = require('child_process');
 const path = require('path');
 const http = require('http');
 const https = require('https');
@@ -896,6 +895,13 @@ app.on('window-all-closed', async () => {
 
 app.on('before-quit', () => {
   stopStaticServer();
+  // Flush SQLite WAL and close the database cleanly
+  if (_coreInitialized) {
+    try {
+      const { closeDb } = require('../dist/main/init.js');
+      closeDb();
+    } catch (_e) { /* no-op if core not loaded */ }
+  }
 });
 
 app.on('activate', () => {

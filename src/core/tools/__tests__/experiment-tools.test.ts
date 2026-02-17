@@ -12,7 +12,7 @@ const testDir = join(tmpdir(), `netrun-exp-test-${Date.now()}`);
 describe('experiment tools', () => {
   beforeEach(() => {
     process.env.HOME = join(testDir, 'home');
-    mkdirSync(join(testDir, 'home', 'Desktop', 'aether', 'test-user'), { recursive: true });
+    mkdirSync(join(testDir, 'home', 'Desktop', 'netrun', 'test-user'), { recursive: true });
   });
 
   afterEach(() => {

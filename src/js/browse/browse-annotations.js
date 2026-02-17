@@ -716,11 +716,20 @@ function injectAnnotations(tab, annotations) {
     })();
   `;
 
+  _execInFrame(frame, script);
+}
+
+function _execInFrame(frame, script) {
   if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
     frame.executeJavaScript(script).catch(() => {});
   } else if (frame.tagName === 'IFRAME') {
     try {
-      frame.contentWindow.eval(script);
+      const doc = frame.contentDocument;
+      if (!doc) return;
+      const el = doc.createElement('script');
+      el.textContent = script;
+      doc.documentElement.appendChild(el);
+      el.remove();
     } catch { /* cross-origin */ }
   }
 }
@@ -742,13 +751,7 @@ function clearAnnotations(tab) {
       document.body.normalize();
     })();
   `;
-  if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
-    frame.executeJavaScript(script).catch(() => {});
-  } else if (frame.tagName === 'IFRAME') {
-    try {
-      frame.contentWindow.eval(script);
-    } catch { /* cross-origin */ }
-  }
+  _execInFrame(frame, script);
 }
 
 function injectSingleAnnotation(tab, ann) {
@@ -801,11 +804,7 @@ function injectSingleAnnotation(tab, ann) {
       p.removeChild(node);break;
     }
   })();`;
-  if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
-    frame.executeJavaScript(script).catch(() => {});
-  } else if (frame.tagName === 'IFRAME') {
-    try { frame.contentWindow.eval(script); } catch {}
-  }
+  _execInFrame(frame, script);
 }
 
 function scrollToAnnotation(idx) {
@@ -823,11 +822,7 @@ function scrollToAnnotation(idx) {
     mark.style.outlineOffset = '2px';
     setTimeout(function() { mark.style.outline = orig; mark.style.outlineOffset = ''; }, 1500);
   })()`;
-  if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
-    frame.executeJavaScript(script).catch(() => {});
-  } else if (frame.tagName === 'IFRAME') {
-    try { frame.contentWindow.eval(script); } catch {}
-  }
+  _execInFrame(frame, script);
 }
 
 function _updateAnnotateButtonState() {

@@ -5,7 +5,7 @@ import type { Tool, ToolResult } from '../types.js';
 
 function getVaultPath(googleId?: string): string {
   const home = process.env.HOME ?? process.env.USERPROFILE ?? '/tmp';
-  const base = join(home, 'Desktop', 'aether');
+  const base = join(home, 'Desktop', 'netrun');
   return googleId ? join(base, googleId) : base;
 }
 
@@ -200,8 +200,15 @@ export const experimentExecuteCode: Tool<z.infer<typeof executeCodeParams>, any>
   parameters: executeCodeParams,
   async execute(input, context): Promise<ToolResult> {
     if (!context.googleId) return { success: false, error: 'Not authenticated' };
-    // Code execution via Jupyter kernel is deferred to Python child process
-    // This is a placeholder that shows the architecture
+
+    const code = input.code;
+    if (!code || !code.trim()) return { success: false, error: 'No code provided' };
+    if (code.length > 100_000) return { success: false, error: 'Code too long (max 100KB)' };
+
+    // Validate project exists to prevent path traversal
+    const projDir = join(getVaultPath(context.googleId), input.project_id);
+    if (!existsSync(projDir)) return { success: false, error: 'Project not found' };
+
     try {
       const { pythonManager } = await import('../../python/process-manager.js');
       const result = await pythonManager.runCode(`

@@ -59,8 +59,7 @@ function toggleBrowseMoreMenu() {
         icon = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="' + (isSav ? 'var(--nr-accent)' : 'none') + '" stroke="' + (isSav ? 'var(--nr-accent)' : 'currentColor') + '" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
         items.push(_mBtn(icon, isSav ? 'Saved' : 'Save to Reading List', function() { browseSaveToReadingList(); _refreshOverflowBookmark(this); }, { dataOverflowId: id }));
       } else {
-        var onclick = el.getAttribute('onclick') || '';
-        var btn = _mBtn(icon, label, function() { _closeMenu(); try { new Function(onclick)(); } catch(e) {} }, { dataOverflowId: id });
+        var btn = _mBtn(icon, label, function() { _closeMenu(); try { el.click(); } catch(e) {} }, { dataOverflowId: id });
         items.push(btn);
       }
     });

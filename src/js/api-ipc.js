@@ -942,6 +942,18 @@ async function ipcRoute(path, opts = {}) {
     return await window.electronAPI.dbQuery('context-delete', file);
   }
 
+  // ── Chat memory ──
+  if (pathOnly === '/api/chat-memory' && method === 'POST') {
+    return await window.electronAPI.dbQuery('chat-memory-save', body);
+  }
+  if (pathOnly === '/api/chat-memories' && method === 'GET') {
+    const urlParams = new URLSearchParams(queryStr || '');
+    return await window.electronAPI.dbQuery('chat-memory-list', urlParams.get('query') || undefined);
+  }
+  if (pathOnly === '/api/chat-memories/stats' && method === 'GET') {
+    return await window.electronAPI.dbQuery('chat-memory-stats');
+  }
+
   // Unknown route — log and return null (should not happen in normal usage)
   console.warn('[api-ipc] Unhandled route:', method, path);
   return null;

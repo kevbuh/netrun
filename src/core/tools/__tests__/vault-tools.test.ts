@@ -11,7 +11,7 @@ describe('vault tools', () => {
   beforeEach(() => {
     // Set HOME to use our test vault path
     process.env.HOME = join(testVaultDir, 'home');
-    mkdirSync(join(testVaultDir, 'home', 'Desktop', 'aether', 'test-user'), { recursive: true });
+    mkdirSync(join(testVaultDir, 'home', 'Desktop', 'netrun', 'test-user'), { recursive: true });
   });
 
   afterEach(() => {

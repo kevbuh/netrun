@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Reuse the existing neuralook route logic
 # Import will be lazy for torch-dependent code
-_DIR = os.environ.get('ARXIV_DATA_DIR', os.path.join(os.path.expanduser('~'), '.aether_data'))
+_DIR = os.environ.get('ARXIV_DATA_DIR', os.path.join(os.path.expanduser('~'), '.netrun_data'))
 os.makedirs(_DIR, exist_ok=True)
 
 # Neuralook state (mirrors routes/neuralook.py)
