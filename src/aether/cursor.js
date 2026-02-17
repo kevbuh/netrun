@@ -16,12 +16,20 @@
   ring.className = 'nr-cursor-ring';
   document.body.appendChild(dot);
   document.body.appendChild(ring);
-  document.body.classList.add('nr-custom-cursor');
+
+  // Check localStorage for user preference (default: on)
+  var startEnabled = localStorage.getItem('customCursor') !== 'off';
+  if (startEnabled) {
+    document.body.classList.add('nr-custom-cursor');
+  } else {
+    dot.style.display = 'none';
+    ring.style.display = 'none';
+  }
 
   var mouse = { x: -100, y: -100 };
   var ringPos = { x: -100, y: -100 };
   var ease = 0.15;
-  var running = true;
+  var running = startEnabled;
   var currentCtx = '';
   var inWebview = false;
 

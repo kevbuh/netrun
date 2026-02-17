@@ -1120,6 +1120,20 @@ function _renderAgentSettings() {
       </div>
     </div>
     <div class="mb-8 pt-5 border-t border-border-subtle">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h3 class="text-white_ text-sm font-semibold">Custom Cursor</h3>
+          <p class="text-dim text-[0.8rem] mt-0.5">Smooth cursor with context-aware styling and inertia.</p>
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <span class="nr-switch">
+            <input type="checkbox" ${localStorage.getItem('customCursor') !== 'off' ? 'checked' : ''} onchange="localStorage.setItem('customCursor', this.checked ? 'on' : 'off'); if (window.AetherCursor) window.AetherCursor[this.checked ? 'enable' : 'disable']();">
+            <span class="slider"></span>
+          </span>
+        </label>
+      </div>
+    </div>
+    <div class="mb-8 pt-5 border-t border-border-subtle">
       <h3 class="text-white_ text-sm font-semibold mb-3">Available Tools</h3>
       <p class="text-dim text-[0.8rem] mb-3">When chat tools are enabled, the AI can call these functions automatically based on your message.</p>
       <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">

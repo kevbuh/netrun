@@ -127,6 +127,8 @@ export class PageInsightPipeline {
   }
 
   async processPage(data: PageData, sender: WebContents, opts?: { manual?: boolean }): Promise<void> {
+    if (!this.enabled) return;
+
     const manual = opts?.manual ?? false;
 
     if (manual) {
@@ -167,8 +169,6 @@ export class PageInsightPipeline {
         } else {
           console.debug('[insight] OCR: no usable text extracted, length =', ocrText?.length ?? 0, ocrText ? `preview: "${ocrText.slice(0, 80)}"` : '');
         }
-      } else {
-        console.debug('[insight] OCR: no screenshot provided (disabled or capture failed)');
       }
 
       // Mark as recently seen
