@@ -45,31 +45,41 @@ npm run validate-load-order # Check script load order
 
 ### Two-layer structure
 
-- **Electron main process** (`electron/main.js`): Window management, ad blocking (adblock-rs), password store (macOS Keychain via safeStorage), IPC handlers for browser features.
+- **Electron main process** (`electron/main.js`, `electron/password-store.js`, `electron/preload.js`): Window management, ad blocking (adblock-rs), password store (macOS Keychain via safeStorage), IPC handlers for browser features.
 - **Core TypeScript system** (`src/core/`): Compiled to `dist/main/` via `tsc`. Provides the tool registry, LLM provider registry, agent runtime, SQLite database (better-sqlite3), and IPC handlers. Initialized from `src/core/init.ts` at app startup. Uses the Vercel AI SDK (`ai` package) with Zod for schema validation.
-- **Renderer** (`src/`): HTML views in `src/views/`, vanilla JS in `src/js/`, loaded via `<script>` tags (not modules). Uses Tailwind CSS via CDN with CSS custom properties for theming. The renderer communicates with main via the `electronAPI` bridge exposed in `electron/preload.js`.
+- **Renderer** (`src/`): HTML views in `src/views/`, vanilla JS in `src/js/`, loaded via `<script>` tags (not modules). Uses the Aether design system (`src/aether/`) with CSS custom properties (`--nr-*` tokens) for theming. The renderer communicates with main via the `electronAPI` bridge exposed in `electron/preload.js`.
 
 ### Key subsystems in `src/core/`
 
-- **Tools** (`src/core/tools/`): Registry pattern — each tool category (browser, calendar, content, experiment, feed, media, memory, search, social, system, vault) registers via `ToolRegistry`. Tools are callable by the agent system.
+- **Tools** (`src/core/tools/`): Registry pattern — each tool category (browser, calendar, content, context, experiment, feed, media, search, social, system, vault) registers via `ToolRegistry`. Tools are callable by the agent system.
 - **Providers** (`src/core/providers/`): LLM provider abstraction. **Only use local LLMs via Ollama** — do not use OpenAI or Anthropic APIs.
 - **Agents** (`src/core/agents/`): Agent runtime with tool-calling loop. Built-in research assistant agent.
 - **Ambient** (`src/core/ambient/`): Ambient processing pipeline for background tasks.
 - **Database** (`src/core/db/`): SQLite via better-sqlite3 with WAL mode. Schema in `schema.ts`, query modules in `queries/`.
 - **Context** (`src/core/context/`): Living context system. Markdown files in `~/.netrun/context/` (main.md + task-*.md). `manager.ts` handles CRUD, `compaction.ts` handles LLM-based summarization. Metadata tracked in SQLite `context_meta` table. IPC handlers use `db:context-*` prefix.
-- **Managers**: `terminal-manager.ts` (node-pty terminal sessions), `kernel-manager.ts` (Jupyter-style kernels), `captions-manager.ts` (media captions), `neuralook-manager.ts` (visual analysis).
+- **Python** (`src/core/python/`): Python process management and text utilities.
+- **Managers**: `terminal-manager.ts` (node-pty terminal sessions), `kernel-manager.ts` (Jupyter-style kernels), `captions-manager.ts` (media captions), `neuralook-manager.ts` (visual analysis), `parakeet-manager.ts` (speech/audio processing).
 - **IPC** (`src/core/ipc-handlers.ts`): Central IPC handler registration connecting renderer requests to core functionality. Renderer calls `electronAPI.dbQuery(channel, ...args)` which maps to `ipcMain.handle('db:' + channel, ...)`.
+
+### Aether design system (`src/aether/`)
+
+- **CSS tokens** (`src/aether/css/tokens.css`): Source of truth for all `--nr-*` custom properties. Foundation CSS files alongside it: `reset.css`, `layout.css`, `typography.css`, `surfaces.css`, `animations.css`, `ambient.css`.
+- **Component CSS** (`src/aether/css/components/`): buttons, cards, inputs, pills, menus, modals, toast, tooltips, aether-ui.
+- **Feature CSS** (`src/aether/css/features/`): 27 feature-specific stylesheets loaded via `<link>` tags in `index.html`.
+- **Themes** (`src/aether/css/themes/`): dark, light, daylight, clear.
+- **JS modules**: `aether.js` (main entry), `tokens.js`, `motion.js`, `materials.js`, `ambient.js`, `cursor.js`. Exposed as `window.Aether`.
+- **AetherUI** (`src/aether/ui/`): Declarative UI framework — `State`, `Computed`, `Effect` (SolidJS-style signals), layout primitives (`VStack`, `HStack`, `ZStack`), controls (`Button`, `TextField`, `Toggle`, `Slider`, `Picker`), overlays (`Sheet`, `Alert`, `Popover`, `Menu`). Exposed as `window.AetherUI` and `Aether.ui`.
 
 ### Frontend JS conventions
 
 - `src/js/` files are plain browser JS (`sourceType: 'script'`), not ES modules. They use the global `electronAPI` object for IPC.
-- Organized by feature: `core/` (routing, sidebar, layout, state, audio, auth, navigation, UI utils), `browse/` (browser tabs, sessions, passwords), `settings/` (theme, colors, sections).
-- Feature modules at top level: calendar, chat-threads, dashboard, draw-editor, editors, experiments, feed, motion, neuralook, notebook-editor, panel (chat, commands, state, tts), quality, search, slides-editor, teams, terminal, vault, vibe, whiteboard.
+- Organized by feature: `core/` (routing, sidebar, layout, state, audio, sounds, auth, navigation, profile, context-intake, UI utils, icons), `browse/` (tabs, sessions, passwords, agent, annotations, audio, captions, downloads, features, island, menu, NTP, paper, pill, split-panes, state, windows), `settings/` (theme, colors, sections, core, init).
+- Feature modules at top level: api, calendar, chat-threads, dashboard, draw-editor, editors, experiments, feed, neuralook, notebook-editor, onboarding, panel (chat, commands, state, tts), pixel-pet, quality, search, slides-editor, terminal, vault, vibe, whiteboard.
 - Tests co-located as `*.test.js` files, run by Vitest with happy-dom.
 
 ### Views (`src/views/`)
 
-HTML pages: algorithm, author-profile, blog, dashboard, dev, experiment-detail, inbox, neuralook, profile, quality, research, settings, teams, vault, vibe.
+HTML pages: algorithm, author-profile, blog, dashboard, dev, experiment-detail, inbox, neuralook, onboarding, profile, quality, research, settings, vault, vibe.
 
 ### Python (legacy/auxiliary)
 

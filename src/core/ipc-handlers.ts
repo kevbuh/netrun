@@ -1374,7 +1374,11 @@ export function registerToolIPC(): void {
   ipcMain.handle('db:read-view', (_event, viewPath: string) => {
     // Read static HTML view templates from disk
     const dataDir = process.env.ARXIV_DATA_DIR ?? process.cwd();
-    const filePath = path.join(dataDir, viewPath.replace(/^\//, ''));
+    const filePath = path.resolve(dataDir, viewPath.replace(/^\//, ''));
+    // Prevent path traversal — resolved path must stay inside dataDir
+    if (!filePath.startsWith(path.resolve(dataDir) + path.sep)) {
+      return { error: 'Access denied: path traversal detected' };
+    }
     try {
       return { html: fs.readFileSync(filePath, 'utf-8') };
     } catch { return { error: 'View not found: ' + viewPath }; }
@@ -1703,10 +1707,29 @@ export function registerToolIPC(): void {
   });
 
   ipcMain.handle('db:local-file', (_event, filePath: string) => {
-    if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+    if (!filePath) return { error: 'File not found' };
+
+    // Sandbox: only allow files within known safe directories
+    const resolved = path.resolve(filePath);
+    const homeDir = process.env.HOME ?? '/tmp';
+    const allowedRoots = [
+      path.resolve(homeDir, 'Downloads'),
+      path.resolve(homeDir, 'Documents'),
+      path.resolve(homeDir, 'Desktop'),
+      path.resolve(homeDir, '.aether_data'),
+      path.resolve(homeDir, '.aether_cache'),
+      path.resolve(homeDir, '.netrun'),
+      path.resolve(process.cwd()),  // project dir
+    ];
+    const inAllowedRoot = allowedRoots.some(root => resolved.startsWith(root + path.sep) || resolved === root);
+    if (!inAllowedRoot) {
+      return { error: 'Access denied: path outside allowed directories' };
+    }
+
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
       return { error: 'File not found' };
     }
-    const ext = path.extname(filePath).toLowerCase();
+    const ext = path.extname(resolved).toLowerCase();
     const mimeMap: Record<string, string> = {
       '.html': 'text/html', '.htm': 'text/html',
       '.js': 'text/javascript', '.css': 'text/css',
@@ -1719,7 +1742,7 @@ export function registerToolIPC(): void {
       '.mp4': 'video/mp4', '.webm': 'video/webm',
     };
     const mime = mimeMap[ext] ?? 'application/octet-stream';
-    const data = fs.readFileSync(filePath).toString('base64');
+    const data = fs.readFileSync(resolved).toString('base64');
     return { _proxy: true, data, mime };
   });
 
