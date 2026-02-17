@@ -125,6 +125,11 @@ function _updateAccountUI() {
     return;
   }
   if (_authUserInfo && (_authUserInfo.username || _authUserInfo.name)) {
+    if (typeof AetherUI === 'undefined') {
+      avatarSpan.style.display = '';
+      if (avatarIcon) avatarIcon.style.display = 'none';
+      return;
+    }
     if (_authUserInfo.picture) {
       AetherUI.mount(
         Image(_authUserInfo.picture)

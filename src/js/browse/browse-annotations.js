@@ -388,6 +388,7 @@ async function _extractTextFromFrame(tab) {
   })()`;
   try {
     if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
+      if (!frame.isConnected) return '';
       return await frame.executeJavaScript(script);
     } else if (frame.tagName === 'IFRAME') {
       return frame.contentDocument.body.innerText || '';

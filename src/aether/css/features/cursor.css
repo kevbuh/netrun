@@ -1,0 +1,60 @@
+/* Metalab-style custom cursor */
+
+.nr-cursor-dot,
+.nr-cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 99999;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+.nr-cursor-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--nr-text-primary);
+  mix-blend-mode: difference;
+  transition: width 0.2s ease, height 0.2s ease, background 0.2s ease;
+}
+
+.nr-cursor-ring {
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--nr-text-primary);
+  opacity: 0.5;
+  mix-blend-mode: difference;
+  transition: width 0.25s ease, height 0.25s ease, opacity 0.25s ease, border-color 0.25s ease;
+}
+
+/* Hover state — ring grows, dot shrinks */
+.nr-cursor-dot.is-hovering {
+  width: 4px;
+  height: 4px;
+}
+
+.nr-cursor-ring.is-hovering {
+  width: 56px;
+  height: 56px;
+  opacity: 0.35;
+}
+
+/* Text selection — crosshair style */
+.nr-cursor-dot.is-text {
+  width: 2px;
+  height: 20px;
+  border-radius: 1px;
+}
+
+/* Hidden when cursor leaves window */
+.nr-cursor-dot.is-hidden,
+.nr-cursor-ring.is-hidden {
+  opacity: 0;
+}
+
+/* Hide default cursor on app body */
+body.nr-custom-cursor,
+body.nr-custom-cursor * {
+  cursor: none !important;
+}
