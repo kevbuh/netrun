@@ -12,11 +12,11 @@
 }
 
 .nr-cursor-dot {
-  width: 6px;
-  height: 6px;
+  width: 11px;
+  height: 11px;
   background: var(--nr-text-primary);
   mix-blend-mode: difference;
-  transition: width 0.2s ease, height 0.2s ease, background 0.2s ease;
+  transition: width 0.2s ease, height 0.2s ease, background 0.2s ease, mix-blend-mode 0.2s ease;
 }
 
 .nr-cursor-ring {
@@ -25,19 +25,59 @@
   border: 1.5px solid var(--nr-text-primary);
   opacity: 0.5;
   mix-blend-mode: difference;
-  transition: width 0.25s ease, height 0.25s ease, opacity 0.25s ease, border-color 0.25s ease;
+  transition: width 0.25s ease, height 0.25s ease, opacity 0.25s ease, border-color 0.25s ease, background 0.25s ease, mix-blend-mode 0.25s ease;
 }
 
-/* Hover state — ring grows, dot shrinks */
+/* --- Context-aware states --- */
+
+/* Hovering interactive elements — accent fill, ring grows */
 .nr-cursor-dot.is-hovering {
   width: 4px;
   height: 4px;
+  background: var(--nr-accent);
+  mix-blend-mode: normal;
 }
 
 .nr-cursor-ring.is-hovering {
   width: 56px;
   height: 56px;
   opacity: 0.35;
+  border-color: var(--nr-accent);
+  mix-blend-mode: normal;
+}
+
+/* Over images/video — ring fills with translucent white */
+.nr-cursor-dot.is-media {
+  background: #fff;
+  mix-blend-mode: difference;
+}
+
+.nr-cursor-ring.is-media {
+  border-color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.06);
+  mix-blend-mode: normal;
+}
+
+/* Over dark surfaces — light cursor */
+.nr-cursor-dot.is-light {
+  background: #fff;
+  mix-blend-mode: normal;
+}
+
+.nr-cursor-ring.is-light {
+  border-color: rgba(255, 255, 255, 0.6);
+  mix-blend-mode: normal;
+}
+
+/* Over light surfaces — dark cursor */
+.nr-cursor-dot.is-dark {
+  background: #111;
+  mix-blend-mode: normal;
+}
+
+.nr-cursor-ring.is-dark {
+  border-color: rgba(0, 0, 0, 0.4);
+  mix-blend-mode: normal;
 }
 
 /* Text selection — crosshair style */
