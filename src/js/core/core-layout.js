@@ -54,6 +54,61 @@ if (window.electronAPI && window.electronAPI.isElectron) {
   if (window.electronAPI.onOpenInBrowse) {
     window.electronAPI.onOpenInBrowse((_event, url) => { _openInNewTab(url); });
   }
+
+  // JS-based window dragging on pill bar — preserves custom cursor
+  (function initPillBarDrag() {
+    var dragging = false;
+    var startScreenX = 0;
+    var startScreenY = 0;
+    var startWinX = 0;
+    var startWinY = 0;
+
+    function isInteractive(el) {
+      if (!el) return false;
+      // Walk up from target to pill bar — if we hit an interactive element, don't drag
+      var node = el;
+      var bar = document.getElementById('sidebar-nav');
+      while (node && node !== bar) {
+        var tag = node.tagName;
+        if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'A' || tag === 'SELECT') return true;
+        if (node.classList && (
+          node.classList.contains('pill-island') ||
+          node.classList.contains('browse-tab') ||
+          node.classList.contains('sidebar-icon')
+        )) return true;
+        if (node.getAttribute && node.getAttribute('onclick')) return true;
+        node = node.parentElement;
+      }
+      return false;
+    }
+
+    document.addEventListener('mousedown', function(e) {
+      var bar = document.getElementById('sidebar-nav');
+      if (!bar || !bar.contains(e.target)) return;
+      if (isInteractive(e.target)) return;
+      if (e.button !== 0) return;
+
+      e.preventDefault();
+      dragging = true;
+      startScreenX = e.screenX;
+      startScreenY = e.screenY;
+      electronAPI.windowGetPosition().then(function(pos) {
+        startWinX = pos[0];
+        startWinY = pos[1];
+      });
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (!dragging) return;
+      var dx = e.screenX - startScreenX;
+      var dy = e.screenY - startScreenY;
+      electronAPI.windowSetPosition(startWinX + dx, startWinY + dy);
+    });
+
+    document.addEventListener('mouseup', function() {
+      dragging = false;
+    });
+  })();
 }
 
 // ── Download app banner (web only) ──

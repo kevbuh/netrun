@@ -27,6 +27,17 @@
     .pill-bar > * {
       pointer-events: auto;
     }
+    /* Electron: pill bar island appearance — draggable with glassmorphic bg */
+    body.electron-app .pill-bar:not(.browse-mode) {
+      pointer-events: auto;
+      background: var(--pill-surface, rgba(255, 255, 255, 0.14));
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 0 0 14px 14px;
+      left: 80px;
+      right: 8px;
+      padding: 3px 8px;
+    }
     /* Electron: island avoids macOS traffic lights */
     body.electron-app .pill-island-container {
       left: 80px;
@@ -137,15 +148,6 @@
     body.electron-app .pill-bar.browse-mode {
       left: 80px;
       right: 8px;
-      -webkit-app-region: drag;
-    }
-    body.electron-app .pill-bar.browse-mode button,
-    body.electron-app .pill-bar.browse-mode .browse-tab,
-    body.electron-app .pill-bar.browse-mode .browse-split-pill,
-    body.electron-app .pill-bar.browse-mode .browse-window-switcher,
-    body.electron-app .pill-bar.browse-mode #pill-browse-url-input,
-    body.electron-app .pill-bar.browse-mode #pill-island-tabs-anchor {
-      -webkit-app-region: no-drag;
     }
 
     /* Nav icons container — collapses to zero in browse mode */

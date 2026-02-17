@@ -1,5 +1,5 @@
 /* ── Electron specific ── */
-    /* Electron: pill bar is not draggable */
+    /* Pill bar uses JS-based dragging (no -webkit-app-region) so custom cursor stays visible */
     body.electron-app #sidebar-nav {
       -webkit-app-region: no-drag;
     }

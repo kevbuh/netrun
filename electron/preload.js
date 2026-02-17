@@ -26,6 +26,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopCC: () => ipcRenderer.invoke('stop-cc'),
   // Force cursor refresh
   nudgeCursor: () => ipcRenderer.invoke('nudge-cursor'),
+  // Window drag (JS-based, so custom cursor stays visible)
+  windowGetPosition: () => ipcRenderer.invoke('window-get-position'),
+  windowSetPosition: (x, y) => ipcRenderer.invoke('window-set-position', x, y),
   // Native print dialog
   print: (options) => ipcRenderer.invoke('print', options),
   // Secure auth token (macOS Keychain via safeStorage)

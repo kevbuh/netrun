@@ -746,6 +746,16 @@ app.whenReady().then(() => {
     });
   });
 
+  // Window drag — JS-based so custom cursor stays visible
+  ipcMain.handle('window-get-position', () => {
+    if (!mainWindow) return [0, 0];
+    return mainWindow.getPosition();
+  });
+  ipcMain.handle('window-set-position', (_, x, y) => {
+    if (!mainWindow) return;
+    mainWindow.setPosition(Math.round(x), Math.round(y));
+  });
+
   ipcMain.handle('nudge-cursor', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return;
