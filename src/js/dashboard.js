@@ -573,52 +573,78 @@ async function renderDashboard() {
     window._heatmapPopoverKey = null;
     window._heatmapPopoverAddForm = false;
     window._renderHeatmapPopover = function(key) {
-      const items = window._heatmapItems[key] || [];
-      const parts = key.split('-');
-      const dateLabel = new Date(+parts[0], +parts[1]-1, +parts[2]).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-      const icons = { event: '\u{1F4C5}', note: '\u{1F4DD}', saved: '\u{1F516}' };
-      const labels = { event: 'Event', note: 'Note', saved: 'Saved' };
-      const presetColors = ['#b4451a','#3b82f6','#22c55e','#a855f7','#eab308','#ef4444'];
-      const colorLabels = ['Accent','Blue','Green','Purple','Yellow','Red'];
+      var items = window._heatmapItems[key] || [];
+      var parts = key.split('-');
+      var dateLabel = new Date(+parts[0], +parts[1]-1, +parts[2]).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      var typeIcons = { event: '\u{1F4C5}', note: '\u{1F4DD}', saved: '\u{1F516}' };
+      var typeLabels = { event: 'Event', note: 'Note', saved: 'Saved' };
+      var presetColors = ['#b4451a','#3b82f6','#22c55e','#a855f7','#eab308','#ef4444'];
+      var colorLabels = ['Accent','Blue','Green','Purple','Yellow','Red'];
 
-      let html = `<div style="padding:4px 12px 6px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--nr-border-default);margin-bottom:2px">
-        <span style="color:var(--nr-text-quaternary);font-size:11px">${dateLabel}</span>
-        <button onclick="window._heatmapPopoverAddForm=!window._heatmapPopoverAddForm;window._renderHeatmapPopover('${key}')" style="background:none;border:none;color:var(--nr-accent);cursor:pointer;font-size:13px;font-weight:600;padding:0 2px" title="Add event">+</button>
-      </div>`;
+      // Header
+      var addBtn = new View('button');
+      addBtn.el.textContent = '+';
+      addBtn.el.title = 'Add event';
+      addBtn.el.style.cssText = 'background:none;border:none;color:var(--nr-accent);cursor:pointer;font-size:13px;font-weight:600;padding:0 2px';
+      addBtn.onTap(function() { window._heatmapPopoverAddForm = !window._heatmapPopoverAddForm; window._renderHeatmapPopover(key); });
+      var header = HStack(
+        Text(dateLabel).style('color', 'var(--nr-text-quaternary)').style('fontSize', '11px'),
+        Spacer(), addBtn
+      ).style('padding', '4px 12px 6px').style('borderBottom', '1px solid var(--nr-border-default)').style('marginBottom', '2px');
 
+      var children = [header];
+
+      // Add form (kept as RawHTML — complex interactive form with radio buttons)
       if (window._heatmapPopoverAddForm) {
-        html += `<div style="padding:6px 12px 8px">
-          <input type="text" id="hm-ev-title" placeholder="Event title…" style="width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:12px;margin-bottom:6px;box-sizing:border-box">
-          <textarea id="hm-ev-desc" placeholder="Description (optional)" rows="2" style="width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:12px;margin-bottom:6px;resize:none;box-sizing:border-box"></textarea>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-            <span style="font-size:11px;color:var(--nr-text-quaternary)">Color:</span>
-            ${presetColors.map((c,i) => `<label style="cursor:pointer"><input type="radio" name="hm-ev-color" value="${c}" ${i===0?'checked':''} style="display:none"><span style="width:18px;height:18px;border-radius:50%;display:inline-block;border:2px solid transparent;background:${c}" title="${colorLabels[i]}" onclick="this.parentElement.querySelector('input').checked=true;this.closest('div').querySelectorAll('span').forEach(s=>s.style.borderColor='transparent');this.style.borderColor='white'"></span></label>`).join('')}
-          </div>
-          <div style="display:flex;gap:6px">
-            <button onclick="_heatmapAddEvent('${key}')" style="padding:3px 10px;border-radius:6px;background:var(--nr-accent);color:white;border:none;font-size:12px;cursor:pointer">Save</button>
-            <button onclick="window._heatmapPopoverAddForm=false;window._renderHeatmapPopover('${key}')" style="padding:3px 10px;border-radius:6px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);color:var(--nr-text-primary);font-size:12px;cursor:pointer">Cancel</button>
-          </div>
-        </div>`;
+        children.push(RawHTML(
+          '<div style="padding:6px 12px 8px">' +
+          '<input type="text" id="hm-ev-title" placeholder="Event title\u2026" style="width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:12px;margin-bottom:6px;box-sizing:border-box">' +
+          '<textarea id="hm-ev-desc" placeholder="Description (optional)" rows="2" style="width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:12px;margin-bottom:6px;resize:none;box-sizing:border-box"></textarea>' +
+          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:11px;color:var(--nr-text-quaternary)">Color:</span>' +
+          presetColors.map(function(c, i) { return '<label style="cursor:pointer"><input type="radio" name="hm-ev-color" value="' + c + '"' + (i === 0 ? ' checked' : '') + ' style="display:none"><span style="width:18px;height:18px;border-radius:50%;display:inline-block;border:2px solid transparent;background:' + c + '" title="' + colorLabels[i] + '" onclick="this.parentElement.querySelector(\'input\').checked=true;this.closest(\'div\').querySelectorAll(\'span\').forEach(s=>s.style.borderColor=\'transparent\');this.style.borderColor=\'white\'"></span></label>'; }).join('') +
+          '</div><div style="display:flex;gap:6px">' +
+          '<button onclick="_heatmapAddEvent(\'' + key + '\')" style="padding:3px 10px;border-radius:6px;background:var(--nr-accent);color:white;border:none;font-size:12px;cursor:pointer">Save</button>' +
+          '<button onclick="window._heatmapPopoverAddForm=false;window._renderHeatmapPopover(\'' + key + '\')" style="padding:3px 10px;border-radius:6px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);color:var(--nr-text-primary);font-size:12px;cursor:pointer">Cancel</button></div></div>'
+        ));
       }
 
+      // Items list
       if (!items.length && !window._heatmapPopoverAddForm) {
-        html += `<div style="padding:6px 12px;color:var(--nr-text-quaternary)">No activity</div>`;
+        children.push(Text('No activity').style('padding', '6px 12px').style('color', 'var(--nr-text-quaternary)'));
       } else {
-        items.forEach(item => {
-          const icon = icons[item.type] || '';
-          const tag = `<span style="font-size:9px;color:var(--nr-text-quaternary);margin-left:4px">${labels[item.type] || ''}</span>`;
-          let onclick = '';
-          if (item.type === 'saved' && item.link) onclick = `onclick="openSavedPaper('${escapeAttr(item.link)}', event)"`;
-          const cursor = onclick ? 'cursor:pointer;' : '';
-          const deleteBtn = item.type === 'event' && item.id ? `<button onclick="event.stopPropagation();_heatmapDeleteEvent('${item.id}','${key}')" style="background:none;border:none;color:var(--nr-text-quaternary);cursor:pointer;padding:0 2px;font-size:14px;line-height:1;flex-shrink:0" title="Delete event">&times;</button>` : '';
-          const colorDot = item.type === 'event' && item.color ? `<span style="width:8px;height:8px;border-radius:50%;background:${item.color};flex-shrink:0"></span>` : `<span style="flex-shrink:0">${icon}</span>`;
-          html += `<div style="padding:4px 12px;${cursor}display:flex;align-items:center;gap:6px;color:var(--nr-text-primary)" ${onclick} class="hover:bg-hover">
-            ${colorDot}
-            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${escapeHtml(item.title)}</span>${tag}${deleteBtn}
-          </div>`;
+        items.forEach(function(item) {
+          var ico = typeIcons[item.type] || '';
+          var colorDot = item.type === 'event' && item.color
+            ? RawHTML('<span style="width:8px;height:8px;border-radius:50%;background:' + item.color + ';flex-shrink:0"></span>')
+            : RawHTML('<span style="flex-shrink:0">' + ico + '</span>');
+          var titleText = Text(item.title).style('overflow', 'hidden').style('textOverflow', 'ellipsis').style('whiteSpace', 'nowrap').style('flex', '1');
+          var tagText = Text(typeLabels[item.type] || '').style('fontSize', '9px').style('color', 'var(--nr-text-quaternary)').style('marginLeft', '4px');
+          var rowChildren = [colorDot, titleText, tagText];
+          if (item.type === 'event' && item.id) {
+            var delBtn = new View('button');
+            delBtn.el.innerHTML = '&times;';
+            delBtn.el.title = 'Delete event';
+            delBtn.el.style.cssText = 'background:none;border:none;color:var(--nr-text-quaternary);cursor:pointer;padding:0 2px;font-size:14px;line-height:1;flex-shrink:0';
+            (function(eventId) {
+              delBtn.onTap(function(e) { e.stopPropagation(); _heatmapDeleteEvent(eventId, key); });
+            })(item.id);
+            rowChildren.push(delBtn);
+          }
+          var row = HStack.apply(null, rowChildren).spacing(1)
+            .style('padding', '4px 12px').style('color', 'var(--nr-text-primary)').className('hover:bg-hover');
+          if (item.type === 'saved' && item.link) {
+            row.style('cursor', 'pointer');
+            (function(link) {
+              row.onTap(function(e) { openSavedPaper(link, e); });
+            })(item.link);
+          }
+          children.push(row);
         });
       }
-      pop.innerHTML = html;
+
+      var view = VStack.apply(null, children);
+      pop.innerHTML = '';
+      pop.appendChild(view.build());
     };
 
     window._heatmapAddEvent = async function(key) {
@@ -905,8 +931,7 @@ async function renderDashboard() {
 
   // Card header helper
   function _cardHeader(title, right) {
-    var h = Text(title).className('text-[0.82rem] font-semibold text-primary');
-    h.el = document.createElement('h3');
+    var h = new (window._AetherUIView || View)('h3');
     h.el.className = 'text-[0.82rem] font-semibold text-primary';
     h.el.textContent = title;
     return HStack(h, Spacer(), right).className('mb-2');

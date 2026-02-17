@@ -87,7 +87,25 @@
   color: rgba(0, 0, 0, 0.25);
 }
 
-/* Clear theme: island URL dropdown (recent sites, suggestions) */
+/* Clear theme: adaptive dark text tokens for light frosted surfaces.
+   All elements inside these containers inherit dark text automatically,
+   regardless of which --nr-text-* token they reference. */
+[data-theme="clear"] .ntp-search-box,
+[data-theme="clear"] .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open,
+[data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-ctx-tray {
+  --nr-text-primary:    rgba(0, 0, 0, 0.85);
+  --nr-text-secondary:  rgba(0, 0, 0, 0.65);
+  --nr-text-tertiary:   rgba(0, 0, 0, 0.5);
+  --nr-text-quaternary: rgba(0, 0, 0, 0.35);
+  --nr-border-default:  rgba(0, 0, 0, 0.08);
+  --nr-border-strong:   rgba(0, 0, 0, 0.12);
+  --nr-border-subtle:   rgba(0, 0, 0, 0.06);
+  --nr-bg-raised:       rgba(0, 0, 0, 0.05);
+  --nr-bg-surface:      rgba(235, 233, 231, 0.97);
+  --nr-bg-input:        rgba(0, 0, 0, 0.04);
+}
+
+/* Clear theme: island URL dropdown */
 [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open {
   background: rgba(235, 233, 231, 0.97) !important;
   border: 0.5px solid rgba(255, 255, 255, 0.6);
@@ -99,11 +117,8 @@
 [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown {
   background: rgba(235, 233, 231, 0.97) !important;
 }
-[data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown [data-histq] {
-  color: rgba(0, 0, 0, 0.7);
-}
-[data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown [data-histq]:hover {
-  background: rgba(0, 0, 0, 0.07);
+[data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown div {
+  color: rgba(0, 0, 0, 0.7) !important;
 }
 [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-browse-url-input {
   color: rgba(0, 0, 0, 0.85);
@@ -156,4 +171,9 @@
 }
 [data-theme="clear"] .pulse-event-row .pulse-age {
   color: rgba(0, 0, 0, 0.25);
+}
+
+/* Clear theme: NTP send button arrow should be white (--nr-bg-body is transparent) */
+[data-theme="clear"] .ntp-action-submit {
+  color: #fff;
 }

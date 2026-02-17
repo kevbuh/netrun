@@ -1242,7 +1242,7 @@
       overflow-y: auto;
       overflow-x: hidden;
       border-radius: 0 0 12px 12px;
-      background: var(--pill-surface, var(--aether-hover));
+      background: var(--aether-dropdown-bg);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       z-index: 10;

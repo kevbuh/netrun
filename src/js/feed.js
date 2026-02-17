@@ -528,8 +528,7 @@ function renderSourceBubbles() {
   var sources = Object.keys(sourceCounts);
   var catSelect = document.getElementById('category');
   var currentCat = catSelect ? catSelect.value : '';
-  var wrap = new View('div');
-  wrap.el.className = 'flex flex-wrap gap-1.5';
+  var bubbleViews = [];
 
   sources.forEach(function(key) {
     var entry = FEED_CATALOG.find(function(f) { return f.key === key; });
@@ -545,7 +544,7 @@ function renderSourceBubbles() {
         return '<option value="' + escapeHtml(o.value) + '"' + (o.value === currentCat ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
       }).join('');
       var arxivBubble = RawHTML('<span class="inline-flex items-center rounded-full border ' + (dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15') + ' text-[0.78rem] transition-all duration-150 whitespace-nowrap select-none"><span class="inline-flex items-center pl-2.5 pointer-events-none">' + logo + '</span><select class="arxiv-cat-select bg-transparent border-none text-[0.78rem] ' + (dimmed ? 'text-dim' : 'text-primary') + ' cursor-pointer outline-none appearance-none py-1 pl-1 pr-5" onchange="document.getElementById(\'category\').value=this.value; renderPapers(); renderSourceBubbles(); _fitArxivSelect(this)">' + selectOpts + '</select></span>');
-      wrap.el.appendChild(arxivBubble.build());
+      bubbleViews.push(arxivBubble);
     } else {
       var bubble = HStack(
         logo ? RawHTML(logo) : null,
@@ -553,10 +552,11 @@ function renderSourceBubbles() {
         Text(String(count)).className('text-[0.68rem] ' + (dimmed ? 'text-dimmer' : 'text-dim'))
       ).spacing(1).className('inline-flex items-center px-2.5 py-1 rounded-full border ' + (dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15') + ' text-[0.78rem] cursor-pointer transition-all duration-150 whitespace-nowrap select-none')
         .onTap(function() { toggleSourceBubble(key); });
-      wrap.el.appendChild(bubble.build());
+      bubbleViews.push(bubble);
     }
   });
 
+  var wrap = HStack.apply(null, bubbleViews).className('flex-wrap gap-1.5');
   AetherUI.mount(wrap, el);
   // Auto-size the arxiv select after rendering
   var arxivSel = el.querySelector('.arxiv-cat-select');
@@ -1856,44 +1856,53 @@ function _renderPaperCard(p, i, ctx) {
   var isHN = p.source === 'hn';
   var _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
   var sourceLabel = _hasExternalLink ? (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
-  var viaInfo = _hasExternalLink ? '<span class="text-[0.68rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>' : '';
   var aiEntry = qfOn ? qCache[p.title] : null;
   var aiVerdict = aiEntry ? (aiEntry.v || aiEntry) : null;
   var aiScore = aiEntry ? aiEntry.s : null;
-  var aiChip = qfOn && aiVerdict === 'keep' ? '<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ' + (aiScore != null ? aiScore + '%' : 'scoring\u2026') + '">' + (aiScore != null ? '<span class="text-dim">' + aiScore + '%</span>' : '<span class="text-dim animate-pulse">\u2026</span>') + '<span class="text-green-500">&#10003;</span></span>' : '';
   var isPoly = p.source === 'polymarket';
-  var statsChips = (isHN && _hasExternalLink) ? '' : isHN ? '<span class="text-[0.68rem] text-dim">' + p.hnScore + ' pts</span>' : isPoly ? '<span class="text-[0.68rem] font-semibold ' + (p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400') + '">' + p.polyYesPct + '%</span>' : (p.citations !== undefined ? '<span class="text-[0.68rem] text-dim">' + p.citations + ' cited</span>' : '');
-  var dateChip = p.date ? '<span class="text-[0.68rem] text-dim">' + escapeHtml(p.date) + '</span>' : '';
   var snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
   var nLink = _normalizeRatingKey(p.link);
   var userRating = ctx.ratings ? (ctx.ratings[nLink] || ctx.ratings[p.link] || 0) : getPaperRating(p.link);
-  var ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
   var isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
   var isRead = readSet.has(p.link);
-  var newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
   var cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
   var pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
-  var cardImg = cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback;
+  var imgView = RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
 
-  var bodyHtml = '';
+  // Title row
+  var titleHtml = (isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '') + renderTitle(p.title);
+  var titleEl = RawHTML(titleHtml);
+  titleEl.className('text-[0.92rem] font-semibold ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug min-w-0');
+  var titleRow = HStack(imgView, titleEl).spacing(2).className('items-center');
+
+  // Body
+  var body = null;
   if (p.source === 'quote' && p._quoteText) {
-    bodyHtml = '<div class="text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5">' + escapeHtml(p._quoteText) + '</div><div class="text-[0.68rem] text-dim truncate">' + escapeHtml(p.link) + '</div>';
+    body = VStack(
+      Text(p._quoteText).className('text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5'),
+      Text(p.link).className('text-[0.68rem] text-dim truncate')
+    );
   } else if (snippet) {
-    bodyHtml = '<div class="text-[0.78rem] text-muted leading-relaxed mt-1.5">' + escapeHtml(snippet) + '</div>';
+    body = Text(snippet).className('text-[0.78rem] text-muted leading-relaxed mt-1.5');
   }
 
-  var metaHtml = '<span class="text-[0.75rem] text-dim">' + escapeHtml(sourceLabel) + '</span>' + viaInfo + aiChip + statsChips + ratingChip + dateChip;
-  var metaRow = new View('div');
-  metaRow.el.className = 'flex gap-2 flex-wrap items-center mt-2';
-  metaRow.el.innerHTML = metaHtml;
-  metaRow.el.appendChild(_cardActionRow(p, i, ctx).build());
+  // Meta row
+  var metaItems = [Text(sourceLabel).className('text-[0.75rem] text-dim')];
+  if (_hasExternalLink) metaItems.push(RawHTML('<span class="text-[0.68rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>'));
+  if (qfOn && aiVerdict === 'keep') metaItems.push(RawHTML('<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ' + (aiScore != null ? aiScore + '%' : 'scoring\u2026') + '">' + (aiScore != null ? '<span class="text-dim">' + aiScore + '%</span>' : '<span class="text-dim animate-pulse">\u2026</span>') + '<span class="text-green-500">&#10003;</span></span>'));
+  if (!(isHN && _hasExternalLink)) {
+    if (isHN) metaItems.push(Text(p.hnScore + ' pts').className('text-[0.68rem] text-dim'));
+    else if (isPoly) metaItems.push(Text(p.polyYesPct + '%').className('text-[0.68rem] font-semibold ' + (p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400')));
+    else if (p.citations !== undefined) metaItems.push(Text(p.citations + ' cited').className('text-[0.68rem] text-dim'));
+  }
+  if (userRating > 0) metaItems.push(RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
+  if (p.date) metaItems.push(Text(p.date).className('text-[0.68rem] text-dim'));
+  metaItems.push(_cardActionRow(p, i, ctx));
+  var metaRow = HStack.apply(null, metaItems).spacing(2).className('flex-wrap mt-2');
 
-  var card = new View('div');
-  card.el.className = 'paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150' + (isRead ? ' opacity-50' : '');
+  var card = VStack(titleRow, body, metaRow, _cardCommentContainer(p, i));
+  card.className('paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150' + (isRead ? ' opacity-50' : ''));
   card.attr('data-link', p.link);
-  card.el.innerHTML = '<div class="flex gap-2.5 items-center">' + cardImg + '<div class="text-[0.92rem] font-semibold ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug min-w-0">' + newDot + renderTitle(p.title) + '</div></div>' + bodyHtml;
-  card.el.appendChild(metaRow.el);
-  card.el.appendChild(_cardCommentContainer(p, i).build());
   card.onTap(function(e) { openPaper(i, e); });
   return card;
 }
@@ -1950,40 +1959,58 @@ function _renderPaperVerboseCard(p, i, ctx) {
   var isHN = p.source === 'hn';
   var _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
   var sourceName = _hasExternalLink ? (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
-  var viaInfo = _hasExternalLink ? '<span class="text-[0.72rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>' : '';
   var aiEntry = qfOn ? qCache[p.title] : null;
   var aiVerdict = aiEntry ? (aiEntry.v || aiEntry) : null;
   var aiScore = aiEntry ? aiEntry.s : null;
-  var aiChip = qfOn && aiVerdict === 'keep' ? '<span class="inline-flex items-center gap-0.5 text-[0.72rem]" title="AI quality score: ' + (aiScore != null ? aiScore + '%' : 'scoring\u2026') + '">' + (aiScore != null ? '<span class="text-dim">' + aiScore + '%</span>' : '<span class="text-dim animate-pulse">\u2026</span>') + '<span class="text-green-500">&#10003;</span></span>' : '';
   var isPoly = p.source === 'polymarket';
-  var statsChips = (isHN && _hasExternalLink) ? '' : isHN ? '<span class="text-[0.72rem] text-dim">' + p.hnScore + ' pts</span>' : isPoly ? '<span class="text-[0.72rem] font-semibold ' + (p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400') + '">' + p.polyYesPct + '%</span>' : (p.citations !== undefined ? '<span class="text-[0.72rem] text-dim">' + p.citations + ' cited</span>' : '');
-  var dateChip = p.date ? '<span class="text-[0.72rem] text-dim">' + escapeHtml(p.date) + '</span>' : '';
   var fullDesc = isPoly ? '' : (p.description || '');
-  var authors = p.authors ? '<div class="text-[0.76rem] text-dimmer mt-1">' + escapeHtml(truncate(p.authors, 200)) + '</div>' : '';
   var pCats = Array.isArray(p.categories) ? p.categories : [];
-  var categories = pCats.length ? '<div class="flex gap-1 flex-wrap mt-1.5">' + pCats.slice(0, 6).map(function(c) { return '<span class="text-[0.65rem] px-1.5 py-0.5 rounded bg-hover text-dim">' + escapeHtml(c) + '</span>'; }).join('') + '</div>' : '';
   var nLink = _normalizeRatingKey(p.link);
   var userRating = ctx.ratings[nLink] || ctx.ratings[p.link] || 0;
-  var ratingChip = userRating > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
   var isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
   var isRead = readSet.has(p.link);
-  var newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
   var cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
   var pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
-  var cardImg = cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback;
+  var imgView = RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
 
-  var metaHtml = '<span class="text-[0.72rem] text-dim">' + escapeHtml(sourceName) + '</span>' + viaInfo + aiChip + statsChips + ratingChip + dateChip;
-  var metaRow = new View('div');
-  metaRow.el.className = 'flex gap-2 flex-wrap items-center mt-3';
-  metaRow.el.innerHTML = metaHtml;
-  metaRow.el.appendChild(_cardActionRow(p, i, ctx).build());
+  // Title row
+  var titleHtml = (isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '') + renderTitle(p.title);
+  var titleEl = RawHTML(titleHtml);
+  titleEl.className('text-[1rem] font-semibold ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug min-w-0');
+  var titleRow = HStack(imgView, titleEl).spacing(2).className('items-center');
 
-  var card = new View('div');
-  card.el.className = 'paper bg-card border border-border-card rounded-xl p-5 cursor-pointer transition-all duration-150' + (isRead ? ' opacity-50' : '');
+  // Authors
+  var authorsView = p.authors ? Text(truncate(p.authors, 200)).className('text-[0.76rem] text-dimmer mt-1') : null;
+
+  // Description
+  var descView = fullDesc ? Text(fullDesc).className('text-[0.82rem] text-muted leading-relaxed mt-2') : null;
+
+  // Categories
+  var catsView = null;
+  if (pCats.length) {
+    var catItems = pCats.slice(0, 6).map(function(c) {
+      return Text(c).className('text-[0.65rem] px-1.5 py-0.5 rounded bg-hover text-dim');
+    });
+    catsView = HStack.apply(null, catItems).spacing(0.5).className('flex-wrap mt-1.5');
+  }
+
+  // Meta row
+  var metaItems = [Text(sourceName).className('text-[0.72rem] text-dim')];
+  if (_hasExternalLink) metaItems.push(RawHTML('<span class="text-[0.72rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>'));
+  if (qfOn && aiVerdict === 'keep') metaItems.push(RawHTML('<span class="inline-flex items-center gap-0.5 text-[0.72rem]" title="AI quality score: ' + (aiScore != null ? aiScore + '%' : 'scoring\u2026') + '">' + (aiScore != null ? '<span class="text-dim">' + aiScore + '%</span>' : '<span class="text-dim animate-pulse">\u2026</span>') + '<span class="text-green-500">&#10003;</span></span>'));
+  if (!(isHN && _hasExternalLink)) {
+    if (isHN) metaItems.push(Text(p.hnScore + ' pts').className('text-[0.72rem] text-dim'));
+    else if (isPoly) metaItems.push(Text(p.polyYesPct + '%').className('text-[0.72rem] font-semibold ' + (p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400')));
+    else if (p.citations !== undefined) metaItems.push(Text(p.citations + ' cited').className('text-[0.72rem] text-dim'));
+  }
+  if (userRating > 0) metaItems.push(RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
+  if (p.date) metaItems.push(Text(p.date).className('text-[0.72rem] text-dim'));
+  metaItems.push(_cardActionRow(p, i, ctx));
+  var metaRow = HStack.apply(null, metaItems).spacing(2).className('flex-wrap mt-3');
+
+  var card = VStack(titleRow, authorsView, descView, catsView, metaRow, _cardCommentContainer(p, i));
+  card.className('paper bg-card border border-border-card rounded-xl p-5 cursor-pointer transition-all duration-150' + (isRead ? ' opacity-50' : ''));
   card.attr('data-link', p.link);
-  card.el.innerHTML = '<div class="flex gap-2.5 items-center">' + cardImg + '<div class="text-[1rem] font-semibold ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug min-w-0">' + newDot + renderTitle(p.title) + '</div></div>' + authors + (fullDesc ? '<div class="text-[0.82rem] text-muted leading-relaxed mt-2">' + escapeHtml(fullDesc) + '</div>' : '') + categories;
-  card.el.appendChild(metaRow.el);
-  card.el.appendChild(_cardCommentContainer(p, i).build());
   card.onTap(function(e) { openPaper(i, e); });
   return card;
 }
@@ -2000,11 +2027,10 @@ function _renderPaperTwitterCard(p, i, ctx) {
   var bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
   var isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
   var isRead = readSet.has(p.link);
-  var newDot = isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '';
   var cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
   var pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
-  var avatar = cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-10 h-10 rounded-full shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback;
-  var timeAgo = p.pubDate && typeof _relativeTime === 'function' ? _relativeTime(p.pubDate) : (p.date || '');
+  var avatarView = RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-10 h-10 rounded-full shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
+  var tAgo = p.pubDate && typeof _relativeTime === 'function' ? _relativeTime(p.pubDate) : (p.date || '');
   var aiEntry = qfOn ? qCache[p.title] : null;
   var aiScore = aiEntry ? aiEntry.s : null;
   var hnPts = isHN ? p.hnScore || 0 : 0;
@@ -2013,45 +2039,45 @@ function _renderPaperTwitterCard(p, i, ctx) {
   var reposted = ctx.repostedSet.has(p.link);
   var commentCount = _tweetCommentCounts[p.link] || '';
 
-  // Build action buttons
-  var actionBar = new View('div');
-  actionBar.el.className = 'flex items-center justify-between mt-2.5 max-w-[400px]';
-  actionBar.el.innerHTML =
-    '<button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors">' + icon('chatBubble', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]" data-tweet-comment-count="' + escapeAttr(p.link) + '">' + commentCount + '</span></button>' +
-    '<button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors ' + (reposted ? '' : 'text-dimmer hover:text-green-400') + '" style="' + (reposted ? 'color:rgb(74,222,128)' : '') + '">' + icon('repost', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]">' + statsNum + '</span></button>' +
-    '<button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:' + (bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)') + '">' + icon('bookmark', {size: 16, class: 'w-4 h-4', fill: bmFill, stroke: bmStroke}) + '</button>' +
-    '<button class="group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-primary transition-colors">' + icon('moreVertical', {size: 16, class: 'w-4 h-4'}) + '</button>';
-  var btns = actionBar.el.querySelectorAll('button');
-  btns[0].addEventListener('click', function(e) { e.stopPropagation(); _toggleTweetComments(p.link, i); });
-  btns[1].addEventListener('click', function(e) { e.stopPropagation(); _tweetRepost(i, btns[1]); });
-  btns[2].addEventListener('click', function(e) { e.stopPropagation(); toggleSavePost(lastFilteredPapers[i], e); });
-  btns[3].addEventListener('click', function(e) { openCardMenu(btns[3], e, i); });
+  // Build action buttons using AetherUI
+  var btnClass = 'group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors';
+  var commentBtn = RawHTML('<button class="' + btnClass + ' text-dimmer hover:text-blue-400">' + icon('chatBubble', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]" data-tweet-comment-count="' + escapeAttr(p.link) + '">' + commentCount + '</span></button>');
+  commentBtn.el.firstChild.addEventListener('click', function(e) { e.stopPropagation(); _toggleTweetComments(p.link, i); });
+  var repostBtn = RawHTML('<button class="' + btnClass + ' ' + (reposted ? '' : 'text-dimmer hover:text-green-400') + '" style="' + (reposted ? 'color:rgb(74,222,128)' : '') + '">' + icon('repost', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]">' + statsNum + '</span></button>');
+  repostBtn.el.firstChild.addEventListener('click', function(e) { e.stopPropagation(); _tweetRepost(i, repostBtn.el.firstChild); });
+  var bmBtn = RawHTML('<button class="' + btnClass + '" style="color:' + (bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)') + '">' + icon('bookmark', {size: 16, class: 'w-4 h-4', fill: bmFill, stroke: bmStroke}) + '</button>');
+  bmBtn.el.firstChild.addEventListener('click', function(e) { e.stopPropagation(); toggleSavePost(lastFilteredPapers[i], e); });
+  var menuBtn = RawHTML('<button class="' + btnClass + ' text-dimmer hover:text-primary">' + icon('moreVertical', {size: 16, class: 'w-4 h-4'}) + '</button>');
+  menuBtn.el.firstChild.addEventListener('click', function(e) { openCardMenu(menuBtn.el.firstChild, e, i); });
+  var actionBar = HStack(commentBtn, repostBtn, bmBtn, menuBtn).className('justify-between mt-2.5 max-w-[400px]');
 
-  var bodyHtml = '<div class="flex items-center gap-1.5 flex-wrap">' + newDot +
-    '<span class="text-[0.88rem] font-bold ' + (isRead ? 'text-muted' : 'text-primary') + '">' + escapeHtml(sourceName) + '</span>' +
-    '<span class="text-[0.8rem] text-dimmer">@' + escapeHtml(handle) + '</span>' +
-    '<span class="text-dimmer">\u00b7</span>' +
-    '<span class="text-[0.8rem] text-dimmer">' + escapeHtml(timeAgo) + '</span>' +
-    (aiScore != null ? '<span class="text-[0.72rem] text-dim ml-auto">' + aiScore + '% <span class="text-green-500">&#10003;</span></span>' : '') +
-    '</div>' +
-    '<div class="text-[0.92rem] ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug mt-1 font-semibold">' + renderTitle(p.title) + '</div>' +
-    (snippet ? '<div class="text-[0.84rem] text-muted leading-relaxed mt-1">' + escapeHtml(snippet) + '</div>' : '') +
-    (p.source === 'quote' && p._quoteText ? '<div class="text-[0.84rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 mt-2">' + escapeHtml(p._quoteText) + '</div>' : '');
+  // Header line
+  var headerItems = [];
+  if (isNew && !isRead) headerItems.push(RawHTML('<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>'));
+  headerItems.push(Text(sourceName).className('text-[0.88rem] font-bold ' + (isRead ? 'text-muted' : 'text-primary')));
+  headerItems.push(Text('@' + handle).className('text-[0.8rem] text-dimmer'));
+  headerItems.push(Text('\u00b7').className('text-dimmer'));
+  headerItems.push(Text(tAgo).className('text-[0.8rem] text-dimmer'));
+  if (aiScore != null) headerItems.push(RawHTML('<span class="text-[0.72rem] text-dim ml-auto">' + aiScore + '% <span class="text-green-500">&#10003;</span></span>'));
+  var headerRow = HStack.apply(null, headerItems).spacing(1).className('flex-wrap');
 
-  var content = new View('div');
-  content.el.className = 'min-w-0 flex-1';
-  content.el.innerHTML = bodyHtml;
-  content.el.appendChild(actionBar.el);
-  content.el.appendChild(_cardCommentContainer(p, i).build());
+  // Title
+  var titleEl = RawHTML(renderTitle(p.title));
+  titleEl.className('text-[0.92rem] ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug mt-1 font-semibold');
 
-  var card = new View('div');
-  card.el.className = 'py-3 px-4 border-b border-border-card cursor-pointer transition-colors hover:bg-hover' + (isRead ? ' opacity-50' : '');
+  // Body content
+  var bodyChildren = [headerRow, titleEl];
+  if (snippet) bodyChildren.push(Text(snippet).className('text-[0.84rem] text-muted leading-relaxed mt-1'));
+  if (p.source === 'quote' && p._quoteText) bodyChildren.push(Text(p._quoteText).className('text-[0.84rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 mt-2'));
+  bodyChildren.push(actionBar);
+  bodyChildren.push(_cardCommentContainer(p, i));
+
+  var content = VStack.apply(null, bodyChildren);
+  content.className('min-w-0 flex-1');
+
+  var card = HStack(avatarView, content).spacing(3);
+  card.className('py-3 px-4 border-b border-border-card cursor-pointer transition-colors hover:bg-hover' + (isRead ? ' opacity-50' : ''));
   card.attr('data-link', p.link);
-  var inner = new View('div');
-  inner.el.className = 'flex gap-3';
-  inner.el.innerHTML = avatar;
-  inner.el.appendChild(content.el);
-  card.el.appendChild(inner.el);
   card.onTap(function(e) { openPaper(i, e); });
   return card;
 }
@@ -2084,35 +2110,21 @@ function _renderPapersNow() {
 
   container.innerHTML = '';
 
-  if (feedViewMode === 'compact') {
-    var compactWrap = new View('div');
-    compactWrap.el.style.columnSpan = 'all';
-    compactWrap.el.className = 'flex flex-col';
-    visible.forEach(function(p, i) {
-      compactWrap.el.appendChild(_renderPaperCompactRow(p, i, ctx).build());
-    });
-    container.appendChild(compactWrap.el);
-  } else if (feedViewMode === 'verbose') {
-    var verboseWrap = new View('div');
-    verboseWrap.el.style.columnSpan = 'all';
-    verboseWrap.el.className = 'flex flex-col gap-3';
-    visible.forEach(function(p, i) {
-      verboseWrap.el.appendChild(_renderPaperVerboseCard(p, i, ctx).build());
-    });
-    container.appendChild(verboseWrap.el);
-  } else if (feedViewMode === 'twitter') {
-    var twitterWrap = new View('div');
-    twitterWrap.el.style.columnSpan = 'all';
-    twitterWrap.el.className = 'flex flex-col max-w-[600px] mx-auto';
-    visible.forEach(function(p, i) {
-      twitterWrap.el.appendChild(_renderPaperTwitterCard(p, i, ctx).build());
-    });
-    container.appendChild(twitterWrap.el);
+  var cards = visible.map(function(p, i) {
+    if (feedViewMode === 'compact') return _renderPaperCompactRow(p, i, ctx);
+    if (feedViewMode === 'verbose') return _renderPaperVerboseCard(p, i, ctx);
+    if (feedViewMode === 'twitter') return _renderPaperTwitterCard(p, i, ctx);
+    return _renderPaperCard(p, i, ctx);
+  });
+
+  if (feedViewMode === 'compact' || feedViewMode === 'verbose' || feedViewMode === 'twitter') {
+    var wrapClass = feedViewMode === 'twitter' ? 'flex flex-col max-w-[600px] mx-auto' : 'flex flex-col' + (feedViewMode === 'verbose' ? ' gap-3' : '');
+    var wrap = VStack.apply(null, cards).className(wrapClass);
+    wrap.el.style.columnSpan = 'all';
+    container.appendChild(wrap.build());
   } else {
     // Block view: cards are direct children of container for CSS columns
-    visible.forEach(function(p, i) {
-      container.appendChild(_renderPaperCard(p, i, ctx).build());
-    });
+    cards.forEach(function(c) { container.appendChild(c.build()); });
   }
 
   // Animate cards that are new since the last render

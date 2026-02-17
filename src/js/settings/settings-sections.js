@@ -1,42 +1,153 @@
 if (window.AetherUI) AetherUI.globals();
 
+// ─── AetherUI Settings Helpers ──────────────────────────────
+
+function _settingRow(label, desc, control) {
+  var left = VStack(
+    Text(label).className('text-primary text-sm'),
+    desc ? Text(desc).className('text-dimmer text-[0.72rem] mt-0.5') : null
+  );
+  return HStack(left, Spacer(), control).className('flex items-center justify-between mt-4');
+}
+
+function _settingToggle(label, desc, checked, onChange) {
+  var toggle = Toggle(null);
+  var input = toggle.el.querySelector('input[type="checkbox"]');
+  if (input) input.checked = !!checked;
+  if (onChange) toggle.on('change', function(e) {
+    if (e.target.type === 'checkbox') onChange(e.target.checked);
+  });
+  return _settingRow(label, desc, toggle);
+}
+
+function _settingToggleLS(label, desc, lsKey, opts) {
+  opts = opts || {};
+  var defaultOn = opts.defaultOn !== undefined ? opts.defaultOn : true;
+  var checked = defaultOn
+    ? localStorage.getItem(lsKey) !== (opts.offValue || 'off')
+    : localStorage.getItem(lsKey) === (opts.onValue || 'on');
+  if (opts.checkedFn) checked = opts.checkedFn();
+  return _settingToggle(label, desc, checked, function(on) {
+    if (opts.trueValue !== undefined) {
+      localStorage.setItem(lsKey, on ? opts.trueValue : opts.falseValue);
+    } else {
+      localStorage.setItem(lsKey, on ? (opts.onValue || 'on') : (opts.offValue || 'off'));
+    }
+    if (opts.onChange) opts.onChange(on);
+  });
+}
+
+function _settingBtnGroup(label, options, currentValue, onSelect) {
+  var btns = options.map(function(opt) {
+    var value = typeof opt === 'object' ? opt.value : opt;
+    var text = typeof opt === 'object' ? opt.label : (value.charAt(0).toUpperCase() + value.slice(1));
+    var active = value === currentValue;
+    var b = new View('button');
+    b.el.textContent = text;
+    b.el.className = 'px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' +
+      (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary');
+    b.onTap(function() { onSelect(value); });
+    return b;
+  });
+  var right = HStack.apply(null, btns).spacing(1);
+  return HStack(Text(label).className('text-primary text-sm'), Spacer(), right).className('flex items-center justify-between mt-4');
+}
+
+function _settingPillGroup(label, options, currentValue, onSelect) {
+  var btns = options.map(function(opt) {
+    var value = typeof opt === 'object' ? opt.value : opt;
+    var text = typeof opt === 'object' ? opt.label : value;
+    var active = value === currentValue;
+    var b = new View('button');
+    b.el.textContent = text;
+    b.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+      (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+    b.onTap(function() { onSelect(value); });
+    return b;
+  });
+  return HStack.apply(null, btns).spacing(0.5);
+}
+
+function _settingSlider(label, desc, value, opts, onInput, onChange) {
+  opts = opts || {};
+  var valSpan = Text(opts.format ? opts.format(value) : String(value))
+    .className('text-muted text-[0.78rem] w-10 text-right font-mono');
+  var slider = new View('input');
+  slider.el.type = 'range';
+  slider.el.className = 'flex-1 accent-accent';
+  if (opts.min != null) slider.el.min = opts.min;
+  if (opts.max != null) slider.el.max = opts.max;
+  if (opts.step != null) slider.el.step = opts.step;
+  slider.el.value = value;
+  slider.el.addEventListener('input', function() {
+    valSpan.el.textContent = opts.format ? opts.format(slider.el.value) : slider.el.value;
+    if (onInput) onInput(slider.el.value);
+  });
+  if (onChange) slider.el.addEventListener('change', function() { onChange(slider.el.value); });
+  var right = HStack(slider, valSpan).spacing(2).className('flex-1 max-w-[200px]');
+  var left = VStack(
+    Text(label).className('text-primary text-sm'),
+    desc ? Text(desc).className('text-dimmer text-[0.72rem] mt-0.5') : null
+  );
+  return HStack(left, Spacer(), right).className('flex items-center justify-between mt-4');
+}
+
+function _settingSection(title, children, opts) {
+  opts = opts || {};
+  var items = [].concat(children).filter(Boolean);
+  if (title) items.unshift(Text(title).className('text-white_ text-sm font-semibold mb-3'));
+  if (opts.desc) items.splice(title ? 1 : 0, 0, Text(opts.desc).className('text-dim text-[0.8rem] mb-3'));
+  var section = VStack.apply(null, items);
+  section.className('mb-8' + (opts.borderTop ? ' pt-5 border-t border-border-subtle' : ''));
+  return section;
+}
+
+function _settingHeadingRow(title, desc, control) {
+  var left = VStack(
+    Text(title).className('text-white_ text-sm font-semibold'),
+    desc ? Text(desc).className('text-dim text-[0.8rem] mt-0.5') : null
+  );
+  return HStack(left, Spacer(), control).className('flex items-center justify-between mb-3');
+}
+
+// ─── Settings Sections ──────────────────────────────────────
+
 function _renderAccountSettings() {
-  return RawHTML(`
-    <!-- PROFILE -->
-    <div class="mb-8">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Profile</h3>
-      <div class="flex items-center gap-4 mb-4">
-        <div class="relative group cursor-pointer" onclick="_uploadProfilePic()" title="Change profile picture" style="flex-shrink:0">
-          ${_authUserInfo?.picture
-            ? `<img src="${escapeAttr(_authUserInfo.picture)}" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;" />`
-            : `<div style="width:56px;height:56px;border-radius:50%;background:var(--nr-accent);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:600;color:#fff;">${escapeHtml((_authUserInfo?.username || '?')[0].toUpperCase())}</div>`
-          }
-          <div class="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            ${icon('camera', { size: 20, class: 'w-5 h-5 text-white' })}
-          </div>
-        </div>
-        <div>
-          <div class="text-primary font-semibold text-[0.95rem]">${escapeHtml(_authUserInfo?.username || '')}</div>
-          <div class="text-dim text-[0.8rem]">${escapeHtml(_authUserInfo?.name || '')}</div>
-          <div class="text-dim text-[0.75rem]">${escapeHtml(_authUserInfo?.email || '')}</div>
-        </div>
-      </div>
-      <div class="flex items-center justify-between mt-4 mb-4">
-        <div>
-          <span class="text-primary text-sm">Private profile</span>
-          <p class="text-dimmer text-[0.72rem] mt-0.5">Hide your profile from search and browse.</p>
-        </div>
-        <label class="nr-switch">
-          <input type="checkbox" ${_authUserInfo?.profile_private ? 'checked' : ''} onchange="toggleProfilePrivacy(this.checked)">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="flex gap-2">
-        <button onclick="_doLogout()" class="px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors">Sign Out</button>
-        <button onclick="_doDeleteAccount()" class="px-3 py-1 rounded-md text-[0.78rem] border border-red-800/50 text-red-400/70 bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors">Delete Account</button>
-      </div>
-    </div>
-  `);
+  var avatarHtml = _authUserInfo?.picture
+    ? '<img src="' + escapeAttr(_authUserInfo.picture) + '" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;" />'
+    : '<div style="width:56px;height:56px;border-radius:50%;background:var(--nr-accent);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:600;color:#fff;">' + escapeHtml((_authUserInfo?.username || '?')[0].toUpperCase()) + '</div>';
+  var avatar = RawHTML('<div class="relative group cursor-pointer" style="flex-shrink:0">' + avatarHtml +
+    '<div class="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">' +
+    icon('camera', { size: 20, class: 'w-5 h-5 text-white' }) + '</div></div>');
+  avatar.onTap(function() { _uploadProfilePic(); });
+
+  var profileCard = HStack(
+    avatar,
+    VStack(
+      Text(_authUserInfo?.username || '').className('text-primary font-semibold text-[0.95rem]'),
+      Text(_authUserInfo?.name || '').className('text-dim text-[0.8rem]'),
+      Text(_authUserInfo?.email || '').className('text-dim text-[0.75rem]')
+    )
+  ).spacing(3).className('mb-4');
+
+  var privacyToggle = _settingToggle('Private profile', 'Hide your profile from search and browse.',
+    !!_authUserInfo?.profile_private, function(on) { toggleProfilePrivacy(on); });
+
+  var signOutBtn = new View('button');
+  signOutBtn.el.textContent = 'Sign Out';
+  signOutBtn.el.className = 'px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors';
+  signOutBtn.onTap(function() { _doLogout(); });
+
+  var deleteBtn = new View('button');
+  deleteBtn.el.textContent = 'Delete Account';
+  deleteBtn.el.className = 'px-3 py-1 rounded-md text-[0.78rem] border border-red-800/50 text-red-400/70 bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors';
+  deleteBtn.onTap(function() { _doDeleteAccount(); });
+
+  return _settingSection('Profile', [
+    profileCard,
+    privacyToggle,
+    HStack(signOutBtn, deleteBtn).spacing(2).className('mt-4')
+  ]);
 }
 
 function toggleSidebarIcon(id, visible) {
@@ -120,459 +231,485 @@ document.addEventListener('pointerup', _sbDragEnd);
 document.addEventListener('pointercancel', _sbDragEnd);
 
 function _renderAppearanceSettings() {
-  const currentTheme = localStorage.getItem('theme') || 'light';
-  const currentAccent = localStorage.getItem('accentColor') || '#b4451a';
-  const accentColors = [
-    { color: '#b4451a', name: 'Orange' },
-    { color: '#e53e3e', name: 'Red' },
-    { color: '#d69e2e', name: 'Gold' },
-    { color: '#38a169', name: 'Green' },
-    { color: '#3182ce', name: 'Blue' },
-    { color: '#805ad5', name: 'Purple' },
-    { color: '#d53f8c', name: 'Pink' },
-    { color: '#718096', name: 'Gray' },
+  var currentTheme = localStorage.getItem('theme') || 'light';
+  var currentAccent = localStorage.getItem('accentColor') || '#b4451a';
+  var accentColors = [
+    { color: '#b4451a', name: 'Orange' }, { color: '#e53e3e', name: 'Red' },
+    { color: '#d69e2e', name: 'Gold' }, { color: '#38a169', name: 'Green' },
+    { color: '#3182ce', name: 'Blue' }, { color: '#805ad5', name: 'Purple' },
+    { color: '#d53f8c', name: 'Pink' }, { color: '#718096', name: 'Gray' },
     { color: '#111111', name: 'Black' },
   ];
 
-  return RawHTML(`
-    <!-- APPEARANCE -->
-    <div class="mb-8">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Appearance</h3>
-      <div class="flex items-center justify-between mb-4">
-        <span class="text-primary text-sm">Theme</span>
-        <div class="flex gap-1.5">
-          <button onclick="setTheme('auto')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'auto' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-auto">Auto</button>
-          <button onclick="setTheme('dark')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'dark' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-dark">Dark</button>
-          <button onclick="setTheme('light')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'light' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-light">Light</button>
-          <button onclick="setTheme('daylight')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'daylight' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-daylight">Daylight</button>
-          <button onclick="setTheme('clear')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${currentTheme === 'clear' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}" id="theme-btn-clear">Clear</button>
-        </div>
-      </div>
-      <div class="flex items-center justify-between">
-        <span class="text-primary text-sm">Accent Color</span>
-        <div class="flex gap-2">
-          ${accentColors.map(a => `
-            <button onclick="setAccentColor('${a.color}')" class="w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 ${currentAccent === a.color ? 'scale-110 ring-2 ring-offset-2' : ''}" style="background:${a.color}; ${currentAccent === a.color ? `--tw-ring-color:${a.color}; --tw-ring-offset-color: var(--nr-bg-body)` : ''}" title="${a.name}"></button>
-          `).join('')}
-        </div>
-      </div>
-      <div class="flex items-center justify-between mt-4">
-        <span class="text-primary text-sm">Aether</span>
-        <div class="flex gap-1.5">
-          ${['midnight','aether','match'].map(t => {
-            const raw = localStorage.getItem('aetherColor') || 'midnight';
-            const cur = raw.startsWith('#') ? 'midnight' : raw;
-            const label = t.charAt(0).toUpperCase() + t.slice(1);
-            return '<button onclick="setAetherColor(\'' + t + '\')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (cur === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary') + '">' + label + '</button>';
-          }).join('')}
-        </div>
-      </div>
-      <div class="flex items-center justify-between mt-4">
-        <span class="text-primary text-sm">Editor Theme</span>
-        <div class="flex gap-1.5" id="editor-theme-btns">
-          ${['auto','monokai','dracula','solarized','github','nord'].map(t => {
-            const cur = localStorage.getItem('editorTheme') || 'auto';
-            const label = t.charAt(0).toUpperCase() + t.slice(1);
-            return '<button onclick="setEditorTheme(\'' + t + '\')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (cur === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary') + '" id="editor-theme-btn-' + t + '">' + label + '</button>';
-          }).join('')}
-        </div>
-      </div>
-      <div class="flex items-center justify-between mt-4">
-        <span class="text-primary text-sm">Browse Tabs</span>
-        <div class="flex gap-1.5">
-          ${['island','horizontal'].map(t => {
-            const cur = localStorage.getItem('browseTabLayout') || 'island';
-            const label = t === 'island' ? 'Island' : 'Horizontal';
-            return '<button onclick="setBrowseTabLayout(\'' + t + '\')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (cur === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary') + '">' + label + '</button>';
-          }).join('')}
-        </div>
-      </div>
-      <div class="flex items-center justify-between mt-4">
-        <span class="text-primary text-sm">Icon Size</span>
-        <div class="flex gap-1.5">
-          ${['small','medium','large'].map(s => {
-            const cur = localStorage.getItem('iconSize') || 'medium';
-            const label = s.charAt(0).toUpperCase() + s.slice(1);
-            return '<button onclick="setIconSize(\'' + s + '\')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (cur === s ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary') + '">' + label + '</button>';
-          }).join('')}
-        </div>
-      </div>
-      <div class="flex items-center justify-between mt-4">
-        <span class="text-primary text-sm">Loading Spinner</span>
-        <div class="flex items-center gap-2">
-          <button onclick="cycleSpinner(-1)" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]">&lsaquo;</button>
-          <div class="flex flex-col items-center min-w-[100px]">
-            <div class="spinner-preview text-dim font-mono text-[1.2rem] h-6 flex items-center justify-center" id="spinner-preview"></div>
-            <div class="text-[0.68rem] text-dimmer" id="spinner-name">${getSelectedSpinner()}</div>
-          </div>
-          <button onclick="cycleSpinner(1)" class="w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]">&rsaquo;</button>
-        </div>
-      </div>
-      <div class="flex items-center justify-between mt-4">
-        <span class="text-primary text-sm">Pixel Pet</span>
-        <div class="flex items-center gap-2">
-          <div class="flex gap-1">
-            ${[['cat','cat'],['blackCat','black cat'],['dog','dog'],['poodle','poodle'],['bunny','bunny'],['froog','froog'],['pacman','pacman']].map(([t,label]) => {
-              const petOn = localStorage.getItem('pixelPet') === 'on';
-              const sel = petOn && (localStorage.getItem('pixelPetType') || 'cat') === t;
-              return `<button onclick="togglePixelPet(true); setPixelPetType('${t}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${label}</button>`;
-            }).join('')}
-            <button onclick="togglePixelPet(false); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${localStorage.getItem('pixelPet') !== 'on' ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">none</button>
-          </div>
-        </div>
-      </div>
-      <div class="mt-4">
-        <div class="flex items-center justify-between">
-          <span class="text-primary text-sm">White Noise</span>
-        </div>
-        <div class="flex flex-wrap gap-1 mt-2">
-          ${Object.entries(NOISE_PRESETS).map(([key, p]) => {
-            const sel = _rainNoiseType === key;
-            return `<button onclick="setRainNoiseType('${key}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${p.label}</button>`;
-          }).join('')}
-        </div>
-        <div class="flex items-center gap-2 mt-2">
-          <span class="text-[0.7rem] text-dimmer whitespace-nowrap">Volume</span>
-          <input type="range" min="0" max="100" value="${Math.round(_rainVolume * 100)}" oninput="setRainVolume(this.value / 100)" class="flex-1 h-1 accent-accent">
-          <span id="rain-volume-value" class="text-[0.7rem] text-dimmer font-mono w-10 text-right">${Math.round(_rainVolume * 100)}%</span>
-        </div>
-        <div class="flex items-center gap-2 mt-2">
-          <span class="text-[0.7rem] text-dimmer whitespace-nowrap">Tone</span>
-          <input type="range" min="20" max="5000" step="10" value="${_rainFreq || 1000}" ${_rainFreq === 0 ? 'disabled' : ''} oninput="setRainFreq(this.value)" class="flex-1 h-1 accent-accent" style="opacity:${_rainFreq === 0 ? '0.3' : '1'}" id="rain-freq-slider">
-          <span id="rain-freq-label" class="text-[0.7rem] text-dimmer font-mono w-14 text-right">${_rainFreq > 0 ? _rainFreq + ' Hz' : 'Auto'}</span>
-          <button onclick="_rainFreq === 0 ? (setRainFreq(1000), document.getElementById('rain-freq-slider').disabled=false, document.getElementById('rain-freq-slider').style.opacity='1', document.getElementById('rain-freq-slider').value=1000) : (setRainFreq(0), document.getElementById('rain-freq-slider').disabled=true, document.getElementById('rain-freq-slider').style.opacity='0.3')" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${_rainFreq === 0 ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">Auto</button>
-        </div>
-      </div>
-      <div class="flex items-center justify-between mt-4">
-        <span class="text-primary text-sm">Button Sounds</span>
-        <div class="flex items-center gap-2">
-          <div class="flex gap-1">
-            ${Object.entries(CLICK_SOUND_PRESETS).map(([key, p]) => {
-              const sel = _clickSoundOn && (localStorage.getItem('clickSoundType') || 'thud') === key;
-              return `<button onclick="toggleClickSound(true); setClickSoundType('${key}'); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">${p.label}</button>`;
-            }).join('')}
-            <button onclick="toggleClickSound(false); renderSettingsView()" class="px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ${!_clickSoundOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'}">none</button>
-          </div>
-        </div>
-      </div>
-      <div class="flex items-center justify-between mt-4">
-        <div>
-          <span class="text-primary text-sm">Read Aloud Highlight</span>
-          <p class="text-dimmer text-[0.72rem] mt-0.5">Highlight text in the page as it's being read aloud</p>
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="nr-switch">
-            <input type="checkbox" ${localStorage.getItem('ttsHighlight') !== 'false' ? 'checked' : ''} onchange="localStorage.setItem('ttsHighlight', this.checked)">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-      <div class="flex items-center justify-between mt-4">
-        <div>
-          <span class="text-primary text-sm">Read Aloud Speed</span>
-          <p class="text-dimmer text-[0.72rem] mt-0.5">Playback speed for TTS audio (<span id="tts-speed-val">${parseFloat(localStorage.getItem('ttsSpeed')) || 1}x</span>)</p>
-        </div>
-        <input type="range" min="0.5" max="3" step="0.25" value="${parseFloat(localStorage.getItem('ttsSpeed')) || 1}" class="w-28 accent-accent" oninput="localStorage.setItem('ttsSpeed', this.value); document.getElementById('tts-speed-val').textContent = this.value + 'x'; if (typeof _ttsAudio !== 'undefined' && _ttsAudio) _ttsAudio.playbackRate = parseFloat(this.value);">
-      </div>
-    </div>
+  // Accent color swatches
+  var accentSwatches = accentColors.map(function(a) {
+    var swatch = new View('button');
+    swatch.el.className = 'w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110' +
+      (currentAccent === a.color ? ' scale-110 ring-2 ring-offset-2' : '');
+    swatch.el.style.background = a.color;
+    if (currentAccent === a.color) {
+      swatch.el.style.setProperty('--tw-ring-color', a.color);
+      swatch.el.style.setProperty('--tw-ring-offset-color', 'var(--nr-bg-body)');
+    }
+    swatch.el.title = a.name;
+    swatch.onTap(function() { setAccentColor(a.color); });
+    return swatch;
+  });
 
-    <!-- MENU ICONS -->
-    <div class="mb-8">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-white_ text-sm font-semibold">Menu Icons</h3>
-        <button onclick="resetSidebarIcons()" class="text-[0.72rem] text-dimmer hover:text-primary cursor-pointer">Reset</button>
-      </div>
-      <div id="sb-icon-list" onpointerdown="_sbDragDown(event)">
-      ${(function() {
-        const labels = { 'sb-dashboard': 'Home', 'sb-home': 'Feed', 'sb-vault': 'Vault', 'sb-browse': 'Browse', 'sb-neuralook': 'Neuralook', 'sb-dev': 'Dev Stats', 'sb-settings': 'Settings' };
-        const order = getSidebarOrder();
-        let hidden = [];
-        hidden = getLS('hiddenSidebarIcons', []);
-        return order.map(id => {
-          const label = labels[id] || id;
-          const isVisible = !hidden.includes(id);
-          return '<div class="sb-icon-row flex items-center justify-between py-2" data-id="' + id + '" style="touch-action:none">' +
-            '<div class="flex items-center gap-2">' +
-              '<span class="sb-drag-handle text-dimmest cursor-grab" style="touch-action:none">' + icon('dragHandle', { size: 14, class: 'w-3.5 h-3.5' }) + '</span>' +
-              '<span class="text-primary text-sm">' + label + '</span>' +
-            '</div>' +
-            '<label class="flex items-center cursor-pointer"><span class="nr-switch"><input type="checkbox" ' + (isVisible ? 'checked' : '') + ' onchange="toggleSidebarIcon(\'' + id + '\', this.checked)"><span class="slider"></span></span></label>' +
-          '</div>';
-        }).join('');
-      })()}
-      </div>
-    </div>
-  `);
+  var aetherRaw = localStorage.getItem('aetherColor') || 'midnight';
+  var aetherCur = aetherRaw.startsWith('#') ? 'midnight' : aetherRaw;
+
+  // Spinner controls
+  var prevBtn = new View('button');
+  prevBtn.el.innerHTML = '&lsaquo;';
+  prevBtn.el.className = 'w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]';
+  prevBtn.onTap(function() { cycleSpinner(-1); });
+  var nextBtn = new View('button');
+  nextBtn.el.innerHTML = '&rsaquo;';
+  nextBtn.el.className = 'w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]';
+  nextBtn.onTap(function() { cycleSpinner(1); });
+  var spinnerCenter = VStack(
+    RawHTML('<div class="spinner-preview text-dim font-mono text-[1.2rem] h-6 flex items-center justify-center" id="spinner-preview"></div>'),
+    RawHTML('<div class="text-[0.68rem] text-dimmer" id="spinner-name">' + getSelectedSpinner() + '</div>')
+  ).className('flex flex-col items-center min-w-[100px]');
+  var spinnerRow = HStack(
+    Text('Loading Spinner').className('text-primary text-sm'),
+    Spacer(),
+    HStack(prevBtn, spinnerCenter, nextBtn).spacing(2)
+  ).className('flex items-center justify-between mt-4');
+
+  // Pixel pet
+  var petOn = localStorage.getItem('pixelPet') === 'on';
+  var curPetType = localStorage.getItem('pixelPetType') || 'cat';
+  var petOpts = [['cat','cat'],['blackCat','black cat'],['dog','dog'],['poodle','poodle'],['bunny','bunny'],['froog','froog'],['pacman','pacman']];
+  var petBtns = petOpts.map(function(pair) {
+    var t = pair[0], label = pair[1];
+    var sel = petOn && curPetType === t;
+    var b = new View('button');
+    b.el.textContent = label;
+    b.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+      (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+    b.onTap(function() { togglePixelPet(true); setPixelPetType(t); renderSettingsView(); });
+    return b;
+  });
+  var petNone = new View('button');
+  petNone.el.textContent = 'none';
+  petNone.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+    (!petOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+  petNone.onTap(function() { togglePixelPet(false); renderSettingsView(); });
+  petBtns.push(petNone);
+  var petRow = HStack(
+    Text('Pixel Pet').className('text-primary text-sm'), Spacer(),
+    HStack.apply(null, petBtns).spacing(0.5)
+  ).className('flex items-center justify-between mt-4');
+
+  // White noise
+  var noiseBtns = Object.entries(NOISE_PRESETS).map(function(pair) {
+    var key = pair[0], p = pair[1];
+    var sel = _rainNoiseType === key;
+    var b = new View('button');
+    b.el.textContent = p.label;
+    b.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+      (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+    b.onTap(function() { setRainNoiseType(key); renderSettingsView(); });
+    return b;
+  });
+  var noiseWrap = HStack.apply(null, noiseBtns).className('flex flex-wrap gap-1 mt-2');
+
+  var volSlider = new View('input');
+  volSlider.el.type = 'range'; volSlider.el.min = '0'; volSlider.el.max = '100';
+  volSlider.el.value = Math.round(_rainVolume * 100);
+  volSlider.el.className = 'flex-1 h-1 accent-accent';
+  var volLabel = Text(Math.round(_rainVolume * 100) + '%').className('text-[0.7rem] text-dimmer font-mono w-10 text-right');
+  volLabel.el.id = 'rain-volume-value';
+  volSlider.el.addEventListener('input', function() { setRainVolume(this.value / 100); volLabel.el.textContent = this.value + '%'; });
+  var volRow = HStack(Text('Volume').className('text-[0.7rem] text-dimmer whitespace-nowrap'), volSlider, volLabel).spacing(2).className('mt-2');
+
+  var freqSlider = new View('input');
+  freqSlider.el.type = 'range'; freqSlider.el.min = '20'; freqSlider.el.max = '5000'; freqSlider.el.step = '10';
+  freqSlider.el.value = _rainFreq || 1000;
+  freqSlider.el.className = 'flex-1 h-1 accent-accent';
+  freqSlider.el.id = 'rain-freq-slider';
+  if (_rainFreq === 0) { freqSlider.el.disabled = true; freqSlider.el.style.opacity = '0.3'; }
+  var freqLabel = Text(_rainFreq > 0 ? _rainFreq + ' Hz' : 'Auto').className('text-[0.7rem] text-dimmer font-mono w-14 text-right');
+  freqLabel.el.id = 'rain-freq-label';
+  freqSlider.el.addEventListener('input', function() { setRainFreq(this.value); freqLabel.el.textContent = this.value + ' Hz'; });
+  var freqAutoBtn = new View('button');
+  freqAutoBtn.el.textContent = 'Auto';
+  freqAutoBtn.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+    (_rainFreq === 0 ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+  freqAutoBtn.onTap(function() {
+    if (_rainFreq === 0) { setRainFreq(1000); freqSlider.el.disabled = false; freqSlider.el.style.opacity = '1'; freqSlider.el.value = 1000; freqLabel.el.textContent = '1000 Hz'; }
+    else { setRainFreq(0); freqSlider.el.disabled = true; freqSlider.el.style.opacity = '0.3'; freqLabel.el.textContent = 'Auto'; }
+  });
+  var freqRow = HStack(Text('Tone').className('text-[0.7rem] text-dimmer whitespace-nowrap'), freqSlider, freqLabel, freqAutoBtn).spacing(2).className('mt-2');
+
+  var noiseSection = VStack(
+    Text('White Noise').className('text-primary text-sm'),
+    noiseWrap, volRow, freqRow
+  ).className('mt-4');
+
+  // Button sounds
+  var soundBtns = Object.entries(CLICK_SOUND_PRESETS).map(function(pair) {
+    var key = pair[0], p = pair[1];
+    var sel = _clickSoundOn && (localStorage.getItem('clickSoundType') || 'thud') === key;
+    var b = new View('button');
+    b.el.textContent = p.label;
+    b.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+      (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+    b.onTap(function() { toggleClickSound(true); setClickSoundType(key); renderSettingsView(); });
+    return b;
+  });
+  var soundNone = new View('button');
+  soundNone.el.textContent = 'none';
+  soundNone.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+    (!_clickSoundOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+  soundNone.onTap(function() { toggleClickSound(false); renderSettingsView(); });
+  soundBtns.push(soundNone);
+  var soundRow = HStack(
+    Text('Button Sounds').className('text-primary text-sm'), Spacer(),
+    HStack.apply(null, soundBtns).spacing(0.5)
+  ).className('flex items-center justify-between mt-4');
+
+  // TTS
+  var ttsHighlight = _settingToggle('Read Aloud Highlight', 'Highlight text in the page as it\'s being read aloud',
+    localStorage.getItem('ttsHighlight') !== 'false', function(on) { localStorage.setItem('ttsHighlight', on); });
+
+  var ttsSpeed = parseFloat(localStorage.getItem('ttsSpeed')) || 1;
+  var ttsSpeedRow = _settingSlider('Read Aloud Speed', null, ttsSpeed,
+    { min: 0.5, max: 3, step: 0.25, format: function(v) { return v + 'x'; } },
+    function(v) { localStorage.setItem('ttsSpeed', v); if (typeof _ttsAudio !== 'undefined' && _ttsAudio) _ttsAudio.playbackRate = parseFloat(v); },
+    null
+  );
+
+  // Sidebar icons
+  var resetBtn = new View('button');
+  resetBtn.el.textContent = 'Reset';
+  resetBtn.el.className = 'text-[0.72rem] text-dimmer hover:text-primary cursor-pointer';
+  resetBtn.el.style.background = 'none'; resetBtn.el.style.border = 'none';
+  resetBtn.onTap(function() { resetSidebarIcons(); });
+
+  var labels = { 'sb-dashboard': 'Home', 'sb-home': 'Feed', 'sb-vault': 'Vault', 'sb-browse': 'Browse', 'sb-neuralook': 'Neuralook', 'sb-dev': 'Dev Stats', 'sb-settings': 'Settings' };
+  var order = getSidebarOrder();
+  var hidden = getLS('hiddenSidebarIcons', []);
+  var iconRows = order.map(function(id) {
+    var label = labels[id] || id;
+    var isVisible = !hidden.includes(id);
+    var toggle = Toggle(null);
+    var input = toggle.el.querySelector('input[type="checkbox"]');
+    if (input) input.checked = isVisible;
+    toggle.on('change', function(e) { if (e.target.type === 'checkbox') toggleSidebarIcon(id, e.target.checked); });
+    var row = HStack(
+      RawHTML('<span class="sb-drag-handle text-dimmest cursor-grab" style="touch-action:none">' + icon('dragHandle', { size: 14, class: 'w-3.5 h-3.5' }) + '</span>'),
+      Text(label).className('text-primary text-sm'),
+      Spacer(),
+      toggle
+    ).spacing(2).className('sb-icon-row flex items-center justify-between py-2');
+    row.attr('data-id', id);
+    row.el.style.touchAction = 'none';
+    return row;
+  });
+  var iconList = VStack.apply(null, iconRows);
+  iconList.el.id = 'sb-icon-list';
+  iconList.el.addEventListener('pointerdown', function(e) { _sbDragDown(e); });
+
+  var menuSection = VStack(
+    HStack(
+      Text('Menu Icons').className('text-white_ text-sm font-semibold'),
+      Spacer(), resetBtn
+    ).className('mb-3'),
+    iconList
+  ).className('mb-8');
+
+  return VStack(
+    _settingSection('Appearance', [
+      _settingBtnGroup('Theme', ['auto','dark','light','daylight','clear'], currentTheme, function(v) { setTheme(v); }),
+      HStack(Text('Accent Color').className('text-primary text-sm'), Spacer(), HStack.apply(null, accentSwatches).spacing(2)).className('flex items-center justify-between mt-4'),
+      _settingBtnGroup('Aether', [{value:'midnight',label:'Midnight'},{value:'aether',label:'Aether'},{value:'match',label:'Match'}], aetherCur, function(v) { setAetherColor(v); }),
+      _settingBtnGroup('Editor Theme', ['auto','monokai','dracula','solarized','github','nord'], localStorage.getItem('editorTheme') || 'auto', function(v) { setEditorTheme(v); }),
+      _settingBtnGroup('Browse Tabs', [{value:'island',label:'Island'},{value:'horizontal',label:'Horizontal'}], localStorage.getItem('browseTabLayout') || 'island', function(v) { setBrowseTabLayout(v); }),
+      _settingBtnGroup('Icon Size', ['small','medium','large'], localStorage.getItem('iconSize') || 'medium', function(v) { setIconSize(v); }),
+      spinnerRow,
+      petRow,
+      noiseSection,
+      soundRow,
+      ttsHighlight,
+      ttsSpeedRow
+    ]),
+    menuSection
+  );
 }
 
 function _feedTabBtn(key, label) {
-  const active = _settingsFeedTab === key;
-  return '<button onclick="_setSettingsFeedTab(\'' + key + '\')" class="px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary') + '">' + label + '</button>';
+  var active = _settingsFeedTab === key;
+  var b = new View('button');
+  b.el.textContent = label;
+  b.el.className = 'px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' +
+    (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary');
+  b.onTap(function() { _setSettingsFeedTab(key); });
+  return b;
 }
 
 function _renderFeedSettings() {
-  var tabs = RawHTML('<div class="flex gap-1.5 mb-6">' + _feedTabBtn('insights', 'Insights') + _feedTabBtn('quality', 'Quality Filter') + _feedTabBtn('algorithm', 'Algorithm') + '</div>');
+  var tabs = HStack(
+    _feedTabBtn('insights', 'Insights'),
+    _feedTabBtn('quality', 'Quality Filter'),
+    _feedTabBtn('algorithm', 'Algorithm')
+  ).spacing(1).className('mb-6');
   var content;
   if (_settingsFeedTab === 'quality') content = _renderFeedQualityTab();
   else if (_settingsFeedTab === 'algorithm') content = _renderFeedAlgorithmTab();
   else content = _renderFeedInsightsTab();
-  return VStack([tabs, content]);
+  return VStack(tabs, content);
 }
 
 function _renderFeedInsightsTab() {
-  return RawHTML(`
-    <div class="mb-8">
-      <h3 class="text-white_ text-sm font-semibold mb-1">Paper Insights</h3>
-      <p class="text-dim text-[0.8rem] mb-3">Extracts key insights when viewing a paper. Uses local LLM (qwen2.5:3b).</p>
-      <div class="flex items-center justify-between">
-        <div>
-          <span class="text-primary text-sm">Allow heuristics</span>
-          <p class="text-dimmer text-[0.72rem] mt-0.5">Use regex/keyword matching for repos, hardware, and insight fallback</p>
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="nr-switch">
-            <input type="checkbox" ${localStorage.getItem('insightsAllowHeuristics') !== 'false' ? 'checked' : ''} onchange="localStorage.setItem('insightsAllowHeuristics', this.checked)">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-    </div>
-  `);
+  return _settingSection('Paper Insights', [
+    _settingToggleLS('Allow heuristics', 'Use regex/keyword matching for repos, hardware, and insight fallback',
+      'insightsAllowHeuristics', { defaultOn: true, trueValue: 'true', falseValue: 'false' })
+  ], { desc: 'Extracts key insights when viewing a paper. Uses local LLM (qwen2.5:3b).' });
 }
 
 function _renderFeedQualityTab() {
-  const cache = typeof getQualityCache === 'function' ? getQualityCache() : {};
-  const cacheEntries = Object.entries(cache);
-  const keptCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'keep').length;
-  const skippedCount = cacheEntries.filter(([, v]) => (v?.v || v) === 'skip').length;
+  var cache = typeof getQualityCache === 'function' ? getQualityCache() : {};
+  var cacheEntries = Object.entries(cache);
+  var keptCount = cacheEntries.filter(function(e) { return (e[1]?.v || e[1]) === 'keep'; }).length;
+  var skippedCount = cacheEntries.filter(function(e) { return (e[1]?.v || e[1]) === 'skip'; }).length;
 
-  return RawHTML(`
-    <div class="flex items-center gap-3 mb-1">
-      <h3 class="text-white_ text-sm font-semibold">Quality Filter</h3>
-      <span class="text-dimmer text-[0.62rem]">qwen3:8b</span>
-      <label class="flex items-center gap-2 cursor-pointer ml-auto">
-        <span class="text-primary text-sm">Enable</span>
-        <span class="nr-switch">
-          <input type="checkbox" id="toggle-quality-filter" ${typeof isQualityFilterOn === 'function' && isQualityFilterOn() ? 'checked' : ''} onchange="setQualityFilter(this.checked)">
-          <span class="slider"></span>
-        </span>
-      </label>
-    </div>
-    <p class="text-dim text-[0.78rem] mb-5">Uses a local LLM (Ollama) to hide low-quality posts. Two phases: verdict (KEEP/SKIP), then scoring.</p>
+  var qfEnabled = typeof isQualityFilterOn === 'function' && isQualityFilterOn();
+  var enableToggle = Toggle(null);
+  var enableInput = enableToggle.el.querySelector('input[type="checkbox"]');
+  if (enableInput) enableInput.checked = qfEnabled;
+  enableToggle.on('change', function(e) { if (e.target.type === 'checkbox') setQualityFilter(e.target.checked); });
 
-    <div class="mb-5">
-      <div class="flex items-center gap-2 mb-2">
-        <span class="text-muted text-[0.78rem] font-medium">Verdict Prompt</span>
-        ${typeof getQualityPrompt === 'function' && typeof DEFAULT_QUALITY_PROMPT !== 'undefined' && getQualityPrompt() !== DEFAULT_QUALITY_PROMPT ? '<span class="text-[0.65rem] text-accent bg-accent/10 border border-accent/30 rounded px-1.5 py-0.5">Edited</span>' : ''}
-      </div>
-      <p class="text-dimmer text-[0.72rem] mb-2">Classifies each post title as KEEP or SKIP.</p>
-      <div id="verdict-prompt-readonly" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-2 max-h-[200px] overflow-y-auto">${typeof getQualityPrompt === 'function' ? escapeHtml(getQualityPrompt()) : ''}</div>
-      <textarea id="quality-prompt-input" rows="6" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-primary text-[0.78rem] font-mono leading-relaxed outline-none focus:border-accent resize-y" spellcheck="false" style="display:none">${typeof getQualityPrompt === 'function' ? escapeHtml(getQualityPrompt()) : ''}</textarea>
-      <div id="verdict-prompt-actions" class="flex items-center gap-2 justify-end">
-        <button onclick="_editVerdictPrompt()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Edit</button>
-        ${typeof getQualityPrompt === 'function' && typeof DEFAULT_QUALITY_PROMPT !== 'undefined' && getQualityPrompt() !== DEFAULT_QUALITY_PROMPT ? '<button onclick="resetQualityPrompt(); renderSettingsView()" class="text-dim text-[0.78rem] hover:text-red-400 bg-transparent border border-border-input hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset</button>' : ''}
-      </div>
-      <div id="verdict-prompt-edit-actions" class="flex items-center gap-2 justify-end" style="display:none">
-        <button onclick="_cancelEditVerdictPrompt()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input rounded-md px-3 py-1 cursor-pointer transition-colors">Cancel</button>
-        <button onclick="saveQualityPrompt().then(function(){ renderSettingsView(); })" class="bg-accent text-white text-[0.78rem] px-3 py-1 rounded-md border-none cursor-pointer hover:bg-accent-hover">Save</button>
-      </div>
-    </div>
+  var header = HStack(
+    Text('Quality Filter').className('text-white_ text-sm font-semibold'),
+    Text('qwen3:8b').className('text-dimmer text-[0.62rem]'),
+    Spacer(),
+    Text('Enable').className('text-primary text-sm'),
+    enableToggle
+  ).spacing(2).className('mb-1');
 
-    <div class="mb-5 pt-4 border-t border-border-subtle">
-      <span class="text-muted text-[0.78rem] font-medium mb-2 block">Scoring Threshold</span>
-      <p class="text-dimmer text-[0.72rem] mb-2">Posts passing the verdict are scored 0\u2013100%. Below threshold = hidden.</p>
-      <div id="scoring-prompt-display" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-3">Loading\u2026</div>
-      <div class="flex items-center gap-3">
-        <input type="range" id="quality-threshold-slider" min="0" max="100" value="${typeof getQualityThreshold === 'function' ? getQualityThreshold() : 30}" oninput="document.getElementById('quality-threshold-value').textContent=this.value+'%'" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--nr-accent)]" />
-        <span id="quality-threshold-value" class="text-primary text-sm font-mono w-10 text-right">${typeof getQualityThreshold === 'function' ? getQualityThreshold() : 30}%</span>
-      </div>
-      <p class="text-dimmer text-[0.68rem] mt-1">Minimum score to display (0% = show all kept, 100% = strictest)</p>
-    </div>
+  var isEdited = typeof getQualityPrompt === 'function' && typeof DEFAULT_QUALITY_PROMPT !== 'undefined' && getQualityPrompt() !== DEFAULT_QUALITY_PROMPT;
+  var editedBadge = isEdited ? '<span class="text-[0.65rem] text-accent bg-accent/10 border border-accent/30 rounded px-1.5 py-0.5">Edited</span>' : '';
+  var resetPromptBtn = isEdited ? '<button onclick="resetQualityPrompt(); renderSettingsView()" class="text-dim text-[0.78rem] hover:text-red-400 bg-transparent border border-border-input hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset</button>' : '';
 
-    <div class="mb-5 pt-4 border-t border-border-subtle">
-      <span class="text-muted text-[0.78rem] font-medium mb-2 block">Blocked Words</span>
-      <p class="text-dimmer text-[0.72rem] mb-3">Posts with titles containing any of these words will be automatically hidden.</p>
-      <div class="flex gap-2 mb-3">
-        <input type="text" id="blocked-word-input" placeholder="e.g. politics, lawsuit, review" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();addBlockedWord()}">
-        <button onclick="addBlockedWord()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover">Add</button>
-      </div>
-      <div id="blocked-words-list" class="flex flex-wrap gap-1.5"></div>
-    </div>
+  var promptHtml = typeof getQualityPrompt === 'function' ? escapeHtml(getQualityPrompt()) : '';
+  var threshold = typeof getQualityThreshold === 'function' ? getQualityThreshold() : 30;
 
-    <div class="mb-5 pt-4 border-t border-border-subtle">
-      <button onclick="_toggleBlockedPostsList()" class="flex items-center gap-2 text-muted text-[0.78rem] font-medium bg-transparent border-none cursor-pointer p-0 hover:text-primary transition-colors">
-        <span id="blocked-posts-chevron" class="transition-transform" style="transform:rotate(-90deg)">${icon('chevronDown', { size: 14, class: 'w-3.5 h-3.5' })}</span>
-        Blocked Posts
-      </button>
-      <div id="quality-blocked-list" class="text-[0.78rem] text-muted max-h-[300px] overflow-y-auto mt-2" style="display:none"></div>
-    </div>
+  // Prompt editor + scoring + blocked words kept as RawHTML (complex interactive forms)
+  var verdictSection = RawHTML(
+    '<div class="mb-5">' +
+    '<div class="flex items-center gap-2 mb-2"><span class="text-muted text-[0.78rem] font-medium">Verdict Prompt</span>' + editedBadge + '</div>' +
+    '<p class="text-dimmer text-[0.72rem] mb-2">Classifies each post title as KEEP or SKIP.</p>' +
+    '<div id="verdict-prompt-readonly" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-2 max-h-[200px] overflow-y-auto">' + promptHtml + '</div>' +
+    '<textarea id="quality-prompt-input" rows="6" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-primary text-[0.78rem] font-mono leading-relaxed outline-none focus:border-accent resize-y" spellcheck="false" style="display:none">' + promptHtml + '</textarea>' +
+    '<div id="verdict-prompt-actions" class="flex items-center gap-2 justify-end">' +
+    '<button onclick="_editVerdictPrompt()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Edit</button>' + resetPromptBtn + '</div>' +
+    '<div id="verdict-prompt-edit-actions" class="flex items-center gap-2 justify-end" style="display:none">' +
+    '<button onclick="_cancelEditVerdictPrompt()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input rounded-md px-3 py-1 cursor-pointer transition-colors">Cancel</button>' +
+    '<button onclick="saveQualityPrompt().then(function(){ renderSettingsView(); })" class="bg-accent text-white text-[0.78rem] px-3 py-1 rounded-md border-none cursor-pointer hover:bg-accent-hover">Save</button></div></div>'
+  );
 
-    <div class="flex items-center justify-between pt-4 border-t border-border-subtle">
-      <div class="text-dim text-[0.75rem]">
-        Cached: ${cacheEntries.length} &middot; Kept: ${keptCount} &middot; Skipped: ${skippedCount}
-      </div>
-      <button onclick="resetEverything()" class="text-red-400/80 text-[0.75rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset all &amp; clear cache</button>
-    </div>
-  `);
+  var scoringSection = RawHTML(
+    '<div class="mb-5 pt-4 border-t border-border-subtle">' +
+    '<span class="text-muted text-[0.78rem] font-medium mb-2 block">Scoring Threshold</span>' +
+    '<p class="text-dimmer text-[0.72rem] mb-2">Posts passing the verdict are scored 0\u2013100%. Below threshold = hidden.</p>' +
+    '<div id="scoring-prompt-display" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-3">Loading\u2026</div>' +
+    '<div class="flex items-center gap-3">' +
+    '<input type="range" id="quality-threshold-slider" min="0" max="100" value="' + threshold + '" oninput="document.getElementById(\'quality-threshold-value\').textContent=this.value+\'%\'" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--nr-accent)]" />' +
+    '<span id="quality-threshold-value" class="text-primary text-sm font-mono w-10 text-right">' + threshold + '%</span></div>' +
+    '<p class="text-dimmer text-[0.68rem] mt-1">Minimum score to display (0% = show all kept, 100% = strictest)</p></div>'
+  );
+
+  var blockedWordsSection = RawHTML(
+    '<div class="mb-5 pt-4 border-t border-border-subtle">' +
+    '<span class="text-muted text-[0.78rem] font-medium mb-2 block">Blocked Words</span>' +
+    '<p class="text-dimmer text-[0.72rem] mb-3">Posts with titles containing any of these words will be automatically hidden.</p>' +
+    '<div class="flex gap-2 mb-3">' +
+    '<input type="text" id="blocked-word-input" placeholder="e.g. politics, lawsuit, review" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addBlockedWord()}">' +
+    '<button onclick="addBlockedWord()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover">Add</button></div>' +
+    '<div id="blocked-words-list" class="flex flex-wrap gap-1.5"></div></div>'
+  );
+
+  var blockedPostsBtn = new View('button');
+  blockedPostsBtn.el.className = 'flex items-center gap-2 text-muted text-[0.78rem] font-medium bg-transparent border-none cursor-pointer p-0 hover:text-primary transition-colors';
+  blockedPostsBtn.el.innerHTML = '<span id="blocked-posts-chevron" class="transition-transform" style="transform:rotate(-90deg)">' + icon('chevronDown', { size: 14, class: 'w-3.5 h-3.5' }) + '</span> Blocked Posts';
+  blockedPostsBtn.onTap(function() { _toggleBlockedPostsList(); });
+  var blockedPostsSection = VStack(
+    blockedPostsBtn,
+    RawHTML('<div id="quality-blocked-list" class="text-[0.78rem] text-muted max-h-[300px] overflow-y-auto mt-2" style="display:none"></div>')
+  ).className('mb-5 pt-4 border-t border-border-subtle');
+
+  var resetAllBtn = new View('button');
+  resetAllBtn.el.textContent = 'Reset all & clear cache';
+  resetAllBtn.el.className = 'text-red-400/80 text-[0.75rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors';
+  resetAllBtn.onTap(function() { resetEverything(); });
+  var footer = HStack(
+    Text('Cached: ' + cacheEntries.length + ' \u00b7 Kept: ' + keptCount + ' \u00b7 Skipped: ' + skippedCount).className('text-dim text-[0.75rem]'),
+    Spacer(), resetAllBtn
+  ).className('pt-4 border-t border-border-subtle');
+
+  return VStack(
+    header,
+    Text('Uses a local LLM (Ollama) to hide low-quality posts. Two phases: verdict (KEEP/SKIP), then scoring.').className('text-dim text-[0.78rem] mb-5'),
+    verdictSection,
+    scoringSection,
+    blockedWordsSection,
+    blockedPostsSection,
+    footer
+  );
 }
 
 function _renderFeedAlgorithmTab() {
-  const profile = typeof getInterestProfile === 'function' ? getInterestProfile() : null;
-  const readCount = typeof getReadPosts === 'function' ? getReadPosts().length : 0;
-  const savedCount = typeof getSavedPosts === 'function' ? Object.keys(getSavedPosts()).length : 0;
-  const hiddenCount = typeof getHiddenPosts === 'function' ? getHiddenPosts().length : 0;
-  const topTopics = profile?.topTopics || [];
-  const topCats = profile?.topCategories || [];
+  var profile = typeof getInterestProfile === 'function' ? getInterestProfile() : null;
+  var readCount = typeof getReadPosts === 'function' ? getReadPosts().length : 0;
+  var savedCount = typeof getSavedPosts === 'function' ? Object.keys(getSavedPosts()).length : 0;
+  var hiddenCount = typeof getHiddenPosts === 'function' ? getHiddenPosts().length : 0;
+  var topTopics = profile?.topTopics || [];
+  var topCats = profile?.topCategories || [];
 
-  const wBase = parseFloat(localStorage.getItem('fyWeightBase') || '0.7');
-  const wAff = parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3');
-  const wRec = parseFloat(localStorage.getItem('fyWeightRecency') || '1.0');
-  const maxRun = parseInt(localStorage.getItem('maxPerCategoryRun') || '3', 10);
+  var wBase = parseFloat(localStorage.getItem('fyWeightBase') || '0.7');
+  var wAff = parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3');
+  var wRec = parseFloat(localStorage.getItem('fyWeightRecency') || '1.0');
+  var maxRun = parseInt(localStorage.getItem('maxPerCategoryRun') || '3', 10);
 
-  const exampleLlm = 72, exampleAffVal = 0.8, exampleAge = 3;
-  const exampleRecency = Math.max(0, 10 - exampleAge * 0.5) * wRec;
-  const exampleScore = (exampleLlm * (wBase + exampleAffVal * wAff) + exampleRecency).toFixed(1);
+  var exampleLlm = 72, exampleAffVal = 0.8, exampleAge = 3;
+  var exampleRecency = Math.max(0, 10 - exampleAge * 0.5) * wRec;
+  var exampleScore = (exampleLlm * (wBase + exampleAffVal * wAff) + exampleRecency).toFixed(1);
 
-  return RawHTML(`
-    <h3 class="text-white_ text-sm font-semibold mb-1">How the Algorithm Works</h3>
-    <p class="text-dim text-[0.78rem] mb-5">Your feed is ranked using a personalized composite score that combines LLM relevance scoring, source affinity from your reading habits, and recency.</p>
+  var topicsHtml = topTopics.length ? topTopics.map(function(t) { return '<span class="bg-hover text-dim text-[0.68rem] px-1.5 py-0.5 rounded">' + escapeHtml(t) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>';
+  var catsHtml = topCats.length ? topCats.map(function(c) { return '<span class="bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20">' + escapeHtml(c) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>';
 
-    <div class="mb-5">
-      <span class="text-muted text-[0.78rem] font-medium mb-2 block">1. LLM Relevance Score</span>
-      <p class="text-dim text-[0.75rem] leading-relaxed mb-1">Every post that passes the verdict filter is scored 0\u2013100 by a local LLM. When you have an interest profile, your top topics and categories are appended to the scoring prompt.</p>
-    </div>
+  // Weight slider helper
+  function _algoSlider(label, value, max, lsKey, idSuffix, format) {
+    var valSpan = Text(format(value)).className('text-dim text-[0.68rem] tabular-nums w-8 text-right');
+    var slider = new View('input');
+    slider.el.type = 'range'; slider.el.min = '0'; slider.el.max = String(max);
+    slider.el.value = Math.round(value * 100);
+    slider.el.className = 'flex-1 accent-[var(--nr-accent)]';
+    slider.el.addEventListener('input', function() { valSpan.el.textContent = format(this.value / 100); });
+    slider.el.addEventListener('change', function() {
+      localStorage.setItem(lsKey, (this.value / 100).toFixed(2));
+      if (typeof renderPapers === 'function') renderPapers();
+      renderSettingsView();
+    });
+    return HStack(
+      Text(label).className('text-dim text-[0.72rem] w-16 shrink-0'), slider, valSpan
+    ).spacing(2);
+  }
 
-    <div class="mb-5 pt-4 border-t border-border-subtle">
-      <span class="text-muted text-[0.78rem] font-medium mb-2 block">2. Interest Profile</span>
-      <p class="text-dim text-[0.75rem] leading-relaxed mb-3">Built automatically from your reading behavior. Recomputed every 5 minutes.</p>
-      <div class="bg-input border border-border-input rounded-lg p-3 text-[0.75rem] space-y-2 mb-3">
-        <div class="flex justify-between"><span class="text-dim">Posts read</span><span class="text-primary font-mono">${readCount}</span></div>
-        <div class="flex justify-between"><span class="text-dim">Posts saved</span><span class="text-primary font-mono">${savedCount}</span></div>
-        <div class="flex justify-between"><span class="text-dim">Posts hidden</span><span class="text-primary font-mono">${hiddenCount}</span></div>
-      </div>
-      <div class="space-y-2 text-[0.75rem]">
-        <div>
-          <span class="text-dimmer text-[0.68rem]">Signal weights:</span>
-          <div class="text-dim mt-1">Read = <span class="text-primary">1x</span> &middot; Saved = <span class="text-primary">3x</span> &middot; Rated = <span class="text-primary">rating value</span> &middot; Hidden = negative</div>
-        </div>
-        <div>
-          <span class="text-dimmer text-[0.68rem]">Top topics:</span>
-          <div class="flex flex-wrap gap-1 mt-1">${topTopics.length ? topTopics.map(function(t){ return '<span class="bg-hover text-dim text-[0.68rem] px-1.5 py-0.5 rounded">' + escapeHtml(t) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>'}</div>
-        </div>
-        <div>
-          <span class="text-dimmer text-[0.68rem]">Top categories:</span>
-          <div class="flex flex-wrap gap-1 mt-1">${topCats.length ? topCats.map(function(c){ return '<span class="bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20">' + escapeHtml(c) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>'}</div>
-        </div>
-      </div>
-    </div>
+  // Static content kept as RawHTML
+  var explanatoryContent = RawHTML(
+    '<h3 class="text-white_ text-sm font-semibold mb-1">How the Algorithm Works</h3>' +
+    '<p class="text-dim text-[0.78rem] mb-5">Your feed is ranked using a personalized composite score that combines LLM relevance scoring, source affinity from your reading habits, and recency.</p>' +
+    '<div class="mb-5"><span class="text-muted text-[0.78rem] font-medium mb-2 block">1. LLM Relevance Score</span>' +
+    '<p class="text-dim text-[0.75rem] leading-relaxed mb-1">Every post that passes the verdict filter is scored 0\u2013100 by a local LLM. When you have an interest profile, your top topics and categories are appended to the scoring prompt.</p></div>' +
+    '<div class="mb-5 pt-4 border-t border-border-subtle"><span class="text-muted text-[0.78rem] font-medium mb-2 block">2. Interest Profile</span>' +
+    '<p class="text-dim text-[0.75rem] leading-relaxed mb-3">Built automatically from your reading behavior. Recomputed every 5 minutes.</p>' +
+    '<div class="bg-input border border-border-input rounded-lg p-3 text-[0.75rem] space-y-2 mb-3">' +
+    '<div class="flex justify-between"><span class="text-dim">Posts read</span><span class="text-primary font-mono">' + readCount + '</span></div>' +
+    '<div class="flex justify-between"><span class="text-dim">Posts saved</span><span class="text-primary font-mono">' + savedCount + '</span></div>' +
+    '<div class="flex justify-between"><span class="text-dim">Posts hidden</span><span class="text-primary font-mono">' + hiddenCount + '</span></div></div>' +
+    '<div class="space-y-2 text-[0.75rem]"><div><span class="text-dimmer text-[0.68rem]">Signal weights:</span>' +
+    '<div class="text-dim mt-1">Read = <span class="text-primary">1x</span> \u00b7 Saved = <span class="text-primary">3x</span> \u00b7 Rated = <span class="text-primary">rating value</span> \u00b7 Hidden = negative</div></div>' +
+    '<div><span class="text-dimmer text-[0.68rem]">Top topics:</span><div class="flex flex-wrap gap-1 mt-1">' + topicsHtml + '</div></div>' +
+    '<div><span class="text-dimmer text-[0.68rem]">Top categories:</span><div class="flex flex-wrap gap-1 mt-1">' + catsHtml + '</div></div></div></div>' +
+    '<div class="mb-5 pt-4 border-t border-border-subtle"><span class="text-muted text-[0.78rem] font-medium mb-2 block">3. Source Affinity</span>' +
+    '<p class="text-dim text-[0.75rem] leading-relaxed mb-3">Each feed source gets an affinity score (0.1\u20131.0) based on engagement. Sources you read/save/rate highly get boosted; frequently hidden ones get penalized.</p>' +
+    '<div class="bg-input border border-border-input rounded-lg p-3 text-[0.72rem] font-mono mb-3">' +
+    '<div class="text-dim mb-1">engagement = (read + saved\u00d72 + rated\u00d73) / total</div>' +
+    '<div class="text-dim mb-1">penalty = (hidden / total) \u00d7 0.5</div>' +
+    '<div class="text-primary">affinity = clamp(engagement \u2212 penalty, 0.1, 1.0)</div>' +
+    '<div class="text-dimmer text-[0.65rem] mt-1">Sources with &lt;3 posts default to 0.5</div></div></div>'
+  );
 
-    <div class="mb-5 pt-4 border-t border-border-subtle">
-      <span class="text-muted text-[0.78rem] font-medium mb-2 block">3. Source Affinity</span>
-      <p class="text-dim text-[0.75rem] leading-relaxed mb-3">Each feed source gets an affinity score (0.1\u20131.0) based on engagement. Sources you read/save/rate highly get boosted; frequently hidden ones get penalized.</p>
-      <div class="bg-input border border-border-input rounded-lg p-3 text-[0.72rem] font-mono mb-3">
-        <div class="text-dim mb-1">engagement = (read + saved\u00d72 + rated\u00d73) / total</div>
-        <div class="text-dim mb-1">penalty = (hidden / total) \u00d7 0.5</div>
-        <div class="text-primary">affinity = clamp(engagement \u2212 penalty, 0.1, 1.0)</div>
-        <div class="text-dimmer text-[0.65rem] mt-1">Sources with &lt;3 posts default to 0.5</div>
-      </div>
-    </div>
+  var compositeContent = RawHTML(
+    '<div class="mb-5 pt-4 border-t border-border-subtle"><span class="text-muted text-[0.78rem] font-medium mb-2 block">4. Composite Score</span>' +
+    '<p class="text-dim text-[0.75rem] leading-relaxed mb-3">When you use "For You" sort, each post is ranked by a composite score:</p>' +
+    '<div class="bg-input border border-border-input rounded-lg p-3 text-[0.78rem] font-mono mb-3">' +
+    '<div class="text-accent">score = LLM \u00d7 (base + affinity \u00d7 aff_weight) + recency_boost \u00d7 rec_weight</div></div>' +
+    '<div class="space-y-1.5 text-[0.72rem] text-dim mb-4">' +
+    '<div><span class="text-dimmer">LLM:</span> Quality score from local model (0\u2013100)</div>' +
+    '<div><span class="text-dimmer">base:</span> Baseline multiplier</div>' +
+    '<div><span class="text-dimmer">affinity \u00d7 aff_weight:</span> Bonus for sources you engage with</div>' +
+    '<div><span class="text-dimmer">recency_boost:</span> max(0, 10 \u2212 age_hours \u00d7 0.5)</div></div>' +
+    '<div class="bg-input border border-border-input rounded-lg p-3 mb-4">' +
+    '<div class="text-dimmer text-[0.68rem] mb-2">Example: LLM=' + exampleLlm + ', affinity=' + exampleAffVal + ', age=' + exampleAge + 'h</div>' +
+    '<div class="text-[0.75rem] font-mono text-dim">' + exampleLlm + ' \u00d7 (' + wBase.toFixed(2) + ' + ' + exampleAffVal + ' \u00d7 ' + wAff.toFixed(2) + ') + ' + exampleRecency.toFixed(1) + ' = <span class="text-accent font-semibold">' + exampleScore + '</span></div></div>' +
+    '<div class="text-dimmer text-[0.68rem] mb-2">Current weights</div>'
+  );
 
-    <div class="mb-5 pt-4 border-t border-border-subtle">
-      <span class="text-muted text-[0.78rem] font-medium mb-2 block">4. Composite Score</span>
-      <p class="text-dim text-[0.75rem] leading-relaxed mb-3">When you use "For You" sort, each post is ranked by a composite score:</p>
-      <div class="bg-input border border-border-input rounded-lg p-3 text-[0.78rem] font-mono mb-3">
-        <div class="text-accent">score = LLM \u00d7 (base + affinity \u00d7 aff_weight) + recency_boost \u00d7 rec_weight</div>
-      </div>
-      <div class="space-y-1.5 text-[0.72rem] text-dim mb-4">
-        <div><span class="text-dimmer">LLM:</span> Quality score from local model (0\u2013100)</div>
-        <div><span class="text-dimmer">base:</span> Baseline multiplier</div>
-        <div><span class="text-dimmer">affinity \u00d7 aff_weight:</span> Bonus for sources you engage with</div>
-        <div><span class="text-dimmer">recency_boost:</span> max(0, 10 \u2212 age_hours \u00d7 0.5)</div>
-      </div>
-      <div class="bg-input border border-border-input rounded-lg p-3 mb-4">
-        <div class="text-dimmer text-[0.68rem] mb-2">Example: LLM=${exampleLlm}, affinity=${exampleAffVal}, age=${exampleAge}h</div>
-        <div class="text-[0.75rem] font-mono text-dim">${exampleLlm} \u00d7 (${wBase.toFixed(2)} + ${exampleAffVal} \u00d7 ${wAff.toFixed(2)}) + ${exampleRecency.toFixed(1)} = <span class="text-accent font-semibold">${exampleScore}</span></div>
-      </div>
-      <div class="text-dimmer text-[0.68rem] mb-2">Current weights</div>
-      <div class="space-y-2">
-        <div class="flex items-center gap-3">
-          <span class="text-dim text-[0.72rem] w-16 shrink-0">Base</span>
-          <input type="range" min="0" max="100" value="${Math.round(wBase * 100)}" oninput="document.getElementById('algo-base-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightBase',(this.value/100).toFixed(2));if(typeof renderPapers==='function')renderPapers();renderSettingsView()" class="flex-1 accent-[var(--nr-accent)]" />
-          <span id="algo-base-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wBase.toFixed(2)}</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="text-dim text-[0.72rem] w-16 shrink-0">Affinity</span>
-          <input type="range" min="0" max="100" value="${Math.round(wAff * 100)}" oninput="document.getElementById('algo-aff-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightAffinity',(this.value/100).toFixed(2));if(typeof renderPapers==='function')renderPapers();renderSettingsView()" class="flex-1 accent-[var(--nr-accent)]" />
-          <span id="algo-aff-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wAff.toFixed(2)}</span>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="text-dim text-[0.72rem] w-16 shrink-0">Recency</span>
-          <input type="range" min="0" max="200" value="${Math.round(wRec * 100)}" oninput="document.getElementById('algo-rec-val').textContent=(this.value/100).toFixed(2)" onchange="localStorage.setItem('fyWeightRecency',(this.value/100).toFixed(2));if(typeof renderPapers==='function')renderPapers();renderSettingsView()" class="flex-1 accent-[var(--nr-accent)]" />
-          <span id="algo-rec-val" class="text-dim text-[0.68rem] tabular-nums w-8 text-right">${wRec.toFixed(2)}</span>
-        </div>
-      </div>
-    </div>
+  var weightSliders = VStack(
+    _algoSlider('Base', wBase, 100, 'fyWeightBase', 'base', function(v) { return v.toFixed(2); }),
+    _algoSlider('Affinity', wAff, 100, 'fyWeightAffinity', 'aff', function(v) { return v.toFixed(2); }),
+    _algoSlider('Recency', wRec, 200, 'fyWeightRecency', 'rec', function(v) { return v.toFixed(2); })
+  ).spacing(2);
 
-    <div class="mb-5 pt-4 border-t border-border-subtle">
-      <span class="text-muted text-[0.78rem] font-medium mb-2 block">5. Category Diversity</span>
-      <p class="text-dim text-[0.75rem] leading-relaxed mb-3">After scoring, posts are reordered to prevent any single category from dominating. If more than <span class="text-primary">${maxRun}</span> consecutive posts come from the same category, a post from a different category is pulled forward.</p>
-      <div class="flex items-center gap-3">
-        <span class="text-dim text-[0.72rem] shrink-0">Max same-category run</span>
-        <input type="range" min="1" max="10" value="${maxRun}" oninput="document.getElementById('algo-div-val').textContent=this.value" onchange="localStorage.setItem('maxPerCategoryRun',this.value);if(typeof renderPapers==='function')renderPapers()" class="flex-1 accent-[var(--nr-accent)]" />
-        <span id="algo-div-val" class="text-dim text-[0.68rem] tabular-nums w-4 text-right">${maxRun}</span>
-      </div>
-    </div>
+  // Category diversity slider
+  var divValSpan = Text(String(maxRun)).className('text-dim text-[0.68rem] tabular-nums w-4 text-right');
+  var divSlider = new View('input');
+  divSlider.el.type = 'range'; divSlider.el.min = '1'; divSlider.el.max = '10';
+  divSlider.el.value = maxRun;
+  divSlider.el.className = 'flex-1 accent-[var(--nr-accent)]';
+  divSlider.el.addEventListener('input', function() { divValSpan.el.textContent = this.value; });
+  divSlider.el.addEventListener('change', function() {
+    localStorage.setItem('maxPerCategoryRun', this.value);
+    if (typeof renderPapers === 'function') renderPapers();
+  });
+  var diversitySection = VStack(
+    Text('5. Category Diversity').className('text-muted text-[0.78rem] font-medium mb-2'),
+    Text('After scoring, posts are reordered to prevent any single category from dominating. If more than ' + maxRun + ' consecutive posts come from the same category, a post from a different category is pulled forward.').className('text-dim text-[0.75rem] leading-relaxed mb-3'),
+    HStack(Text('Max same-category run').className('text-dim text-[0.72rem] shrink-0'), divSlider, divValSpan).spacing(2)
+  ).className('mb-5 pt-4 border-t border-border-subtle');
 
-    <div id="personalization-panel-container" class="mb-5 pt-4 border-t border-border-subtle"></div>
+  var personalizationContainer = new View('div');
+  personalizationContainer.el.id = 'personalization-panel-container';
+  personalizationContainer.className('mb-5 pt-4 border-t border-border-subtle');
 
-    <div class="pt-4 border-t border-border-subtle flex items-center gap-3">
-      <button onclick="resetPersonalization();renderSettingsView()" class="text-red-400/80 text-[0.75rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset all personalization</button>
-      <span class="text-dimmer text-[0.68rem]">Clears your interest profile, resets all weights to defaults</span>
-    </div>
-  `);
+  var resetBtn = new View('button');
+  resetBtn.el.textContent = 'Reset all personalization';
+  resetBtn.el.className = 'text-red-400/80 text-[0.75rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors';
+  resetBtn.onTap(function() { resetPersonalization(); renderSettingsView(); });
+  var resetFooter = HStack(resetBtn, Text('Clears your interest profile, resets all weights to defaults').className('text-dimmer text-[0.68rem]'))
+    .spacing(2).className('pt-4 border-t border-border-subtle');
+
+  return VStack(
+    explanatoryContent,
+    compositeContent,
+    weightSliders,
+    diversitySection,
+    personalizationContainer,
+    resetFooter
+  );
 }
 
 function _renderToolsSettings() {
-  return RawHTML(`
-    <div class="mb-8">
-      <div class="flex items-center justify-between mb-1">
-        <div>
-          <h3 class="text-white_ text-sm font-semibold">Chat Tools</h3>
-          <p class="text-dim text-[0.8rem] mt-0.5">Let the chat assistant use tools autonomously. Requires qwen3:8b.</p>
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="nr-switch">
-            <input type="checkbox" ${localStorage.getItem('chatTools') !== 'off' ? 'checked' : ''} onchange="localStorage.setItem('chatTools', this.checked ? 'on' : 'off')">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <div class="flex items-center justify-between">
-        <div>
-          <span class="text-primary text-sm">Click Aether</span>
-          <p class="text-dimmer text-[0.72rem] mt-0.5">Right-click anywhere to open an aether panel with chat and web search</p>
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="nr-switch">
-            <input type="checkbox" ${localStorage.getItem('clickAether') !== 'off' ? 'checked' : ''} onchange="localStorage.setItem('clickAether', this.checked ? 'on' : 'off')">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-1">Vault</h3>
-      <p class="text-dim text-[0.8rem] mb-3">Set a custom folder for your notes. Uses ~/Documents/Vault by default.</p>
-      <div class="flex items-center gap-2">
-        <input type="text" id="vault-path-input" class="flex-1 px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary placeholder:text-dimmer outline-none focus:border-accent" placeholder="Loading...">
-        <button onclick="saveVaultPath()" class="px-3 py-1.5 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors">Save</button>
-        <button onclick="resetVaultPath()" class="px-3 py-1.5 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors">Reset</button>
-      </div>
-      <div id="vault-path-status" class="text-[0.75rem] mt-2 text-dimmer"></div>
-    </div>
-  `);
+  var chatToolsToggle = _settingToggleLS(null, null, 'chatTools', { defaultOn: true });
+  var chatToolsSection = _settingSection('Chat Tools', [chatToolsToggle], { desc: 'Let the chat assistant use tools autonomously. Requires qwen3:8b.' });
+
+  var clickAetherSection = _settingSection(null, [
+    _settingToggleLS('Click Aether', 'Right-click anywhere to open an aether panel with chat and web search', 'clickAether', { defaultOn: true })
+  ], { borderTop: true });
+
+  var vaultInput = new View('input');
+  vaultInput.el.type = 'text'; vaultInput.el.id = 'vault-path-input';
+  vaultInput.el.className = 'flex-1 px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary placeholder:text-dimmer outline-none focus:border-accent';
+  vaultInput.el.placeholder = 'Loading...';
+  var saveBtn = new View('button');
+  saveBtn.el.textContent = 'Save';
+  saveBtn.el.className = 'px-3 py-1.5 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors';
+  saveBtn.onTap(function() { saveVaultPath(); });
+  var resetBtn = new View('button');
+  resetBtn.el.textContent = 'Reset';
+  resetBtn.el.className = 'px-3 py-1.5 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors';
+  resetBtn.onTap(function() { resetVaultPath(); });
+  var vaultSection = _settingSection('Vault', [
+    HStack(vaultInput, saveBtn, resetBtn).spacing(2),
+    RawHTML('<div id="vault-path-status" class="text-[0.75rem] mt-2 text-dimmer"></div>')
+  ], { borderTop: true, desc: 'Set a custom folder for your notes. Uses ~/Documents/Vault by default.' });
+
+  return VStack(chatToolsSection, clickAetherSection, vaultSection);
 }
 
 function _renderDoomScrollSites() {
@@ -633,70 +770,83 @@ function _resetDoomScrollSites() {
 }
 
 function _renderBrowserSettings() {
-  return RawHTML(`
-    <div class="mb-8">
-      <div class="flex items-center gap-3 mb-1">
-        <h3 class="text-white_ text-sm font-semibold">Ad Blocker</h3>
-        <span class="text-[0.75rem] font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-400">Always On</span>
-      </div>
-      <p class="text-dim text-[0.8rem] mb-3">Blocks ads and trackers ${window.electronAPI ? 'natively at the network level via Electron' : 'via a server-side proxy'}.</p>
-      <div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">${window.electronAPI ? 'Loading filter info...' : 'Filter list management requires Electron.'}</div>
-      ${window.electronAPI ? '<button onclick="resetAdBlockRules()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Update filter lists</button>' : ''}
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <div class="flex items-center justify-between mb-1">
-        <div>
-          <h3 class="text-white_ text-sm font-semibold">Hide YouTube Shorts</h3>
-          <p class="text-dim text-[0.8rem]">Hides Shorts from the homepage, sidebar, search, and channel pages.</p>
-        </div>
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="hide-yt-shorts-toggle" class="sr-only peer" ${localStorage.getItem('hideYTShorts') === 'true' ? 'checked' : ''} onchange="localStorage.setItem('hideYTShorts', this.checked ? 'true' : 'false')">
-          <div class="w-9 h-5 bg-gray-600 peer-checked:bg-accent rounded-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
-        </label>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <div class="flex items-center justify-between mb-1">
-        <div>
-          <h3 class="text-white_ text-sm font-semibold">Focus Mode</h3>
-          <p class="text-dim text-[0.8rem]">Block or limit time on distracting sites to prevent doom scrolling.</p>
-        </div>
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="doom-scroll-toggle" class="sr-only peer" ${localStorage.getItem('doomScrollEnabled') !== 'false' ? 'checked' : ''} onchange="localStorage.setItem('doomScrollEnabled', this.checked ? 'true' : 'false')">
-          <div class="w-9 h-5 bg-gray-600 peer-checked:bg-accent rounded-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
-        </label>
-      </div>
-      <div id="doom-scroll-sites-list" class="mt-3">${_renderDoomScrollSites()}</div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-1">Site Permissions</h3>
-      <p class="text-dim text-[0.8rem] mb-3">Manage camera, microphone, location, notification, and pop-up permissions per site.</p>
-      <div id="settings-site-permissions">${_renderSettingsSitePermissions()}</div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <div class="flex items-center gap-3 mb-1">
-        <h3 class="text-white_ text-sm font-semibold">Simplify URLs</h3>
-        <label class="flex items-center gap-2 cursor-pointer ml-auto">
-          <span class="text-primary text-sm">Enable</span>
-          <span class="nr-switch">
-            <input type="checkbox" id="toggle-url-shorten" ${localStorage.getItem('urlShorten') !== 'false' ? 'checked' : ''} onchange="localStorage.setItem('urlShorten', this.checked); const inp = document.getElementById('browse-url-input'); if(inp && !this.checked && inp.dataset.fullUrl) inp.value = inp.dataset.fullUrl; else if(inp && this.checked) _browseUrlOnBlur(inp);">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-      <p class="text-dim text-[0.8rem] mb-3">Show only the domain name in the URL bar when not focused. Hover or click to see the full URL.</p>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-1">URL Bar Sections</h3>
-      <p class="text-dim text-[0.8rem] mb-3">Reorder and toggle sections in the URL bar dropdown. Drag to reorder.</p>
-      <div id="settings-urlbar-sections">${_renderUrlBarSectionsSettings()}</div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-1">Saved Passwords</h3>
-      <p class="text-dim text-[0.8rem] mb-3">Passwords are encrypted via your system keychain.</p>
-      <div id="settings-passwords"><div class="text-dimmer text-[0.75rem]">Loading...</div></div>
-    </div>
-  `);
+  // Ad blocker
+  var adBlockChildren = [
+    RawHTML('<div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">' + (window.electronAPI ? 'Loading filter info...' : 'Filter list management requires Electron.') + '</div>')
+  ];
+  if (window.electronAPI) {
+    var updateBtn = new View('button');
+    updateBtn.el.textContent = 'Update filter lists';
+    updateBtn.el.className = 'text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors';
+    updateBtn.onTap(function() { resetAdBlockRules(); });
+    adBlockChildren.push(updateBtn);
+  }
+  var adBlockHeader = HStack(
+    Text('Ad Blocker').className('text-white_ text-sm font-semibold'),
+    Text('Always On').className('text-[0.75rem] font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-400')
+  ).spacing(2).className('mb-1');
+  var adBlockSection = VStack(
+    adBlockHeader,
+    Text('Blocks ads and trackers ' + (window.electronAPI ? 'natively at the network level via Electron' : 'via a server-side proxy') + '.').className('text-dim text-[0.8rem] mb-3'),
+    VStack.apply(null, adBlockChildren)
+  ).className('mb-8');
+
+  // YT Shorts
+  var ytShortsToggle = _settingToggleLS(null, null, 'hideYTShorts', { defaultOn: false, onValue: 'true', falseValue: 'false' });
+  var ytSection = VStack(
+    _settingHeadingRow('Hide YouTube Shorts', 'Hides Shorts from the homepage, sidebar, search, and channel pages.', ytShortsToggle.el.querySelector('.aether-ui-toggle') ? (function() {
+      // Extract toggle from the row
+      return new View('span'); // placeholder
+    })() : null)
+  ).className('mb-8 pt-5 border-t border-border-subtle');
+  // Simpler: just use the full row
+  ytSection = _settingSection(null, [
+    _settingToggle('Hide YouTube Shorts', 'Hides Shorts from the homepage, sidebar, search, and channel pages.',
+      localStorage.getItem('hideYTShorts') === 'true', function(on) { localStorage.setItem('hideYTShorts', on ? 'true' : 'false'); })
+  ], { borderTop: true });
+
+  // Focus mode
+  var focusSection = _settingSection(null, [
+    _settingToggle('Focus Mode', 'Block or limit time on distracting sites to prevent doom scrolling.',
+      localStorage.getItem('doomScrollEnabled') !== 'false', function(on) { localStorage.setItem('doomScrollEnabled', on ? 'true' : 'false'); }),
+    RawHTML('<div id="doom-scroll-sites-list" class="mt-3">' + _renderDoomScrollSites() + '</div>')
+  ], { borderTop: true });
+
+  // Site permissions
+  var sitePermSection = _settingSection('Site Permissions', [
+    RawHTML('<div id="settings-site-permissions">' + _renderSettingsSitePermissions() + '</div>')
+  ], { borderTop: true, desc: 'Manage camera, microphone, location, notification, and pop-up permissions per site.' });
+
+  // Simplify URLs
+  var urlShortenToggle = Toggle(null);
+  var urlShortenInput = urlShortenToggle.el.querySelector('input[type="checkbox"]');
+  if (urlShortenInput) urlShortenInput.checked = localStorage.getItem('urlShorten') !== 'false';
+  urlShortenToggle.on('change', function(e) {
+    if (e.target.type !== 'checkbox') return;
+    localStorage.setItem('urlShorten', e.target.checked);
+    var inp = document.getElementById('browse-url-input');
+    if (inp && !e.target.checked && inp.dataset.fullUrl) inp.value = inp.dataset.fullUrl;
+    else if (inp && e.target.checked) _browseUrlOnBlur(inp);
+  });
+  var urlSection = VStack(
+    HStack(
+      Text('Simplify URLs').className('text-white_ text-sm font-semibold'), Spacer(),
+      Text('Enable').className('text-primary text-sm'), urlShortenToggle
+    ).spacing(2).className('mb-1'),
+    Text('Show only the domain name in the URL bar when not focused. Hover or click to see the full URL.').className('text-dim text-[0.8rem] mb-3')
+  ).className('mb-8 pt-5 border-t border-border-subtle');
+
+  // URL bar sections
+  var urlBarSection = _settingSection('URL Bar Sections', [
+    RawHTML('<div id="settings-urlbar-sections">' + _renderUrlBarSectionsSettings() + '</div>')
+  ], { borderTop: true, desc: 'Reorder and toggle sections in the URL bar dropdown. Drag to reorder.' });
+
+  // Passwords
+  var pwSection = _settingSection('Saved Passwords', [
+    RawHTML('<div id="settings-passwords"><div class="text-dimmer text-[0.75rem]">Loading...</div></div>')
+  ], { borderTop: true, desc: 'Passwords are encrypted via your system keychain.' });
+
+  return VStack(adBlockSection, ytSection, focusSection, sitePermSection, urlSection, urlBarSection, pwSection);
 }
 
 const _expandedPermDomain = null;
@@ -936,90 +1086,59 @@ function _loadSettingsModels() {
 }
 
 function _renderPanelSettings() {
-  const chatModel = localStorage.getItem('chatModel') || 'qwen2.5:3b';
-  const visionModel = localStorage.getItem('visionModel') || 'qwen3-vl:8b';
-  const summaryModel = localStorage.getItem('summaryModel') || 'qwen3:0.6b';
-  const annotateModel = localStorage.getItem('annotateModel') || 'qwen3:8b';
-  const tabComplete = localStorage.getItem('panelTabComplete') !== 'off';
-  const semSearch = localStorage.getItem('panelSemanticSearch') !== 'off';
-  const semMin = parseInt(localStorage.getItem('panelSemanticMin') || '80', 10);
-  const vaultMin = parseInt(localStorage.getItem('vaultChatMinSimilarity') || '70', 10);
+  var chatModel = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  var visionModel = localStorage.getItem('visionModel') || 'qwen3-vl:8b';
+  var summaryModel = localStorage.getItem('summaryModel') || 'qwen3:0.6b';
+  var annotateModel = localStorage.getItem('annotateModel') || 'qwen3:8b';
+  var tabComplete = localStorage.getItem('panelTabComplete') !== 'off';
+  var semSearch = localStorage.getItem('panelSemanticSearch') !== 'off';
+  var semMin = parseInt(localStorage.getItem('panelSemanticMin') || '80', 10);
+  var vaultMin = parseInt(localStorage.getItem('vaultChatMinSimilarity') || '70', 10);
   setTimeout(_loadSettingsModels, 0);
-  return RawHTML(`
-    <div class="mb-8">
-      <h3 class="text-white_ text-sm font-semibold mb-1">Default Chat Model</h3>
-      <p class="text-dim text-[0.8rem] mb-3">The model used for aether panel chat and document Q&A.</p>
-      <select data-key="chatModel" data-fallback="qwen2.5:3b" onchange="localStorage.setItem('chatModel', this.value)" class="settings-model-select w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer">
-        <option value="${escapeAttr(chatModel)}" selected>${escapeHtml(chatModel)}</option>
-      </select>
-      <p class="text-dimmer text-[0.68rem] mt-1">You can also change this inline via <code class="text-muted">/model</code> in the panel.</p>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-1">Default Vision Model</h3>
-      <p class="text-dim text-[0.8rem] mb-3">The model used when chatting with screenshots (drag-to-capture).</p>
-      <select data-key="visionModel" data-fallback="qwen3-vl:8b" onchange="localStorage.setItem('visionModel', this.value)" class="settings-model-select w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer">
-        <option value="${escapeAttr(visionModel)}" selected>${escapeHtml(visionModel)}</option>
-      </select>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-1">Daily Summary Model</h3>
-      <p class="text-dim text-[0.8rem] mb-3">The model used to generate the daily overview summary on the home page.</p>
-      <select data-key="summaryModel" data-fallback="qwen3:0.6b" onchange="localStorage.setItem('summaryModel', this.value)" class="settings-model-select w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer">
-        <option value="${escapeAttr(summaryModel)}" selected>${escapeHtml(summaryModel)}</option>
-      </select>
-      <p class="text-dimmer text-[0.68rem] mt-1">A smaller model is recommended for fast summaries. Set to <code class="text-muted">off</code> to disable.</p>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-1">Annotation Model</h3>
-      <p class="text-dim text-[0.8rem] mb-3">The model used to analyze pages and highlight key findings.</p>
-      <select data-key="annotateModel" data-fallback="qwen3:8b" onchange="localStorage.setItem('annotateModel', this.value)" class="settings-model-select w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer">
-        <option value="${escapeAttr(annotateModel)}" selected>${escapeHtml(annotateModel)}</option>
-      </select>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <div class="flex items-center justify-between">
-        <div>
-          <h3 class="text-white_ text-sm font-semibold">Tab Completion</h3>
-          <p class="text-dim text-[0.8rem] mt-0.5">Suggest a question when you open the panel or select text. Press Tab to accept. Uses qwen3:0.6b.</p>
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="nr-switch">
-            <input type="checkbox" ${tabComplete ? 'checked' : ''} onchange="localStorage.setItem('panelTabComplete', this.checked ? 'on' : 'off')">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <h3 class="text-white_ text-sm font-semibold">Semantic Search in Lookup</h3>
-          <p class="text-dim text-[0.8rem] mt-0.5">Show related posts when you highlight text. Uses nomic-embed-text.</p>
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="nr-switch">
-            <input type="checkbox" ${semSearch ? 'checked' : ''} onchange="localStorage.setItem('panelSemanticSearch', this.checked ? 'on' : 'off')">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-      <div class="flex items-center gap-3 ${semSearch ? '' : 'opacity-40 pointer-events-none'}">
-        <span class="text-primary text-[0.8rem] shrink-0">Min similarity</span>
-        <input type="range" min="10" max="80" value="${semMin}" oninput="document.getElementById('sem-min-val').textContent=this.value+'%'" onchange="localStorage.setItem('panelSemanticMin', this.value)" class="flex-1 accent-[var(--nr-accent)]" />
-        <span id="sem-min-val" class="text-muted text-[0.78rem] w-10 text-right">${semMin}%</span>
-      </div>
-      <p class="text-dimmer text-[0.68rem] mt-1">Only results above this score appear in the highlight popup. Lower = more results, higher = stricter.</p>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-1">Notes RAG Threshold</h3>
-      <p class="text-dim text-[0.8rem] mb-3">Minimum similarity for vault notes to be included as context when chatting without a document.</p>
-      <div class="flex items-center gap-3">
-        <span class="text-primary text-[0.8rem] shrink-0">Min similarity</span>
-        <input type="range" min="10" max="80" value="${vaultMin}" oninput="document.getElementById('vault-min-val').textContent=this.value+'%'" onchange="localStorage.setItem('vaultChatMinSimilarity', this.value)" class="flex-1 accent-[var(--nr-accent)]" />
-        <span id="vault-min-val" class="text-muted text-[0.78rem] w-10 text-right">${vaultMin}%</span>
-      </div>
-    </div>
-  `);
+
+  function _modelSelect(key, fallback, lsKey, extraNote) {
+    var currentVal = localStorage.getItem(lsKey) || fallback;
+    var sel = new View('select');
+    sel.el.setAttribute('data-key', lsKey);
+    sel.el.setAttribute('data-fallback', fallback);
+    sel.el.className = 'settings-model-select w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer';
+    sel.el.innerHTML = '<option value="' + escapeAttr(currentVal) + '" selected>' + escapeHtml(currentVal) + '</option>';
+    sel.el.addEventListener('change', function() { localStorage.setItem(lsKey, this.value); });
+    var children = [sel];
+    if (extraNote) children.push(RawHTML('<p class="text-dimmer text-[0.68rem] mt-1">' + extraNote + '</p>'));
+    return children;
+  }
+
+  var chatModelSection = _settingSection('Default Chat Model', _modelSelect('chatModel', 'qwen2.5:3b', 'chatModel', 'You can also change this inline via <code class="text-muted">/model</code> in the panel.'), { desc: 'The model used for aether panel chat and document Q&A.' });
+  var visionModelSection = _settingSection('Default Vision Model', _modelSelect('visionModel', 'qwen3-vl:8b', 'visionModel'), { borderTop: true, desc: 'The model used when chatting with screenshots (drag-to-capture).' });
+  var summaryModelSection = _settingSection('Daily Summary Model', _modelSelect('summaryModel', 'qwen3:0.6b', 'summaryModel', 'A smaller model is recommended for fast summaries. Set to <code class="text-muted">off</code> to disable.'), { borderTop: true, desc: 'The model used to generate the daily overview summary on the home page.' });
+  var annotateModelSection = _settingSection('Annotation Model', _modelSelect('annotateModel', 'qwen3:8b', 'annotateModel'), { borderTop: true, desc: 'The model used to analyze pages and highlight key findings.' });
+
+  var tabCompleteSection = _settingSection(null, [
+    _settingToggle('Tab Completion', 'Suggest a question when you open the panel or select text. Press Tab to accept. Uses qwen3:0.6b.',
+      tabComplete, function(on) { localStorage.setItem('panelTabComplete', on ? 'on' : 'off'); })
+  ], { borderTop: true });
+
+  // Semantic search with conditional slider
+  var semToggle = _settingToggle('Semantic Search in Lookup', 'Show related posts when you highlight text. Uses nomic-embed-text.',
+    semSearch, function(on) { localStorage.setItem('panelSemanticSearch', on ? 'on' : 'off'); });
+  var semSliderRow = _settingSlider('Min similarity', 'Only results above this score appear in the highlight popup.', semMin,
+    { min: 10, max: 80, format: function(v) { return v + '%'; } },
+    null,
+    function(v) { localStorage.setItem('panelSemanticMin', v); }
+  );
+  if (!semSearch) semSliderRow.className('opacity-40 pointer-events-none mt-4');
+  var semSection = _settingSection(null, [semToggle, semSliderRow], { borderTop: true });
+
+  var vaultRagSection = _settingSection('Notes RAG Threshold', [
+    _settingSlider('Min similarity', null, vaultMin,
+      { min: 10, max: 80, format: function(v) { return v + '%'; } },
+      null,
+      function(v) { localStorage.setItem('vaultChatMinSimilarity', v); }
+    )
+  ], { borderTop: true, desc: 'Minimum similarity for vault notes to be included as context when chatting without a document.' });
+
+  return VStack(chatModelSection, visionModelSection, summaryModelSection, annotateModelSection, tabCompleteSection, semSection, vaultRagSection);
 }
 
 function _renderPromptsSettings() {
@@ -1027,160 +1146,101 @@ function _renderPromptsSettings() {
 }
 
 function _renderAgentSettings() {
-  const toolsOn = localStorage.getItem('chatTools') !== 'off';
-  return RawHTML(`
-    <div class="mb-8">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <h3 class="text-white_ text-sm font-semibold">Chat Tools</h3>
-          <p class="text-dim text-[0.8rem] mt-0.5">Allow the AI to take actions on your behalf during chat. When enabled, the model upgrades to one that supports function calling.</p>
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="nr-switch">
-            <input type="checkbox" ${toolsOn ? 'checked' : ''} onchange="localStorage.setItem('chatTools', this.checked ? 'on' : 'off')">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-      <p class="text-dimmer text-[0.68rem]">Toggle in-panel via the wrench icon in the top bar. Default model with tools: <code class="text-muted">qwen3:8b</code>. Without tools: <code class="text-muted">qwen2.5:3b</code>.</p>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <h3 class="text-white_ text-sm font-semibold">Thinking</h3>
-          <p class="text-dim text-[0.8rem] mt-0.5">Let the model reason through problems step-by-step before responding. Uses more tokens but can improve answer quality.</p>
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="nr-switch">
-            <input type="checkbox" ${localStorage.getItem('chatThinking') === 'on' ? 'checked' : ''} onchange="localStorage.setItem('chatThinking', this.checked ? 'on' : 'off')">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <h3 class="text-white_ text-sm font-semibold">Voice Auto-Send</h3>
-          <p class="text-dim text-[0.8rem] mt-0.5">Automatically send the message after voice transcription completes, without waiting for Enter.</p>
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="nr-switch">
-            <input type="checkbox" ${localStorage.getItem('voiceAutoSend') === 'on' ? 'checked' : ''} onchange="localStorage.setItem('voiceAutoSend', this.checked ? 'on' : 'off')">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <h3 class="text-white_ text-sm font-semibold">Insight</h3>
-          <p class="text-dim text-[0.8rem] mt-0.5">Analyze pages in the browser with a local LLM. Produces a short insight and highlights key findings, contradictions, and ads.</p>
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="nr-switch">
-            <input type="checkbox" ${localStorage.getItem('insightEnabled') !== 'off' ? 'checked' : ''} onchange="var on = this.checked; localStorage.setItem('insightEnabled', on ? 'on' : 'off'); if (window.electronAPI && window.electronAPI.insightSetEnabled) window.electronAPI.insightSetEnabled(on);">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-      <p class="text-dimmer text-[0.68rem] mb-4">When disabled, pages will not be analyzed and no insight pills will appear. You can still manually trigger insight from the pill menu.</p>
-      <div class="flex items-center justify-between">
-        <div>
-          <h3 class="text-white_ text-sm font-semibold">Auto Insight</h3>
-          <p class="text-dim text-[0.8rem] mt-0.5">Automatically run insight on every page you navigate to.</p>
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="nr-switch">
-            <input type="checkbox" ${localStorage.getItem('autoAnnotate') === 'on' ? 'checked' : ''} onchange="localStorage.setItem('autoAnnotate', this.checked ? 'on' : 'off')">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-      <p class="text-dimmer text-[0.68rem] mt-1">Cached results are reused for 5 minutes.</p>
-      <div class="flex items-center justify-between mt-4">
-        <div>
-          <h3 class="text-white_ text-sm font-semibold">Visual OCR</h3>
-          <p class="text-dim text-[0.8rem] mt-0.5">Capture a screenshot and extract visual text (charts, infographics) before analysis.</p>
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="nr-switch">
-            <input type="checkbox" ${localStorage.getItem('insightOcr') !== 'off' ? 'checked' : ''} onchange="localStorage.setItem('insightOcr', this.checked ? 'on' : 'off')">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-      <p class="text-dimmer text-[0.68rem] mt-1 mb-3">Adds ~1-2s per page. Requires an OCR model (e.g. glm-ocr) in Ollama.</p>
-      <div>
-        <span class="text-primary text-sm">OCR Model</span>
-        <select data-key="ocrModel" data-fallback="glm-ocr" onchange="localStorage.setItem('ocrModel', this.value)" class="settings-model-select ml-3 px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer">
-          <option value="${escapeAttr(localStorage.getItem('ocrModel') || 'glm-ocr')}" selected>${escapeHtml(localStorage.getItem('ocrModel') || 'glm-ocr')}</option>
-        </select>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <h3 class="text-white_ text-sm font-semibold">Custom Cursor</h3>
-          <p class="text-dim text-[0.8rem] mt-0.5">Smooth cursor with context-aware styling and inertia.</p>
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <span class="nr-switch">
-            <input type="checkbox" ${localStorage.getItem('customCursor') !== 'off' ? 'checked' : ''} onchange="localStorage.setItem('customCursor', this.checked ? 'on' : 'off'); if (window.AetherCursor) window.AetherCursor[this.checked ? 'enable' : 'disable']();">
-            <span class="slider"></span>
-          </span>
-        </label>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-3">Available Tools</h3>
-      <p class="text-dim text-[0.8rem] mb-3">When chat tools are enabled, the AI can call these functions automatically based on your message.</p>
-      <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">
-        <code class="text-muted">web_search</code><span class="text-dim">Search the web via DuckDuckGo</span>
-        <code class="text-muted">search_papers</code><span class="text-dim">Search arXiv for academic papers</span>
-        <code class="text-muted">fetch_page</code><span class="text-dim">Fetch and extract text from a URL</span>
-        <code class="text-muted">save_to_reading_list</code><span class="text-dim">Bookmark a post to your reading list</span>
-        <code class="text-muted">navigate</code><span class="text-dim">Navigate to a specific app view</span>
-        <code class="text-muted">create_experiment</code><span class="text-dim">Create a new project in the vault</span>
-        <code class="text-muted">create_calendar_event</code><span class="text-dim">Add an event to your calendar</span>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-3">System Prompts</h3>
-      <p class="text-dim text-[0.8rem] mb-3">The AI receives different system instructions depending on context. Dynamic values shown in <code class="text-accent">orange</code>.</p>
-      <div class="space-y-3">
-        <div class="p-3 rounded-lg border border-border-subtle bg-card/50">
-          <div class="text-[0.75rem] font-medium text-muted mb-2">With document + tools</div>
-          <pre class="text-dim text-[0.72rem] whitespace-pre-wrap leading-relaxed font-mono">You are a helpful research assistant. The user is reading a document. Answer their questions based on the document text below when relevant. You also have tools available to search the web, find papers, fetch pages, bookmark posts, navigate the app, and create experiments.\n\nToday is <span class="text-accent">Wednesday, 2026-02-09</span>. The current time is <span class="text-accent">3:45 PM</span>. The user is currently viewing: "<span class="text-accent">Page Title</span>" (<span class="text-accent">https://...</span>). Use this when they refer to "this page", "this paper", etc.\n\n--- DOCUMENT TEXT ---\n<span class="text-accent">[extracted text, up to 12k chars]</span>\n--- END ---</pre>
-        </div>
-        <div class="p-3 rounded-lg border border-border-subtle bg-card/50">
-          <div class="text-[0.75rem] font-medium text-muted mb-2">With document, no tools</div>
-          <pre class="text-dim text-[0.72rem] whitespace-pre-wrap leading-relaxed font-mono">You are a helpful research assistant. The user is reading a document. Answer their questions based ONLY on the document text below. Do not make up information that is not in the document.\n\n--- DOCUMENT TEXT ---\n<span class="text-accent">[extracted text, up to 12k chars]</span>\n--- END ---</pre>
-        </div>
-        <div class="p-3 rounded-lg border border-border-subtle bg-card/50">
-          <div class="text-[0.75rem] font-medium text-muted mb-2">No document + tools</div>
-          <pre class="text-dim text-[0.72rem] whitespace-pre-wrap leading-relaxed font-mono">You are a helpful assistant with tools to search the web, find papers, fetch page content, bookmark posts, navigate the app, and create experiments. Use tools when they would help answer the user's question.\n\nToday is <span class="text-accent">Wednesday, 2026-02-09</span>. The current time is <span class="text-accent">3:45 PM</span>.</pre>
-        </div>
-        <div class="p-3 rounded-lg border border-border-subtle bg-card/50">
-          <div class="text-[0.75rem] font-medium text-muted mb-2">No document, no tools</div>
-          <pre class="text-dim text-[0.72rem] whitespace-pre-wrap leading-relaxed font-mono">You are a helpful assistant.</pre>
-        </div>
-        <div class="p-3 rounded-lg border border-border-subtle bg-card/50">
-          <div class="text-[0.75rem] font-medium text-muted mb-2">Vision mode (screenshot)</div>
-          <pre class="text-dim text-[0.72rem] whitespace-pre-wrap leading-relaxed font-mono">You are a helpful visual analysis assistant. The user has taken a screenshot and wants to ask about it. Describe what you see and answer their questions based on the visual content provided.</pre>
-        </div>
-      </div>
-    </div>
-    <div class="mb-8 pt-5 border-t border-border-subtle">
-      <h3 class="text-white_ text-sm font-semibold mb-3">How It Works</h3>
-      <div class="space-y-2 text-[0.8rem] text-dim">
-        <p>When tools are enabled, the AI can decide to call one or more tools in a single response. You'll see a thinking indicator (e.g. "Searching web\u2026", "Adding to calendar\u2026") while the tool runs.</p>
-        <p>Tool results are fed back to the model so it can incorporate them into its reply. Some tools also trigger UI actions \u2014 for example, <code class="text-muted">navigate</code> switches your view and <code class="text-muted">create_calendar_event</code> opens the calendar.</p>
-        <p>The model automatically upgrades to <code class="text-muted">qwen3:8b</code> when tools are on, since smaller models don't reliably handle function calling. You can override this in Lookup Panel settings.</p>
-      </div>
-    </div>
-  `);
+  var toolsOn = localStorage.getItem('chatTools') !== 'off';
+
+  var chatToolsSection = _settingSection(null, [
+    _settingToggle('Chat Tools', 'Allow the AI to take actions on your behalf during chat. When enabled, the model upgrades to one that supports function calling.',
+      toolsOn, function(on) { localStorage.setItem('chatTools', on ? 'on' : 'off'); }),
+    RawHTML('<p class="text-dimmer text-[0.68rem] mt-2">Toggle in-panel via the wrench icon in the top bar. Default model with tools: <code class="text-muted">qwen3:8b</code>. Without tools: <code class="text-muted">qwen2.5:3b</code>.</p>')
+  ]);
+
+  var thinkingSection = _settingSection(null, [
+    _settingToggleLS('Thinking', 'Let the model reason through problems step-by-step before responding. Uses more tokens but can improve answer quality.',
+      'chatThinking', { defaultOn: false })
+  ], { borderTop: true });
+
+  var voiceSection = _settingSection(null, [
+    _settingToggleLS('Voice Auto-Send', 'Automatically send the message after voice transcription completes, without waiting for Enter.',
+      'voiceAutoSend', { defaultOn: false })
+  ], { borderTop: true });
+
+  // Insight section with sub-toggles
+  var insightToggle = _settingToggle('Insight', 'Analyze pages in the browser with a local LLM. Produces a short insight and highlights key findings, contradictions, and ads.',
+    localStorage.getItem('insightEnabled') !== 'off', function(on) {
+      localStorage.setItem('insightEnabled', on ? 'on' : 'off');
+      if (window.electronAPI && window.electronAPI.insightSetEnabled) window.electronAPI.insightSetEnabled(on);
+    });
+  var autoInsightToggle = _settingToggleLS('Auto Insight', 'Automatically run insight on every page you navigate to.', 'autoAnnotate', { defaultOn: false });
+  var ocrToggle = _settingToggle('Visual OCR', 'Capture a screenshot and extract visual text (charts, infographics) before analysis.',
+    localStorage.getItem('insightOcr') !== 'off', function(on) { localStorage.setItem('insightOcr', on ? 'on' : 'off'); });
+  var ocrModel = localStorage.getItem('ocrModel') || 'glm-ocr';
+  var ocrSelect = new View('select');
+  ocrSelect.el.setAttribute('data-key', 'ocrModel');
+  ocrSelect.el.setAttribute('data-fallback', 'glm-ocr');
+  ocrSelect.el.className = 'settings-model-select ml-3 px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer';
+  ocrSelect.el.innerHTML = '<option value="' + escapeAttr(ocrModel) + '" selected>' + escapeHtml(ocrModel) + '</option>';
+  ocrSelect.el.addEventListener('change', function() { localStorage.setItem('ocrModel', this.value); });
+
+  var insightSection = VStack(
+    insightToggle,
+    Text('When disabled, pages will not be analyzed and no insight pills will appear. You can still manually trigger insight from the pill menu.').className('text-dimmer text-[0.68rem] mt-2 mb-4'),
+    autoInsightToggle,
+    Text('Cached results are reused for 5 minutes.').className('text-dimmer text-[0.68rem] mt-1'),
+    ocrToggle,
+    Text('Adds ~1-2s per page. Requires an OCR model (e.g. glm-ocr) in Ollama.').className('text-dimmer text-[0.68rem] mt-1 mb-3'),
+    HStack(Text('OCR Model').className('text-primary text-sm'), ocrSelect)
+  ).className('mb-8 pt-5 border-t border-border-subtle');
+
+  var cursorSection = _settingSection(null, [
+    _settingToggle('Custom Cursor', 'Smooth cursor with context-aware styling and inertia.',
+      localStorage.getItem('customCursor') !== 'off', function(on) {
+        localStorage.setItem('customCursor', on ? 'on' : 'off');
+        if (window.AetherCursor) window.AetherCursor[on ? 'enable' : 'disable']();
+      })
+  ], { borderTop: true });
+
+  // Static reference content kept as RawHTML
+  var toolsRef = RawHTML(
+    '<div class="mb-8 pt-5 border-t border-border-subtle">' +
+    '<h3 class="text-white_ text-sm font-semibold mb-3">Available Tools</h3>' +
+    '<p class="text-dim text-[0.8rem] mb-3">When chat tools are enabled, the AI can call these functions automatically based on your message.</p>' +
+    '<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">' +
+    '<code class="text-muted">web_search</code><span class="text-dim">Search the web via DuckDuckGo</span>' +
+    '<code class="text-muted">search_papers</code><span class="text-dim">Search arXiv for academic papers</span>' +
+    '<code class="text-muted">fetch_page</code><span class="text-dim">Fetch and extract text from a URL</span>' +
+    '<code class="text-muted">save_to_reading_list</code><span class="text-dim">Bookmark a post to your reading list</span>' +
+    '<code class="text-muted">navigate</code><span class="text-dim">Navigate to a specific app view</span>' +
+    '<code class="text-muted">create_experiment</code><span class="text-dim">Create a new project in the vault</span>' +
+    '<code class="text-muted">create_calendar_event</code><span class="text-dim">Add an event to your calendar</span></div></div>'
+  );
+
+  var systemPrompts = RawHTML(
+    '<div class="mb-8 pt-5 border-t border-border-subtle">' +
+    '<h3 class="text-white_ text-sm font-semibold mb-3">System Prompts</h3>' +
+    '<p class="text-dim text-[0.8rem] mb-3">The AI receives different system instructions depending on context. Dynamic values shown in <code class="text-accent">orange</code>.</p>' +
+    '<div class="space-y-3">' +
+    '<div class="p-3 rounded-lg border border-border-subtle bg-card/50"><div class="text-[0.75rem] font-medium text-muted mb-2">With document + tools</div>' +
+    '<pre class="text-dim text-[0.72rem] whitespace-pre-wrap leading-relaxed font-mono">You are a helpful research assistant. The user is reading a document. Answer their questions based on the document text below when relevant. You also have tools available to search the web, find papers, fetch pages, bookmark posts, navigate the app, and create experiments.\\n\\nToday is <span class="text-accent">Wednesday, 2026-02-09</span>. The current time is <span class="text-accent">3:45 PM</span>. The user is currently viewing: &quot;<span class="text-accent">Page Title</span>&quot; (<span class="text-accent">https://...</span>). Use this when they refer to &quot;this page&quot;, &quot;this paper&quot;, etc.\\n\\n--- DOCUMENT TEXT ---\\n<span class="text-accent">[extracted text, up to 12k chars]</span>\\n--- END ---</pre></div>' +
+    '<div class="p-3 rounded-lg border border-border-subtle bg-card/50"><div class="text-[0.75rem] font-medium text-muted mb-2">With document, no tools</div>' +
+    '<pre class="text-dim text-[0.72rem] whitespace-pre-wrap leading-relaxed font-mono">You are a helpful research assistant. The user is reading a document. Answer their questions based ONLY on the document text below. Do not make up information that is not in the document.\\n\\n--- DOCUMENT TEXT ---\\n<span class="text-accent">[extracted text, up to 12k chars]</span>\\n--- END ---</pre></div>' +
+    '<div class="p-3 rounded-lg border border-border-subtle bg-card/50"><div class="text-[0.75rem] font-medium text-muted mb-2">No document + tools</div>' +
+    '<pre class="text-dim text-[0.72rem] whitespace-pre-wrap leading-relaxed font-mono">You are a helpful assistant with tools to search the web, find papers, fetch page content, bookmark posts, navigate the app, and create experiments. Use tools when they would help answer the user\'s question.\\n\\nToday is <span class="text-accent">Wednesday, 2026-02-09</span>. The current time is <span class="text-accent">3:45 PM</span>.</pre></div>' +
+    '<div class="p-3 rounded-lg border border-border-subtle bg-card/50"><div class="text-[0.75rem] font-medium text-muted mb-2">No document, no tools</div>' +
+    '<pre class="text-dim text-[0.72rem] whitespace-pre-wrap leading-relaxed font-mono">You are a helpful assistant.</pre></div>' +
+    '<div class="p-3 rounded-lg border border-border-subtle bg-card/50"><div class="text-[0.75rem] font-medium text-muted mb-2">Vision mode (screenshot)</div>' +
+    '<pre class="text-dim text-[0.72rem] whitespace-pre-wrap leading-relaxed font-mono">You are a helpful visual analysis assistant. The user has taken a screenshot and wants to ask about it. Describe what you see and answer their questions based on the visual content provided.</pre></div></div></div>'
+  );
+
+  var howItWorks = RawHTML(
+    '<div class="mb-8 pt-5 border-t border-border-subtle">' +
+    '<h3 class="text-white_ text-sm font-semibold mb-3">How It Works</h3>' +
+    '<div class="space-y-2 text-[0.8rem] text-dim">' +
+    '<p>When tools are enabled, the AI can decide to call one or more tools in a single response. You\'ll see a thinking indicator (e.g. "Searching web\u2026", "Adding to calendar\u2026") while the tool runs.</p>' +
+    '<p>Tool results are fed back to the model so it can incorporate them into its reply. Some tools also trigger UI actions \u2014 for example, <code class="text-muted">navigate</code> switches your view and <code class="text-muted">create_calendar_event</code> opens the calendar.</p>' +
+    '<p>The model automatically upgrades to <code class="text-muted">qwen3:8b</code> when tools are on, since smaller models don\'t reliably handle function calling. You can override this in Lookup Panel settings.</p></div></div>'
+  );
+
+  return VStack(chatToolsSection, thinkingSection, voiceSection, insightSection, cursorSection, toolsRef, systemPrompts, howItWorks);
 }
 
 function _renderHelpSettings() {
