@@ -2000,7 +2000,7 @@ if (typeof document !== 'undefined') {
 if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.onBrowseCommand) {
   window.electronAPI.onBrowseCommand((event, command) => {
     const browseView = document.getElementById('browse-view');
-    const browseHidden = !browseView || browseView.style.display === 'none';
+    const browseHidden = !browseView || browseView.style.display !== 'flex';
     // open-file works even when browse isn't open
     if (command === 'open-file') {
       if (browseHidden && typeof openBrowse === 'function') openBrowse();
@@ -2010,21 +2010,30 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
       }
       return;
     }
+    // new-tab works globally — always opens NTP regardless of current view
+    if (command === 'new-tab') {
+      if (browseHidden && typeof openBrowse === 'function') openBrowse();
+      const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
+      const active = win && win.tabs && win.tabs.find(t => t.id === win.activeTab);
+      if (active && active.blank) {
+        const inp = document.querySelector('.browse-ntp #search-query');
+        if (inp) { inp.focus(); inp.select(); }
+      } else {
+        if (typeof browseNewTab === 'function') browseNewTab();
+      }
+      return;
+    }
+
     if (browseHidden) return;
 
     // Dismiss aether panel on any browse command
     const _cmdPopup = document.getElementById('doc-chat-ask-float');
     if (_cmdPopup) { _cmdPopup.remove(); _aetherTrackMode = false; _aetherShowCursor(); }
 
-    if (command === 'new-tab') {
-      const win = _getCurrentWindow();
-      const active = win && win.tabs && win.tabs.find(t => t.id === win.activeTab);
-      if (active && active.blank) {
-        const inp = document.querySelector('.browse-ntp #search-query');
-        if (inp) { inp.focus(); inp.select(); }
-      } else {
-        browseNewTab();
-      }
+    if (command === 'reload') {
+      if (typeof browseReload === 'function') browseReload();
+    } else if (command === 'force-reload') {
+      if (typeof browseReload === 'function') browseReload();
     } else if (command === 'close-tab') {
       const win = _getCurrentWindow();
       if (win && win.activeTab) {

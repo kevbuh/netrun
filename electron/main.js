@@ -430,6 +430,12 @@ async function createWindow() {
       } else if (input.key.toLowerCase() === 'p') {
         event.preventDefault();
         mainWindow.webContents.send('browse-command', 'print');
+      } else if (input.key.toLowerCase() === 'r' && input.shift) {
+        event.preventDefault();
+        mainWindow.webContents.send('browse-command', 'force-reload');
+      } else if (input.key.toLowerCase() === 'r') {
+        event.preventDefault();
+        mainWindow.webContents.send('browse-command', 'reload');
       }
     }
   });
@@ -543,6 +549,18 @@ app.on('web-contents-created', (event, contents) => {
           const parent = contents.getOwnerBrowserWindow();
           if (parent) {
             parent.webContents.send('browse-command', 'print');
+          }
+        } else if (key === 'r' && input.shift) {
+          event.preventDefault();
+          const parent = contents.getOwnerBrowserWindow();
+          if (parent) {
+            parent.webContents.send('browse-command', 'force-reload');
+          }
+        } else if (key === 'r') {
+          event.preventDefault();
+          const parent = contents.getOwnerBrowserWindow();
+          if (parent) {
+            parent.webContents.send('browse-command', 'reload');
           }
         }
       }
@@ -675,8 +693,7 @@ function createMenu() {
           accelerator: 'CmdOrCtrl+R',
           click: () => {
             if (!mainWindow) return;
-            mainWindow.webContents.executeJavaScript('window.location.hash || ""')
-              .then(hash => mainWindow.loadURL(`http://localhost:${serverPort}/${hash}`));
+            mainWindow.webContents.send('browse-command', 'reload');
           }
         },
         {
@@ -684,11 +701,7 @@ function createMenu() {
           accelerator: 'CmdOrCtrl+Shift+R',
           click: () => {
             if (!mainWindow) return;
-            mainWindow.webContents.executeJavaScript('window.location.hash || ""')
-              .then(hash => {
-                mainWindow.webContents.session.clearCache();
-                mainWindow.loadURL(`http://localhost:${serverPort}/${hash}`);
-              });
+            mainWindow.webContents.send('browse-command', 'force-reload');
           }
         },
         { role: 'toggleDevTools', accelerator: 'CmdOrCtrl+Option+I' },

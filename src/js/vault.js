@@ -329,7 +329,11 @@ function renderVaultFileTree(filter = '') {
     });
   }
 
-  AetherUI.mount(RawHTML(html || '<div class="text-dimmer text-[0.75rem] px-3 py-2">No files yet</div>'), container);
+  if (html) {
+    AetherUI.mount(RawHTML(html), container);
+  } else {
+    AetherUI.mount(Text('No files yet').className('text-dimmer text-[0.75rem] px-3 py-2'), container);
+  }
 
   // Setup root drop zone for moving notes out of folders
   container.ondragover = (e) => { e.preventDefault(); container.classList.add('vault-drop-target'); };
@@ -676,14 +680,14 @@ async function openVaultNote(noteId) {
         } catch (e) {
           if (attempts > 30) { // ~15 seconds
             clearInterval(poll);
-            if (loading) AetherUI.mount(RawHTML('<div class="text-dimmer text-sm">Failed to start marimo. Is it installed?</div>'), loading);
+            if (loading) AetherUI.mount(Text('Failed to start marimo. Is it installed?').className('text-dimmer text-sm'), loading);
           }
         }
       }, 500);
     } catch (e) {
       console.error('Failed to start marimo', e);
       const loading = document.getElementById('vault-marimo-loading');
-      if (loading) AetherUI.mount(RawHTML('<div class="text-dimmer text-sm">Failed to start marimo server</div>'), loading);
+      if (loading) AetherUI.mount(Text('Failed to start marimo server').className('text-dimmer text-sm'), loading);
     }
   } else {
     // Regular note — hide marimo, show editor/preview
@@ -720,9 +724,9 @@ function clearVaultEditor() {
   document.getElementById('vault-note-title').value = '';
   document.getElementById('vault-editor').value = '';
   const blList = document.getElementById('vault-backlinks-list');
-  if (blList) AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem] px-3">No backlinks</div>'), blList);
+  if (blList) AetherUI.mount(Text('No backlinks').className('text-dimmer text-[0.75rem] px-3'), blList);
   const tgList = document.getElementById('vault-tags-list');
-  if (tgList) AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem] px-3">No tags</div>'), tgList);
+  if (tgList) AetherUI.mount(Text('No tags').className('text-dimmer text-[0.75rem] px-3'), tgList);
   const pubSection = document.getElementById('vault-published-section');
   if (pubSection) pubSection.style.display = 'none';
   // Reset publish button
@@ -1489,14 +1493,17 @@ function updateVaultBacklinks() {
   });
 
   if (backlinks.length === 0) {
-    AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem] px-3">No backlinks</div>'), container);
+    AetherUI.mount(Text('No backlinks').className('text-dimmer text-[0.75rem] px-3'), container);
   } else {
-    AetherUI.mount(RawHTML(backlinks.map(bl => `
-      <div class="vault-backlink-item" onclick="openVaultNote('${bl.note.id}')">
-        <div class="vault-backlink-title">${escapeHtml(bl.note.title)}</div>
-        <div class="vault-backlink-context">${escapeHtml(bl.context)}</div>
-      </div>
-    `).join('')), container);
+    var blItems = backlinks.map(function(bl) {
+      var item = VStack(
+        Text(bl.note.title).className('vault-backlink-title'),
+        Text(bl.context).className('vault-backlink-context')
+      ).className('vault-backlink-item');
+      item.onTap(function() { openVaultNote(bl.note.id); });
+      return item;
+    });
+    AetherUI.mount(VStack.apply(null, blItems), container);
   }
 }
 
@@ -1510,11 +1517,15 @@ function updateVaultTags() {
   const tags = [...new Set(tagMatches)];
 
   if (tags.length === 0) {
-    AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem] px-3">No tags</div>'), container);
+    AetherUI.mount(Text('No tags').className('text-dimmer text-[0.75rem] px-3'), container);
   } else {
-    AetherUI.mount(RawHTML('<div class="px-2">' + tags.map(tag => `
-      <span class="vault-tag-item" onclick="vaultFilterByTag('${tag.slice(1)}')">${escapeHtml(tag)}</span>
-    `).join('') + '</div>'), container);
+    var tagChips = tags.map(function(tag) {
+      var chip = Text(tag).className('vault-tag-item');
+      chip.onTap(function() { vaultFilterByTag(tag.slice(1)); });
+      return chip;
+    });
+    var tagWrap = HStack.apply(null, tagChips).className('px-2 flex-wrap');
+    AetherUI.mount(tagWrap, container);
   }
 }
 
@@ -1912,13 +1923,14 @@ function updateVaultPublishButton() {
         ? new Date(_vaultCurrentNote.published_at * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : '';
       section.style.display = '';
-      AetherUI.mount(RawHTML(`
-        <div class="vault-published-date">${pubDate}</div>
-        <a href="${url}" class="vault-published-link" onclick="location.hash='${url}';return false;">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
-          View published post
-        </a>
-      `), info);
+      var pubLink = HStack(
+        RawHTML('<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>'),
+        Text('View published post')
+      ).className('vault-published-link').onTap(function() { location.hash = url; });
+      AetherUI.mount(VStack(
+        Text(pubDate).className('vault-published-date'),
+        pubLink
+      ), info);
     } else {
       section.style.display = 'none';
     }
@@ -1931,22 +1943,33 @@ function updateVaultPublishButton() {
 function vaultShowPublishModal(url) {
   const modal = document.createElement('div');
   modal.className = 'nr-modal-backdrop';
-  AetherUI.mount(RawHTML(`
-    <div class="nr-modal" style="max-width:400px">
-      <div class="nr-modal-header"><span class="nr-modal-title">Published!</span></div>
-      <div class="nr-modal-body">
-        <p style="margin-bottom:var(--nr-space-3)">Your post is now live at:</p>
-        <div style="display:flex;gap:var(--nr-space-2)">
-          <input class="nr-input" type="text" value="${escapeAttr(url)}" readonly onclick="this.select()" style="flex:1">
-          <button class="nr-btn nr-btn-primary" onclick="navigator.clipboard.writeText('${escapeAttr(url)}'); this.textContent='Copied!'; setTimeout(() => this.textContent='Copy', 1500)">Copy</button>
-        </div>
-      </div>
-      <div class="nr-modal-footer">
-        <button class="nr-btn nr-btn-secondary" onclick="location.hash='${escapeAttr(url.split('#')[1])}'; this.closest('.nr-modal-backdrop').remove()">View Post</button>
-        <button class="nr-btn nr-btn-ghost" onclick="this.closest('.nr-modal-backdrop').remove()">Close</button>
-      </div>
-    </div>
-  `), modal);
+  var urlInput = new View('input');
+  urlInput.className('nr-input');
+  urlInput.el.type = 'text'; urlInput.el.value = url; urlInput.el.readOnly = true;
+  urlInput.el.style.flex = '1';
+  urlInput.onTap(function() { urlInput.el.select(); });
+
+  var copyBtn = Button('Copy').className('nr-btn nr-btn-primary');
+  copyBtn.onTap(function() {
+    navigator.clipboard.writeText(url);
+    copyBtn.el.textContent = 'Copied!';
+    setTimeout(function() { copyBtn.el.textContent = 'Copy'; }, 1500);
+  });
+
+  var viewBtn = Button('View Post').className('nr-btn nr-btn-secondary');
+  viewBtn.onTap(function() { location.hash = url.split('#')[1]; modal.remove(); });
+
+  var closeBtn = Button('Close').className('nr-btn nr-btn-ghost');
+  closeBtn.onTap(function() { modal.remove(); });
+
+  AetherUI.mount(VStack(
+    HStack(Text('Published!').className('nr-modal-title')).className('nr-modal-header'),
+    VStack(
+      Text('Your post is now live at:').style('marginBottom', 'var(--nr-space-3)'),
+      HStack(urlInput, copyBtn).spacing(2)
+    ).className('nr-modal-body'),
+    HStack(viewBtn, closeBtn).className('nr-modal-footer')
+  ).className('nr-modal').style('maxWidth', '400px'), modal);
   document.body.appendChild(modal);
   modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 }
@@ -1965,7 +1988,7 @@ async function openBlogPost(username, slug) {
 
   // Load blog post
   document.getElementById('blog-title').textContent = 'Loading...';
-  AetherUI.mount(RawHTML(''), document.getElementById('blog-content'));
+  document.getElementById('blog-content').innerHTML = '';
   document.getElementById('blog-author').textContent = '';
   document.getElementById('blog-date').textContent = '';
 
@@ -1974,10 +1997,11 @@ async function openBlogPost(username, slug) {
     _currentBlogPost = post;
     document.getElementById('blog-title').textContent = post.title;
     AetherUI.mount(RawHTML(renderBlogMarkdown(post.content)), document.getElementById('blog-content'));
-    AetherUI.mount(RawHTML(`
-      ${post.picture ? `<img src="${escapeAttr(post.picture)}" class="blog-author-pic">` : ''}
-      <a href="#profile/${encodeURIComponent(post.author)}">${escapeHtml(post.author)}</a>
-    `), document.getElementById('blog-author'));
+    var authorChildren = [];
+    if (post.picture) authorChildren.push(Image(post.picture).className('blog-author-pic'));
+    var authorLink = Link(post.author, '#profile/' + encodeURIComponent(post.author));
+    authorChildren.push(authorLink);
+    AetherUI.mount(HStack.apply(null, authorChildren), document.getElementById('blog-author'));
     if (post.published_at) {
       document.getElementById('blog-date').textContent = new Date(post.published_at * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     }
@@ -1990,7 +2014,7 @@ async function openBlogPost(username, slug) {
     if (unpostBtn) unpostBtn.style.display = isAuthor ? '' : 'none';
   } catch (e) {
     document.getElementById('blog-title').textContent = 'Post not found';
-    AetherUI.mount(RawHTML('<p>This post may have been unpublished or deleted.</p>'), document.getElementById('blog-content'));
+    AetherUI.mount(Text('This post may have been unpublished or deleted.'), document.getElementById('blog-content'));
     const unpostBtn = document.getElementById('blog-unpost-btn');
     if (unpostBtn) unpostBtn.style.display = 'none';
   }
@@ -2231,7 +2255,7 @@ function renderBlogComments() {
   if (countEl) countEl.textContent = _blogComments.length;
 
   if (!_blogComments.length) {
-    AetherUI.mount(RawHTML('<div class="blog-comments-empty">No comments yet. Be the first to comment!</div>'), list);
+    AetherUI.mount(Text('No comments yet. Be the first to comment!').className('blog-comments-empty'), list);
     return;
   }
 
@@ -2354,36 +2378,39 @@ function hideBlogReplyForm(id) {
 
 // ── Universal Panel: Vault tabs ──
 function renderVaultBacklinksPanel(container) {
-  AetherUI.mount(RawHTML(`
-    <div id="vault-published-section" class="vault-published-section" style="display:none;">
-      <div class="vault-backlinks-header">
-        <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>
-        <span class="text-[0.75rem] font-medium text-accent">Published</span>
-      </div>
-      <div id="vault-published-info" class="vault-published-info"></div>
-    </div>
-    <div class="vault-backlinks-header">
-      <svg class="w-4 h-4 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>
-      <span class="text-[0.75rem] font-medium text-muted">Backlinks</span>
-    </div>
-    <div id="vault-backlinks-list" class="vault-backlinks-list">
-      <div class="text-dimmer text-[0.75rem] px-3">No backlinks</div>
-    </div>
-  `), container);
+  var pubSection = VStack(
+    HStack(
+      RawHTML('<svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>'),
+      Text('Published').className('text-[0.75rem] font-medium text-accent')
+    ).className('vault-backlinks-header'),
+    new View('div').id('vault-published-info').className('vault-published-info')
+  ).id('vault-published-section').className('vault-published-section').visible(false);
+
+  var blHeader = HStack(
+    RawHTML('<svg class="w-4 h-4 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg>'),
+    Text('Backlinks').className('text-[0.75rem] font-medium text-muted')
+  ).className('vault-backlinks-header');
+
+  var blList = VStack(
+    Text('No backlinks').className('text-dimmer text-[0.75rem] px-3')
+  ).id('vault-backlinks-list').className('vault-backlinks-list');
+
+  AetherUI.mount(VStack(pubSection, blHeader, blList), container);
   updateVaultBacklinks();
   updateVaultPublishButton();
 }
 
 function renderVaultTagsPanel(container) {
-  AetherUI.mount(RawHTML(`
-    <div class="vault-backlinks-header">
-      <svg class="w-4 h-4 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5l-3.9 19.5m-2.1-19.5l-3.9 19.5"/></svg>
-      <span class="text-[0.75rem] font-medium text-muted">Tags</span>
-    </div>
-    <div id="vault-tags-list" class="vault-tags-list">
-      <div class="text-dimmer text-[0.75rem] px-3">No tags</div>
-    </div>
-  `), container);
+  var tagHeader = HStack(
+    RawHTML('<svg class="w-4 h-4 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5l-3.9 19.5m-2.1-19.5l-3.9 19.5"/></svg>'),
+    Text('Tags').className('text-[0.75rem] font-medium text-muted')
+  ).className('vault-backlinks-header');
+
+  var tagList = VStack(
+    Text('No tags').className('text-dimmer text-[0.75rem] px-3')
+  ).id('vault-tags-list').className('vault-tags-list');
+
+  AetherUI.mount(VStack(tagHeader, tagList), container);
   updateVaultTags();
 }
 
@@ -2417,23 +2444,31 @@ function clearVaultChat() {
 
 function renderVaultChatPanel(container) {
   _loadVaultChatMessages();
-  AetherUI.mount(RawHTML(`
-    <div class="doc-chat-messages vault-chat-messages" id="vault-chat-msgs"></div>
-    <div style="padding:6px 8px; display:flex; gap:4px; border-top:1px solid var(--border-color);">
-      <input class="nr-input vault-chat-input" id="vault-chat-input" type="text" placeholder="Ask about your notes…" style="flex:1; background:var(--nr-bg-surface); color:var(--nr-text-primary); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; font-size:0.75rem; outline:none;" />
-      <button id="vault-chat-send" style="background:var(--nr-accent); color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:0.7rem; cursor:pointer;">Send</button>
-      <button id="vault-chat-clear" style="background:transparent; color:var(--nr-text-quaternary); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; font-size:0.7rem; cursor:pointer;" title="Clear chat">Clear</button>
-    </div>
-  `), container);
+
+  var chatMsgs = new View('div');
+  chatMsgs.id('vault-chat-msgs').className('doc-chat-messages vault-chat-messages');
+
+  var chatInput = new View('input');
+  chatInput.id('vault-chat-input').className('nr-input vault-chat-input');
+  chatInput.el.type = 'text'; chatInput.el.placeholder = 'Ask about your notes\u2026';
+  chatInput.el.style.cssText = 'flex:1;background:var(--nr-bg-surface);color:var(--nr-text-primary);border:1px solid var(--border-color);border-radius:6px;padding:5px 8px;font-size:0.75rem;outline:none;';
+
+  var sendBtn = Button('Send').id('vault-chat-send');
+  sendBtn.el.style.cssText = 'background:var(--nr-accent);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.7rem;cursor:pointer;';
+  sendBtn.onTap(function() { sendVaultChatMessage(); });
+
+  var clearBtn = Button('Clear').id('vault-chat-clear');
+  clearBtn.el.style.cssText = 'background:transparent;color:var(--nr-text-quaternary);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;font-size:0.7rem;cursor:pointer;';
+  clearBtn.el.title = 'Clear chat';
+  clearBtn.onTap(function() { clearVaultChat(); });
+
+  var inputRow = HStack(chatInput, sendBtn, clearBtn).spacing(1);
+  inputRow.el.style.cssText = 'padding:6px 8px;border-top:1px solid var(--border-color);';
+
+  AetherUI.mount(VStack(chatMsgs, inputRow), container);
   _renderVaultChatMessages(true);
 
-  const input = document.getElementById('vault-chat-input');
-  const sendBtn = document.getElementById('vault-chat-send');
-  const clearBtn = document.getElementById('vault-chat-clear');
-
-  sendBtn.addEventListener('click', () => sendVaultChatMessage());
-  clearBtn.addEventListener('click', () => clearVaultChat());
-  input.addEventListener('keydown', (e) => {
+  chatInput.el.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendVaultChatMessage(); }
   });
 }
@@ -2442,7 +2477,7 @@ function _renderVaultChatMessages(final) {
   const container = document.getElementById('vault-chat-msgs');
   if (!container) return;
   if (_vaultChatMessages.length === 0) {
-    AetherUI.mount(RawHTML('<div style="padding:16px; text-align:center; color:var(--nr-text-quaternary); font-size:0.75rem;">Ask a question about your vault notes</div>'), container);
+    AetherUI.mount(Text('Ask a question about your vault notes').className('text-dimmer text-[0.75rem]').padding(4).align('center'), container);
     return;
   }
   AetherUI.mount(RawHTML(_vaultChatMessages.map((m, i) => {
@@ -2564,22 +2599,41 @@ async function renderNtpVaultPanel() {
 
   _loadVaultChatMessages();
 
-  AetherUI.mount(RawHTML(`
-    <div style="margin-bottom:10px;">
-      <input type="text" id="ntp-vault-search" placeholder="Search notes…" autocomplete="off"
-        class="w-full pl-3 pr-4 py-1.5 rounded-lg border border-border-input bg-card text-primary text-[0.8rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all" />
-    </div>
-    <div id="ntp-vault-notes" style="max-height:200px; overflow-y:auto; margin-bottom:12px;"></div>
-    <div style="border-top:1px solid var(--border-color); padding-top:8px;">
-      <div class="doc-chat-messages vault-chat-messages" id="ntp-vault-chat-msgs" style="max-height:200px; overflow-y:auto;"></div>
-      <div style="display:flex; gap:4px; margin-top:6px;">
-        <input class="nr-input" id="ntp-vault-chat-input" type="text" placeholder="Ask about your notes…"
-          style="flex:1; background:var(--nr-bg-surface); color:var(--nr-text-primary); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; font-size:0.75rem; outline:none;" />
-        <button id="ntp-vault-chat-send" style="background:var(--nr-accent); color:#fff; border:none; border-radius:6px; padding:4px 10px; font-size:0.7rem; cursor:pointer;">Send</button>
-        <button id="ntp-vault-chat-clear" style="background:transparent; color:var(--nr-text-quaternary); border:1px solid var(--border-color); border-radius:6px; padding:4px 8px; font-size:0.7rem; cursor:pointer;" title="Clear chat">Clear</button>
-      </div>
-    </div>
-  `), container);
+  var ntpSearch = new View('input');
+  ntpSearch.id('ntp-vault-search').className('w-full pl-3 pr-4 py-1.5 rounded-lg border border-border-input bg-card text-primary text-[0.8rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all');
+  ntpSearch.el.type = 'text'; ntpSearch.el.placeholder = 'Search notes\u2026'; ntpSearch.el.autocomplete = 'off';
+
+  var ntpNotes = new View('div');
+  ntpNotes.id('ntp-vault-notes');
+  ntpNotes.el.style.cssText = 'max-height:200px;overflow-y:auto;margin-bottom:12px;';
+
+  var ntpChatMsgs = new View('div');
+  ntpChatMsgs.id('ntp-vault-chat-msgs').className('doc-chat-messages vault-chat-messages');
+  ntpChatMsgs.el.style.cssText = 'max-height:200px;overflow-y:auto;';
+
+  var ntpChatInput = new View('input');
+  ntpChatInput.id('ntp-vault-chat-input').className('nr-input');
+  ntpChatInput.el.type = 'text'; ntpChatInput.el.placeholder = 'Ask about your notes\u2026';
+  ntpChatInput.el.style.cssText = 'flex:1;background:var(--nr-bg-surface);color:var(--nr-text-primary);border:1px solid var(--border-color);border-radius:6px;padding:5px 8px;font-size:0.75rem;outline:none;';
+
+  var ntpSendBtn = Button('Send').id('ntp-vault-chat-send');
+  ntpSendBtn.el.style.cssText = 'background:var(--nr-accent);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.7rem;cursor:pointer;';
+
+  var ntpClearBtn = Button('Clear').id('ntp-vault-chat-clear');
+  ntpClearBtn.el.style.cssText = 'background:transparent;color:var(--nr-text-quaternary);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;font-size:0.7rem;cursor:pointer;';
+  ntpClearBtn.el.title = 'Clear chat';
+
+  var ntpInputRow = HStack(ntpChatInput, ntpSendBtn, ntpClearBtn).spacing(1);
+  ntpInputRow.el.style.marginTop = '6px';
+
+  var chatSection = VStack(ntpChatMsgs, ntpInputRow);
+  chatSection.el.style.cssText = 'border-top:1px solid var(--border-color);padding-top:8px;';
+
+  AetherUI.mount(VStack(
+    VStack(ntpSearch).style('marginBottom', '10px'),
+    ntpNotes,
+    chatSection
+  ), container);
 
   // Render note list
   _renderNtpVaultNotes('');
@@ -2611,33 +2665,32 @@ function _renderNtpVaultNotes(filter) {
   ) : _vaultNotes;
 
   if (!filtered.length) {
-    AetherUI.mount(RawHTML(`<div style="padding:12px; text-align:center; color:var(--nr-text-quaternary); font-size:0.75rem;">${lc ? 'No matching notes' : 'No notes yet'}</div>`), container);
+    AetherUI.mount(Text(lc ? 'No matching notes' : 'No notes yet').className('text-dimmer text-[0.75rem]').padding(3).align('center'), container);
     return;
   }
 
-  AetherUI.mount(RawHTML(filtered.slice(0, 30).map(n => {
-    const preview = (n.content || '').replace(/[#*_`>\-\[\]()]/g, '').replace(/\s+/g, ' ').trim();
-    const snippet = preview.length > 80 ? preview.slice(0, 77) + '...' : preview;
-    return `<div class="ntp-vault-note-row" data-note-id="${escapeAttr(n.id)}">` +
-      `<div style="font-size:0.8rem; color:var(--nr-text-primary); font-weight:500;">${escapeHtml(n.title || 'Untitled')}</div>` +
-      (snippet ? `<div style="font-size:0.7rem; color:var(--nr-text-quaternary); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(snippet)}</div>` : '') +
-      `</div>`;
-  }).join('')), container);
-
-  container.querySelectorAll('.ntp-vault-note-row[data-note-id]').forEach(el => {
-    el.addEventListener('click', () => {
-      const noteId = el.getAttribute('data-note-id');
+  var noteRows = filtered.slice(0, 30).map(function(n) {
+    var preview = (n.content || '').replace(/[#*_`>\-\[\]()]/g, '').replace(/\s+/g, ' ').trim();
+    var snippet = preview.length > 80 ? preview.slice(0, 77) + '...' : preview;
+    var row = VStack(
+      Text(n.title || 'Untitled').className('text-[0.8rem] text-primary font-medium')
+    );
+    if (snippet) row._appendChildren([Text(snippet).className('text-[0.7rem] text-dimmer mt-px truncate')]);
+    row.className('ntp-vault-note-row').attr('data-note-id', n.id);
+    row.onTap(function() {
       window.location.hash = 'vault';
-      setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(noteId); }, 100);
+      setTimeout(function() { if (typeof openVaultNote === 'function') openVaultNote(n.id); }, 100);
     });
+    return row;
   });
+  AetherUI.mount(VStack.apply(null, noteRows), container);
 }
 
 function _renderNtpVaultChatMessages(final) {
   const container = document.getElementById('ntp-vault-chat-msgs');
   if (!container) return;
   if (!_vaultChatMessages.length) {
-    AetherUI.mount(RawHTML('<div style="padding:12px; text-align:center; color:var(--nr-text-quaternary); font-size:0.75rem;">Ask a question about your notes</div>'), container);
+    AetherUI.mount(Text('Ask a question about your notes').className('text-dimmer text-[0.75rem]').padding(3).align('center'), container);
     return;
   }
   AetherUI.mount(RawHTML(_vaultChatMessages.map((m, i) => {
@@ -2777,7 +2830,7 @@ async function _vaultFetchGitStatus() {
 // Terminal in right panel
 function renderVaultTerminalPanel(container) {
   if (typeof createTerminal !== 'function') {
-    AetherUI.mount(RawHTML('<div class="p-4 text-dimmer text-sm">Terminal not available</div>'), container);
+    AetherUI.mount(Text('Terminal not available').className('text-dimmer text-sm').padding(4), container);
     return;
   }
   container.style.cssText = 'display:flex;flex-direction:column;overflow:hidden;height:100%;';

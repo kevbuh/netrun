@@ -318,6 +318,7 @@ function hideAllViews() {
   if (typeof _spinnerPreviewInterval !== 'undefined' && _spinnerPreviewInterval) { clearInterval(_spinnerPreviewInterval); _spinnerPreviewInterval = null; }
   if (typeof _setPillBrowseMode === 'function') _setPillBrowseMode(false);
   if (typeof _browseRemoveKeyGuard === 'function') _browseRemoveKeyGuard();
+  if (typeof _browseResetAdaptiveColor === 'function') _browseResetAdaptiveColor();
   if (typeof _devFpsRaf !== 'undefined' && _devFpsRaf) { cancelAnimationFrame(_devFpsRaf); _devFpsRaf = null; }
   if (typeof _vaultGitMode !== 'undefined' && _vaultGitMode) { document.removeEventListener('keydown', _vibeKeyHandler); }
   // Hide universal panel (next view's open function will re-show if it has registered tabs)

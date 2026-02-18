@@ -187,6 +187,12 @@ function openBrowse(url) {
   }
   window.location.hash = 'browse';
 
+  // Re-apply adaptive background color for the active tab
+  if (typeof _browseApplyAdaptiveColor === 'function') {
+    const activeTab = _browseTabs && _browseTabs.find(t => t.id === _browseActiveTab);
+    if (activeTab) _browseApplyAdaptiveColor(activeTab);
+  }
+
   if (!_browseWindows.length) {
     if (!_browseRestoreTabs()) {
       browseCreateWindow();

@@ -293,47 +293,6 @@ function exitGuestMode() {
   if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Welcome back, ' + (_authUser || 'User'));
 }
 
-// ── User menu popover ──
-
-function _toggleUserMenu() {
-  const pop = document.getElementById('user-menu-popover');
-  if (!pop) return;
-  const visible = pop.style.display !== 'none';
-  pop.style.display = visible ? 'none' : '';
-  if (!visible) {
-    _updateUserMenuLabels();
-    // Close on outside click
-    setTimeout(function() {
-      document.addEventListener('click', _closeUserMenuOutside, { once: true });
-    }, 0);
-  }
-}
-
-function _closeUserMenuOutside(e) {
-  const pop = document.getElementById('user-menu-popover');
-  const wrap = document.getElementById('sb-dashboard-wrap');
-  if (pop && wrap && !wrap.contains(e.target)) pop.style.display = 'none';
-}
-
-function _updateUserMenuLabels() {
-  const label = document.getElementById('user-menu-guest-label');
-  if (!label) return;
-  if (_guestMode) {
-    const name = sessionStorage.getItem(_GUEST_STASH_PREFIX + 'authUser') || 'Account';
-    label.textContent = 'Return to ' + name;
-  } else {
-    label.textContent = 'Guest Mode';
-  }
-}
-
-function _userMenuGuestAction() {
-  if (_guestMode) {
-    exitGuestMode();
-  } else {
-    enterGuestMode();
-  }
-}
-
 // ── Initialize: check session, redirect to login if needed ──
 (function _initAuth() {
   Settings.init();
