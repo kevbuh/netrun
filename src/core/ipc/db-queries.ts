@@ -177,14 +177,6 @@ export function registerDbQueriesIPC(): void {
     return socialExtQueries.getUserReposts(googleId, limit);
   });
 
-  // ── Social extended: blog votes ──
-  ipcMain.handle('db:blog-vote', (_event, blogAuthor: string, blogSlug: string, voterGoogleId: string, vote: number) => {
-    return socialExtQueries.setBlogVote(blogAuthor, blogSlug, voterGoogleId, vote);
-  });
-  ipcMain.handle('db:blog-votes', (_event, blogAuthor: string, blogSlug: string, viewerGoogleId?: string) => {
-    return socialExtQueries.getBlogVotes(blogAuthor, blogSlug, viewerGoogleId);
-  });
-
   // ── Social extended: achievements ──
   ipcMain.handle('db:achievements', (_event, googleId: string) => {
     return socialExtQueries.getUserAchievements(googleId);

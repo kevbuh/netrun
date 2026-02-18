@@ -8,7 +8,7 @@ function renderNotebookEditor(fname, contentStr) {
     nbData = { cells: [{cell_type:'code',source:'',outputs:[]}], metadata:{}, nbformat:4, nbformat_minor:5 };
   }
   const editor = document.getElementById('exp-file-editor');
-  const pythonPath = (currentExp && currentExp.pythonPath) || 'python3';
+  const pythonPath = (currentProject && currentProject.pythonPath) || 'python3';
   const hasVenv = pythonPath.includes('/venv/');
   editor.innerHTML = `
     <div class="flex items-center gap-2 mb-2">
@@ -86,7 +86,7 @@ async function loadVenvDropdown(currentPath) {
     const venvs = await apiGet('/api/venvs');
     let html = `<option value="python3" ${currentPath === 'python3' ? 'selected' : ''}>System python3</option>`;
     venvs.forEach(v => {
-      const label = v.id === currentExpId ? `venv (this project)` : `venv (${v.title})`;
+      const label = v.id === currentProjectId ? `venv (this project)` : `venv (${v.title})`;
       html += `<option value="${escapeHtml(v.pythonPath)}" ${currentPath === v.pythonPath ? 'selected' : ''}>${escapeHtml(label)}</option>`;
     });
     select.innerHTML = html;
@@ -97,7 +97,7 @@ async function loadVenvDropdown(currentPath) {
         delContainer.innerHTML = '';
       } else {
         delContainer.innerHTML = venvs.map(v => {
-          const label = v.id === currentExpId ? 'this project' : escapeHtml(v.title);
+          const label = v.id === currentProjectId ? 'this project' : escapeHtml(v.title);
           return `<div class="flex items-center justify-between px-3 py-1 text-[0.7rem]"><span class="text-muted truncate">${label}</span><button onclick="deleteVenv('${escapeHtml(v.id)}','${escapeHtml(v.title).replace(/'/g, "\\'")}')" class="text-red-400 hover:text-red-300 bg-transparent border-none cursor-pointer text-[0.65rem] shrink-0">&times; delete</button></div>`;
         }).join('');
       }
@@ -108,9 +108,9 @@ async function loadVenvDropdown(currentPath) {
 
 async function loadVenvInfo() {
   const el = document.getElementById('venv-info');
-  if (!el || !currentExpId) return;
+  if (!el || !currentProjectId) return;
   try {
-    const info = await apiGet(`/api/experiments/${currentExpId}/venv-info`);
+    const info = await apiGet(`/api/projects/${currentProjectId}/venv-info`);
     // Top bar: python version, pkg count, disk size (no path)
     const parts = [];
     parts.push(`<span>${escapeHtml(info.pythonVersion || 'Python')}</span>`);
@@ -142,11 +142,11 @@ async function loadVenvInfo() {
 }
 
 async function switchVenv(pythonPath) {
-  await apiPut(`/api/experiments/${currentExpId}`, { pythonPath });
-  if (currentExp) currentExp.pythonPath = pythonPath;
+  await apiPut(`/api/projects/${currentProjectId}`, { pythonPath });
+  if (currentProject) currentProject.pythonPath = pythonPath;
   updateKernelStatus('dead');
   try {
-    await apiPost(`/api/experiments/${currentExpId}/kernel/restart`, {});
+    await apiPost(`/api/projects/${currentProjectId}/kernel/restart`, {});
     updateKernelStatus('idle');
   } catch(e) { /* will restart on next run */ }
   loadVenvInfo();
@@ -159,15 +159,15 @@ async function createVenv() {
   if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
   if (statusEl) { statusEl.textContent = ''; statusEl.classList.remove('hidden'); }
   try {
-    const data = await apiPost(`/api/experiments/${currentExpId}/venv`, {});
+    const data = await apiPost(`/api/projects/${currentProjectId}/venv`, {});
     if (data.ok) {
-      if (currentExp) currentExp.pythonPath = data.pythonPath;
+      if (currentProject) currentProject.pythonPath = data.pythonPath;
       updateKernelStatus('dead');
       await loadVenvDropdown(data.pythonPath);
       if (btn) { btn.textContent = '+ Create venv'; btn.disabled = false; }
       if (statusEl) { statusEl.innerHTML = `<span class="text-emerald-400">Created at ${escapeHtml(data.pythonPath.replace(/\/bin\/python$/, ''))}</span>`; }
       try {
-        await apiPost(`/api/experiments/${currentExpId}/kernel/restart`, {});
+        await apiPost(`/api/projects/${currentProjectId}/kernel/restart`, {});
         updateKernelStatus('idle');
       } catch(e) { /* will restart on next run */ }
       loadVenvInfo();
@@ -184,15 +184,15 @@ async function createVenv() {
 async function deleteVenv(expId, title) {
   if (!confirm(`Delete the virtual environment for "${title}"? This cannot be undone.`)) return;
   try {
-    const resp = await apiDelete(`/api/experiments/${expId}/venv`);
+    const resp = await apiDelete(`/api/projects/${expId}/venv`);
     const data = await resp.json();
     if (data.ok) {
       // If we deleted the venv we're currently using, switch to system python
-      if (currentExp && currentExp.pythonPath && currentExp.pythonPath.includes(`/${expId}/venv/`)) {
-        currentExp.pythonPath = 'python3';
+      if (currentProject && currentProject.pythonPath && currentProject.pythonPath.includes(`/${expId}/venv/`)) {
+        currentProject.pythonPath = 'python3';
         updateKernelStatus('dead');
       }
-      const currentPath = (currentExp && currentExp.pythonPath) || 'python3';
+      const currentPath = (currentProject && currentProject.pythonPath) || 'python3';
       await loadVenvDropdown(currentPath);
       loadVenvInfo();
     }
@@ -204,7 +204,7 @@ async function loadPackagesList() {
   if (!listEl) return;
   listEl.textContent = 'Loading...';
   try {
-    const packages = await apiGet(`/api/experiments/${currentExpId}/packages`);
+    const packages = await apiGet(`/api/projects/${currentProjectId}/packages`);
     if (!packages.length) {
       listEl.innerHTML = '<span class="text-dim">No packages installed</span>';
       return;
@@ -240,7 +240,7 @@ async function installPackages() {
   if (installBtn) { installBtn.disabled = false; installBtn.innerHTML = 'Cancel'; installBtn.onclick = cancelInstall; }
   if (statusEl) { statusEl.classList.remove('hidden'); statusEl.className = 'text-[0.75rem] mb-2 text-muted max-h-[200px] overflow-y-auto'; statusEl.innerHTML = `<span class="spinner"></span> Installing ${escapeHtml(packages)}...`; restartSpinners(); }
   try {
-    const resp = await api(`/api/experiments/${currentExpId}/packages`, {
+    const resp = await api(`/api/projects/${currentProjectId}/packages`, {
       method: 'POST',
       body: JSON.stringify({ packages }),
       signal: _installAbort.signal
@@ -252,7 +252,7 @@ async function installPackages() {
       loadPackagesList();
       updateKernelStatus('dead');
       try {
-        await apiPost(`/api/experiments/${currentExpId}/kernel/restart`, {});
+        await apiPost(`/api/projects/${currentProjectId}/kernel/restart`, {});
         updateKernelStatus('idle');
       } catch(e) { /* kernel will be recreated on next run */ }
       if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-emerald-400'; statusEl.textContent = 'Installed — kernel ready'; }
@@ -280,11 +280,11 @@ async function uninstallPackage(name) {
   const statusEl = document.getElementById('pkg-install-status');
   if (statusEl) { statusEl.classList.remove('hidden'); statusEl.className = 'text-[0.75rem] mb-2 text-muted'; statusEl.textContent = `Uninstalling ${name}...`; }
   try {
-    await apiDelete(`/api/experiments/${currentExpId}/packages/${encodeURIComponent(name)}`);
+    await apiDelete(`/api/projects/${currentProjectId}/packages/${encodeURIComponent(name)}`);
     loadPackagesList();
     updateKernelStatus('dead');
     try {
-      await apiPost(`/api/experiments/${currentExpId}/kernel/restart`, {});
+      await apiPost(`/api/projects/${currentProjectId}/kernel/restart`, {});
       updateKernelStatus('idle');
     } catch(e) { /* kernel will be recreated on next run */ }
     if (statusEl) { statusEl.className = 'text-[0.75rem] mb-2 text-emerald-400'; statusEl.textContent = `${name} uninstalled`; }
@@ -353,13 +353,13 @@ function saveOutputSvg(svgHtml) {
 }
 
 async function saveOutputToProject(dataUrl, ext, btn) {
-  if (!currentExpId) return;
+  if (!currentProjectId) return;
   if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
   try {
-    const existing = await apiGet(`/api/experiments/${currentExpId}/files`);
+    const existing = await apiGet(`/api/projects/${currentProjectId}/files`);
     let name = `output.${ext}`, i = 2;
     while (existing.includes(name)) { name = `output-${i}.${ext}`; i++; }
-    await apiPost(`/api/experiments/${currentExpId}/files`, {
+    await apiPost(`/api/projects/${currentProjectId}/files`, {
       body: JSON.stringify({ name, content: dataUrl })
     });
     if (saveResp.ok) {
@@ -375,14 +375,14 @@ async function saveOutputToProject(dataUrl, ext, btn) {
 }
 
 async function saveOutputSvgToProject(svgHtml, btn) {
-  if (!currentExpId) return;
+  if (!currentProjectId) return;
   const b64 = btoa(unescape(encodeURIComponent(svgHtml)));
   const dataUrl = `data:image/svg+xml;base64,${b64}`;
   await saveOutputToProject(dataUrl, 'svg', btn);
 }
 
 async function convertNbToPy() {
-  if (!nbData || !currentExpId || !currentFile) return;
+  if (!nbData || !currentProjectId || !currentFile) return;
   // Sync live CodeMirror content back to nbData
   cmInstances.forEach(function(cm, i) {
     if (cm && nbData.cells[i]) {
@@ -399,7 +399,7 @@ async function convertNbToPy() {
   const dir = currentFile.includes('/') ? currentFile.substring(0, currentFile.lastIndexOf('/') + 1) : '';
   const base = currentFile.includes('/') ? currentFile.substring(currentFile.lastIndexOf('/') + 1) : currentFile;
   const pyName = dir + base.replace(/\.ipynb$/, '.py');
-  await apiPut(`/api/experiments/${currentExpId}/files/${pyName}`, { content: pyContent });
+  await apiPut(`/api/projects/${currentProjectId}/files/${pyName}`, { content: pyContent });
   fetchExpFiles();
   openFile(pyName);
 }
@@ -497,8 +497,8 @@ function scheduleNbSave() {
 
 async function saveNotebook() {
   fileSaveTimer = null;
-  if (!currentFile || !currentExpId || !nbData) return;
-  await apiPut(`/api/experiments/${currentExpId}/files/${currentFile}`, { content: JSON.stringify(nbData, null, 2) });
+  if (!currentFile || !currentProjectId || !nbData) return;
+  await apiPut(`/api/projects/${currentProjectId}/files/${currentFile}`, { content: JSON.stringify(nbData, null, 2) });
   const ind = document.getElementById('nb-save-ind');
   Motion.flash(ind);
 }
@@ -565,17 +565,17 @@ let _nbRunningCell = -1;
 let _execAbort = null;
 
 async function interruptKernel() {
-  if (!currentExpId) return;
+  if (!currentProjectId) return;
   if (_execAbort) { _execAbort.abort(); _execAbort = null; }
   try {
-    await apiPost(`/api/experiments/${currentExpId}/kernel/interrupt`, {});
+    await apiPost(`/api/projects/${currentProjectId}/kernel/interrupt`, {});
   } catch(e) { /* best effort */ }
 }
 
 function _streamExecute(expId, code, onOutput, onDone, onError) {
   const abort = new AbortController();
   _execAbort = abort;
-  api(`/api/experiments/${expId}/execute`, {
+  api(`/api/projects/${expId}/execute`, {
     method: 'POST',
     body: JSON.stringify({ code, stream: true }),
     signal: abort.signal
@@ -668,7 +668,7 @@ async function runNbCell(i) {
   const collectedOutputs = [];
   let firstOutput = true;
 
-  _streamExecute(currentExpId, src,
+  _streamExecute(currentProjectId, src,
     (out) => {
       collectedOutputs.push(out);
       if (outEl) {
@@ -692,12 +692,12 @@ async function runNbCell(i) {
         if (lastText) {
           contextIngest('notebook', '## Notebook Results',
             '- Cell ' + i + ': ' + (lastText.text || '').slice(0, 200),
-            { dedupeKey: 'nb-' + (typeof currentExpId !== 'undefined' ? currentExpId : '') + '-cell-' + i });
+            { dedupeKey: 'nb-' + (typeof currentProjectId !== 'undefined' ? currentProjectId : '') + '-cell-' + i });
         }
       }
       if (!Settings.get('ach_its_alive')) {
         Settings.set('ach_its_alive', '1');
-        if (typeof showAchievement === 'function') showAchievement("It's Alive!", 'Ran an experiment kernel for the first time');
+        if (typeof showAchievement === 'function') showAchievement("It's Alive!", 'Ran a notebook kernel for the first time');
       }
     },
     (e) => {
@@ -786,6 +786,6 @@ function updateKernelStatus(status) {
 
 async function restartKernel() {
   updateKernelStatus('dead');
-  await apiPost(`/api/experiments/${currentExpId}/kernel/restart`, {});
+  await apiPost(`/api/projects/${currentProjectId}/kernel/restart`, {});
   updateKernelStatus('idle');
 }

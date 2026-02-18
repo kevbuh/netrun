@@ -25,7 +25,7 @@ function _saveChatMemory() {
 /** Handle a single agent event from IPC streaming */
 function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiText, setInThinkTag) {
   if (!_popupChatMessages[aiIdx]) return; // guard: message was cleared
-  const labels = { 'web-search': 'Searching web…', 'paper-search': 'Searching papers…', 'extract-text': 'Fetching page…', 'save-to-reading-list': 'Bookmarking…', navigate: 'Navigating…', 'create-experiment': 'Creating experiment…', 'create-calendar-event': 'Adding to calendar…', 'open-tab': 'Opening tab…', 'browser-read-page': 'Reading page…', 'browser-click': 'Clicking…', 'browser-type': 'Typing…', 'browser-scroll': 'Scrolling…', 'browser-navigate': 'Navigating…', 'browser-screenshot': 'Taking screenshot…', 'browser-query-selector': 'Querying page…', 'browser-wait-for': 'Waiting for element…', 'browser-get-url': 'Getting URL…', 'browser-get-tabs': 'Listing tabs…', 'browser-switch-tab': 'Switching tab…', 'browser-back': 'Going back…', 'browser-forward': 'Going forward…', 'browser-press-key': 'Pressing key…', 'browser-get-storage': 'Reading storage…' };
+  const labels = { 'web-search': 'Searching web…', 'paper-search': 'Searching papers…', 'extract-text': 'Fetching page…', 'save-to-reading-list': 'Bookmarking…', navigate: 'Navigating…', 'create-calendar-event': 'Adding to calendar…', 'open-tab': 'Opening tab…', 'browser-read-page': 'Reading page…', 'browser-click': 'Clicking…', 'browser-type': 'Typing…', 'browser-scroll': 'Scrolling…', 'browser-navigate': 'Navigating…', 'browser-screenshot': 'Taking screenshot…', 'browser-query-selector': 'Querying page…', 'browser-wait-for': 'Waiting for element…', 'browser-get-url': 'Getting URL…', 'browser-get-tabs': 'Listing tabs…', 'browser-switch-tab': 'Switching tab…', 'browser-back': 'Going back…', 'browser-forward': 'Going forward…', 'browser-press-key': 'Pressing key…', 'browser-get-storage': 'Reading storage…' };
 
   if (agentEvent.type === 'thinking') {
     if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
@@ -156,7 +156,7 @@ function _handleAgentAction(act) {
       if (!saved[act.url]) toggleSavePost(paper);
     }
   } else if (act.type === 'navigate' && act.view) {
-    const routes = { home: '#', browse: '#browse', experiments: '#experiments', saved: '#saved', calendar: '#calendar', settings: '#settings', quality: '#quality' };
+    const routes = { home: '#', browse: '#browse', saved: '#saved', calendar: '#calendar', settings: '#settings', quality: '#quality' };
     location.hash = routes[act.view] || '#';
   } else if (act.type === 'open_tab') {
     if (typeof browseNewTab === 'function') {
@@ -253,11 +253,9 @@ function _sendPopupChatMessage(popup, capturedText) {
   _aetherPinned = true;
   _aetherShowCursor();
 
-  // Grab pending screenshots and note contexts, clear strip
+  // Grab pending screenshots and contexts, clear strip
   const images = _pendingScreenshots.slice();
   _pendingScreenshots = [];
-  const noteContexts = _pendingNoteContexts.slice();
-  _pendingNoteContexts = [];
   const tabContexts = _pendingTabContexts.slice();
   _pendingTabContexts = [];
   const fileContexts = _pendingFileContexts.slice();
@@ -328,16 +326,9 @@ function _sendPopupChatMessage(popup, capturedText) {
       } else {
         if (toolsOn) body.tools = true;
         body.think = Settings.get('chatThinking') === 'on';
-        // Build context from doc text + any attached note/tab contents
+        // Build context from doc text + any attached tab contents
         let ctx = _docText || '';
         if (ctx) _ctxSources.push({ label: 'doc', content: _docText });
-        if (noteContexts.length) {
-          const notesCtx = noteContexts.map(n =>
-            `--- Note: ${n.title} ---\n${n.content}`
-          ).join('\n\n');
-          _ctxSources.push({ label: noteContexts.length + ' note' + (noteContexts.length > 1 ? 's' : ''), content: notesCtx });
-          ctx = ctx ? ctx + '\n\n' + notesCtx : notesCtx;
-        }
         if (tabContexts.length) {
           const tabCtx = tabContexts.map(t =>
             `--- Tab: ${t.title} (${t.url}) ---\n${t.content}`
@@ -631,9 +622,8 @@ function _renderPopupChat(popup, final) {
       const searchIcon = m._isSearch ? '<span class="doc-search-badge">search</span>' : '';
       const paperIcon = m._isPaperSearch ? '<span class="doc-search-badge doc-paper-badge">papers</span>' : '';
       const userIcon = m._isUserSearch ? '<span class="doc-search-badge doc-user-badge">users</span>' : '';
-      const noteIcon = m._isNoteSearch ? '<span class="doc-search-badge doc-note-badge">notes</span>' : '';
       const editBtn = `<button class="doc-msg-edit-btn" data-msg-idx="${i}" title="Edit and resend">${icon('edit', { size: 11 })}</button>`;
-      return `<div class="doc-msg-user" data-msg-idx="${i}">${imgsHtml}${searchIcon}${paperIcon}${userIcon}${noteIcon}<span class="doc-msg-user-text">${escapeHtml(display)}</span>${editBtn}</div>`;
+      return `<div class="doc-msg-user" data-msg-idx="${i}">${imgsHtml}${searchIcon}${paperIcon}${userIcon}<span class="doc-msg-user-text">${escapeHtml(display)}</span>${editBtn}</div>`;
     }
     if (m._thinking) {
       const label = m._thinkingLabel ? `<span class="doc-thinking-label">${escapeHtml(m._thinkingLabel)}</span>` : '';
@@ -672,20 +662,6 @@ function _renderPopupChat(popup, final) {
         `<span class="doc-user-result-name">${escapeHtml(u.username)}</span>` +
         `</div>`
       ).join('');
-      return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
-    }
-    // Note search results
-    if (m._noteResults && m._noteResults.length) {
-      const resultsHtml = m._noteResults.map(n => {
-        const preview = (n.content || '').replace(/[#*_`>\-\[\]()]/g, '').replace(/\s+/g, ' ').trim();
-        const snippet = preview.length > 120 ? preview.slice(0, 117) + '...' : preview;
-        const tags = (n.tags || []).slice(0, 3);
-        return `<div class="doc-note-result" data-note-id="${escapeAttr(n.id)}">` +
-          `<div class="doc-note-result-title">${escapeHtml(n.title || 'Untitled')}</div>` +
-          (tags.length ? `<div class="doc-note-result-tags">${tags.map(t => '<span class="doc-note-result-tag">' + escapeHtml(t) + '</span>').join('')}</div>` : '') +
-          (snippet ? `<div class="doc-note-result-snippet">${escapeHtml(snippet)}</div>` : '') +
-          `</div>`;
-      }).join('');
       return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
     }
     const isLast = i === _popupChatMessages.length - 1;
@@ -859,7 +835,7 @@ function _renderPopupChat(popup, final) {
 
   // Scroll: for search results, scroll to the search query; otherwise scroll to bottom
   const lastMsg = _popupChatMessages[_popupChatMessages.length - 1];
-  if (lastMsg && ((lastMsg._searchResults && lastMsg._searchResults.length) || (lastMsg._paperResults && lastMsg._paperResults.length) || (lastMsg._userResults && lastMsg._userResults.length) || (lastMsg._noteResults && lastMsg._noteResults.length))) {
+  if (lastMsg && ((lastMsg._searchResults && lastMsg._searchResults.length) || (lastMsg._paperResults && lastMsg._paperResults.length) || (lastMsg._userResults && lastMsg._userResults.length))) {
     const msgs = container.querySelectorAll('.doc-msg-user, .doc-msg-ai');
     const searchUserMsg = msgs.length >= 2 ? msgs[msgs.length - 2] : null;
     if (searchUserMsg) searchUserMsg.scrollIntoView({ block: 'start' });
@@ -973,39 +949,6 @@ async function _browserCaptureRect(rect) {
 }
 
 
-function _addNoteContextToPanel(popup, note) {
-  // Don't add duplicate
-  if (_pendingNoteContexts.some(n => n.id === note.id)) return;
-  _pendingNoteContexts.push({ id: note.id, title: note.title, content: note.content || '' });
-
-  const strip = popup.querySelector('.doc-screenshot-attachments');
-  if (!strip) return;
-  strip.style.display = 'flex';
-
-  const chip = document.createElement('div');
-  chip.className = 'doc-note-context-chip';
-  chip.dataset.noteId = note.id;
-  chip.innerHTML = icon('documentText', { size: 12, class: 'w-3 h-3 flex-shrink-0' }) +
-    `<span class="truncate">${escapeHtml(note.title || 'Untitled')}</span>`;
-
-  const removeBtn = document.createElement('button');
-  removeBtn.className = 'doc-note-context-remove';
-  removeBtn.textContent = '\u00d7';
-  removeBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  removeBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    _pendingNoteContexts = _pendingNoteContexts.filter(n => n.id !== note.id);
-    chip.remove();
-    if (_pendingNoteContexts.length === 0 && _pendingScreenshots.length === 0) strip.style.display = 'none';
-  });
-  chip.appendChild(removeBtn);
-  strip.appendChild(chip);
-
-  const input = popup.querySelector('.doc-ask-inline-input');
-  if (input) input.focus();
-  _updateContextBar(popup);
-}
-
 function _addTabContextToPanel(popup, tabInfo) {
   if (_pendingTabContexts.some(t => t.tabId === tabInfo.tabId)) return;
   _pendingTabContexts.push({ tabId: tabInfo.tabId, title: tabInfo.title, url: tabInfo.url, content: tabInfo.content || '' });
@@ -1031,7 +974,7 @@ function _addTabContextToPanel(popup, tabInfo) {
     ev.stopPropagation();
     _pendingTabContexts = _pendingTabContexts.filter(t => t.tabId !== tabInfo.tabId);
     chip.remove();
-    if (_pendingTabContexts.length === 0 && _pendingNoteContexts.length === 0 && _pendingScreenshots.length === 0) strip.style.display = 'none';
+    if (_pendingTabContexts.length === 0 && _pendingScreenshots.length === 0) strip.style.display = 'none';
   });
   chip.appendChild(removeBtn);
   strip.appendChild(chip);

@@ -43,7 +43,6 @@ let _aetherPinned = false;
 
 // ── Context Attachments ──
 let _pendingScreenshots = [];
-let _pendingNoteContexts = []; // {id, title, content} — notes attached to chat
 let _pendingTabContexts = []; // {tabId, title, url, content} — browser tabs attached to chat
 let _pendingFileContexts = []; // {name, content} — uploaded files attached to chat
 
@@ -64,9 +63,6 @@ let _ttsTabId = null; // tab ID where TTS was started (persists across tab switc
 
 // ── Command State (Aether slash commands) ──
 let _aetherCmdIdx = -1;
-let _aetherNoteIdx = -1;
-let _aetherNoteResults = [];
-let _aetherNoteQuery = '';
 let _aetherTabIdx = -1;
 let _aetherTabList = [];
 let _aetherTabSwitchMode = false; // true when cycling through tabs with /tabs

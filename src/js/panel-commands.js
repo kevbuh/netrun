@@ -212,7 +212,6 @@ const _aetherCommands = [
   { name: 'zoomout', desc: 'Zoom out', fn: () => { if (typeof browseZoom === 'function') browseZoom(-1); } },
   { name: 'zoomreset', desc: 'Reset zoom to 100%', fn: () => { if (typeof browseZoom === 'function') browseZoom(0); } },
   { name: 'print', desc: 'Print page', fn: () => { if (typeof browsePrintPage === 'function') browsePrintPage(); } },
-  { name: 'note', desc: 'Open in note viewer', fn: () => { if (typeof browseOpenNoteView === 'function') browseOpenNoteView(); } },
   { name: 'paper', desc: 'Search for papers', hasArgs: true },
   { name: 'user', desc: 'Search for users', hasArgs: true },
   { name: 'capture', desc: 'Screenshot the page', _special: true },
@@ -229,8 +228,7 @@ const _aetherCommands = [
 ];
 
 // State variables declared in panel-state.js:
-// _aetherCmdIdx, _aetherNoteIdx, _aetherNoteResults, _aetherNoteQuery,
-// _aetherTabIdx, _aetherTabList, _aetherTabSwitchMode
+// _aetherCmdIdx, _aetherTabIdx, _aetherTabList, _aetherTabSwitchMode
 
 function _aetherFilterCommands(query) {
   const q = query.toLowerCase();
@@ -300,13 +298,6 @@ function _aetherHideCmdDropdown(popup) {
   if (dropdown) dropdown.remove();
 }
 
-function _aetherHideNoteDropdown(popup) {
-  const dropdown = popup.querySelector('.aether-note-dropdown');
-  if (dropdown) dropdown.remove();
-  _aetherNoteResults = [];
-  _aetherNoteIdx = 0;
-  _aetherNoteQuery = '';
-}
 
 function _aetherHideTabDropdown(popup) {
   const dropdown = popup.querySelector('.aether-tab-dropdown');
@@ -454,232 +445,6 @@ function _aetherSelectHistory(popup) {
   return true;
 }
 
-async function _aetherRenderNoteDropdown(popup, query) {
-  _aetherNoteQuery = query || '';
-
-  // Get notes (cached or fetch)
-  let notes;
-  if (typeof _vaultNotes !== 'undefined' && _vaultNotes.length > 0) {
-    notes = _vaultNotes;
-  } else {
-    try {
-      notes = await apiGet('/api/vault/notes');
-    } catch { _aetherHideNoteDropdown(popup); return; }
-  }
-
-  if (query) {
-    const q = query.toLowerCase();
-    _aetherNoteResults = notes.filter(n => {
-      const title = (n.title || '').toLowerCase();
-      const content = (n.content || '').toLowerCase();
-      const tags = (n.tags || []).join(' ').toLowerCase();
-      return title.includes(q) || content.includes(q) || tags.includes(q);
-    }).slice(0, 8);
-  } else {
-    _aetherNoteResults = notes.slice(0, 12);
-  }
-
-  let dropdown = popup.querySelector('.aether-note-dropdown');
-  if (!_aetherNoteResults.length) {
-    if (!dropdown) {
-      dropdown = document.createElement('div');
-      dropdown.className = 'aether-note-dropdown';
-      dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
-      const askWrap = popup.querySelector('.doc-ask-inline-wrap');
-      if (askWrap) popup.insertBefore(dropdown, askWrap);
-      else popup.appendChild(dropdown);
-    }
-    dropdown.innerHTML = '';
-    var createRow = new View('div').className('aether-note-create selected');
-    createRow.el.dataset.create = '1';
-    var createIcon = new View('span').className('aether-note-create-icon');
-    createIcon.el.textContent = '+';
-    var createText = document.createTextNode(' Create "');
-    var createStrong = document.createElement('strong');
-    createStrong.textContent = query;
-    var createEnd = document.createTextNode('"');
-    createRow.el.appendChild(createIcon.el);
-    createRow.el.appendChild(createText);
-    createRow.el.appendChild(createStrong);
-    createRow.el.appendChild(createEnd);
-    createRow.el.addEventListener('click', function(ev) {
-      ev.stopPropagation(); ev.preventDefault();
-      _aetherCreateAndOpenNote(popup, query);
-    });
-    dropdown.appendChild(createRow.el);
-    _repositionSelectionPopup();
-    return;
-  }
-
-  if (!dropdown) {
-    dropdown = document.createElement('div');
-    dropdown.className = 'aether-note-dropdown';
-    dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    const askWrap = popup.querySelector('.doc-ask-inline-wrap');
-    if (askWrap) popup.insertBefore(dropdown, askWrap);
-    else popup.appendChild(dropdown);
-  }
-  _aetherNoteIdx = Math.min(_aetherNoteIdx, _aetherNoteResults.length - 1);
-  dropdown.innerHTML = '';
-  _aetherNoteResults.forEach(function(n, i) {
-    const preview = (n.content || '').replace(/[#*_`>\-\[\]()]/g, '').replace(/\s+/g, ' ').trim();
-    const snippet = preview.length > 80 ? preview.slice(0, 77) + '...' : preview;
-    const tags = (n.tags || []).slice(0, 3);
-
-    var row = new View('div').className('aether-note-item' + (i === _aetherNoteIdx ? ' selected' : ''));
-    row.el.dataset.idx = String(i);
-
-    var titleDiv = new View('div').className('aether-note-item-title');
-    titleDiv.el.textContent = n.title || 'Untitled';
-    row.el.appendChild(titleDiv.el);
-
-    if (snippet) {
-      var snippetDiv = new View('div').className('aether-note-item-snippet');
-      snippetDiv.el.textContent = snippet;
-      row.el.appendChild(snippetDiv.el);
-    }
-
-    if (tags.length) {
-      var tagsDiv = new View('div').className('aether-note-item-tags');
-      tags.forEach(function(t) {
-        var tagSpan = new View('span').className('aether-note-tag');
-        tagSpan.el.textContent = '#' + t;
-        tagsDiv.el.appendChild(tagSpan.el);
-      });
-      row.el.appendChild(tagsDiv.el);
-    }
-
-    // Click to open note in side editor
-    (function(note) {
-      row.el.addEventListener('click', function(ev) {
-        ev.stopPropagation(); ev.preventDefault();
-        if (!note) return;
-        _aetherOpenNoteEditor(popup, note);
-      });
-    })(n);
-    dropdown.appendChild(row.el);
-  });
-  _repositionSelectionPopup();
-}
-
-function _aetherOpenSelectedNote(popup) {
-  const note = _aetherNoteResults[_aetherNoteIdx];
-  if (!note) return false;
-  _aetherOpenNoteEditor(popup, note);
-  return true;
-}
-
-async function _doAetherNotesBrowse(popup) {
-  const input = popup.querySelector('.doc-ask-inline-input');
-  if (input) { input.value = ''; input.style.height = 'auto'; }
-  _aetherHideCmdDropdown(popup);
-  _aetherTrackMode = false;
-  _aetherNoteIdx = 0;
-  await _aetherRenderNoteDropdown(popup, '');
-}
-
-function _aetherOpenNoteEditor(popup, note) {
-  // Remove existing note editor if any
-  const existing = document.getElementById('aether-note-editor');
-  if (existing) existing.remove();
-
-  const popupRect = popup.getBoundingClientRect();
-
-  var editorView = new View('div').id('aether-note-editor').className('aether-note-editor-panel');
-  editorView.on('mousedown', (ev) => ev.stopPropagation());
-  const editor = editorView.build();
-
-  // Title bar with note title and close button
-  var titleBarView = new View('div').className('aether-note-editor-title-bar');
-  const titleBar = titleBarView.build();
-
-  // Drag support
-  let edDragging = false, edDragOff = { x: 0, y: 0 };
-  titleBar.addEventListener('mousedown', (ev) => {
-    if (ev.target.closest('button')) return;
-    ev.preventDefault();
-    edDragging = true;
-    const r = editor.getBoundingClientRect();
-    edDragOff = { x: ev.clientX - r.left, y: ev.clientY - r.top };
-  });
-  document.addEventListener('mousemove', (ev) => {
-    if (!edDragging) return;
-    editor.style.left = (ev.clientX - edDragOff.x) + 'px';
-    editor.style.top = (ev.clientY - edDragOff.y) + 'px';
-  });
-  document.addEventListener('mouseup', () => { edDragging = false; });
-
-  var titleSpanView = new View('span').className('aether-note-editor-title')._bindText(note.title || 'Untitled');
-  titleBar.appendChild(titleSpanView.build());
-
-  var closeBtnView = new View('button').className('aether-note-editor-close').attr('title', 'Close');
-  closeBtnView.el.innerHTML = '&times;';
-  closeBtnView.onTap((ev) => { ev.stopPropagation(); editor.remove(); });
-  titleBar.appendChild(closeBtnView.build());
-  editor.appendChild(titleBar);
-
-  // Textarea for editing
-  var textareaView = new View('textarea').className('aether-note-editor-textarea');
-  textareaView.el.value = note.content || '';
-  textareaView.el.placeholder = 'Start writing...';
-  const textarea = textareaView.build();
-  editor.appendChild(textarea);
-
-  // Auto-save on input (debounced 600ms)
-  let saveTimer = null;
-  var statusView = new View('div').className('aether-note-editor-status');
-  const statusEl = statusView.build();
-  editor.appendChild(statusEl);
-
-  textarea.addEventListener('input', () => {
-    clearTimeout(saveTimer);
-    statusEl.textContent = '';
-    saveTimer = setTimeout(async () => {
-      try {
-        await apiPut('/api/vault/notes/' + note.id, { content: textarea.value });
-        statusEl.textContent = 'Saved';
-        setTimeout(() => { if (statusEl.textContent === 'Saved') statusEl.textContent = ''; }, 1500);
-        // Update cached vault notes
-        if (typeof _vaultNotes !== 'undefined') {
-          const cached = _vaultNotes.find(n => n.id === note.id);
-          if (cached) cached.content = textarea.value;
-        }
-      } catch {}
-    }, 600);
-  });
-
-  // Handle Escape to close
-  textarea.addEventListener('keydown', (ev) => {
-    ev.stopPropagation();
-    if (ev.key === 'Escape') { editor.remove(); }
-  });
-
-  document.body.appendChild(editor);
-
-  // Position to the right of the aether panel
-  const edRect = editor.getBoundingClientRect();
-  let left = popupRect.right + 6;
-  let top = popupRect.top;
-  // If it would overflow right, put it to the left
-  if (left + edRect.width > window.innerWidth - 10) {
-    left = popupRect.left - edRect.width - 6;
-  }
-  // Clamp top
-  if (top + edRect.height > window.innerHeight - 10) {
-    top = window.innerHeight - edRect.height - 10;
-  }
-  if (top < 10) top = 10;
-  editor.style.left = left + 'px';
-  editor.style.top = top + 'px';
-
-  textarea.focus();
-}
-
-async function _aetherCreateAndOpenNote(popup, title) {
-  _aetherHideNoteDropdown(popup);
-  _aetherTrackMode = false;
-  popup.remove();
-}
 
 async function _doAetherCapture(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
@@ -1480,54 +1245,6 @@ async function _doAetherPaperSearch(popup, query) {
   _repositionSelectionPopup();
 }
 
-async function _doAetherNoteSearch(popup, query) {
-  const input = popup.querySelector('.doc-ask-inline-input');
-  if (input) { input.value = ''; input.style.height = 'auto'; }
-  _aetherHideCmdDropdown(popup);
-  _aetherTrackMode = false;
-
-  popup.classList.add('has-chat');
-  const chatArea = popup.querySelector('.doc-popup-chat-area');
-  if (chatArea) chatArea.classList.add('visible');
-
-  _popupChatMessages.push({ role: 'user', content: query, _display: query, _isNoteSearch: true });
-  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true, _isNoteSearch: true });
-  _renderPopupChat(popup, false);
-  _repositionSelectionPopup();
-
-  try {
-    // Use cached _vaultNotes if available, otherwise fetch
-    let notes;
-    if (typeof _vaultNotes !== 'undefined' && _vaultNotes.length > 0) {
-      notes = _vaultNotes;
-    } else {
-      notes = await apiGet('/api/vault/notes');
-    }
-
-    const q = query.toLowerCase();
-    const matches = notes.filter(n => {
-      const title = (n.title || '').toLowerCase();
-      const content = (n.content || '').toLowerCase();
-      const tags = (n.tags || []).join(' ').toLowerCase();
-      return title.includes(q) || content.includes(q) || tags.includes(q);
-    }).slice(0, 10);
-
-    const aiIdx = _popupChatMessages.length - 1;
-    _popupChatMessages[aiIdx]._thinking = false;
-    _popupChatMessages[aiIdx]._noteResults = matches;
-    _popupChatMessages[aiIdx].content = matches.length
-      ? matches.length + ' note' + (matches.length !== 1 ? 's' : '') + ' found'
-      : 'No notes found.';
-    _renderPopupChat(popup, true);
-  } catch (e) {
-    const aiIdx = _popupChatMessages.length - 1;
-    _popupChatMessages[aiIdx]._thinking = false;
-    _popupChatMessages[aiIdx].content = 'Search failed: ' + e.message;
-    _renderPopupChat(popup, true);
-  }
-  if (input) input.focus();
-  _repositionSelectionPopup();
-}
 
 async function _doAetherUserSearch(popup, query) {
   const input = popup.querySelector('.doc-ask-inline-input');

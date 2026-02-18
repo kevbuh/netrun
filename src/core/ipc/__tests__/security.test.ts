@@ -1,46 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import * as path from 'path';
-import { safePath } from '../shared';
 
 /**
  * Tests for path traversal prevention in IPC handlers.
- * Covers safePath (used by experiment/vault handlers) and the
- * validation logic used by db:read-view and db:local-file.
+ * Covers the validation logic used by db:read-view and db:local-file.
  */
-
-// ── safePath (shared.ts) ──
-
-describe('safePath', () => {
-  const base = '/home/user/vault';
-
-  it('allows a simple filename within the base', () => {
-    expect(safePath(base, 'notes.md')).toBe(path.resolve(base, 'notes.md'));
-  });
-
-  it('allows nested paths within the base', () => {
-    expect(safePath(base, 'sub/dir/file.txt')).toBe(path.resolve(base, 'sub/dir/file.txt'));
-  });
-
-  it('rejects ../ traversal escaping the base', () => {
-    expect(safePath(base, '../../../etc/passwd')).toBeNull();
-  });
-
-  it('rejects absolute path outside the base', () => {
-    expect(safePath(base, '/etc/passwd')).toBeNull();
-  });
-
-  it('rejects empty filename', () => {
-    expect(safePath(base, '')).toBeNull();
-  });
-
-  it('rejects path that is a prefix but not a child (no separator)', () => {
-    expect(safePath('/home/user/vault', '../vault-evil/file')).toBeNull();
-  });
-
-  it('allows the base directory itself', () => {
-    expect(safePath(base, '.')).toBe(path.resolve(base));
-  });
-});
 
 // ── db:read-view path validation logic ──
 

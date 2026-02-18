@@ -24,21 +24,17 @@ const _wmViewMeta = {
 };
 
 const _ROUTE_TABLE_KEYS = [
-  '#research', '#experiments', '#settings', '#quality', '#algorithm',
-  '#calendar', '#inbox', '#vault', '#profile', '#saved-all',
+  '#research', '#settings', '#quality', '#algorithm',
+  '#calendar', '#inbox', '#profile', '#saved-all',
   '#saved', '#browse', '#search', '#terminal', '#neuralook', '#dev',
   '#vibe', '#feed',
 ];
 
-// Note: #vault, #experiments, #vibe still exist as routes but now redirect to dashboard
-
 // ── Route-to-wmOpen mapping (what wmOpen key each route triggers) ──
 const ROUTE_TO_WM_KEY = {
-  '#experiments': 'dashboard',
   '#settings':    'settings',
   '#calendar':    'dashboard',
   '#inbox':       'inbox',
-  '#vault':       'dashboard',
   '#browse':      'browse',
   '#neuralook':   'neuralook',
   '#dev':         'dev',
@@ -63,7 +59,7 @@ function resolveRoute(hash) {
   // Exact match
   if (_ROUTE_TABLE_KEYS.includes(hash)) return { type: 'exact', hash };
   // Prefix match
-  const prefixes = ['#blog/', '#profile/', '#experiment/'];
+  const prefixes = ['#profile/'];
   for (const prefix of prefixes) {
     if (hash.startsWith(prefix)) return { type: 'prefix', prefix, remainder: hash.slice(prefix.length) };
   }
@@ -194,9 +190,7 @@ describe('Route-to-wmOpen mapping', () => {
     expect(ROUTE_TO_WM_KEY['#feed']).toBe('feed');
   });
 
-  it('should map #vault, #experiments, and #vibe to dashboard', () => {
-    expect(ROUTE_TO_WM_KEY['#vault']).toBe('dashboard');
-    expect(ROUTE_TO_WM_KEY['#experiments']).toBe('dashboard');
+  it('should map #vibe to dashboard', () => {
     expect(ROUTE_TO_WM_KEY['#vibe']).toBe('dashboard');
   });
 
@@ -225,25 +219,11 @@ describe('resolveRoute', () => {
     expect(resolveRoute('#browse')).toEqual({ type: 'exact', hash: '#browse' });
   });
 
-  it('should resolve prefix routes', () => {
-    const result = resolveRoute('#blog/alice/my-post');
-    expect(result.type).toBe('prefix');
-    expect(result.prefix).toBe('#blog/');
-    expect(result.remainder).toBe('alice/my-post');
-  });
-
   it('should resolve profile prefix', () => {
     const result = resolveRoute('#profile/bob');
     expect(result.type).toBe('prefix');
     expect(result.prefix).toBe('#profile/');
     expect(result.remainder).toBe('bob');
-  });
-
-  it('should resolve experiment prefix', () => {
-    const result = resolveRoute('#experiment/exp1?file=main.py');
-    expect(result.type).toBe('prefix');
-    expect(result.prefix).toBe('#experiment/');
-    expect(result.remainder).toBe('exp1?file=main.py');
   });
 
   it('should default for unknown routes', () => {

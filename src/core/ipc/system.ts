@@ -4,11 +4,9 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import { createHash, randomUUID } from 'crypto';
 import * as userQueries from '../db/queries/users.js';
-import * as socialExtQueries from '../db/queries/social-extended.js';
 import {
   OLLAMA_HOST, GOOGLE_CLIENT_ID, DATA_DIR,
-  contentPath, getUserVaultPath, uploadsDir,
-  parseFrontmatter, stripFrontmatter,
+  contentPath, uploadsDir,
 } from './shared.js';
 
 export function registerSystemIPC(): void {
@@ -56,53 +54,7 @@ export function registerSystemIPC(): void {
     return { ok: true };
   });
 
-  ipcMain.handle('db:blog-list', (_event, username: string) => {
-    const userInfo = socialExtQueries.getPublicUserInfo(username);
-    if (!userInfo) return { error: 'User not found' };
-    const userVault = getUserVaultPath(userInfo.google_id as string);
-    const posts: any[] = [];
-    if (fs.existsSync(userVault)) {
-      for (const fname of fs.readdirSync(userVault)) {
-        if (!fname.endsWith('.md')) continue;
-        try {
-          const content = fs.readFileSync(path.join(userVault, fname), 'utf-8');
-          const frontmatter = parseFrontmatter(content);
-          if (frontmatter?.published) {
-            posts.push({ title: frontmatter.title ?? 'Untitled', slug: frontmatter.slug, published_at: frontmatter.published_at });
-          }
-        } catch { /* skip */ }
-      }
-    }
-    posts.sort((a, b) => (b.published_at ?? 0) - (a.published_at ?? 0));
-    return { posts, author: username, picture: (userInfo as any).picture };
-  });
-
-  ipcMain.handle('db:blog-get', (_event, username: string, slug: string, viewerGoogleId?: string) => {
-    const userInfo = socialExtQueries.getPublicUserInfo(username);
-    if (!userInfo) return { error: 'User not found' };
-    const userVault = getUserVaultPath(userInfo.google_id as string);
-    if (fs.existsSync(userVault)) {
-      for (const fname of fs.readdirSync(userVault)) {
-        if (!fname.endsWith('.md')) continue;
-        try {
-          const raw = fs.readFileSync(path.join(userVault, fname), 'utf-8');
-          const frontmatter = parseFrontmatter(raw);
-          if (frontmatter?.published && frontmatter.slug === slug) {
-            const votes = socialExtQueries.getBlogVotes(username, slug, viewerGoogleId);
-            return {
-              title: frontmatter.title ?? 'Untitled', content: stripFrontmatter(raw),
-              author: username, published_at: frontmatter.published_at,
-              picture: (userInfo as any).picture,
-              upvotes: votes.upvotes, downvotes: votes.downvotes, userVote: votes.userVote,
-            };
-          }
-        } catch { /* skip */ }
-      }
-    }
-    return { error: 'Post not found' };
-  });
-
-  // ── Social uploads + blog unpublish ──
+  // ── Social uploads ──
 
   ipcMain.handle('db:upload-profile-picture', (_event, googleId: string, imageData: string) => {
     if (!imageData || !imageData.startsWith('data:image/')) {
@@ -134,57 +86,6 @@ export function registerSystemIPC(): void {
     const bgUrl = '/uploads/' + fname;
     userQueries.updateUserProfileBg(googleId, bgUrl);
     return { ok: true, profile_bg: bgUrl };
-  });
-
-  ipcMain.handle('db:blog-unpublish', (_event, googleId: string, username: string, slug: string) => {
-    const userInfo = userQueries.getUser(googleId) as any;
-    if (!userInfo || userInfo.username !== username) {
-      return { error: 'Not authorized' };
-    }
-    const userVault = getUserVaultPath(googleId);
-    if (fs.existsSync(userVault)) {
-      for (const fname of fs.readdirSync(userVault)) {
-        if (!fname.endsWith('.md')) continue;
-        const fpath = path.join(userVault, fname);
-        try {
-          const content = fs.readFileSync(fpath, 'utf-8');
-          const frontmatter = parseFrontmatter(content);
-          if (frontmatter?.published && frontmatter.slug === slug) {
-            const lines = content.split('\n');
-            const newLines: string[] = [];
-            let inFrontmatter = false;
-            let fmCount = 0;
-            for (const line of lines) {
-              if (line.trim() === '---') {
-                fmCount++;
-                inFrontmatter = fmCount === 1;
-                newLines.push(line);
-                if (fmCount === 2) {
-                  // Add updated timestamp before closing ---
-                }
-                continue;
-              }
-              if (inFrontmatter) {
-                if (line.startsWith('published:')) {
-                  newLines.push('published: false');
-                } else if (line.startsWith('published_at:')) {
-                  newLines.push('published_at: null');
-                } else if (line.startsWith('updated:')) {
-                  newLines.push(`updated: ${Math.floor(Date.now() / 1000)}`);
-                } else {
-                  newLines.push(line);
-                }
-              } else {
-                newLines.push(line);
-              }
-            }
-            fs.writeFileSync(fpath, newLines.join('\n'));
-            return { ok: true };
-          }
-        } catch { /* skip */ }
-      }
-    }
-    return { error: 'Post not found' };
   });
 
   ipcMain.handle('db:settings', () => {

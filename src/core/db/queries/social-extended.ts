@@ -77,38 +77,9 @@ export function getUserReposts(googleId: string, limit = 20): unknown[] {
   ).all(googleId, limit);
 }
 
-// ── Blog votes ──
-
-export function setBlogVote(blogAuthor: string, blogSlug: string, voterGoogleId: string, vote: number): { upvotes: number; downvotes: number } {
-  if (vote === 0) {
-    prepare('DELETE FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND voter_google_id = ?').run(blogAuthor, blogSlug, voterGoogleId);
-  } else {
-    prepare(
-      'INSERT OR REPLACE INTO blog_votes (blog_author, blog_slug, voter_google_id, vote, timestamp) VALUES (?, ?, ?, ?, ?)'
-    ).run(blogAuthor, blogSlug, voterGoogleId, vote, Date.now() / 1000);
-  }
-  const upvotes = (prepare('SELECT COUNT(*) as c FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = 1').get(blogAuthor, blogSlug) as { c: number }).c;
-  const downvotes = (prepare('SELECT COUNT(*) as c FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = -1').get(blogAuthor, blogSlug) as { c: number }).c;
-  return { upvotes, downvotes };
-}
-
-export function getBlogVotes(blogAuthor: string, blogSlug: string, viewerGoogleId?: string): { upvotes: number; downvotes: number; userVote: number } {
-  const upvotes = (prepare('SELECT COUNT(*) as c FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = 1').get(blogAuthor, blogSlug) as { c: number }).c;
-  const downvotes = (prepare('SELECT COUNT(*) as c FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = -1').get(blogAuthor, blogSlug) as { c: number }).c;
-  let userVote = 0;
-  if (viewerGoogleId) {
-    const row = prepare('SELECT vote FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND voter_google_id = ?').get(blogAuthor, blogSlug, viewerGoogleId) as { vote: number } | undefined;
-    if (row) userVote = row.vote;
-  }
-  return { upvotes, downvotes, userVote };
-}
-
 // ── Achievements ──
 
 const ACHIEVEMENTS: Record<string, { id: string; name: string; description: string; icon: string }> = {
-  first_blog: { id: 'first_blog', name: 'First Post', description: 'Published your first blog post', icon: '\u{1F4DD}' },
-  prolific_writer: { id: 'prolific_writer', name: 'Prolific Writer', description: 'Published 10 blog posts', icon: '\u{270D}\u{FE0F}' },
-  first_note: { id: 'first_note', name: 'Note Taker', description: 'Created your first note', icon: '\u{1F4D3}' },
   first_status: { id: 'first_status', name: 'Statusphere', description: 'Set your first status', icon: '\u{1F4AC}' },
   pet_adopter: { id: 'pet_adopter', name: 'Pet Parent', description: 'Adopted a pixel pet', icon: '\u{1F43E}' },
   gaze_master: { id: 'gaze_master', name: 'Gaze Master', description: 'Trained your eye-tracking model 5 times', icon: '\u{1F441}\u{FE0F}' },
@@ -142,11 +113,10 @@ export function getPublicUserInfo(username: string): Record<string, unknown> | n
   return { ...row, profile_private: !!row.profile_private };
 }
 
-export function getUserPublicStats(googleId: string): { comment_count: number; experiment_count: number; repost_count: number } {
+export function getUserPublicStats(googleId: string): { comment_count: number; repost_count: number } {
   const cc = (prepare('SELECT COUNT(*) as c FROM comments WHERE google_id = ?').get(googleId) as { c: number }).c;
-  const ec = (prepare('SELECT COUNT(*) as c FROM experiment_owners WHERE google_id = ?').get(googleId) as { c: number }).c;
   const rc = (prepare('SELECT COUNT(*) as c FROM reposts WHERE google_id = ?').get(googleId) as { c: number }).c;
-  return { comment_count: cc, experiment_count: ec, repost_count: rc };
+  return { comment_count: cc, repost_count: rc };
 }
 
 export function getUserRecentComments(googleId: string, limit = 20): unknown[] {

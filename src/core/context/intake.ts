@@ -16,7 +16,7 @@ const SOURCE_ROUTES: Record<string, { file: string; description: string }> = {
   search: { file: 'research.md', description: 'Web search results and research findings' },
   browse: { file: 'browsing.md', description: 'Browsing history and page notes' },
   feed: { file: 'reading.md', description: 'Feed articles and reading notes' },
-  notebook: { file: 'notebooks.md', description: 'Notebook outputs and experiment results' },
+  notebook: { file: 'notebooks.md', description: 'Notebook outputs and results' },
   dashboard: { file: 'stats.md', description: 'Dashboard snapshots and statistics' },
 };
 

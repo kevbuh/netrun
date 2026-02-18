@@ -315,7 +315,6 @@ document.addEventListener('keydown', function(e) {
       _aetherTrackMode = false;
       _aetherPinned = false;
       _pendingScreenshots = [];
-      _pendingNoteContexts = [];
       _pendingTabContexts = [];
       _pendingFileContexts = [];
       popup.remove();
@@ -1383,7 +1382,6 @@ function _panelBuildChatInput(popup, config) {
     const val = askInput.value;
     const isCmd = val.startsWith('/');
     const dropdown = popup.querySelector('.aether-cmd-dropdown');
-    const noteDropdown = popup.querySelector('.aether-note-dropdown:not(.aether-model-dropdown):not(.aether-history-dropdown)');
     const modelDropdown = popup.querySelector('.aether-model-dropdown');
 
     // Arrow keys navigate model dropdown
@@ -1428,27 +1426,6 @@ function _panelBuildChatInput(popup, config) {
     if (tabDropdown && ev.key === 'Escape') {
       ev.preventDefault();
       _aetherHideTabDropdown(popup);
-      return;
-    }
-
-    // Arrow keys navigate note search results
-    if (noteDropdown && _aetherNoteResults.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
-      ev.preventDefault();
-      if (ev.key === 'ArrowDown') _aetherNoteIdx = Math.min(_aetherNoteIdx + 1, _aetherNoteResults.length - 1);
-      else _aetherNoteIdx = Math.max(_aetherNoteIdx - 1, 0);
-      const items = noteDropdown.querySelectorAll('.aether-note-item');
-      items.forEach((el, i) => el.classList.toggle('selected', i === _aetherNoteIdx));
-      const sel = items[_aetherNoteIdx];
-      if (sel) sel.scrollIntoView({ block: 'nearest' });
-      return;
-    }
-    if (noteDropdown && ev.key === 'Enter') {
-      ev.preventDefault();
-      if (_aetherNoteResults.length) {
-        _aetherOpenSelectedNote(popup);
-      } else if (_aetherNoteQuery) {
-        _aetherCreateAndOpenNote(popup, _aetherNoteQuery);
-      }
       return;
     }
 
@@ -1551,14 +1528,12 @@ function _panelBuildChatInput(popup, config) {
     if (ev.key === 'Escape') {
       ev.preventDefault();
       if (modelDropdown) { _aetherHideModelDropdown(popup); return; }
-      if (noteDropdown) { _aetherHideNoteDropdown(popup); return; }
       if (dropdown) { _aetherHideCmdDropdown(popup); return; }
       _aetherTrackMode = false;
       _aetherPinned = false;
       _maybeDismissToIsland(popup);
       if (!_aetherBackgroundStreaming && _popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
       _pendingScreenshots = [];
-      _pendingNoteContexts = [];
       _pendingTabContexts = [];
       _pendingFileContexts = [];
       _savePopupChatToHighlight(popup);
@@ -1571,27 +1546,18 @@ function _panelBuildChatInput(popup, config) {
   askInput.addEventListener('input', () => {
     const val = askInput.value;
     if (val.startsWith('/')) {
-      const notesMatch = val.match(/^\/notes(\s+(.*))?$/i);
       const histMatch = val.match(/^\/history(\s+(.*))?$/i);
-      if (notesMatch && notesMatch[1] !== undefined) {
+      if (histMatch && histMatch[1] !== undefined) {
         _aetherHideCmdDropdown(popup);
-        _aetherHideHistoryDropdown(popup);
-        _aetherNoteIdx = 0;
-        _aetherRenderNoteDropdown(popup, (notesMatch[2] || '').trim());
-      } else if (histMatch && histMatch[1] !== undefined) {
-        _aetherHideCmdDropdown(popup);
-        _aetherHideNoteDropdown(popup);
         _aetherHistoryIdx = -1;
         _aetherRenderHistoryDropdown(popup, (histMatch[2] || '').trim());
       } else {
-        _aetherHideNoteDropdown(popup);
         _aetherHideHistoryDropdown(popup);
         _aetherCmdIdx = 0;
         _aetherRenderCmdDropdown(popup, val.slice(1).trim());
       }
     } else {
       _aetherHideCmdDropdown(popup);
-      _aetherHideNoteDropdown(popup);
       _aetherHideHistoryDropdown(popup);
     }
   });
@@ -1891,7 +1857,6 @@ function _showPanel(config) {
     _popupChatMessages = [];
     _chatMemoryRetrieved = false;
     _pendingScreenshots = [];
-    _pendingNoteContexts = [];
     _pendingTabContexts = [];
     _pendingFileContexts = [];
     _aetherDragging = false;

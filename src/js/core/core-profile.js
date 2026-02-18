@@ -113,20 +113,16 @@ async function renderUserProfile(username) {
   AetherUI.mount(Text('Loading profile...').className('text-dimmer text-sm mt-8 text-center'), el);
 
   try {
-    const [profile, comments, experiments, reposts, feeds, blog, achievementsData] = await Promise.all([
+    const [profile, comments, reposts, feeds, achievementsData] = await Promise.all([
       apiGet('/api/users/' + encodeURIComponent(username)),
       apiGet('/api/users/' + encodeURIComponent(username) + '/comments'),
-      apiGet('/api/users/' + encodeURIComponent(username) + '/experiments'),
       apiGet('/api/users/' + encodeURIComponent(username) + '/reposts'),
       apiGet('/api/users/' + encodeURIComponent(username) + '/feeds'),
-      apiGet('/api/blog/' + encodeURIComponent(username)),
       apiGet('/api/achievements/' + encodeURIComponent(username)),
     ]).catch(err => {
       AetherUI.mount(Text('User not found').className('text-dimmer text-sm mt-8 text-center'), el);
       throw err;
     });
-
-    const blogPosts = blog.posts || [];
     const achievements = achievementsData.achievements || [];
 
     // Handle private profiles
@@ -250,10 +246,8 @@ async function renderUserProfile(username) {
       });
       return link;
     }
-    if (blogPosts.length) statsItems.push(_statLink(blogPosts.length, 'posts', 'profile-section-posts'));
     statsItems.push(_statLink(comments.length, 'comments', 'profile-section-comments'));
     statsItems.push(_statLink(reposts.length, 'reposts', 'profile-section-reposts'));
-    statsItems.push(_statLink(experiments.length, 'projects', 'profile-section-projects'));
     sections.push(HStack.apply(null, statsItems).spacing(6).className('mb-8 text-[0.82rem]'));
 
     // ── Achievements section ──
@@ -272,33 +266,6 @@ async function renderUserProfile(username) {
       });
       sections.push(_profileSection('Achievements', 'profile-section-achievements',
         HStack.apply(null, achItems).className('flex flex-wrap gap-2')));
-    }
-
-    // ── Blog posts section ──
-    if (blogPosts.length) {
-      var postCards = blogPosts.map(function(post) {
-        var pubDate = post.published_at ? new Date(post.published_at * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
-        var card = VStack(
-          HStack(Icon('globe', 16).className('text-accent shrink-0'), Text(post.title).className('text-primary text-sm font-medium')).spacing(2)
-        );
-        if (pubDate) card._appendChildren([Text(pubDate).className('text-dimmer text-[0.7rem] mt-1')]);
-        card.className('block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors cursor-pointer');
-        card.onTap(function() { location.hash = '#blog/' + encodeURIComponent(username) + '/' + encodeURIComponent(post.slug); });
-        return card;
-      });
-      sections.push(_profileSection('Blog Posts', 'profile-section-posts', VStack.apply(null, postCards).spacing(2)));
-    }
-
-    // ── Shared experiments section ──
-    if (experiments.length) {
-      var expCards = experiments.map(function(exp) {
-        var card = VStack(Text(exp.title || exp.id).className('text-primary text-sm font-medium'));
-        if (exp.desc) card._appendChildren([Text(exp.desc).className('text-dimmer text-[0.75rem] mt-1').lineLimit(1)]);
-        card.className('block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors cursor-pointer');
-        card.onTap(function() { location.hash = '#experiment/' + exp.id; });
-        return card;
-      });
-      sections.push(_profileSection('Shared Projects', 'profile-section-projects', VStack.apply(null, expCards).spacing(2)));
     }
 
     // ── Feeds section ──
@@ -368,7 +335,7 @@ async function renderUserProfile(username) {
       sections.push(_profileSection('Reposts', 'profile-section-reposts', VStack.apply(null, repostCards).spacing(2)));
     }
 
-    if (!experiments.length && !comments.length && !reposts.length && !catalogFeeds.length && !customFeeds.length) {
+    if (!comments.length && !reposts.length && !catalogFeeds.length && !customFeeds.length) {
       sections.push(Text('No shared activity yet.').className('text-dimmer text-sm mt-4'));
     }
 

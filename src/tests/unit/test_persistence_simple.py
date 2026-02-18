@@ -45,12 +45,12 @@ class TestSlugify:
     def test_slugify_empty_string(self):
         """Test that empty string returns fallback."""
         result = slugify('')
-        assert result == 'experiment'  # Default fallback
+        assert result == 'project'  # Default fallback
 
     def test_slugify_only_special_chars(self):
         """Test string with only special characters."""
         result = slugify('@#$%^&*()')
-        assert result == 'experiment'  # Should fallback
+        assert result == 'project'  # Should fallback
 
     def test_slugify_with_numbers(self):
         """Test that numbers are preserved."""
@@ -83,9 +83,8 @@ class TestDatabase:
         assert 'users' in tables
         assert 'sessions' in tables
         assert 'feed_items' in tables
-        assert 'embeddings' in tables
+        assert 'chat_memories' in tables
         assert 'quality_cache' in tables
-        assert 'teams' in tables
         assert 'user_data' in tables
 
         conn.close()

@@ -3,7 +3,6 @@ import * as path from 'path';
 import { createHash } from 'crypto';
 
 import { OllamaProvider } from '../providers/ollama.js';
-import * as userQueries from '../db/queries/users.js';
 
 // ── Ollama provider (singleton) ──
 
@@ -67,55 +66,6 @@ export const ANNOTATION_PROMPT_FILE = path.join(DATA_DIR, 'annotation_prompt.txt
 // ── Active doc-chat sessions ──
 
 export const activeDocChatSessions = new Map<string, AbortController>();
-
-// ── Experiment filesystem helpers ──
-
-export const VAULT_DIR = path.join(process.env.HOME ?? process.env.USERPROFILE ?? '/tmp', 'Desktop', 'netrun');
-export const SKIP_DIRS = new Set(['venv', '.kernels', '__pycache__', 'node_modules', '.git']);
-export const SKIP_FILES = new Set(['meta.json', '.DS_Store', 'Thumbs.db']);
-
-export function getUserVaultPath(googleId: string): string {
-  const custom = userQueries.getUserData(googleId, 'vaultPath');
-  if (custom && fs.existsSync(custom)) return custom;
-  const defaultPath = path.join(VAULT_DIR, googleId);
-  fs.mkdirSync(defaultPath, { recursive: true });
-  return defaultPath;
-}
-
-export function resolveExpDir(googleId: string, expId: string): string | null {
-  const vault = getUserVaultPath(googleId);
-  if (expId === '_root') return vault;
-  const d = path.join(vault, expId);
-  if (!path.resolve(d).startsWith(path.resolve(vault) + path.sep)) return null;
-  return d;
-}
-
-/** Resolve a user-supplied filename within an experiment dir, returning null if it escapes. */
-export function safePath(expDir: string, fname: string): string | null {
-  if (!fname) return null;
-  const resolved = path.resolve(expDir, fname);
-  const base = path.resolve(expDir);
-  if (resolved !== base && !resolved.startsWith(base + path.sep)) return null;
-  return resolved;
-}
-
-export function slugify(text: string): string {
-  let s = text.toLowerCase().trim();
-  s = s.replace(/[^\w\s-]/g, '');
-  s = s.replace(/[\s_]+/g, '-');
-  s = s.replace(/-+/g, '-').replace(/^-|-$/g, '');
-  return s || 'experiment';
-}
-
-export function uniqueSlug(vaultPath: string, base: string): string {
-  let slug = base;
-  let i = 2;
-  while (fs.existsSync(path.join(vaultPath, slug))) {
-    slug = `${base}-${i}`;
-    i++;
-  }
-  return slug;
-}
 
 export const BINARY_MIME: Record<string, string> = {
   '.png': 'image/png', '.svg': 'image/svg+xml',

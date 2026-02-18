@@ -62,7 +62,6 @@ let _wmLastNavTime = 0;
 let _userSearchDebounce = null;
 
 // ── Navigation ──
-let _expBackAction = null; // stores {fn, label} for context-aware back button
 let _prevRouteHash = ''; // the hash before the current route
 let _currentRouteHash = ''; // the current route hash
 let _navHistory = Settings.getJSON('_navHistory', []);

@@ -96,84 +96,6 @@ async function ipcRoute(path, opts = {}) {
     return await window.electronAPI.dbQuery('users-list');
   }
 
-  // ── Experiments ──
-  if (pathOnly === '/api/experiments' && method === 'GET') {
-    if (!googleId) return null;
-    return await window.electronAPI.dbQuery('exp-list', googleId);
-  }
-  if (pathOnly === '/api/experiments' && method === 'POST') {
-    if (!googleId) return null;
-    return await window.electronAPI.dbQuery('exp-create', googleId, body.title);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+$/) && method === 'GET') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-get', googleId, expId);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+$/) && method === 'DELETE') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-delete', googleId, expId);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/files$/) && method === 'GET') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-files', googleId, expId);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/files\//) && method === 'GET') {
-    if (!googleId) return null;
-    const parts = pathOnly.split('/');
-    const expId = decodeURIComponent(parts[3]);
-    const fname = decodeURIComponent(parts.slice(5).join('/'));
-    return await window.electronAPI.dbQuery('exp-file-get', googleId, expId, fname);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/files$/) && method === 'POST') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-file-create', googleId, expId, body.name, body.content);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/files\//) && method === 'PUT') {
-    if (!googleId) return null;
-    const parts = pathOnly.split('/');
-    const expId = decodeURIComponent(parts[3]);
-    const fname = decodeURIComponent(parts.slice(5).join('/'));
-    return await window.electronAPI.dbQuery('exp-file-update', googleId, expId, fname, body);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/files\//) && method === 'DELETE') {
-    if (!googleId) return null;
-    const parts = pathOnly.split('/');
-    const expId = decodeURIComponent(parts[3]);
-    const fname = decodeURIComponent(parts.slice(5).join('/'));
-    return await window.electronAPI.dbQuery('exp-file-delete', googleId, expId, fname);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/raw\//) && method === 'GET') {
-    if (!googleId) return null;
-    const parts = pathOnly.split('/');
-    const expId = decodeURIComponent(parts[3]);
-    const fname = decodeURIComponent(parts.slice(5).join('/'));
-    return await window.electronAPI.dbQuery('exp-raw-file', googleId, expId, fname);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/create-folder$/) && method === 'POST') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-create-folder', googleId, expId, body.name);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/delete-folder$/) && method === 'POST') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-delete-folder', googleId, expId, body.folder);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/rename-folder$/) && method === 'POST') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-rename-folder', googleId, expId, body.oldName, body.newName);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/move-file$/) && method === 'POST') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-move-file', googleId, expId, body.oldPath, body.newPath);
-  }
-
   // ── Providers / Models ──
   if (pathOnly === '/api/models' && method === 'GET') {
     const models = await window.electronAPI.providerModels();
@@ -356,11 +278,6 @@ async function ipcRoute(path, opts = {}) {
     return await window.electronAPI.dbQuery('user-reposts', info.google_id);
   }
 
-  // ── User experiments (stub) ──
-  if (pathOnly.match(/^\/api\/users\/[^/]+\/experiments$/) && method === 'GET') {
-    return [];
-  }
-
   // ── Annotation feedback ──
   if (pathOnly === '/api/annotation-feedback' && method === 'POST') {
     await window.electronAPI.dbQuery('ann-feedback-create', {
@@ -405,13 +322,6 @@ async function ipcRoute(path, opts = {}) {
     const key = pathOnly.split('/').pop();
     await window.electronAPI.dbQuery('ann-category-delete', key);
     return { ok: true };
-  }
-
-  // ── Blog votes ──
-  if (pathOnly.match(/^\/api\/blog\/[^/]+\/[^/]+\/vote$/) && method === 'POST') {
-    if (!googleId) return null;
-    const parts = pathOnly.split('/');
-    return await window.electronAPI.dbQuery('blog-vote', parts[3], parts[4], googleId, body.vote);
   }
 
   // ── Feed: blocked titles ──
@@ -601,17 +511,6 @@ async function ipcRoute(path, opts = {}) {
   if (pathOnly === '/api/saved-content' && method === 'POST') {
     return await window.electronAPI.dbQuery('saved-content-set', body.url, body);
   }
-  if (pathOnly.match(/^\/api\/blog\/[^/]+$/) && method === 'GET') {
-    const username = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('blog-list', username);
-  }
-  if (pathOnly.match(/^\/api\/blog\/[^/]+\/[^/]+$/) && method === 'GET') {
-    const parts = pathOnly.split('/');
-    const username = decodeURIComponent(parts[3]);
-    const slug = decodeURIComponent(parts[4]);
-    return await window.electronAPI.dbQuery('blog-get', username, slug, googleId);
-  }
-
   // ── Reveal in Finder (IPC) ──
   if (pathOnly === '/api/reveal-in-finder' && method === 'POST') {
     await window.electronAPI.dbQuery('reveal-in-finder', body.filename || body.path || '');
@@ -623,7 +522,7 @@ async function ipcRoute(path, opts = {}) {
   // ═══════════════════════════════════════════════════════════════════
 
 
-  // ── Social uploads + blog unpublish ──
+  // ── Social uploads ──
   if (pathOnly === '/api/users/me/picture' && method === 'PUT') {
     if (!googleId) return null;
     return await window.electronAPI.dbQuery('upload-profile-picture', googleId, body.image);
@@ -631,13 +530,6 @@ async function ipcRoute(path, opts = {}) {
   if (pathOnly === '/api/users/me/background' && method === 'PUT') {
     if (!googleId) return null;
     return await window.electronAPI.dbQuery('upload-profile-background', googleId, body.image);
-  }
-  if (pathOnly.match(/^\/api\/blog\/[^/]+\/[^/]+\/unpublish$/) && method === 'POST') {
-    if (!googleId) return null;
-    const parts = pathOnly.split('/');
-    const username = decodeURIComponent(parts[3]);
-    const slug = decodeURIComponent(parts[4]);
-    return await window.electronAPI.dbQuery('blog-unpublish', googleId, username, slug);
   }
 
   // ── Dev simple routes ──
@@ -712,66 +604,6 @@ async function ipcRoute(path, opts = {}) {
   }
 
 
-  // ── Experiments (non-kernel) ──
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/packages$/) && method === 'GET') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-packages', googleId, expId);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/venv-info$/) && method === 'GET') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-venv-info', googleId, expId);
-  }
-  if (pathOnly === '/api/venvs' && method === 'GET') {
-    if (!googleId) return null;
-    return await window.electronAPI.dbQuery('venvs', googleId);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/upload$/) && method === 'POST') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-upload', googleId, expId, body.files || []);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/venv$/) && method === 'POST') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-create-venv', googleId, expId);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/packages$/) && method === 'POST') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-install-packages', googleId, expId, body.packages || []);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/clone-repo$/) && method === 'POST') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-clone-repo', googleId, expId, body.url);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+$/) && method === 'PUT') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-update', googleId, expId, body);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/packages\//) && method === 'DELETE') {
-    if (!googleId) return null;
-    const parts = pathOnly.split('/');
-    const expId = decodeURIComponent(parts[3]);
-    const pkg = decodeURIComponent(parts.slice(5).join('/'));
-    return await window.electronAPI.dbQuery('exp-uninstall-package', googleId, expId, pkg);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/venv$/) && method === 'DELETE') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('exp-delete-venv', googleId, expId);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/compile-tex\//) && method === 'GET') {
-    if (!googleId) return null;
-    const parts = pathOnly.split('/');
-    const expId = decodeURIComponent(parts[3]);
-    const fname = decodeURIComponent(parts.slice(5).join('/'));
-    return await window.electronAPI.dbQuery('exp-compile-tex', googleId, expId, fname);
-  }
-
   // ── Upload file serving (replaces Flask's /uploads/ route) ──
   if (pathOnly.startsWith('/uploads/') && method === 'GET') {
     const filename = pathOnly.slice('/uploads/'.length);
@@ -782,28 +614,6 @@ async function ipcRoute(path, opts = {}) {
   if (pathOnly === '/spinners.json' && method === 'GET') {
     // Return empty or fetch from local
     return [];
-  }
-
-  // ── Kernel endpoints (Phase 3) ──
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/execute$/) && method === 'POST') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('kernel-execute', googleId, expId, body.code || '', body.stream || false);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/kernel\/restart$/) && method === 'POST') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('kernel-restart', googleId, expId);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/kernel\/interrupt$/) && method === 'POST') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('kernel-interrupt', googleId, expId);
-  }
-  if (pathOnly.match(/^\/api\/experiments\/[^/]+\/kernel$/) && method === 'DELETE') {
-    if (!googleId) return null;
-    const expId = decodeURIComponent(pathOnly.split('/')[3]);
-    return await window.electronAPI.dbQuery('kernel-kill', googleId, expId);
   }
 
   // ═══════════════════════════════════════════════════════════════════

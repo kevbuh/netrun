@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { navigate, openTab, saveToReadingList, createExperiment, createCalendarEvent } from '../system/index';
+import { navigate, openTab, saveToReadingList, createCalendarEvent } from '../system/index';
 
 describe('system tools', () => {
   describe('navigate', () => {
@@ -37,28 +37,6 @@ describe('system tools', () => {
       );
       expect(result.success).toBe(true);
       expect(result.data!.message).toContain('bookmarked');
-    });
-  });
-
-  describe('create-experiment', () => {
-    it('requires title', async () => {
-      const result = await createExperiment.execute({ title: '' }, {});
-      expect(result.success).toBe(false);
-    });
-
-    it('requires authentication', async () => {
-      const result = await createExperiment.execute({ title: 'Test' }, {});
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('authenticated');
-    });
-
-    it('creates experiment with auth', async () => {
-      const result = await createExperiment.execute(
-        { title: 'My Experiment' },
-        { googleId: 'user123' }
-      );
-      expect(result.success).toBe(true);
-      expect(result.data!.title).toBe('My Experiment');
     });
   });
 

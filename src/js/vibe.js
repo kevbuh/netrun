@@ -345,7 +345,4 @@ function _vibeActivateSelection() {
 }
 
 // Auto-refresh git status when tab regains focus
-window.addEventListener('focus', () => {
-  if (window.location.hash === '#vault' && _vaultGitMode) _vibeRefresh();
-  if (window.location.hash === '#vault' && typeof _vaultFetchGitStatus === 'function') _vaultFetchGitStatus();
-});
+window.addEventListener('focus', () => {});

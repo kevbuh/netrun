@@ -29,7 +29,6 @@ const _HELP_DATA = {
     ['/search query', 'Web search in new tab'],
     ['/paper query', 'Search arXiv papers'],
     ['/user query', 'Search for users'],
-    ['/notes', 'Browse your notes'],
     ['/links', 'List links on page'],
     ['/tab', 'Add tab to chat context'],
     ['/model', 'Change chat model'],
@@ -37,7 +36,6 @@ const _HELP_DATA = {
     ['/capture', 'Screenshot the page'],
     ['/bookmark', 'Save to reading list'],
     ['/find', 'Find in page'],
-    ['/note', 'Open in note viewer'],
     ['/upload', 'Open a local file'],
     ['/close', 'Close tab'],
     ['/copy', 'Copy page URL'],
@@ -83,7 +81,6 @@ const _HELP_DATA = {
     ['fetch_page', 'Fetch and extract text from a URL'],
     ['save_to_reading_list', 'Bookmark a post to your reading list'],
     ['navigate', 'Navigate to a specific app view'],
-    ['create_experiment', 'Create a new project'],
     ['create_calendar_event', 'Add an event to your calendar'],
   ],
   aiModels: [

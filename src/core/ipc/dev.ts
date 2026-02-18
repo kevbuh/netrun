@@ -4,7 +4,6 @@ import * as path from 'path';
 import { execFile as execFileCb } from 'child_process';
 import { promisify } from 'util';
 import { getDb, prepare } from '../db/connection.js';
-import { getUserVaultPath } from './shared.js';
 
 const execFile = promisify(execFileCb);
 
@@ -351,115 +350,7 @@ export function registerDevIPC(): void {
     }
   });
 
-  ipcMain.handle('db:vibe-git', async (_event, googleId: string, cmd: string, body: Record<string, any>) => {
-    const ALLOWED = new Set(['status', 'files', 'branches', 'log', 'stash', 'diff', 'show', 'reflog']);
-    if (!ALLOWED.has(cmd)) return { error: 'Command not allowed' };
-    const userVault = getUserVaultPath(googleId);
-
-    if (!fs.existsSync(path.join(userVault, '.git'))) {
-      try {
-        await execFile('git', ['init'], { cwd: userVault, timeout: 10_000 });
-        await execFile('git', ['add', '.'], { cwd: userVault, timeout: 10_000 });
-        await execFile('git', ['commit', '-m', 'Initial commit', '--allow-empty'], { cwd: userVault, timeout: 10_000 });
-      } catch { /* ignore init errors */ }
-    }
-
-    const run = async (args: string[], maxOutput = 50000): Promise<string | { error: string }> => {
-      try {
-        const { stdout: out } = await execFile('git', args, { cwd: userVault, timeout: 10_000, encoding: 'utf-8', maxBuffer: maxOutput + 1000 });
-        return out.slice(0, maxOutput);
-      } catch (e: any) {
-        return { error: (e.stderr ?? e.message ?? String(e)).slice(0, 2000) };
-      }
-    };
-
-    if (cmd === 'status') {
-      const out = await run(['status', '--porcelain', '-b']);
-      if (typeof out !== 'string') return out;
-      return { output: out };
-    }
-    if (cmd === 'files') {
-      const changedOut = await run(['status', '--porcelain']);
-      const changed: Record<string, string> = {};
-      if (typeof changedOut === 'string') {
-        for (const line of changedOut.trim().split('\n')) {
-          if (!line) continue;
-          changed[line.slice(3)] = line.slice(0, 2).trim();
-        }
-      }
-      const trackedOut = await run(['ls-files']);
-      if (typeof trackedOut !== 'string') return trackedOut;
-      const files: any[] = [];
-      const seen = new Set<string>();
-      for (const [p, status] of Object.entries(changed)) {
-        files.push({ status, path: p });
-        seen.add(p);
-      }
-      for (const line of trackedOut.trim().split('\n')) {
-        if (!line || seen.has(line)) continue;
-        files.push({ status: ' ', path: line });
-      }
-      return { files };
-    }
-    if (cmd === 'branches') {
-      const out = await run(['branch', '-a', '--format=%(HEAD)%(refname:short)\t%(upstream:track)\t%(objectname:short)\t%(committerdate:relative)']);
-      if (typeof out !== 'string') return out;
-      const branches: any[] = [];
-      for (const line of out.trim().split('\n')) {
-        if (!line) continue;
-        const current = line.startsWith('*');
-        const parts = line.replace(/^\* ?/, '').split('\t');
-        branches.push({ name: parts[0] ?? '', current, track: parts[1] ?? '', hash: parts[2] ?? '', date: parts[3] ?? '' });
-      }
-      return { branches };
-    }
-    if (cmd === 'log') {
-      const branch = body.branch ?? '';
-      const args = ['log', '--oneline', '--graph', '-50', '--format=%h\t%s\t%an\t%ar'];
-      if (branch) args.push(branch);
-      const out = await run(args);
-      if (typeof out !== 'string') return out;
-      const commits: any[] = [];
-      for (const line of out.trim().split('\n')) {
-        if (!line) continue;
-        const parts = line.split('\t');
-        if (parts.length >= 4) {
-          commits.push({ hash: parts[0].replace(/[* |/\\]/g, ''), subject: parts[1], author: parts[2], date: parts[3] });
-        }
-      }
-      return { commits };
-    }
-    if (cmd === 'stash') {
-      const out = await run(['stash', 'list']);
-      if (typeof out !== 'string') return out;
-      return { entries: out.trim().split('\n').filter(Boolean) };
-    }
-    if (cmd === 'diff') {
-      const file = body.file ?? '';
-      const args = ['diff'];
-      if (file) { args.push('--'); args.push(file); }
-      const out = await run(args);
-      if (typeof out !== 'string') return out;
-      let staged = await run(['diff', '--cached', ...(file ? ['--', file] : [])]);
-      if (typeof staged !== 'string') staged = '';
-      let combined = '';
-      if (staged) combined += '=== Staged ===\n' + staged + '\n';
-      if (out) combined += '=== Unstaged ===\n' + out;
-      if (!combined) combined = 'No changes';
-      return { output: combined };
-    }
-    if (cmd === 'show') {
-      const ref = body.ref ?? 'HEAD';
-      if (!/^[a-zA-Z0-9_./@{}\-: ]+$/.test(ref)) return { error: 'Invalid ref' };
-      const out = await run(['show', '--stat', '--patch', ref]);
-      if (typeof out !== 'string') return out;
-      return { output: out };
-    }
-    if (cmd === 'reflog') {
-      const out = await run(['reflog', '--format=%h\t%gd\t%gs\t%ar', '-50']);
-      if (typeof out !== 'string') return out;
-      return { entries: out.trim().split('\n').filter(Boolean) };
-    }
-    return { error: 'Unknown command' };
+  ipcMain.handle('db:vibe-git', async () => {
+    return { error: 'Vault removed' };
   });
 }

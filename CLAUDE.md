@@ -51,7 +51,7 @@ npm run validate-load-order # Check script load order
 
 ### Key subsystems in `src/core/`
 
-- **Tools** (`src/core/tools/`): Registry pattern — each tool category (browser, calendar, content, context, experiment, feed, media, search, social, system, vault) registers via `ToolRegistry`. Tools are callable by the agent system.
+- **Tools** (`src/core/tools/`): Registry pattern — each tool category (browser, calendar, content, context, feed, media, search, social, system) registers via `ToolRegistry`. Tools are callable by the agent system.
 - **Providers** (`src/core/providers/`): LLM provider abstraction. **Only use local LLMs via Ollama** — do not use OpenAI or Anthropic APIs.
 - **Agents** (`src/core/agents/`): Agent runtime with tool-calling loop. Built-in research assistant agent.
 - **Ambient** (`src/core/ambient/`): Ambient processing pipeline for background tasks.
@@ -74,7 +74,7 @@ npm run validate-load-order # Check script load order
 
 - `src/js/` files are plain browser JS (`sourceType: 'script'`), not ES modules. They use the global `electronAPI` object for IPC.
 - Organized by feature: `core/` (routing, sidebar, layout, state, audio, sounds, auth, navigation, profile, context-intake, UI utils, icons), `browse/` (tabs, sessions, passwords, agent, annotations, audio, captions, downloads, features, island, menu, NTP, paper, pill, split-panes, state, windows), `settings/` (theme, colors, sections, core, init).
-- Feature modules at top level: api, calendar, chat-threads, dashboard, draw-editor, experiments, feed, neuralook, notebook-editor, onboarding, panel (chat, commands, state, tts), pixel-pet, quality, search, terminal, vault, vibe, whiteboard.
+- Feature modules at top level: api, calendar, chat-threads, dashboard, draw-editor, feed, neuralook, notebook-editor, onboarding, panel (chat, commands, state, tts), pixel-pet, quality, search, terminal, vibe, whiteboard.
 - Tests co-located as `*.test.js` files, run by Vitest with happy-dom.
 
 #### Rendering conventions
@@ -95,7 +95,7 @@ npm run validate-load-order # Check script load order
 
 ### Views (`src/views/`)
 
-HTML pages: algorithm, author-profile, blog, dashboard, dev, experiment-detail, inbox, neuralook, onboarding, profile, quality, research, settings, vault, vibe.
+HTML pages: algorithm, author-profile, blog, dashboard, dev, inbox, neuralook, onboarding, profile, quality, research, settings, vibe.
 
 ### Python (legacy/auxiliary)
 

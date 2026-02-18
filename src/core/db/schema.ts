@@ -40,48 +40,8 @@ export function initSchema(db: Database.Database): void {
     );
   `);
 
-  // ── Teams ──
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS teams (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      owner_google_id TEXT NOT NULL REFERENCES users(google_id),
-      private INTEGER DEFAULT 0,
-      parent_id INTEGER,
-      created TEXT DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS team_members (
-      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-      google_id TEXT NOT NULL REFERENCES users(google_id),
-      role TEXT NOT NULL DEFAULT 'member',
-      joined TEXT DEFAULT (datetime('now')),
-      PRIMARY KEY (team_id, google_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS team_invites (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-      from_google_id TEXT NOT NULL,
-      to_google_id TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      created TEXT DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS experiment_teams (
-      experiment_id TEXT NOT NULL,
-      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-      PRIMARY KEY (experiment_id, team_id)
-    );
-  `);
-
   // ── Per-user data ──
   db.exec(`
-    CREATE TABLE IF NOT EXISTS experiment_owners (
-      experiment_id TEXT PRIMARY KEY,
-      google_id TEXT NOT NULL REFERENCES users(google_id)
-    );
-
     CREATE TABLE IF NOT EXISTS calendar_events (
       id TEXT PRIMARY KEY,
       google_id TEXT NOT NULL REFERENCES users(google_id),
@@ -113,41 +73,6 @@ export function initSchema(db: Database.Database): void {
       read INTEGER DEFAULT 0
     );
 
-    CREATE TABLE IF NOT EXISTS team_messages (
-      id TEXT PRIMARY KEY,
-      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-      google_id TEXT NOT NULL REFERENCES users(google_id),
-      content TEXT NOT NULL,
-      timestamp REAL NOT NULL,
-      edited INTEGER DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS team_todos (
-      id TEXT PRIMARY KEY,
-      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-      google_id TEXT NOT NULL REFERENCES users(google_id),
-      title TEXT NOT NULL,
-      done INTEGER DEFAULT 0,
-      priority TEXT DEFAULT 'medium',
-      assigned_to TEXT,
-      description TEXT,
-      timestamp REAL NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS team_chat_read (
-      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-      google_id TEXT NOT NULL REFERENCES users(google_id),
-      last_read REAL NOT NULL DEFAULT 0,
-      PRIMARY KEY (team_id, google_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS message_reactions (
-      message_id TEXT NOT NULL REFERENCES team_messages(id) ON DELETE CASCADE,
-      google_id TEXT NOT NULL REFERENCES users(google_id),
-      emoji TEXT NOT NULL,
-      timestamp REAL NOT NULL,
-      PRIMARY KEY (message_id, google_id, emoji)
-    );
   `);
 
   // ── Social ──
@@ -159,15 +84,6 @@ export function initSchema(db: Database.Database): void {
       paper_link TEXT NOT NULL,
       paper_title TEXT,
       timestamp REAL NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS blog_votes (
-      blog_author TEXT NOT NULL,
-      blog_slug TEXT NOT NULL,
-      voter_google_id TEXT NOT NULL REFERENCES users(google_id),
-      vote INTEGER NOT NULL,
-      timestamp REAL NOT NULL,
-      PRIMARY KEY (blog_author, blog_slug, voter_google_id)
     );
 
     CREATE TABLE IF NOT EXISTS achievements (

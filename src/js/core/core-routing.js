@@ -4,13 +4,11 @@
 // ── Route table — exact hash → action ──
 var _ROUTE_TABLE = {
   '#research':    () => { openResearch(); },
-  '#experiments': () => wmOpen('dashboard'),
   '#settings':    () => wmOpen('settings'),
   '#quality':     () => { _settingsSection = 'feed'; _settingsFeedTab = 'quality'; Settings.set('settingsSection', 'feed'); wmOpen('settings'); },
   '#algorithm':   () => { _settingsSection = 'feed'; _settingsFeedTab = 'algorithm'; Settings.set('settingsSection', 'feed'); wmOpen('settings'); },
   '#calendar':    () => wmOpen('dashboard'),
   '#inbox':       () => wmOpen('inbox'),
-  '#vault':       () => wmOpen('dashboard'),
   '#profile':     () => openUserProfile(''),
   '#saved-all':   () => openAllSaved(),
   '#saved':       () => wmOpen('dashboard'),
@@ -25,9 +23,7 @@ var _ROUTE_TABLE = {
 
 // ── Prefix route handlers — hash prefix → handler(remainder) ──
 var _ROUTE_PREFIX_HANDLERS = [
-  ['#blog/',       (rest) => { const parts = rest.split('/'); if (parts.length >= 2) { const username = decodeURIComponent(parts[0]); const slug = decodeURIComponent(parts.slice(1).join('/')); if (typeof openBlogPost === 'function') openBlogPost(username, slug); } }],
   ['#profile/',    (rest) => openUserProfile(decodeURIComponent(rest))],
-  ['#experiment/', (rest) => { wmOpen('dashboard'); }],
 ];
 
 function routeFromHash() {

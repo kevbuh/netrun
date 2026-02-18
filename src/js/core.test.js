@@ -236,24 +236,14 @@ function parseRoute(hash) {
   if (simpleViews.includes(route)) return { view: route, params: {} };
 
   // Special redirects
-  if (route === 'vault' || route === 'experiments' || route === 'vibe') return { view: 'dashboard', params: {}, redirect: true };
+  if (route === 'vault' || route === 'vibe') return { view: 'dashboard', params: {}, redirect: true };
   if (route === 'quality') return { view: 'settings', params: { section: 'feed', tab: 'quality' }, redirect: true };
   if (route === 'algorithm') return { view: 'settings', params: { section: 'feed', tab: 'algorithm' }, redirect: true };
 
   // Parameterized routes
-  if (route.startsWith('blog/')) {
-    const parts = route.slice(5).split('/');
-    return { view: 'blog', params: { postId: parts[0] } };
-  }
-
   if (route.startsWith('profile/')) {
     const username = route.slice(8);
     return { view: 'profile', params: { username } };
-  }
-
-  if (route.startsWith('experiment/')) {
-    const id = route.slice(11);
-    return { view: 'experiment', params: { id } };
   }
 
   if (route.startsWith('author/')) {
@@ -672,12 +662,6 @@ describe('Route Parser', () => {
   });
 
   describe('Redirect routes', () => {
-    it('should parse experiments redirect to dashboard', () => {
-      const result = parseRoute('#experiments');
-      expect(result.view).toBe('dashboard');
-      expect(result.redirect).toBe(true);
-    });
-
     it('should parse vault redirect to dashboard', () => {
       const result = parseRoute('#vault');
       expect(result.view).toBe('dashboard');
@@ -706,22 +690,10 @@ describe('Route Parser', () => {
   });
 
   describe('Parameterized routes', () => {
-    it('should parse blog route with post ID', () => {
-      const result = parseRoute('#blog/123');
-      expect(result.view).toBe('blog');
-      expect(result.params).toEqual({ postId: '123' });
-    });
-
     it('should parse profile route with username', () => {
       const result = parseRoute('#profile/johndoe');
       expect(result.view).toBe('profile');
       expect(result.params).toEqual({ username: 'johndoe' });
-    });
-
-    it('should parse experiment route with ID', () => {
-      const result = parseRoute('#experiment/my-experiment');
-      expect(result.view).toBe('experiment');
-      expect(result.params).toEqual({ id: 'my-experiment' });
     });
 
     it('should parse author route with ID', () => {
@@ -766,7 +738,6 @@ describe('Route Parser', () => {
       const routes = [
         '#feed',
         '#browse',
-        '#experiment/my-project',
         '#profile/alice',
         '#settings',
         '#quality',
@@ -776,13 +747,11 @@ describe('Route Parser', () => {
 
       expect(results[0].view).toBe('feed');
       expect(results[1].view).toBe('browse');
-      expect(results[2].view).toBe('experiment');
-      expect(results[2].params.id).toBe('my-project');
-      expect(results[3].view).toBe('profile');
-      expect(results[3].params.username).toBe('alice');
-      expect(results[4].view).toBe('settings');
-      expect(results[5].view).toBe('settings'); // Redirect
-      expect(results[5].params.tab).toBe('quality');
+      expect(results[2].view).toBe('profile');
+      expect(results[2].params.username).toBe('alice');
+      expect(results[3].view).toBe('settings');
+      expect(results[4].view).toBe('settings'); // Redirect
+      expect(results[4].params.tab).toBe('quality');
     });
   });
 
@@ -802,11 +771,6 @@ describe('Route Parser', () => {
       expect(result.params.username).toBe(username);
     });
 
-    it('should handle empty experiment ID', () => {
-      const result = parseRoute('#experiment/');
-      expect(result.view).toBe('experiment');
-      expect(result.params.id).toBe('');
-    });
   });
 });
 

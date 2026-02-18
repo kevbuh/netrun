@@ -69,7 +69,6 @@ export const researchAssistant: AgentDefinition = {
     'navigate',
     'open-tab',
     'save-to-reading-list',
-    'create-experiment',
     'create-calendar-event',
     'browser-read-page',
     'browser-click',
@@ -165,7 +164,7 @@ export const researchAssistant: AgentDefinition = {
       return (
         dateStr +
         'You are the AI assistant inside Netrun, a desktop research app with a built-in ' +
-        'browser, feed reader, calendar, and experiment workspace. The user is reading a ' +
+        'browser, feed reader, calendar, and workspace. The user is reading a ' +
         'document. Answer their questions based on the document text below when relevant. ' +
         'You have tools that perform real actions in the app. IMPORTANT: You MUST actually ' +
         'call the tools to perform actions — never pretend you performed an action or describe ' +
@@ -193,12 +192,12 @@ export const researchAssistant: AgentDefinition = {
       return (
         dateStr +
         'You are the AI assistant inside Netrun, a desktop research app with a built-in ' +
-        'browser, feed reader, calendar, and experiment workspace. You have tools that ' +
+        'browser, feed reader, calendar, and workspace. You have tools that ' +
         'perform real actions in the app. IMPORTANT: You MUST actually call the tools to ' +
         'perform actions — never pretend you performed an action or describe the result ' +
         'without calling the tool first. Never say you cannot open tabs or ' +
         'navigate — you can, using your tools. Available tools: web-search, paper-search, ' +
-        'extract-text, save-to-reading-list, navigate, create-experiment, ' +
+        'extract-text, save-to-reading-list, navigate, ' +
         'create-calendar-event, open-tab, context-update.' +
         contextToolNote + ' ' +
         browserDesc + pageCtx + livingCtx

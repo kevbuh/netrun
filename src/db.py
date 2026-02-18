@@ -50,41 +50,8 @@ def init_db():
             FOREIGN KEY (google_id) REFERENCES users(google_id)
         );
     """)
-    # Teams tables
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS teams (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            owner_google_id TEXT NOT NULL REFERENCES users(google_id),
-            created TEXT DEFAULT (datetime('now'))
-        );
-        CREATE TABLE IF NOT EXISTS team_members (
-            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-            google_id TEXT NOT NULL REFERENCES users(google_id),
-            role TEXT NOT NULL DEFAULT 'member',
-            joined TEXT DEFAULT (datetime('now')),
-            PRIMARY KEY (team_id, google_id)
-        );
-        CREATE TABLE IF NOT EXISTS team_invites (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-            from_google_id TEXT NOT NULL,
-            to_google_id TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending',
-            created TEXT DEFAULT (datetime('now'))
-        );
-        CREATE TABLE IF NOT EXISTS experiment_teams (
-            experiment_id TEXT NOT NULL,
-            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-            PRIMARY KEY (experiment_id, team_id)
-        );
-    """)
     # Per-user data tables
     conn.executescript("""
-        CREATE TABLE IF NOT EXISTS experiment_owners (
-            experiment_id TEXT PRIMARY KEY,
-            google_id TEXT NOT NULL REFERENCES users(google_id)
-        );
         CREATE TABLE IF NOT EXISTS calendar_events (
             id TEXT PRIMARY KEY,
             google_id TEXT NOT NULL REFERENCES users(google_id),
@@ -113,30 +80,6 @@ def init_db():
             timestamp REAL NOT NULL,
             read INTEGER DEFAULT 0
         );
-        CREATE TABLE IF NOT EXISTS team_messages (
-            id TEXT PRIMARY KEY,
-            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-            google_id TEXT NOT NULL REFERENCES users(google_id),
-            content TEXT NOT NULL,
-            timestamp REAL NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS team_todos (
-            id TEXT PRIMARY KEY,
-            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-            google_id TEXT NOT NULL REFERENCES users(google_id),
-            title TEXT NOT NULL,
-            done INTEGER DEFAULT 0,
-            priority TEXT DEFAULT 'medium',
-            assigned_to TEXT,
-            description TEXT,
-            timestamp REAL NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS team_chat_read (
-            team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-            google_id TEXT NOT NULL REFERENCES users(google_id),
-            last_read REAL NOT NULL DEFAULT 0,
-            PRIMARY KEY (team_id, google_id)
-        );
     """)
     # Migration: add username column if missing
     cols = [r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()]
@@ -158,21 +101,7 @@ def init_db():
     if 'picture' not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN picture TEXT")
         conn.commit()
-    # Migration: add edited column to team_messages
-    tm_cols = [r[1] for r in conn.execute("PRAGMA table_info(team_messages)").fetchall()]
-    if 'edited' not in tm_cols:
-        conn.execute("ALTER TABLE team_messages ADD COLUMN edited INTEGER DEFAULT 0")
-        conn.commit()
-    # Message reactions table
     conn.executescript("""
-        CREATE TABLE IF NOT EXISTS message_reactions (
-            message_id TEXT NOT NULL REFERENCES team_messages(id) ON DELETE CASCADE,
-            google_id TEXT NOT NULL REFERENCES users(google_id),
-            emoji TEXT NOT NULL,
-            timestamp REAL NOT NULL,
-            PRIMARY KEY (message_id, google_id, emoji)
-        );
-
         CREATE TABLE IF NOT EXISTS reposts (
             id TEXT PRIMARY KEY,
             google_id TEXT NOT NULL REFERENCES users(google_id),
@@ -180,15 +109,6 @@ def init_db():
             paper_link TEXT NOT NULL,
             paper_title TEXT,
             timestamp REAL NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS blog_votes (
-            blog_author TEXT NOT NULL,
-            blog_slug TEXT NOT NULL,
-            voter_google_id TEXT NOT NULL REFERENCES users(google_id),
-            vote INTEGER NOT NULL,
-            timestamp REAL NOT NULL,
-            PRIMARY KEY (blog_author, blog_slug, voter_google_id)
         );
 
         CREATE TABLE IF NOT EXISTS achievements (
@@ -229,14 +149,6 @@ def init_db():
     if 'profile_bg' not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN profile_bg TEXT")
         conn.commit()
-    # Migration: add private and parent_id columns to teams
-    team_cols = [r[1] for r in conn.execute("PRAGMA table_info(teams)").fetchall()]
-    if 'private' not in team_cols:
-        conn.execute("ALTER TABLE teams ADD COLUMN private INTEGER DEFAULT 0")
-        conn.commit()
-    if 'parent_id' not in team_cols:
-        conn.execute("ALTER TABLE teams ADD COLUMN parent_id INTEGER")
-        conn.commit()
     conn.execute("""
         CREATE TABLE IF NOT EXISTS usage_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -273,19 +185,6 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_fi_source ON feed_items(source);
         CREATE INDEX IF NOT EXISTS idx_fi_pubdate ON feed_items(pub_date DESC);
     """)
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS embeddings (
-            content_hash TEXT PRIMARY KEY,
-            content_type TEXT NOT NULL,
-            title TEXT NOT NULL,
-            link TEXT NOT NULL,
-            source TEXT DEFAULT '',
-            embedding BLOB NOT NULL,
-            dim INTEGER NOT NULL,
-            created_at REAL NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_emb_type ON embeddings(content_type);
-    """)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS smart_highlights_cache (
             url_hash TEXT PRIMARY KEY,
@@ -301,8 +200,6 @@ def init_db():
             page_url TEXT DEFAULT '',
             page_title TEXT DEFAULT '',
             message_count INTEGER DEFAULT 0,
-            embedding BLOB,
-            dim INTEGER DEFAULT 0,
             created_at REAL NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_chatmem_created ON chat_memories(created_at DESC);

@@ -9,7 +9,7 @@ export { extractText } from './content/index.js';
 
 // System tools
 export {
-  navigate, openTab, saveToReadingList, createExperiment, createCalendarEvent,
+  navigate, openTab, saveToReadingList, createCalendarEvent,
 } from './system/index.js';
 
 // Browser tools
@@ -18,12 +18,6 @@ export {
   browserQuerySelector, browserWaitFor, browserGetUrl, browserGetTabs, browserSwitchTab, browserBack, browserForward,
   browserPressKey, browserGetStorage,
 } from './browser/index.js';
-
-// Experiment tools
-export {
-  experimentList, experimentCreate, experimentListFiles, experimentGetFile,
-  experimentWriteFile, experimentDelete, experimentExecuteCode,
-} from './experiment/index.js';
 
 // Feed tools
 export { feedList, feedFetch, feedQualityFilter } from './feed/index.js';
@@ -43,9 +37,8 @@ export { contextUpdate } from './context/index.js';
 import { toolRegistry } from './registry.js';
 import { webSearch, paperSearch } from './search/index.js';
 import { extractText } from './content/index.js';
-import { navigate, openTab, saveToReadingList, createExperiment, createCalendarEvent } from './system/index.js';
+import { navigate, openTab, saveToReadingList, createCalendarEvent } from './system/index.js';
 import { browserReadPage, browserClick, browserType, browserScroll, browserNavigate, browserScreenshot, browserQuerySelector, browserWaitFor, browserGetUrl, browserGetTabs, browserSwitchTab, browserBack, browserForward, browserPressKey, browserGetStorage } from './browser/index.js';
-import { experimentList, experimentCreate, experimentListFiles, experimentGetFile, experimentWriteFile, experimentDelete, experimentExecuteCode } from './experiment/index.js';
 import { feedList, feedFetch, feedQualityFilter } from './feed/index.js';
 import { socialUserProfile } from './social/index.js';
 import { mediaTranscribe, mediaTts } from './media/index.js';
@@ -61,11 +54,10 @@ export function registerAllTools(): void {
   // Content (1)
   toolRegistry.register(extractText);
 
-  // System (5)
+  // System (4)
   toolRegistry.register(navigate);
   toolRegistry.register(openTab);
   toolRegistry.register(saveToReadingList);
-  toolRegistry.register(createExperiment);
   toolRegistry.register(createCalendarEvent);
 
   // Browser (15)
@@ -84,15 +76,6 @@ export function registerAllTools(): void {
   toolRegistry.register(browserForward);
   toolRegistry.register(browserPressKey);
   toolRegistry.register(browserGetStorage);
-
-  // Experiment (7)
-  toolRegistry.register(experimentList);
-  toolRegistry.register(experimentCreate);
-  toolRegistry.register(experimentListFiles);
-  toolRegistry.register(experimentGetFile);
-  toolRegistry.register(experimentWriteFile);
-  toolRegistry.register(experimentDelete);
-  toolRegistry.register(experimentExecuteCode);
 
   // Feed (3)
   toolRegistry.register(feedList);

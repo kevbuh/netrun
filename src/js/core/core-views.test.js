@@ -5,10 +5,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // ──────────────────────────────────────────────────────────
 
 const VIEW_REGISTRY = {
-  'exp-detail-view':     { template: '/views/experiment-detail.html', tier: 2 },
   'dashboard-view':      { template: '/views/dashboard.html', tier: 2 },
   'research-view':       { template: '/views/research.html',  tier: 2 },
-  'blog-view':           { template: '/views/blog.html',      tier: 2 },
   'settings-view':       { template: '/views/settings.html',  tier: 2 },
   'quality-view':        { template: '/views/quality.html',   tier: 2 },
   'algorithm-view':      { template: '/views/algorithm.html', tier: 2 },
@@ -47,7 +45,6 @@ async function ensureView(viewId, fetchFn) {
   const div = document.createElement('div');
   div.id = viewId;
   div.className = 'hidden view';
-  if (viewId === 'blog-view') div.style.height = '100%';
   if (viewId === 'dashboard-view') div.classList.add('overflow-x-hidden');
   div.innerHTML = _viewTemplateCache[viewId];
   document.getElementById('view-mount').appendChild(div);
@@ -106,8 +103,8 @@ function wmOpen(key, wmWindows, state) {
 // ──────────────────────────────────────────────────────────
 
 describe('VIEW_REGISTRY', () => {
-  it('should have 12 registered views', () => {
-    expect(Object.keys(VIEW_REGISTRY)).toHaveLength(12);
+  it('should have 10 registered views', () => {
+    expect(Object.keys(VIEW_REGISTRY)).toHaveLength(10);
   });
 
   it('should have template paths for all views', () => {
@@ -238,14 +235,6 @@ describe('ensureView', () => {
     expect(result.classList.contains('hidden')).toBe(true);
     expect(result.classList.contains('view')).toBe(true);
   });
-
-  it('should set height 100% for blog-view', async () => {
-    const fetchFn = vi.fn().mockResolvedValue('<p>Blog</p>');
-    const result = await ensureView('blog-view', fetchFn);
-
-    expect(result.style.height).toBe('100%');
-  });
-
 
   it('should add overflow-x-hidden class for dashboard-view', async () => {
     const fetchFn = vi.fn().mockResolvedValue('<p>Dashboard</p>');

@@ -13,7 +13,7 @@ def slugify(text):
     s = re.sub(r'[^\w\s-]', '', s)
     s = re.sub(r'[\s_]+', '-', s)
     s = re.sub(r'-+', '-', s).strip('-')
-    return s or 'experiment'
+    return s or 'project'
 
 
 def unique_vault_slug(vault_path, base):

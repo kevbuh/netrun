@@ -100,22 +100,8 @@ export function setUsername(googleId: string, username: string): boolean {
 export function deleteUser(googleId: string): void {
   const db = getDb();
   const tx = db.transaction(() => {
-    // Get owned teams
-    const ownedTeams = prepare('SELECT id FROM teams WHERE owner_google_id = ?').all(googleId) as Array<{ id: number }>;
-    // Delete per-user data
-    prepare('DELETE FROM message_reactions WHERE google_id = ?').run(googleId);
     prepare('DELETE FROM calendar_events WHERE google_id = ?').run(googleId);
     prepare('DELETE FROM comments WHERE google_id = ?').run(googleId);
-    prepare('DELETE FROM experiment_owners WHERE google_id = ?').run(googleId);
-    // Delete owned teams and related data
-    for (const t of ownedTeams) {
-      prepare('DELETE FROM experiment_teams WHERE team_id = ?').run(t.id);
-      prepare('DELETE FROM team_invites WHERE team_id = ?').run(t.id);
-      prepare('DELETE FROM team_members WHERE team_id = ?').run(t.id);
-      prepare('DELETE FROM teams WHERE id = ?').run(t.id);
-    }
-    prepare('DELETE FROM team_members WHERE google_id = ?').run(googleId);
-    prepare('DELETE FROM team_invites WHERE from_google_id = ? OR to_google_id = ?').run(googleId, googleId);
     prepare('DELETE FROM user_data WHERE google_id = ?').run(googleId);
     prepare('DELETE FROM sessions WHERE google_id = ?').run(googleId);
     prepare('DELETE FROM users WHERE google_id = ?').run(googleId);

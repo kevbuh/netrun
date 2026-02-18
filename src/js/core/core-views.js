@@ -252,10 +252,8 @@ const _viewTemplateCache = {};   // { viewId: htmlString }
 const _mountedViews = new Set(); // currently injected view IDs
 
 const VIEW_REGISTRY = {
-  'exp-detail-view':     { template: '/views/experiment-detail.html', tier: 2 },
   'dashboard-view':      { template: '/views/dashboard.html', tier: 2 },
   'research-view':       { template: '/views/research.html',  tier: 2 },
-  'blog-view':           { template: '/views/blog.html',      tier: 2 },
   'settings-view':       { template: '/views/settings.html',  tier: 2 },
   'quality-view':        { template: '/views/quality.html',   tier: 2 },
   'algorithm-view':      { template: '/views/algorithm.html', tier: 2 },
@@ -284,7 +282,6 @@ async function ensureView(viewId) {
   div.id = viewId;
   div.className = 'hidden view';
   // Preserve extra styles for specific views
-  if (viewId === 'blog-view') div.style.height = '100%';
   if (viewId === 'dashboard-view') div.classList.add('overflow-x-hidden');
   div.innerHTML = _viewTemplateCache[viewId];
   document.getElementById('view-mount').appendChild(div);
@@ -536,10 +533,6 @@ function openSearch() {
   openResearch();
 }
 
-function openExperiments() {
-  wmOpen('dashboard');
-}
-
 async function openDashboard() {
   hideAllViews();
   const view = await ensureView('dashboard-view');
@@ -559,14 +552,5 @@ async function openDevStats() {
   setSidebarActive('sb-dev');
   renderDevPanel();
 }
-
-function expGoBack() {
-  if (_expBackAction && _expBackAction.fn) {
-    _expBackAction.fn();
-  } else if (!navBack()) {
-    wmOpen('dashboard');
-  }
-}
-
 
 // ── Navigation history stack (survives Cmd+Shift+R via localStorage) ──

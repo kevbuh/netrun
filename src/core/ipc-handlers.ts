@@ -7,7 +7,6 @@ import { registerContextIPC } from './ipc/context.js';
 import { registerChatIPC } from './ipc/chat.js';
 import { registerSystemIPC } from './ipc/system.js';
 import { registerDevIPC } from './ipc/dev.js';
-import { registerExperimentIPC } from './ipc/experiment.js';
 import { registerKernelIPC } from './ipc/kernel.js';
 import { registerNeuralookIPC } from './ipc/neuralook.js';
 import { registerTerminalIPC } from './ipc/terminal.js';
@@ -26,7 +25,6 @@ export function registerToolIPC(): void {
   registerChatIPC();
   registerSystemIPC();
   registerDevIPC();
-  registerExperimentIPC();
   registerKernelIPC();
   registerNeuralookIPC();
   registerTerminalIPC();

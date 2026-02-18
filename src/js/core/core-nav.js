@@ -34,11 +34,6 @@ function navBack() {
   return true;
 }
 
-async function openExperimentDetail(id, e) {
-  wmOpen('dashboard');
-  window.location.hash = 'experiment/' + encodeURIComponent(id);
-}
-
 // ── Universal Side Panel ──
 const _panelRegistry = {};
 let _panelVisible = Settings.get('universalPanelVisible') !== 'false'; // default true

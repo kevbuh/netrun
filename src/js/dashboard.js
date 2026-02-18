@@ -62,7 +62,6 @@ function _dashBuildStatsRow(papersRead, savedCount, projectCount) {
 
 function _dashBuildQuickActions() {
   var actions = [
-    { label: 'New Project', fn: function() { openExperiments(); }, iconName: 'folder' },
     { label: 'Search', fn: function() { openSearch(); }, iconName: 'search' },
     { label: 'Calendar', fn: function() { wmOpen('calendar'); }, iconName: 'calendar' },
   ];
@@ -101,8 +100,7 @@ async function renderDashboard() {
   AetherUI.mount(RawHTML('<div class="text-center py-20 text-dim"><div class="spinner"></div></div>'), container);
 
   const _uname = _authUserInfo?.username;
-  const [expResp, calResp, profileResp, commentsResp, repostsResp, inboxMessages] = await Promise.all([
-    apiGet('/api/experiments').catch(() => []),
+  const [calResp, profileResp, commentsResp, repostsResp, inboxMessages] = await Promise.all([
     apiGet('/api/calendar').catch(() => []),
     _uname ? apiGet('/api/users/' + encodeURIComponent(_uname)).catch(() => null) : Promise.resolve(null),
     _uname ? apiGet('/api/users/' + encodeURIComponent(_uname) + '/comments').catch(() => []) : Promise.resolve([]),
@@ -110,7 +108,6 @@ async function renderDashboard() {
     apiGet('/api/messages').catch(() => []),
   ]);
 
-  const experiments = expResp || [];
   const events = calResp || [];
   const profile = profileResp || {};
   const myComments = commentsResp || [];
@@ -777,27 +774,6 @@ async function renderDashboard() {
     readingView = Text('No saved posts').className('text-[0.8rem] text-dimmer px-2');
   }
 
-  // ── Recent experiments ──
-  const recentExps = experiments.slice(0, 4);
-  var expsView;
-  if (recentExps.length) {
-    expsView = VStack(recentExps.map(function(exp) {
-      var runCount = exp.runCount || 0;
-      var lastUpdated = exp.lastUpdated ? new Date(exp.lastUpdated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-      return HStack(
-        RawHTML(_pixelArt(exp.id)),
-        VStack(
-          Text(exp.title).className('text-[0.85rem] font-medium text-primary truncate'),
-          Text(runCount + ' run' + (runCount !== 1 ? 's' : '') + (lastUpdated ? ' \u00b7 ' + lastUpdated : '')).className('text-[0.72rem] text-dimmer mt-0.5')
-        ).className('min-w-0 flex-1')
-      ).className('flex items-center gap-2.5')
-       .className('p-3 rounded-lg border border-border-card bg-card cursor-pointer hover:border-border-input transition-colors')
-       .onTap(function(e) { openExperimentDetail(exp.id, e); });
-    })).spacing('8px');
-  } else {
-    expsView = Text('No projects yet').className('text-[0.8rem] text-dimmer');
-  }
-
   // Task priority colors/labels (used in bento grid)
   const _priColors = { high: '#f87171', medium: '#fbbf24', low: '#6ee7b7' };
   const _priLabels = { high: 'High', medium: 'Med', low: 'Low' };
@@ -870,7 +846,6 @@ async function renderDashboard() {
   var countersRow = HStack(
     _counterView(profile.comment_count, 'comments'),
     _counterView(profile.repost_count, 'reposts'),
-    _counterView(profile.experiment_count, 'projects')
   ).className('flex gap-6 mb-6 text-[0.82rem]');
 
   var greetingView = Text(getGreeting()).className('text-[0.95rem] font-medium text-dimmer mb-4');
@@ -880,7 +855,7 @@ async function renderDashboard() {
   // ── Bento layout data ──
   const _papersRead = _dashPapersReadRecent();
   const _savedCount = Object.keys(mergedSaved).length;
-  const _projectCount = experiments.length;
+  const _projectCount = 0;
   const _trending = _dashTrending(5);
 
   // Comments card view
@@ -981,16 +956,6 @@ async function renderDashboard() {
     readingScroll
   ), 'bento-2x2');
   bentoGrid.el.appendChild(readingCard.build());
-
-  // Recent Projects (2x1)
-  var viewAllExps = Button('View all').ghost()
-    .className('text-[0.7rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer')
-    .onTap(function() { openExperiments(); });
-  var expsCard = _bentoCard(VStack(
-    _cardHeader('Recent Projects', viewAllExps),
-    VStack(expsView).className('flex flex-col gap-2')
-  ), 'bento-2x1');
-  bentoGrid.el.appendChild(expsCard.build());
 
   // Bottom row: comments, reposts
   if (myComments.length || myReposts.length) {
@@ -2169,7 +2134,7 @@ function _renderDevTools() {
 
   var achSelect = new (window._AetherUIView || AetherUI.View)('select');
   achSelect.id('dev-ach-select').className('dev-input').styles({minWidth:'180px'});
-  achSelect.el.innerHTML = '<option value="bookworm">Bookworm</option><option value="curator">Curator</option><option value="critic">Critic</option><option value="explorer">Explorer</option><option value="model_switch">Model Swapper</option><option value="its_alive">It\'s Alive!</option><option value="pixel_parent">Pixel Parent</option>';
+  achSelect.el.innerHTML = '<option value="bookworm">Bookworm</option><option value="curator">Curator</option><option value="critic">Critic</option><option value="explorer">Explorer</option><option value="model_switch">Model Swapper</option><option value="pixel_parent">Pixel Parent</option>';
 
   var showBtn = Button('Show').onTap(function() { _devTestAchievement(); })
     .styles({background:'linear-gradient(135deg,#b8860b,#ffd700)', color:'#1a1400', border:'none', borderRadius:'6px', padding:'6px 14px', fontSize:'0.75rem', fontWeight:'600'}).cursor();
@@ -2190,7 +2155,6 @@ var _devAchievements = {
   critic:       { name: 'Critic',        desc: 'Rated your first paper' },
   explorer:     { name: 'Explorer',      desc: 'Enabled a new feed source' },
   model_switch: { name: 'Model Swapper', desc: 'Switched your AI model for the first time' },
-  its_alive:    { name: "It's Alive!",   desc: 'Ran an experiment kernel for the first time' },
   pixel_parent: { name: 'Pixel Parent',  desc: 'Adopted your pixel pet' },
   gaze_master:  { name: 'Gaze Master',  desc: 'Trained your eye-tracking model 5 times' }
 };
@@ -2205,7 +2169,7 @@ function _devTestAchievement() {
 }
 
 function _devResetAchievements() {
-  const keys = ['ach_bookworm', 'ach_curator', 'ach_critic', 'ach_explorer', 'ach_model_switch', 'ach_its_alive', 'ach_pixel_parent', 'ach_gaze_master'];
+  const keys = ['ach_bookworm', 'ach_curator', 'ach_critic', 'ach_explorer', 'ach_model_switch', 'ach_pixel_parent', 'ach_gaze_master'];
   keys.forEach(function(k) { Settings.remove(k); });
   islandRemove('achievement');
 }

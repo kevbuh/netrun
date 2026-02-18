@@ -9,13 +9,11 @@ import { describe, it, expect } from 'vitest';
  */
 const ROUTE_TABLE_KEYS = [
   '#research',
-  '#experiments',
   '#settings',
   '#quality',
   '#algorithm',
   '#calendar',
   '#inbox',
-  '#vault',
   '#profile',
   '#saved-all',
   '#saved',
@@ -32,9 +30,7 @@ const ROUTE_TABLE_KEYS = [
  * Prefix route patterns
  */
 const ROUTE_PREFIXES = [
-  '#blog/',
   '#profile/',
-  '#experiment/',
 ];
 
 /**
@@ -69,20 +65,6 @@ function getRouteRemainder(hash) {
 }
 
 /**
- * Parse blog route
- */
-function parseBlogRoute(hash) {
-  if (!hash.startsWith('#blog/')) return null;
-  const rest = hash.slice(6); // Remove '#blog/'
-  const parts = rest.split('/');
-  if (parts.length < 2) return null;
-  return {
-    username: decodeURIComponent(parts[0]),
-    slug: decodeURIComponent(parts.slice(1).join('/'))
-  };
-}
-
-/**
  * Parse profile route
  */
 function parseProfileRoute(hash) {
@@ -91,29 +73,13 @@ function parseProfileRoute(hash) {
   return decodeURIComponent(username);
 }
 
-/**
- * Parse experiment route
- */
-function parseExperimentRoute(hash) {
-  if (!hash.startsWith('#experiment/')) return null;
-  const rest = hash.slice(12); // Remove '#experiment/'
-  const qIdx = rest.indexOf('?');
-  const expId = qIdx >= 0 ? decodeURIComponent(rest.slice(0, qIdx)) : decodeURIComponent(rest);
-  const params = qIdx >= 0 ? new URLSearchParams(rest.slice(qIdx)) : null;
-  const autoFile = params && params.get('file');
-  return {
-    expId,
-    file: autoFile ? decodeURIComponent(autoFile) : null
-  };
-}
-
 // ──────────────────────────────────────────────────────────
 // Tests
 // ──────────────────────────────────────────────────────────
 
 describe('Route Table Coverage', () => {
-  it('should have 18 exact routes', () => {
-    expect(ROUTE_TABLE_KEYS).toHaveLength(18);
+  it('should have 16 exact routes', () => {
+    expect(ROUTE_TABLE_KEYS).toHaveLength(16);
   });
 
   it('should include core routes', () => {
@@ -145,14 +111,12 @@ describe('Route Table Coverage', () => {
 });
 
 describe('Route Prefix Patterns', () => {
-  it('should have 3 prefix patterns', () => {
-    expect(ROUTE_PREFIXES).toHaveLength(3);
+  it('should have 1 prefix pattern', () => {
+    expect(ROUTE_PREFIXES).toHaveLength(1);
   });
 
   it('should include dynamic routes', () => {
-    expect(ROUTE_PREFIXES).toContain('#blog/');
     expect(ROUTE_PREFIXES).toContain('#profile/');
-    expect(ROUTE_PREFIXES).toContain('#experiment/');
   });
 
   it('should all end with slash', () => {
@@ -170,7 +134,7 @@ describe('Exact Route Matching', () => {
   });
 
   it('should not match prefix routes', () => {
-    expect(isExactRoute('#blog/user/post')).toBe(false);
+    expect(isExactRoute('#profile/user')).toBe(false);
   });
 
   it('should not match unknown routes', () => {
@@ -186,9 +150,7 @@ describe('Exact Route Matching', () => {
 
 describe('Prefix Route Matching', () => {
   it('should match prefix routes', () => {
-    expect(isPrefixRoute('#blog/user/post')).toBe(true);
     expect(isPrefixRoute('#profile/alice')).toBe(true);
-    expect(isPrefixRoute('#experiment/exp1')).toBe(true);
   });
 
   it('should not match exact routes', () => {
@@ -198,13 +160,13 @@ describe('Prefix Route Matching', () => {
 
   it('should require content after prefix', () => {
     // These still match the prefix but would fail to parse
-    expect(isPrefixRoute('#blog/')).toBe(true);
+    expect(isPrefixRoute('#profile/')).toBe(true);
   });
 });
 
 describe('Route Prefix Extraction', () => {
-  it('should extract blog prefix', () => {
-    expect(getRoutePrefix('#blog/user/post')).toBe('#blog/');
+  it('should extract profile prefix', () => {
+    expect(getRoutePrefix('#profile/alice')).toBe('#profile/');
   });
 
   it('should return null for exact routes', () => {
@@ -219,44 +181,11 @@ describe('Route Prefix Extraction', () => {
 
 describe('Route Remainder Extraction', () => {
   it('should extract remainder after prefix', () => {
-    expect(getRouteRemainder('#blog/user/post')).toBe('user/post');
     expect(getRouteRemainder('#profile/alice')).toBe('alice');
   });
 
   it('should return null for non-prefix routes', () => {
     expect(getRouteRemainder('#research')).toBeNull();
-  });
-});
-
-describe('Blog Route Parsing', () => {
-  it('should parse valid blog route', () => {
-    const result = parseBlogRoute('#blog/alice/my-post');
-    expect(result).toEqual({
-      username: 'alice',
-      slug: 'my-post'
-    });
-  });
-
-  it('should handle multi-segment slugs', () => {
-    const result = parseBlogRoute('#blog/bob/deep/nested/post');
-    expect(result).toEqual({
-      username: 'bob',
-      slug: 'deep/nested/post'
-    });
-  });
-
-  it('should decode URI components', () => {
-    const result = parseBlogRoute('#blog/alice/my%20post%20title');
-    expect(result).toEqual({
-      username: 'alice',
-      slug: 'my post title'
-    });
-  });
-
-  it('should return null for invalid blog routes', () => {
-    expect(parseBlogRoute('#blog/')).toBeNull();
-    expect(parseBlogRoute('#blog/onlyuser')).toBeNull();
-    expect(parseBlogRoute('#notblog/user/post')).toBeNull();
   });
 });
 
@@ -279,52 +208,6 @@ describe('Profile Route Parsing', () => {
   });
 });
 
-describe('Experiment Route Parsing', () => {
-  it('should parse experiment ID', () => {
-    const result = parseExperimentRoute('#experiment/exp1');
-    expect(result).toEqual({
-      expId: 'exp1',
-      file: null
-    });
-  });
-
-  it('should parse experiment with file parameter', () => {
-    const result = parseExperimentRoute('#experiment/exp1?file=main.py');
-    expect(result).toEqual({
-      expId: 'exp1',
-      file: 'main.py'
-    });
-  });
-
-  it('should decode URI components', () => {
-    const result = parseExperimentRoute('#experiment/my%20exp?file=my%20file.py');
-    expect(result).toEqual({
-      expId: 'my exp',
-      file: 'my file.py'
-    });
-  });
-
-  it('should handle missing file parameter', () => {
-    const result = parseExperimentRoute('#experiment/exp1?other=value');
-    expect(result).toEqual({
-      expId: 'exp1',
-      file: null
-    });
-  });
-
-  it('should return null for non-experiment routes', () => {
-    expect(parseExperimentRoute('#notexp/exp1')).toBeNull();
-  });
-
-  it('should handle empty experiment ID', () => {
-    const result = parseExperimentRoute('#experiment/');
-    expect(result).toEqual({
-      expId: '',
-      file: null
-    });
-  });
-});
-
 describe('Route Pattern Completeness', () => {
   it('should have no overlap between exact and prefix routes', () => {
     ROUTE_TABLE_KEYS.forEach(exact => {
@@ -338,7 +221,7 @@ describe('Route Pattern Completeness', () => {
     expect(isExactRoute('#browse')).toBe(true);
 
     // Dynamic content routes
-    expect(isPrefixRoute('#blog/user/post')).toBe(true);
     expect(isPrefixRoute('#profile/user')).toBe(true);
+    expect(isPrefixRoute('#unknown/x')).toBe(false);
   });
 });
