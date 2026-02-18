@@ -55,6 +55,7 @@
     this.el = document.createElement(tag || 'div');
     this._effects = [];
     this._children = [];
+    this._viewType = null;
     this._onAppearFn = null;
     this._onDisappearFn = null;
   }

@@ -46,7 +46,9 @@
     var children = Array.prototype.slice.call(arguments);
     // Flatten single array argument
     if (children.length === 1 && Array.isArray(children[0])) children = children[0];
-    return _makeStack('column', children);
+    var v = _makeStack('column', children);
+    v._viewType = 'VStack';
+    return v;
   }
 
   // ─── HStack ───────────────────────────────────────────────
@@ -56,6 +58,7 @@
     if (children.length === 1 && Array.isArray(children[0])) children = children[0];
     var v = _makeStack('row', children);
     v.el.style.alignItems = 'center';
+    v._viewType = 'HStack';
     return v;
   }
 
@@ -98,6 +101,7 @@
       v.el.style.justifyContent = (map[a] || map.center)[0];
       return v;
     };
+    v._viewType = 'ZStack';
     return v;
   }
 
@@ -105,6 +109,7 @@
 
   function Spacer(minSize) {
     var v = new View('div');
+    v._viewType = 'Spacer';
     v.el.style.flex = '1';
     if (minSize) v.el.style.minWidth = _spaceToken(minSize);
     return v;
@@ -114,6 +119,7 @@
 
   function Divider() {
     var v = new View('hr');
+    v._viewType = 'Divider';
     v.el.style.border = 'none';
     v.el.style.borderTop = '1px solid var(--nr-border-default)';
     v.el.style.margin = '0';
@@ -127,6 +133,7 @@
     var children = Array.prototype.slice.call(arguments);
     if (children.length === 1 && Array.isArray(children[0])) children = children[0];
     var v = new View('div');
+    v._viewType = 'ScrollView';
     v.el.style.overflowY = 'auto';
     v.el.style.flex = '1';
     v._appendChildren(children);
@@ -143,6 +150,7 @@
 
   function Text(content) {
     var v = new View('span');
+    v._viewType = 'Text';
     v._bindText(content);
     v.bold = function() { v.el.style.fontWeight = '600'; return v; };
     v.italic = function() { v.el.style.fontStyle = 'italic'; return v; };
@@ -167,6 +175,7 @@
 
   function Label(text, iconName) {
     var v = HStack();
+    v._viewType = 'Label';
     if (iconName) v._appendChildren([Icon(iconName)]);
     v._appendChildren([Text(text)]);
     v.spacing(2);
@@ -177,6 +186,7 @@
 
   function Link(text, href) {
     var v = new View('a');
+    v._viewType = 'Link';
     v.el.textContent = typeof text === 'string' ? text : '';
     if (href) v.el.href = href;
     v.el.style.color = 'var(--nr-text-link)';
@@ -189,6 +199,7 @@
 
   function Image(src) {
     var v = new View('img');
+    v._viewType = 'Image';
     if (S.isSignal(src)) {
       v.el.src = S.resolve(src);
       v._effects.push(S.Effect(function() {
@@ -209,6 +220,7 @@
 
   function Icon(name, size) {
     var v = new View('span');
+    v._viewType = 'Icon';
     v.el.style.display = 'inline-flex';
     v.el.style.alignItems = 'center';
     v.el.style.justifyContent = 'center';
@@ -231,6 +243,7 @@
     var children = Array.prototype.slice.call(arguments);
     if (children.length === 1 && Array.isArray(children[0])) children = children[0];
     var v = new View('div');
+    v._viewType = 'Grid';
     v.el.style.display = 'grid';
     v._appendChildren(children);
 
@@ -271,6 +284,7 @@
 
   function RawHTML(htmlString) {
     var v = new View('div');
+    v._viewType = 'RawHTML';
     v.el.innerHTML = htmlString || '';
     return v;
   }

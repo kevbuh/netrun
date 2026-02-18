@@ -142,6 +142,313 @@ async function agentGetAccessibleDOM(tab) {
   }
 }
 
+// ── Semantic DOM extraction: build component tree ──
+
+async function agentGetSemanticDOM(tab) {
+  if (!tab || !tab.el) return { error: 'no active tab' };
+  const wc = tab.el.getWebContentsId?.();
+  if (!wc) return { error: 'no webContentsId' };
+
+  const code = `(function() {
+    // Clear previous agent IDs
+    document.querySelectorAll('[data-agent-id]').forEach(function(el) { el.removeAttribute('data-agent-id'); });
+
+    var VIEWPORT_BUFFER = 200;
+    var MAX_DEPTH = 8;
+    var MAX_NODES = 500;
+    var vpTop = window.scrollY - VIEWPORT_BUFFER;
+    var vpBottom = window.scrollY + window.innerHeight + VIEWPORT_BUFFER;
+    var nodeCount = 0;
+
+    function isVisible(el) {
+      if (!el.offsetParent && el.tagName !== 'BODY' && el.tagName !== 'HTML') return false;
+      var s = getComputedStyle(el);
+      if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return false;
+      var r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) return false;
+      var elTop = r.top + window.scrollY;
+      var elBottom = r.bottom + window.scrollY;
+      if (elBottom < vpTop || elTop > vpBottom) return false;
+      return true;
+    }
+
+    function textOf(el) {
+      // Direct text only (not from children)
+      var text = '';
+      for (var i = 0; i < el.childNodes.length; i++) {
+        if (el.childNodes[i].nodeType === 3) text += el.childNodes[i].textContent;
+      }
+      return text.trim().replace(/\\s+/g, ' ');
+    }
+
+    function deepText(el) {
+      return (el.textContent || '').trim().replace(/\\s+/g, ' ');
+    }
+
+    function truncate(s, max) {
+      if (!s) return '';
+      if (s.length > (max || 60)) return s.slice(0, max || 60) + '…';
+      return s;
+    }
+
+    // ── Semantic type inference ──
+    var TAG_MAP = {
+      NAV: 'Nav', HEADER: 'Header', MAIN: 'Main', ASIDE: 'Sidebar',
+      FOOTER: 'Footer', FORM: 'Form', TABLE: 'Table', DETAILS: 'Disclosure',
+      UL: 'List', OL: 'List', VIDEO: 'Video'
+    };
+    var ROLE_MAP = {
+      navigation: 'Nav', banner: 'Header', main: 'Main', complementary: 'Sidebar',
+      contentinfo: 'Footer', dialog: 'Dialog', alertdialog: 'Dialog',
+      tablist: 'TabView', menu: 'Menu', menubar: 'Menu'
+    };
+    var HEADING_TAGS = { H1: 1, H2: 2, H3: 3, H4: 4, H5: 5, H6: 6 };
+    var INTERACTIVE_TYPES = new Set(['Button', 'Link', 'TextField', 'Checkbox', 'Radio', 'Slider', 'Picker', 'Textarea', 'Disclosure']);
+
+    function inferType(el) {
+      var tag = el.tagName;
+      var role = el.getAttribute('role');
+
+      // ARIA role takes priority
+      if (role && ROLE_MAP[role]) return { type: ROLE_MAP[role] };
+
+      // Buttons
+      if (tag === 'BUTTON' || role === 'button') return { type: 'Button' };
+      if (tag === 'INPUT' && el.type === 'submit') return { type: 'Button' };
+
+      // Links
+      if (tag === 'A' && el.hasAttribute('href')) return { type: 'Link' };
+
+      // Input types
+      if (tag === 'INPUT') {
+        var it = (el.type || 'text').toLowerCase();
+        if (it === 'checkbox') return { type: 'Checkbox' };
+        if (it === 'radio') return { type: 'Radio' };
+        if (it === 'range') return { type: 'Slider' };
+        if (it === 'password') return { type: 'TextField', secure: true };
+        if (it === 'hidden') return { type: null };
+        return { type: 'TextField' };
+      }
+      if (tag === 'SELECT') return { type: 'Picker' };
+      if (tag === 'TEXTAREA') return { type: 'Textarea' };
+
+      // Headings
+      if (HEADING_TAGS[tag]) return { type: 'Heading', level: HEADING_TAGS[tag] };
+
+      // Landmark tags
+      if (TAG_MAP[tag]) return { type: TAG_MAP[tag] };
+
+      // Text elements
+      if (tag === 'P' || tag === 'SPAN' || tag === 'LABEL' || tag === 'FIGCAPTION') {
+        var t = deepText(el);
+        if (t) return { type: 'Text' };
+        return { type: null };
+      }
+
+      // Images
+      if (tag === 'IMG') return { type: 'Image' };
+
+      // Clickable divs
+      if (role === 'button' || el.getAttribute('tabindex') !== null && el.onclick) {
+        return { type: 'Button' };
+      }
+
+      // Layout inference via CSS
+      if (tag === 'DIV' || tag === 'SECTION' || tag === 'ARTICLE') {
+        try {
+          var cs = getComputedStyle(el);
+          if (cs.display === 'grid') return { type: 'Grid' };
+          if (cs.display === 'flex') {
+            return { type: cs.flexDirection === 'row' || cs.flexDirection === 'row-reverse' ? 'HStack' : 'VStack' };
+          }
+        } catch(e) {}
+      }
+
+      if (tag === 'ARTICLE') return { type: 'Group' };
+
+      return { type: null };
+    }
+
+    // ── Build tree recursively ──
+    var nextId = 1;
+
+    function buildNode(el, depth) {
+      if (nodeCount >= MAX_NODES) return null;
+      if (depth > MAX_DEPTH) return null;
+      if (!isVisible(el)) return null;
+
+      var info = inferType(el);
+      var semType = info.type;
+      var children = [];
+
+      // Process child elements
+      var childEls = el.children;
+      for (var i = 0; i < childEls.length; i++) {
+        var childNode = buildNode(childEls[i], depth + 1);
+        if (childNode) children.push(childNode);
+      }
+
+      // Collapse single-child wrapper divs with no semantic meaning
+      if (!semType && children.length === 1 && !textOf(el)) {
+        return children[0];
+      }
+
+      // Skip invisible/empty leaf divs
+      if (!semType && children.length === 0) {
+        var ownText = textOf(el);
+        if (!ownText) return null;
+        // Promote text-bearing anonymous nodes to Text
+        semType = 'Text';
+      }
+
+      // Default remaining multi-child containers to Group
+      if (!semType && children.length > 1) {
+        semType = 'Group';
+      }
+      if (!semType) semType = 'Group';
+
+      nodeCount++;
+      var node = { type: semType, el: el, children: children, info: info };
+      return node;
+    }
+
+    // ── Format tree as indented string ──
+    function formatAttrs(node) {
+      var el = node.el;
+      var t = node.type;
+      var parts = [];
+      var isInteractive = INTERACTIVE_TYPES.has(t);
+
+      if (t === 'TextField') {
+        if (el.placeholder) parts.push('placeholder="' + truncate(el.placeholder, 40) + '"');
+        var inputType = el.type || 'text';
+        if (inputType !== 'text') parts.push('type=' + inputType);
+        if (node.info.secure) parts.push('secure');
+        if (el.value) parts.push('value="' + truncate(el.value, 40) + '"');
+        if (el.disabled) parts.push('disabled');
+      } else if (t === 'Button') {
+        var label = deepText(el);
+        if (label) parts.push('"' + truncate(label, 50) + '"');
+        if (el.disabled) parts.push('disabled');
+      } else if (t === 'Link') {
+        var linkText = deepText(el);
+        if (linkText) parts.push('"' + truncate(linkText, 50) + '"');
+        var href = el.getAttribute('href') || '';
+        if (href) parts.push('href="' + truncate(href, 60) + '"');
+      } else if (t === 'Checkbox' || t === 'Toggle') {
+        var lbl = el.getAttribute('aria-label') || textOf(el);
+        if (lbl) parts.push('label="' + truncate(lbl, 40) + '"');
+        var inp = el.querySelector('input') || el;
+        parts.push('checked=' + !!inp.checked);
+      } else if (t === 'Radio') {
+        var radioLabel = el.getAttribute('aria-label') || '';
+        if (radioLabel) parts.push('label="' + truncate(radioLabel, 40) + '"');
+        parts.push('checked=' + !!el.checked);
+      } else if (t === 'Slider') {
+        if (el.min) parts.push('min=' + el.min);
+        if (el.max) parts.push('max=' + el.max);
+        parts.push('value=' + (el.value || 0));
+      } else if (t === 'Picker') {
+        if (el.value) parts.push('value="' + truncate(el.value, 30) + '"');
+        parts.push('options=' + el.options.length);
+      } else if (t === 'Image') {
+        if (el.alt) parts.push('alt="' + truncate(el.alt, 40) + '"');
+        if (el.src) parts.push('src="' + truncate(el.src, 50) + '"');
+      } else if (t === 'Heading') {
+        parts.push('(' + (node.info.level || 1) + ')');
+        var hText = deepText(el);
+        if (hText) parts.push('"' + truncate(hText, 60) + '"');
+      } else if (t === 'Text') {
+        var tText = deepText(el);
+        if (tText) parts.push('"' + truncate(tText, 80) + '"');
+      } else if (t === 'Form') {
+        var formLabel = el.getAttribute('aria-label');
+        if (!formLabel) {
+          var fh = el.querySelector('h1,h2,h3,h4,h5,h6');
+          if (fh) formLabel = deepText(fh);
+        }
+        if (formLabel) parts.push('"' + truncate(formLabel, 50) + '"');
+      } else if (t === 'Dialog') {
+        var dlgLabel = el.getAttribute('aria-label');
+        if (!dlgLabel) {
+          var dh = el.querySelector('[class*=title],h1,h2,h3');
+          if (dh) dlgLabel = deepText(dh);
+        }
+        if (dlgLabel) parts.push('"' + truncate(dlgLabel, 50) + '"');
+      } else if (t === 'Disclosure') {
+        var summary = el.querySelector('summary');
+        if (summary) parts.push('"' + truncate(deepText(summary), 50) + '"');
+        parts.push(el.open ? 'open' : 'closed');
+      } else if (t === 'Textarea') {
+        if (el.placeholder) parts.push('placeholder="' + truncate(el.placeholder, 40) + '"');
+        if (el.value) parts.push('value="' + truncate(el.value, 40) + '"');
+        if (el.disabled) parts.push('disabled');
+      }
+
+      return parts.length ? ' ' + parts.join(' ') : '';
+    }
+
+    function renderTree(node, depth, lines) {
+      var indent = '';
+      for (var d = 0; d < depth; d++) indent += '  ';
+      var t = node.type;
+      var isInteractive = INTERACTIVE_TYPES.has(t);
+
+      // Assign ID only to interactive elements
+      if (isInteractive) {
+        var id = nextId++;
+        node.el.setAttribute('data-agent-id', id);
+        lines.push(indent + '[' + id + '] ' + t + formatAttrs(node));
+      } else {
+        // Skip rendering certain layout-only types that add noise
+        if (t === 'Group' && node.children.length <= 1) {
+          // Collapse trivial groups — render children at same depth
+          for (var g = 0; g < node.children.length; g++) {
+            renderTree(node.children[g], depth, lines);
+          }
+          return;
+        }
+        lines.push(indent + t + formatAttrs(node));
+      }
+
+      // Render children
+      for (var i = 0; i < node.children.length; i++) {
+        renderTree(node.children[i], depth + 1, lines);
+      }
+    }
+
+    // ── Execute ──
+    var root = buildNode(document.body, 0);
+    if (!root) return { elements: '', url: location.href, title: document.title, elementCount: 0 };
+
+    var lines = [];
+    // Render from root's children (skip the body node itself)
+    if (root.children && root.children.length > 0) {
+      for (var i = 0; i < root.children.length; i++) {
+        renderTree(root.children[i], 0, lines);
+      }
+    } else {
+      renderTree(root, 0, lines);
+    }
+
+    var viewportMeta = 'VIEWPORT: scrollY=' + Math.round(window.scrollY) + ', pageHeight=' + document.documentElement.scrollHeight + ', viewportHeight=' + window.innerHeight;
+    return {
+      elements: viewportMeta + '\\n' + lines.join('\\n'),
+      url: location.href,
+      title: document.title,
+      elementCount: nextId - 1
+    };
+  })()`;
+
+  try {
+    const result = await window.electronAPI.agentExecJs(wc, code);
+    if (result.error) return { error: result.error };
+    return result.result;
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 // ── Click element by agent ID ──
 
 async function agentClick(tab, elementId) {

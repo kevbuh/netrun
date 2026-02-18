@@ -116,6 +116,7 @@
       _doUpdate();
     }
 
+    v._viewType = 'ForEach';
     v.spacing = function(s) {
       v.el.style.display = 'flex';
       v.el.style.flexDirection = 'column';
@@ -130,6 +131,7 @@
 
   function List(items, keyFnOrRenderFn, renderFn) {
     var forEach = ForEach(items, keyFnOrRenderFn, renderFn);
+    forEach._viewType = 'List';
     forEach.el.style.display = 'flex';
     forEach.el.style.flexDirection = 'column';
     forEach.className('aether-ui-list');
@@ -153,6 +155,7 @@
     var children = Array.prototype.slice.call(arguments);
     if (children.length === 1 && Array.isArray(children[0])) children = children[0];
     var v = new View('div');
+    v._viewType = 'Group';
     v.el.style.display = 'contents';
     v._appendChildren(children);
     return v;
@@ -165,6 +168,7 @@
     if (children.length === 1 && Array.isArray(children[0])) children = children[0];
 
     var v = new View('div');
+    v._viewType = 'Section';
     v.el.className = 'aether-ui-section';
 
     // Header

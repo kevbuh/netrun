@@ -16,6 +16,7 @@
 
   function Button(label) {
     var v = new View('button');
+    v._viewType = 'Button';
     v.el.className = 'nr-btn nr-btn-primary';
     v._bindText(label);
 
@@ -52,6 +53,7 @@
 
   function TextField(placeholderOrBinding, placeholder) {
     var v = new View('input');
+    v._viewType = 'TextField';
     v.el.type = 'text';
     v.el.className = 'nr-input';
 
@@ -99,6 +101,7 @@
 
   function Toggle(binding, label) {
     var v = new View('label');
+    v._viewType = 'Toggle';
     v.el.className = 'aether-ui-toggle';
     v.el.style.display = 'inline-flex';
     v.el.style.alignItems = 'center';
@@ -155,6 +158,7 @@
   function Slider(binding, opts) {
     opts = opts || {};
     var v = new View('input');
+    v._viewType = 'Slider';
     v.el.type = 'range';
     v.el.className = 'nr-input';
     v.el.style.padding = '0';
@@ -184,6 +188,7 @@
 
   function Picker(binding, options) {
     var v = new View('select');
+    v._viewType = 'Picker';
     v.el.className = 'nr-select';
 
     if (options) {
@@ -268,6 +273,7 @@
       })
     ).spacing(1);
 
+    v._viewType = 'Stepper';
     v._effects.push(display);
     return v;
   }
@@ -276,6 +282,7 @@
 
   function Textarea(binding, placeholder) {
     var v = new View('textarea');
+    v._viewType = 'Textarea';
     v.el.className = 'nr-textarea';
 
     if (typeof binding === 'string' && !placeholder) {
@@ -323,6 +330,7 @@
 
   function Checkbox(binding, label) {
     var v = new View('label');
+    v._viewType = 'Checkbox';
     v.el.className = 'nr-checkbox-label';
 
     var input = document.createElement('input');
@@ -362,6 +370,7 @@
 
   function RadioGroup(binding, options) {
     var v = new View('div');
+    v._viewType = 'RadioGroup';
     v.el.className = 'nr-radio-group';
     var groupName = 'nr-radio-' + Math.random().toString(36).slice(2, 8);
 
@@ -428,6 +437,7 @@
 
   function TabView(binding, tabs) {
     var v = new View('div');
+    v._viewType = 'TabView';
     v.el.className = 'nr-tab-view';
     var _segmented = false;
 
@@ -500,6 +510,7 @@
 
   function ProgressBar(binding) {
     var v = new View('div');
+    v._viewType = 'ProgressBar';
     v.el.className = 'nr-progress';
 
     var fill = document.createElement('div');
@@ -530,6 +541,7 @@
 
   function Pill(textOrBinding) {
     var v = new View('span');
+    v._viewType = 'Pill';
     v.el.className = 'nr-pill';
     v._bindText(textOrBinding);
 

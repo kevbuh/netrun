@@ -6,11 +6,182 @@ import { promisify } from 'util';
 import {
   getUserVaultPath, resolveExpDir, safePath, slugify, uniqueSlug,
   parseFrontmatter, stripFrontmatter,
+  SKIP_DIRS, SKIP_FILES, BINARY_MIME,
 } from './shared.js';
 
 const execFile = promisify(execFileCb);
 
 export function registerExperimentIPC(): void {
+
+  // ── Experiment CRUD ──
+
+  ipcMain.handle('db:exp-list', (_event, googleId: string) => {
+    const vault = getUserVaultPath(googleId);
+    if (!fs.existsSync(vault)) return [];
+    const results: any[] = [];
+    for (const name of fs.readdirSync(vault)) {
+      if (name.startsWith('.') || SKIP_DIRS.has(name)) continue;
+      const full = path.join(vault, name);
+      if (!fs.statSync(full).isDirectory()) continue;
+      const metaPath = path.join(full, 'meta.json');
+      let meta: any = {};
+      try { meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8')); } catch { /* no meta */ }
+      results.push({ id: name, title: meta.title || name, desc: meta.desc || '', created: meta.created || 0 });
+    }
+    return results;
+  });
+
+  ipcMain.handle('db:exp-create', (_event, googleId: string, title: string) => {
+    const vault = getUserVaultPath(googleId);
+    const slug = uniqueSlug(vault, slugify(title || 'experiment'));
+    const expDir = path.join(vault, slug);
+    fs.mkdirSync(expDir, { recursive: true });
+    const meta = { title: title || slug, desc: '', created: Math.floor(Date.now() / 1000) };
+    fs.writeFileSync(path.join(expDir, 'meta.json'), JSON.stringify(meta, null, 2));
+    return { id: slug, title: meta.title, desc: '', created: meta.created };
+  });
+
+  ipcMain.handle('db:exp-get', (_event, googleId: string, expId: string) => {
+    const expDir = resolveExpDir(googleId, expId);
+    if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
+    const metaPath = path.join(expDir, 'meta.json');
+    let meta: any = {};
+    try { meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8')); } catch { /* no meta */ }
+    return { id: expId, title: meta.title || expId, desc: meta.desc || '', created: meta.created || 0 };
+  });
+
+  ipcMain.handle('db:exp-delete', (_event, googleId: string, expId: string) => {
+    const expDir = resolveExpDir(googleId, expId);
+    if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
+    fs.rmSync(expDir, { recursive: true, force: true });
+    return { ok: true };
+  });
+
+  // ── Experiment files ──
+
+  ipcMain.handle('db:exp-files', (_event, googleId: string, expId: string) => {
+    const expDir = resolveExpDir(googleId, expId);
+    if (!expDir || !fs.existsSync(expDir)) return [];
+    const files: any[] = [];
+    const walk = (dir: string, rel: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name.startsWith('.') || SKIP_FILES.has(entry.name)) continue;
+        const full = path.join(dir, entry.name);
+        const relPath = rel ? rel + '/' + entry.name : entry.name;
+        if (entry.isDirectory()) {
+          if (SKIP_DIRS.has(entry.name)) continue;
+          walk(full, relPath);
+        } else {
+          try {
+            const st = fs.statSync(full);
+            files.push({ name: relPath, size: st.size, mtime: Math.floor(st.mtimeMs / 1000) });
+          } catch { /* skip */ }
+        }
+      }
+    };
+    walk(expDir, '');
+    return files;
+  });
+
+  ipcMain.handle('db:exp-file-get', (_event, googleId: string, expId: string, fname: string) => {
+    const expDir = resolveExpDir(googleId, expId);
+    const fpath = expDir ? safePath(expDir, fname) : null;
+    if (!fpath || !fs.existsSync(fpath)) return { error: 'Not found' };
+    const ext = path.extname(fname).toLowerCase();
+    if (BINARY_MIME[ext]) {
+      const data = fs.readFileSync(fpath).toString('base64');
+      return { _proxy: true, data, mime: BINARY_MIME[ext] };
+    }
+    return { content: fs.readFileSync(fpath, 'utf-8'), name: fname };
+  });
+
+  ipcMain.handle('db:exp-file-create', (_event, googleId: string, expId: string, fname: string, content: string) => {
+    const expDir = resolveExpDir(googleId, expId);
+    if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
+    if (!fname || fname.includes('..')) return { error: 'Invalid filename' };
+    const fpath = safePath(expDir, fname);
+    if (!fpath) return { error: 'Invalid path' };
+    fs.mkdirSync(path.dirname(fpath), { recursive: true });
+    fs.writeFileSync(fpath, content ?? '');
+    return { ok: true, name: fname };
+  });
+
+  ipcMain.handle('db:exp-file-update', (_event, googleId: string, expId: string, fname: string, body: { content?: string; rename?: string }) => {
+    const expDir = resolveExpDir(googleId, expId);
+    const fpath = expDir ? safePath(expDir, fname) : null;
+    if (!fpath || !fs.existsSync(fpath)) return { error: 'Not found' };
+    if (body.rename) {
+      const newPath = safePath(expDir!, body.rename);
+      if (!newPath) return { error: 'Invalid rename path' };
+      fs.mkdirSync(path.dirname(newPath), { recursive: true });
+      fs.renameSync(fpath, newPath);
+      return { ok: true, name: body.rename };
+    }
+    if (body.content !== undefined) {
+      fs.writeFileSync(fpath, body.content);
+    }
+    return { ok: true, name: fname };
+  });
+
+  ipcMain.handle('db:exp-file-delete', (_event, googleId: string, expId: string, fname: string) => {
+    const expDir = resolveExpDir(googleId, expId);
+    const fpath = expDir ? safePath(expDir, fname) : null;
+    if (!fpath || !fs.existsSync(fpath)) return { error: 'Not found' };
+    fs.unlinkSync(fpath);
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:exp-raw-file', (_event, googleId: string, expId: string, fname: string) => {
+    const expDir = resolveExpDir(googleId, expId);
+    const fpath = expDir ? safePath(expDir, fname) : null;
+    if (!fpath || !fs.existsSync(fpath)) return { error: 'Not found' };
+    const ext = path.extname(fname).toLowerCase();
+    const mime = BINARY_MIME[ext] || 'application/octet-stream';
+    const data = fs.readFileSync(fpath).toString('base64');
+    return { _proxy: true, data, mime };
+  });
+
+  // ── Folders ──
+
+  ipcMain.handle('db:exp-create-folder', (_event, googleId: string, expId: string, name: string) => {
+    const expDir = resolveExpDir(googleId, expId);
+    if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
+    if (!name || name.includes('..')) return { error: 'Invalid folder name' };
+    const folderPath = safePath(expDir, name);
+    if (!folderPath) return { error: 'Invalid path' };
+    fs.mkdirSync(folderPath, { recursive: true });
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:exp-delete-folder', (_event, googleId: string, expId: string, folder: string) => {
+    const expDir = resolveExpDir(googleId, expId);
+    if (!expDir) return { error: 'Not found' };
+    const folderPath = safePath(expDir, folder);
+    if (!folderPath || !fs.existsSync(folderPath)) return { error: 'Not found' };
+    fs.rmSync(folderPath, { recursive: true, force: true });
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:exp-rename-folder', (_event, googleId: string, expId: string, oldName: string, newName: string) => {
+    const expDir = resolveExpDir(googleId, expId);
+    if (!expDir) return { error: 'Not found' };
+    const oldPath = safePath(expDir, oldName);
+    const newPath = safePath(expDir, newName);
+    if (!oldPath || !newPath || !fs.existsSync(oldPath)) return { error: 'Not found' };
+    fs.renameSync(oldPath, newPath);
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:exp-move-file', (_event, googleId: string, expId: string, oldFilePath: string, newFilePath: string) => {
+    const expDir = resolveExpDir(googleId, expId);
+    if (!expDir) return { error: 'Not found' };
+    const srcPath = safePath(expDir, oldFilePath);
+    const destPath = safePath(expDir, newFilePath);
+    if (!srcPath || !destPath || !fs.existsSync(srcPath)) return { error: 'Not found' };
+    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+    fs.renameSync(srcPath, destPath);
+    return { ok: true };
+  });
 
   // ── Marimo start/stop ──
 

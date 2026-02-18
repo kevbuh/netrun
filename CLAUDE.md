@@ -74,7 +74,7 @@ npm run validate-load-order # Check script load order
 
 - `src/js/` files are plain browser JS (`sourceType: 'script'`), not ES modules. They use the global `electronAPI` object for IPC.
 - Organized by feature: `core/` (routing, sidebar, layout, state, audio, sounds, auth, navigation, profile, context-intake, UI utils, icons), `browse/` (tabs, sessions, passwords, agent, annotations, audio, captions, downloads, features, island, menu, NTP, paper, pill, split-panes, state, windows), `settings/` (theme, colors, sections, core, init).
-- Feature modules at top level: api, calendar, chat-threads, dashboard, draw-editor, editors, experiments, feed, neuralook, notebook-editor, onboarding, panel (chat, commands, state, tts), pixel-pet, quality, search, slides-editor, terminal, vault, vibe, whiteboard.
+- Feature modules at top level: api, calendar, chat-threads, dashboard, draw-editor, experiments, feed, neuralook, notebook-editor, onboarding, panel (chat, commands, state, tts), pixel-pet, quality, search, terminal, vault, vibe, whiteboard.
 - Tests co-located as `*.test.js` files, run by Vitest with happy-dom.
 
 #### Rendering conventions

@@ -46,6 +46,87 @@
     }
   }
 
+  // ─── Serialize: walk a view tree into a semantic indented string ──
+
+  var INTERACTIVE_VIEW_TYPES = { Button: 1, TextField: 1, Textarea: 1, Toggle: 1, Checkbox: 1, RadioGroup: 1, Slider: 1, Picker: 1, Stepper: 1, Link: 1 };
+
+  function _serializeAttrs(view) {
+    var el = view.el;
+    var t = view._viewType;
+    var parts = [];
+
+    if (t === 'TextField') {
+      if (el.placeholder) parts.push('placeholder="' + el.placeholder + '"');
+      if (el.type && el.type !== 'text') parts.push('type=' + el.type);
+      if (el.type === 'password') parts.push('secure');
+      if (el.value) parts.push('value="' + el.value + '"');
+      if (el.disabled) parts.push('disabled');
+    } else if (t === 'Button') {
+      var label = (el.textContent || '').trim();
+      if (label) parts.push('"' + label + '"');
+      if (el.disabled) parts.push('disabled');
+    } else if (t === 'Link') {
+      var linkText = (el.textContent || '').trim();
+      if (linkText) parts.push('"' + linkText + '"');
+      if (el.href) parts.push('href="' + el.href + '"');
+    } else if (t === 'Toggle' || t === 'Checkbox') {
+      var lbl = el.getAttribute('aria-label') || (el.textContent || '').trim();
+      if (lbl) parts.push('label="' + lbl + '"');
+      var inp = el.querySelector('input') || el;
+      parts.push('checked=' + !!inp.checked);
+    } else if (t === 'Slider') {
+      if (el.min) parts.push('min=' + el.min);
+      if (el.max) parts.push('max=' + el.max);
+      parts.push('value=' + (el.value || 0));
+    } else if (t === 'Picker') {
+      if (el.value) parts.push('value="' + el.value + '"');
+      if (el.options) parts.push('options=' + el.options.length);
+    } else if (t === 'Textarea') {
+      if (el.placeholder) parts.push('placeholder="' + el.placeholder + '"');
+      if (el.value) parts.push('value="' + el.value + '"');
+    } else if (t === 'Text') {
+      var txt = (el.textContent || '').trim();
+      if (txt) parts.push('"' + (txt.length > 80 ? txt.slice(0, 80) + '…' : txt) + '"');
+    } else if (t === 'Image') {
+      if (el.alt) parts.push('alt="' + el.alt + '"');
+    } else if (t === 'Section') {
+      var header = el.querySelector('.aether-ui-section-header');
+      if (header) {
+        var hText = (header.textContent || '').trim();
+        if (hText) parts.push('"' + hText + '"');
+      }
+    }
+
+    return parts.length ? ' ' + parts.join(' ') : '';
+  }
+
+  var _serializeNextId = 1;
+
+  function _serializeNode(view, depth, lines) {
+    var t = view._viewType || view.el.getAttribute('data-component') || view.el.tagName.toLowerCase();
+    var indent = '';
+    for (var d = 0; d < depth; d++) indent += '  ';
+    var isInteractive = !!INTERACTIVE_VIEW_TYPES[t];
+
+    if (isInteractive) {
+      var id = _serializeNextId++;
+      lines.push(indent + '[' + id + '] ' + t + _serializeAttrs(view));
+    } else {
+      lines.push(indent + t + _serializeAttrs(view));
+    }
+
+    for (var i = 0; i < view._children.length; i++) {
+      _serializeNode(view._children[i], depth + 1, lines);
+    }
+  }
+
+  function serialize(view) {
+    _serializeNextId = 1;
+    var lines = [];
+    _serializeNode(view, 0, lines);
+    return lines.join('\n');
+  }
+
   // ─── API Object ───────────────────────────────────────────
 
   var api = {
@@ -110,6 +191,7 @@
     // Mount
     mount: mount,
     append: append,
+    serialize: serialize,
 
     // Put all primitives, controls, containers on window for convenience
     globals: function() {

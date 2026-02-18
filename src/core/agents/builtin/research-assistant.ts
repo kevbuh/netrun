@@ -32,9 +32,12 @@ function buildBrowserToolsDescription(hasDom: boolean): string {
       'You have browser automation tools: ' +
       'browser-click(element_id), browser-type(element_id, text), browser-scroll(direction), ' +
       'browser-navigate(url), ' + commonTools +
-      'The BROWSER TAB DOM section below shows the viewport-scoped page elements with [N] IDs. ' +
-      'The first line shows VIEWPORT metadata (scrollY, pageHeight, viewportHeight). ' +
-      'Use these IDs directly with browser-click/browser-type. ' +
+      'The BROWSER TAB DOM section below shows a semantic component tree of the page. ' +
+      'The tree uses indentation to show hierarchy. Types include: Header, Nav, Main, Sidebar, Footer, ' +
+      'Form, Dialog, VStack, HStack, Grid, List, Heading, Text, Image, etc. ' +
+      'Only interactive elements have [N] IDs: Button, Link, TextField, Checkbox, Slider, Picker, Textarea, Disclosure. ' +
+      'Use these numeric IDs with browser-click(element_id) and browser-type(element_id, text). ' +
+      'Use the tree structure to understand page layout and find the right interactive element. ' +
       'Use browser-query-selector to find specific elements by CSS selector. ' +
       'When the user says "scroll down" or "scroll up", call browser-scroll. ' +
       'Do NOT call browser-read-page — the DOM is already provided.'

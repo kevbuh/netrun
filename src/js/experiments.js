@@ -787,18 +787,16 @@ async function openFile(fname) {
     renderBinaryViewer(fname, data.content, data.mime);
   } else if (fname.endsWith('.ipynb')) {
     renderNotebookEditor(fname, data.content);
-  } else if (fname.endsWith('.py')) {
-    renderPythonEditor(fname, data.content);
-  } else if (fname.endsWith('.tex') || fname.endsWith('.sty') || fname.endsWith('.bst')) {
-    renderLatexEditor(fname, data.content);
-  } else if (fname.endsWith('.mermaid')) {
-    renderMermaidEditor(fname, data.content);
   } else if (fname.endsWith('.draw')) {
     renderDrawEditor(fname, data.content);
-  } else if (fname.endsWith('.slides')) {
-    renderSlidesEditor(fname, data.content);
   } else {
-    renderMarkdownEditor(fname, data.content);
+    // Plain text / code fallback
+    const editor = document.getElementById('exp-file-editor');
+    editor.innerHTML = '';
+    const pre = document.createElement('pre');
+    pre.className = 'px-4 py-3 text-[0.85rem] font-mono text-primary whitespace-pre-wrap overflow-y-auto flex-1';
+    pre.textContent = data.content;
+    editor.appendChild(pre);
   }
   if (document.getElementById('exp-sidebar-files')) fetchExpFiles();
 }

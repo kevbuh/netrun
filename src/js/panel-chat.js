@@ -369,13 +369,15 @@ function _sendPopupChatMessage(popup, capturedText) {
             }
           } catch (e) { /* memory retrieval is best-effort */ }
         }
-        // Auto-inject accessible DOM from active browse tab for agent tools
-        if (toolsOn && typeof agentGetAccessibleDOM === 'function') {
+        // Auto-inject semantic DOM from active browse tab for agent tools
+        if (toolsOn && (typeof agentGetSemanticDOM === 'function' || typeof agentGetAccessibleDOM === 'function')) {
           const _agentTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
             ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
           if (_agentTab && _agentTab.el) {
             try {
-              const domTree = await agentGetAccessibleDOM(_agentTab);
+              const domTree = typeof agentGetSemanticDOM === 'function'
+                ? await agentGetSemanticDOM(_agentTab)
+                : await agentGetAccessibleDOM(_agentTab);
               if (domTree && domTree.elements) {
                 _ctxSources.push({ label: 'page DOM (' + (domTree.elementCount || '?') + ')', content: domTree.elements });
                 const domCtx = `\n\n--- BROWSER TAB DOM (${domTree.title}) [${domTree.url}] ---\n${domTree.elements}\n--- END DOM ---`;
