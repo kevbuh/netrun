@@ -93,9 +93,9 @@ function _renderAppearanceSettings() {
   // Accent color swatches
   var accentSwatches = accentColors.map(function(a) {
     var swatch = new View('button');
-    swatch.el.className = 'w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110' +
-      (currentAccent === a.color ? ' scale-110 ring-2 ring-offset-2' : '');
-    swatch.el.style.background = a.color;
+    swatch.className('w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110' +
+      (currentAccent === a.color ? ' scale-110 ring-2 ring-offset-2' : ''));
+    swatch.styles({ background: a.color });
     if (currentAccent === a.color) {
       swatch.el.style.setProperty('--tw-ring-color', a.color);
       swatch.el.style.setProperty('--tw-ring-offset-color', 'var(--nr-bg-body)');
@@ -111,11 +111,11 @@ function _renderAppearanceSettings() {
   // Spinner controls
   var prevBtn = new View('button');
   prevBtn.el.innerHTML = '&lsaquo;';
-  prevBtn.el.className = 'w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]';
+  prevBtn.className('w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]');
   prevBtn.onTap(function() { cycleSpinner(-1); });
   var nextBtn = new View('button');
   nextBtn.el.innerHTML = '&rsaquo;';
-  nextBtn.el.className = 'w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]';
+  nextBtn.className('w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]');
   nextBtn.onTap(function() { cycleSpinner(1); });
   var spinnerCenter = VStack(
     RawHTML('<div class="spinner-preview text-dim font-mono text-[1.2rem] h-6 flex items-center justify-center" id="spinner-preview"></div>'),
@@ -136,15 +136,15 @@ function _renderAppearanceSettings() {
     var sel = petOn && curPetType === t;
     var b = new View('button');
     b.el.textContent = label;
-    b.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
-      (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+    b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+      (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
     b.onTap(function() { togglePixelPet(true); setPixelPetType(t); renderSettingsView(); });
     return b;
   });
   var petNone = new View('button');
   petNone.el.textContent = 'none';
-  petNone.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
-    (!petOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+  petNone.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+    (!petOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
   petNone.onTap(function() { togglePixelPet(false); renderSettingsView(); });
   petBtns.push(petNone);
   var petRow = HStack(
@@ -158,8 +158,8 @@ function _renderAppearanceSettings() {
     var sel = _rainNoiseType === key;
     var b = new View('button');
     b.el.textContent = p.label;
-    b.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
-      (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+    b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+      (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
     b.onTap(function() { setRainNoiseType(key); renderSettingsView(); });
     return b;
   });
@@ -168,7 +168,7 @@ function _renderAppearanceSettings() {
   var volSlider = new View('input');
   volSlider.el.type = 'range'; volSlider.el.min = '0'; volSlider.el.max = '100';
   volSlider.el.value = Math.round(_rainVolume * 100);
-  volSlider.el.className = 'flex-1 h-1 accent-accent';
+  volSlider.className('flex-1 h-1 accent-accent');
   var volLabel = Text(Math.round(_rainVolume * 100) + '%').className('text-[0.7rem] text-dimmer font-mono w-10 text-right');
   volLabel.el.id = 'rain-volume-value';
   volSlider.el.addEventListener('input', function() { setRainVolume(this.value / 100); volLabel.el.textContent = this.value + '%'; });
@@ -177,16 +177,16 @@ function _renderAppearanceSettings() {
   var freqSlider = new View('input');
   freqSlider.el.type = 'range'; freqSlider.el.min = '20'; freqSlider.el.max = '5000'; freqSlider.el.step = '10';
   freqSlider.el.value = _rainFreq || 1000;
-  freqSlider.el.className = 'flex-1 h-1 accent-accent';
+  freqSlider.className('flex-1 h-1 accent-accent');
   freqSlider.el.id = 'rain-freq-slider';
-  if (_rainFreq === 0) { freqSlider.el.disabled = true; freqSlider.el.style.opacity = '0.3'; }
+  if (_rainFreq === 0) { freqSlider.el.disabled = true; freqSlider.styles({ opacity: '0.3' }); }
   var freqLabel = Text(_rainFreq > 0 ? _rainFreq + ' Hz' : 'Auto').className('text-[0.7rem] text-dimmer font-mono w-14 text-right');
   freqLabel.el.id = 'rain-freq-label';
   freqSlider.el.addEventListener('input', function() { setRainFreq(this.value); freqLabel.el.textContent = this.value + ' Hz'; });
   var freqAutoBtn = new View('button');
   freqAutoBtn.el.textContent = 'Auto';
-  freqAutoBtn.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
-    (_rainFreq === 0 ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+  freqAutoBtn.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+    (_rainFreq === 0 ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
   freqAutoBtn.onTap(function() {
     if (_rainFreq === 0) { setRainFreq(1000); freqSlider.el.disabled = false; freqSlider.el.style.opacity = '1'; freqSlider.el.value = 1000; freqLabel.el.textContent = '1000 Hz'; }
     else { setRainFreq(0); freqSlider.el.disabled = true; freqSlider.el.style.opacity = '0.3'; freqLabel.el.textContent = 'Auto'; }
@@ -204,15 +204,15 @@ function _renderAppearanceSettings() {
     var sel = _clickSoundOn && (Settings.get('clickSoundType') || 'thud') === key;
     var b = new View('button');
     b.el.textContent = p.label;
-    b.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
-      (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+    b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+      (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
     b.onTap(function() { toggleClickSound(true); setClickSoundType(key); renderSettingsView(); });
     return b;
   });
   var soundNone = new View('button');
   soundNone.el.textContent = 'none';
-  soundNone.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
-    (!_clickSoundOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+  soundNone.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+    (!_clickSoundOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
   soundNone.onTap(function() { toggleClickSound(false); renderSettingsView(); });
   soundBtns.push(soundNone);
   var soundRow = HStack(
@@ -234,8 +234,8 @@ function _renderAppearanceSettings() {
   // Sidebar icons
   var resetBtn = new View('button');
   resetBtn.el.textContent = 'Reset';
-  resetBtn.el.className = 'text-[0.72rem] text-dimmer hover:text-primary cursor-pointer';
-  resetBtn.el.style.background = 'none'; resetBtn.el.style.border = 'none';
+  resetBtn.className('text-[0.72rem] text-dimmer hover:text-primary cursor-pointer');
+  resetBtn.styles({ background: 'none', border: 'none' });
   resetBtn.onTap(function() { resetSidebarIcons(); });
 
   var labels = { 'sb-dashboard': 'Home', 'sb-home': 'Feed', 'sb-vault': 'Vault', 'sb-browse': 'Browse', 'sb-neuralook': 'Neuralook', 'sb-dev': 'Dev Stats', 'sb-settings': 'Settings' };
@@ -255,7 +255,7 @@ function _renderAppearanceSettings() {
       toggle
     ).spacing(2).className('sb-icon-row flex items-center justify-between py-2');
     row.attr('data-id', id);
-    row.el.style.touchAction = 'none';
+    row.styles({ touchAction: 'none' });
     return row;
   });
   var iconList = VStack.apply(null, iconRows);

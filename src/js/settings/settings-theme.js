@@ -40,6 +40,10 @@ function setTheme(theme) {
   Settings.set('theme', theme);
   const resolved = theme === 'auto' ? _resolveAutoTheme() : theme;
   _applyResolvedTheme(resolved);
+  // Clear theme requires match aether theme for readable text
+  if (resolved === 'clear' && typeof setAetherColor === 'function') {
+    setAetherColor('match');
+  }
   ['auto', 'dark', 'light', 'daylight', 'clear'].forEach(t => {
     const btn = document.getElementById('theme-btn-' + t);
     if (btn) btn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;

@@ -147,8 +147,8 @@ function _settingBtnGroup(label, options, currentValue, onSelect) {
     var active = value === currentValue;
     var b = new View('button');
     b.el.textContent = text;
-    b.el.className = 'px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' +
-      (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary');
+    b.className('px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' +
+      (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'));
     b.onTap(function() { onSelect(value); });
     return b;
   });
@@ -163,8 +163,8 @@ function _settingPillGroup(label, options, currentValue, onSelect) {
     var active = value === currentValue;
     var b = new View('button');
     b.el.textContent = text;
-    b.el.className = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
-      (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary');
+    b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
+      (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
     b.onTap(function() { onSelect(value); });
     return b;
   });
@@ -177,7 +177,7 @@ function _settingSlider(label, desc, value, opts, onInput, onChange) {
     .className('text-muted text-[0.78rem] w-10 text-right font-mono');
   var slider = new View('input');
   slider.el.type = 'range';
-  slider.el.className = 'flex-1 accent-accent';
+  slider.className('flex-1 accent-accent');
   if (opts.min != null) slider.el.min = opts.min;
   if (opts.max != null) slider.el.max = opts.max;
   if (opts.step != null) slider.el.step = opts.step;

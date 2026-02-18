@@ -244,7 +244,7 @@ function _browseRenderTabView(t, activeTab) {
 
   // Close button
   const closeBtn = new View('button');
-  closeBtn.el.className = 'browse-tab-close';
+  closeBtn.className('browse-tab-close');
   closeBtn.el.title = 'Close tab';
   closeBtn.el.textContent = '\u00d7';
   closeBtn.on('click', function(e) { e.stopPropagation(); browseCloseTab(t.id); });
@@ -282,7 +282,7 @@ function _browseRenderSplitPillView(panes, tabs, activeTab) {
     tabChildren.push(Text(t.title || 'New Tab').className('browse-tab-title'));
     // Close
     const closeBtn = new View('button');
-    closeBtn.el.className = 'browse-tab-close';
+    closeBtn.className('browse-tab-close');
     closeBtn.el.title = 'Close split pane';
     closeBtn.el.textContent = '\u00d7';
     closeBtn.on('click', function(e) { e.stopPropagation(); browseUnsplitPane(pane.id); });

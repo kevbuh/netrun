@@ -276,14 +276,15 @@ function browsePrintPage() {
 }
 
 function browseShowAIView() {
-  var el = _browseActiveEl();
-  if (!el) return;
+  var tab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
+    ? _browseTabs.find(function(t) { return t.id === _browseActiveTab; }) : null;
+  if (!tab || !tab.el) return;
 
-  var js = '(function(){return document.body?document.body.innerText:""})()';
-  var p = (el.executeJavaScript) ? el.executeJavaScript(js) : Promise.resolve('');
-
-  p.then(function(text) {
-    text = (text || '').trim();
+  // Use the same agentGetAccessibleDOM the agent uses
+  agentGetAccessibleDOM(tab).then(function(dom) {
+    if (!dom || dom.error) return;
+    var text = dom.elements || '(empty page)';
+    var elCount = dom.elementCount || 0;
     var tokens = Math.round(text.length / 4);
     var tokenLabel = tokens >= 1000 ? Math.round(tokens / 1000) + 'k' : String(tokens);
 
@@ -305,7 +306,11 @@ function browseShowAIView() {
 
     var badge = document.createElement('span');
     badge.style.cssText = 'font-size:0.7rem;color:var(--nr-text-secondary, #888);margin-left:8px;font-variant-numeric:tabular-nums;';
-    badge.textContent = tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars';
+    badge.textContent = elCount + ' elements \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars';
+
+    var urlBadge = document.createElement('span');
+    urlBadge.style.cssText = 'font-size:0.65rem;color:var(--nr-text-tertiary, #666);margin-left:8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    urlBadge.textContent = dom.title ? dom.title + ' \u2014 ' + dom.url : dom.url;
 
     var closeBtn = document.createElement('button');
     closeBtn.style.cssText = 'background:none;border:none;color:var(--nr-text-secondary, #888);cursor:pointer;font-size:1.2rem;padding:4px 8px;';
@@ -316,13 +321,26 @@ function browseShowAIView() {
     left.style.cssText = 'display:flex;align-items:center;';
     left.appendChild(title);
     left.appendChild(badge);
+    left.appendChild(urlBadge);
     header.appendChild(left);
     header.appendChild(closeBtn);
 
-    // Content
+    // Content — syntax highlight element IDs and tags
     var content = document.createElement('pre');
-    content.style.cssText = 'flex:1;overflow:auto;padding:16px;margin:0;font-size:0.75rem;line-height:1.5;color:var(--nr-text-primary, #ddd);white-space:pre-wrap;word-wrap:break-word;font-family:var(--nr-font-mono, monospace);';
-    content.textContent = text || '(empty page)';
+    content.style.cssText = 'flex:1;overflow:auto;padding:16px;margin:0;font-size:0.75rem;line-height:1.6;color:var(--nr-text-primary, #ddd);white-space:pre;font-family:var(--nr-font-mono, monospace);';
+
+    // Wrap in the same delimiters the agent receives
+    var fullText = '--- BROWSER TAB DOM (' + (dom.title || '') + ') [' + (dom.url || '') + '] ---\n' + text + '\n--- END DOM ---';
+
+    // Highlight the DOM tree: IDs in cyan, tags in green, attrs in yellow, bbox in dim
+    var highlighted = fullText.replace(/^(--- .+ ---)$/gm, '<span style="color:var(--nr-text-secondary,#888)">$1</span>')
+      .replace(/^(VIEWPORT:.*)$/m, '<span style="color:var(--nr-text-secondary,#888)">$1</span>')
+      .replace(/\[(\d+)\]/g, '<span style="color:#67d4f1">[$1]</span>')
+      .replace(/<(\w+)/g, '<span style="color:#8bdb8b">&lt;$1</span>')
+      .replace(/>/g, '<span style="color:#8bdb8b">&gt;</span>')
+      .replace(/((?:aria-\w+|role|type|name|placeholder|href|value|title|disabled|checked)(?:="[^"]*")?)/g, '<span style="color:#e8c87a">$1</span>')
+      .replace(/(@-?\d+,-?\d+,\d+,\d+)/g, '<span style="color:var(--nr-text-tertiary,#555)">$1</span>');
+    content.innerHTML = highlighted;
 
     overlay.appendChild(header);
     overlay.appendChild(content);
@@ -331,5 +349,5 @@ function browseShowAIView() {
     // Esc to close
     function onKey(e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onKey); } }
     document.addEventListener('keydown', onKey);
-  }).catch(function() {});
+  }).catch(function(e) { console.warn('[AI View] Failed:', e); });
 }

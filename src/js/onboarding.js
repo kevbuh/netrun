@@ -253,7 +253,7 @@ function _wizardAccentView() {
   var currentName = (_wizardAccentColors.find(function(c) { return c.color === current; }) || { name: 'Orange' }).name;
   var swatches = _wizardAccentColors.map(function(a) {
     var btn = new View('button').className('onboard-swatch' + (a.color === current ? ' selected' : ''));
-    btn.el.style.background = a.color;
+    btn.styles({ background: a.color });
     btn.el.dataset.color = a.color;
     btn.el.dataset.name = a.name;
     btn.onTap(function() { _wizardPickAccent(a.color, btn.el); });

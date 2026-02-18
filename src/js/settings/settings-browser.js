@@ -270,7 +270,7 @@ function _renderBrowserSettings() {
   if (window.electronAPI) {
     var updateBtn = new View('button');
     updateBtn.el.textContent = 'Update filter lists';
-    updateBtn.el.className = 'text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors';
+    updateBtn.className('text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors');
     updateBtn.onTap(function() { resetAdBlockRules(); });
     adBlockChildren.push(updateBtn);
   }

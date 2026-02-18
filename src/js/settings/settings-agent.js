@@ -29,7 +29,7 @@ function _renderAgentSettings() {
   var ocrSelect = new View('select');
   ocrSelect.el.setAttribute('data-key', 'ocrModel');
   ocrSelect.el.setAttribute('data-fallback', 'glm-ocr');
-  ocrSelect.el.className = 'settings-model-select ml-3 px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer';
+  ocrSelect.className('settings-model-select ml-3 px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer');
   ocrSelect.el.innerHTML = '<option value="' + escapeAttr(ocrModel) + '" selected>' + escapeHtml(ocrModel) + '</option>';
   ocrSelect.el.addEventListener('change', function() { Settings.set('ocrModel', this.value); });
   var ocrModelRow = HStack(Text('OCR Model').className('text-primary text-sm'), ocrSelect);

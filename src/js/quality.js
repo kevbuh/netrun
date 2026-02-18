@@ -146,7 +146,7 @@ function renderBlockedList() {
     a.el.rel = 'noopener';
     a.el.title = linkTitle;
     a.el.textContent = b.title;
-    a.el.className = (b.source === 'manual' ? 'text-orange-400/70' : 'text-red-400/70') + ' flex-1 min-w-0 truncate hover:underline cursor-pointer';
+    a.className((b.source === 'manual' ? 'text-orange-400/70' : 'text-red-400/70') + ' flex-1 min-w-0 truncate hover:underline cursor-pointer');
     var badges = [a];
     if (b.source === 'manual') badges.push(Text('\u2715').className('text-dimmer text-[0.68rem] shrink-0'));
     if (b.score != null) badges.push(Text(String(b.score)).className('text-dimmer text-[0.68rem] shrink-0'));

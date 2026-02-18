@@ -86,7 +86,7 @@ function _renderAudioPill() {
     btn._appendChildren([RawHTML(icon(iconName, opts.iconOpts || { size: 14 }))]);
     btn._appendChildren([Text(' ' + label)]);
     if (opts.trailing) btn._appendChildren([opts.trailing]);
-    if (opts.color) btn.style('color', opts.color);
+    if (opts.color) btn.styles({ color: opts.color });
     if (opts.disabled) btn.el.disabled = true;
     btn.onTap(function(e) { if (opts.stopProp) e.stopPropagation(); if (action) action(); });
     return btn;

@@ -41,7 +41,7 @@ function _renderPanelSettings() {
     var sel = new View('select');
     sel.el.setAttribute('data-key', lsKey);
     sel.el.setAttribute('data-fallback', fallback);
-    sel.el.className = 'settings-model-select w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer';
+    sel.className('settings-model-select w-full max-w-[320px] px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer');
     sel.el.innerHTML = '<option value="' + escapeAttr(currentVal) + '" selected>' + escapeHtml(currentVal) + '</option>';
     sel.el.addEventListener('change', function() { Settings.set(lsKey, this.value); });
     var children = [sel];

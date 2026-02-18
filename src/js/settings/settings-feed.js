@@ -4,8 +4,8 @@ function _feedTabBtn(key, label) {
   var active = _settingsFeedTab === key;
   var b = new View('button');
   b.el.textContent = label;
-  b.el.className = 'px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' +
-    (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary');
+  b.className('px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' +
+    (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'));
   b.onTap(function() { _setSettingsFeedTab(key); });
   return b;
 }
@@ -92,7 +92,7 @@ function _renderFeedQualityTab() {
   );
 
   var blockedPostsBtn = new View('button');
-  blockedPostsBtn.el.className = 'flex items-center gap-2 text-muted text-[0.78rem] font-medium bg-transparent border-none cursor-pointer p-0 hover:text-primary transition-colors';
+  blockedPostsBtn.className('flex items-center gap-2 text-muted text-[0.78rem] font-medium bg-transparent border-none cursor-pointer p-0 hover:text-primary transition-colors');
   blockedPostsBtn.el.innerHTML = '<span id="blocked-posts-chevron" class="transition-transform" style="transform:rotate(-90deg)">' + icon('chevronDown', { size: 14, class: 'w-3.5 h-3.5' }) + '</span> Blocked Posts';
   blockedPostsBtn.onTap(function() { _toggleBlockedPostsList(); });
   var blockedPostsSection = VStack(
@@ -102,7 +102,7 @@ function _renderFeedQualityTab() {
 
   var resetAllBtn = new View('button');
   resetAllBtn.el.textContent = 'Reset all & clear cache';
-  resetAllBtn.el.className = 'text-red-400/80 text-[0.75rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors';
+  resetAllBtn.className('text-red-400/80 text-[0.75rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
   resetAllBtn.onTap(function() { resetEverything(); });
   var footer = HStack(
     Text('Cached: ' + cacheEntries.length + ' \u00b7 Kept: ' + keptCount + ' \u00b7 Skipped: ' + skippedCount).className('text-dim text-[0.75rem]'),
@@ -145,7 +145,7 @@ function _renderFeedAlgorithmTab() {
     var slider = new View('input');
     slider.el.type = 'range'; slider.el.min = '0'; slider.el.max = String(max);
     slider.el.value = Math.round(value * 100);
-    slider.el.className = 'flex-1 accent-[var(--nr-accent)]';
+    slider.className('flex-1 accent-[var(--nr-accent)]');
     slider.el.addEventListener('input', function() { valSpan.el.textContent = format(this.value / 100); });
     slider.el.addEventListener('change', function() {
       Settings.set(lsKey, (this.value / 100).toFixed(2));
@@ -207,7 +207,7 @@ function _renderFeedAlgorithmTab() {
   var divSlider = new View('input');
   divSlider.el.type = 'range'; divSlider.el.min = '1'; divSlider.el.max = '10';
   divSlider.el.value = maxRun;
-  divSlider.el.className = 'flex-1 accent-[var(--nr-accent)]';
+  divSlider.className('flex-1 accent-[var(--nr-accent)]');
   divSlider.el.addEventListener('input', function() { divValSpan.el.textContent = this.value; });
   divSlider.el.addEventListener('change', function() {
     Settings.set('maxPerCategoryRun', this.value);
@@ -225,7 +225,7 @@ function _renderFeedAlgorithmTab() {
 
   var resetBtn = new View('button');
   resetBtn.el.textContent = 'Reset all personalization';
-  resetBtn.el.className = 'text-red-400/80 text-[0.75rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors';
+  resetBtn.className('text-red-400/80 text-[0.75rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
   resetBtn.onTap(function() { resetPersonalization(); renderSettingsView(); });
   var resetFooter = HStack(resetBtn, Text('Clears your interest profile, resets all weights to defaults').className('text-dimmer text-[0.68rem]'))
     .spacing(2).className('pt-4 border-t border-border-subtle');

@@ -252,7 +252,7 @@ function _browseRenderDownloads() {
         new View('div').className('browse-download-item-status')._bindText(status)
       ];
       if (dl.state === 'progressing') {
-        var bar = new View('div').className('browse-download-item-progress-bar').style('width', pct + '%');
+        var bar = new View('div').className('browse-download-item-progress-bar').styles({ width: pct + '%' });
         infoChildren.push(new View('div').className('browse-download-item-progress')._appendChildren([bar]));
       }
       var info = VStack(infoChildren).className('browse-download-item-info');

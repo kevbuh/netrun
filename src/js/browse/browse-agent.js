@@ -18,7 +18,6 @@ async function agentGetAccessibleDOM(tab) {
     const INTERACTIVE = new Set(['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'DETAILS', 'SUMMARY']);
     const TEXT_BLOCKS = new Set(['H1','H2','H3','H4','H5','H6','P','LI','TD','TH','LABEL','SPAN','FIGCAPTION']);
     const BASE_CAP = 300;
-    const MAX_TEXT = 80;
     const VIEWPORT_BUFFER = 200;
 
     var vpTop = window.scrollY - VIEWPORT_BUFFER;
@@ -37,8 +36,7 @@ async function agentGetAccessibleDOM(tab) {
     }
 
     function textOf(el) {
-      let t = (el.textContent || '').trim().replace(/\\s+/g, ' ');
-      return t.length > MAX_TEXT ? t.slice(0, MAX_TEXT) + '…' : t;
+      return (el.textContent || '').trim().replace(/\\s+/g, ' ');
     }
 
     function attrStr(el) {
@@ -253,12 +251,10 @@ async function agentQuerySelector(tab, selector, maxResults) {
   const limit = maxResults || 20;
   const code = `(function() {
     var MAX_RESULTS = ${limit};
-    var MAX_TEXT = 80;
     var INTERACTIVE = new Set(['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'DETAILS', 'SUMMARY']);
 
     function textOf(el) {
-      var t = (el.textContent || '').trim().replace(/\\s+/g, ' ');
-      return t.length > MAX_TEXT ? t.slice(0, MAX_TEXT) + '…' : t;
+      return (el.textContent || '').trim().replace(/\\s+/g, ' ');
     }
 
     function attrStr(el) {

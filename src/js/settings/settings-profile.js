@@ -11,7 +11,7 @@ function _renderAccountSettings() {
     ).spacing(3).className('mb-4');
     var returnBtn = new View('button');
     returnBtn.el.textContent = 'Return to Account';
-    returnBtn.el.className = 'px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors';
+    returnBtn.className('px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors');
     returnBtn.onTap(function() { exitGuestMode(); });
     return _settingSection('Profile', [guestCard, returnBtn]);
   }
@@ -37,17 +37,17 @@ function _renderAccountSettings() {
 
   var signOutBtn = new View('button');
   signOutBtn.el.textContent = 'Sign Out';
-  signOutBtn.el.className = 'px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors';
+  signOutBtn.className('px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors');
   signOutBtn.onTap(function() { _doLogout(); });
 
   var deleteBtn = new View('button');
   deleteBtn.el.textContent = 'Delete Account';
-  deleteBtn.el.className = 'px-3 py-1 rounded-md text-[0.78rem] border border-red-800/50 text-red-400/70 bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors';
+  deleteBtn.className('px-3 py-1 rounded-md text-[0.78rem] border border-red-800/50 text-red-400/70 bg-card hover:border-red-500 hover:text-red-400 cursor-pointer transition-colors');
   deleteBtn.onTap(function() { _doDeleteAccount(); });
 
   var guestBtn = new View('button');
   guestBtn.el.textContent = _guestMode ? 'Return to Account' : 'Guest Mode';
-  guestBtn.el.className = 'px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors';
+  guestBtn.className('px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors');
   guestBtn.onTap(function() {
     if (_guestMode) exitGuestMode();
     else enterGuestMode();

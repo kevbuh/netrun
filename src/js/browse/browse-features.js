@@ -115,29 +115,29 @@ function _browseToggleFindBar() {
   var findInput = new View('input');
   findInput.el.type = 'text';
   findInput.el.id = 'browse-find-input';
-  findInput.el.className = 'browse-find-input';
+  findInput.className('browse-find-input');
   findInput.el.placeholder = 'Find\u2026';
   findInput.el.autocomplete = 'off';
   findInput.el.spellcheck = false;
 
   var countSpan = new View('span');
   countSpan.el.id = 'browse-find-count';
-  countSpan.el.className = 'browse-find-count';
+  countSpan.className('browse-find-count');
 
   var prevBtn = new View('button');
-  prevBtn.el.className = 'browse-find-btn';
+  prevBtn.className('browse-find-btn');
   prevBtn.el.id = 'browse-find-prev';
   prevBtn.el.title = 'Previous';
   AetherUI.mount(RawHTML('<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>'), prevBtn.el);
 
   var nextBtn = new View('button');
-  nextBtn.el.className = 'browse-find-btn';
+  nextBtn.className('browse-find-btn');
   nextBtn.el.id = 'browse-find-next';
   nextBtn.el.title = 'Next';
   AetherUI.mount(RawHTML('<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>'), nextBtn.el);
 
   var closeBtn = new View('button');
-  closeBtn.el.className = 'browse-find-btn';
+  closeBtn.className('browse-find-btn');
   closeBtn.el.id = 'browse-find-close';
   closeBtn.el.title = 'Close';
   closeBtn.el.textContent = '\u00d7';
