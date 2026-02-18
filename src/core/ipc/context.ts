@@ -51,6 +51,20 @@ export function registerContextIPC(): void {
     return { ok: true };
   });
 
+  ipcMain.handle('db:context-topic-index', () => {
+    return { topics: contextManager.listTopicIndex() };
+  });
+
+  ipcMain.handle('db:context-create-topic', (_event, name: string, description: string) => {
+    const fileId = contextManager.createTopicFile(name, description || '');
+    return { ok: true, fileId };
+  });
+
+  ipcMain.handle('db:context-update-description', (_event, fileId: string, description: string) => {
+    contextManager.updateFileDescription(fileId, description);
+    return { ok: true };
+  });
+
   // ── Insight (unified ambient + annotations) ──
   ipcMain.handle('insight:page-loaded', (event, data) => {
     insightPipeline.onPageLoaded(data, event.sender);

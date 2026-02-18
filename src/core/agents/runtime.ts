@@ -256,6 +256,23 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
     return;
   }
 
+  // Extract user query for context preloading
+  for (let i = config.messages.length - 1; i >= 0; i--) {
+    if (config.messages[i].role === 'user' && config.messages[i].content) {
+      context._userQuery = config.messages[i].content;
+      break;
+    }
+  }
+
+  // Preload context files if the agent supports it
+  if (agent.preloadContext) {
+    try {
+      await agent.preloadContext(context);
+    } catch (err: any) {
+      console.debug('[agent] preloadContext failed:', err?.message ?? err);
+    }
+  }
+
   // Build system prompt
   const systemPrompt = agent.buildSystemPrompt(context);
   const model = context.model ?? agent.model;

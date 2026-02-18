@@ -1,6 +1,7 @@
 import type { AgentDefinition, AgentContext } from '../types.js';
 import { getContextBudget } from '../context.js';
 import { contextManager } from '../../context/manager.js';
+import { selectTopicFiles } from '../../context/selector.js';
 
 function getCurrentDateString(): string {
   const now = new Date();
@@ -14,17 +15,6 @@ function getCurrentDateString(): string {
     hour12: true,
   };
   return now.toLocaleDateString('en-US', options);
-}
-
-function buildLivingContext(budgetChars: number): string {
-  try {
-    let ctx = contextManager.getMainContext();
-    if (!ctx) return '';
-    if (ctx.length > budgetChars) ctx = ctx.slice(0, budgetChars);
-    return '\n\n--- USER CONTEXT ---\n' + ctx + '\n--- END USER CONTEXT ---';
-  } catch {
-    return '';
-  }
 }
 
 function buildBrowserToolsDescription(hasDom: boolean): string {
@@ -98,6 +88,48 @@ export const researchAssistant: AgentDefinition = {
 
   model: 'qwen3:8b',
 
+  async preloadContext(context: AgentContext): Promise<void> {
+    const model = context.model ?? 'qwen3:8b';
+    const budget = getContextBudget(model);
+    // Identity: ~8% of context budget (in chars, ~0.3 tokens/char)
+    const identityCharLimit = Math.floor(budget * 0.08 / 0.3);
+    // Topic files: ~12% of budget, split evenly
+    const topicCharLimit = Math.floor(budget * 0.12 / 0.3);
+
+    const parts: string[] = [];
+
+    // Always load identity (main.md)
+    try {
+      let identity = contextManager.getMainContext();
+      if (identity) {
+        if (identity.length > identityCharLimit) identity = identity.slice(0, identityCharLimit);
+        parts.push('## Identity\n' + identity);
+      }
+    } catch { /* ignore */ }
+
+    // Select and load relevant topic files
+    try {
+      const query = context._userQuery ?? '';
+      const { fileIds } = await selectTopicFiles(query);
+      if (fileIds.length > 0) {
+        const perFileLimit = Math.floor(topicCharLimit / fileIds.length);
+        for (const fileId of fileIds) {
+          let content = contextManager.readContextFile(fileId);
+          if (content) {
+            if (content.length > perFileLimit) content = content.slice(0, perFileLimit);
+            parts.push(`## Topic: ${fileId}\n` + content);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.debug('[research-assistant] Topic file loading failed:', err?.message ?? err);
+    }
+
+    if (parts.length > 0) {
+      context.contextDocument = parts.join('\n\n');
+    }
+  },
+
   buildSystemPrompt(context: AgentContext): string {
     const dateStr = `CURRENT DATE AND TIME: ${getCurrentDateString()} (local time). Always use this date/time for any time-relative requests.\n\n`;
     const hasDom = !!context.browserDom;
@@ -116,9 +148,10 @@ export const researchAssistant: AgentDefinition = {
       ? context.documentText.slice(0, docCharLimit)
       : '';
 
-    // Living context — allocate ~20% of context window
-    const contextCharLimit = Math.floor(budget * 0.2 / 0.3);
-    const livingCtx = buildLivingContext(contextCharLimit);
+    // Living context — use preloaded contextDocument (identity + topic files)
+    const livingCtx = context.contextDocument
+      ? '\n\n--- USER CONTEXT ---\n' + context.contextDocument + '\n--- END USER CONTEXT ---'
+      : '';
 
     const contextToolNote = context.toolsEnabled !== false
       ? ' You have a context-update tool to remember information across conversations — use it when the user asks you to remember something or when you learn important facts.'

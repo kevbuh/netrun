@@ -40,6 +40,8 @@ export interface AgentDefinition {
   model?: string;
   /** Build the system prompt given context */
   buildSystemPrompt(context: AgentContext): string;
+  /** Optional: load context files before building the system prompt */
+  preloadContext?(context: AgentContext): Promise<void>;
 }
 
 /** Context passed when starting an agent session */
@@ -62,6 +64,8 @@ export interface AgentContext {
   model?: string;
   /** Living context document (injected from context files) */
   contextDocument?: string;
+  /** User's current query (set by runtime for preloadContext) */
+  _userQuery?: string;
 }
 
 /** A message in the agent conversation */

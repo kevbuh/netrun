@@ -2066,24 +2066,88 @@ function _renderTweetComments(container, comments, link, idx) {
     var threadEl = new View('div');
     threadEl.cssText(ml + '; margin-bottom: 6px;');
 
-    var delBtnHtml = isOwn ? '<button class="cmt-del text-dimmest hover:text-red-400 text-[0.65rem] ml-auto bg-transparent border-none cursor-pointer" data-cid="' + c.id + '">x</button>' : '';
-    var replyFormHtml = '<div id="tweet-reply-' + c.id + '" class="hidden mt-1"><textarea id="tweet-reply-ta-' + c.id + '" class="w-full text-[0.75rem] bg-input border border-border-input rounded px-2 py-1 text-primary resize-none outline-none focus:border-accent" rows="2" placeholder="Write a reply..."></textarea><div class="flex gap-1 mt-1"><button class="cmt-reply-submit px-2 py-0.5 text-[0.68rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none" data-cid="' + c.id + '">Reply</button><button class="cmt-reply-cancel px-2 py-0.5 text-[0.68rem] rounded border border-border-input text-dim hover:text-primary cursor-pointer bg-transparent" data-cid="' + c.id + '">Cancel</button></div></div>';
+    var avatarDiv = new View('div');
+    avatarDiv.cssText('width:20px;height:20px;min-width:20px;border-radius:50%;background:var(--nr-accent);color:#fff;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center');
+    avatarDiv.el.textContent = initial;
 
-    threadEl.el.innerHTML = '<div class="flex items-start gap-1.5"><div style="width:20px;height:20px;min-width:20px;border-radius:50%;background:var(--nr-accent);color:#fff;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;">' + escapeHtml(initial) + '</div><div class="flex-1 min-w-0"><div class="flex items-center gap-1.5"><a href="#profile/' + encodeURIComponent(c.author) + '" class="text-[0.72rem] font-medium text-primary hover:text-accent" style="text-decoration:none">' + escapeHtml(c.author) + '</a><span class="text-[0.65rem] text-dimmer">' + timeAgo + '</span>' + delBtnHtml + '</div><div class="text-[0.78rem] text-primary mt-0.5 leading-relaxed">' + escapeHtml(c.content).replace(/\n/g, '<br>') + '</div><button class="cmt-show-reply text-[0.68rem] text-dim hover:text-accent mt-0.5 bg-transparent border-none cursor-pointer p-0" data-cid="' + c.id + '">Reply</button>' + replyFormHtml + '</div></div>';
+    var authorLink = new View('a');
+    authorLink.el.href = '#profile/' + encodeURIComponent(c.author);
+    authorLink.el.className = 'text-[0.72rem] font-medium text-primary hover:text-accent';
+    authorLink.el.style.textDecoration = 'none';
+    authorLink.el.textContent = c.author;
+    authorLink.el.addEventListener('click', function(e) { e.stopPropagation(); });
 
-    // Attach event listeners
-    var showReplyBtn = threadEl.el.querySelector('.cmt-show-reply[data-cid="' + c.id + '"]');
-    if (showReplyBtn) showReplyBtn.addEventListener('click', function(e) { e.stopPropagation(); _showTweetReply(c.id); });
-    var delBtnEl = threadEl.el.querySelector('.cmt-del[data-cid="' + c.id + '"]');
-    if (delBtnEl) delBtnEl.addEventListener('click', function(e) { e.stopPropagation(); _deleteTweetComment(c.id, link, idx); });
-    var replySubmit = threadEl.el.querySelector('.cmt-reply-submit[data-cid="' + c.id + '"]');
-    if (replySubmit) replySubmit.addEventListener('click', function(e) { e.stopPropagation(); _postTweetReply(c.id, link, idx); });
-    var replyCancel = threadEl.el.querySelector('.cmt-reply-cancel[data-cid="' + c.id + '"]');
-    if (replyCancel) replyCancel.addEventListener('click', function(e) { e.stopPropagation(); _hideTweetReply(c.id); });
-    var ta = threadEl.el.querySelector('textarea');
-    if (ta) ta.addEventListener('click', function(e) { e.stopPropagation(); });
-    var profileLink = threadEl.el.querySelector('a');
-    if (profileLink) profileLink.addEventListener('click', function(e) { e.stopPropagation(); });
+    var timeSpan = new View('span');
+    timeSpan.el.className = 'text-[0.65rem] text-dimmer';
+    timeSpan.el.textContent = timeAgo;
+
+    var metaRow = new View('div');
+    metaRow.el.className = 'flex items-center gap-1.5';
+    metaRow.el.appendChild(authorLink.el);
+    metaRow.el.appendChild(timeSpan.el);
+
+    if (isOwn) {
+      var delBtnEl = new View('button');
+      delBtnEl.el.className = 'cmt-del text-dimmest hover:text-red-400 text-[0.65rem] ml-auto bg-transparent border-none cursor-pointer';
+      delBtnEl.el.dataset.cid = c.id;
+      delBtnEl.el.textContent = 'x';
+      delBtnEl.el.addEventListener('click', function(e) { e.stopPropagation(); _deleteTweetComment(c.id, link, idx); });
+      metaRow.el.appendChild(delBtnEl.el);
+    }
+
+    var contentDiv = new View('div');
+    contentDiv.el.className = 'text-[0.78rem] text-primary mt-0.5 leading-relaxed';
+    contentDiv.el.innerHTML = escapeHtml(c.content).replace(/\n/g, '<br>');
+
+    var showReplyBtn = new View('button');
+    showReplyBtn.el.className = 'cmt-show-reply text-[0.68rem] text-dim hover:text-accent mt-0.5 bg-transparent border-none cursor-pointer p-0';
+    showReplyBtn.el.dataset.cid = c.id;
+    showReplyBtn.el.textContent = 'Reply';
+    showReplyBtn.el.addEventListener('click', function(e) { e.stopPropagation(); _showTweetReply(c.id); });
+
+    var replyTa = new View('textarea');
+    replyTa.el.id = 'tweet-reply-ta-' + c.id;
+    replyTa.el.className = 'w-full text-[0.75rem] bg-input border border-border-input rounded px-2 py-1 text-primary resize-none outline-none focus:border-accent';
+    replyTa.el.rows = 2;
+    replyTa.el.placeholder = 'Write a reply...';
+    replyTa.el.addEventListener('click', function(e) { e.stopPropagation(); });
+
+    var replySubmit = new View('button');
+    replySubmit.el.className = 'cmt-reply-submit px-2 py-0.5 text-[0.68rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none';
+    replySubmit.el.dataset.cid = c.id;
+    replySubmit.el.textContent = 'Reply';
+    replySubmit.el.addEventListener('click', function(e) { e.stopPropagation(); _postTweetReply(c.id, link, idx); });
+
+    var replyCancel = new View('button');
+    replyCancel.el.className = 'cmt-reply-cancel px-2 py-0.5 text-[0.68rem] rounded border border-border-input text-dim hover:text-primary cursor-pointer bg-transparent';
+    replyCancel.el.dataset.cid = c.id;
+    replyCancel.el.textContent = 'Cancel';
+    replyCancel.el.addEventListener('click', function(e) { e.stopPropagation(); _hideTweetReply(c.id); });
+
+    var replyBtnRow = new View('div');
+    replyBtnRow.el.className = 'flex gap-1 mt-1';
+    replyBtnRow.el.appendChild(replySubmit.el);
+    replyBtnRow.el.appendChild(replyCancel.el);
+
+    var replyForm = new View('div');
+    replyForm.el.id = 'tweet-reply-' + c.id;
+    replyForm.el.className = 'hidden mt-1';
+    replyForm.el.appendChild(replyTa.el);
+    replyForm.el.appendChild(replyBtnRow.el);
+
+    var bodyDiv = new View('div');
+    bodyDiv.el.className = 'flex-1 min-w-0';
+    bodyDiv.el.appendChild(metaRow.el);
+    bodyDiv.el.appendChild(contentDiv.el);
+    bodyDiv.el.appendChild(showReplyBtn.el);
+    bodyDiv.el.appendChild(replyForm.el);
+
+    var rowDiv = new View('div');
+    rowDiv.el.className = 'flex items-start gap-1.5';
+    rowDiv.el.appendChild(avatarDiv.el);
+    rowDiv.el.appendChild(bodyDiv.el);
+
+    threadEl.el.appendChild(rowDiv.el);
 
     replies.forEach(function(r) { threadEl.el.appendChild(renderThread(r, depth + 1).build()); });
     return threadEl;

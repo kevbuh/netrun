@@ -302,10 +302,7 @@ function renderLatexEditor(fname, content) {
 
 function _initTexInlinePreview() {
   if (_texPreviewEl) _texPreviewEl.remove();
-  _texPreviewEl = document.createElement('div');
-  _texPreviewEl.id = 'tex-inline-preview';
-  _texPreviewEl.className = 'tex-inline-preview';
-  _texPreviewEl.style.display = 'none';
+  _texPreviewEl = new View('div').id('tex-inline-preview').className('tex-inline-preview').styles({ display: 'none' }).build();
   document.body.appendChild(_texPreviewEl);
 }
 
@@ -608,10 +605,7 @@ async function compileLatex() {
 function startRenameTexFile(fname) {
   const span = document.getElementById('tex-editor-fname');
   if (!span) return;
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.value = fname;
-  input.className = 'bg-input border border-border-input rounded px-2 py-0.5 text-[0.9rem] text-primary font-medium outline-none focus:border-accent';
+  const input = TextField(fname).className('bg-input border border-border-input rounded px-2 py-0.5 text-[0.9rem] text-primary font-medium outline-none focus:border-accent').build();
   span.replaceWith(input);
   input.focus();
   const dotIdx = fname.lastIndexOf('.');
@@ -626,12 +620,12 @@ function startRenameTexFile(fname) {
         fname = newName;
       }
     }
-    const newSpan = document.createElement('span');
-    newSpan.id = 'tex-editor-fname';
-    newSpan.className = 'text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors';
-    newSpan.title = 'Click to rename';
-    newSpan.textContent = fname;
-    newSpan.onclick = function() { startRenameTexFile(fname); };
+    const newSpan = Text(fname)
+      .id('tex-editor-fname')
+      .className('text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors')
+      .attr('title', 'Click to rename')
+      .onTap(function() { startRenameTexFile(fname); })
+      .build();
     input.replaceWith(newSpan);
     fetchExpFiles();
   }
@@ -815,10 +809,7 @@ async function saveMermaid() {
 function startRenameMermaidFile(fname) {
   const span = document.getElementById('mermaid-editor-fname');
   if (!span) return;
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.value = fname;
-  input.className = 'bg-input border border-border-input rounded px-2 py-0.5 text-[0.9rem] text-primary font-medium outline-none focus:border-accent';
+  const input = TextField(fname).className('bg-input border border-border-input rounded px-2 py-0.5 text-[0.9rem] text-primary font-medium outline-none focus:border-accent').build();
   span.replaceWith(input);
   input.focus();
   const dotIdx = fname.lastIndexOf('.');
@@ -833,12 +824,12 @@ function startRenameMermaidFile(fname) {
         fname = newName;
       }
     }
-    const newSpan = document.createElement('span');
-    newSpan.id = 'mermaid-editor-fname';
-    newSpan.className = 'text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors';
-    newSpan.title = 'Click to rename';
-    newSpan.textContent = fname;
-    newSpan.onclick = function() { startRenameMermaidFile(fname); };
+    const newSpan = Text(fname)
+      .id('mermaid-editor-fname')
+      .className('text-[0.9rem] text-white_ font-medium cursor-pointer hover:text-accent transition-colors')
+      .attr('title', 'Click to rename')
+      .onTap(function() { startRenameMermaidFile(fname); })
+      .build();
     input.replaceWith(newSpan);
     fetchExpFiles();
   }
@@ -1146,9 +1137,7 @@ function _countReferences(cm, token) {
 
 function _initPyHover(cm) {
   if (!_pyHoverEl) {
-    _pyHoverEl = document.createElement('div');
-    _pyHoverEl.className = 'py-hover-tooltip';
-    _pyHoverEl.style.display = 'none';
+    _pyHoverEl = new View('div').className('py-hover-tooltip').styles({ display: 'none' }).build();
     document.body.appendChild(_pyHoverEl);
   }
   const wrapper = cm.getWrapperElement();

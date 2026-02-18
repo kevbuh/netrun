@@ -97,6 +97,14 @@
 
 /* Hide default cursor on app body */
 body.nr-custom-cursor,
-body.nr-custom-cursor * {
+body.nr-custom-cursor *:not(iframe) {
   cursor: none !important;
+}
+
+/* Restore native cursor over iframes — cross-origin iframes can't be
+   injected into, so the custom cursor won't track inside them.
+   cursor is an inherited property, so this explicit rule is needed to
+   override the body's cursor:none that would otherwise cascade in. */
+body.nr-custom-cursor iframe {
+  cursor: auto !important;
 }

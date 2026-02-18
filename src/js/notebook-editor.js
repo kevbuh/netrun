@@ -59,10 +59,22 @@ function renderNotebookEditor(fname, contentStr) {
       </div>
     </div>
     <div id="nb-cells"></div>
-    <div class="flex gap-2 mt-3 pb-40">
-      <button class="px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary" onclick="addNbCell('code')">+ Code</button>
-      <button class="px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary" onclick="addNbCell('markdown')">+ Markdown</button>
-    </div>`;
+    <div id="nb-add-cell-btns"></div>`;
+  // Mount AetherUI add-cell buttons
+  var addBtnsContainer = document.getElementById('nb-add-cell-btns');
+  if (addBtnsContainer) {
+    AetherUI.mount(
+      HStack(
+        Button('+ Code')
+          .className('px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary')
+          .onTap(function() { addNbCell('code'); }),
+        Button('+ Markdown')
+          .className('px-3 py-1.5 rounded-md border border-border-input bg-transparent text-muted text-[0.8rem] cursor-pointer hover:text-primary')
+          .onTap(function() { addNbCell('markdown'); })
+      ).gap(2).className('mt-3 pb-40'),
+      addBtnsContainer
+    );
+  }
   renderNbCells();
   loadVenvDropdown(pythonPath);
 }

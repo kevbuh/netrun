@@ -237,9 +237,24 @@ export function initSchema(db: Database.Database): void {
       created_at REAL NOT NULL,
       updated_at REAL NOT NULL,
       compacted_at REAL,
-      char_count INTEGER DEFAULT 0
+      char_count INTEGER DEFAULT 0,
+      file_type TEXT DEFAULT 'topic',
+      description TEXT DEFAULT ''
     );
   `);
+
+  // Migration: add file_type and description columns for existing DBs
+  try {
+    db.exec(`ALTER TABLE context_meta ADD COLUMN file_type TEXT DEFAULT 'topic'`);
+  } catch { /* column already exists */ }
+  try {
+    db.exec(`ALTER TABLE context_meta ADD COLUMN description TEXT DEFAULT ''`);
+  } catch { /* column already exists */ }
+
+  // Seed main.md as identity type
+  try {
+    db.exec(`UPDATE context_meta SET file_type = 'identity' WHERE file_id = 'main.md'`);
+  } catch { /* ignore */ }
 
   // ── Annotations ──
   db.exec(`

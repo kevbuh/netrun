@@ -11,6 +11,49 @@ export interface IntakeEntry {
   dedupeKey?: string;
 }
 
+/** Route map: source → default topic file + description */
+const SOURCE_ROUTES: Record<string, { file: string; description: string }> = {
+  search: { file: 'research.md', description: 'Web search results and research findings' },
+  browse: { file: 'browsing.md', description: 'Browsing history and page notes' },
+  feed: { file: 'reading.md', description: 'Feed articles and reading notes' },
+  notebook: { file: 'notebooks.md', description: 'Notebook outputs and experiment results' },
+  dashboard: { file: 'stats.md', description: 'Dashboard snapshots and statistics' },
+};
+
+/** Identity sections that should stay in main.md */
+const IDENTITY_SECTIONS = ['## Preferences', '## Goals', '## About Me', '## Identity'];
+
+/** Determine which file an entry should be routed to */
+function routeToFile(entry: IntakeEntry): string {
+  // Explicit file always wins
+  if (entry.file) return entry.file;
+
+  // Identity-relevant sections stay in main.md
+  if (IDENTITY_SECTIONS.some(s => entry.section.startsWith(s))) return 'main.md';
+
+  // Chat source often has identity-relevant content
+  if (entry.source === 'chat') return 'main.md';
+
+  // Agent source: default to main.md (agent can specify file explicitly)
+  if (entry.source === 'agent') return 'main.md';
+
+  // Route by source to topic files
+  const route = SOURCE_ROUTES[entry.source];
+  if (route) {
+    // Auto-create the topic file if it doesn't exist
+    const size = contextManager.getContextSize(route.file);
+    if (size === 0) {
+      contextManager.createTopicFile(
+        route.file.replace('.md', ''),
+        route.description,
+      );
+    }
+    return route.file;
+  }
+
+  return 'main.md';
+}
+
 const FLUSH_INTERVAL_MS = 10_000;
 const DEDUPE_WINDOW_MS = 5 * 60_000;
 
@@ -43,7 +86,7 @@ class ContextIntake {
     const groups = new Map<string, { file: string; section: string; lines: string[]; source: ContextSource }>();
 
     for (const entry of this.queue) {
-      const file = entry.file || 'main.md';
+      const file = routeToFile(entry);
       const key = `${file}::${entry.section}`;
       let group = groups.get(key);
       if (!group) {
