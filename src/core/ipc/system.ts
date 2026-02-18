@@ -51,9 +51,7 @@ export function registerSystemIPC(): void {
   ipcMain.handle('db:saved-content-set', (_event, url: string, data: { url: string; title: string; text: string; savedAt?: number }) => {
     if (!url) return { error: 'url required' };
     const p = contentPath(url);
-    try {
-      fs.writeFileSync(p, JSON.stringify(data, null, 2));
-    } catch (e: any) { return { error: 'Write failed: ' + (e.message ?? String(e)) }; }
+    fs.writeFileSync(p, JSON.stringify(data, null, 2));
     return { ok: true };
   });
 
@@ -115,9 +113,7 @@ export function registerSystemIPC(): void {
     else if (header.includes('webp')) ext = 'webp';
     const hash = createHash('sha256').update(googleId).digest('hex').slice(0, 16);
     const fname = `${hash}_pic.${ext}`;
-    try {
-      fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
-    } catch (e: any) { return { error: 'Write failed: ' + (e.message ?? String(e)) }; }
+    fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
     const pictureUrl = '/uploads/' + fname;
     userQueries.updateUserPicture(googleId, pictureUrl);
     return { ok: true, picture: pictureUrl };
@@ -133,9 +129,7 @@ export function registerSystemIPC(): void {
     else if (header.includes('webp')) ext = 'webp';
     const hash = createHash('sha256').update(googleId).digest('hex').slice(0, 16);
     const fname = `${hash}_bg.${ext}`;
-    try {
-      fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
-    } catch (e: any) { return { error: 'Write failed: ' + (e.message ?? String(e)) }; }
+    fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
     const bgUrl = '/uploads/' + fname;
     userQueries.updateUserProfileBg(googleId, bgUrl);
     return { ok: true, profile_bg: bgUrl };
@@ -200,9 +194,7 @@ export function registerSystemIPC(): void {
     if (!imageB64) return { error: 'image required' };
     const filename = randomUUID() + '.png';
     const filepath = path.join(uploadsDir, filename);
-    try {
-      fs.writeFileSync(filepath, Buffer.from(imageB64, 'base64'));
-    } catch (e: any) { return { error: 'Write failed: ' + (e.message ?? String(e)) }; }
+    fs.writeFileSync(filepath, Buffer.from(imageB64, 'base64'));
     return { url: '/api/images/' + filename };
   });
 

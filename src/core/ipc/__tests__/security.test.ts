@@ -34,7 +34,6 @@ describe('safePath', () => {
   });
 
   it('rejects path that is a prefix but not a child (no separator)', () => {
-    // e.g. base = /home/user/vault, path resolves to /home/user/vault-evil
     expect(safePath('/home/user/vault', '../vault-evil/file')).toBeNull();
   });
 
@@ -46,7 +45,6 @@ describe('safePath', () => {
 // ── db:read-view path validation logic ──
 
 describe('db:read-view path validation', () => {
-  // Extracted logic from the handler for testability
   function validateViewPath(dataDir: string, viewPath: string): { valid: boolean; resolved: string } {
     const resolved = path.resolve(dataDir, viewPath.replace(/^\//, ''));
     const base = path.resolve(dataDir);

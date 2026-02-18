@@ -32,14 +32,16 @@
       }
       document.documentElement.setAttribute('data-aether-theme', localStorage.getItem('aetherColor') || 'match');
     })();
-    // Stub for api.js safety
+    // Stubs for globals defined in core-auth.js (not loaded in onboarding)
     function _showLoginGate() {}
+    var _authUser = localStorage.getItem('authUser') || null;
   </script>
 </head>
 <body class="font-[-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,sans-serif] min-h-screen" style="background:var(--aether-bg);">
 
   <div id="onboarding-container" style="display:flex;align-items:center;justify-content:center;height:100vh;"></div>
 
+  <script src="/js/core/core-settings.js"></script>
   <script src="/js/logger.js"></script>
   <script src="/js/core/icons.js"></script>
   <script src="/js/core/core-state.js"></script>
