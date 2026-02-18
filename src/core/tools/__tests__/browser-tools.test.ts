@@ -6,11 +6,13 @@ import {
   browserScroll,
   browserNavigate,
   browserScreenshot,
+  browserPressKey,
+  browserGetStorage,
 } from '../browser/index';
 
 describe('browser tools', () => {
   it('all have browser category', () => {
-    const tools = [browserReadPage, browserClick, browserType, browserScroll, browserNavigate, browserScreenshot];
+    const tools = [browserReadPage, browserClick, browserType, browserScroll, browserNavigate, browserScreenshot, browserPressKey, browserGetStorage];
     for (const tool of tools) {
       expect(tool.category).toBe('browser');
       expect(tool.access).toContain('agent');
@@ -52,5 +54,31 @@ describe('browser tools', () => {
     const result = await browserScreenshot.execute({}, {});
     expect(result.success).toBe(true);
     expect(result.data!.status).toBe('pending');
+  });
+
+  it('browser-press-key returns status with key name', async () => {
+    const result = await browserPressKey.execute({ key: 'Enter' }, {});
+    expect(result.success).toBe(true);
+    expect(result.data!.message).toContain('Enter');
+  });
+
+  it('browser-press-key includes modifiers in message', async () => {
+    const result = await browserPressKey.execute({ key: 'a', modifiers: ['ctrl'] }, {});
+    expect(result.success).toBe(true);
+    expect(result.data!.message).toContain('ctrl');
+  });
+
+  it('browser-get-storage returns pending status', async () => {
+    const result = await browserGetStorage.execute({ type: 'localStorage' }, {});
+    expect(result.success).toBe(true);
+    expect(result.data!.message).toContain('localStorage');
+  });
+
+  it('browser-press-key has correct tool name', () => {
+    expect(browserPressKey.name).toBe('browser-press-key');
+  });
+
+  it('browser-get-storage has correct tool name', () => {
+    expect(browserGetStorage.name).toBe('browser-get-storage');
   });
 });

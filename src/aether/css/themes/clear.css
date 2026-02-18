@@ -8,6 +8,11 @@
   --nr-bg-overlay: rgba(20,20,20,0.85);
   --nr-bg-input:   rgba(255,255,255,0.06);
 
+  --nr-text-primary:    rgba(0, 0, 0, 0.85);
+  --nr-text-secondary:  rgba(0, 0, 0, 0.65);
+  --nr-text-tertiary:   rgba(0, 0, 0, 0.5);
+  --nr-text-quaternary: rgba(0, 0, 0, 0.35);
+
   --nr-border-default: rgba(255,255,255,0.08);
   --nr-border-strong:  rgba(255,255,255,0.12);
   --nr-border-subtle:  rgba(255,255,255,0.06);
@@ -87,16 +92,11 @@
   color: rgba(0, 0, 0, 0.25);
 }
 
-/* Clear theme: adaptive dark text tokens for light frosted surfaces.
-   All elements inside these containers inherit dark text automatically,
-   regardless of which --nr-text-* token they reference. */
+/* Clear theme: container-scoped overrides for opaque frosted surfaces
+   (border/bg tokens differ from root transparent defaults) */
 [data-theme="clear"] .ntp-search-box,
 [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open,
 [data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-ctx-tray {
-  --nr-text-primary:    rgba(0, 0, 0, 0.85);
-  --nr-text-secondary:  rgba(0, 0, 0, 0.65);
-  --nr-text-tertiary:   rgba(0, 0, 0, 0.5);
-  --nr-text-quaternary: rgba(0, 0, 0, 0.35);
   --nr-border-default:  rgba(0, 0, 0, 0.08);
   --nr-border-strong:   rgba(0, 0, 0, 0.12);
   --nr-border-subtle:   rgba(0, 0, 0, 0.06);

@@ -249,6 +249,41 @@ describe('Agent Runtime', () => {
     expect((actionEvent as any).action.element_id).toBe(5);
   });
 
+  it('emits action events for browser-press-key', async () => {
+    const provider = makeMockProvider({
+      chatResponses: [
+        {
+          message: {
+            role: 'assistant',
+            content: '',
+            tool_calls: [{
+              id: 'tc1',
+              type: 'function',
+              function: { name: 'browser-press-key', arguments: '{"key":"Enter"}' },
+            }],
+          },
+        },
+        { message: { role: 'assistant', content: 'Pressed' } },
+      ],
+      streamTokens: ['Done'],
+    });
+    providerRegistryMod.providerRegistry.register(provider);
+
+    const actions: any[] = [];
+    const events = await collectEvents({
+      agent: makeAgent({ tools: ['browser-press-key'] }),
+      messages: [{ role: 'user', content: 'press enter' }],
+      context: { toolsEnabled: true },
+      onAction: (action) => actions.push(action),
+    });
+
+    const actionEvent = events.find(
+      e => e.type === 'action' && (e as any).action.type === 'agent_press_key'
+    );
+    expect(actionEvent).toBeDefined();
+    expect((actionEvent as any).action.key).toBe('Enter');
+  });
+
   it('falls back to text-based tool call parsing', async () => {
     const provider = makeMockProvider({
       chatResponses: [
