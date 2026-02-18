@@ -120,7 +120,6 @@ describe('Route Table Coverage', () => {
     expect(ROUTE_TABLE_KEYS).toContain('#research');
     expect(ROUTE_TABLE_KEYS).toContain('#settings');
     expect(ROUTE_TABLE_KEYS).toContain('#browse');
-    expect(ROUTE_TABLE_KEYS).toContain('#vault');
   });
 
   it('should include utility routes', () => {
@@ -337,7 +336,6 @@ describe('Route Pattern Completeness', () => {
     // User-facing routes
     expect(isExactRoute('#research')).toBe(true);
     expect(isExactRoute('#browse')).toBe(true);
-    expect(isExactRoute('#vault')).toBe(true);
 
     // Dynamic content routes
     expect(isPrefixRoute('#blog/user/post')).toBe(true);

@@ -8,7 +8,6 @@ const VIEW_REGISTRY = {
   'exp-detail-view':     { template: '/views/experiment-detail.html', tier: 2 },
   'dashboard-view':      { template: '/views/dashboard.html', tier: 2 },
   'research-view':       { template: '/views/research.html',  tier: 2 },
-  'vault-view':          { template: '/views/vault.html',     tier: 3 },
   'blog-view':           { template: '/views/blog.html',      tier: 2 },
   'settings-view':       { template: '/views/settings.html',  tier: 2 },
   'quality-view':        { template: '/views/quality.html',   tier: 2 },
@@ -20,12 +19,11 @@ const VIEW_REGISTRY = {
   'dev-stats-view':      { template: '/views/dev.html',      tier: 2 },
 };
 
-const _wmDefaultOrder = ['dashboard','feed','vault','browse','neuralook','dev','settings'];
+const _wmDefaultOrder = ['dashboard','feed','browse','neuralook','dev','settings'];
 
 const _wmViewMeta = {
   dashboard:  { sidebarId: 'sb-dashboard', label: 'Home' },
   feed:       { sidebarId: 'sb-home',      label: 'Feed' },
-  vault:      { sidebarId: 'sb-vault',     label: 'Vault' },
   browse:     { sidebarId: 'sb-browse',    label: 'Browse' },
   inbox:      { sidebarId: 'sb-inbox',     label: 'Inbox' },
   neuralook:  { sidebarId: 'sb-neuralook', label: 'Neuralook' },
@@ -49,7 +47,7 @@ async function ensureView(viewId, fetchFn) {
   const div = document.createElement('div');
   div.id = viewId;
   div.className = 'hidden view';
-  if (viewId === 'vault-view' || viewId === 'blog-view') div.style.height = '100%';
+  if (viewId === 'blog-view') div.style.height = '100%';
   if (viewId === 'dashboard-view') div.classList.add('overflow-x-hidden');
   div.innerHTML = _viewTemplateCache[viewId];
   document.getElementById('view-mount').appendChild(div);
@@ -108,8 +106,8 @@ function wmOpen(key, wmWindows, state) {
 // ──────────────────────────────────────────────────────────
 
 describe('VIEW_REGISTRY', () => {
-  it('should have 13 registered views', () => {
-    expect(Object.keys(VIEW_REGISTRY)).toHaveLength(13);
+  it('should have 12 registered views', () => {
+    expect(Object.keys(VIEW_REGISTRY)).toHaveLength(12);
   });
 
   it('should have template paths for all views', () => {
@@ -120,17 +118,12 @@ describe('VIEW_REGISTRY', () => {
 
   it('should have tier for all views', () => {
     Object.entries(VIEW_REGISTRY).forEach(([id, config]) => {
-      expect([2, 3]).toContain(config.tier);
+      expect(config.tier).toBe(2);
     });
   });
 
-  it('should have vault-view as tier 3 (persistent)', () => {
-    expect(VIEW_REGISTRY['vault-view'].tier).toBe(3);
-  });
-
-  it('should have all other views as tier 2 (unmountable)', () => {
-    const tier2Views = Object.entries(VIEW_REGISTRY).filter(([id]) => id !== 'vault-view');
-    tier2Views.forEach(([id, config]) => {
+  it('should have all views as tier 2 (unmountable)', () => {
+    Object.entries(VIEW_REGISTRY).forEach(([id, config]) => {
       expect(config.tier).toBe(2);
     });
   });
@@ -144,7 +137,6 @@ describe('VIEW_REGISTRY', () => {
   it('should include all core view IDs', () => {
     expect(VIEW_REGISTRY).toHaveProperty('dashboard-view');
     expect(VIEW_REGISTRY).toHaveProperty('settings-view');
-    expect(VIEW_REGISTRY).toHaveProperty('vault-view');
     expect(VIEW_REGISTRY).toHaveProperty('inbox-view');
     expect(VIEW_REGISTRY).toHaveProperty('dev-stats-view');
     expect(VIEW_REGISTRY).toHaveProperty('neuralook-view');
@@ -152,8 +144,8 @@ describe('VIEW_REGISTRY', () => {
 });
 
 describe('_wmViewMeta', () => {
-  it('should have 9 view meta entries', () => {
-    expect(Object.keys(_wmViewMeta)).toHaveLength(9);
+  it('should have 8 view meta entries', () => {
+    expect(Object.keys(_wmViewMeta)).toHaveLength(8);
   });
 
   it('should have sidebarId for all entries', () => {
@@ -185,8 +177,8 @@ describe('_wmViewMeta', () => {
 });
 
 describe('_wmDefaultOrder', () => {
-  it('should have 7 default windows', () => {
-    expect(_wmDefaultOrder).toHaveLength(7);
+  it('should have 6 default windows', () => {
+    expect(_wmDefaultOrder).toHaveLength(6);
   });
 
   it('should start with dashboard', () => {
@@ -245,13 +237,6 @@ describe('ensureView', () => {
 
     expect(result.classList.contains('hidden')).toBe(true);
     expect(result.classList.contains('view')).toBe(true);
-  });
-
-  it('should set height 100% for vault-view', async () => {
-    const fetchFn = vi.fn().mockResolvedValue('<p>Vault</p>');
-    const result = await ensureView('vault-view', fetchFn);
-
-    expect(result.style.height).toBe('100%');
   });
 
   it('should set height 100% for blog-view', async () => {
@@ -343,13 +328,11 @@ describe('hideAllViews', () => {
       <div id="view-mount">
         <div id="dashboard-view" class="view active" style="display: block">Dashboard</div>
         <div id="settings-view" class="view active">Settings</div>
-        <div id="vault-view" class="view active">Vault</div>
       </div>
     `;
     _mountedViews.clear();
     _mountedViews.add('dashboard-view');
     _mountedViews.add('settings-view');
-    _mountedViews.add('vault-view');
   });
 
   it('should hide home-main', () => {
@@ -378,11 +361,6 @@ describe('hideAllViews', () => {
     expect(document.getElementById('settings-view')).toBeNull();
   });
 
-  it('should preserve tier 3 views (vault)', () => {
-    hideAllViews(_mountedViews);
-    // vault-view is tier 3, should still exist
-    expect(_mountedViews.has('vault-view')).toBe(true);
-  });
 });
 
 describe('goHome', () => {

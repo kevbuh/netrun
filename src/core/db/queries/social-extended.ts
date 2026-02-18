@@ -109,7 +109,6 @@ const ACHIEVEMENTS: Record<string, { id: string; name: string; description: stri
   first_blog: { id: 'first_blog', name: 'First Post', description: 'Published your first blog post', icon: '\u{1F4DD}' },
   prolific_writer: { id: 'prolific_writer', name: 'Prolific Writer', description: 'Published 10 blog posts', icon: '\u{270D}\u{FE0F}' },
   first_note: { id: 'first_note', name: 'Note Taker', description: 'Created your first note', icon: '\u{1F4D3}' },
-  vault_master: { id: 'vault_master', name: 'Vault Master', description: 'Created 50 notes', icon: '\u{1F5C4}\u{FE0F}' },
   first_status: { id: 'first_status', name: 'Statusphere', description: 'Set your first status', icon: '\u{1F4AC}' },
   pet_adopter: { id: 'pet_adopter', name: 'Pet Parent', description: 'Adopted a pixel pet', icon: '\u{1F43E}' },
   gaze_master: { id: 'gaze_master', name: 'Gaze Master', description: 'Trained your eye-tracking model 5 times', icon: '\u{1F441}\u{FE0F}' },

@@ -154,7 +154,7 @@ function _browseGoBack() {
     _setBrowseReturnView(null);
     return;
   }
-  const nav = { feed: goHome, dashboard: openDashboard, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, calendar: typeof openDashboard === 'function' ? openDashboard : null, settings: typeof openSettings === 'function' ? openSettings : null, vault: typeof openVault === 'function' ? openVault : null, neuralook: typeof openNeuralook === 'function' ? openNeuralook : null };
+  const nav = { feed: goHome, dashboard: openDashboard, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, calendar: typeof openDashboard === 'function' ? openDashboard : null, settings: typeof openSettings === 'function' ? openSettings : null, neuralook: typeof openNeuralook === 'function' ? openNeuralook : null };
   const fn = nav[_browseReturnView];
   _setBrowseReturnView(null);
   if (fn) fn(); else goHome();

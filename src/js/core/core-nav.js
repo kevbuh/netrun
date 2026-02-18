@@ -35,13 +35,8 @@ function navBack() {
 }
 
 async function openExperimentDetail(id, e) {
-  // Redirect through vault — open vault and expand the project folder
-  wmOpen('vault');
+  wmOpen('dashboard');
   window.location.hash = 'experiment/' + encodeURIComponent(id);
-  setSidebarActive('sb-vault');
-  setTimeout(() => {
-    if (typeof vaultExpandProject === 'function') vaultExpandProject(id);
-  }, 300);
 }
 
 // ── Universal Side Panel ──
@@ -183,10 +178,6 @@ function _panelCheckTabOverflow() {
 
 function _applyPanelMargin() {
   // Set margin-right on the active view element
-  const vaultView = document.getElementById('vault-view');
-  if (vaultView && vaultView.style.display !== 'none') {
-    vaultView.style.marginRight = _panelWidth + 'px';
-  }
   // home-main
   const homeMain = document.getElementById('home-main');
   if (homeMain && homeMain.style.display !== 'none') {
@@ -203,9 +194,6 @@ function _removePanelMargin() {
   document.querySelectorAll('.view, #home-main').forEach(el => {
     el.style.marginRight = '';
   });
-  // Also handle vault-view specifically
-  const vaultView = document.getElementById('vault-view');
-  if (vaultView) vaultView.style.marginRight = '';
   // browse-content
   const browseContent = document.getElementById('browse-content');
   if (browseContent) browseContent.style.marginRight = '';

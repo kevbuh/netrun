@@ -43,7 +43,7 @@ let _aetherPinned = false;
 
 // ── Context Attachments ──
 let _pendingScreenshots = [];
-let _pendingNoteContexts = []; // {id, title, content} — vault notes attached to chat
+let _pendingNoteContexts = []; // {id, title, content} — notes attached to chat
 let _pendingTabContexts = []; // {tabId, title, url, content} — browser tabs attached to chat
 let _pendingFileContexts = []; // {name, content} — uploaded files attached to chat
 

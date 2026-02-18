@@ -37,7 +37,7 @@ let _spinnerInterval = null;
 
 // ── Views ──
 let _lastActiveView = Settings.get('_lastActiveView') || 'feed';
-const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-settings': 'settings', 'sb-neuralook': 'neuralook' };
+const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-browse': 'browse', 'sb-settings': 'settings', 'sb-neuralook': 'neuralook' };
 // ── Sidebar navigation ──
 let _sidebarFocused = false;
 let _sidebarSelectedIndex = -1;
@@ -55,7 +55,7 @@ const SUBSTACK_LOGO_INLINE = '<svg class="h-3.5 w-auto inline-block" viewBox="0 
 let _wmMode = 'fullscreen';   // 'tiling' | 'fullscreen'
 let _wmFocusIndex = 0;
 let _wmPreviews = {};          // { viewKey: 'data:image/png;base64,...' }
-const _wmDefaultOrder = ['dashboard','feed','vault','browse','neuralook','dev','settings'];
+const _wmDefaultOrder = ['dashboard','feed','browse','neuralook','dev','settings'];
 let _wmLastNavTime = 0;
 
 // ── User search ──

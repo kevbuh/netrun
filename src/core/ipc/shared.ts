@@ -64,7 +64,7 @@ export const DATA_DIR = path.join(_home, '.netrun_data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 export const ANNOTATION_PROMPT_FILE = path.join(DATA_DIR, 'annotation_prompt.txt');
 
-// ── Active doc-chat / vault-chat sessions ──
+// ── Active doc-chat sessions ──
 
 export const activeDocChatSessions = new Map<string, AbortController>();
 

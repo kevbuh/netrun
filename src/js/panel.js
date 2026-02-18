@@ -659,7 +659,7 @@ function _injectProfileItems(popup) {
   else popup.appendChild(ctxDiv);
 }
 
-// ── Helper: build generic context menu items (vault, tab, custom items) ──
+// ── Helper: build generic context menu items (tab, custom items) ──
 function _panelBuildContextItems(popup, config) {
   const contextMenu = config.contextMenu || null;
   if (!(contextMenu && contextMenu.items)) return;

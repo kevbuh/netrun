@@ -83,7 +83,7 @@ const _HELP_DATA = {
     ['fetch_page', 'Fetch and extract text from a URL'],
     ['save_to_reading_list', 'Bookmark a post to your reading list'],
     ['navigate', 'Navigate to a specific app view'],
-    ['create_experiment', 'Create a new project in the vault'],
+    ['create_experiment', 'Create a new project'],
     ['create_calendar_event', 'Add an event to your calendar'],
   ],
   aiModels: [

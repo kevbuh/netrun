@@ -78,7 +78,7 @@ function renderSettingsView() {
     var sectionView;
 
     if (_settingsSection === 'profile') {
-      sectionView = VStack([_renderAccountSettings(), _renderVaultPathSection()]);
+      sectionView = VStack([_renderAccountSettings()]);
     } else if (_settingsSection === 'appearance') {
       sectionView = _renderAppearanceSettings();
     } else if (_settingsSection === 'browser') {
@@ -103,9 +103,7 @@ function renderSettingsView() {
   }).catch((e) => { /* fire-and-forget */ });
 
   // Section-specific post-render hooks
-  if (_settingsSection === 'profile') {
-    loadVaultPath();
-  } else if (_settingsSection === 'appearance') {
+  if (_settingsSection === 'appearance') {
     updateSpinnerPreview(getSelectedSpinner());
   } else if (_settingsSection === 'feed') {
     if (_settingsFeedTab === 'quality') {

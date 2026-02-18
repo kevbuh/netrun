@@ -19,11 +19,6 @@ export {
   browserPressKey, browserGetStorage,
 } from './browser/index.js';
 
-// Vault tools
-export {
-  vaultListNotes, vaultGetNote, vaultCreateNote, vaultUpdateNote, vaultDeleteNote, vaultSearch,
-} from './vault/index.js';
-
 // Experiment tools
 export {
   experimentList, experimentCreate, experimentListFiles, experimentGetFile,
@@ -50,7 +45,6 @@ import { webSearch, paperSearch } from './search/index.js';
 import { extractText } from './content/index.js';
 import { navigate, openTab, saveToReadingList, createExperiment, createCalendarEvent } from './system/index.js';
 import { browserReadPage, browserClick, browserType, browserScroll, browserNavigate, browserScreenshot, browserQuerySelector, browserWaitFor, browserGetUrl, browserGetTabs, browserSwitchTab, browserBack, browserForward, browserPressKey, browserGetStorage } from './browser/index.js';
-import { vaultListNotes, vaultGetNote, vaultCreateNote, vaultUpdateNote, vaultDeleteNote, vaultSearch } from './vault/index.js';
 import { experimentList, experimentCreate, experimentListFiles, experimentGetFile, experimentWriteFile, experimentDelete, experimentExecuteCode } from './experiment/index.js';
 import { feedList, feedFetch, feedQualityFilter } from './feed/index.js';
 import { socialUserProfile } from './social/index.js';
@@ -90,14 +84,6 @@ export function registerAllTools(): void {
   toolRegistry.register(browserForward);
   toolRegistry.register(browserPressKey);
   toolRegistry.register(browserGetStorage);
-
-  // Vault (6)
-  toolRegistry.register(vaultListNotes);
-  toolRegistry.register(vaultGetNote);
-  toolRegistry.register(vaultCreateNote);
-  toolRegistry.register(vaultUpdateNote);
-  toolRegistry.register(vaultDeleteNote);
-  toolRegistry.register(vaultSearch);
 
   // Experiment (7)
   toolRegistry.register(experimentList);

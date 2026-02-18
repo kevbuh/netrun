@@ -33,7 +33,7 @@ env.close()
 # env = gym.make("ALE/MsPacman-v5", frameskip=4)
 `;
 
-// ── Projects (vault-backed) ──
+// ── Projects ──
 const allExperiments = [];
 
 function _pixelArt(seed) {

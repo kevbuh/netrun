@@ -229,7 +229,7 @@ function _renderAppearanceSettings() {
   resetBtn.styles({ background: 'none', border: 'none' });
   resetBtn.onTap(function() { resetSidebarIcons(); });
 
-  var labels = { 'sb-dashboard': 'Home', 'sb-home': 'Feed', 'sb-vault': 'Vault', 'sb-browse': 'Browse', 'sb-neuralook': 'Neuralook', 'sb-dev': 'Dev Stats', 'sb-settings': 'Settings' };
+  var labels = { 'sb-dashboard': 'Home', 'sb-home': 'Feed', 'sb-browse': 'Browse', 'sb-neuralook': 'Neuralook', 'sb-dev': 'Dev Stats', 'sb-settings': 'Settings' };
   var order = getSidebarOrder();
   var hidden = getLS('hiddenSidebarIcons', []);
   var iconRows = order.map(function(id) {

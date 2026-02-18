@@ -1,7 +1,6 @@
 import { registerToolsProvidersIPC } from './ipc/tools-providers.js';
 import { registerAgentIPC } from './ipc/agent.js';
 import { registerDbQueriesIPC } from './ipc/db-queries.js';
-import { registerVaultIPC } from './ipc/vault.js';
 import { registerBrowseIPC } from './ipc/browse.js';
 import { registerFeedsIPC } from './ipc/feeds.js';
 import { registerContextIPC } from './ipc/context.js';
@@ -21,7 +20,6 @@ export function registerToolIPC(): void {
   registerToolsProvidersIPC();
   registerAgentIPC();
   registerDbQueriesIPC();
-  registerVaultIPC();
   registerBrowseIPC();
   registerFeedsIPC();
   registerContextIPC();

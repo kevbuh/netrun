@@ -746,8 +746,6 @@ function _renderPopupChat(popup, final) {
     el.addEventListener('click', (ev) => {
       ev.preventDefault(); ev.stopPropagation();
       const noteId = el.getAttribute('data-note-id');
-      window.location.hash = 'vault';
-      setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(noteId); }, 100);
       const popup = document.getElementById('doc-chat-ask-float');
       if (popup) { _aetherTrackMode = false; popup.remove(); }
     });

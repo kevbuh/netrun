@@ -253,10 +253,6 @@ var Settings = (function() {
   // Layout
   define('downloadBannerDismissed', { default: 'false', sync: false });
 
-  // Vault
-  define('vaultLastNote', { default: null, sync: false });
-  define('vaultWelcomeCreated', { default: null, sync: false });
-  define('vaultChatMessages', { default: '[]', sync: false });
 
   // Dashboard
   define('daySummaryCache', { default: '{}', sync: false });

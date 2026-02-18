@@ -190,10 +190,3 @@ class TestCachedFetch:
             assert isinstance(e, (ValueError, urllib.error.URLError))
 
 
-@pytest.mark.skip(reason="Requires actual vault directory")
-class TestVaultOperations:
-    """Test vault-related operations."""
-
-    def test_get_vault_project_dir(self):
-        """Test vault project directory resolution."""
-        pass

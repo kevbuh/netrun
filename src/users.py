@@ -717,12 +717,6 @@ ACHIEVEMENTS = {
         'description': 'Created your first note',
         'icon': '📓',
     },
-    'vault_master': {
-        'id': 'vault_master',
-        'name': 'Vault Master',
-        'description': 'Created 50 notes',
-        'icon': '🗄️',
-    },
     'first_status': {
         'id': 'first_status',
         'name': 'Statusphere',

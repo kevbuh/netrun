@@ -198,8 +198,8 @@ describe('Sidebar Icon Visibility', () => {
   });
 
   it('should remove icon from hidden list when making visible', () => {
-    const result = toggleSidebarIconData(['sb-browse', 'sb-vault'], 'sb-browse', true);
-    expect(result).toEqual(['sb-vault']);
+    const result = toggleSidebarIconData(['sb-browse', 'sb-dev'], 'sb-browse', true);
+    expect(result).toEqual(['sb-dev']);
   });
 
   it('should not duplicate when hiding already hidden icon', () => {
@@ -208,8 +208,8 @@ describe('Sidebar Icon Visibility', () => {
   });
 
   it('should handle making visible an icon not in hidden list', () => {
-    const result = toggleSidebarIconData(['sb-vault'], 'sb-browse', true);
-    expect(result).toEqual(['sb-vault']);
+    const result = toggleSidebarIconData(['sb-dev'], 'sb-browse', true);
+    expect(result).toEqual(['sb-dev']);
   });
 
   it('should handle empty hidden list when making visible', () => {

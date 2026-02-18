@@ -215,7 +215,6 @@ const _aetherCommands = [
   { name: 'note', desc: 'Open in note viewer', fn: () => { if (typeof browseOpenNoteView === 'function') browseOpenNoteView(); } },
   { name: 'paper', desc: 'Search for papers', hasArgs: true },
   { name: 'user', desc: 'Search for users', hasArgs: true },
-  { name: 'notes', desc: 'Browse your notes', _special: true },
   { name: 'capture', desc: 'Screenshot the page', _special: true },
   { name: 'agent', desc: 'Switch AI agent', _special: true },
   { name: 'model', desc: 'Change chat model', _special: true },
@@ -282,7 +281,6 @@ function _aetherRenderCmdDropdown(popup, query) {
           else if (cmd.name === 'links') _doAetherLinks(popup);
           else if (cmd.name === 'tab') _doAetherTab(popup);
           else if (cmd.name === 'tabs') _doAetherTabs(popup);
-          else if (cmd.name === 'notes') _doAetherNotesBrowse(popup);
           else if (cmd.name === 'history') _doAetherHistory(popup);
           else if (cmd.name === 'help') _doAetherHelp(popup);
         } else {
@@ -681,16 +679,6 @@ async function _aetherCreateAndOpenNote(popup, title) {
   _aetherHideNoteDropdown(popup);
   _aetherTrackMode = false;
   popup.remove();
-  window.location.hash = '#vault';
-  // Wait for vault view to render, then create the note
-  setTimeout(async () => {
-    if (typeof vaultCreateNoteWithTitle === 'function') {
-      await vaultCreateNoteWithTitle(title);
-      // Focus the editor so user can start typing immediately
-      const editor = document.getElementById('vault-editor');
-      if (editor) editor.focus();
-    }
-  }, 150);
 }
 
 async function _doAetherCapture(popup) {
@@ -1250,7 +1238,6 @@ Type in the browser URL bar:
 | \`/search query\` | Web search in new tab |
 | \`/paper query\` | Search arXiv papers |
 | \`/user query\` | Search for users |
-| \`/notes\` | Browse your notes |
 | \`/links\` | List links on page |
 | \`/tab\` | Add tab to context |
 | \`/model\` | Change chat model |
@@ -1406,7 +1393,6 @@ function _aetherExecCommand(popup, text) {
       _aetherHideCmdDropdown(popup);
       if (cmdName === 'paper') { _doAetherPaperSearch(popup, args); return true; }
       if (cmdName === 'user') { _doAetherUserSearch(popup, args); return true; }
-      if (cmdName === 'notes') { _doAetherNoteSearch(popup, args); return true; }
       if (cmdName === 'search') { _doAetherSearchNewTab(popup, args); return true; }
       if (cmdName === 'define') { _doAetherDefine(popup, args); return true; }
     }

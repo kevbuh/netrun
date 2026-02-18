@@ -64,7 +64,6 @@ function _dashBuildQuickActions() {
   var actions = [
     { label: 'New Project', fn: function() { openExperiments(); }, iconName: 'folder' },
     { label: 'Search', fn: function() { openSearch(); }, iconName: 'search' },
-    { label: 'Vault', fn: function() { openVault(); }, iconName: 'file' },
     { label: 'Calendar', fn: function() { wmOpen('calendar'); }, iconName: 'calendar' },
   ];
   var grid = new (window._AetherUIView || AetherUI.View)('div');

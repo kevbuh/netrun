@@ -255,7 +255,6 @@ const VIEW_REGISTRY = {
   'exp-detail-view':     { template: '/views/experiment-detail.html', tier: 2 },
   'dashboard-view':      { template: '/views/dashboard.html', tier: 2 },
   'research-view':       { template: '/views/research.html',  tier: 2 },
-  'vault-view':          { template: '/views/vault.html',     tier: 3 },
   'blog-view':           { template: '/views/blog.html',      tier: 2 },
   'settings-view':       { template: '/views/settings.html',  tier: 2 },
   'quality-view':        { template: '/views/quality.html',   tier: 2 },
@@ -285,7 +284,7 @@ async function ensureView(viewId) {
   div.id = viewId;
   div.className = 'hidden view';
   // Preserve extra styles for specific views
-  if (viewId === 'vault-view' || viewId === 'blog-view') div.style.height = '100%';
+  if (viewId === 'blog-view') div.style.height = '100%';
   if (viewId === 'dashboard-view') div.classList.add('overflow-x-hidden');
   div.innerHTML = _viewTemplateCache[viewId];
   document.getElementById('view-mount').appendChild(div);
@@ -320,7 +319,6 @@ function hideAllViews() {
   if (typeof _browseRemoveKeyGuard === 'function') _browseRemoveKeyGuard();
   if (typeof _browseResetAdaptiveColor === 'function') _browseResetAdaptiveColor();
   if (typeof _devFpsRaf !== 'undefined' && _devFpsRaf) { cancelAnimationFrame(_devFpsRaf); _devFpsRaf = null; }
-  if (typeof _vaultGitMode !== 'undefined' && _vaultGitMode) { document.removeEventListener('keydown', _vibeKeyHandler); }
   // Hide universal panel (next view's open function will re-show if it has registered tabs)
   const _upanel = document.getElementById('universal-panel');
   if (_upanel) _upanel.style.display = 'none';
@@ -348,7 +346,6 @@ async function _wmCapturePreview() {
 const _wmViewMeta = {
   dashboard:  { sidebarId: 'sb-dashboard', label: 'Home',       openFn() { openDashboard(); } },
   feed:       { sidebarId: 'sb-home',      label: 'Feed',       openFn() { goHome(); } },
-  vault:      { sidebarId: 'sb-vault',     label: 'Vault',      openFn() { openVault(); } },
   browse:     { sidebarId: 'sb-browse',    label: 'Browse',     openFn() { openBrowse(); } },
   inbox:      { sidebarId: 'sb-inbox',     label: 'Inbox',      openFn() { openInbox(); } },
   neuralook:  { sidebarId: 'sb-neuralook', label: 'Neuralook',  openFn() { openNeuralook(); } },
@@ -540,7 +537,7 @@ function openSearch() {
 }
 
 function openExperiments() {
-  wmOpen('vault');
+  wmOpen('dashboard');
 }
 
 async function openDashboard() {
@@ -567,7 +564,7 @@ function expGoBack() {
   if (_expBackAction && _expBackAction.fn) {
     _expBackAction.fn();
   } else if (!navBack()) {
-    wmOpen('vault');
+    wmOpen('dashboard');
   }
 }
 

@@ -4,13 +4,13 @@
 // ── Route table — exact hash → action ──
 var _ROUTE_TABLE = {
   '#research':    () => { openResearch(); },
-  '#experiments': () => wmOpen('vault'),
+  '#experiments': () => wmOpen('dashboard'),
   '#settings':    () => wmOpen('settings'),
   '#quality':     () => { _settingsSection = 'feed'; _settingsFeedTab = 'quality'; Settings.set('settingsSection', 'feed'); wmOpen('settings'); },
   '#algorithm':   () => { _settingsSection = 'feed'; _settingsFeedTab = 'algorithm'; Settings.set('settingsSection', 'feed'); wmOpen('settings'); },
   '#calendar':    () => wmOpen('dashboard'),
   '#inbox':       () => wmOpen('inbox'),
-  '#vault':       () => wmOpen('vault'),
+  '#vault':       () => wmOpen('dashboard'),
   '#profile':     () => openUserProfile(''),
   '#saved-all':   () => openAllSaved(),
   '#saved':       () => wmOpen('dashboard'),
@@ -19,7 +19,7 @@ var _ROUTE_TABLE = {
   '#terminal':    () => { openTerminal(); },
   '#neuralook':   () => wmOpen('neuralook'),
   '#dev':         () => wmOpen('dev'),
-  '#vibe':        () => wmOpen('vault'),
+  '#vibe':        () => wmOpen('dashboard'),
   '#feed':        () => wmOpen('feed'),
 };
 
@@ -27,7 +27,7 @@ var _ROUTE_TABLE = {
 var _ROUTE_PREFIX_HANDLERS = [
   ['#blog/',       (rest) => { const parts = rest.split('/'); if (parts.length >= 2) { const username = decodeURIComponent(parts[0]); const slug = decodeURIComponent(parts.slice(1).join('/')); if (typeof openBlogPost === 'function') openBlogPost(username, slug); } }],
   ['#profile/',    (rest) => openUserProfile(decodeURIComponent(rest))],
-  ['#experiment/', (rest) => { const qIdx = rest.indexOf('?'); const expId = qIdx >= 0 ? decodeURIComponent(rest.slice(0, qIdx)) : decodeURIComponent(rest); const params = qIdx >= 0 ? new URLSearchParams(rest.slice(qIdx)) : null; const autoFile = params && params.get('file'); wmOpen('vault'); setTimeout(() => { if (typeof vaultExpandProject === 'function') vaultExpandProject(expId); if (autoFile && typeof vaultOpenProjectFile === 'function') vaultOpenProjectFile(expId, decodeURIComponent(autoFile)); }, 300); }],
+  ['#experiment/', (rest) => { wmOpen('dashboard'); }],
 ];
 
 function routeFromHash() {

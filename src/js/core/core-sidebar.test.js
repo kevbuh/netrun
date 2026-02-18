@@ -10,7 +10,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 const SIDEBAR_ICON_IDS = [
   'sb-dashboard',
   'sb-home',
-  'sb-vault',
   'sb-browse',
   'sb-neuralook',
   'sb-dev',
@@ -115,14 +114,13 @@ function reorderArray(arr, fromIndex, toIndex) {
 // ──────────────────────────────────────────────────────────
 
 describe('Sidebar Icon Constants', () => {
-  it('should have 7 default icons', () => {
-    expect(SIDEBAR_ICON_IDS).toHaveLength(7);
+  it('should have 6 default icons', () => {
+    expect(SIDEBAR_ICON_IDS).toHaveLength(6);
   });
 
   it('should include core navigation icons', () => {
     expect(SIDEBAR_ICON_IDS).toContain('sb-dashboard');
     expect(SIDEBAR_ICON_IDS).toContain('sb-home');
-    expect(SIDEBAR_ICON_IDS).toContain('sb-vault');
     expect(SIDEBAR_ICON_IDS).toContain('sb-browse');
   });
 
@@ -173,8 +171,8 @@ describe('Hidden Icons Parsing', () => {
 
 describe('Sidebar Order Parsing', () => {
   it('should parse valid order', () => {
-    const json = JSON.stringify(['sb-vault', 'sb-home', 'sb-dashboard']);
-    expect(parseSidebarOrder(json)).toEqual(['sb-vault', 'sb-home', 'sb-dashboard']);
+    const json = JSON.stringify(['sb-dev', 'sb-home', 'sb-dashboard']);
+    expect(parseSidebarOrder(json)).toEqual(['sb-dev', 'sb-home', 'sb-dashboard']);
   });
 
   it('should return null for empty array', () => {
@@ -201,32 +199,32 @@ describe('Sidebar Order Merging', () => {
   });
 
   it('should preserve saved order', () => {
-    const saved = ['sb-browse', 'sb-vault', 'sb-home'];
+    const saved = ['sb-browse', 'sb-dev', 'sb-home'];
     const result = mergeSidebarOrder(saved, SIDEBAR_ICON_IDS);
     expect(result.slice(0, 3)).toEqual(saved);
   });
 
   it('should add new icons not in saved order', () => {
-    const saved = ['sb-home', 'sb-vault'];
+    const saved = ['sb-home', 'sb-dev'];
     const result = mergeSidebarOrder(saved, SIDEBAR_ICON_IDS);
     expect(result.length).toBe(SIDEBAR_ICON_IDS.length);
     expect(result.slice(0, 2)).toEqual(saved);
   });
 
   it('should filter out invalid icons from saved order', () => {
-    const saved = ['sb-home', 'sb-invalid', 'sb-vault'];
+    const saved = ['sb-home', 'sb-invalid', 'sb-dev'];
     const result = mergeSidebarOrder(saved, SIDEBAR_ICON_IDS);
     expect(result).not.toContain('sb-invalid');
   });
 
   it('should handle all icons in custom order', () => {
-    const saved = ['sb-settings', 'sb-dashboard', 'sb-home', 'sb-vault', 'sb-browse', 'sb-neuralook', 'sb-dev'];
+    const saved = ['sb-settings', 'sb-dashboard', 'sb-home', 'sb-browse', 'sb-neuralook', 'sb-dev'];
     const result = mergeSidebarOrder(saved, SIDEBAR_ICON_IDS);
     expect(result).toEqual(saved);
   });
 
   it('should append new icon when added to app', () => {
-    const saved = ['sb-home', 'sb-vault'];
+    const saved = ['sb-home', 'sb-dev'];
     const newDefaults = [...SIDEBAR_ICON_IDS, 'sb-new-feature'];
     const result = mergeSidebarOrder(saved, newDefaults);
     expect(result[result.length - 1]).toBe('sb-new-feature');
@@ -253,7 +251,7 @@ describe('Icon Hidden Check', () => {
 
 describe('Sidebar Order Serialization', () => {
   it('should serialize order to JSON', () => {
-    const order = ['sb-home', 'sb-vault', 'sb-browse'];
+    const order = ['sb-home', 'sb-dev', 'sb-browse'];
     const result = serializeSidebarOrder(order);
     expect(result).toBe(JSON.stringify(order));
   });
@@ -272,11 +270,11 @@ describe('Sidebar Order Serialization', () => {
 
 describe('Sidebar Order Validation', () => {
   it('should validate unique order', () => {
-    expect(validateSidebarOrder(['sb-home', 'sb-vault', 'sb-browse'])).toBe(true);
+    expect(validateSidebarOrder(['sb-home', 'sb-dev', 'sb-browse'])).toBe(true);
   });
 
   it('should reject duplicate icons', () => {
-    expect(validateSidebarOrder(['sb-home', 'sb-vault', 'sb-home'])).toBe(false);
+    expect(validateSidebarOrder(['sb-home', 'sb-dev', 'sb-home'])).toBe(false);
   });
 
   it('should reject non-array', () => {
@@ -309,9 +307,9 @@ describe('Icon Display Style', () => {
 
 describe('Valid Icon Filtering', () => {
   it('should keep only valid icons', () => {
-    const order = ['sb-home', 'sb-invalid', 'sb-vault', 'sb-fake'];
+    const order = ['sb-home', 'sb-invalid', 'sb-dev', 'sb-fake'];
     const result = filterValidIcons(order, SIDEBAR_ICON_IDS);
-    expect(result).toEqual(['sb-home', 'sb-vault']);
+    expect(result).toEqual(['sb-home', 'sb-dev']);
   });
 
   it('should return empty for no matches', () => {
@@ -321,7 +319,7 @@ describe('Valid Icon Filtering', () => {
   });
 
   it('should preserve order of valid icons', () => {
-    const order = ['sb-vault', 'sb-home', 'sb-browse'];
+    const order = ['sb-dev', 'sb-home', 'sb-browse'];
     const result = filterValidIcons(order, SIDEBAR_ICON_IDS);
     expect(result).toEqual(order);
   });

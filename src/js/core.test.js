@@ -133,13 +133,12 @@ function createWindowManager() {
   const viewMeta = {
     dashboard:  { label: 'Home',      sidebarId: 'sb-dashboard' },
     feed:       { label: 'Feed',      sidebarId: 'sb-home' },
-    vault:      { label: 'Vault',     sidebarId: 'sb-vault' },
     browse:     { label: 'Browse',    sidebarId: 'sb-browse' },
     inbox:      { label: 'Inbox',     sidebarId: 'sb-inbox' },
     settings:   { label: 'Settings',  sidebarId: 'sb-settings' },
   };
 
-  const defaultOrder = ['dashboard', 'feed', 'vault', 'browse', 'inbox', 'settings'];
+  const defaultOrder = ['dashboard', 'feed', 'browse', 'inbox', 'settings'];
   let windows = defaultOrder.map(key => ({
     key,
     label: viewMeta[key].label,
@@ -233,11 +232,11 @@ function parseRoute(hash) {
   if (!route || route === 'feed') return { view: 'feed', params: {} };
 
   // Simple views (no params)
-  const simpleViews = ['research', 'browse', 'settings', 'vault', 'inbox', 'calendar', 'dev', 'graph'];
+  const simpleViews = ['research', 'browse', 'settings', 'inbox', 'calendar', 'dev', 'graph'];
   if (simpleViews.includes(route)) return { view: route, params: {} };
 
   // Special redirects
-  if (route === 'experiments') return { view: 'vault', params: {}, redirect: true };
+  if (route === 'vault' || route === 'experiments' || route === 'vibe') return { view: 'dashboard', params: {}, redirect: true };
   if (route === 'quality') return { view: 'settings', params: { section: 'feed', tab: 'quality' }, redirect: true };
   if (route === 'algorithm') return { view: 'settings', params: { section: 'feed', tab: 'algorithm' }, redirect: true };
 
@@ -532,10 +531,10 @@ describe('Window Manager', () => {
 
   describe('open', () => {
     it('should focus existing window', () => {
-      // Default windows: dashboard, feed, vault, browse, inbox, settings
+      // Default windows: dashboard, feed, browse, inbox, settings
       const initialCount = wm.getWindows().length;
 
-      wm.open('vault'); // Index 2
+      wm.open('browse'); // Index 2
       expect(wm.getFocusIndex()).toBe(2);
       expect(wm.getWindows()).toHaveLength(initialCount);
     });
@@ -557,7 +556,7 @@ describe('Window Manager', () => {
 
     it('should set mode to fullscreen on open', () => {
       wm.setMode('tiling');
-      wm.open('vault');
+      wm.open('browse');
       expect(wm.getMode()).toBe('fullscreen');
     });
 
@@ -570,9 +569,9 @@ describe('Window Manager', () => {
   describe('close', () => {
     it('should remove window at index', () => {
       const initialCount = wm.getWindows().length;
-      wm.close(2); // Close vault
+      wm.close(2); // Close browse
       expect(wm.getWindows()).toHaveLength(initialCount - 1);
-      expect(wm.getWindows().find(w => w.key === 'vault')).toBeUndefined();
+      expect(wm.getWindows().find(w => w.key === 'browse')).toBeUndefined();
     });
 
     it('should adjust focus index if closing focused window', () => {
@@ -638,9 +637,9 @@ describe('Window Manager', () => {
       expect(wm.getCurrentWindow().key).toBe('browse');
       expect(wm.getMode()).toBe('fullscreen');
 
-      // User switches to vault
-      wm.open('vault');
-      expect(wm.getCurrentWindow().key).toBe('vault');
+      // User switches to inbox
+      wm.open('inbox');
+      expect(wm.getCurrentWindow().key).toBe('inbox');
 
       // User returns to browse
       wm.open('browse');
@@ -650,7 +649,7 @@ describe('Window Manager', () => {
       const windows = wm.getWindows();
       expect(windows.find(w => w.key === 'feed')).toBeDefined();
       expect(windows.find(w => w.key === 'browse')).toBeDefined();
-      expect(windows.find(w => w.key === 'vault')).toBeDefined();
+      expect(windows.find(w => w.key === 'inbox')).toBeDefined();
     });
   });
 });
@@ -666,7 +665,6 @@ describe('Route Parser', () => {
 
     it('should parse simple view routes', () => {
       expect(parseRoute('#browse')).toEqual({ view: 'browse', params: {} });
-      expect(parseRoute('#vault')).toEqual({ view: 'vault', params: {} });
       expect(parseRoute('#settings')).toEqual({ view: 'settings', params: {} });
       expect(parseRoute('#inbox')).toEqual({ view: 'inbox', params: {} });
       expect(parseRoute('#calendar')).toEqual({ view: 'calendar', params: {} });
@@ -674,9 +672,21 @@ describe('Route Parser', () => {
   });
 
   describe('Redirect routes', () => {
-    it('should parse experiments redirect to vault', () => {
+    it('should parse experiments redirect to dashboard', () => {
       const result = parseRoute('#experiments');
-      expect(result.view).toBe('vault');
+      expect(result.view).toBe('dashboard');
+      expect(result.redirect).toBe(true);
+    });
+
+    it('should parse vault redirect to dashboard', () => {
+      const result = parseRoute('#vault');
+      expect(result.view).toBe('dashboard');
+      expect(result.redirect).toBe(true);
+    });
+
+    it('should parse vibe redirect to dashboard', () => {
+      const result = parseRoute('#vibe');
+      expect(result.view).toBe('dashboard');
       expect(result.redirect).toBe(true);
     });
 
@@ -756,7 +766,6 @@ describe('Route Parser', () => {
       const routes = [
         '#feed',
         '#browse',
-        '#vault',
         '#experiment/my-project',
         '#profile/alice',
         '#settings',
@@ -767,14 +776,13 @@ describe('Route Parser', () => {
 
       expect(results[0].view).toBe('feed');
       expect(results[1].view).toBe('browse');
-      expect(results[2].view).toBe('vault');
-      expect(results[3].view).toBe('experiment');
-      expect(results[3].params.id).toBe('my-project');
-      expect(results[4].view).toBe('profile');
-      expect(results[4].params.username).toBe('alice');
-      expect(results[5].view).toBe('settings');
-      expect(results[6].view).toBe('settings'); // Redirect
-      expect(results[6].params.tab).toBe('quality');
+      expect(results[2].view).toBe('experiment');
+      expect(results[2].params.id).toBe('my-project');
+      expect(results[3].view).toBe('profile');
+      expect(results[3].params.username).toBe('alice');
+      expect(results[4].view).toBe('settings');
+      expect(results[5].view).toBe('settings'); // Redirect
+      expect(results[5].params.tab).toBe('quality');
     });
   });
 
@@ -809,7 +817,6 @@ describe('Integration: Window Manager + Route Parser', () => {
     const routes = [
       '#feed',
       '#browse',
-      '#vault',
       '#settings',
     ];
 
@@ -827,7 +834,6 @@ describe('Integration: Window Manager + Route Parser', () => {
     const windows = wm.getWindows();
     expect(windows.find(w => w.key === 'feed')).toBeDefined();
     expect(windows.find(w => w.key === 'browse')).toBeDefined();
-    expect(windows.find(w => w.key === 'vault')).toBeDefined();
     expect(windows.find(w => w.key === 'settings')).toBeDefined();
   });
 });

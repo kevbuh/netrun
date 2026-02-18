@@ -7,7 +7,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const _sidebarToView = {
   'sb-home': 'feed',
   'sb-dashboard': 'dashboard',
-  'sb-vault': 'vault',
   'sb-browse': 'browse',
   'sb-settings': 'settings',
   'sb-neuralook': 'neuralook',
@@ -16,7 +15,6 @@ const _sidebarToView = {
 const _wmViewMeta = {
   dashboard:  { sidebarId: 'sb-dashboard', label: 'Home' },
   feed:       { sidebarId: 'sb-home',      label: 'Feed' },
-  vault:      { sidebarId: 'sb-vault',     label: 'Vault' },
   browse:     { sidebarId: 'sb-browse',    label: 'Browse' },
   inbox:      { sidebarId: 'sb-inbox',     label: 'Inbox' },
   neuralook:  { sidebarId: 'sb-neuralook', label: 'Neuralook' },
@@ -32,17 +30,19 @@ const _ROUTE_TABLE_KEYS = [
   '#vibe', '#feed',
 ];
 
+// Note: #vault, #experiments, #vibe still exist as routes but now redirect to dashboard
+
 // ── Route-to-wmOpen mapping (what wmOpen key each route triggers) ──
 const ROUTE_TO_WM_KEY = {
-  '#experiments': 'vault',
+  '#experiments': 'dashboard',
   '#settings':    'settings',
   '#calendar':    'dashboard',
   '#inbox':       'inbox',
-  '#vault':       'vault',
+  '#vault':       'dashboard',
   '#browse':      'browse',
   '#neuralook':   'neuralook',
   '#dev':         'dev',
-  '#vibe':        'vault',
+  '#vibe':        'dashboard',
   '#feed':        'feed',
   '#saved':       'dashboard',
 };
@@ -104,8 +104,8 @@ function shouldRestoreHash(currentHash) {
 // ──────────────────────────────────────────────────────────
 
 describe('_sidebarToView mapping', () => {
-  it('should have 6 sidebar-to-view mappings', () => {
-    expect(Object.keys(_sidebarToView)).toHaveLength(6);
+  it('should have 5 sidebar-to-view mappings', () => {
+    expect(Object.keys(_sidebarToView)).toHaveLength(5);
   });
 
   it('should map sb-home to feed', () => {
@@ -114,10 +114,6 @@ describe('_sidebarToView mapping', () => {
 
   it('should map sb-dashboard to dashboard', () => {
     expect(_sidebarToView['sb-dashboard']).toBe('dashboard');
-  });
-
-  it('should map sb-vault to vault', () => {
-    expect(_sidebarToView['sb-vault']).toBe('vault');
   });
 
   it('should map sb-browse to browse', () => {
@@ -145,7 +141,6 @@ describe('setSidebarActive', () => {
       <nav id="sidebar-nav">
         <button class="sidebar-icon" id="sb-dashboard"></button>
         <button class="sidebar-icon active" id="sb-home"></button>
-        <button class="sidebar-icon" id="sb-vault"></button>
         <button class="sidebar-icon" id="sb-browse"></button>
         <button class="sidebar-icon" id="sb-neuralook"></button>
         <button class="sidebar-icon" id="sb-dev"></button>
@@ -155,14 +150,14 @@ describe('setSidebarActive', () => {
   });
 
   it('should add active class to target icon', () => {
-    setSidebarActive('sb-vault');
-    expect(document.getElementById('sb-vault').classList.contains('active')).toBe(true);
+    setSidebarActive('sb-browse');
+    expect(document.getElementById('sb-browse').classList.contains('active')).toBe(true);
   });
 
   it('should remove active class from all other icons', () => {
-    setSidebarActive('sb-vault');
+    setSidebarActive('sb-browse');
     document.querySelectorAll('.sidebar-icon').forEach(el => {
-      if (el.id !== 'sb-vault') {
+      if (el.id !== 'sb-browse') {
         expect(el.classList.contains('active')).toBe(false);
       }
     });
@@ -186,7 +181,7 @@ describe('setSidebarActive', () => {
   it('should return view key for known sidebar IDs', () => {
     expect(setSidebarActive('sb-home')).toBe('feed');
     expect(setSidebarActive('sb-dashboard')).toBe('dashboard');
-    expect(setSidebarActive('sb-vault')).toBe('vault');
+    expect(setSidebarActive('sb-browse')).toBe('browse');
   });
 
   it('should return null for unknown sidebar IDs', () => {
@@ -199,13 +194,10 @@ describe('Route-to-wmOpen mapping', () => {
     expect(ROUTE_TO_WM_KEY['#feed']).toBe('feed');
   });
 
-  it('should map #vault and #experiments to vault', () => {
-    expect(ROUTE_TO_WM_KEY['#vault']).toBe('vault');
-    expect(ROUTE_TO_WM_KEY['#experiments']).toBe('vault');
-  });
-
-  it('should map #vibe to vault', () => {
-    expect(ROUTE_TO_WM_KEY['#vibe']).toBe('vault');
+  it('should map #vault, #experiments, and #vibe to dashboard', () => {
+    expect(ROUTE_TO_WM_KEY['#vault']).toBe('dashboard');
+    expect(ROUTE_TO_WM_KEY['#experiments']).toBe('dashboard');
+    expect(ROUTE_TO_WM_KEY['#vibe']).toBe('dashboard');
   });
 
   it('should map #calendar and #saved to dashboard', () => {
@@ -382,7 +374,7 @@ describe('wmViewMeta consistency with routes', () => {
   });
 
   it('should have routes for all main wmViewMeta keys', () => {
-    const mainKeys = ['feed', 'vault', 'browse', 'settings', 'dev', 'neuralook'];
+    const mainKeys = ['feed', 'browse', 'settings', 'dev', 'neuralook'];
     mainKeys.forEach(key => {
       const hash = '#' + key;
       expect(_ROUTE_TABLE_KEYS).toContain(hash);

@@ -7,10 +7,8 @@ import time
 # ── Constants and directories ──
 
 DIR = os.environ.get('ARXIV_DATA_DIR', os.path.dirname(os.path.abspath(__file__)))
-VAULT_DIR = os.path.join(os.path.expanduser('~'), 'Desktop', 'aether')
 SAVED_CONTENT_DIR = os.path.join(DIR, 'saved_content')
 os.makedirs(SAVED_CONTENT_DIR, exist_ok=True)
-os.makedirs(VAULT_DIR, exist_ok=True)
 
 DB_PATH = os.path.join(DIR, 'netrun.db')
 SESSION_TTL = 30 * 24 * 3600  # 30 days
@@ -331,15 +329,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-
-def get_vault_project_dir(google_id, project_id):
-    """Resolve a project directory inside the user's vault. Returns path or None if traversal."""
-    from vault_helpers import _get_user_vault_path
-    vault = _get_user_vault_path(google_id)
-    d = os.path.join(vault, project_id)
-    if not os.path.realpath(d).startswith(os.path.realpath(vault) + os.sep):
-        return None
-    return d
 
 
 def log_usage(event):

@@ -48,35 +48,6 @@ async function ipcRoute(path, opts = {}) {
     return { ok: deleted };
   }
 
-  // ── Vault (notes) — via tools, unwrap to match Flask format ──
-  if (pathOnly === '/api/vault/notes' && method === 'GET') {
-    if (!googleId) return null;
-    const result = await window.electronAPI.toolExecute('vault-list-notes', {}, { googleId });
-    return _unwrapTool(result, 'notes') ?? [];
-  }
-  if (pathOnly === '/api/vault/notes' && method === 'POST') {
-    if (!googleId) return null;
-    const result = await window.electronAPI.toolExecute('vault-create-note', body, { googleId });
-    return _unwrapTool(result);
-  }
-  if (pathOnly.match(/^\/api\/vault\/notes\/[^/]+$/) && method === 'GET') {
-    if (!googleId) return null;
-    const noteId = pathOnly.split('/').pop();
-    const result = await window.electronAPI.toolExecute('vault-get-note', { id: noteId }, { googleId });
-    return _unwrapTool(result);
-  }
-  if (pathOnly.match(/^\/api\/vault\/notes\/[^/]+$/) && method === 'PUT') {
-    if (!googleId) return null;
-    const noteId = pathOnly.split('/').pop();
-    const result = await window.electronAPI.toolExecute('vault-update-note', { id: noteId, ...body }, { googleId });
-    return _unwrapTool(result);
-  }
-  if (pathOnly.match(/^\/api\/vault\/notes\/[^/]+$/) && method === 'DELETE') {
-    if (!googleId) return null;
-    const noteId = pathOnly.split('/').pop();
-    const result = await window.electronAPI.toolExecute('vault-delete-note', { id: noteId }, { googleId });
-    return _unwrapTool(result) ?? { ok: true };
-  }
 
   // ── Search — via tools ──
   if (pathOnly === '/api/web-search' && method === 'POST') {
@@ -612,18 +583,6 @@ async function ipcRoute(path, opts = {}) {
     });
     return { _stream: true, sessionId };
   }
-  if (pathOnly === '/api/vault-chat' && method === 'POST') {
-    if (!googleId) return null;
-    const sessionId = 'vc-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-    await window.electronAPI.dbQuery('vault-chat-start', {
-      sessionId,
-      googleId,
-      messages: body.messages || [],
-      query: body.query || '',
-      min_similarity: body.min_similarity || 0.7,
-    });
-    return { _stream: true, sessionId };
-  }
 
   // ═══════════════════════════════════════════════════════════════════
   // Phase 5: Filesystem + Config
@@ -663,19 +622,6 @@ async function ipcRoute(path, opts = {}) {
   // Flask Migration: Routes now handled by IPC
   // ═══════════════════════════════════════════════════════════════════
 
-  // ── Vault path/tree ──
-  if (pathOnly === '/api/vault/path' && method === 'GET') {
-    if (!googleId) return null;
-    return await window.electronAPI.dbQuery('vault-path-get', googleId);
-  }
-  if (pathOnly === '/api/vault/path' && method === 'POST') {
-    if (!googleId) return null;
-    return await window.electronAPI.dbQuery('vault-path-set', googleId, body.path ?? null);
-  }
-  if (pathOnly === '/api/vault/tree' && method === 'GET') {
-    if (!googleId) return null;
-    return await window.electronAPI.dbQuery('vault-tree', googleId);
-  }
 
   // ── Social uploads + blog unpublish ──
   if (pathOnly === '/api/users/me/picture' && method === 'PUT') {
@@ -765,15 +711,6 @@ async function ipcRoute(path, opts = {}) {
     return await window.electronAPI.dbQuery('vibe-git', googleId, cmd, body);
   }
 
-  // ── Marimo ──
-  if (pathOnly === '/api/vault/marimo/start' && method === 'POST') {
-    if (!googleId) return null;
-    return await window.electronAPI.dbQuery('marimo-start', googleId, body.note_id);
-  }
-  if (pathOnly === '/api/vault/marimo/stop' && method === 'POST') {
-    if (!googleId) return null;
-    return await window.electronAPI.dbQuery('marimo-stop', googleId, body.note_id);
-  }
 
   // ── Experiments (non-kernel) ──
   if (pathOnly.match(/^\/api\/experiments\/[^/]+\/packages$/) && method === 'GET') {
