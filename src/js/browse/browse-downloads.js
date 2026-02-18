@@ -14,18 +14,18 @@ const _DOOM_SCROLL_DEFAULTS = [
 
 function _getDoomScrollSites() {
   try {
-    const saved = localStorage.getItem('doomScrollSites');
+    const saved = Settings.get('doomScrollSites');
     if (saved) return JSON.parse(saved);
   } catch {}
   return _DOOM_SCROLL_DEFAULTS.slice();
 }
 
 function _saveDoomScrollSites(list) {
-  localStorage.setItem('doomScrollSites', JSON.stringify(list));
+  Settings.setJSON('doomScrollSites', list);
 }
 
 function _doomScrollMatch(url) {
-  if (localStorage.getItem('doomScrollEnabled') === 'false') return null;
+  if (Settings.get('doomScrollEnabled') === 'false') return null;
   let hostname;
   try { hostname = new URL(url).hostname.toLowerCase(); } catch { return null; }
   const sites = _getDoomScrollSites();
@@ -118,7 +118,7 @@ let _browseDownloadsLastSeenCount = 0;
 
 function _loadBrowseDownloads() {
   try {
-    const saved = JSON.parse(localStorage.getItem('browseDownloads') || '[]');
+    const saved = Settings.getJSON('browseDownloads', []);
     const oneHourAgo = Date.now() - DOWNLOAD_RETENTION_MS;
     _browseDownloads = saved.filter(d => d.startTime > oneHourAgo);
     // Find max ID
@@ -127,7 +127,7 @@ function _loadBrowseDownloads() {
       if (num > _browseDownloadIdCounter) _browseDownloadIdCounter = num;
     });
     // Load last seen count
-    const lastSeen = parseInt(localStorage.getItem('browseDownloadsLastSeen') || '0');
+    const lastSeen = parseInt(Settings.get('browseDownloadsLastSeen') || '0');
     _browseDownloadsLastSeenCount = Math.min(lastSeen, _browseDownloads.length);
   } catch (e) {
     _browseDownloads = [];
@@ -138,9 +138,9 @@ function _saveBrowseDownloads() {
   try {
     const oneHourAgo = Date.now() - DOWNLOAD_RETENTION_MS;
     const toSave = _browseDownloads.filter(d => d.startTime > oneHourAgo);
-    localStorage.setItem('browseDownloads', JSON.stringify(toSave));
+    Settings.setJSON('browseDownloads', toSave);
     // Save last seen count
-    localStorage.setItem('browseDownloadsLastSeen', _browseDownloadsLastSeenCount.toString());
+    Settings.set('browseDownloadsLastSeen', _browseDownloadsLastSeenCount.toString());
   } catch (e) {}
 }
 
@@ -690,7 +690,7 @@ var _browseErrorMap = {
 };
 
 function _browseShowErrorPage(tab, frame, failedUrl, errorDesc, errorCode) {
-  const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
+  const isDark = document.documentElement.classList.contains('dark') || Settings.get('theme') === 'dark';
   const cs = getComputedStyle(document.documentElement);
   const v = function(n, fb) { return cs.getPropertyValue(n).trim() || fb; };
   const bgBody    = v('--bg-body',     isDark ? '#0a0a0a' : '#f5f5f5');
@@ -848,7 +848,7 @@ var _ytAdBlockCSS =
 // Inject YouTube ad-block CSS + early mute (before JS runs, hides from first paint)
 function _browseInjectYouTubeCSS(frame, url) {
   if (!url || !url.includes('youtube.com')) return;
-  if (localStorage.getItem('adBlockEnabled') !== 'true') return;
+  if (Settings.get('adBlockEnabled') !== 'true') return;
   frame.insertCSS(_ytAdBlockCSS).catch(function(){});
   // Mute video elements immediately so ad audio never plays
   frame.executeJavaScript(`(function(){
@@ -874,7 +874,7 @@ function _browseInjectYouTubeCSS(frame, url) {
 
 function _browseInjectYouTubeAdBlock(frame, url) {
   if (!url || !url.includes('youtube.com')) return;
-  if (localStorage.getItem('adBlockEnabled') !== 'true') return;
+  if (Settings.get('adBlockEnabled') !== 'true') return;
   frame.executeJavaScript(`(function(){
     if(window.__aetherYtAdBlockInjected) return;
     window.__aetherYtAdBlockInjected=true;
@@ -1408,7 +1408,7 @@ function _browseUpdateRssPill(tab) {
   const feedUrl = feed.url;
   // Check if already subscribed (custom feeds or catalog)
   let customFeeds = [];
-  try { customFeeds = JSON.parse(localStorage.getItem('customFeeds')) || []; } catch {}
+  try { customFeeds = Settings.getJSON('customFeeds', []); } catch {}
   let isSubscribed = customFeeds.some(function(f) { return f.url === feedUrl; });
   if (!isSubscribed) {
     // Also check FEED_CATALOG urls
@@ -1426,12 +1426,12 @@ function _browseUpdateRssPill(tab) {
     action: isSubscribed ? null : function() {
       // Subscribe to feed
       let feeds = [];
-      try { feeds = JSON.parse(localStorage.getItem('customFeeds')) || []; } catch {}
+      try { feeds = Settings.getJSON('customFeeds', []); } catch {}
       if (feeds.some(function(f) { return f.url === feedUrl; })) return;
       let name = feed.title || feedUrl;
       try { name = name || new URL(feedUrl).hostname.replace(/^www\./, ''); } catch {}
       feeds.push({ url: feedUrl, name: name, enabled: true });
-      localStorage.setItem('customFeeds', JSON.stringify(feeds));
+      Settings.setJSON('customFeeds', feeds);
       // Refresh pill to show subscribed state
       _browseUpdateRssPill(tab);
       // Reload feeds if available
@@ -1444,7 +1444,7 @@ function _browseUpdateRssPill(tab) {
 const _doomScrollBypass = new Set();
 
 function _browseShowBlockedPage(tab, frame, url, domain) {
-  const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
+  const isDark = document.documentElement.classList.contains('dark') || Settings.get('theme') === 'dark';
   const bg = isDark ? '#0a0a0a' : '#f5f5f5';
   const card = isDark ? '#151515' : '#fff';
   const text = isDark ? '#e0e0e0' : '#333';
@@ -1500,7 +1500,7 @@ function _injectDoomScrollNudge(tab, el, config) {
   const thresholdMs = (config.minutes || 5) * 60 * 1000;
   const remainingMs = Math.max(0, thresholdMs - elapsedMs);
   // Read theme colors from parent frame (webview content can't access parent CSS vars)
-  const isDark = document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
+  const isDark = document.documentElement.classList.contains('dark') || Settings.get('theme') === 'dark';
   const cardBg = isDark ? '#181818' : '#fff';
   const cardBorder = isDark ? '#333' : '#ddd';
   const cardText = isDark ? '#e0e0e0' : '#333';
@@ -1589,14 +1589,14 @@ function _browseBindFrame(tab) {
   if (window.electronAPI && window.electronAPI.adblockCosmetic) {
     // Inject generic ad placeholder CSS on every navigation
     const _injectPlaceholderCSS = (url) => {
-      if (localStorage.getItem('adBlockEnabled') !== 'true') return;
+      if (Settings.get('adBlockEnabled') !== 'true') return;
       if (!url || url.startsWith('about:') || url.startsWith('data:')) return;
       try { el.insertCSS(_adPlaceholderCSS); } catch {}
     };
 
     // Inject EasyList cosmetic selectors + remove elements from DOM
     const _injectCosmetic = (url) => {
-      if (localStorage.getItem('adBlockEnabled') !== 'true') return;
+      if (Settings.get('adBlockEnabled') !== 'true') return;
       if (!url || url.startsWith('about:') || url.startsWith('data:')) return;
       window.electronAPI.adblockCosmetic(url).then(res => {
         const extraSel = (res && res.selectors && res.selectors.length) ? res.selectors.join(', ') : '';
@@ -1636,7 +1636,7 @@ function _browseBindFrame(tab) {
 
     // JS-based YouTube Shorts hiding (implements uBlock :has-text / :matches-path rules)
     const _hideYTShorts = (url) => {
-      if (localStorage.getItem('hideYTShorts') !== 'true') return;
+      if (Settings.get('hideYTShorts') !== 'true') return;
       if (!url || (!url.includes('youtube.com') && !url.includes('youtu.be'))) return;
       el.executeJavaScript(`(function(){
         if(window.__ytShortsHideInjected) return;

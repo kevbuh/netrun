@@ -36,7 +36,7 @@ let _spinnerNames = [];
 let _spinnerInterval = null;
 
 // ── Views ──
-let _lastActiveView = localStorage.getItem('_lastActiveView') || 'feed';
+let _lastActiveView = Settings.get('_lastActiveView') || 'feed';
 const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-vault': 'vault', 'sb-browse': 'browse', 'sb-settings': 'settings', 'sb-neuralook': 'neuralook' };
 // ── Sidebar navigation ──
 let _sidebarFocused = false;
@@ -65,8 +65,8 @@ let _userSearchDebounce = null;
 let _expBackAction = null; // stores {fn, label} for context-aware back button
 let _prevRouteHash = ''; // the hash before the current route
 let _currentRouteHash = ''; // the current route hash
-let _navHistory = JSON.parse(localStorage.getItem('_navHistory') || '[]');
-let _navForward = JSON.parse(localStorage.getItem('_navForward') || '[]');
+let _navHistory = Settings.getJSON('_navHistory', []);
+let _navForward = Settings.getJSON('_navForward', []);
 let _navNavigating = false; // guard to prevent push while navigating back/forward
 
 // ── Guest mode ──

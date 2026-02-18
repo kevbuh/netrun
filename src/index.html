@@ -143,6 +143,7 @@
   <link rel="stylesheet" href="/aether/css/features/dev-panel.css">
   <link rel="stylesheet" href="/aether/css/features/cursor.css">
   <link rel="stylesheet" href="/aether/css/features/print-preview.css">
+  <link rel="stylesheet" href="/aether/css/features/settings.css">
   <script>
     // Apply theme + accent before paint to prevent flash
     (function() {
@@ -336,6 +337,7 @@
   <!-- Lazy-loaded views mount here -->
   <div id="view-mount"></div>
 
+  <script defer src="/js/core/core-settings.js"></script>
   <script defer src="/js/logger.js"></script>
   <!-- Core modules (split from core.js) -->
   <script defer src="/js/core/icons.js"></script>
@@ -375,7 +377,16 @@
   <script defer src="/js/quality.js"></script>
   <script defer src="/js/settings/settings-colors.js"></script>
   <script defer src="/js/settings/settings-theme.js"></script>
-  <script defer src="/js/settings/settings-sections.js"></script>
+  <script defer src="/js/settings/settings-helpers.js"></script>
+  <script defer src="/js/settings/settings-profile.js"></script>
+  <script defer src="/js/settings/settings-appearance.js"></script>
+  <script defer src="/js/settings/settings-feed.js"></script>
+  <script defer src="/js/settings/settings-tools.js"></script>
+  <script defer src="/js/settings/settings-browser.js"></script>
+  <script defer src="/js/settings/settings-panel.js"></script>
+  <script defer src="/js/settings/settings-agent.js"></script>
+  <script defer src="/js/settings/settings-context.js"></script>
+  <script defer src="/js/settings/settings-help.js"></script>
   <script defer src="/js/settings/settings-core.js"></script>
   <script defer src="/js/settings/settings-init.js"></script>
   <script defer src="/js/dashboard.js"></script>
@@ -496,7 +507,7 @@
           </button>
           <div class="nr-menu-separator"></div>
           <button class="nr-menu-item" id="user-menu-guest-btn" onclick="_userMenuGuestAction();_toggleUserMenu()">
-            <svg class="nr-menu-item-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg>
+            <svg class="nr-menu-item-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18a2 2 0 0 0-4 0"/><path d="m19 11-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11"/><path d="M2 11h20"/><circle cx="17" cy="18" r="3"/><circle cx="7" cy="18" r="3"/></svg>
             <span id="user-menu-guest-label">Guest Mode</span>
           </button>
         </div>

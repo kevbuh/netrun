@@ -5,11 +5,11 @@ if (window.AetherUI) AetherUI.globals();
 // ── Tab Sessions (save/restore named tab groups) ──
 
 function _getTabSessions() {
-  try { return JSON.parse(localStorage.getItem(_getBrowseStorageKey('browseTabSessions')) || '[]'); } catch { return []; }
+  try { return Settings.getJSON(_getBrowseStorageKey('browseTabSessions'), []); } catch { return []; }
 }
 
 function _saveTabSessions(sessions) {
-  localStorage.setItem(_getBrowseStorageKey('browseTabSessions'), JSON.stringify(sessions));
+  Settings.setJSON(_getBrowseStorageKey('browseTabSessions'), sessions);
 }
 
 function toggleTabStateDropdown() {

@@ -31,39 +31,20 @@ const _syncKeysSet = new Set();
 })();
 
 // Keys to sync between devices (all user settings)
-const SYNC_KEYS = [
-  'feedSources', 'customFeeds', 'qualityFilter', 'qualityPrompt',
-  'qualityThreshold', 'qualityCache', 'hiddenPosts', 'savedPosts',
-  'readPosts', 'qualityTestTitles', 'paperRatings', 'theme',
-  'accentColor', 'spinner', 'userName', 'sidebarOrder',
-  'clickSound', 'clickSoundType', 'clickAether', 'rainNoiseType', 'rainVolume', 'rainFreq',
-  'editorTheme', 'rainSidebarVisible',
-  'pixelPet', 'pixelPetType', 'pixelPetMode',
-  'feedNotifications', 'seenPostLinks',
-  'adBlockEnabled', 'feedNotifSources', 'browseBarOrder',
-  'browseHistory', 'webSearchHistory', 'chatThreads',
-  'aetherColor',
-  'interestProfile',
-  'urlBarSections',
-  'blockedWords', 'qualityBypass', 'searchHistory', 'userQuotes', 'repostedLinks',
-  'fyWeightBase', 'fyWeightAffinity', 'fyWeightRecency', 'maxPerCategoryRun',
-  'smartHighlights',
-  'chatModel', 'chatTools', 'insightsAllowHeuristics',
-  'iconSize', 'hiddenSidebarIcons'
-];
+const SYNC_KEYS = Settings.getSyncKeys();
 SYNC_KEYS.forEach(k => _syncKeysSet.add(k));
 
 // Default ad blocker to enabled
-if (localStorage.getItem('adBlockEnabled') === null) {
-  localStorage.setItem('adBlockEnabled', 'true');
+if (Settings.get('adBlockEnabled') === null) {
+  Settings.set('adBlockEnabled', 'true');
 }
 
 
 // ── localStorage helpers (reduce try/parse/default boilerplate) ──
 function getLS(key, fallback) {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+  return Settings.getJSON(key, fallback);
 }
-function setLS(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+function setLS(key, val) { Settings.setJSON(key, val); }
 
 // ── Auth fetch helper (reduces fetch+auth+error boilerplate) ──
 // ── Login gate (redirects to standalone login page) ──
@@ -105,7 +86,7 @@ async function authLogout() {
   _authUserInfo = null;
   _authReady = false;
   // Clear all user-specific data from localStorage
-  for (const key of SYNC_KEYS) localStorage.removeItem(key);
+  for (const key of SYNC_KEYS) Settings.remove(key);
   localStorage.removeItem('authToken');
   window.electronAPI?.deleteAuthToken?.();
   localStorage.removeItem('authUser');
@@ -125,17 +106,7 @@ function _updateAccountUI() {
     return;
   }
   if (_guestMode) {
-    if (typeof AetherUI !== 'undefined') {
-      AetherUI.mount(
-        new View('span')
-          .style('width', '22px').style('height', '22px').style('border-radius', '50%')
-          .style('background', 'var(--nr-bg-tertiary)').style('display', 'flex')
-          .style('align-items', 'center').style('justify-content', 'center')
-          .style('font-size', '13px').style('animation', 'nr-breathe 3s ease-in-out infinite')
-          ._bindText('\uD83D\uDC7B'),
-        avatarSpan
-      );
-    }
+    avatarSpan.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:nr-breathe 3s ease-in-out infinite"><path d="M14 18a2 2 0 0 0-4 0"/><path d="m19 11-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11"/><path d="M2 11h20"/><circle cx="17" cy="18" r="3"/><circle cx="7" cy="18" r="3"/></svg>';
     avatarSpan.style.display = '';
     if (avatarIcon) avatarIcon.style.display = 'none';
     return;
@@ -181,7 +152,7 @@ function _buildSyncPayload(keysToSync) {
   const data = {};
   const now = Date.now() / 1000;
   for (const key of keysToSync) {
-    const raw = localStorage.getItem(key);
+    const raw = Settings.get(key);
     if (raw !== null) {
       let value;
       try { value = JSON.parse(raw); } catch { value = raw; }
@@ -198,7 +169,7 @@ function _applySyncData(serverData) {
     if (value === null || value === undefined) continue;
     // Temporarily remove from dirty set — this write is from server, not user
     _syncDirtyKeys.delete(key);
-    localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+    Settings.set(key, typeof value === 'string' ? value : JSON.stringify(value));
     _syncDirtyKeys.delete(key);
   }
 }
@@ -273,7 +244,7 @@ function enterGuestMode() {
   sessionStorage.setItem(_GUEST_STASH_PREFIX + 'authUserInfo', JSON.stringify(_authUserInfo));
   // Stash all sync keys
   for (let i = 0; i < SYNC_KEYS.length; i++) {
-    const val = localStorage.getItem(SYNC_KEYS[i]);
+    const val = Settings.get(SYNC_KEYS[i]);
     if (val !== null) sessionStorage.setItem(_GUEST_STASH_PREFIX + SYNC_KEYS[i], val);
   }
   // Clear auth state
@@ -281,8 +252,8 @@ function enterGuestMode() {
   _authUser = null;
   _authUserInfo = null;
   _stopSyncInterval();
-  // Clear Google session cookies so the guest isn't signed into Google in the browser
-  if (window.electronAPI?.clearGoogleCookies) window.electronAPI.clearGoogleCookies();
+  // Stash Google session cookies so the guest isn't signed into Google in the browser
+  if (window.electronAPI?.stashGoogleCookies) window.electronAPI.stashGoogleCookies();
   // Set guest mode flag
   _guestMode = true;
   sessionStorage.setItem('_guestMode', 'true');
@@ -304,7 +275,7 @@ function exitGuestMode() {
   // Restore sync keys
   for (let i = 0; i < SYNC_KEYS.length; i++) {
     const val = sessionStorage.getItem(_GUEST_STASH_PREFIX + SYNC_KEYS[i]);
-    if (val !== null) localStorage.setItem(SYNC_KEYS[i], val);
+    if (val !== null) Settings.set(SYNC_KEYS[i], val);
   }
   // Clear stash
   const keys = [];
@@ -315,6 +286,8 @@ function exitGuestMode() {
   // Clear guest flag
   _guestMode = false;
   sessionStorage.removeItem('_guestMode');
+  // Restore Google cookies
+  if (window.electronAPI?.restoreGoogleCookies) window.electronAPI.restoreGoogleCookies();
   _onLoginSuccess();
   if (typeof renderSettingsView === 'function') renderSettingsView();
   if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Welcome back, ' + (_authUser || 'User'));
@@ -363,6 +336,7 @@ function _userMenuGuestAction() {
 
 // ── Initialize: check session, redirect to login if needed ──
 (function _initAuth() {
+  Settings.init();
   _updateAccountUI();
   if (_guestMode) {
     _authReady = true;

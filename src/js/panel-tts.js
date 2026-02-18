@@ -90,7 +90,7 @@ function _ttsSplitSentences(text) {
 }
 
 function _ttsHighlightChunk(chunkText) {
-  if (localStorage.getItem('ttsHighlight') === 'false') return;
+  if (Settings.get('ttsHighlight') === 'false') return;
   const frame = _ttsGetFrame();
   if (!frame || !chunkText) return;
   // Escape for embedding in JS string
@@ -387,7 +387,7 @@ function _ttsPlayNext() {
   // Remove first queued duration since we're now playing it
   if (_ttsRemainingDurations.length > 0) _ttsRemainingDurations.shift();
   const audio = new Audio(url);
-  audio.playbackRate = parseFloat(localStorage.getItem('ttsSpeed')) || 1;
+  audio.playbackRate = parseFloat(Settings.get('ttsSpeed')) || 1;
   _ttsAudio = audio;
   _ttsUpdateBtnIcon();
   const total = _ttsChunks.length;

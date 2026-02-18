@@ -31,13 +31,13 @@ function _applyResolvedTheme(resolved) {
 
 // Listen for system color scheme changes to update 'auto' theme in real time
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-  if ((localStorage.getItem('theme') || 'light') === 'auto') {
+  if ((Settings.get('theme') || 'light') === 'auto') {
     _applyResolvedTheme(_resolveAutoTheme());
   }
 });
 
 function setTheme(theme) {
-  localStorage.setItem('theme', theme);
+  Settings.set('theme', theme);
   const resolved = theme === 'auto' ? _resolveAutoTheme() : theme;
   _applyResolvedTheme(resolved);
   ['auto', 'dark', 'light', 'daylight', 'clear'].forEach(t => {
@@ -76,7 +76,7 @@ function resetAdBlockRules() {
 }
 
 function setEditorTheme(theme) {
-  localStorage.setItem('editorTheme', theme);
+  Settings.set('editorTheme', theme);
   if (theme === 'auto') {
     document.documentElement.removeAttribute('data-editor-theme');
   } else {
@@ -90,7 +90,7 @@ function setEditorTheme(theme) {
 
 function setBrowseTabLayout(layout) {
   _browseTabLayout = layout;
-  localStorage.setItem('browseTabLayout', layout);
+  Settings.set('browseTabLayout', layout);
   // Apply immediately if browse view is open
   const browseView = document.getElementById('browse-view');
   if (browseView && browseView.style.display !== 'none') {
@@ -105,7 +105,7 @@ function setBrowseTabLayout(layout) {
 }
 
 function setIconSize(size) {
-  localStorage.setItem('iconSize', size);
+  Settings.set('iconSize', size);
   document.documentElement.setAttribute('data-icon-size', size);
   renderSettingsView();
 }

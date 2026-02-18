@@ -271,4 +271,13 @@ export function initSchema(db: Database.Database): void {
       ts REAL NOT NULL
     );
   `);
+
+  // ── Settings (unified key-value store for app preferences) ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated REAL NOT NULL
+    );
+  `);
 }

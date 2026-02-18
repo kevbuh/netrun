@@ -328,7 +328,7 @@ async function renderUserProfile(username) {
 window._profileSubscribeFeed = function(key, btn) {
   const sources = typeof getFeedSources === 'function' ? getFeedSources() : {};
   sources[key] = true;
-  localStorage.setItem('feedSources', JSON.stringify(sources));
+  Settings.setJSON('feedSources', sources);
   if (typeof syncToServer === 'function') syncToServer();
   btn.replaceWith(Object.assign(document.createElement('span'), {
     className: 'text-[0.65rem] text-green-400 ml-1',
@@ -420,7 +420,7 @@ function _uploadProfileBg() {
 
 // ── Greeting system ──
 function getGreeting() {
-  const name = (_authUserInfo && (_authUserInfo.name || '').split(' ')[0]) || localStorage.getItem('userName') || '';
+  const name = (_authUserInfo && (_authUserInfo.name || '').split(' ')[0]) || Settings.get('userName') || '';
   const now = new Date();
   const hour = now.getHours();
   const day = now.getDay(); // 0=Sun

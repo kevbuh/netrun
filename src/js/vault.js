@@ -44,7 +44,7 @@ async function initVault() {
   if (typeof _vibeGit === 'function') _vaultFetchGitStatus();
 
   // Load last opened note or first note
-  const lastNote = localStorage.getItem('vaultLastNote');
+  const lastNote = Settings.get('vaultLastNote');
   if (lastNote && _vaultNotes.find(n => n.id === lastNote)) {
     openVaultNote(lastNote);
   } else if (_vaultNotes.length > 0) {
@@ -113,8 +113,8 @@ async function createWelcomeNote() {
   if (_vaultNotes.length > 0) return;
 
   // Check localStorage to prevent re-creating on subsequent loads
-  if (localStorage.getItem('vaultWelcomeCreated')) return;
-  localStorage.setItem('vaultWelcomeCreated', 'true');
+  if (Settings.get('vaultWelcomeCreated')) return;
+  Settings.set('vaultWelcomeCreated', 'true');
 
   const welcomeContent = `# Welcome to your Vault
 
@@ -603,7 +603,7 @@ async function openVaultNote(noteId) {
   if (!note) return;
 
   _vaultCurrentNote = note;
-  localStorage.setItem('vaultLastNote', noteId);
+  Settings.set('vaultLastNote', noteId);
   if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
 
   // Update UI
@@ -2009,7 +2009,7 @@ function toggleBlogBookmark() {
   // Use the existing savedPosts system
   let savedPosts = {};
   try {
-    savedPosts = JSON.parse(localStorage.getItem('savedPosts') || '{}');
+    savedPosts = Settings.getJSON('savedPosts', {});
   } catch (e) { /* fire-and-forget */ }
 
   const btn = document.getElementById('blog-bookmark-btn');
@@ -2031,7 +2031,7 @@ function toggleBlogBookmark() {
     btn?.classList.add('active');
   }
 
-  localStorage.setItem('savedPosts', JSON.stringify(savedPosts));
+  Settings.setJSON('savedPosts', savedPosts);
   if (typeof syncToServer === 'function') syncToServer();
 }
 
@@ -2042,7 +2042,7 @@ function updateBlogBookmarkButton() {
   const url = window.location.origin + '/#' + window.location.hash.slice(1);
   let savedPosts = {};
   try {
-    savedPosts = JSON.parse(localStorage.getItem('savedPosts') || '{}');
+    savedPosts = Settings.getJSON('savedPosts', {});
   } catch (e) { /* fire-and-forget */ }
 
   const btn = document.getElementById('blog-bookmark-btn');
@@ -2394,8 +2394,8 @@ let _vaultChatAbort = null;
 
 function _loadVaultChatMessages() {
   try {
-    const raw = localStorage.getItem('vaultChatMessages');
-    if (raw) _vaultChatMessages = JSON.parse(raw);
+    const loaded = Settings.getJSON('vaultChatMessages', null);
+    if (loaded) _vaultChatMessages = loaded;
   } catch (e) { _vaultChatMessages = []; }
 }
 
@@ -2404,7 +2404,7 @@ function _saveVaultChatMessages() {
     const toSave = _vaultChatMessages.filter(m => !m._thinking).map(m => ({
       role: m.role, content: m.content, _sources: m._sources
     }));
-    localStorage.setItem('vaultChatMessages', JSON.stringify(toSave));
+    Settings.setJSON('vaultChatMessages', toSave);
   } catch (e) { /* fire-and-forget */ }
 }
 
@@ -2492,7 +2492,7 @@ async function sendVaultChatMessage() {
   if (sendBtn) sendBtn.disabled = true;
 
   _vaultChatAbort = new AbortController();
-  const _vcModel = localStorage.getItem('chatModel') || 'default';
+  const _vcModel = Settings.get('chatModel') || 'default';
   islandUpdate('ai-vault', { type: 'ai', label: _vcModel, detail: 'Vault chat \u00B7 ' + _vcModel });
 
   try {
@@ -2681,7 +2681,7 @@ async function _sendNtpVaultChat() {
   if (sendBtn) sendBtn.disabled = true;
 
   _vaultChatAbort = new AbortController();
-  const _vcModel2 = localStorage.getItem('chatModel') || 'default';
+  const _vcModel2 = Settings.get('chatModel') || 'default';
   islandUpdate('ai-vault', { type: 'ai', label: _vcModel2, detail: 'Vault chat \u00B7 ' + _vcModel2 });
 
   try {

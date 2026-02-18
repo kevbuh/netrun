@@ -5,8 +5,8 @@ if (window.AetherUI) AetherUI.globals();
 // ── Navigation history stack (survives Cmd+Shift+R via localStorage) ──
 
 function _navSave() {
-  localStorage.setItem('_navHistory', JSON.stringify(_navHistory));
-  localStorage.setItem('_navForward', JSON.stringify(_navForward));
+  Settings.setJSON('_navHistory', _navHistory);
+  Settings.setJSON('_navForward', _navForward);
 }
 
 function _navPush(hash) {
@@ -46,10 +46,10 @@ async function openExperimentDetail(id, e) {
 
 // ── Universal Side Panel ──
 const _panelRegistry = {};
-let _panelVisible = localStorage.getItem('universalPanelVisible') !== 'false'; // default true
+let _panelVisible = Settings.get('universalPanelVisible') !== 'false'; // default true
 let _panelActiveView = null;
 let _panelActiveTab = null;
-let _panelWidth = parseInt(localStorage.getItem('universalPanelWidth') || '280', 10);
+let _panelWidth = parseInt(Settings.get('universalPanelWidth') || '280', 10);
 let _panelScrollPositions = {};
 const _panelRenderedViews = {};
 
@@ -122,7 +122,7 @@ function hidePanel() {
 
 function togglePanel() {
   _panelVisible = !_panelVisible;
-  localStorage.setItem('universalPanelVisible', _panelVisible ? 'true' : 'false');
+  Settings.set('universalPanelVisible', _panelVisible ? 'true' : 'false');
   if (_panelVisible && _panelActiveView) {
     showPanelForView(_panelActiveView);
   } else {
@@ -232,7 +232,7 @@ function _initPanelResize() {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
     document.body.style.userSelect = '';
-    localStorage.setItem('universalPanelWidth', String(_panelWidth));
+    Settings.set('universalPanelWidth', String(_panelWidth));
   }
   handle.addEventListener('mousedown', (e) => {
     e.preventDefault();

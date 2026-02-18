@@ -13,13 +13,12 @@ let _wbBoards = []; // [{id, name, createdAt}]
 
 function _loadWbBoards() {
   try {
-    const raw = localStorage.getItem('whiteboardBoards');
-    _wbBoards = raw ? JSON.parse(raw) : [];
+    _wbBoards = Settings.getJSON('whiteboardBoards', []);
   } catch { _wbBoards = []; }
 }
 
 function _saveWbBoards() {
-  try { localStorage.setItem('whiteboardBoards', JSON.stringify(_wbBoards)); } catch {}
+  try { Settings.setJSON('whiteboardBoards', _wbBoards); } catch {}
 }
 
 function _wbStrokesKey(id) { return 'wb_strokes_' + id; }
@@ -40,8 +39,7 @@ function wbOpen(id) {
   _wbCurrentId = id;
   // Load strokes
   try {
-    const raw = localStorage.getItem(_wbStrokesKey(id));
-    _wbStrokes = raw ? JSON.parse(raw) : [];
+    _wbStrokes = Settings.getJSON(_wbStrokesKey(id), []);
   } catch { _wbStrokes = []; }
   _wbRedoStack = [];
   if (_wbCtx) { _sizeWbCanvas(); _redrawWb(); }
@@ -56,7 +54,7 @@ function wbDelete(id) {
   _loadWbBoards();
   _wbBoards = _wbBoards.filter(b => b.id !== id);
   _saveWbBoards();
-  try { localStorage.removeItem(_wbStrokesKey(id)); } catch {}
+  try { Settings.remove(_wbStrokesKey(id)); } catch {}
   if (_wbCurrentId === id) {
     if (_wbBoards.length) wbOpen(_wbBoards[0].id);
     else { wbNew(true); }
@@ -161,6 +159,6 @@ function _redrawWb() {
 function _saveWbStrokes() {
   if (!_wbCurrentId) return;
   try {
-    localStorage.setItem(_wbStrokesKey(_wbCurrentId), JSON.stringify(_wbStrokes));
+    Settings.setJSON(_wbStrokesKey(_wbCurrentId), _wbStrokes);
   } catch {}
 }

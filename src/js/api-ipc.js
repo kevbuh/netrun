@@ -970,7 +970,7 @@ function _getAuthToken() {
 /** Get the current user's google_id from localStorage session */
 function _getGoogleId() {
   try {
-    const userData = localStorage.getItem('user');
+    const userData = Settings.get('user');
     if (userData) {
       const user = JSON.parse(userData);
       if (user.google_id || user.googleId) return user.google_id || user.googleId;

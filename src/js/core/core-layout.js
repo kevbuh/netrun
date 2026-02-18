@@ -114,7 +114,7 @@ if (window.electronAPI && window.electronAPI.isElectron) {
 // ── Download app banner (web only) ──
 function showDownloadBanner() {
   const isElectron = window.electronAPI && window.electronAPI.isElectron;
-  const dismissed = localStorage.getItem('downloadBannerDismissed') === 'true';
+  const dismissed = Settings.get('downloadBannerDismissed') === 'true';
   if (!isElectron && !dismissed) {
     const banner = document.getElementById('download-app-banner');
     if (banner) banner.classList.remove('hidden');
@@ -122,7 +122,7 @@ function showDownloadBanner() {
 }
 
 function dismissDownloadBanner() {
-  localStorage.setItem('downloadBannerDismissed', 'true');
+  Settings.set('downloadBannerDismissed', 'true');
   const banner = document.getElementById('download-app-banner');
   if (banner) {
     Motion.fadeOut(banner, { y: -20, duration: 300, onFinish: function() { banner.classList.add('hidden'); } });
@@ -155,11 +155,11 @@ if (document.readyState === 'loading') {
 // ── Spinner system ──
 
 function getSelectedSpinner() {
-  return localStorage.getItem('spinner') || 'squareCorners';
+  return Settings.get('spinner') || 'squareCorners';
 }
 
 function setSelectedSpinner(name) {
-  localStorage.setItem('spinner', name);
+  Settings.set('spinner', name);
   restartSpinners();
 }
 
@@ -219,7 +219,7 @@ function debounce(fn, ms) {
 // Research view tab state
 
 function setSidebarActive(id) {
-  if (id && _sidebarToView[id]) { _lastActiveView = _sidebarToView[id]; localStorage.setItem('_lastActiveView', _lastActiveView); }
+  if (id && _sidebarToView[id]) { _lastActiveView = _sidebarToView[id]; Settings.set('_lastActiveView', _lastActiveView); }
   document.querySelectorAll('.sidebar-icon').forEach(b => {
     b.classList.remove('active');
     // Don't remove sb-loading here - let animation finish on its own

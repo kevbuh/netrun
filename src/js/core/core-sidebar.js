@@ -10,7 +10,7 @@ function _sidebarEl(id) {
 
 function applySidebarVisibility() {
   let hidden = [];
-  try { hidden = JSON.parse(localStorage.getItem('hiddenSidebarIcons')) || []; } catch (e) { /* fire-and-forget */ }
+  try { hidden = Settings.getJSON('hiddenSidebarIcons', []); } catch (e) { /* fire-and-forget */ }
   SIDEBAR_ICON_IDS.forEach(id => {
     const el = _sidebarEl(id);
     if (el) el.style.display = hidden.includes(id) ? 'none' : '';
@@ -19,7 +19,7 @@ function applySidebarVisibility() {
 
 function getSidebarOrder() {
   try {
-    const saved = JSON.parse(localStorage.getItem('sidebarOrder'));
+    const saved = Settings.getJSON('sidebarOrder', null);
     if (Array.isArray(saved) && saved.length) {
       // Add any new icons not in saved order
       const full = SIDEBAR_ICON_IDS.filter(id => !saved.includes(id));
@@ -53,12 +53,11 @@ function applySidebarOrder() {
     return nav.querySelector('.mt-auto');
   }
 
-  // Restore saved order from localStorage
+  // Restore saved order from Settings
   function restoreOrder() {
-    const saved = localStorage.getItem('sidebarOrder');
-    if (!saved) return;
+    const order = Settings.getJSON('sidebarOrder', null);
+    if (!order) return;
     try {
-      const order = JSON.parse(saved); // array of ids e.g. ['sb-home','sb-experiments',...]
       const spacer = getSpacer();
       const btns = getDraggables();
       const btnMap = {};
@@ -75,7 +74,7 @@ function applySidebarOrder() {
 
   function saveOrder() {
     const ids = getDraggables().map(b => b.id);
-    localStorage.setItem('sidebarOrder', JSON.stringify(ids));
+    Settings.setJSON('sidebarOrder', ids);
   }
 
   restoreOrder();
@@ -159,7 +158,7 @@ function applySidebarOrder() {
   }
 
   function getOverflowIds() {
-    try { return JSON.parse(localStorage.getItem('browseBarOverflow') || '[]'); } catch { return []; }
+    try { return Settings.getJSON('browseBarOverflow', []); } catch { return []; }
   }
 
   function addToBarOverflow(id) {
@@ -167,14 +166,14 @@ function applySidebarOrder() {
     if (el) el.style.display = 'none';
     const ids = getOverflowIds();
     if (!ids.includes(id)) ids.push(id);
-    localStorage.setItem('browseBarOverflow', JSON.stringify(ids));
+    Settings.setJSON('browseBarOverflow', ids);
   }
 
   function removeFromBarOverflow(id) {
     const el = document.getElementById(id);
     if (el) el.style.display = '';
     const ids = getOverflowIds().filter(i => i !== id);
-    localStorage.setItem('browseBarOverflow', JSON.stringify(ids));
+    Settings.setJSON('browseBarOverflow', ids);
     saveBrowseBarOrder();
   }
 
@@ -182,16 +181,15 @@ function applySidebarOrder() {
 
   function restoreBrowseBarOrder() {
     // Ensure default overflow buttons are hidden if user hasn't explicitly moved them
-    const existingOverflow = localStorage.getItem('browseBarOverflow');
+    const existingOverflow = Settings.get('browseBarOverflow');
     if (!existingOverflow) {
-      localStorage.setItem('browseBarOverflow', JSON.stringify(DEFAULT_OVERFLOW));
+      Settings.setJSON('browseBarOverflow', DEFAULT_OVERFLOW);
     } else {
       // For existing users: add new default overflow items they haven't seen yet,
       // and remove stale IDs for buttons that no longer exist in the bar
       try {
         let cur = JSON.parse(existingOverflow);
-        const savedOrder = localStorage.getItem('browseBarOrder');
-        const knownIds = savedOrder ? JSON.parse(savedOrder) : [];
+        const knownIds = Settings.getJSON('browseBarOrder', []);
         let changed = false;
         for (const id of DEFAULT_OVERFLOW) {
           if (!cur.includes(id) && !knownIds.includes(id)) {
@@ -203,10 +201,10 @@ function applySidebarOrder() {
         const before = cur.length;
         cur = cur.filter(id => document.getElementById(id));
         if (cur.length !== before) changed = true;
-        if (changed) localStorage.setItem('browseBarOverflow', JSON.stringify(cur));
+        if (changed) Settings.setJSON('browseBarOverflow', cur);
       } catch (e) { /* fire-and-forget */ }
     }
-    const saved = localStorage.getItem('browseBarOrder');
+    const saved = Settings.get('browseBarOrder');
     if (!saved) {
       // Still hide overflow buttons even with no saved order
       const overflow = getOverflowIds();
@@ -253,7 +251,7 @@ function applySidebarOrder() {
 
   function saveBrowseBarOrder() {
     const ids = getDraggables().map(b => b.id);
-    localStorage.setItem('browseBarOrder', JSON.stringify(ids));
+    Settings.setJSON('browseBarOrder', ids);
   }
 
   restoreBrowseBarOrder();

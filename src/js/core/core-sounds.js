@@ -3,7 +3,7 @@
 
 // ── Button click sound (Web Audio API) ──
 let _clickSoundCtx = null;
-let _clickSoundOn = localStorage.getItem('clickSound') === 'on';
+let _clickSoundOn = Settings.get('clickSound') === 'on';
 
 const CLICK_SOUND_PRESETS = {
   tap: { label: 'Tap', play(ctx, t) {
@@ -52,12 +52,12 @@ const CLICK_SOUND_PRESETS = {
 
 function toggleClickSound(on) {
   _clickSoundOn = on;
-  localStorage.setItem('clickSound', on ? 'on' : 'off');
+  Settings.set('clickSound', on ? 'on' : 'off');
   if (on) playClickSound();
 }
 
 function setClickSoundType(type) {
-  localStorage.setItem('clickSoundType', type);
+  Settings.set('clickSoundType', type);
   // Play a preview
   const wasOn = _clickSoundOn;
   _clickSoundOn = true;
@@ -72,7 +72,7 @@ function playClickSound() {
     const ctx = _clickSoundCtx;
     const t = ctx.currentTime;
 
-    const type = localStorage.getItem('clickSoundType') || 'thud';
+    const type = Settings.get('clickSoundType') || 'thud';
     const preset = CLICK_SOUND_PRESETS[type] || CLICK_SOUND_PRESETS.tap;
     preset.play(ctx, t);
   } catch (e) { /* fire-and-forget */ }
@@ -91,9 +91,9 @@ let _rainCtx = null;
 let _rainAudio = null;
 let _rainNodes = [];
 let _rainOn = false;
-let _rainVolume = parseFloat(localStorage.getItem('rainVolume') || '0.3');
-let _rainNoiseType = localStorage.getItem('rainNoiseType') || 'rain';
-let _rainFreq = parseInt(localStorage.getItem('rainFreq') || '0');
+let _rainVolume = parseFloat(Settings.get('rainVolume') || '0.3');
+let _rainNoiseType = Settings.get('rainNoiseType') || 'rain';
+let _rainFreq = parseInt(Settings.get('rainFreq') || '0');
 
 // Noise type presets: each defines layers for _makeNoise
 const NOISE_PRESETS = {
@@ -114,7 +114,7 @@ function toggleRain() {
 function startRain() {
   if (_rainOn) return;
   _rainOn = true;
-  localStorage.setItem('rainOn', '1');
+  Settings.set('rainOn', '1');
   if (typeof _renderAudioPill === 'function') _renderAudioPill();
 
   const preset = NOISE_PRESETS[_rainNoiseType] || NOISE_PRESETS.rain;
@@ -143,7 +143,7 @@ function startRain() {
 function stopRain() {
   if (!_rainOn) return;
   _rainOn = false;
-  localStorage.removeItem('rainOn');
+  Settings.remove('rainOn');
   if (_rainAudio) {
     _rainAudio.pause();
     _rainAudio = null;
@@ -158,14 +158,14 @@ function stopRain() {
 
 function setRainNoiseType(type) {
   _rainNoiseType = type;
-  localStorage.setItem('rainNoiseType', type);
+  Settings.set('rainNoiseType', type);
   if (_rainOn) { stopRain(); startRain(); }
   else if (typeof _renderAudioPill === 'function') _renderAudioPill();
 }
 
 function setRainFreq(hz) {
   _rainFreq = Math.max(0, Math.min(5000, parseInt(hz) || 0));
-  localStorage.setItem('rainFreq', _rainFreq.toString());
+  Settings.set('rainFreq', _rainFreq.toString());
   const label = document.getElementById('rain-freq-label');
   if (label) label.textContent = _rainFreq > 0 ? _rainFreq + ' Hz' : 'Auto';
   if (_rainOn) { stopRain(); startRain(); }
@@ -173,7 +173,7 @@ function setRainFreq(hz) {
 
 function setRainVolume(v) {
   _rainVolume = Math.max(0, Math.min(1, v));
-  localStorage.setItem('rainVolume', _rainVolume.toString());
+  Settings.set('rainVolume', _rainVolume.toString());
   if (_rainAudio) {
     _rainAudio.volume = _rainVolume;
   }
@@ -260,7 +260,7 @@ function _rainThunderLoop(ctx, dest, freqMul) {
 }
 
 // Restore rain on page load
-if (localStorage.getItem('rainOn') === '1') {
+if (Settings.get('rainOn') === '1') {
   document.addEventListener('click', function _resumeRain() {
     document.removeEventListener('click', _resumeRain);
     startRain();

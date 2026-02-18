@@ -319,9 +319,9 @@
   };
 
   function getPetType() {
-    let t = localStorage.getItem('pixelPetType') || 'cat';
-    if (t === 'frog') { t = 'froog'; localStorage.setItem('pixelPetType', t); }
-    if (t === 'bird') { t = 'cat'; localStorage.setItem('pixelPetType', t); }
+    let t = Settings.get('pixelPetType') || 'cat';
+    if (t === 'frog') { t = 'froog'; Settings.set('pixelPetType', t); }
+    if (t === 'bird') { t = 'cat'; Settings.set('pixelPetType', t); }
     return t;
   }
 
@@ -597,7 +597,7 @@
     if (petState === 'sleep') drawParticle(ctx, 'zzz', 12, 2, petFrame);
   }
 
-  function getPetMode() { return localStorage.getItem('pixelPetMode') || 'free'; }
+  function getPetMode() { return Settings.get('pixelPetMode') || 'free'; }
 
   function isSidebarMode() { return getPetMode() === 'sidebar'; }
 
@@ -781,7 +781,7 @@
     const nav = document.getElementById('sidebar-nav');
     if (!nav) return;
     const ids = Array.from(nav.querySelectorAll('.sidebar-draggable')).map(b => b.id);
-    localStorage.setItem('sidebarOrder', JSON.stringify(ids));
+    Settings.setJSON('sidebarOrder', ids);
   }
 
   function onSidebarDragMove(e) {
@@ -961,11 +961,11 @@
   }
 
   window.togglePixelPet = function(on) {
-    localStorage.setItem('pixelPet', on ? 'on' : 'off');
+    Settings.set('pixelPet', on ? 'on' : 'off');
     if (on) {
       startPixelPet();
-      if (!localStorage.getItem('ach_pixel_parent')) {
-        localStorage.setItem('ach_pixel_parent', '1');
+      if (!Settings.get('ach_pixel_parent')) {
+        Settings.set('ach_pixel_parent', '1');
         petCelebrate();
         if (typeof showAchievement === 'function') showAchievement('Pixel Parent', 'Adopted your pixel pet');
       }
@@ -973,13 +973,13 @@
   };
 
   window.setPixelPetType = function(type) {
-    localStorage.setItem('pixelPetType', type);
+    Settings.set('pixelPetType', type);
     if (typeof renderSettingsView === 'function') renderSettingsView();
   };
 
   window.setPixelPetMode = function(mode) {
-    localStorage.setItem('pixelPetMode', mode);
-    if (localStorage.getItem('pixelPet') === 'on') {
+    Settings.set('pixelPetMode', mode);
+    if (Settings.get('pixelPet') === 'on') {
       stopPixelPet();
       startPixelPet();
     }
@@ -987,7 +987,7 @@
   };
 
   window.petReact = function(reaction) {
-    if (localStorage.getItem('pixelPet') !== 'on') return;
+    if (Settings.get('pixelPet') !== 'on') return;
     if (reaction === 'happy') {
       if (petState !== 'happy') prevBaseState = ['idle','walk','sit'].includes(petState) ? petState : prevBaseState;
       petState = 'happy'; petTempTimer = PET_FPS * 2;
@@ -996,7 +996,7 @@
 
   // Celebration state for achievements - longer, more excited animation
   window.petCelebrate = function() {
-    if (localStorage.getItem('pixelPet') !== 'on') return;
+    if (Settings.get('pixelPet') !== 'on') return;
     if (!['celebrate','happy'].includes(petState)) {
       prevBaseState = ['idle','walk','sit'].includes(petState) ? petState : prevBaseState;
     }
@@ -1018,7 +1018,7 @@
   }, { passive: true });
 
   // Init
-  if (localStorage.getItem('pixelPet') === 'on') {
+  if (Settings.get('pixelPet') === 'on') {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startPixelPet);
     else setTimeout(startPixelPet, 0);
   }

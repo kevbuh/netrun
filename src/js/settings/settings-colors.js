@@ -417,7 +417,7 @@ function stopDaylightTheme() {
 }
 
 function setAccentColor(color) {
-  localStorage.setItem('accentColor', color);
+  Settings.set('accentColor', color);
   applyAccentColor(color);
   // Update swatch rings
   document.querySelectorAll('[onclick^="setAccentColor"]').forEach(btn => {
@@ -471,7 +471,7 @@ function applyAccentColor(color) {
 }
 
 function setAetherColor(mode) {
-  localStorage.setItem('aetherColor', mode);
+  Settings.set('aetherColor', mode);
   document.documentElement.setAttribute('data-aether-theme', mode);
   renderSettingsView();
 }

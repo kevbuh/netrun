@@ -1,4 +1,4 @@
-let _settingsSection = sessionStorage.getItem('settingsSection') || 'profile';
+let _settingsSection = Settings.get('settingsSection') || 'profile';
 
 const _SETTINGS_SECTIONS = [
   { key: 'profile', label: 'Profile', icon: icon('profile', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
@@ -17,7 +17,7 @@ let _settingsFeedTab = 'insights';
 
 function _setSettingsSection(section) {
   _settingsSection = section;
-  sessionStorage.setItem('settingsSection', section);
+  Settings.set('settingsSection', section);
   renderSettingsView();
 }
 
@@ -103,7 +103,7 @@ function renderSettingsView() {
       if (typeof renderBlockedWordsList === 'function') renderBlockedWordsList();
       apiGet('/api/quality-prompt').then(function(data) {
         if (data.prompt) {
-          localStorage.setItem('qualityPrompt', data.prompt);
+          Settings.set('qualityPrompt', data.prompt);
           const el = document.getElementById('quality-prompt-input');
           if (el) el.value = data.prompt;
         }

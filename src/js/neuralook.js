@@ -64,8 +64,8 @@ let _nlTimedFlushInterval = null;
 let _nlModelVersion = 0; // increments on each successful train/refine
 
 function _nlCheckGazeMasterAchievement() {
-  if (_nlModelVersion >= 5 && !localStorage.getItem('ach_gaze_master')) {
-    localStorage.setItem('ach_gaze_master', '1');
+  if (_nlModelVersion >= 5 && !Settings.get('ach_gaze_master')) {
+    Settings.set('ach_gaze_master', '1');
     if (typeof showAchievement === 'function') showAchievement('Gaze Master', 'Trained your eye-tracking model 5 times');
   }
 }
@@ -1766,15 +1766,15 @@ function _nlUpdateAdaptiveRadius(valErrorPx) {
 function _nlSaveRefinementHistory() {
   try {
     if (_nlRefinementHistory.length > 100) _nlRefinementHistory = _nlRefinementHistory.slice(-100);
-    localStorage.setItem('nlRefinementHistory', JSON.stringify(_nlRefinementHistory));
+    Settings.setJSON('nlRefinementHistory', _nlRefinementHistory);
   } catch (_) {}
 }
 
 function _nlLoadRefinementHistory() {
   try {
-    const raw = localStorage.getItem('nlRefinementHistory');
-    if (raw) {
-      _nlRefinementHistory = JSON.parse(raw);
+    const loaded = Settings.getJSON('nlRefinementHistory', null);
+    if (loaded) {
+      _nlRefinementHistory = loaded;
       // Restore baseline from last accepted refine
       for (let i = _nlRefinementHistory.length - 1; i >= 0; i--) {
         if (_nlRefinementHistory[i].improved) {

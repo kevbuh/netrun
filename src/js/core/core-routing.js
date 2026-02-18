@@ -6,8 +6,8 @@ var _ROUTE_TABLE = {
   '#research':    () => { openResearch(); },
   '#experiments': () => wmOpen('vault'),
   '#settings':    () => wmOpen('settings'),
-  '#quality':     () => { _settingsSection = 'feed'; _settingsFeedTab = 'quality'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); },
-  '#algorithm':   () => { _settingsSection = 'feed'; _settingsFeedTab = 'algorithm'; sessionStorage.setItem('settingsSection', 'feed'); wmOpen('settings'); },
+  '#quality':     () => { _settingsSection = 'feed'; _settingsFeedTab = 'quality'; Settings.set('settingsSection', 'feed'); wmOpen('settings'); },
+  '#algorithm':   () => { _settingsSection = 'feed'; _settingsFeedTab = 'algorithm'; Settings.set('settingsSection', 'feed'); wmOpen('settings'); },
   '#calendar':    () => wmOpen('dashboard'),
   '#inbox':       () => wmOpen('inbox'),
   '#vault':       () => wmOpen('vault'),
@@ -55,7 +55,7 @@ function routeFromHash() {
 window.addEventListener('hashchange', () => {
   const hash = window.location.hash;
   if (hash && hash !== '#') {
-    localStorage.setItem('lastHash', hash);
+    Settings.set('lastHash', hash);
   }
   routeFromHash();
   _updateNowPlayingContext();
@@ -65,7 +65,7 @@ window.addEventListener('hashchange', () => {
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     if (!window.location.hash || window.location.hash === '#') {
-      const lastHash = localStorage.getItem('lastHash');
+      const lastHash = Settings.get('lastHash');
       if (lastHash) {
         window.location.hash = lastHash;
         return;
@@ -77,7 +77,7 @@ if (document.readyState === 'loading') {
 } else {
   setTimeout(() => {
     if (!window.location.hash || window.location.hash === '#') {
-      const lastHash = localStorage.getItem('lastHash');
+      const lastHash = Settings.get('lastHash');
       if (lastHash) {
         window.location.hash = lastHash;
         return;

@@ -33,7 +33,7 @@ function _browseSetUrlDisplay(input, url) {
   input.dataset.fullUrl = url || '';
   if (document.activeElement === input || input.matches(':hover')) {
     input.value = url || '';
-  } else if (localStorage.getItem('urlShorten') !== 'false' && url && !url.startsWith('netrun://')) {
+  } else if (Settings.get('urlShorten') !== 'false' && url && !url.startsWith('netrun://')) {
     input.value = _browseShortUrl(url);
   } else {
     input.value = url || '';
@@ -51,7 +51,7 @@ function _browseUrlOnBlur(input) {
   _browseUrlClearAutocomplete();
   const full = input.dataset.fullUrl || input.value;
   input.dataset.fullUrl = full;
-  if (localStorage.getItem('urlShorten') !== 'false' && full && !full.startsWith('netrun://')) {
+  if (Settings.get('urlShorten') !== 'false' && full && !full.startsWith('netrun://')) {
     input.value = _browseShortUrl(full);
   }
   _browseAutoSizeUrlInput(input);
@@ -67,7 +67,7 @@ function _browseUrlOnMouseEnter(input) {
 function _browseUrlOnMouseLeave(input) {
   if (document.activeElement === input) return;
   const full = input.dataset.fullUrl || input.value;
-  if (localStorage.getItem('urlShorten') !== 'false' && full && !full.startsWith('netrun://')) {
+  if (Settings.get('urlShorten') !== 'false' && full && !full.startsWith('netrun://')) {
     input.value = _browseShortUrl(full);
   }
   _browseAutoSizeUrlInput(input);
@@ -94,7 +94,7 @@ function _browseParseColor(str) {
 }
 
 function _browseApplyAdaptiveColor(tab) {
-  if (localStorage.getItem('adaptiveUrlBar') === 'off') {
+  if (Settings.get('adaptiveUrlBar') === 'off') {
     _browseResetAdaptiveColor();
     return;
   }
@@ -127,7 +127,7 @@ const _URL_BAR_SECTIONS = [
 
 function _getUrlBarSections() {
   let saved = null;
-  try { saved = JSON.parse(localStorage.getItem('urlBarSections')); } catch {}
+  try { saved = Settings.getJSON('urlBarSections', null); } catch {}
   if (!Array.isArray(saved)) return _URL_BAR_SECTIONS.map(s => ({ key: s.key, label: s.label, enabled: true }));
   const result = [];
   const seen = new Set();
@@ -145,7 +145,7 @@ function _getUrlBarSections() {
 }
 
 function _saveUrlBarSections(sections) {
-  localStorage.setItem('urlBarSections', JSON.stringify(sections.map(s => ({ key: s.key, enabled: s.enabled }))));
+  Settings.setJSON('urlBarSections', sections.map(s => ({ key: s.key, enabled: s.enabled })));
 }
 
 let _browseUrlHistIdx = -1;
@@ -359,7 +359,7 @@ function _browseUrlFeelingLucky() {
   _feelingLuckyLoading = true;
   _feelingLuckyQuery = '';
   _browseUrlRenderLuckyRow(dd);
-  const model = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  const model = Settings.get('chatModel') || 'qwen2.5:3b';
   islandUpdate('ai-lucky', { type: 'ai', label: model, detail: 'Feeling Lucky \u00B7 ' + model });
   apiPost('/api/doc-chat', {
     messages: [{ role: 'user', content: 'Give me a single interesting, surprising, or obscure topic to search on the web right now. Just reply with the search query, nothing else. No quotes. Be creative and varied — pick from science, history, art, philosophy, technology, nature, space, culture, or anything fascinating. Do not repeat yourself.' }],
@@ -1292,7 +1292,7 @@ document.addEventListener('mousedown', (e) => {
 
 function _getWebSearchHistory() {
   try {
-    const raw = JSON.parse(localStorage.getItem('webSearchHistory') || '[]');
+    const raw = Settings.getJSON('webSearchHistory', []);
     return raw.map(h => typeof h === 'string' ? { q: h, ts: 0 } : h);
   } catch { return []; }
 }
@@ -1303,17 +1303,17 @@ function _saveWebSearch(query) {
   let hist = _getWebSearchHistory().filter(h => h.q !== q);
   hist.unshift({ q, ts: Date.now() });
   if (hist.length > 200) hist = hist.slice(0, 200);
-  localStorage.setItem('webSearchHistory', JSON.stringify(hist));
+  Settings.setJSON('webSearchHistory', hist);
 }
 
 function _removeWebSearch(index) {
   const hist = _getWebSearchHistory();
   hist.splice(index, 1);
-  localStorage.setItem('webSearchHistory', JSON.stringify(hist));
+  Settings.setJSON('webSearchHistory', hist);
 }
 
 function _clearWebSearchHistory() {
-  localStorage.setItem('webSearchHistory', '[]');
+  Settings.setJSON('webSearchHistory', []);
 }
 
 function openSearchHistoryPage() {
@@ -1671,7 +1671,7 @@ function _renderBrowseHistoryList(hist) {
 // ── Browsing History ──
 
 function _getBrowseHistory() {
-  try { return JSON.parse(localStorage.getItem('browseHistory') || '[]'); } catch { return []; }
+  try { return Settings.getJSON('browseHistory', []); } catch { return []; }
 }
 
 function _saveBrowseVisit(url, title) {
@@ -1685,25 +1685,25 @@ function _saveBrowseVisit(url, title) {
     hist.unshift({ url, title: title || _browseTitleFromUrl(url), ts: Date.now() });
   }
   if (hist.length > 1000) hist = hist.slice(0, 1000);
-  localStorage.setItem('browseHistory', JSON.stringify(hist));
+  Settings.setJSON('browseHistory', hist);
 }
 
 function _removeBrowseVisit(index) {
   const hist = _getBrowseHistory();
   hist.splice(index, 1);
-  localStorage.setItem('browseHistory', JSON.stringify(hist));
+  Settings.setJSON('browseHistory', hist);
 }
 
 function _clearBrowseHistory() {
-  localStorage.setItem('browseHistory', '[]');
+  Settings.setJSON('browseHistory', []);
 }
 
 // ── Ad Blocker toggle & badge ──
 
 function toggleAdBlock() {
-  const on = localStorage.getItem('adBlockEnabled') === 'true';
+  const on = Settings.get('adBlockEnabled') === 'true';
   const newState = !on;
-  localStorage.setItem('adBlockEnabled', newState ? 'true' : 'false');
+  Settings.set('adBlockEnabled', newState ? 'true' : 'false');
   if (window.electronAPI && window.electronAPI.adblockSetEnabled) {
     window.electronAPI.adblockSetEnabled(newState);
   }
@@ -1725,7 +1725,7 @@ function toggleAdBlock() {
 function _browseUpdateAdBlockBtn() {
   const btn = document.getElementById('browse-adblock-btn');
   if (!btn) return;
-  const on = localStorage.getItem('adBlockEnabled') === 'true';
+  const on = Settings.get('adBlockEnabled') === 'true';
   btn.style.color = on ? 'var(--nr-accent)' : '';
   btn.title = on ? 'Ad Blocker (on)' : 'Ad Blocker (off)';
   btn.classList.toggle('text-dimmer', !on);
@@ -1734,7 +1734,7 @@ function _browseUpdateAdBlockBtn() {
 function _browseUpdateAdBlockBadge(url) {
   const badge = document.getElementById('browse-adblock-badge');
   if (!badge) return;
-  if (localStorage.getItem('adBlockEnabled') !== 'true') {
+  if (Settings.get('adBlockEnabled') !== 'true') {
     badge.style.display = 'none';
     return;
   }
@@ -1809,14 +1809,14 @@ const _SITE_PERM_ICONS_LG = {
 
 function _getSitePermissions(domain) {
   try {
-    const all = JSON.parse(localStorage.getItem('sitePermissions') || '{}');
+    const all = Settings.getJSON('sitePermissions', {});
     return all[domain] || {};
   } catch { return {}; }
 }
 
 function _setSitePermission(domain, perm, value) {
   try {
-    const all = JSON.parse(localStorage.getItem('sitePermissions') || '{}');
+    const all = Settings.getJSON('sitePermissions', {});
     if (!all[domain]) all[domain] = {};
     if (value === 'ask') {
       delete all[domain][perm];
@@ -1824,20 +1824,20 @@ function _setSitePermission(domain, perm, value) {
     } else {
       all[domain][perm] = value;
     }
-    localStorage.setItem('sitePermissions', JSON.stringify(all));
+    Settings.setJSON('sitePermissions', all);
   } catch {}
 }
 
 function _clearSitePermissions(domain) {
   try {
-    const all = JSON.parse(localStorage.getItem('sitePermissions') || '{}');
+    const all = Settings.getJSON('sitePermissions', {});
     delete all[domain];
-    localStorage.setItem('sitePermissions', JSON.stringify(all));
+    Settings.setJSON('sitePermissions', all);
   } catch {}
 }
 
 function _getAllSitePermissions() {
-  try { return JSON.parse(localStorage.getItem('sitePermissions') || '{}'); } catch { return {}; }
+  try { return Settings.getJSON('sitePermissions', {}); } catch { return {}; }
 }
 
 function _getCurrentBrowseDomain() {

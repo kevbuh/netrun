@@ -1,17 +1,17 @@
 function applyStoredAppearance() {
-  const theme = localStorage.getItem('theme') || 'clear';
+  const theme = Settings.get('theme') || 'clear';
   const resolved = theme === 'auto' ? _resolveAutoTheme() : theme;
   if (resolved !== 'dark') document.documentElement.setAttribute('data-theme', resolved);
   else document.documentElement.removeAttribute('data-theme');
   if (resolved === 'daylight') startDaylightTheme();
-  const accent = localStorage.getItem('accentColor');
+  const accent = Settings.get('accentColor');
   if (accent) applyAccentColor(accent);
-  const edTheme = localStorage.getItem('editorTheme');
+  const edTheme = Settings.get('editorTheme');
   if (edTheme && edTheme !== 'auto') document.documentElement.setAttribute('data-editor-theme', edTheme);
-  const aether = localStorage.getItem('aetherColor') || 'match';
+  const aether = Settings.get('aetherColor') || 'match';
   const aetherMode = aether.startsWith('#') ? 'midnight' : aether;
   document.documentElement.setAttribute('data-aether-theme', aetherMode);
-  const iconSize = localStorage.getItem('iconSize') || 'medium';
+  const iconSize = Settings.get('iconSize') || 'medium';
   document.documentElement.setAttribute('data-icon-size', iconSize);
 }
 

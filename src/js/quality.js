@@ -14,13 +14,13 @@ const DEFAULT_QUALITY_PROMPT =
   'Reply ONLY with KEEP or SKIP.';
 
 function getQualityPrompt() {
-  return localStorage.getItem('qualityPrompt') || DEFAULT_QUALITY_PROMPT;
+  return Settings.get('qualityPrompt') || DEFAULT_QUALITY_PROMPT;
 }
 async function fetchServerPrompt() {
   try {
     const data = await apiGet('/api/quality-prompt');
     if (data.prompt) {
-      localStorage.setItem('qualityPrompt', data.prompt);
+      Settings.set('qualityPrompt', data.prompt);
       return data.prompt;
     }
   } catch (e) { console.warn('fetchServerPrompt:', e); }
@@ -34,21 +34,21 @@ async function saveQualityPrompt() {
   }
   const val = document.getElementById('quality-prompt-input').value.trim();
   if (val && val !== DEFAULT_QUALITY_PROMPT) {
-    localStorage.setItem('qualityPrompt', val);
+    Settings.set('qualityPrompt', val);
   } else {
-    localStorage.removeItem('qualityPrompt');
+    Settings.remove('qualityPrompt');
   }
   try {
     await apiPut('/api/quality-prompt', { prompt: val === DEFAULT_QUALITY_PROMPT ? '' : val });
   } catch (e) { console.warn('saveQualityPrompt:', e); }
-  localStorage.removeItem('qualityCache');
+  Settings.remove('qualityCache');
   renderPapers();
   if (isQualityFilterOn() && allPapers.length) qualityFilterPapers();
   const resultsEl = document.getElementById('prompt-test-results');
   if (resultsEl) AetherUI.mount(Text('Prompt saved & cache cleared.').className('text-green-400 text-[0.75rem]'), resultsEl);
 }
 function resetQualityPrompt() {
-  localStorage.removeItem('qualityPrompt');
+  Settings.remove('qualityPrompt');
   apiPut('/api/quality-prompt', { prompt: '' }).catch(() => { /* fire-and-forget */ });
   const el = document.getElementById('quality-prompt-input');
   if (el) el.value = DEFAULT_QUALITY_PROMPT;
@@ -99,10 +99,10 @@ async function runPromptTest() {
   await runPromptTestInternal();
 }
 function resetEverything() {
-  localStorage.removeItem('qualityPrompt');
-  localStorage.setItem('qualityThreshold', '30');
+  Settings.remove('qualityPrompt');
+  Settings.set('qualityThreshold', '30');
   apiPut('/api/quality-prompt', { prompt: '' }).catch(() => { /* fire-and-forget */ });
-  localStorage.removeItem('qualityCache');
+  Settings.remove('qualityCache');
   renderPapers();
   if (isQualityFilterOn() && allPapers.length) qualityFilterPapers();
   var btn = document.getElementById('reset-everything-btn');
@@ -161,10 +161,10 @@ function saveQualityCacheData(cache) {
   setLS('qualityCache', cache);
 }
 function isQualityFilterOn() {
-  return localStorage.getItem('qualityFilter') !== 'off';
+  return Settings.get('qualityFilter') !== 'off';
 }
 function setQualityFilter(on) {
-  localStorage.setItem('qualityFilter', on ? 'on' : 'off');
+  Settings.set('qualityFilter', on ? 'on' : 'off');
   _updateQualityFilterIcon();
   if (on && allPapers.length) qualityFilterPapers();
   renderPapers();
@@ -182,11 +182,11 @@ function _updateQualityFilterIcon() {
 }
 setTimeout(_updateQualityFilterIcon, 0);
 function getQualityThreshold() {
-  const v = parseInt(localStorage.getItem('qualityThreshold'), 10);
+  const v = parseInt(Settings.get('qualityThreshold'), 10);
   return isNaN(v) ? 30 : Math.min(v, 100);
 }
 function setQualityThreshold(val) {
-  localStorage.setItem('qualityThreshold', String(val));
+  Settings.set('qualityThreshold', String(val));
   renderPapers();
 }
 function getQualityBypass() {
@@ -433,11 +433,11 @@ function getSourceAffinity() {
 }
 
 function resetPersonalization() {
-  localStorage.removeItem('interestProfile');
-  localStorage.removeItem('fyWeightBase');
-  localStorage.removeItem('fyWeightAffinity');
-  localStorage.removeItem('fyWeightRecency');
-  localStorage.removeItem('maxPerCategoryRun');
+  Settings.remove('interestProfile');
+  Settings.remove('fyWeightBase');
+  Settings.remove('fyWeightAffinity');
+  Settings.remove('fyWeightRecency');
+  Settings.remove('maxPerCategoryRun');
   computeInterestProfile();
   const qView = document.getElementById('quality-view');
   if (qView && !qView.classList.contains('hidden')) renderQualityView();

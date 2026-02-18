@@ -194,7 +194,7 @@ document.addEventListener('mouseup', async function(e) {
 function _postQuoteText(text) {
   const paper = _currentPaperViewPaper;
   if (!paper || !text) return;
-  const quotes = JSON.parse(localStorage.getItem('userQuotes') || '[]');
+  const quotes = Settings.getJSON('userQuotes', []);
   quotes.push({
     id: 'q-' + Date.now(),
     quote: text,
@@ -203,7 +203,7 @@ function _postQuoteText(text) {
     source: 'quote',
     pubDate: new Date().toISOString()
   });
-  localStorage.setItem('userQuotes', JSON.stringify(quotes));
+  Settings.setJSON('userQuotes', quotes);
   Motion.toast('Quote posted to feed');
 }
 
@@ -394,7 +394,7 @@ document.addEventListener('keydown', function(e) {
 
 // Right-click anywhere opens aether panel
 function _handleContextMenuChat(e) {
-  if (localStorage.getItem('clickAether') === 'off') return;
+  if (Settings.get('clickAether') === 'off') return;
   // Don't intercept on login or onboarding screens
   const loginGate = document.getElementById('login-gate');
   if (loginGate && loginGate.style.display !== 'none') return;
@@ -458,7 +458,7 @@ function _injectIframeChatHandler(iframe) {
 
       // Right-click → aether panel
       doc.addEventListener('contextmenu', function(e) {
-        if (localStorage.getItem('clickAether') === 'off') return;
+        if (Settings.get('clickAether') === 'off') return;
         const f = iframe.getBoundingClientRect();
         const tag = e.target.tagName;
         const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
@@ -1667,7 +1667,7 @@ function _panelBuildChatInput(popup, config) {
           if (data && data.text) {
             askInput.value = askInput.value + (askInput.value ? ' ' : '') + data.text;
             askInput.focus();
-            if (localStorage.getItem('voiceAutoSend') === 'on') {
+            if (Settings.get('voiceAutoSend') === 'on') {
               setTimeout(() => _sendPopupChatMessage(popup, capturedText), 50);
             }
           }
@@ -1690,7 +1690,7 @@ function _panelBuildChatInput(popup, config) {
   // Model label (moved from topBar)
   const modelLabel = document.createElement('span');
   modelLabel.className = 'aether-model-label';
-  const cm = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  const cm = Settings.get('chatModel') || 'qwen2.5:3b';
   modelLabel.textContent = cm;
   modelLabel.title = 'Current model';
   buttonRow.appendChild(modelLabel);

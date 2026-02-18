@@ -159,8 +159,8 @@ async function _fetchAuthorPreview(text, containerDiv) {
 // ── Semantic preview in selection popup ──
 async function _fetchSemanticPreview(text, containerDiv) {
   if (!text || text.trim().length < 3) { containerDiv.style.display = 'none'; return; }
-  if (localStorage.getItem('panelSemanticSearch') === 'off') { containerDiv.style.display = 'none'; return; }
-  const minScore = (parseInt(localStorage.getItem('panelSemanticMin') || '80', 10)) / 100;
+  if (Settings.get('panelSemanticSearch') === 'off') { containerDiv.style.display = 'none'; return; }
+  const minScore = (parseInt(Settings.get('panelSemanticMin') || '80', 10)) / 100;
   try {
     islandUpdate('ai-semantic', { type: 'ai', label: 'nomic-embed-text', detail: 'Semantic search \u00B7 nomic-embed-text' });
     const data = await apiPost('/api/semantic-search', { query: text.trim().slice(0, 200), limit: 5 });
@@ -754,7 +754,7 @@ async function _doAetherModel(popup) {
     return;
   }
 
-  const currentModel = localStorage.getItem('chatModel') || '';
+  const currentModel = Settings.get('chatModel') || '';
   // Pre-select current model if found
   const curIdx = _aetherModelList.indexOf(currentModel);
   if (curIdx >= 0) _aetherModelIdx = curIdx;
@@ -772,7 +772,7 @@ function _aetherRenderModelDropdown(popup) {
     if (askWrap) popup.insertBefore(dropdown, askWrap);
     else popup.appendChild(dropdown);
   }
-  const currentModel = localStorage.getItem('chatModel') || '';
+  const currentModel = Settings.get('chatModel') || '';
   dropdown.innerHTML = _aetherModelList.map((m, i) => {
     const active = m === currentModel;
     return `<div class="aether-note-item ${i === _aetherModelIdx ? 'selected' : ''}" data-idx="${i}">` +
@@ -788,15 +788,15 @@ function _aetherRenderModelDropdown(popup) {
       const model = _aetherModelList[idx];
       if (model) {
         _aetherModelIdx = idx;
-        localStorage.setItem('chatModel', model);
+        Settings.set('chatModel', model);
         _aetherRenderModelDropdown(popup);
         const label = popup.querySelector('.aether-model-label');
         if (label) label.textContent = model;
         const input = popup.querySelector('.doc-ask-inline-input');
         if (input) { input.value = ''; input.focus(); }
         // Achievement: first model switch
-        if (!localStorage.getItem('ach_model_switch')) {
-          localStorage.setItem('ach_model_switch', '1');
+        if (!Settings.get('ach_model_switch')) {
+          Settings.set('ach_model_switch', '1');
           if (typeof showAchievement === 'function') showAchievement('Model Swapper', 'Switched your AI model for the first time');
         }
       }
@@ -815,7 +815,7 @@ function _aetherHideModelDropdown(popup) {
 function _aetherSelectModel(popup) {
   const model = _aetherModelList[_aetherModelIdx];
   if (model) {
-    localStorage.setItem('chatModel', model);
+    Settings.set('chatModel', model);
     _aetherHideModelDropdown(popup);
     const label = popup.querySelector('.aether-model-label');
     if (label) label.textContent = model;

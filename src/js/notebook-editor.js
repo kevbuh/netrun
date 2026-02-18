@@ -683,8 +683,8 @@ async function runNbCell(i) {
             { dedupeKey: 'nb-' + (typeof currentExpId !== 'undefined' ? currentExpId : '') + '-cell-' + i });
         }
       }
-      if (!localStorage.getItem('ach_its_alive')) {
-        localStorage.setItem('ach_its_alive', '1');
+      if (!Settings.get('ach_its_alive')) {
+        Settings.set('ach_its_alive', '1');
         if (typeof showAchievement === 'function') showAchievement("It's Alive!", 'Ran an experiment kernel for the first time');
       }
     },

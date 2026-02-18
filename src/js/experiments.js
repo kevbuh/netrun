@@ -983,7 +983,7 @@ function _initExpSidebarResize() {
       document.removeEventListener('mouseup', onUp);
       // Persist width
       const w = document.getElementById('exp-sidebar').offsetWidth;
-      localStorage.setItem('expSidebarWidth', w);
+      Settings.set('expSidebarWidth', w);
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -993,7 +993,7 @@ function _initExpSidebarResize() {
 function _restoreExpSidebarWidth() {
   const grid = document.querySelector('#exp-detail-view .grid');
   if (!grid || grid.classList.contains('exp-sidebar-collapsed')) return;
-  const saved = localStorage.getItem('expSidebarWidth');
+  const saved = Settings.get('expSidebarWidth');
   if (saved) {
     const w = parseInt(saved, 10);
     if (w >= 160 && w <= 600) {
@@ -1009,7 +1009,7 @@ function toggleExpSidebar() {
   if (!grid) return;
   grid.classList.toggle('exp-sidebar-collapsed');
   const collapsed = grid.classList.contains('exp-sidebar-collapsed');
-  localStorage.setItem('expSidebarCollapsed', collapsed ? '1' : '0');
+  Settings.set('expSidebarCollapsed', collapsed ? '1' : '0');
   if (collapsed) {
     grid.style.gridTemplateColumns = '';
   } else {
@@ -1020,7 +1020,7 @@ function toggleExpSidebar() {
 function _restoreExpSidebarState() {
   const grid = document.querySelector('#exp-detail-view .grid');
   if (!grid) return;
-  if (localStorage.getItem('expSidebarCollapsed') === '1') {
+  if (Settings.get('expSidebarCollapsed') === '1') {
     grid.classList.add('exp-sidebar-collapsed');
   } else {
     grid.classList.remove('exp-sidebar-collapsed');

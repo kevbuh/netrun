@@ -249,7 +249,7 @@ async function _wizardCommitAccount() {
 // ── Step 2: Accent Color ──
 
 function _wizardAccentView() {
-  var current = localStorage.getItem('accentColor') || '#b4451a';
+  var current = Settings.get('accentColor') || '#b4451a';
   var currentName = (_wizardAccentColors.find(function(c) { return c.color === current; }) || { name: 'Orange' }).name;
   var swatches = _wizardAccentColors.map(function(a) {
     var btn = new View('button').className('onboard-swatch' + (a.color === current ? ' selected' : ''));
@@ -272,7 +272,7 @@ function _wizardAccentView() {
 }
 
 function _wizardAccentInit() {
-  var current = localStorage.getItem('accentColor') || '#b4451a';
+  var current = Settings.get('accentColor') || '#b4451a';
   if (typeof applyAccentColor === 'function') applyAccentColor(current);
   _wizardUpdateAccentGlow();
 }
@@ -308,7 +308,7 @@ function _wizardThemePreviewHTML(t) {
 }
 
 function _wizardThemeView() {
-  var current = localStorage.getItem('theme') || 'clear';
+  var current = Settings.get('theme') || 'clear';
   var options = _wizardThemes.map(function(t) {
     var btn = new View('button').className('wizard-theme-option' + (t.id === current ? ' selected' : ''));
     btn.el.dataset.theme = t.id;
@@ -331,7 +331,7 @@ function _wizardThemeView() {
 }
 
 function _wizardThemeInit() {
-  var current = localStorage.getItem('theme') || 'clear';
+  var current = Settings.get('theme') || 'clear';
   if (typeof setTheme === 'function') setTheme(current);
 }
 
@@ -358,7 +358,7 @@ function _wizardThemeContinue() {
 // ── Step 4: Tab Layout ──
 
 function _wizardTabLayoutView() {
-  var current = localStorage.getItem('browseTabLayout') || 'island';
+  var current = Settings.get('browseTabLayout') || 'island';
   function _layoutOption(layout, name, desc, previewHTML, selected) {
     var btn = new View('button').className('wizard-tab-layout-option' + (selected ? ' selected' : ''));
     btn.el.dataset.layout = layout;
@@ -398,7 +398,7 @@ function _wizardTabLayoutView() {
 }
 
 function _wizardPickTabLayout(layout, el) {
-  localStorage.setItem('browseTabLayout', layout);
+  Settings.set('browseTabLayout', layout);
   var wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
     wizard.querySelectorAll('.wizard-tab-layout-option').forEach(function(b) { b.classList.remove('selected'); });
@@ -562,7 +562,7 @@ async function _wizardChatModelInit() {
     return;
   }
 
-  var current = localStorage.getItem('chatModel') || 'qwen2.5:3b';
+  var current = Settings.get('chatModel') || 'qwen2.5:3b';
   var btns = _wizardModelList.map(function(m) {
     var btn = new View('button').className('wizard-model-option' + (m === current ? ' selected' : ''));
     btn.el.textContent = m;
@@ -575,7 +575,7 @@ async function _wizardChatModelInit() {
 }
 
 function _wizardPickModel(model, el) {
-  localStorage.setItem('chatModel', model);
+  Settings.set('chatModel', model);
   var wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
     wizard.querySelectorAll('.wizard-model-option').forEach(function(b) { b.classList.remove('selected'); });
@@ -586,8 +586,8 @@ function _wizardPickModel(model, el) {
 // ── Step 7: Pixel Pet ──
 
 function _wizardPixelPetView() {
-  var petOn = localStorage.getItem('pixelPet') === 'on';
-  var currentType = localStorage.getItem('pixelPetType') || 'cat';
+  var petOn = Settings.get('pixelPet') === 'on';
+  var currentType = Settings.get('pixelPetType') || 'cat';
   var petBtns = _wizardPetTypes.map(function(p) {
     var sel = petOn && currentType === p.id;
     var btn = new View('button').className('wizard-pet-option' + (sel ? ' selected' : '')).style('display', 'flex').style('flex-direction', 'column').style('align-items', 'center').style('gap', '6px').style('padding', '10px 12px');
@@ -640,10 +640,10 @@ function _wizardPickPet(petId, el) {
   if (el) el.classList.add('selected');
 
   if (petId === 'none') {
-    localStorage.setItem('pixelPet', 'off');
+    Settings.set('pixelPet', 'off');
   } else {
-    localStorage.setItem('pixelPet', 'on');
-    localStorage.setItem('pixelPetType', petId);
+    Settings.set('pixelPet', 'on');
+    Settings.set('pixelPetType', petId);
   }
 }
 
@@ -781,8 +781,8 @@ async function _wizardStartNeuralook() {
       sources[f.key] = _wizardFeedSelected.has(f.key);
       notifSources[f.key] = false;
     });
-    localStorage.setItem('feedSources', JSON.stringify(sources));
-    localStorage.setItem('feedNotifSources', JSON.stringify(notifSources));
+    Settings.setJSON('feedSources', sources);
+    Settings.setJSON('feedNotifSources', notifSources);
   }
   window.location.href = '/#neuralook';
 }
@@ -811,8 +811,8 @@ async function _wizardFinish() {
       sources[f.key] = _wizardFeedSelected.has(f.key);
       notifSources[f.key] = false;
     });
-    localStorage.setItem('feedSources', JSON.stringify(sources));
-    localStorage.setItem('feedNotifSources', JSON.stringify(notifSources));
+    Settings.setJSON('feedSources', sources);
+    Settings.setJSON('feedNotifSources', notifSources);
   }
   _wizardComplete();
 }

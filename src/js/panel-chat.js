@@ -145,7 +145,7 @@ function _handleAgentAction(act) {
   if (act.type === 'bookmark' && act.url) {
     const paper = { link: act.url, title: act.title || act.url };
     if (typeof toggleSavePost === 'function') {
-      const saved = JSON.parse(localStorage.getItem('savedPosts') || '{}');
+      const saved = Settings.getJSON('savedPosts', {});
       if (!saved[act.url]) toggleSavePost(paper);
     }
   } else if (act.type === 'navigate' && act.view) {
@@ -281,11 +281,11 @@ function _sendPopupChatMessage(popup, capturedText) {
   (async () => {
     try {
       const body = { messages: filteredMsgs };
-      const chatModel = localStorage.getItem('chatModel');
+      const chatModel = Settings.get('chatModel');
       if (chatModel) body.model = chatModel;
-      const _aiModelName = hasVision ? (localStorage.getItem('visionModel') || chatModel || 'default') : (chatModel || 'default');
+      const _aiModelName = hasVision ? (Settings.get('visionModel') || chatModel || 'default') : (chatModel || 'default');
       islandUpdate('aether', { type: 'ai', label: _aiModelName, detail: 'Chatting \u00B7 ' + _aiModelName });
-      const toolsOn = localStorage.getItem('chatTools') !== 'off';
+      const toolsOn = Settings.get('chatTools') !== 'off';
       // Include current page info for tool context
       if (toolsOn) {
         const paper = _currentPaperViewPaper;
@@ -304,11 +304,11 @@ function _sendPopupChatMessage(popup, capturedText) {
       if (hasVision) {
         _ctxSources.push({ label: 'vision' });
         body.vision = true;
-        const vm = localStorage.getItem('visionModel');
+        const vm = Settings.get('visionModel');
         if (vm) body.model = vm;
       } else {
         if (toolsOn) body.tools = true;
-        body.think = localStorage.getItem('chatThinking') === 'on';
+        body.think = Settings.get('chatThinking') === 'on';
         // Build context from doc text + any attached note/tab contents
         let ctx = _docText || '';
         if (ctx) _ctxSources.push({ label: 'doc', content: _docText });
@@ -753,7 +753,7 @@ function _renderPopupChat(popup, final) {
       apiPost('/api/tts', { text }).then(data => {
         if (!data || !data.audioPath) throw new Error('No audio generated');
         const audio = new Audio('file://' + data.audioPath);
-        audio.playbackRate = parseFloat(localStorage.getItem('ttsSpeed')) || 1;
+        audio.playbackRate = parseFloat(Settings.get('ttsSpeed')) || 1;
         _ttsAudio = audio;
         _updateAudioUnified('tts', { label: 'Speaking', detail: 'Playing speech audio' });
         _ttsStartWaveform(audio);

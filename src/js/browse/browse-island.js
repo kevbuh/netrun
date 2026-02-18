@@ -6,7 +6,7 @@ if (window.AetherUI) AetherUI.globals();
 
 function toggleBrowseTabLayout() {
   _browseTabLayout = _browseTabLayout === 'island' ? 'horizontal' : 'island';
-  localStorage.setItem('browseTabLayout', _browseTabLayout);
+  Settings.set('browseTabLayout', _browseTabLayout);
   const browseView = document.getElementById('browse-view');
   const browseOpen = browseView && browseView.style.display !== 'none';
   if (browseOpen) {
@@ -358,7 +358,7 @@ function _pillMicClick() {
           const pill = document.getElementById('pill-audio-unified');
           const rect = pill ? pill.getBoundingClientRect() : { x: window.innerWidth / 2 - 100, bottom: 60 };
           _showPanel({ anchor: { x: rect.x, y: rect.bottom + 4 }, initialValue: data.text, finalized: true });
-          if (localStorage.getItem('voiceAutoSend') === 'on') {
+          if (Settings.get('voiceAutoSend') === 'on') {
             setTimeout(() => {
               const popup = document.getElementById('doc-chat-ask-float');
               if (popup) _sendPopupChatMessage(popup, '');

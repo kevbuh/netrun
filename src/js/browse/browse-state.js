@@ -20,7 +20,7 @@ const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron
 
 // Sync initial adblock state to Electron main process
 if (_browseIsElectron && window.electronAPI.adblockSetEnabled) {
-  window.electronAPI.adblockSetEnabled(localStorage.getItem('adBlockEnabled') === 'true');
+  window.electronAPI.adblockSetEnabled(Settings.get('adBlockEnabled') === 'true');
 }
 
 // Audio tracking: { tabId: { windowId, muted } }
@@ -38,14 +38,14 @@ let _ccCaptionLines = [];
 let _ccFadeTimer = null;
 
 // UI state
-let _browseTabLayout = localStorage.getItem('browseTabLayout') || 'island';
+let _browseTabLayout = Settings.get('browseTabLayout') || 'island';
 
 // NTP uploaded files: { name, content, file }
 let _ntpUploadedFiles = [];
 
 // Closed tabs for Cmd+Shift+T reopen
 const _BROWSE_CLOSED_TABS_MAX = 50;
-let _browseClosedTabs = JSON.parse(localStorage.getItem('browseClosedTabs') || '[]');
+let _browseClosedTabs = Settings.getJSON('browseClosedTabs', []);
 
 // Password manager state
 let _pwAutofillOffered = new Set(); // tab ids that have been offered autofill
@@ -57,7 +57,7 @@ let _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
 let _browseNextPaneId = 1;
 
 // Return view for "back" button
-let _browseReturnView = localStorage.getItem('_browseReturnView') || null;
+let _browseReturnView = Settings.get('_browseReturnView') || null;
 
 // Convenience getters for current window's tabs (backward compatibility)
 function _getCurrentWindow() {
@@ -113,18 +113,18 @@ function _browseSaveTabsNow() {
       return saved;
     })
   }));
-  localStorage.setItem(_getBrowseStorageKey('browseWindows'), JSON.stringify({
+  Settings.setJSON(_getBrowseStorageKey('browseWindows'), {
     windows: data,
     activeWindow: _browseActiveWindow,
     nextWindowId: _browseNextWindowId,
     nextTabId: _browseNextTabId,
     nextGroupId: _browseNextGroupId,
     nextPaneId: _browseNextPaneId
-  }));
+  });
 }
 
 function _setBrowseReturnView(view) {
   _browseReturnView = view;
-  if (view) localStorage.setItem('_browseReturnView', view);
-  else localStorage.removeItem('_browseReturnView');
+  if (view) Settings.set('_browseReturnView', view);
+  else Settings.remove('_browseReturnView');
 }

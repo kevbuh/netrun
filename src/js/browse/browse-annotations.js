@@ -9,7 +9,7 @@ const _insightCache = new Map();       // url → { insight, annotations, relate
 
 // Restore insight cache from localStorage on load
 try {
-  const _savedCache = JSON.parse(localStorage.getItem('insightCache') || '{}');
+  const _savedCache = Settings.getJSON('insightCache', {});
   const _cacheNow = Date.now();
   for (const [url, entry] of Object.entries(_savedCache)) {
     if (_cacheNow - entry.ts < 300000) _insightCache.set(url, entry);
@@ -22,14 +22,14 @@ function _persistInsightCache() {
   for (const [url, entry] of _insightCache) {
     if (now - entry.ts < 300000) obj[url] = entry;
   }
-  localStorage.setItem('insightCache', JSON.stringify(obj));
+  Settings.setJSON('insightCache', obj);
 }
 
 // ── Trigger insight on page load ──
 
 function _triggerInsight(tab) {
   if (!tab || tab.blank) return;
-  if (localStorage.getItem('insightEnabled') === 'off') return;
+  if (Settings.get('insightEnabled') === 'off') return;
   const url = tab.url || '';
   if (!url || url.startsWith('about:') || url.startsWith('chrome:')) return;
 
@@ -60,7 +60,7 @@ async function _triggerInsightExtract(tab) {
 
     // Capture screenshot for OCR if enabled — only for the active tab
     let screenshot = null;
-    if (localStorage.getItem('insightOcr') !== 'off' && tab.id === _browseActiveTab) {
+    if (Settings.get('insightOcr') !== 'off' && tab.id === _browseActiveTab) {
       // Wait for webview guest process to be ready (getWebContentsId returns 0 until loaded)
       let wc = tab.el.getWebContentsId ? tab.el.getWebContentsId() : null;
       if (!wc) {
@@ -92,9 +92,9 @@ async function _triggerInsightExtract(tab) {
       title: tab.title || '',
       text: pageText.slice(0, 12000),
       tabId: tab.id,
-      model: localStorage.getItem('annotateModel') || '',
+      model: Settings.get('annotateModel') || '',
       screenshot: screenshot || undefined,
-      ocrModel: localStorage.getItem('ocrModel') || undefined,
+      ocrModel: Settings.get('ocrModel') || undefined,
     });
   } catch (e) { /* silent */ }
 }
@@ -185,7 +185,7 @@ async function _manualInsightAnalyze(tab) {
 
     // Capture screenshot for OCR if enabled
     let screenshot = null;
-    if (localStorage.getItem('insightOcr') !== 'off') {
+    if (Settings.get('insightOcr') !== 'off') {
       let wc = tab.el.getWebContentsId?.();
       if (!wc) {
         for (let i = 0; i < 5; i++) {
@@ -210,9 +210,9 @@ async function _manualInsightAnalyze(tab) {
       title: tab.title || '',
       text: pageText.slice(0, 12000),
       tabId: tab.id,
-      model: localStorage.getItem('annotateModel') || '',
+      model: Settings.get('annotateModel') || '',
       screenshot: screenshot || undefined,
-      ocrModel: localStorage.getItem('ocrModel') || undefined,
+      ocrModel: Settings.get('ocrModel') || undefined,
     });
   } catch (e) { /* silent */ }
 }
@@ -335,7 +335,7 @@ function _initInsightSystem() {
   _initInsightListener();
   _initInsightPartialListener();
   // Sync enabled state with backend
-  if (localStorage.getItem('insightEnabled') === 'off' && window.electronAPI && window.electronAPI.insightSetEnabled) {
+  if (Settings.get('insightEnabled') === 'off' && window.electronAPI && window.electronAPI.insightSetEnabled) {
     window.electronAPI.insightSetEnabled(false);
   }
 }

@@ -148,8 +148,8 @@ function _animateWindowSwitch(direction, callback) {
 
 function _setBrowseReturnView(view) {
   _browseReturnView = view;
-  if (view) localStorage.setItem('_browseReturnView', view);
-  else localStorage.removeItem('_browseReturnView');
+  if (view) Settings.set('_browseReturnView', view);
+  else Settings.remove('_browseReturnView');
 }
 
 function _browseGoBack() {

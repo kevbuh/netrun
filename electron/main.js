@@ -670,8 +670,27 @@ function createMenu() {
     {
       label: 'View',
       submenu: [
-        { role: 'reload', accelerator: 'CmdOrCtrl+R' },
-        { role: 'forceReload', accelerator: 'CmdOrCtrl+Shift+R' },
+        {
+          label: 'Reload',
+          accelerator: 'CmdOrCtrl+R',
+          click: () => {
+            if (!mainWindow) return;
+            mainWindow.webContents.executeJavaScript('window.location.hash || ""')
+              .then(hash => mainWindow.loadURL(`http://localhost:${serverPort}/${hash}`));
+          }
+        },
+        {
+          label: 'Force Reload',
+          accelerator: 'CmdOrCtrl+Shift+R',
+          click: () => {
+            if (!mainWindow) return;
+            mainWindow.webContents.executeJavaScript('window.location.hash || ""')
+              .then(hash => {
+                mainWindow.webContents.session.clearCache();
+                mainWindow.loadURL(`http://localhost:${serverPort}/${hash}`);
+              });
+          }
+        },
         { role: 'toggleDevTools', accelerator: 'CmdOrCtrl+Option+I' },
         { type: 'separator' },
         { role: 'resetZoom' },
@@ -852,14 +871,36 @@ app.whenReady().then(() => {
     } catch (_e) { /* no-op */ }
   });
 
-  ipcMain.handle('clear-google-cookies', async () => {
+  let _stashedGoogleCookies = null;
+
+  ipcMain.handle('stash-google-cookies', async () => {
     const ses = session.defaultSession;
-    const cookies = await ses.cookies.get({ domain: '.google.com' });
-    for (const cookie of cookies) {
+    _stashedGoogleCookies = await ses.cookies.get({ domain: '.google.com' });
+    for (const cookie of _stashedGoogleCookies) {
       const proto = cookie.secure ? 'https' : 'http';
       const url = `${proto}://${cookie.domain.replace(/^\./, '')}${cookie.path}`;
       await ses.cookies.remove(url, cookie.name);
     }
+  });
+
+  ipcMain.handle('restore-google-cookies', async () => {
+    if (!_stashedGoogleCookies) return;
+    const ses = session.defaultSession;
+    for (const cookie of _stashedGoogleCookies) {
+      const details = {
+        url: `${cookie.secure ? 'https' : 'http'}://${cookie.domain.replace(/^\./, '')}${cookie.path}`,
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain,
+        path: cookie.path,
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
+        sameSite: cookie.sameSite || 'unspecified',
+      };
+      if (cookie.expirationDate) details.expirationDate = cookie.expirationDate;
+      try { await ses.cookies.set(details); } catch (_e) { /* skip invalid cookies */ }
+    }
+    _stashedGoogleCookies = null;
   });
 
   // ── Password Manager (encrypted via safeStorage) ──

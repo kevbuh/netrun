@@ -829,16 +829,14 @@ function _saveTerminalState() {
     layout: _terminalLayout,
   };
   try {
-    localStorage.setItem('terminalState', JSON.stringify(state));
+    Settings.setJSON('terminalState', state);
   } catch (_) {}
 }
 
 function _loadTerminalState() {
   try {
-    const raw = localStorage.getItem('terminalState');
-    if (!raw) return;
-
-    const state = JSON.parse(raw);
+    const state = Settings.getJSON('terminalState', null);
+    if (!state) return;
     if (state.settings) {
       _termSettings = { ..._termSettings, ...state.settings };
     }

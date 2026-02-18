@@ -208,8 +208,8 @@ function hidePost(link, title, event) {
   if (!hidden.includes(link)) hidden.push(link);
   setLS('hiddenPosts', hidden);
   if (title) addTestTitle(title);
-  if (!localStorage.getItem('ach_curator')) {
-    localStorage.setItem('ach_curator', '1');
+  if (!Settings.get('ach_curator')) {
+    Settings.set('ach_curator', '1');
     if (typeof showAchievement === 'function') showAchievement('Curator', 'Curated your feed by hiding a post');
   }
   renderPapers();
@@ -405,8 +405,8 @@ function toggleSavePost(paper, event) {
     const _bmTitle = (paper.title || '').length > 40 ? paper.title.slice(0, 38) + '\u2026' : (paper.title || 'Saved');
     islandUpdate('bookmark', { type: 'bookmark', label: 'Saved', detail: _bmTitle });
     setTimeout(function() { islandRemove('bookmark'); }, 2500);
-    if (!localStorage.getItem('ach_bookworm')) {
-      localStorage.setItem('ach_bookworm', '1');
+    if (!Settings.get('ach_bookworm')) {
+      Settings.set('ach_bookworm', '1');
       if (typeof showAchievement === 'function') showAchievement('Bookworm', 'Saved your first post');
     }
   }
@@ -509,7 +509,7 @@ function unsubscribeSource(key) {
   const idx = custom.findIndex(f => f.url === key || f.name === key);
   if (idx !== -1) {
     custom[idx].enabled = false;
-    localStorage.setItem('customFeeds', JSON.stringify(custom));
+    Settings.setJSON('customFeeds', custom);
   }
   // Remove posts from this source and re-render
   allPapers = allPapers.filter(p => p.source !== key);
@@ -641,7 +641,7 @@ async function fetchPolymarketFeed() {
 const FEED_SOURCE_DEFAULTS = {};
 FEED_CATALOG.forEach(f => { FEED_SOURCE_DEFAULTS[f.key] = false; });
 
-function hasOnboarded() { return localStorage.getItem('feedSources') !== null; }
+function hasOnboarded() { return Settings.get('feedSources') !== null; }
 
 const onboardSelected = new Set();
 const onboardNotifSelected = new Set();
@@ -980,10 +980,10 @@ function renderAlgorithmView() {
   var topTopics = profile ? (profile.topTopics || []) : [];
   var topCats = profile ? (profile.topCategories || []) : [];
 
-  var wBase = parseFloat(localStorage.getItem('fyWeightBase') || '0.7');
-  var wAff = parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3');
-  var wRec = parseFloat(localStorage.getItem('fyWeightRecency') || '1.0');
-  var maxRun = parseInt(localStorage.getItem('maxPerCategoryRun') || '3', 10);
+  var wBase = parseFloat(Settings.get('fyWeightBase') || '0.7');
+  var wAff = parseFloat(Settings.get('fyWeightAffinity') || '0.3');
+  var wRec = parseFloat(Settings.get('fyWeightRecency') || '1.0');
+  var maxRun = parseInt(Settings.get('maxPerCategoryRun') || '3', 10);
 
   var exampleLlm = 72, exampleAff = 0.8, exampleAge = 3;
   var exampleRecency = Math.max(0, 10 - exampleAge * 0.5) * wRec;
@@ -1037,13 +1037,13 @@ function renderAlgorithmView() {
       Text('Current weights').className('text-dimmer text-[0.68rem] mb-2'),
       _algoSlider('Base', 'algo-base-val', 0, 100, Math.round(wBase * 100),
         function() { document.getElementById('algo-base-val').textContent = (this.value / 100).toFixed(2); },
-        function() { localStorage.setItem('fyWeightBase', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); }),
+        function() { Settings.set('fyWeightBase', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); }),
       _algoSlider('Affinity', 'algo-aff-val', 0, 100, Math.round(wAff * 100),
         function() { document.getElementById('algo-aff-val').textContent = (this.value / 100).toFixed(2); },
-        function() { localStorage.setItem('fyWeightAffinity', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); }),
+        function() { Settings.set('fyWeightAffinity', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); }),
       _algoSlider('Recency', 'algo-rec-val', 0, 200, Math.round(wRec * 100),
         function() { document.getElementById('algo-rec-val').textContent = (this.value / 100).toFixed(2); },
-        function() { localStorage.setItem('fyWeightRecency', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); })
+        function() { Settings.set('fyWeightRecency', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); })
     ).spacing(2),
 
     // 5. Category Diversity
@@ -1055,7 +1055,7 @@ function renderAlgorithmView() {
         s.el.type = 'range'; s.el.min = '1'; s.el.max = '10'; s.el.value = maxRun;
         s.el.className = 'flex-1 accent-[var(--nr-accent)]';
         s.el.addEventListener('input', function() { document.getElementById('algo-div-val').textContent = this.value; });
-        s.el.addEventListener('change', function() { localStorage.setItem('maxPerCategoryRun', this.value); renderPapers(); renderAlgorithmView(); });
+        s.el.addEventListener('change', function() { Settings.set('maxPerCategoryRun', this.value); renderPapers(); renderAlgorithmView(); });
         return HStack(
           Text('Max same-category run').className('text-dim text-[0.72rem] shrink-0'),
           s,
@@ -1220,7 +1220,7 @@ function renderQualityView() {
   _renderPersonalizationPanel();
   apiGet('/api/quality-prompt').then(function(data) {
     if (data.prompt) {
-      localStorage.setItem('qualityPrompt', data.prompt);
+      Settings.set('qualityPrompt', data.prompt);
       var el = document.getElementById('quality-prompt-input');
       if (el) el.value = data.prompt;
     }
@@ -1265,7 +1265,7 @@ function _renderPersonalizationPanel() {
       return '<tr class="border-b border-border-subtle last:border-0"><td class="py-1 pr-2 text-[0.72rem] text-primary truncate max-w-[120px]">' + escapeHtml(name) + '</td><td class="py-1 px-2 text-[0.68rem] text-dim text-right tabular-nums">' + readPct + '%</td><td class="py-1 px-2 text-[0.68rem] text-dim text-right tabular-nums">' + savedPct + '%</td><td class="py-1 pl-2 w-20"><div class="h-1.5 rounded-full bg-hover overflow-hidden"><div class="h-full rounded-full bg-accent" style="width:' + barW + '%"></div></div></td></tr>';
     }).join('');
 
-  var maxRun = parseInt(localStorage.getItem('maxPerCategoryRun') || '3', 10) || 3;
+  var maxRun = parseInt(Settings.get('maxPerCategoryRun') || '3', 10) || 3;
 
   function _pSlider(label, id, min, max, value, onInput, onChange) {
     var s = new View('input');
@@ -1285,7 +1285,7 @@ function _renderPersonalizationPanel() {
     s.el.type = 'range'; s.el.min = '1'; s.el.max = '10'; s.el.value = maxRun;
     s.el.className = 'flex-1 accent-[var(--nr-accent)]';
     s.el.addEventListener('input', function() { document.getElementById('diversity-val').textContent = this.value; });
-    s.el.addEventListener('change', function() { localStorage.setItem('maxPerCategoryRun', this.value); renderPapers(); });
+    s.el.addEventListener('change', function() { Settings.set('maxPerCategoryRun', this.value); renderPapers(); });
     return HStack(
       Text('Category diversity').className('text-dimmer text-[0.68rem]'),
       s,
@@ -1297,9 +1297,9 @@ function _renderPersonalizationPanel() {
   resetBtn.el.textContent = 'Reset personalization';
   resetBtn.onTap(function() { resetPersonalization(); });
 
-  var wBase = parseFloat(localStorage.getItem('fyWeightBase') || '0.7');
-  var wAff = parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3');
-  var wRec = parseFloat(localStorage.getItem('fyWeightRecency') || '1.0');
+  var wBase = parseFloat(Settings.get('fyWeightBase') || '0.7');
+  var wAff = parseFloat(Settings.get('fyWeightAffinity') || '0.3');
+  var wRec = parseFloat(Settings.get('fyWeightRecency') || '1.0');
 
   var view = VStack(
     RawHTML('<h3 class="text-muted text-[0.8rem] font-medium mb-3">Personalization</h3>'),
@@ -1329,13 +1329,13 @@ function _renderPersonalizationPanel() {
       RawHTML('<p class="text-dimmer text-[0.62rem] mt-0.5 mb-2">score = LLM \u00d7 (base + affinity \u00d7 aff_weight) + recency_boost \u00d7 recency_weight</p>'),
       _pSlider('Base', 'fy-base-val', 0, 100, Math.round(wBase * 100),
         function() { document.getElementById('fy-base-val').textContent = (this.value / 100).toFixed(2); },
-        function() { localStorage.setItem('fyWeightBase', (this.value / 100).toFixed(2)); renderPapers(); }),
+        function() { Settings.set('fyWeightBase', (this.value / 100).toFixed(2)); renderPapers(); }),
       _pSlider('Affinity', 'fy-aff-val', 0, 100, Math.round(wAff * 100),
         function() { document.getElementById('fy-aff-val').textContent = (this.value / 100).toFixed(2); },
-        function() { localStorage.setItem('fyWeightAffinity', (this.value / 100).toFixed(2)); renderPapers(); }),
+        function() { Settings.set('fyWeightAffinity', (this.value / 100).toFixed(2)); renderPapers(); }),
       _pSlider('Recency', 'fy-rec-val', 0, 200, Math.round(wRec * 100),
         function() { document.getElementById('fy-rec-val').textContent = (this.value / 100).toFixed(2); },
-        function() { localStorage.setItem('fyWeightRecency', (this.value / 100).toFixed(2)); renderPapers(); })
+        function() { Settings.set('fyWeightRecency', (this.value / 100).toFixed(2)); renderPapers(); })
     ).spacing(1).className('mb-4'),
 
     resetBtn
@@ -1637,7 +1637,7 @@ let lastFilteredPapers = [];
 
 function getSearchHistory() {
   try {
-    const raw = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+    const raw = Settings.getJSON('searchHistory', []);
     return raw.map(h => typeof h === 'string' ? { q: h, ts: 0, c: 0 } : h);
   } catch { return []; }
 }
@@ -1768,9 +1768,9 @@ function getFilteredPapers(ctx) {
   if (effectiveSort === 'foryou') {
     const affinity = typeof getSourceAffinity === 'function' ? getSourceAffinity() : {};
     const now = Date.now();
-    const wBase = parseFloat(localStorage.getItem('fyWeightBase') || '0.7');
-    const wAff = parseFloat(localStorage.getItem('fyWeightAffinity') || '0.3');
-    const wRecency = parseFloat(localStorage.getItem('fyWeightRecency') || '1.0');
+    const wBase = parseFloat(Settings.get('fyWeightBase') || '0.7');
+    const wAff = parseFloat(Settings.get('fyWeightAffinity') || '0.3');
+    const wRecency = parseFloat(Settings.get('fyWeightRecency') || '1.0');
     filtered = [...filtered].sort((a, b) => {
       const aLlm = qfOn && qCache[a.title]?.s != null ? qCache[a.title].s : 50;
       const bLlm = qfOn && qCache[b.title]?.s != null ? qCache[b.title].s : 50;
@@ -1798,7 +1798,7 @@ function getFilteredPapers(ctx) {
     });
   }
   // Category-aware interleaving: limit same-category runs (O(n) bucket algorithm)
-  const maxRun = parseInt(localStorage.getItem('maxPerCategoryRun') || '3', 10) || 3;
+  const maxRun = parseInt(Settings.get('maxPerCategoryRun') || '3', 10) || 3;
   if (filtered.length > 1) {
     // Group items into per-category queues, preserving sort order within each
     const buckets = new Map(); // cat -> array of items

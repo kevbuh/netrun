@@ -1,0 +1,15 @@
+/* Settings page — visual polish */
+
+/* Constrain content pane width for readability */
+#settings-content-pane {
+  max-width: 640px;
+}
+
+/* Card sub-grouping */
+.nr-settings-card {
+  transition: border-color 0.15s ease;
+}
+
+.nr-settings-card:hover {
+  border-color: var(--nr-border-default);
+}

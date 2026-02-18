@@ -12,6 +12,7 @@ import { registerExperimentIPC } from './ipc/experiment.js';
 import { registerKernelIPC } from './ipc/kernel.js';
 import { registerNeuralookIPC } from './ipc/neuralook.js';
 import { registerTerminalIPC } from './ipc/terminal.js';
+import { registerSettingsIPC } from './ipc/settings.js';
 
 /**
  * Register all IPC handlers for the tool system and agent runtime.
@@ -31,4 +32,5 @@ export function registerToolIPC(): void {
   registerKernelIPC();
   registerNeuralookIPC();
   registerTerminalIPC();
+  registerSettingsIPC();
 }

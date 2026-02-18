@@ -14,13 +14,13 @@ function _pillNoiseCycle() {
 }
 
 function _ttsCycleSpeed() {
-  const cur = parseFloat(localStorage.getItem('ttsSpeed')) || 1;
+  const cur = parseFloat(Settings.get('ttsSpeed')) || 1;
   let next = _ttsSpeeds[0];
   for (let i = 0; i < _ttsSpeeds.length; i++) {
     if (_ttsSpeeds[i] > cur + 0.01) { next = _ttsSpeeds[i]; break; }
     if (i === _ttsSpeeds.length - 1) next = _ttsSpeeds[0];
   }
-  localStorage.setItem('ttsSpeed', next);
+  Settings.set('ttsSpeed', next);
   if (typeof _ttsAudio !== 'undefined' && _ttsAudio) _ttsAudio.playbackRate = next;
   _renderAudioPill();
   const valEl = document.getElementById('tts-speed-val');
@@ -104,7 +104,7 @@ function _renderAudioPill() {
 
   // TTS status
   if (tts) {
-    var spdText = (parseFloat(localStorage.getItem('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x';
+    var spdText = (parseFloat(Settings.get('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x';
     var spdSpan = new View('span').style('margin-left', 'auto').style('font-size', '0.7rem').style('opacity', '0.5')._bindText(spdText);
     items.push(_audioBtn(tts.paused ? 'play' : 'pause', tts.paused ? 'Resume TTS' : 'Pause TTS', function() { _ttsPauseResume(); _renderAudioPill(); }, { color: 'var(--nr-accent)', trailing: spdSpan }));
     items.push(_audioBtn('close', 'Stop TTS', function() { _ttsStopAll(); _renderAudioPill(); }));
@@ -158,7 +158,7 @@ function _islandRenderPill(a) {
     const ttsIconC = a.paused
       ? icon('play', { size: 14 })
       : _islandWaveformBars;
-    const spd = parseFloat(localStorage.getItem('ttsSpeed')) || 1;
+    const spd = parseFloat(Settings.get('ttsSpeed')) || 1;
     const spdBadge = '<span class="island-tts-speed" onclick="event.stopPropagation();_ttsCycleSpeed()" title="Click to change speed">' + spd.toFixed(1).replace(/\.0$/, '') + 'x</span>';
     return ttsIconC + '<span>' + escapeHtml(a.label || '') + '</span>' + spdBadge;
   } else if (a.type === 'audio') {

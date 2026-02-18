@@ -417,7 +417,7 @@ function browseSelectTab(id) {
     if (tab.arxivId) {
       if (!_panelVisible) {
         _panelVisible = true;
-        localStorage.setItem('universalPanelVisible', 'true');
+        Settings.set('universalPanelVisible', 'true');
       }
       _invalidatePanelRender('browse');
       showPanelForView('browse');
@@ -570,7 +570,7 @@ function browseCloseTab(id) {
 
   _browseClosedTabs.push({ url: tab.url || '', title: tab.title, blank: !!tab.blank, paper: tab.paper || null, contentType: tab.contentType || null, arxivId: tab.arxivId || null });
   if (_browseClosedTabs.length > _BROWSE_CLOSED_TABS_MAX) _browseClosedTabs.splice(0, _browseClosedTabs.length - _BROWSE_CLOSED_TABS_MAX);
-  localStorage.setItem('browseClosedTabs', JSON.stringify(_browseClosedTabs));
+  Settings.setJSON('browseClosedTabs', _browseClosedTabs);
   // Stop captions if this is the captured tab
   if (_ccTabId === id) stopCaptions();
   _pwAutofillOffered.delete(id);
@@ -602,7 +602,7 @@ function browseCloseTab(id) {
 function browseReopenTab() {
   if (!_browseClosedTabs.length) return;
   const closed = _browseClosedTabs.pop();
-  localStorage.setItem('browseClosedTabs', JSON.stringify(_browseClosedTabs));
+  Settings.setJSON('browseClosedTabs', _browseClosedTabs);
   if (closed.paper && closed.contentType) {
     browseNewPaperTab(closed.url, closed.paper);
   } else {

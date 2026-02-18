@@ -23,7 +23,7 @@ function dashRemoveSaved(link) {
 // ── Bento dashboard helpers ──
 
 function _dashPapersReadRecent() {
-  const readSet = new Set(JSON.parse(localStorage.getItem('readPosts') || '[]'));
+  const readSet = new Set(Settings.getJSON('readPosts', []));
   if (!readSet.size) return 0;
   const papers = typeof allPapers !== 'undefined' ? allPapers : [];
   return papers.filter(p => readSet.has(p.link)).length;
@@ -173,19 +173,19 @@ async function renderDashboard() {
   });
 
   // Feed searches today
-  const _searchHist = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+  const _searchHist = Settings.getJSON('searchHistory', []);
   _searchHist.filter(s => s.ts && _isToday(s.ts)).forEach(s => {
     _todayActivity.push({ type: 'search', title: s.q || s, time: s.ts, icon: 'search' });
   });
 
   // Web searches today
-  const _webSearchHist = JSON.parse(localStorage.getItem('webSearchHistory') || '[]');
+  const _webSearchHist = Settings.getJSON('webSearchHistory', []);
   _webSearchHist.filter(s => s.ts && _isToday(s.ts)).forEach(s => {
     _todayActivity.push({ type: 'web-search', title: s.q, time: s.ts, icon: 'globe' });
   });
 
   // Feed notifications (new posts discovered) today
-  const _feedNotifs = JSON.parse(localStorage.getItem('feedNotifications') || '[]');
+  const _feedNotifs = Settings.getJSON('feedNotifications', []);
   _feedNotifs.filter(n => n.seenAt && _isToday(n.seenAt)).forEach(n => {
     _todayActivity.push({ type: 'notif', title: n.title, time: n.seenAt, link: n.link, icon: 'bell' });
   });
@@ -404,7 +404,7 @@ async function renderDashboard() {
       addItem(key, { type: 'repost', title: r.paperTitle || 'Repost' });
     }
   });
-  const _shist = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+  const _shist = Settings.getJSON('searchHistory', []);
   _shist.forEach(s => {
     if (s.ts) {
       const d = new Date(s.ts);
@@ -412,7 +412,7 @@ async function renderDashboard() {
       addItem(key, { type: 'search', title: s.q || 'Search' });
     }
   });
-  const _wshist = JSON.parse(localStorage.getItem('webSearchHistory') || '[]');
+  const _wshist = Settings.getJSON('webSearchHistory', []);
   _wshist.forEach(s => {
     if (s.ts) {
       const d = new Date(s.ts);
@@ -1062,12 +1062,12 @@ async function renderDashboard() {
   }
 
   // ── LLM daily summary (async, streamed) ──
-  const _summaryModel = localStorage.getItem('summaryModel') || 'qwen3:0.6b';
+  const _summaryModel = Settings.get('summaryModel') || 'qwen3:0.6b';
   const summaryEl = document.getElementById('dash-day-summary');
   if (summaryEl && _summaryModel && _summaryModel !== 'off') {
     // Cache key: date + interaction count + task/unread counts
     const _sumCacheKey = `${_todayKey}:${_llmActivityData.length}:${_unreadSavedCount}`;
-    const _sumCache = JSON.parse(localStorage.getItem('daySummaryCache') || '{}');
+    const _sumCache = Settings.getJSON('daySummaryCache', {});
     if (_sumCache.key === _sumCacheKey && _sumCache.text) {
       summaryEl.textContent = _sumCache.text;
     } else {
@@ -1087,7 +1087,7 @@ async function _streamDaySummary(el, activityLines, openTasks, unreadCount, date
   if (_dashSummaryAbort) { try { _dashSummaryAbort.abort(); } catch(e) {} }
   _dashSummaryAbort = new AbortController();
 
-  const name = (_authUserInfo && (_authUserInfo.name || '').split(' ')[0]) || localStorage.getItem('userName') || 'there';
+  const name = (_authUserInfo && (_authUserInfo.name || '').split(' ')[0]) || Settings.get('userName') || 'there';
   const hour = new Date().getHours();
   const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
 
@@ -1140,7 +1140,7 @@ Write a brief, friendly 1-2 sentence summary of their day so far. Be warm and co
     if (!text.trim()) {
       el.textContent = '';
     } else if (cacheKey) {
-      localStorage.setItem('daySummaryCache', JSON.stringify({ key: cacheKey, text: text.trim() }));
+      Settings.setJSON('daySummaryCache', { key: cacheKey, text: text.trim() });
     }
   } catch (e) {
     islandRemove('ai-summary');
@@ -1457,7 +1457,7 @@ function renderDevPanel() {
 
   // Load active section from localStorage or default to 'overview'
   if (!_devActiveSection) {
-    _devActiveSection = localStorage.getItem('devPanelSection') || 'overview';
+    _devActiveSection = Settings.get('devPanelSection') || 'overview';
   }
 
   // Render sidebar navigation
@@ -1489,7 +1489,7 @@ function renderDevPanel() {
 
 function _devNavigateTo(sectionId) {
   _devActiveSection = sectionId;
-  localStorage.setItem('devPanelSection', sectionId);
+  Settings.set('devPanelSection', sectionId);
   renderDevPanel();
 }
 
@@ -2142,7 +2142,7 @@ function _devTestAchievement() {
 
 function _devResetAchievements() {
   const keys = ['ach_bookworm', 'ach_curator', 'ach_critic', 'ach_explorer', 'ach_model_switch', 'ach_its_alive', 'ach_pixel_parent', 'ach_gaze_master'];
-  keys.forEach(function(k) { localStorage.removeItem(k); });
+  keys.forEach(function(k) { Settings.remove(k); });
   islandRemove('achievement');
 }
 

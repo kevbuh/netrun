@@ -14,7 +14,7 @@ function _isHeavyVideoSite(url) {
 function _browseRestoreTabs() {
   try {
     // Try new multi-window format first (user-specific key)
-    const raw = localStorage.getItem(_getBrowseStorageKey('browseWindows'));
+    const raw = Settings.get(_getBrowseStorageKey('browseWindows'));
     if (raw) {
       const { windows, activeWindow, nextWindowId, nextTabId, nextGroupId, nextPaneId } = JSON.parse(raw);
       if (!windows || !windows.length) return false;
@@ -100,5 +100,5 @@ function _browseRestoreTabs() {
     }
 
     return false;
-  } catch { return false; }
+  } catch (e) { console.error('[browse] restore tabs failed:', e); return false; }
 }

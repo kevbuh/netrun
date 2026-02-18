@@ -71,7 +71,7 @@ function renderTitle(rawTitle) {
 
 // ── Paper ratings (1-5 stars) ──
 function getPaperRatings() {
-  try { return JSON.parse(localStorage.getItem('paperRatings') || '{}'); } catch { return {}; }
+  try { return Settings.getJSON('paperRatings', {}); } catch { return {}; }
 }
 function _normalizeRatingKey(link) {
   // Normalize arXiv URLs: strip version, use https, use /abs/ form
@@ -99,9 +99,9 @@ function setPaperRating(link, rating) {
   // Clean up old non-normalized key if different
   if (key !== link && r[link]) delete r[link];
   if (rating <= 0) delete r[key]; else r[key] = rating;
-  localStorage.setItem('paperRatings', JSON.stringify(r));
-  if (rating > 0 && !localStorage.getItem('ach_critic')) {
-    localStorage.setItem('ach_critic', '1');
+  Settings.setJSON('paperRatings', r);
+  if (rating > 0 && !Settings.get('ach_critic')) {
+    Settings.set('ach_critic', '1');
     showAchievement('Critic', 'Rated your first paper');
   }
 }
