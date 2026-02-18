@@ -423,7 +423,7 @@ function _islandBuildTray(a, isBrowse) {
     const start = Math.max(0, recent.length - 30);
     for (let ri = recent.length - 1; ri >= start; ri--) {
       const ev = recent[ri];
-      const catColors = { ai: '#a78bfa', embed: '#38bdf8', feed: '#f97316', quality: '#22c55e', network: '#94a3b8', system: '#e879f9' };
+      const catColors = { ai: '#a78bfa', feed: '#f97316', quality: '#22c55e', network: '#94a3b8', system: '#e879f9' };
       const col = catColors[ev.category] || '#94a3b8';
       const age = Math.round((Date.now() - ev.timestamp) / 1000);
       const ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';

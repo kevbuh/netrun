@@ -26,7 +26,7 @@
       body: '--nr-bg-body', surface: '--nr-bg-surface', raised: '--nr-bg-raised',
       sunken: '--nr-bg-sunken', overlay: '--nr-bg-overlay', input: '--nr-bg-input',
       primary: '--nr-text-primary', secondary: '--nr-text-secondary',
-      tertiary: '--nr-text-tertiary', quaternary: '--nr-text-quaternary',
+      quaternary: '--nr-text-quaternary',
       inverse: '--nr-text-inverse', link: '--nr-text-link',
       accent: '--nr-accent', 'accent-hover': '--nr-accent-hover',
       'border-default': '--nr-border-default', 'border-strong': '--nr-border-strong',

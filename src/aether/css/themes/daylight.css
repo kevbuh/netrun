@@ -11,8 +11,7 @@
 
   --nr-text-primary:    #151528;
   --nr-text-secondary:  #484860;
-  --nr-text-tertiary:   #606078;
-  --nr-text-quaternary: #707088;
+--nr-text-quaternary: #707088;
   --nr-text-inverse:    #0a0a18;
   --nr-text-link:       var(--nr-accent);
 

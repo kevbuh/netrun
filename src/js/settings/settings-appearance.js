@@ -121,12 +121,6 @@ function _renderAppearanceSettings() {
     RawHTML('<div class="spinner-preview text-dim font-mono text-[1.2rem] h-6 flex items-center justify-center" id="spinner-preview"></div>'),
     RawHTML('<div class="text-[0.68rem] text-dimmer" id="spinner-name">' + getSelectedSpinner() + '</div>')
   ).className('flex flex-col items-center min-w-[100px]');
-  var spinnerRow = HStack(
-    Text('Loading Spinner').className('text-primary text-sm'),
-    Spacer(),
-    HStack(prevBtn, spinnerCenter, nextBtn).spacing(2)
-  ).className('flex items-center justify-between mt-4');
-
   // Pixel pet
   var petOn = Settings.get('pixelPet') === 'on';
   var curPetType = Settings.get('pixelPetType') || 'cat';
@@ -147,11 +141,6 @@ function _renderAppearanceSettings() {
     (!petOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
   petNone.onTap(function() { togglePixelPet(false); renderSettingsView(); });
   petBtns.push(petNone);
-  var petRow = HStack(
-    Text('Pixel Pet').className('text-primary text-sm'), Spacer(),
-    HStack.apply(null, petBtns).spacing(0.5)
-  ).className('flex items-center justify-between mt-4');
-
   // White noise
   var noiseBtns = Object.entries(NOISE_PRESETS).map(function(pair) {
     var key = pair[0], p = pair[1];
@@ -215,11 +204,6 @@ function _renderAppearanceSettings() {
     (!_clickSoundOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
   soundNone.onTap(function() { toggleClickSound(false); renderSettingsView(); });
   soundBtns.push(soundNone);
-  var soundRow = HStack(
-    Text('Button Sounds').className('text-primary text-sm'), Spacer(),
-    HStack.apply(null, soundBtns).spacing(0.5)
-  ).className('flex items-center justify-between mt-4');
-
   // TTS
   var ttsHighlight = _settingToggle('Read Aloud Highlight', 'Highlight text in the page as it\'s being read aloud',
     Settings.get('ttsHighlight') !== 'false', function(on) { Settings.set('ttsHighlight', on); });
@@ -273,28 +257,65 @@ function _renderAppearanceSettings() {
     iconList
   ).className('mb-8');
 
+  // Accent color row
+  var accentRow = new View('div');
+  accentRow.el.className = 'nr-settings-group-row';
+  var accentLabel = document.createElement('div');
+  accentLabel.className = 'nr-settings-row-label';
+  accentLabel.textContent = 'Accent Color';
+  accentRow.el.appendChild(accentLabel);
+  accentRow.el.appendChild(HStack.apply(null, accentSwatches).spacing(2).el);
+
+  // Spinner row in group-row format
+  var spinnerGroupRow = new View('div');
+  spinnerGroupRow.el.className = 'nr-settings-group-row';
+  var spinnerLabel = document.createElement('div');
+  spinnerLabel.className = 'nr-settings-row-label';
+  spinnerLabel.textContent = 'Loading Spinner';
+  spinnerGroupRow.el.appendChild(spinnerLabel);
+  spinnerGroupRow.el.appendChild(HStack(prevBtn, spinnerCenter, nextBtn).spacing(2).el);
+
+  // Pet row in group-row format
+  var petGroupRow = new View('div');
+  petGroupRow.el.className = 'nr-settings-group-row';
+  var petLabel = document.createElement('div');
+  petLabel.className = 'nr-settings-row-label';
+  petLabel.textContent = 'Pixel Pet';
+  petGroupRow.el.appendChild(petLabel);
+  petGroupRow.el.appendChild(HStack.apply(null, petBtns).spacing(0.5).el);
+
+  // Noise as freeform content
+  var noiseContent = _settingGroupContent([noiseSection]);
+
+  // Sound row in group-row format
+  var soundGroupRow = new View('div');
+  soundGroupRow.el.className = 'nr-settings-group-row';
+  var soundLabel = document.createElement('div');
+  soundLabel.className = 'nr-settings-row-label';
+  soundLabel.textContent = 'Button Sounds';
+  soundGroupRow.el.appendChild(soundLabel);
+  soundGroupRow.el.appendChild(HStack.apply(null, soundBtns).spacing(0.5).el);
+
   return VStack(
-    _settingSection('Appearance', [
-      _settingCard('Visual', [
-        _settingBtnGroup('Theme', ['auto','dark','light','daylight','clear'], currentTheme, function(v) { setTheme(v); }),
-        HStack(Text('Accent Color').className('text-primary text-sm'), Spacer(), HStack.apply(null, accentSwatches).spacing(2)).className('flex items-center justify-between mt-4'),
-        _settingBtnGroup('Editor Theme', ['auto','monokai','dracula','solarized','github','nord'], Settings.get('editorTheme') || 'auto', function(v) { setEditorTheme(v); }),
-        _settingBtnGroup('Icon Size', ['small','medium','large'], Settings.get('iconSize') || 'medium', function(v) { setIconSize(v); }),
-      ]),
-      _settingCard('Layout', [
-        _settingBtnGroup('Browse Tabs', [{value:'island',label:'Island'},{value:'horizontal',label:'Horizontal'}], Settings.get('browseTabLayout') || 'island', function(v) { setBrowseTabLayout(v); }),
-        spinnerRow,
-      ]),
-      _settingCard('Ambient', [
-        petRow,
-        noiseSection,
-        soundRow,
-      ]),
-      _settingCard('Read Aloud', [
-        ttsHighlight,
-        ttsSpeedRow,
-        _settingBtnGroup('Aether', [{value:'midnight',label:'Midnight'},{value:'aether',label:'Aether'},{value:'match',label:'Match'}], aetherCur, function(v) { setAetherColor(v); }),
-      ]),
+    _settingCard('Visual', [
+      _settingBtnGroup('Theme', ['auto','dark','light','daylight','clear'], currentTheme, function(v) { setTheme(v); }),
+      accentRow,
+      _settingBtnGroup('Editor Theme', ['auto','monokai','dracula','solarized','github','nord'], Settings.get('editorTheme') || 'auto', function(v) { setEditorTheme(v); }),
+      _settingBtnGroup('Icon Size', ['small','medium','large'], Settings.get('iconSize') || 'medium', function(v) { setIconSize(v); }),
+    ]),
+    _settingCard('Layout', [
+      _settingBtnGroup('Browse Tabs', [{value:'island',label:'Island'},{value:'horizontal',label:'Horizontal'}], Settings.get('browseTabLayout') || 'island', function(v) { setBrowseTabLayout(v); }),
+      spinnerGroupRow,
+    ]),
+    _settingCard('Ambient', [
+      petGroupRow,
+      noiseContent,
+      soundGroupRow,
+    ]),
+    _settingCard('Read Aloud', [
+      ttsHighlight,
+      ttsSpeedRow,
+      _settingBtnGroup('Aether', [{value:'midnight',label:'Midnight'},{value:'aether',label:'Aether'},{value:'match',label:'Match'}], aetherCur, function(v) { setAetherColor(v); }),
     ]),
     menuSection
   );

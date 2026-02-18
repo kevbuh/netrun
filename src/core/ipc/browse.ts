@@ -133,16 +133,6 @@ export function registerBrowseIPC(): void {
   });
 
   // ── Browse utilities ──
-  ipcMain.handle('db:check-embed', async (_event, url: string) => {
-    if (!url) return { embeddable: false };
-    try {
-      const resp = await fetch(url, { method: 'HEAD', headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10_000) });
-      const xfo = (resp.headers.get('x-frame-options') ?? '').toUpperCase();
-      const csp = resp.headers.get('content-security-policy') ?? '';
-      return { embeddable: !xfo && !csp.includes('frame-ancestors') };
-    } catch { return { embeddable: false }; }
-  });
-
   ipcMain.handle('db:link-preview', async (_event, url: string) => {
     if (!url) return { error: 'url required' };
     try {

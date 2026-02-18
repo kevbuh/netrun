@@ -10,8 +10,7 @@
 
   --nr-text-primary:    rgba(0, 0, 0, 0.85);
   --nr-text-secondary:  rgba(0, 0, 0, 0.65);
-  --nr-text-tertiary:   rgba(0, 0, 0, 0.5);
-  --nr-text-quaternary: rgba(0, 0, 0, 0.35);
+--nr-text-quaternary: rgba(0, 0, 0, 0.35);
 
   --nr-border-default: rgba(255,255,255,0.08);
   --nr-border-strong:  rgba(255,255,255,0.12);

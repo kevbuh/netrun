@@ -228,8 +228,6 @@ var Settings = (function() {
   define('insightCache', { default: '{}', sync: false });
 
   // Panel
-  define('panelSemanticSearch', { default: 'on', sync: false });
-  define('panelSemanticMin', { default: '80', sync: false });
   define('panelTabComplete', { default: 'on', sync: false });
   define('voiceAutoSend', { default: null, sync: false });
   define('userQuotes', { default: '[]', sync: true });
@@ -260,7 +258,6 @@ var Settings = (function() {
   define('vaultLastNote', { default: null, sync: false });
   define('vaultWelcomeCreated', { default: null, sync: false });
   define('vaultChatMessages', { default: '[]', sync: false });
-  define('vaultChatMinSimilarity', { default: '70', sync: false });
 
   // Dashboard
   define('daySummaryCache', { default: '{}', sync: false });

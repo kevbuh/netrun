@@ -1,32 +1,4 @@
-// ─── Tools Settings ──────────────────────────────────────
-
-function _renderToolsSettings() {
-  var chatToolsToggle = _settingToggleLS(null, null, 'chatTools', { defaultOn: true });
-  var chatToolsSection = _settingSection('Chat Tools', [chatToolsToggle], { desc: 'Let the chat assistant use tools autonomously. Requires qwen3:8b.' });
-
-  var clickAetherSection = _settingSection(null, [
-    _settingToggleLS('Click Aether', 'Right-click anywhere to open an aether panel with chat and web search', 'clickAether', { defaultOn: true })
-  ], { borderTop: true });
-
-  var vaultInput = new View('input');
-  vaultInput.el.type = 'text'; vaultInput.el.id = 'vault-path-input';
-  vaultInput.className('flex-1 px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary placeholder:text-dimmer outline-none focus:border-accent');
-  vaultInput.el.placeholder = 'Loading...';
-  var saveBtn = new View('button');
-  saveBtn.el.textContent = 'Save';
-  saveBtn.className('px-3 py-1.5 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors');
-  saveBtn.onTap(function() { saveVaultPath(); });
-  var resetBtn = new View('button');
-  resetBtn.el.textContent = 'Reset';
-  resetBtn.className('px-3 py-1.5 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors');
-  resetBtn.onTap(function() { resetVaultPath(); });
-  var vaultSection = _settingSection('Vault', [
-    HStack(vaultInput, saveBtn, resetBtn).spacing(2),
-    RawHTML('<div id="vault-path-status" class="text-[0.75rem] mt-2 text-dimmer"></div>')
-  ], { borderTop: true, desc: 'Set a custom folder for your notes. Uses ~/Documents/Vault by default.' });
-
-  return VStack(chatToolsSection, clickAetherSection, vaultSection);
-}
+// ─── Tools Settings (utilities — render merged into AI section) ──
 
 async function loadVaultPath() {
   const input = document.getElementById('vault-path-input');

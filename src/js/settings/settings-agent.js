@@ -1,38 +1,48 @@
-// ─── Agent Settings ──────────────────────────────────────
+// ─── AI Settings (merged from Tools + Lookup Panel + Agent) ──
 
-function _renderAgentSettings() {
+function _renderAISettings() {
+  // ── Models group ──
+  var chatModel = Settings.get('chatModel') || 'qwen2.5:3b';
+  var visionModel = Settings.get('visionModel') || 'qwen3-vl:8b';
+  var summaryModel = Settings.get('summaryModel') || 'qwen3:0.6b';
+  var annotateModel = Settings.get('annotateModel') || 'qwen3:8b';
+  var ocrModel = Settings.get('ocrModel') || 'glm-ocr';
+
+  function _modelRow(label, desc, lsKey, fallback) {
+    var currentVal = Settings.get(lsKey) || fallback;
+    var sel = new View('select');
+    sel.el.setAttribute('data-key', lsKey);
+    sel.el.setAttribute('data-fallback', fallback);
+    sel.className('settings-model-select px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer');
+    sel.el.innerHTML = '<option value="' + escapeAttr(currentVal) + '" selected>' + escapeHtml(currentVal) + '</option>';
+    sel.el.addEventListener('change', function() { Settings.set(lsKey, this.value); });
+    return _settingRow(label, desc, sel);
+  }
+
+  var modelsGroup = _settingCard('Models', [
+    _modelRow('Chat Model', 'Default model for aether panel chat and document Q&A.', 'chatModel', 'qwen2.5:3b'),
+    _modelRow('Vision Model', 'Model for chatting with screenshots (drag-to-capture).', 'visionModel', 'qwen3-vl:8b'),
+    _modelRow('Summary Model', 'Generates the daily overview summary on the home page.', 'summaryModel', 'qwen3:0.6b'),
+    _modelRow('Annotation Model', 'Analyzes pages and highlights key findings.', 'annotateModel', 'qwen3:8b'),
+    _modelRow('OCR Model', 'Visual OCR for Insight (extracts text from screenshots).', 'ocrModel', 'glm-ocr'),
+  ]);
+
+  // ── Behavior group ──
   var toolsOn = Settings.get('chatTools') !== 'off';
-
-  var chatToolsToggle = _settingToggle('Chat Tools', 'Allow the AI to take actions on your behalf during chat. When enabled, the model upgrades to one that supports function calling.',
+  var chatToolsToggle = _settingToggle('Chat Tools', 'Allow the AI to take actions on your behalf during chat. Upgrades model to one that supports function calling.',
     toolsOn, function(on) { Settings.set('chatTools', on ? 'on' : 'off'); });
-  var chatToolsNote = RawHTML('<p class="text-dimmer text-[0.68rem] mt-2">Toggle in-panel via the wrench icon in the top bar. Default model with tools: <code class="text-muted">qwen3:8b</code>. Without tools: <code class="text-muted">qwen2.5:3b</code>.</p>');
 
-  var thinkingToggle = _settingToggleLS('Thinking', 'Let the model reason through problems step-by-step before responding. Uses more tokens but can improve answer quality.',
+  var thinkingToggle = _settingToggleLS('Thinking', 'Let the model reason step-by-step before responding. Uses more tokens but can improve quality.',
     'chatThinking', { defaultOn: false });
 
-  var voiceToggle = _settingToggleLS('Voice Auto-Send', 'Automatically send the message after voice transcription completes, without waiting for Enter.',
+  var voiceToggle = _settingToggleLS('Voice Auto-Send', 'Automatically send the message after voice transcription completes.',
     'voiceAutoSend', { defaultOn: false });
 
-  // Insight section
-  var insightToggle = _settingToggle('Insight', 'Analyze pages in the browser with a local LLM. Produces a short insight and highlights key findings, contradictions, and ads.',
-    Settings.get('insightEnabled') !== 'off', function(on) {
-      Settings.set('insightEnabled', on ? 'on' : 'off');
-      if (window.electronAPI && window.electronAPI.insightSetEnabled) window.electronAPI.insightSetEnabled(on);
-    });
-  var insightNote = Text('When disabled, pages will not be analyzed and no insight pills will appear. You can still manually trigger insight from the pill menu.').className('text-dimmer text-[0.68rem] mt-2 mb-4');
-  var autoInsightToggle = _settingToggleLS('Auto Insight', 'Automatically run insight on every page you navigate to.', 'autoAnnotate', { defaultOn: false });
-  var autoInsightNote = Text('Cached results are reused for 5 minutes.').className('text-dimmer text-[0.68rem] mt-1');
-  var ocrToggle = _settingToggle('Visual OCR', 'Capture a screenshot and extract visual text (charts, infographics) before analysis.',
-    Settings.get('insightOcr') !== 'off', function(on) { Settings.set('insightOcr', on ? 'on' : 'off'); });
-  var ocrNote = Text('Adds ~1-2s per page. Requires an OCR model (e.g. glm-ocr) in Ollama.').className('text-dimmer text-[0.68rem] mt-1 mb-3');
-  var ocrModel = Settings.get('ocrModel') || 'glm-ocr';
-  var ocrSelect = new View('select');
-  ocrSelect.el.setAttribute('data-key', 'ocrModel');
-  ocrSelect.el.setAttribute('data-fallback', 'glm-ocr');
-  ocrSelect.className('settings-model-select ml-3 px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer');
-  ocrSelect.el.innerHTML = '<option value="' + escapeAttr(ocrModel) + '" selected>' + escapeHtml(ocrModel) + '</option>';
-  ocrSelect.el.addEventListener('change', function() { Settings.set('ocrModel', this.value); });
-  var ocrModelRow = HStack(Text('OCR Model').className('text-primary text-sm'), ocrSelect);
+  var tabComplete = Settings.get('panelTabComplete') !== 'off';
+  var tabCompleteToggle = _settingToggle('Tab Completion', 'Suggest a question when you open the panel or select text. Press Tab to accept.',
+    tabComplete, function(on) { Settings.set('panelTabComplete', on ? 'on' : 'off'); });
+
+  var clickAetherToggle = _settingToggleLS('Click Aether', 'Right-click anywhere to open an aether panel with chat and web search.', 'clickAether', { defaultOn: true });
 
   var cursorToggle = _settingToggle('Custom Cursor', 'Smooth cursor with context-aware styling and inertia.',
     Settings.get('customCursor') !== 'off', function(on) {
@@ -40,7 +50,54 @@ function _renderAgentSettings() {
       if (window.AetherCursor) window.AetherCursor[on ? 'enable' : 'disable']();
     });
 
-  // Static reference content
+  var behaviorGroup = _settingCard('Behavior', [
+    chatToolsToggle,
+    thinkingToggle,
+    voiceToggle,
+    tabCompleteToggle,
+    clickAetherToggle,
+    cursorToggle,
+  ]);
+
+  // ── Insight group ──
+  var insightToggle = _settingToggle('Insight', 'Analyze pages with a local LLM. Produces a short insight and highlights key findings.',
+    Settings.get('insightEnabled') !== 'off', function(on) {
+      Settings.set('insightEnabled', on ? 'on' : 'off');
+      if (window.electronAPI && window.electronAPI.insightSetEnabled) window.electronAPI.insightSetEnabled(on);
+    });
+  var autoInsightToggle = _settingToggleLS('Auto Insight', 'Automatically run insight on every page you navigate to.', 'autoAnnotate', { defaultOn: false });
+  var ocrToggle = _settingToggle('Visual OCR', 'Capture a screenshot and extract visual text before analysis. Adds ~1-2s per page.',
+    Settings.get('insightOcr') !== 'off', function(on) { Settings.set('insightOcr', on ? 'on' : 'off'); });
+
+  var insightGroup = _settingCard('Insight', [
+    insightToggle,
+    autoInsightToggle,
+    ocrToggle,
+  ]);
+
+  // ── Storage group ──
+  var vaultInput = new View('input');
+  vaultInput.el.type = 'text'; vaultInput.el.id = 'vault-path-input';
+  vaultInput.className('flex-1 px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary placeholder:text-dimmer outline-none focus:border-accent');
+  vaultInput.el.placeholder = 'Loading...';
+  var saveBtn = new View('button');
+  saveBtn.el.textContent = 'Save';
+  saveBtn.className('px-3 py-1.5 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors');
+  saveBtn.onTap(function() { saveVaultPath(); });
+  var resetBtn = new View('button');
+  resetBtn.el.textContent = 'Reset';
+  resetBtn.className('px-3 py-1.5 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors');
+  resetBtn.onTap(function() { resetVaultPath(); });
+  var vaultRow = _settingGroupContent([
+    Text('Vault Path').className('text-[0.8rem] text-primary mb-2'),
+    Text('Set a custom folder for your notes. Uses ~/Documents/Vault by default.').className('text-[0.72rem] text-dimmer mb-3'),
+    HStack(vaultInput, saveBtn, resetBtn).spacing(2),
+    RawHTML('<div id="vault-path-status" class="text-[0.75rem] mt-2 text-dimmer"></div>'),
+  ]);
+
+  var storageGroup = _settingCard('Storage', [vaultRow]);
+
+  // ── Reference content ──
   var toolsRef = RawHTML(
     '<div class="mb-8 pt-5 border-t border-border-subtle">' +
     '<h3 class="text-white_ text-sm font-semibold mb-3">Available Tools</h3>' +
@@ -78,30 +135,14 @@ function _renderAgentSettings() {
     '<div class="space-y-2 text-[0.8rem] text-dim">' +
     '<p>When tools are enabled, the AI can decide to call one or more tools in a single response. You\'ll see a thinking indicator (e.g. "Searching web\u2026", "Adding to calendar\u2026") while the tool runs.</p>' +
     '<p>Tool results are fed back to the model so it can incorporate them into its reply. Some tools also trigger UI actions \u2014 for example, <code class="text-muted">navigate</code> switches your view and <code class="text-muted">create_calendar_event</code> opens the calendar.</p>' +
-    '<p>The model automatically upgrades to <code class="text-muted">qwen3:8b</code> when tools are on, since smaller models don\'t reliably handle function calling. You can override this in Lookup Panel settings.</p></div></div>'
+    '<p>The model automatically upgrades to <code class="text-muted">qwen3:8b</code> when tools are on, since smaller models don\'t reliably handle function calling. You can override this in the Models group above.</p></div></div>'
   );
 
   return VStack(
-    _settingSection('Agent', [
-      _settingCard('Behavior', [
-        chatToolsToggle,
-        chatToolsNote,
-        thinkingToggle,
-        voiceToggle,
-      ]),
-      _settingCard('Insight', [
-        insightToggle,
-        insightNote,
-        autoInsightToggle,
-        autoInsightNote,
-        ocrToggle,
-        ocrNote,
-        ocrModelRow,
-      ]),
-      _settingCard('Interface', [
-        cursorToggle,
-      ]),
-    ]),
+    modelsGroup,
+    behaviorGroup,
+    insightGroup,
+    storageGroup,
     toolsRef,
     systemPrompts,
     howItWorks

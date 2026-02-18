@@ -111,7 +111,7 @@ window.addEventListener('resize', function() {
 (function() {
   let _pulseFlashTimer = null;
   let _pulseLastEventTs = 0;
-  const _pulseCatColors = { ai: '#a78bfa', embed: '#38bdf8', feed: '#f97316', quality: '#22c55e', network: '#94a3b8', system: '#e879f9' };
+  const _pulseCatColors = { ai: '#a78bfa', feed: '#f97316', quality: '#22c55e', network: '#94a3b8', system: '#e879f9' };
 
   function _renderLivePulse() {
     const el = document.getElementById('pill-live-pulse');

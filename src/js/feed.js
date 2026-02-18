@@ -123,7 +123,6 @@ function getReadPosts() {
 function markPostAsRead(link) {
   const read = getReadPosts();
   if (!read.includes(link)) { read.push(link); setLS('readPosts', read); }
-  _embedPost(link);
   // Capture read article into living context
   if (typeof contextIngest === 'function') {
     var paper = allPapers.find(function(p) { return p.link === link; });
@@ -133,12 +132,6 @@ function markPostAsRead(link) {
   }
 }
 
-function _embedPost(link) {
-  const paper = allPapers.find(p => p.link === link) || (getSavedPosts()[link] || {}).paper;
-  if (!paper) return;
-  apiPost('/api/embed-content', { title: paper.title, link: paper.link, source: paper.source || '', description: paper.description || '', type: 'post' })
-    .catch((e) => { /* fire-and-forget */ });
-}
 function _menuBtn(label, fn) {
   var b = new View('button');
   b.el.textContent = label;
@@ -166,7 +159,6 @@ function openCardMenu(btn, ev, index) {
     );
   } else {
     menuItems = VStack(
-      _menuBtn('Find similar', function() { findSimilarPosts(index); closeCardMenu(); }),
       _menuBtn('Block post', function() { hidePost(p.link, p.title); closeCardMenu(); }),
       _menuBtn('Unsubscribe from ' + sourceName, function() { unsubscribeSource(sourceKey); closeCardMenu(); })
     );
@@ -228,52 +220,6 @@ function deleteUserQuote(id) {
   setLS('userQuotes', quotes);
   allPapers = allPapers.filter(p => p._quoteId !== id);
   renderPapers();
-}
-
-// ── Semantic Search / Find Similar ──
-async function findSimilarPosts(index) {
-  const p = lastFilteredPapers[index];
-  if (!p) return;
-  openResearch('search');
-  const container = document.getElementById('search-feed-results');
-  if (container) AetherUI.mount(VStack(RawHTML('<div class="spinner"></div>'), Text('Finding similar posts...')).alignment('center').className('text-dim text-[0.9rem] py-8'), container);
-  const hints = document.getElementById('search-hints');
-  if (hints) hints.style.display = 'none';
-  const arxiv = document.getElementById('search-arxiv-results');
-  if (arxiv) arxiv.innerHTML = '';
-  const input = document.getElementById('search-query');
-  if (input) { input.value = '~' + p.title; input.blur(); }
-  try {
-    islandUpdate('ai-similar', { type: 'ai', label: 'nomic-embed-text', detail: 'Finding similar \u00B7 nomic-embed-text' });
-    const data = await apiPost('/api/find-similar', { title: p.title, link: p.link, description: p.description || '', limit: 20 });
-    islandRemove('ai-similar');
-    _renderSemanticResults(container, data.results || [], `Similar to "${p.title}"`);
-  } catch (err) {
-    islandRemove('ai-similar');
-    if (container) AetherUI.mount(RawHTML('<div class="text-center py-8 text-dim text-[0.9rem]">' + (err.message === 'HTTP 503' ? 'Embedding model not available. Run: <code>ollama pull nomic-embed-text</code>' : 'Search failed: ' + escapeHtml(err.message)) + '</div>'), container);
-  }
-}
-
-function _renderSemanticResults(container, results, heading) {
-  if (!container) return;
-  if (!results.length) {
-    AetherUI.mount(Text('No similar posts found. Read more posts to build the semantic index.').className('text-center py-8 text-dim text-[0.9rem]'), container);
-    return;
-  }
-  var headingView = Text(escapeHtml(heading) + ' (' + results.length + ')').className('mt-6 mb-2 text-[0.75rem] text-dimmer uppercase tracking-wide');
-  var rows = results.map(function(r) {
-    var sourceChip = getSourceChip(r.source);
-    var scorePct = Math.round(r.score * 100);
-    var scoreColor = scorePct >= 80 ? 'text-green-400' : scorePct >= 60 ? 'text-yellow-400' : 'text-dimmer';
-    return HStack(
-      RawHTML(sourceChip),
-      Text(r.title).className('text-[0.82rem] text-primary truncate'),
-      Text(scorePct + '%').className('text-[0.68rem] ' + scoreColor + ' shrink-0 ml-auto')
-    ).spacing(2).className('py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors')
-      .onTap(function(e) { openPaperByUrl(r.link, e); });
-  });
-  var wrap = VStack([headingView].concat(rows));
-  AetherUI.mount(wrap, container);
 }
 
 // ── Blocked Words ──
@@ -392,7 +338,6 @@ function toggleSavePost(paper, event) {
   updateSavedBadge();
   renderPapers();
   if (wasAdding) {
-    _embedPost(paper.link);
     // Capture saved article into living context
     if (typeof contextIngest === 'function') {
       contextIngest('feed', '## Reading', '- Saved: [' + (paper.title || 'Untitled') + '](' + paper.link + ')', { dedupeKey: 'saved-' + paper.link });

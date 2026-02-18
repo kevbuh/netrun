@@ -10,8 +10,7 @@
 
   --nr-text-primary:    #333;
   --nr-text-secondary:  #666;
-  --nr-text-tertiary:   #888;
-  --nr-text-quaternary: #999;
+--nr-text-quaternary: #999;
   --nr-text-inverse:    #111;
   --nr-text-link:       var(--nr-accent);
 

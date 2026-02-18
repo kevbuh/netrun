@@ -943,45 +943,6 @@
       padding-left: 6px;
       border-left: 2px solid var(--nr-accent);
     }
-    .doc-semantic-results {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-    }
-    .doc-semantic-heading {
-      font-size: 0.65rem;
-      color: var(--nr-text-quaternary);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-bottom: 2px;
-    }
-    .doc-semantic-row {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 4px;
-      border-radius: 4px;
-      cursor: pointer;
-      text-decoration: none;
-      transition: background 0.15s;
-    }
-    .doc-semantic-row:hover {
-      background: var(--nr-bg-raised);
-    }
-    .doc-semantic-title {
-      font-size: 0.7rem;
-      color: var(--nr-text-primary);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      flex: 1;
-      min-width: 0;
-    }
-    .doc-semantic-score {
-      font-size: 0.62rem;
-      color: var(--nr-text-quaternary);
-      flex-shrink: 0;
-    }
     /* Context box (above chat, like Cursor) */
     .aether-context-box {
       display: inline-flex;

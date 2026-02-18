@@ -332,25 +332,31 @@ function _renderBrowserSettings() {
   var pwContent = RawHTML('<div id="settings-passwords"><div class="text-dimmer text-[0.75rem]">Loading...</div></div>');
 
   return VStack(
-    _settingSection('Browser', [
-      _settingCard('Privacy', [
-        adBlockSection,
-        ytSection,
+    _settingCard('Privacy', [
+      _settingGroupContent([adBlockSection]),
+      ytSection,
+    ]),
+    _settingCard('Focus Mode', [
+      focusToggle,
+      _settingGroupContent([focusSites]),
+    ]),
+    _settingCard('URL Bar', [
+      simplifyRow,
+      adaptiveRow,
+      _settingGroupContent([
+        Text('URL Bar Sections').className('text-[0.8rem] text-primary font-medium mb-1'),
+        Text('Reorder and toggle sections in the URL bar dropdown. Drag to reorder.').className('text-[0.72rem] text-dimmer mb-3'),
+        urlBarSections,
       ]),
-      _settingCard('Focus Mode', [
-        focusToggle,
-        focusSites,
-      ]),
-      _settingCard('URL Bar', [
-        simplifyRow,
-        adaptiveRow,
-        _settingSection('URL Bar Sections', [urlBarSections], { desc: 'Reorder and toggle sections in the URL bar dropdown. Drag to reorder.' }),
-      ]),
-      _settingCard('Site Permissions', [
+    ]),
+    _settingCard('Site Permissions', [
+      _settingGroupContent([
         Text('Manage camera, microphone, location, notification, and pop-up permissions per site.').className('text-dim text-[0.8rem] mb-3'),
         sitePermContent,
       ]),
-      _settingCard('Saved Passwords', [
+    ]),
+    _settingCard('Saved Passwords', [
+      _settingGroupContent([
         Text('Passwords are encrypted via your system keychain.').className('text-dim text-[0.8rem] mb-3'),
         pwContent,
       ]),

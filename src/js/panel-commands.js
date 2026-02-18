@@ -156,46 +156,6 @@ async function _fetchAuthorPreview(text, containerDiv) {
   }
 }
 
-// ── Semantic preview in selection popup ──
-async function _fetchSemanticPreview(text, containerDiv) {
-  if (!text || text.trim().length < 3) { containerDiv.style.display = 'none'; return; }
-  if (Settings.get('panelSemanticSearch') === 'off') { containerDiv.style.display = 'none'; return; }
-  const minScore = (parseInt(Settings.get('panelSemanticMin') || '80', 10)) / 100;
-  try {
-    islandUpdate('ai-semantic', { type: 'ai', label: 'nomic-embed-text', detail: 'Semantic search \u00B7 nomic-embed-text' });
-    const data = await apiPost('/api/semantic-search', { query: text.trim().slice(0, 200), limit: 5 });
-    islandRemove('ai-semantic');
-    const results = (data.results || []).filter(r => r.score >= minScore);
-    if (!results.length) { containerDiv.style.display = 'none'; return; }
-    let html = '<div class="doc-semantic-results">';
-    html += '<div class="doc-semantic-heading">Related</div>';
-    for (const r of results) {
-      const pct = Math.round(r.score * 100);
-      const chip = typeof getSourceChip === 'function' ? getSourceChip(r.source) : '';
-      html += `<a class="doc-semantic-row" href="${escapeAttr(r.link)}" data-semantic-link>`;
-      html += chip;
-      html += `<span class="doc-semantic-title">${escapeHtml(r.title)}</span>`;
-      html += `<span class="doc-semantic-score">${pct}%</span>`;
-      html += `</a>`;
-    }
-    html += '</div>';
-    containerDiv.innerHTML = html;
-    containerDiv.style.display = '';
-    containerDiv.querySelectorAll('[data-semantic-link]').forEach(a => {
-      a.addEventListener('mousedown', (ev) => ev.stopPropagation());
-      a.addEventListener('click', (ev) => {
-        ev.preventDefault(); ev.stopPropagation();
-        const link = a.getAttribute('href');
-        if (link && typeof _openInNewTab === 'function') _openInNewTab(link);
-        else if (link && typeof openPaperByUrl === 'function') openPaperByUrl(link, ev);
-        document.getElementById('doc-chat-ask-float')?.remove();
-      });
-    });
-    _repositionSelectionPopup();
-  } catch (e) {
-    containerDiv.style.display = 'none';
-  }
-}
 
 async function _doAetherWebSearch(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');

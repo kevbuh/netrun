@@ -1,11 +1,115 @@
-/* Settings page — visual polish */
+/* Settings page — Apple System Settings style */
 
 /* Constrain content pane width for readability */
 #settings-content-pane {
   max-width: 640px;
+  padding: 24px 32px 64px;
 }
 
-/* Card sub-grouping */
+/* ─── Sidebar ─────────────────────────────────────────── */
+
+#settings-sidebar {
+  width: 240px;
+}
+
+.nr-settings-sidebar-label {
+  padding: 16px 20px 6px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--nr-text-quaternary);
+  user-select: none;
+}
+
+.nr-settings-sidebar-label:first-child {
+  padding-top: 4px;
+}
+
+/* ─── Group container ─────────────────────────────────── */
+
+.nr-settings-group {
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-subtle);
+  border-radius: var(--nr-radius-lg, 12px);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+/* ─── Group header (small uppercase label above group) ── */
+
+.nr-settings-group-header {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--nr-text-quaternary);
+  padding: 0 4px 8px;
+}
+
+/* ─── Group row ───────────────────────────────────────── */
+
+.nr-settings-group-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--nr-border-subtle);
+  gap: 12px;
+}
+
+.nr-settings-group-row:last-child {
+  border-bottom: none;
+}
+
+.nr-settings-group-row .nr-settings-row-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.nr-settings-group-row .nr-settings-row-label {
+  font-size: 0.8rem;
+  color: var(--nr-text-primary);
+}
+
+.nr-settings-group-row .nr-settings-row-desc {
+  font-size: 0.72rem;
+  color: var(--nr-text-tertiary);
+  line-height: 1.4;
+}
+
+/* ─── Group content (freeform block inside group) ─────── */
+
+.nr-settings-group-content {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--nr-border-subtle);
+}
+
+.nr-settings-group-content:last-child {
+  border-bottom: none;
+}
+
+/* ─── Section title above groups ──────────────────────── */
+
+.nr-settings-section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--nr-text-primary);
+  margin-bottom: 6px;
+}
+
+.nr-settings-section-desc {
+  font-size: 0.78rem;
+  color: var(--nr-text-tertiary);
+  margin-bottom: 12px;
+}
+
+/* ─── Legacy card compat (hover removed) ──────────────── */
+
 .nr-settings-card {
   transition: border-color 0.15s ease;
 }

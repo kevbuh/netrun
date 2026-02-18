@@ -85,17 +85,9 @@ const _HELP_DATA = {
     ['Navigate', 'Opens views (home, experiments, etc.)'],
     ['New Experiment', 'Creates a project from chat'],
   ],
-  semanticSearch: [
-    ['Setup', 'Run <code class="text-muted">ollama pull nomic-embed-text</code> once (~274MB)'],
-    ['Search', 'Type <code class="text-muted">~query</code> in Research > Papers search'],
-    ['Find similar', 'Click the three-dot menu on any card > "Find similar"'],
-    ['Notes', 'Vault notes are embedded when saved, searchable via <code class="text-muted">~</code>'],
-    ['Offline', 'Fully local \u2014 no data leaves your machine'],
-  ],
   aiModels: [
     ['qwen2.5:1.5b', 'Quality filter (KEEP/SKIP + scoring)'],
     ['qwen2.5:3b', 'Document chat, paper insights'],
-    ['nomic-embed-text', 'Semantic search embeddings (768-dim)'],
     ['qwen3:8b', 'Chat with tools (autonomous agent mode)'],
     ['qwen3-vl:8b', 'Vision chat (screenshot analysis)'],
     ['glm-ocr', 'Visual OCR for Insight (extracts text from screenshots)'],
@@ -106,11 +98,28 @@ const _HELP_DATA = {
 // ─── AetherUI Settings Helpers ──────────────────────────────
 
 function _settingRow(label, desc, control) {
-  var left = VStack(
-    Text(label).className('text-primary text-sm'),
-    desc ? Text(desc).className('text-dimmer text-[0.72rem] mt-0.5') : null
-  );
-  return HStack(left, Spacer(), control).className('flex items-center justify-between mt-4');
+  var row = new View('div');
+  row.el.className = 'nr-settings-group-row';
+  var left = document.createElement('div');
+  left.className = 'nr-settings-row-left';
+  if (label) {
+    var labelEl = document.createElement('div');
+    labelEl.className = 'nr-settings-row-label';
+    labelEl.textContent = label;
+    left.appendChild(labelEl);
+  }
+  if (desc) {
+    var descEl = document.createElement('div');
+    descEl.className = 'nr-settings-row-desc';
+    descEl.textContent = desc;
+    left.appendChild(descEl);
+  }
+  row.el.appendChild(left);
+  if (control) {
+    var ctrlEl = control.el || control;
+    row.el.appendChild(ctrlEl);
+  }
+  return row;
 }
 
 function _settingToggle(label, desc, checked, onChange) {
@@ -153,7 +162,14 @@ function _settingBtnGroup(label, options, currentValue, onSelect) {
     return b;
   });
   var right = HStack.apply(null, btns).spacing(1);
-  return HStack(Text(label).className('text-primary text-sm'), Spacer(), right).className('flex items-center justify-between mt-4');
+  var row = new View('div');
+  row.el.className = 'nr-settings-group-row';
+  var labelEl = document.createElement('div');
+  labelEl.className = 'nr-settings-row-label';
+  labelEl.textContent = label;
+  row.el.appendChild(labelEl);
+  row.el.appendChild(right.el);
+  return row;
 }
 
 function _settingPillGroup(label, options, currentValue, onSelect) {
@@ -188,18 +204,45 @@ function _settingSlider(label, desc, value, opts, onInput, onChange) {
   });
   if (onChange) slider.el.addEventListener('change', function() { onChange(slider.el.value); });
   var right = HStack(slider, valSpan).spacing(2).className('flex-1 max-w-[200px]');
-  var left = VStack(
-    Text(label).className('text-primary text-sm'),
-    desc ? Text(desc).className('text-dimmer text-[0.72rem] mt-0.5') : null
-  );
-  return HStack(left, Spacer(), right).className('flex items-center justify-between mt-4');
+
+  var row = new View('div');
+  row.el.className = 'nr-settings-group-row';
+  var left = document.createElement('div');
+  left.className = 'nr-settings-row-left';
+  if (label) {
+    var labelEl = document.createElement('div');
+    labelEl.className = 'nr-settings-row-label';
+    labelEl.textContent = label;
+    left.appendChild(labelEl);
+  }
+  if (desc) {
+    var descEl = document.createElement('div');
+    descEl.className = 'nr-settings-row-desc';
+    descEl.textContent = desc;
+    left.appendChild(descEl);
+  }
+  row.el.appendChild(left);
+  row.el.appendChild(right.el);
+  return row;
 }
 
 function _settingSection(title, children, opts) {
   opts = opts || {};
-  var items = [].concat(children).filter(Boolean);
-  if (title) items.unshift(Text(title).className('text-white_ text-sm font-semibold mb-3'));
-  if (opts.desc) items.splice(title ? 1 : 0, 0, Text(opts.desc).className('text-dim text-[0.8rem] mb-3'));
+  var items = [];
+  if (title) {
+    var titleEl = new View('div');
+    titleEl.el.className = 'nr-settings-section-title';
+    titleEl.el.textContent = title;
+    items.push(titleEl);
+  }
+  if (opts.desc) {
+    var descEl = new View('div');
+    descEl.el.className = 'nr-settings-section-desc';
+    descEl.el.textContent = opts.desc;
+    items.push(descEl);
+  }
+  var childArr = [].concat(children).filter(Boolean);
+  items = items.concat(childArr);
   var section = VStack.apply(null, items);
   section.className('mb-8' + (opts.borderTop ? ' pt-5 border-t border-border-subtle' : ''));
   return section;
@@ -214,9 +257,34 @@ function _settingHeadingRow(title, desc, control) {
 }
 
 function _settingCard(title, children) {
-  var items = [].concat(children).filter(Boolean);
-  if (title) items.unshift(Text(title).className('text-dimmer text-[0.68rem] uppercase tracking-wider font-semibold'));
-  var card = VStack.apply(null, items);
-  card.className('nr-settings-card p-4 rounded-xl border border-border-subtle bg-card/30 mb-3');
-  return card;
+  var wrapper = new View('div');
+  if (title) {
+    var header = document.createElement('div');
+    header.className = 'nr-settings-group-header';
+    header.textContent = title;
+    wrapper.el.appendChild(header);
+  }
+  var group = document.createElement('div');
+  group.className = 'nr-settings-group';
+  var childArr = [].concat(children).filter(Boolean);
+  for (var i = 0; i < childArr.length; i++) {
+    var child = childArr[i];
+    var el = child.el || child;
+    group.appendChild(el);
+  }
+  wrapper.el.appendChild(group);
+  wrapper.className('mb-4');
+  return wrapper;
+}
+
+function _settingGroupContent(children) {
+  var block = new View('div');
+  block.el.className = 'nr-settings-group-content';
+  var childArr = [].concat(children).filter(Boolean);
+  for (var i = 0; i < childArr.length; i++) {
+    var child = childArr[i];
+    var el = child.el || child;
+    block.el.appendChild(el);
+  }
+  return block;
 }

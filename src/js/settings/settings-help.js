@@ -23,15 +23,6 @@ function _renderHelpSettings() {
     h += '</div></div>';
   }
 
-  // Semantic Search
-  h += '<div class="mb-8 pt-5 border-t border-border-subtle"><h3 class="text-white_ text-sm font-semibold mb-3">Semantic Search</h3>';
-  h += '<p class="text-dim text-[0.8rem] mb-3">Posts you read or bookmark are automatically embedded using a local AI model. You can then search by meaning instead of keywords.</p>';
-  h += '<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">';
-  _HELP_DATA.semanticSearch.forEach(function(row) {
-    h += '<span class="text-muted font-medium">' + row[0] + '</span><span class="text-dim">' + row[1] + '</span>';
-  });
-  h += '</div></div>';
-
   // Keyboard Shortcuts
   h += '<div class="mb-8 pt-5 border-t border-border-subtle"><h3 class="text-white_ text-sm font-semibold mb-3">Keyboard Shortcuts</h3>';
   h += '<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">';

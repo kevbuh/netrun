@@ -92,7 +92,6 @@
 /* Text color utilities */
 .nr-text-primary    { color: var(--nr-text-primary); }
 .nr-text-secondary  { color: var(--nr-text-secondary); }
-.nr-text-tertiary   { color: var(--nr-text-tertiary); }
 .nr-text-quaternary { color: var(--nr-text-quaternary); }
 .nr-text-inverse    { color: var(--nr-text-inverse); }
 .nr-text-link       { color: var(--nr-text-link); }

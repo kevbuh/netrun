@@ -1203,14 +1203,6 @@ function _panelBuildSelectionUI(popup, config) {
     _fetchWikipediaPreview(capturedText, wikiDiv);
   }
 
-  // Semantic search preview (async, always shown if text is long enough)
-  if (capturedText.length >= 3) {
-    const semDiv = document.createElement('div');
-    semDiv.className = 'doc-wiki-preview';
-    semDiv.style.display = 'none';
-    popup.appendChild(semDiv);
-    _fetchSemanticPreview(capturedText, semDiv);
-  }
 }
 
 // ── Helper: build top actions bar (model label, clear, redo, copy, pin, sidebar, drag) ──

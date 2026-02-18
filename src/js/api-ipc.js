@@ -517,10 +517,6 @@ async function ipcRoute(path, opts = {}) {
   }
 
   // ── Browse utilities ──
-  if (pathOnly === '/api/check-embed' && method === 'GET') {
-    const urlParams = new URLSearchParams(queryStr || '');
-    return await window.electronAPI.dbQuery('check-embed', urlParams.get('url') || '');
-  }
   if (pathOnly === '/api/link-preview' && method === 'GET') {
     const urlParams = new URLSearchParams(queryStr || '');
     return await window.electronAPI.dbQuery('link-preview', urlParams.get('url') || '');
@@ -587,23 +583,6 @@ async function ipcRoute(path, opts = {}) {
   }
   if (pathOnly === '/api/quality-filter' && method === 'POST') {
     return await window.electronAPI.dbQuery('quality-filter', body);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════
-  // Phase 3: Embedding + Vector Search
-  // ═══════════════════════════════════════════════════════════════════
-
-  if (pathOnly === '/api/embed-content' && method === 'POST') {
-    return await window.electronAPI.dbQuery('embed-content', body);
-  }
-  if (pathOnly === '/api/semantic-search' && method === 'POST') {
-    return await window.electronAPI.dbQuery('semantic-search', body);
-  }
-  if (pathOnly === '/api/find-similar' && method === 'POST') {
-    return await window.electronAPI.dbQuery('find-similar', body);
-  }
-  if (pathOnly === '/api/reading-connections' && method === 'POST') {
-    return await window.electronAPI.dbQuery('reading-connections', body);
   }
 
   // ═══════════════════════════════════════════════════════════════════

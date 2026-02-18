@@ -751,9 +751,6 @@ async function saveCurrentNote() {
   try {
     await apiPut(`/api/vault/notes/${_vaultCurrentNote.id}`, { title, content });
     renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
-    // Embed note for semantic search (fire-and-forget)
-    apiPost('/api/embed-content', { title, link: 'vault://' + _vaultCurrentNote.id, source: 'vault', description: content.slice(0, 500), type: 'note' })
-      .catch((e) => { /* fire-and-forget */ });
   } catch (e) {
     console.error('Failed to save note', e);
   }
