@@ -327,6 +327,8 @@
     .thread-tree-svg .thread-label:hover { fill: var(--nr-accent) !important; }
 
     body.aether-hide-cursor, body.aether-hide-cursor * { cursor: none !important; }
+    body.aether-hide-cursor .nr-cursor-dot,
+    body.aether-hide-cursor .nr-cursor-ring { opacity: 0 !important; }
     .doc-selection-popup {
       position: fixed;
       left: 0;
