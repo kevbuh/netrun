@@ -53,8 +53,8 @@ function _renderAudioPill() {
   // Build pill indicator
   let indicator = el.querySelector('.audio-pill-indicator');
   if (!indicator) {
-    indicator = document.createElement('div');
-    indicator.className = 'audio-pill-indicator';
+    var indicatorView = new View('div').className('audio-pill-indicator');
+    indicator = indicatorView.build();
     el.appendChild(indicator);
   }
 
@@ -75,8 +75,8 @@ function _renderAudioPill() {
   // Build dropdown
   let dropdown = el.querySelector('.audio-pill-dropdown');
   if (!dropdown) {
-    dropdown = document.createElement('div');
-    dropdown.className = 'audio-pill-dropdown';
+    var dropdownView = new View('div').className('audio-pill-dropdown');
+    dropdown = dropdownView.build();
     el.appendChild(dropdown);
   }
 
@@ -105,7 +105,7 @@ function _renderAudioPill() {
   // TTS status
   if (tts) {
     var spdText = (parseFloat(Settings.get('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x';
-    var spdSpan = new View('span').style('margin-left', 'auto').style('font-size', '0.7rem').style('opacity', '0.5')._bindText(spdText);
+    var spdSpan = new View('span').styles({marginLeft:'auto', fontSize:'0.7rem', opacity:'0.5'})._bindText(spdText);
     items.push(_audioBtn(tts.paused ? 'play' : 'pause', tts.paused ? 'Resume TTS' : 'Pause TTS', function() { _ttsPauseResume(); _renderAudioPill(); }, { color: 'var(--nr-accent)', trailing: spdSpan }));
     items.push(_audioBtn('close', 'Stop TTS', function() { _ttsStopAll(); _renderAudioPill(); }));
   }

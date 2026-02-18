@@ -1130,14 +1130,13 @@ Type in the browser URL bar:
 
   const popupRect = popup.getBoundingClientRect();
 
-  const panel = document.createElement('div');
-  panel.id = 'aether-help-panel';
-  panel.className = 'aether-help-preview-panel';
-  panel.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  var panelView = new View('div').id('aether-help-panel').className('aether-help-preview-panel');
+  panelView.on('mousedown', (ev) => ev.stopPropagation());
+  const panel = panelView.build();
 
   // Title bar (reuse note editor styles)
-  const titleBar = document.createElement('div');
-  titleBar.className = 'aether-note-editor-title-bar';
+  var titleBarView = new View('div').className('aether-note-editor-title-bar');
+  const titleBar = titleBarView.build();
 
   let hDragging = false, hDragOff = { x: 0, y: 0 };
   titleBar.addEventListener('mousedown', (ev) => {
@@ -1152,24 +1151,19 @@ Type in the browser URL bar:
   document.addEventListener('mousemove', hMove);
   document.addEventListener('mouseup', hUp);
 
-  const titleSpan = document.createElement('span');
-  titleSpan.className = 'aether-note-editor-title';
-  titleSpan.textContent = 'Help';
-  titleBar.appendChild(titleSpan);
+  var titleSpanView = new View('span').className('aether-note-editor-title')._bindText('Help');
+  titleBar.appendChild(titleSpanView.build());
 
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'aether-note-editor-close';
-  closeBtn.innerHTML = '&times;';
-  closeBtn.title = 'Close';
-  closeBtn.addEventListener('click', (ev) => { ev.stopPropagation(); panel.remove(); document.removeEventListener('mousemove', hMove); document.removeEventListener('mouseup', hUp); });
-  titleBar.appendChild(closeBtn);
+  var closeBtnView = new View('button').className('aether-note-editor-close').attr('title', 'Close');
+  closeBtnView.el.innerHTML = '&times;';
+  closeBtnView.onTap((ev) => { ev.stopPropagation(); panel.remove(); document.removeEventListener('mousemove', hMove); document.removeEventListener('mouseup', hUp); });
+  titleBar.appendChild(closeBtnView.build());
   panel.appendChild(titleBar);
 
   // Rendered markdown content
-  const contentDiv = document.createElement('div');
-  contentDiv.className = 'aether-help-preview-content nb-rendered-md';
-  contentDiv.innerHTML = typeof marked !== 'undefined' ? marked.parse(helpMd) : helpMd.replace(/\n/g, '<br>');
-  panel.appendChild(contentDiv);
+  var contentView = new View('div').className('aether-help-preview-content nb-rendered-md');
+  contentView.el.innerHTML = typeof marked !== 'undefined' ? marked.parse(helpMd) : helpMd.replace(/\n/g, '<br>');
+  panel.appendChild(contentView.build());
 
   document.body.appendChild(panel);
 

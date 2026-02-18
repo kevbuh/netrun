@@ -444,12 +444,10 @@ function _showAnnotationTooltip(data, frame, pinned) {
   let tip = document.getElementById('aether-annotation-tooltip');
   if (_annTooltipPinned && !pinned) return; // don't overwrite pinned tooltip with hover
   if (!tip) {
-    tip = document.createElement('div');
-    tip.id = 'aether-annotation-tooltip';
-    tip.className = 'doc-selection-popup aether-ann-tooltip';
-    tip.style.zIndex = '999999';
-    tip.style.pointerEvents = 'auto';
-    tip.addEventListener('mousedown', function(ev) { ev.stopPropagation(); });
+    var tipView = new View('div').id('aether-annotation-tooltip').className('doc-selection-popup aether-ann-tooltip')
+      .styles({zIndex:'999999', pointerEvents:'auto'});
+    tipView.on('mousedown', function(ev) { ev.stopPropagation(); });
+    tip = tipView.build();
     document.body.appendChild(tip);
   }
   _annTooltipPinned = !!pinned;
@@ -461,8 +459,7 @@ function _showAnnotationTooltip(data, frame, pinned) {
   var rateBtnStyle = { background: 'none', border: 'none', cursor: 'pointer', padding: '2px', opacity: '0.5', color: 'rgba(255,255,255,0.7)' };
 
   function _makeRateBtn(svgHtml, rating, title, hoverColor) {
-    var btn = new View('button').attr('title', title);
-    Object.keys(rateBtnStyle).forEach(function(k) { btn.style(k, rateBtnStyle[k]); });
+    var btn = new View('button').attr('title', title).styles(rateBtnStyle);
     btn._appendChildren([RawHTML(svgHtml)]);
     btn.onHover(
       function() { btn.el.style.opacity = '1'; btn.el.style.color = hoverColor; },
@@ -491,14 +488,14 @@ function _showAnnotationTooltip(data, frame, pinned) {
   var rateRow = HStack([
     _makeRateBtn(thumbUpSvg, 'good', 'Good', '#4caf50'),
     _makeRateBtn(thumbDownSvg, 'bad', 'Bad', '#ef5350')
-  ]).style('position', 'absolute').style('top', '6px').style('right', '6px').style('display', 'flex').style('gap', '2px');
+  ]).position('absolute').styles({top:'6px', right:'6px', display:'flex', gap:'2px'});
 
   var labelChildren = [Text(data.label || data.type)];
   if (data.confidence != null) {
     labelChildren.push(new View('span').className('aether-ann-confidence')._bindText(data.confidence + '%'));
   }
   var labelEl = HStack(labelChildren).className('aether-ann-label')
-    .style('color', data.labelColor || '#4caf50').style('padding-right', '36px');
+    .styles({color: data.labelColor || '#4caf50', paddingRight: '36px'});
 
   var explEl = new View('div').className('aether-ann-explanation')._bindText(data.explanation);
 

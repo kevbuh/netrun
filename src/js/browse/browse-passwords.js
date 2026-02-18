@@ -63,7 +63,7 @@ function _pwShowAutofillPicker(tab, frame, entries) {
   var pillBtns = entries.map(function(e) {
     var btn = new View('button');
     btn.el.textContent = e.username || 'No username';
-    btn.el.style.cssText = 'padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.78rem;cursor:pointer;';
+    btn.cssText('padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.78rem;cursor:pointer;');
     btn.onTap(function() {
       _pwDoAutofill(_browseTabs.find(function(t) { return t.id === tab.id; }), document.querySelector('#browse-content webview'), e.id);
       _pwHideSavePrompt();
@@ -74,7 +74,7 @@ function _pwShowAutofillPicker(tab, frame, entries) {
   var label = Text('Choose account:').font('callout').foreground('tertiary');
   var dismissBtn = new View('button');
   dismissBtn.el.textContent = 'Dismiss';
-  dismissBtn.el.style.cssText = 'margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;';
+  dismissBtn.cssText('margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;');
   dismissBtn.onTap(function() { _pwHideSavePrompt(); });
 
   var row = HStack([label].concat(pillBtns, [dismissBtn])).spacing(2).alignment('center');
@@ -106,7 +106,7 @@ function _pwShowSavePrompt(tab, data) {
 
   var saveBtn = new View('button');
   saveBtn.el.textContent = 'Save';
-  saveBtn.el.style.cssText = 'padding:3px 12px;border-radius:4px;border:none;background:var(--nr-accent);color:#fff;font-size:0.78rem;cursor:pointer;font-weight:500;';
+  saveBtn.cssText('padding:3px 12px;border-radius:4px;border:none;background:var(--nr-accent);color:#fff;font-size:0.78rem;cursor:pointer;font-weight:500;');
   saveBtn.onTap(function() {
     window.electronAPI.pwSave({ origin: data.origin, username: data.username, password: password }).catch(function() {});
     _pwHideSavePrompt(true);
@@ -114,7 +114,7 @@ function _pwShowSavePrompt(tab, data) {
 
   var neverBtn = new View('button');
   neverBtn.el.textContent = 'Never';
-  neverBtn.el.style.cssText = 'padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-tertiary);font-size:0.78rem;cursor:pointer;';
+  neverBtn.cssText('padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-tertiary);font-size:0.78rem;cursor:pointer;');
   neverBtn.onTap(function() {
     _pwSaveDismissed.set(key, true);
     _pwHideSavePrompt(true);
@@ -122,7 +122,7 @@ function _pwShowSavePrompt(tab, data) {
 
   var closeBtn = new View('button');
   closeBtn.el.textContent = '\u00d7';
-  closeBtn.el.style.cssText = 'margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;';
+  closeBtn.cssText('margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;');
   closeBtn.onTap(function() { _pwHideSavePrompt(true); });
 
   var row = HStack([lockIcon, promptText, saveBtn, neverBtn, closeBtn]).spacing(2).alignment('center');
@@ -202,7 +202,7 @@ function _showBrowseContextMenu(x, y, data) {
   }
 
   var menuView = VStack(items).className('browse-link-menu')
-    .style('left', x + 'px').style('top', y + 'px');
+    .styles({left: x + 'px', top: y + 'px'});
   var menu = menuView.build();
   document.body.appendChild(menu);
   _browseContextMenu = menu;
@@ -454,11 +454,11 @@ function _browseUpdateBarForTab(tab) {
     // Cite button
     if (!citeBtn) {
       const moreBtn = document.getElementById('browse-more-btn');
-      citeBtn = document.createElement('button');
-      citeBtn.id = 'browse-cite-btn';
-      citeBtn.className = 'browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center';
-      citeBtn.onclick = function() { if (typeof showCitePopup === 'function') showCitePopup(); };
-      citeBtn.title = 'Cite';
+      var citeBtnView = new View('button').id('browse-cite-btn')
+        .className('browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center')
+        .attr('title', 'Cite');
+      citeBtnView.onTap(function() { if (typeof showCitePopup === 'function') showCitePopup(); });
+      citeBtn = citeBtnView.build();
       AetherUI.mount(RawHTML('<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>'), citeBtn);
       if (moreBtn) moreBtn.parentElement.insertBefore(citeBtn, moreBtn);
     }
@@ -466,11 +466,11 @@ function _browseUpdateBarForTab(tab) {
     // Bookmark button
     if (!bookmarkBtn) {
       const moreBtn = document.getElementById('browse-more-btn');
-      bookmarkBtn = document.createElement('button');
-      bookmarkBtn.id = 'browse-paper-bookmark-btn';
-      bookmarkBtn.className = 'browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none cursor-pointer hover:bg-hover flex items-center justify-center';
-      bookmarkBtn.onclick = function() { if (typeof togglePaperViewBookmark === 'function') togglePaperViewBookmark(); };
-      bookmarkBtn.title = 'Save';
+      var bookmarkBtnView = new View('button').id('browse-paper-bookmark-btn')
+        .className('browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none cursor-pointer hover:bg-hover flex items-center justify-center')
+        .attr('title', 'Save');
+      bookmarkBtnView.onTap(function() { if (typeof togglePaperViewBookmark === 'function') togglePaperViewBookmark(); });
+      bookmarkBtn = bookmarkBtnView.build();
       if (moreBtn) moreBtn.parentElement.insertBefore(bookmarkBtn, citeBtn);
     }
     const isSaved = typeof isPostSaved === 'function' && isPostSaved(tab.paper.link);
