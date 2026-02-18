@@ -78,8 +78,7 @@ function renderSettingsView() {
     var sectionView;
 
     if (_settingsSection === 'profile') {
-      var helpTip = RawHTML('<div class="mt-6 p-3 rounded-lg border border-border-subtle bg-card/50"><div class="flex items-center gap-2 text-[0.8rem]">' + icon('helpCircle', { size: 15, stroke: 'var(--nr-accent)' }) + '<span class="text-primary">Right-click anywhere and type <kbd class="kbd-key" style="font-size:0.7rem">/help</kbd> to see all commands, instant answers & shortcuts.</span></div></div>');
-      sectionView = VStack([_renderAccountSettings(), helpTip]);
+      sectionView = VStack([_renderAccountSettings(), _renderVaultPathSection()]);
     } else if (_settingsSection === 'appearance') {
       sectionView = _renderAppearanceSettings();
     } else if (_settingsSection === 'browser') {
@@ -104,7 +103,9 @@ function renderSettingsView() {
   }).catch((e) => { /* fire-and-forget */ });
 
   // Section-specific post-render hooks
-  if (_settingsSection === 'appearance') {
+  if (_settingsSection === 'profile') {
+    loadVaultPath();
+  } else if (_settingsSection === 'appearance') {
     updateSpinnerPreview(getSelectedSpinner());
   } else if (_settingsSection === 'feed') {
     if (_settingsFeedTab === 'quality') {
@@ -122,7 +123,6 @@ function renderSettingsView() {
       if (typeof _renderPersonalizationPanel === 'function') _renderPersonalizationPanel();
     }
   } else if (_settingsSection === 'ai') {
-    loadVaultPath();
     _loadSettingsModels();
   } else if (_settingsSection === 'browser') {
     _urlBarSectionDragSetup();

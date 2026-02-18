@@ -38,19 +38,12 @@ function _renderAISettings() {
 
   var clickAetherToggle = _settingToggleLS('Click Aether', 'Right-click anywhere to open an aether panel with chat and web search.', 'clickAether', { defaultOn: true });
 
-  var cursorToggle = _settingToggle('Custom Cursor', 'Smooth cursor with context-aware styling and inertia.',
-    Settings.get('customCursor') !== 'off', function(on) {
-      Settings.set('customCursor', on ? 'on' : 'off');
-      if (window.AetherCursor) window.AetherCursor[on ? 'enable' : 'disable']();
-    });
-
   var behaviorGroup = _settingCard('Behavior', [
     chatToolsToggle,
     thinkingToggle,
     voiceToggle,
     tabCompleteToggle,
     clickAetherToggle,
-    cursorToggle,
   ]);
 
   // ── Insight group ──
@@ -69,68 +62,7 @@ function _renderAISettings() {
     ocrToggle,
   ]);
 
-  // ── Search group ──
-  var semSearch = Settings.get('panelSemanticSearch') !== 'off';
-  var semMin = parseInt(Settings.get('panelSemanticMin') || '80', 10);
-  var vaultMin = parseInt(Settings.get('vaultChatMinSimilarity') || '70', 10);
-
-  var semToggle = _settingToggle('Semantic Search in Lookup', 'Show related posts when you highlight text. Uses nomic-embed-text.',
-    semSearch, function(on) { Settings.set('panelSemanticSearch', on ? 'on' : 'off'); });
-  var semSlider = _settingSlider('Min Similarity', 'Only results above this score appear in the highlight popup.', semMin,
-    { min: 10, max: 80, format: function(v) { return v + '%'; } },
-    null,
-    function(v) { Settings.set('panelSemanticMin', v); }
-  );
-  if (!semSearch) semSlider.styles({ opacity: '0.4', pointerEvents: 'none' });
-  var vaultSlider = _settingSlider('Notes RAG Threshold', 'Minimum similarity for vault notes to be included as chat context.', vaultMin,
-    { min: 10, max: 80, format: function(v) { return v + '%'; } },
-    null,
-    function(v) { Settings.set('vaultChatMinSimilarity', v); }
-  );
-
-  var searchGroup = _settingCard('Search', [
-    semToggle,
-    semSlider,
-    vaultSlider,
-  ]);
-
-  // ── Storage group ──
-  var vaultInput = new View('input');
-  vaultInput.el.type = 'text'; vaultInput.el.id = 'vault-path-input';
-  vaultInput.className('flex-1 px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary placeholder:text-dimmer outline-none focus:border-accent');
-  vaultInput.el.placeholder = 'Loading...';
-  var saveBtn = new View('button');
-  saveBtn.el.textContent = 'Save';
-  saveBtn.className('px-3 py-1.5 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors');
-  saveBtn.onTap(function() { saveVaultPath(); });
-  var resetBtn = new View('button');
-  resetBtn.el.textContent = 'Reset';
-  resetBtn.className('px-3 py-1.5 rounded-md text-[0.78rem] border border-border-input text-muted bg-card hover:border-accent hover:text-primary cursor-pointer transition-colors');
-  resetBtn.onTap(function() { resetVaultPath(); });
-  var vaultRow = _settingGroupContent([
-    Text('Vault Path').className('text-[0.8rem] text-primary mb-2'),
-    Text('Set a custom folder for your notes. Uses ~/Documents/Vault by default.').className('text-[0.72rem] text-dimmer mb-3'),
-    HStack(vaultInput, saveBtn, resetBtn).spacing(2),
-    RawHTML('<div id="vault-path-status" class="text-[0.75rem] mt-2 text-dimmer"></div>'),
-  ]);
-
-  var storageGroup = _settingCard('Storage', [vaultRow]);
-
   // ── Reference content ──
-  var toolsRef = RawHTML(
-    '<div class="mb-8 pt-5 border-t border-border-subtle">' +
-    '<h3 class="text-white_ text-sm font-semibold mb-3">Available Tools</h3>' +
-    '<p class="text-dim text-[0.8rem] mb-3">When chat tools are enabled, the AI can call these functions automatically based on your message.</p>' +
-    '<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">' +
-    '<code class="text-muted">web_search</code><span class="text-dim">Search the web via DuckDuckGo</span>' +
-    '<code class="text-muted">search_papers</code><span class="text-dim">Search arXiv for academic papers</span>' +
-    '<code class="text-muted">fetch_page</code><span class="text-dim">Fetch and extract text from a URL</span>' +
-    '<code class="text-muted">save_to_reading_list</code><span class="text-dim">Bookmark a post to your reading list</span>' +
-    '<code class="text-muted">navigate</code><span class="text-dim">Navigate to a specific app view</span>' +
-    '<code class="text-muted">create_experiment</code><span class="text-dim">Create a new project in the vault</span>' +
-    '<code class="text-muted">create_calendar_event</code><span class="text-dim">Add an event to your calendar</span></div></div>'
-  );
-
   var systemPrompts = RawHTML(
     '<div class="mb-8 pt-5 border-t border-border-subtle">' +
     '<h3 class="text-white_ text-sm font-semibold mb-3">System Prompts</h3>' +
@@ -161,9 +93,6 @@ function _renderAISettings() {
     modelsGroup,
     behaviorGroup,
     insightGroup,
-    searchGroup,
-    storageGroup,
-    toolsRef,
     systemPrompts,
     howItWorks
   );

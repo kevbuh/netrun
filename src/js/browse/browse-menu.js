@@ -292,42 +292,41 @@ function browseShowAIView() {
     var existing = document.getElementById('ai-view-overlay');
     if (existing) existing.remove();
 
-    var overlay = document.createElement('div');
-    overlay.id = 'ai-view-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;background:var(--nr-bg-primary, #111);padding-top:48px;';
+    var overlayView = new View('div').id('ai-view-overlay');
+    overlayView.cssText('position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;background:var(--nr-bg-primary, #111);padding-top:48px;');
 
     // Header bar
-    var header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--nr-border-default, #333);flex-shrink:0;';
+    var titleEl = new View('span');
+    titleEl.cssText('font-size:0.85rem;font-weight:600;color:var(--nr-text-primary, #fff);');
+    titleEl.el.textContent = 'AI View';
 
-    var title = document.createElement('span');
-    title.style.cssText = 'font-size:0.85rem;font-weight:600;color:var(--nr-text-primary, #fff);';
-    title.textContent = 'AI View';
+    var badgeEl = new View('span');
+    badgeEl.cssText('font-size:0.7rem;color:var(--nr-text-secondary, #888);margin-left:8px;font-variant-numeric:tabular-nums;');
+    badgeEl.el.textContent = elCount + ' elements \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars';
 
-    var badge = document.createElement('span');
-    badge.style.cssText = 'font-size:0.7rem;color:var(--nr-text-secondary, #888);margin-left:8px;font-variant-numeric:tabular-nums;';
-    badge.textContent = elCount + ' elements \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars';
+    var urlBadgeEl = new View('span');
+    urlBadgeEl.cssText('font-size:0.65rem;color:var(--nr-text-secondary, #666);margin-left:8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;');
+    urlBadgeEl.el.textContent = dom.title ? dom.title + ' \u2014 ' + dom.url : dom.url;
 
-    var urlBadge = document.createElement('span');
-    urlBadge.style.cssText = 'font-size:0.65rem;color:var(--nr-text-secondary, #666);margin-left:8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-    urlBadge.textContent = dom.title ? dom.title + ' \u2014 ' + dom.url : dom.url;
+    var closeBtnEl = new View('button');
+    closeBtnEl.cssText('background:none;border:none;color:var(--nr-text-secondary, #888);cursor:pointer;font-size:1.2rem;padding:4px 8px;');
+    closeBtnEl.el.textContent = '\u00d7';
+    closeBtnEl.onTap(function() { overlayView.el.remove(); });
 
-    var closeBtn = document.createElement('button');
-    closeBtn.style.cssText = 'background:none;border:none;color:var(--nr-text-secondary, #888);cursor:pointer;font-size:1.2rem;padding:4px 8px;';
-    closeBtn.textContent = '\u00d7';
-    closeBtn.onclick = function() { overlay.remove(); };
+    var leftGroup = new View('div');
+    leftGroup.cssText('display:flex;align-items:center;');
+    leftGroup.el.appendChild(titleEl.el);
+    leftGroup.el.appendChild(badgeEl.el);
+    leftGroup.el.appendChild(urlBadgeEl.el);
 
-    var left = document.createElement('div');
-    left.style.cssText = 'display:flex;align-items:center;';
-    left.appendChild(title);
-    left.appendChild(badge);
-    left.appendChild(urlBadge);
-    header.appendChild(left);
-    header.appendChild(closeBtn);
+    var headerEl = new View('div');
+    headerEl.cssText('display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--nr-border-default, #333);flex-shrink:0;');
+    headerEl.el.appendChild(leftGroup.el);
+    headerEl.el.appendChild(closeBtnEl.el);
 
     // Content — syntax highlight element IDs and tags
-    var content = document.createElement('pre');
-    content.style.cssText = 'flex:1;overflow:auto;padding:16px;margin:0;font-size:0.75rem;line-height:1.6;color:var(--nr-text-primary, #ddd);white-space:pre;font-family:var(--nr-font-mono, monospace);';
+    var contentEl = new View('pre');
+    contentEl.cssText('flex:1;overflow:auto;padding:16px;margin:0;font-size:0.75rem;line-height:1.6;color:var(--nr-text-primary, #ddd);white-space:pre;font-family:var(--nr-font-mono, monospace);');
 
     // Wrap in the same delimiters the agent receives
     var fullText = '--- BROWSER TAB DOM (' + (dom.title || '') + ') [' + (dom.url || '') + '] ---\n' + text + '\n--- END DOM ---';
@@ -340,14 +339,14 @@ function browseShowAIView() {
       .replace(/>/g, '<span style="color:#8bdb8b">&gt;</span>')
       .replace(/((?:aria-\w+|role|type|name|placeholder|href|value|title|disabled|checked)(?:="[^"]*")?)/g, '<span style="color:#e8c87a">$1</span>')
       .replace(/(@-?\d+,-?\d+,\d+,\d+)/g, '<span style="color:var(--nr-text-secondary,#555)">$1</span>');
-    content.innerHTML = highlighted;
+    contentEl.el.innerHTML = highlighted;
 
-    overlay.appendChild(header);
-    overlay.appendChild(content);
-    document.body.appendChild(overlay);
+    overlayView.el.appendChild(headerEl.el);
+    overlayView.el.appendChild(contentEl.el);
+    document.body.appendChild(overlayView.el);
 
     // Esc to close
-    function onKey(e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onKey); } }
+    function onKey(e) { if (e.key === 'Escape') { overlayView.el.remove(); document.removeEventListener('keydown', onKey); } }
     document.addEventListener('keydown', onKey);
   }).catch(function(e) { console.warn('[AI View] Failed:', e); });
 }

@@ -42,6 +42,15 @@ function _renderHelpSettings() {
   h += '<span class="text-muted font-medium">Context</span><span class="text-dim">Right-click on links/images for contextual actions</span>';
   h += '</div></div>';
 
+  // Chat Tools
+  h += '<div class="mb-8 pt-5 border-t border-border-subtle"><h3 class="text-white_ text-sm font-semibold mb-3">Available Tools</h3>';
+  h += '<p class="text-dim text-[0.8rem] mb-3">When chat tools are enabled, the AI can call these functions automatically based on your message.</p>';
+  h += '<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[0.8rem]">';
+  _HELP_DATA.chatTools.forEach(function(row) {
+    h += '<code class="text-muted">' + row[0] + '</code><span class="text-dim">' + row[1] + '</span>';
+  });
+  h += '</div></div>';
+
   // AI Models
   h += '<div class="mb-8 pt-5 border-t border-border-subtle"><h3 class="text-white_ text-sm font-semibold mb-3">AI Models (Ollama)</h3>';
   h += '<p class="text-dim text-[0.8rem] mb-3">The app uses local Ollama models. All are optional \u2014 features degrade gracefully without them.</p>';

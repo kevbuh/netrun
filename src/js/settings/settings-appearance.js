@@ -209,11 +209,18 @@ function _renderAppearanceSettings() {
     Settings.get('ttsHighlight') !== 'false', function(on) { Settings.set('ttsHighlight', on); });
 
   var ttsSpeed = parseFloat(Settings.get('ttsSpeed')) || 1;
-  var ttsSpeedRow = _settingSlider('Read Aloud Speed', null, ttsSpeed,
-    { min: 0.5, max: 3, step: 0.25, format: function(v) { return v + 'x'; } },
-    function(v) { Settings.set('ttsSpeed', v); if (typeof _ttsAudio !== 'undefined' && _ttsAudio) _ttsAudio.playbackRate = parseFloat(v); },
-    null
-  );
+  var speedOpts = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+  var speedSel = new View('select');
+  speedSel.className('px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer');
+  speedSel.el.innerHTML = speedOpts.map(function(v) {
+    return '<option value="' + v + '"' + (v === ttsSpeed ? ' selected' : '') + '>' + v + 'x</option>';
+  }).join('');
+  speedSel.el.addEventListener('change', function() {
+    var v = parseFloat(this.value);
+    Settings.set('ttsSpeed', v);
+    if (typeof _ttsAudio !== 'undefined' && _ttsAudio) _ttsAudio.playbackRate = v;
+  });
+  var ttsSpeedRow = _settingRow('Read Aloud Speed', null, speedSel);
 
   // Sidebar icons
   var resetBtn = new View('button');
@@ -299,23 +306,27 @@ function _renderAppearanceSettings() {
   return VStack(
     _settingCard('Visual', [
       _settingBtnGroup('Theme', ['auto','dark','light','daylight','clear'], currentTheme, function(v) { setTheme(v); }),
+      _settingBtnGroup('Aether', [{value:'midnight',label:'Midnight'},{value:'aether',label:'Aether'},{value:'match',label:'Match'}], aetherCur, function(v) { setAetherColor(v); }),
       accentRow,
       _settingBtnGroup('Editor Theme', ['auto','monokai','dracula','solarized','github','nord'], Settings.get('editorTheme') || 'auto', function(v) { setEditorTheme(v); }),
       _settingBtnGroup('Icon Size', ['small','medium','large'], Settings.get('iconSize') || 'medium', function(v) { setIconSize(v); }),
+      petGroupRow,
     ]),
     _settingCard('Layout', [
-      _settingBtnGroup('Browse Tabs', [{value:'island',label:'Island'},{value:'horizontal',label:'Horizontal'}], Settings.get('browseTabLayout') || 'island', function(v) { setBrowseTabLayout(v); }),
       spinnerGroupRow,
+      _settingToggle('Custom Cursor', 'Smooth cursor with context-aware styling and inertia.',
+        Settings.get('customCursor') !== 'off', function(on) {
+          Settings.set('customCursor', on ? 'on' : 'off');
+          if (window.AetherCursor) window.AetherCursor[on ? 'enable' : 'disable']();
+        }),
     ]),
     _settingCard('Ambient', [
-      petGroupRow,
       noiseContent,
       soundGroupRow,
     ]),
     _settingCard('Read Aloud', [
       ttsHighlight,
       ttsSpeedRow,
-      _settingBtnGroup('Aether', [{value:'midnight',label:'Midnight'},{value:'aether',label:'Aether'},{value:'match',label:'Match'}], aetherCur, function(v) { setAetherColor(v); }),
     ]),
     menuSection
   );

@@ -255,40 +255,44 @@ function _aetherRenderCmdDropdown(popup, query) {
     else popup.appendChild(dropdown);
   }
   _aetherCmdIdx = Math.min(_aetherCmdIdx, matches.length - 1);
-  dropdown.innerHTML = matches.map((c, i) =>
-    `<div class="aether-cmd-item ${i === _aetherCmdIdx ? 'selected' : ''}" data-idx="${i}">` +
-    `<span class="aether-cmd-name">/${c.name}</span>` +
-    `<span class="aether-cmd-desc">${escapeHtml(c.desc)}</span></div>`
-  ).join('');
-  // Click to execute or fill
-  dropdown.querySelectorAll('.aether-cmd-item').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      const idx = parseInt(el.dataset.idx);
-      const cmd = matches[idx];
-      if (!cmd) return;
-      if (cmd.hasArgs) {
-        // Fill input with command name + space so user can type args
-        const askInput = popup.querySelector('.doc-ask-inline-input') || popup.querySelector('.doc-ask-inline');
-        if (askInput) { askInput.value = '/' + cmd.name + ' '; askInput.focus(); }
-        _aetherHideCmdDropdown(popup);
-      } else if (cmd._special) {
-        _aetherHideCmdDropdown(popup);
-        if (cmd.name === 'capture') _doAetherCapture(popup);
-        else if (cmd.name === 'agent') _doAetherAgent(popup);
-        else if (cmd.name === 'model') _doAetherModel(popup);
-        else if (cmd.name === 'links') _doAetherLinks(popup);
-        else if (cmd.name === 'tab') _doAetherTab(popup);
-        else if (cmd.name === 'tabs') _doAetherTabs(popup);
-        else if (cmd.name === 'notes') _doAetherNotesBrowse(popup);
-        else if (cmd.name === 'history') _doAetherHistory(popup);
-        else if (cmd.name === 'help') _doAetherHelp(popup);
-      } else {
-        cmd.fn();
-        _aetherTrackMode = false;
-        popup.remove();
-      }
-    });
+  dropdown.innerHTML = '';
+  matches.forEach(function(c, i) {
+    var row = new View('div').className('aether-cmd-item' + (i === _aetherCmdIdx ? ' selected' : ''));
+    row.el.dataset.idx = String(i);
+    var nameSpan = new View('span').className('aether-cmd-name');
+    nameSpan.el.textContent = '/' + c.name;
+    var descSpan = new View('span').className('aether-cmd-desc');
+    descSpan.el.textContent = c.desc;
+    row.el.appendChild(nameSpan.el);
+    row.el.appendChild(descSpan.el);
+    // Click to execute or fill
+    (function(cmd) {
+      row.el.addEventListener('click', function(ev) {
+        ev.stopPropagation(); ev.preventDefault();
+        if (!cmd) return;
+        if (cmd.hasArgs) {
+          var askInput = popup.querySelector('.doc-ask-inline-input') || popup.querySelector('.doc-ask-inline');
+          if (askInput) { askInput.value = '/' + cmd.name + ' '; askInput.focus(); }
+          _aetherHideCmdDropdown(popup);
+        } else if (cmd._special) {
+          _aetherHideCmdDropdown(popup);
+          if (cmd.name === 'capture') _doAetherCapture(popup);
+          else if (cmd.name === 'agent') _doAetherAgent(popup);
+          else if (cmd.name === 'model') _doAetherModel(popup);
+          else if (cmd.name === 'links') _doAetherLinks(popup);
+          else if (cmd.name === 'tab') _doAetherTab(popup);
+          else if (cmd.name === 'tabs') _doAetherTabs(popup);
+          else if (cmd.name === 'notes') _doAetherNotesBrowse(popup);
+          else if (cmd.name === 'history') _doAetherHistory(popup);
+          else if (cmd.name === 'help') _doAetherHelp(popup);
+        } else {
+          cmd.fn();
+          _aetherTrackMode = false;
+          popup.remove();
+        }
+      });
+    })(c);
+    dropdown.appendChild(row.el);
   });
   _repositionSelectionPopup();
 }
@@ -350,7 +354,11 @@ function _aetherRenderHistoryDropdown(popup, query) {
       if (askWrap) popup.insertBefore(dropdown, askWrap);
       else popup.appendChild(dropdown);
     }
-    dropdown.innerHTML = '<div style="padding:10px 12px;font-size:0.8rem;color:var(--nr-text-secondary);text-align:center;">No history found</div>';
+    var emptyMsg = new View('div');
+    emptyMsg.cssText('padding:10px 12px;font-size:0.8rem;color:var(--nr-text-secondary);text-align:center');
+    emptyMsg.el.textContent = 'No history found';
+    dropdown.innerHTML = '';
+    dropdown.appendChild(emptyMsg.el);
     _repositionSelectionPopup();
     return;
   }
@@ -365,42 +373,67 @@ function _aetherRenderHistoryDropdown(popup, query) {
   }
   if (_aetherHistoryIdx >= _aetherHistoryList.length) _aetherHistoryIdx = _aetherHistoryList.length - 1;
 
+  dropdown.innerHTML = '';
   const fullSelected = _aetherHistoryIdx === -1;
-  let html = `<div class="aether-note-item aether-history-full ${fullSelected ? 'selected' : ''}" data-idx="-1" style="padding:6px 10px;font-size:0.75rem;border-bottom:none;">See full history</div>`;
-  html += _aetherHistoryList.map((h, i) => {
-    let domain = '';
+  var fullRow = new View('div').className('aether-note-item aether-history-full' + (fullSelected ? ' selected' : ''));
+  fullRow.el.dataset.idx = '-1';
+  fullRow.cssText('padding:6px 10px;font-size:0.75rem;border-bottom:none');
+  fullRow.el.textContent = 'See full history';
+  fullRow.el.addEventListener('click', function(ev) {
+    ev.stopPropagation(); ev.preventDefault();
+    _aetherHideHistoryDropdown(popup);
+    popup.remove();
+    _aetherTrackMode = false;
+    if (typeof openSearchHistoryPage === 'function') openSearchHistoryPage();
+  });
+  dropdown.appendChild(fullRow.el);
+
+  _aetherHistoryList.forEach(function(h, i) {
+    var domain = '';
     try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
     const favicon = typeof _browseFaviconUrl === 'function' ? _browseFaviconUrl(h.url) : '';
     const time = typeof _relativeTime === 'function' ? _relativeTime(h.ts) : '';
-    return `<div class="aether-note-item ${i === _aetherHistoryIdx ? 'selected' : ''}" data-idx="${i}" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:none;">
-      <img src="${escapeHtml(favicon)}" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
-      <div style="flex:1;min-width:0;overflow:hidden;">
-        <div style="font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.title || domain)}</div>
-        <div style="font-size:0.68rem;color:var(--nr-text-quaternary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(domain)}</div>
-      </div>
-      <span style="font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;">${escapeHtml(time)}</span>
-    </div>`;
-  }).join('');
-  dropdown.innerHTML = html;
 
-  dropdown.querySelectorAll('.aether-note-item').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      const idx = parseInt(el.dataset.idx);
-      if (idx === -1) {
+    var favImg = new View('img');
+    favImg.el.src = favicon;
+    favImg.cssText('width:14px;height:14px;flex-shrink:0;border-radius:2px');
+    favImg.el.onerror = function() { this.style.display = 'none'; };
+
+    var titleDiv = new View('div');
+    titleDiv.cssText('font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap');
+    titleDiv.el.textContent = h.title || domain;
+
+    var domainDiv = new View('div');
+    domainDiv.cssText('font-size:0.68rem;color:var(--nr-text-quaternary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap');
+    domainDiv.el.textContent = domain;
+
+    var infoDiv = new View('div');
+    infoDiv.cssText('flex:1;min-width:0;overflow:hidden');
+    infoDiv.el.appendChild(titleDiv.el);
+    infoDiv.el.appendChild(domainDiv.el);
+
+    var timeSpan = new View('span');
+    timeSpan.cssText('font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0');
+    timeSpan.el.textContent = time;
+
+    var row = new View('div').className('aether-note-item' + (i === _aetherHistoryIdx ? ' selected' : ''));
+    row.el.dataset.idx = String(i);
+    row.cssText('display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:none');
+    row.el.appendChild(favImg.el);
+    row.el.appendChild(infoDiv.el);
+    row.el.appendChild(timeSpan.el);
+
+    (function(entry) {
+      row.el.addEventListener('click', function(ev) {
+        ev.stopPropagation(); ev.preventDefault();
+        if (!entry) return;
         _aetherHideHistoryDropdown(popup);
         popup.remove();
         _aetherTrackMode = false;
-        if (typeof openSearchHistoryPage === 'function') openSearchHistoryPage();
-        return;
-      }
-      const entry = _aetherHistoryList[idx];
-      if (!entry) return;
-      _aetherHideHistoryDropdown(popup);
-      popup.remove();
-      _aetherTrackMode = false;
-      if (typeof browseNavigate === 'function') browseNavigate(entry.url);
-    });
+        if (typeof browseNavigate === 'function') browseNavigate(entry.url);
+      });
+    })(h);
+    dropdown.appendChild(row.el);
   });
   _repositionSelectionPopup();
 }
@@ -458,12 +491,24 @@ async function _aetherRenderNoteDropdown(popup, query) {
       if (askWrap) popup.insertBefore(dropdown, askWrap);
       else popup.appendChild(dropdown);
     }
-    dropdown.innerHTML = `<div class="aether-note-create selected" data-create="1">` +
-      `<span class="aether-note-create-icon">+</span> Create "<strong>${escapeHtml(query)}</strong>"</div>`;
-    dropdown.querySelector('.aether-note-create').addEventListener('click', (ev) => {
+    dropdown.innerHTML = '';
+    var createRow = new View('div').className('aether-note-create selected');
+    createRow.el.dataset.create = '1';
+    var createIcon = new View('span').className('aether-note-create-icon');
+    createIcon.el.textContent = '+';
+    var createText = document.createTextNode(' Create "');
+    var createStrong = document.createElement('strong');
+    createStrong.textContent = query;
+    var createEnd = document.createTextNode('"');
+    createRow.el.appendChild(createIcon.el);
+    createRow.el.appendChild(createText);
+    createRow.el.appendChild(createStrong);
+    createRow.el.appendChild(createEnd);
+    createRow.el.addEventListener('click', function(ev) {
       ev.stopPropagation(); ev.preventDefault();
       _aetherCreateAndOpenNote(popup, query);
     });
+    dropdown.appendChild(createRow.el);
     _repositionSelectionPopup();
     return;
   }
@@ -477,27 +522,44 @@ async function _aetherRenderNoteDropdown(popup, query) {
     else popup.appendChild(dropdown);
   }
   _aetherNoteIdx = Math.min(_aetherNoteIdx, _aetherNoteResults.length - 1);
-  dropdown.innerHTML = _aetherNoteResults.map((n, i) => {
+  dropdown.innerHTML = '';
+  _aetherNoteResults.forEach(function(n, i) {
     const preview = (n.content || '').replace(/[#*_`>\-\[\]()]/g, '').replace(/\s+/g, ' ').trim();
     const snippet = preview.length > 80 ? preview.slice(0, 77) + '...' : preview;
     const tags = (n.tags || []).slice(0, 3);
-    const tagsHtml = tags.length ? tags.map(t => `<span class="aether-note-tag">#${escapeHtml(t)}</span>`).join('') : '';
-    return `<div class="aether-note-item ${i === _aetherNoteIdx ? 'selected' : ''}" data-idx="${i}">` +
-      `<div class="aether-note-item-title">${escapeHtml(n.title || 'Untitled')}</div>` +
-      (snippet ? `<div class="aether-note-item-snippet">${escapeHtml(snippet)}</div>` : '') +
-      (tagsHtml ? `<div class="aether-note-item-tags">${tagsHtml}</div>` : '') +
-      `</div>`;
-  }).join('');
 
-  // Click to open note in side editor
-  dropdown.querySelectorAll('.aether-note-item').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      const idx = parseInt(el.dataset.idx);
-      const note = _aetherNoteResults[idx];
-      if (!note) return;
-      _aetherOpenNoteEditor(popup, note);
-    });
+    var row = new View('div').className('aether-note-item' + (i === _aetherNoteIdx ? ' selected' : ''));
+    row.el.dataset.idx = String(i);
+
+    var titleDiv = new View('div').className('aether-note-item-title');
+    titleDiv.el.textContent = n.title || 'Untitled';
+    row.el.appendChild(titleDiv.el);
+
+    if (snippet) {
+      var snippetDiv = new View('div').className('aether-note-item-snippet');
+      snippetDiv.el.textContent = snippet;
+      row.el.appendChild(snippetDiv.el);
+    }
+
+    if (tags.length) {
+      var tagsDiv = new View('div').className('aether-note-item-tags');
+      tags.forEach(function(t) {
+        var tagSpan = new View('span').className('aether-note-tag');
+        tagSpan.el.textContent = '#' + t;
+        tagsDiv.el.appendChild(tagSpan.el);
+      });
+      row.el.appendChild(tagsDiv.el);
+    }
+
+    // Click to open note in side editor
+    (function(note) {
+      row.el.addEventListener('click', function(ev) {
+        ev.stopPropagation(); ev.preventDefault();
+        if (!note) return;
+        _aetherOpenNoteEditor(popup, note);
+      });
+    })(n);
+    dropdown.appendChild(row.el);
   });
   _repositionSelectionPopup();
 }
@@ -729,34 +791,42 @@ function _aetherRenderModelDropdown(popup) {
     else popup.appendChild(dropdown);
   }
   const currentModel = Settings.get('chatModel') || '';
-  dropdown.innerHTML = _aetherModelList.map((m, i) => {
+  dropdown.innerHTML = '';
+  _aetherModelList.forEach(function(m, i) {
     const active = m === currentModel;
-    return `<div class="aether-note-item ${i === _aetherModelIdx ? 'selected' : ''}" data-idx="${i}">` +
-      `<span class="aether-note-item-title">${escapeHtml(m)}</span>` +
-      (active ? `<span class="aether-note-item-tags" style="margin-left:auto;opacity:0.6;">current</span>` : '') +
-      `</div>`;
-  }).join('');
+    var row = new View('div').className('aether-note-item' + (i === _aetherModelIdx ? ' selected' : ''));
+    row.el.dataset.idx = String(i);
 
-  dropdown.querySelectorAll('.aether-note-item').forEach(el => {
-    el.addEventListener('click', ev => {
-      ev.stopPropagation(); ev.preventDefault();
-      const idx = parseInt(el.dataset.idx);
-      const model = _aetherModelList[idx];
-      if (model) {
-        _aetherModelIdx = idx;
-        Settings.set('chatModel', model);
-        _aetherRenderModelDropdown(popup);
-        const label = popup.querySelector('.aether-model-label');
-        if (label) label.textContent = model;
-        const input = popup.querySelector('.doc-ask-inline-input');
-        if (input) { input.value = ''; input.focus(); }
-        // Achievement: first model switch
-        if (!Settings.get('ach_model_switch')) {
-          Settings.set('ach_model_switch', '1');
-          if (typeof showAchievement === 'function') showAchievement('Model Swapper', 'Switched your AI model for the first time');
+    var nameSpan = new View('span').className('aether-note-item-title');
+    nameSpan.el.textContent = m;
+    row.el.appendChild(nameSpan.el);
+
+    if (active) {
+      var curSpan = new View('span').className('aether-note-item-tags');
+      curSpan.cssText('margin-left:auto;opacity:0.6');
+      curSpan.el.textContent = 'current';
+      row.el.appendChild(curSpan.el);
+    }
+
+    (function(model, idx) {
+      row.el.addEventListener('click', function(ev) {
+        ev.stopPropagation(); ev.preventDefault();
+        if (model) {
+          _aetherModelIdx = idx;
+          Settings.set('chatModel', model);
+          _aetherRenderModelDropdown(popup);
+          const label = popup.querySelector('.aether-model-label');
+          if (label) label.textContent = model;
+          const input = popup.querySelector('.doc-ask-inline-input');
+          if (input) { input.value = ''; input.focus(); }
+          if (!Settings.get('ach_model_switch')) {
+            Settings.set('ach_model_switch', '1');
+            if (typeof showAchievement === 'function') showAchievement('Model Swapper', 'Switched your AI model for the first time');
+          }
         }
-      }
-    });
+      });
+    })(m, i);
+    dropdown.appendChild(row.el);
   });
   _repositionSelectionPopup();
 }
@@ -823,31 +893,42 @@ function _aetherRenderAgentDropdown(popup) {
     else popup.appendChild(dropdown);
   }
   const currentAgent = Settings.get('chatAgent') || 'research-assistant';
-  dropdown.innerHTML = _aetherAgentList.map((a, i) => {
+  dropdown.innerHTML = '';
+  _aetherAgentList.forEach(function(a, i) {
     const active = a.id === currentAgent;
-    return `<div class="aether-note-item ${i === _aetherAgentIdx ? 'selected' : ''}" data-idx="${i}">` +
-      `<div class="aether-note-item-title">${escapeHtml(a.name)}</div>` +
-      `<div class="aether-note-item-snippet">${escapeHtml(a.description)}</div>` +
-      (active ? `<span class="aether-note-item-tags" style="margin-left:auto;opacity:0.6;">current</span>` : '') +
-      `</div>`;
-  }).join('');
+    var row = new View('div').className('aether-note-item' + (i === _aetherAgentIdx ? ' selected' : ''));
+    row.el.dataset.idx = String(i);
 
-  dropdown.querySelectorAll('.aether-note-item').forEach(el => {
-    el.addEventListener('click', ev => {
-      ev.stopPropagation(); ev.preventDefault();
-      const idx = parseInt(el.dataset.idx);
-      const agent = _aetherAgentList[idx];
-      if (agent) {
-        _aetherAgentIdx = idx;
-        Settings.set('chatAgent', agent.id);
-        _aetherRenderAgentDropdown(popup);
-        // Update the agent chip label
-        const chip = popup.querySelector('.aether-agent-chip-label');
-        if (chip) chip.textContent = agent.name;
-        const input = popup.querySelector('.doc-ask-inline-input');
-        if (input) { input.value = ''; input.focus(); }
-      }
-    });
+    var nameDiv = new View('div').className('aether-note-item-title');
+    nameDiv.el.textContent = a.name;
+    row.el.appendChild(nameDiv.el);
+
+    var descDiv = new View('div').className('aether-note-item-snippet');
+    descDiv.el.textContent = a.description;
+    row.el.appendChild(descDiv.el);
+
+    if (active) {
+      var curSpan = new View('span').className('aether-note-item-tags');
+      curSpan.cssText('margin-left:auto;opacity:0.6');
+      curSpan.el.textContent = 'current';
+      row.el.appendChild(curSpan.el);
+    }
+
+    (function(agent, idx) {
+      row.el.addEventListener('click', function(ev) {
+        ev.stopPropagation(); ev.preventDefault();
+        if (agent) {
+          _aetherAgentIdx = idx;
+          Settings.set('chatAgent', agent.id);
+          _aetherRenderAgentDropdown(popup);
+          const chip = popup.querySelector('.aether-agent-chip-label');
+          if (chip) chip.textContent = agent.name;
+          const input = popup.querySelector('.doc-ask-inline-input');
+          if (input) { input.value = ''; input.focus(); }
+        }
+      });
+    })(a, i);
+    dropdown.appendChild(row.el);
   });
   _repositionSelectionPopup();
 }
@@ -1000,25 +1081,46 @@ function _renderTabDropdown(popup) {
   }
   _aetherTabIdx = Math.min(_aetherTabIdx, _aetherTabList.length - 1);
   const activeTabId = _aetherTabSwitchMode && typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : null;
-  dropdown.innerHTML = _aetherTabList.map((tab, i) => {
-    const domain = (() => { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })();
-    const favUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16`;
-    const activeMarker = activeTabId != null && tab.id === activeTabId ? '<span style="opacity:0.4;font-size:10px;margin-left:auto;flex-shrink:0">current</span>' : '';
-    return `<div class="aether-tab-item ${i === _aetherTabIdx ? 'selected' : ''}" data-idx="${i}">` +
-      `<img src="${favUrl}" class="aether-tab-item-favicon" onerror="this.style.display='none'">` +
-      `<div class="aether-tab-item-info">` +
-      `<div class="aether-tab-item-title">${escapeHtml(tab.title || 'Untitled')}</div>` +
-      `<div class="aether-tab-item-url">${escapeHtml(domain)}</div>` +
-      `</div>${activeMarker}</div>`;
-  }).join('');
+  dropdown.innerHTML = '';
+  _aetherTabList.forEach(function(tab, i) {
+    const domain = (function() { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })();
+    const favUrl = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=16';
 
-  dropdown.querySelectorAll('.aether-tab-item').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      _aetherTabIdx = parseInt(el.dataset.idx);
-      if (_aetherTabSwitchMode) _aetherSwitchToTab(popup);
-      else _aetherSelectTab(popup);
-    });
+    var favImg = new View('img').className('aether-tab-item-favicon');
+    favImg.el.src = favUrl;
+    favImg.el.onerror = function() { this.style.display = 'none'; };
+
+    var tabTitle = new View('div').className('aether-tab-item-title');
+    tabTitle.el.textContent = tab.title || 'Untitled';
+
+    var tabUrl = new View('div').className('aether-tab-item-url');
+    tabUrl.el.textContent = domain;
+
+    var infoDiv = new View('div').className('aether-tab-item-info');
+    infoDiv.el.appendChild(tabTitle.el);
+    infoDiv.el.appendChild(tabUrl.el);
+
+    var row = new View('div').className('aether-tab-item' + (i === _aetherTabIdx ? ' selected' : ''));
+    row.el.dataset.idx = String(i);
+    row.el.appendChild(favImg.el);
+    row.el.appendChild(infoDiv.el);
+
+    if (activeTabId != null && tab.id === activeTabId) {
+      var curSpan = new View('span');
+      curSpan.cssText('opacity:0.4;font-size:10px;margin-left:auto;flex-shrink:0');
+      curSpan.el.textContent = 'current';
+      row.el.appendChild(curSpan.el);
+    }
+
+    (function(idx) {
+      row.el.addEventListener('click', function(ev) {
+        ev.stopPropagation(); ev.preventDefault();
+        _aetherTabIdx = idx;
+        if (_aetherTabSwitchMode) _aetherSwitchToTab(popup);
+        else _aetherSelectTab(popup);
+      });
+    })(i);
+    dropdown.appendChild(row.el);
   });
   _repositionSelectionPopup();
 }

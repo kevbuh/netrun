@@ -332,15 +332,8 @@ function _renderBrowserSettings() {
   var pwContent = RawHTML('<div id="settings-passwords"><div class="text-dimmer text-[0.75rem]">Loading...</div></div>');
 
   return VStack(
-    _settingCard('Privacy', [
-      _settingGroupContent([adBlockSection]),
-      ytSection,
-    ]),
-    _settingCard('Focus Mode', [
-      focusToggle,
-      _settingGroupContent([focusSites]),
-    ]),
-    _settingCard('URL Bar', [
+    _settingCard('Layout', [
+      _settingBtnGroup('Tab Style', [{value:'island',label:'Island'},{value:'horizontal',label:'Horizontal'}], Settings.get('browseTabLayout') || 'island', function(v) { setBrowseTabLayout(v); }),
       simplifyRow,
       adaptiveRow,
       _settingGroupContent([
@@ -348,6 +341,12 @@ function _renderBrowserSettings() {
         Text('Reorder and toggle sections in the URL bar dropdown. Drag to reorder.').className('text-[0.72rem] text-dimmer mb-3'),
         urlBarSections,
       ]),
+    ]),
+    _settingCard('Privacy', [
+      _settingGroupContent([adBlockSection]),
+      ytSection,
+      focusToggle,
+      _settingGroupContent([focusSites]),
     ]),
     _settingCard('Site Permissions', [
       _settingGroupContent([

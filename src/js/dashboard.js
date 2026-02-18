@@ -572,18 +572,77 @@ async function renderDashboard() {
 
       var children = [header];
 
-      // Add form (kept as RawHTML — complex interactive form with radio buttons)
+      // Add form
       if (window._heatmapPopoverAddForm) {
-        children.push(RawHTML(
-          '<div style="padding:6px 12px 8px">' +
-          '<input type="text" id="hm-ev-title" placeholder="Event title\u2026" style="width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:12px;margin-bottom:6px;box-sizing:border-box">' +
-          '<textarea id="hm-ev-desc" placeholder="Description (optional)" rows="2" style="width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:12px;margin-bottom:6px;resize:none;box-sizing:border-box"></textarea>' +
-          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:11px;color:var(--nr-text-quaternary)">Color:</span>' +
-          presetColors.map(function(c, i) { return '<label style="cursor:pointer"><input type="radio" name="hm-ev-color" value="' + c + '"' + (i === 0 ? ' checked' : '') + ' style="display:none"><span style="width:18px;height:18px;border-radius:50%;display:inline-block;border:2px solid transparent;background:' + c + '" title="' + colorLabels[i] + '" onclick="this.parentElement.querySelector(\'input\').checked=true;this.closest(\'div\').querySelectorAll(\'span\').forEach(s=>s.style.borderColor=\'transparent\');this.style.borderColor=\'white\'"></span></label>'; }).join('') +
-          '</div><div style="display:flex;gap:6px">' +
-          '<button onclick="_heatmapAddEvent(\'' + key + '\')" style="padding:3px 10px;border-radius:6px;background:var(--nr-accent);color:white;border:none;font-size:12px;cursor:pointer">Save</button>' +
-          '<button onclick="window._heatmapPopoverAddForm=false;window._renderHeatmapPopover(\'' + key + '\')" style="padding:3px 10px;border-radius:6px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);color:var(--nr-text-primary);font-size:12px;cursor:pointer">Cancel</button></div></div>'
-        ));
+        var titleInput = new View('input');
+        titleInput.el.id = 'hm-ev-title';
+        titleInput.el.type = 'text';
+        titleInput.el.placeholder = 'Event title\u2026';
+        titleInput.cssText('width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:12px;margin-bottom:6px;box-sizing:border-box');
+
+        var descTa = new View('textarea');
+        descTa.el.id = 'hm-ev-desc';
+        descTa.el.placeholder = 'Description (optional)';
+        descTa.el.rows = 2;
+        descTa.cssText('width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:12px;margin-bottom:6px;resize:none;box-sizing:border-box');
+
+        var colorLabel = new View('span');
+        colorLabel.cssText('font-size:11px;color:var(--nr-text-quaternary)');
+        colorLabel.el.textContent = 'Color:';
+
+        var colorSwatches = presetColors.map(function(c, i) {
+          var radioInput = new View('input');
+          radioInput.el.type = 'radio';
+          radioInput.el.name = 'hm-ev-color';
+          radioInput.el.value = c;
+          radioInput.el.checked = (i === 0);
+          radioInput.cssText('display:none');
+
+          var swatch = new View('span');
+          swatch.cssText('width:18px;height:18px;border-radius:50%;display:inline-block;border:2px solid transparent;background:' + c);
+          swatch.el.title = colorLabels[i];
+          (function(ri, sw) {
+            swatch.onTap(function() {
+              ri.el.checked = true;
+              colorSwatches.forEach(function(s) { s[1].el.style.borderColor = 'transparent'; });
+              sw.el.style.borderColor = 'white';
+            });
+          })(radioInput, swatch);
+
+          var lbl = new View('label');
+          lbl.cssText('cursor:pointer');
+          lbl.el.appendChild(radioInput.el);
+          lbl.el.appendChild(swatch.el);
+          return [radioInput, swatch, lbl];
+        });
+
+        var colorRow = new View('div');
+        colorRow.cssText('display:flex;align-items:center;gap:6px;margin-bottom:6px');
+        colorRow.el.appendChild(colorLabel.el);
+        colorSwatches.forEach(function(s) { colorRow.el.appendChild(s[2].el); });
+
+        var saveEvtBtn = new View('button');
+        saveEvtBtn.el.textContent = 'Save';
+        saveEvtBtn.cssText('padding:3px 10px;border-radius:6px;background:var(--nr-accent);color:white;border:none;font-size:12px;cursor:pointer');
+        (function(k) { saveEvtBtn.onTap(function() { _heatmapAddEvent(k); }); })(key);
+
+        var cancelEvtBtn = new View('button');
+        cancelEvtBtn.el.textContent = 'Cancel';
+        cancelEvtBtn.cssText('padding:3px 10px;border-radius:6px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);color:var(--nr-text-primary);font-size:12px;cursor:pointer');
+        (function(k) { cancelEvtBtn.onTap(function() { window._heatmapPopoverAddForm = false; window._renderHeatmapPopover(k); }); })(key);
+
+        var btnRow = new View('div');
+        btnRow.cssText('display:flex;gap:6px');
+        btnRow.el.appendChild(saveEvtBtn.el);
+        btnRow.el.appendChild(cancelEvtBtn.el);
+
+        var formView = new View('div');
+        formView.cssText('padding:6px 12px 8px');
+        formView.el.appendChild(titleInput.el);
+        formView.el.appendChild(descTa.el);
+        formView.el.appendChild(colorRow.el);
+        formView.el.appendChild(btnRow.el);
+        children.push(formView);
       }
 
       // Items list
@@ -1779,39 +1838,79 @@ function _devRenderFileTree(nodes, edges) {
     deps.get(src).push({ target: tgt, calls: e.calls });
   });
 
-  let html = '<div style="color:var(--nr-text-primary)">';
-  html += `<div style="margin-bottom:12px;display:flex;gap:8px">`;
-  html += `<button onclick="_devExpandAllFiles()" style="background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Expand All</button>`;
-  html += `<button onclick="_devCollapseAllFiles()" style="background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Collapse All</button>`;
-  html += `</div>`;
+  var wrapper = new View('div');
+  wrapper.cssText('color:var(--nr-text-primary)');
 
-  nodes.forEach((node, i) => {
+  var btnRow = new View('div');
+  btnRow.cssText('margin-bottom:12px;display:flex;gap:8px');
+  var expandBtn = new View('button');
+  expandBtn.el.textContent = 'Expand All';
+  expandBtn.cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer');
+  expandBtn.onTap(function() { _devExpandAllFiles(); });
+  var collapseBtn = new View('button');
+  collapseBtn.el.textContent = 'Collapse All';
+  collapseBtn.cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer');
+  collapseBtn.onTap(function() { _devCollapseAllFiles(); });
+  btnRow.el.appendChild(expandBtn.el);
+  btnRow.el.appendChild(collapseBtn.el);
+  wrapper.el.appendChild(btnRow.el);
+
+  nodes.forEach(function(node, i) {
     const isLast = i === nodes.length - 1;
     const isCollapsed = _devCollapsedFiles.has(node.id);
     const nodeDeps = deps.get(node.id) || [];
 
-    html += `<div style="margin-bottom:4px">`;
-    html += `<div onclick="_devToggleFileInFileView('${node.id}')" style="cursor:pointer">`;
-    html += `<span style="color:var(--nr-accent)">${isCollapsed ? '▶' : '▼'}</span> `;
-    html += `<span style="color:var(--nr-text-primary);font-weight:600">${node.id}</span>`;
-    html += `<span style="color:var(--nr-text-quaternary);margin-left:12px;font-size:11px">${node.functions} funcs, ${node.loc} LOC</span>`;
-    html += `</div>`;
+    var nodeDiv = new View('div');
+    nodeDiv.cssText('margin-bottom:4px');
+
+    var toggleDiv = new View('div');
+    toggleDiv.cssText('cursor:pointer');
+    var arrowSpan = new View('span');
+    arrowSpan.cssText('color:var(--nr-accent)');
+    arrowSpan.el.textContent = isCollapsed ? '▶' : '▼';
+    var nameSpan = new View('span');
+    nameSpan.cssText('color:var(--nr-text-primary);font-weight:600');
+    nameSpan.el.textContent = ' ' + node.id;
+    var statsSpan = new View('span');
+    statsSpan.cssText('color:var(--nr-text-quaternary);margin-left:12px;font-size:11px');
+    statsSpan.el.textContent = node.functions + ' funcs, ' + node.loc + ' LOC';
+    toggleDiv.el.appendChild(arrowSpan.el);
+    toggleDiv.el.appendChild(nameSpan.el);
+    toggleDiv.el.appendChild(statsSpan.el);
+    (function(nodeId) { toggleDiv.onTap(function() { _devToggleFileInFileView(nodeId); }); })(node.id);
+    nodeDiv.el.appendChild(toggleDiv.el);
 
     if (!isCollapsed && nodeDeps.length > 0) {
-      const topDeps = nodeDeps.slice(0, 5);
-      html += `<div style="margin-left:24px;color:var(--nr-text-quaternary);font-size:11px;margin-top:2px">`;
-      topDeps.forEach((dep, j) => {
-        html += `<div>→ ${dep.target} <span style="opacity:0.7">(${dep.calls}× calls)</span></div>`;
+      var depsDiv = new View('div');
+      depsDiv.cssText('margin-left:24px;color:var(--nr-text-quaternary);font-size:11px;margin-top:2px');
+      nodeDeps.slice(0, 5).forEach(function(dep) {
+        var depRow = new View('div');
+        depRow.el.textContent = '→ ' + dep.target + ' ';
+        var callsSpan = new View('span');
+        callsSpan.cssText('opacity:0.7');
+        callsSpan.el.textContent = '(' + dep.calls + '× calls)';
+        depRow.el.appendChild(callsSpan.el);
+        depsDiv.el.appendChild(depRow.el);
       });
-      if (nodeDeps.length > 5) html += `<div>→ +${nodeDeps.length - 5} more dependencies...</div>`;
-      html += `</div>`;
+      if (nodeDeps.length > 5) {
+        var moreRow = new View('div');
+        moreRow.el.textContent = '→ +' + (nodeDeps.length - 5) + ' more dependencies...';
+        depsDiv.el.appendChild(moreRow.el);
+      }
+      nodeDiv.el.appendChild(depsDiv.el);
     }
-    html += `</div>`;
+    wrapper.el.appendChild(nodeDiv.el);
 
-    if (!isLast) html += `<div style="color:var(--nr-border-default);margin-left:5px">│</div>`;
+    if (!isLast) {
+      var sep = new View('div');
+      sep.cssText('color:var(--nr-border-default);margin-left:5px');
+      sep.el.textContent = '│';
+      wrapper.el.appendChild(sep.el);
+    }
   });
-  html += '</div>';
-  container.innerHTML = html;
+
+  container.innerHTML = '';
+  container.appendChild(wrapper.el);
 }
 
 function _devToggleFileInFileView(file) {
@@ -1884,62 +1983,104 @@ function _devRenderFunctionTree(allNodes, allEdges) {
     deps.get(e.source).push({ target: e.target, calls: e.calls });
   });
 
-  let html = '<div style="color:var(--nr-text-primary)">';
-  html += `<div style="margin-bottom:12px;display:flex;gap:8px">`;
-  html += `<button onclick="_devExpandAllFiles()" style="background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Expand All</button>`;
-  html += `<button onclick="_devCollapseAllFiles()" style="background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer">Collapse All</button>`;
-  html += `</div>`;
+  var wrapper = new View('div');
+  wrapper.cssText('color:var(--nr-text-primary)');
 
-  Object.keys(fileGroups).sort().forEach((file) => {
+  var btnRow = new View('div');
+  btnRow.cssText('margin-bottom:12px;display:flex;gap:8px');
+  var expandBtn = new View('button');
+  expandBtn.el.textContent = 'Expand All';
+  expandBtn.cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer');
+  expandBtn.onTap(function() { _devExpandAllFiles(); });
+  var collapseBtn = new View('button');
+  collapseBtn.el.textContent = 'Collapse All';
+  collapseBtn.cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer');
+  collapseBtn.onTap(function() { _devCollapseAllFiles(); });
+  btnRow.el.appendChild(expandBtn.el);
+  btnRow.el.appendChild(collapseBtn.el);
+  wrapper.el.appendChild(btnRow.el);
+
+  Object.keys(fileGroups).sort().forEach(function(file) {
     const isCollapsed = _devCollapsedFiles.has(file);
     const funcs = fileGroups[file];
 
-    html += `<div style="margin-bottom:8px">`;
-    html += `<div onclick="_devToggleFile('${file}')" style="cursor:pointer;color:var(--nr-accent);font-weight:600;margin-bottom:4px">`;
-    html += `${isCollapsed ? '▶' : '▼'} 📁 ${file} <span style="font-weight:normal;color:var(--nr-text-quaternary);font-size:11px">(${funcs.length} functions)</span>`;
-    html += `</div>`;
+    var fileDiv = new View('div');
+    fileDiv.cssText('margin-bottom:8px');
+
+    var fileHeader = new View('div');
+    fileHeader.cssText('cursor:pointer;color:var(--nr-accent);font-weight:600;margin-bottom:4px');
+    fileHeader.el.textContent = (isCollapsed ? '▶' : '▼') + ' \uD83D\uDCC1 ' + file + ' ';
+    var funcCountSpan = new View('span');
+    funcCountSpan.cssText('font-weight:normal;color:var(--nr-text-quaternary);font-size:11px');
+    funcCountSpan.el.textContent = '(' + funcs.length + ' functions)';
+    fileHeader.el.appendChild(funcCountSpan.el);
+    (function(f) { fileHeader.onTap(function() { _devToggleFile(f); }); })(file);
+    fileDiv.el.appendChild(fileHeader.el);
 
     if (!isCollapsed) {
-      funcs.forEach((func, i) => {
+      funcs.forEach(function(func, i) {
         const isLast = i === funcs.length - 1;
         const prefix = isLast ? '└─' : '├─';
         const funcDeps = deps.get(func.id) || [];
-        const crossFileDeps = funcDeps.filter(d => {
-          const target = allNodes.find(n => n.id === d.target);
+        const crossFileDeps = funcDeps.filter(function(d) {
+          const target = allNodes.find(function(n) { return n.id === d.target; });
           return target && target.file !== func.file;
         });
 
-        html += `<div style="margin-left:16px;margin-bottom:2px">`;
-        html += `<span style="color:var(--nr-border-default)">${prefix}</span> `;
-        html += `<span style="color:${func.callCount > 10 ? 'var(--nr-accent)' : 'var(--nr-text-primary)'}">${func.id}</span>`;
-        html += `<span style="color:var(--nr-text-quaternary);margin-left:8px;font-size:10px">`;
-        html += `${func.callCount}× called`;
-        if (crossFileDeps.length > 0) {
-          html += ` • ${crossFileDeps.length} cross-file`;
-        }
-        html += `</span>`;
+        var funcRow = new View('div');
+        funcRow.cssText('margin-left:16px;margin-bottom:2px');
+
+        var prefixSpan = new View('span');
+        prefixSpan.cssText('color:var(--nr-border-default)');
+        prefixSpan.el.textContent = prefix;
+        funcRow.el.appendChild(prefixSpan.el);
+        funcRow.el.appendChild(document.createTextNode(' '));
+
+        var nameSpan = new View('span');
+        nameSpan.cssText('color:' + (func.callCount > 10 ? 'var(--nr-accent)' : 'var(--nr-text-primary)'));
+        nameSpan.el.textContent = func.id;
+        funcRow.el.appendChild(nameSpan.el);
+
+        var statsSpan = new View('span');
+        statsSpan.cssText('color:var(--nr-text-quaternary);margin-left:8px;font-size:10px');
+        statsSpan.el.textContent = func.callCount + '\u00d7 called' + (crossFileDeps.length > 0 ? ' \u2022 ' + crossFileDeps.length + ' cross-file' : '');
+        funcRow.el.appendChild(statsSpan.el);
 
         if (crossFileDeps.length > 0) {
-          const topDeps = crossFileDeps.slice(0, 2);
-          html += `<div style="margin-left:32px;color:var(--nr-text-quaternary);font-size:10px">`;
-          topDeps.forEach(dep => {
-            const target = allNodes.find(n => n.id === dep.target);
-            html += `<span style="color:#ef4444">→</span> ${dep.target} <span style="opacity:0.7">(${target?.file})</span> `;
+          var crossDiv = new View('div');
+          crossDiv.cssText('margin-left:32px;color:var(--nr-text-quaternary);font-size:10px');
+          crossFileDeps.slice(0, 2).forEach(function(dep) {
+            const target = allNodes.find(function(n) { return n.id === dep.target; });
+            var arrow = new View('span');
+            arrow.cssText('color:#ef4444');
+            arrow.el.textContent = '\u2192';
+            crossDiv.el.appendChild(arrow.el);
+            crossDiv.el.appendChild(document.createTextNode(' ' + dep.target + ' '));
+            var fileRef = new View('span');
+            fileRef.cssText('opacity:0.7');
+            fileRef.el.textContent = '(' + (target ? target.file : '') + ') ';
+            crossDiv.el.appendChild(fileRef.el);
           });
-          if (crossFileDeps.length > 2) html += `+${crossFileDeps.length - 2} more`;
-          html += `</div>`;
+          if (crossFileDeps.length > 2) {
+            crossDiv.el.appendChild(document.createTextNode('+' + (crossFileDeps.length - 2) + ' more'));
+          }
+          funcRow.el.appendChild(crossDiv.el);
         }
-        html += `</div>`;
+        fileDiv.el.appendChild(funcRow.el);
 
         if (!isLast) {
-          html += `<div style="margin-left:16px;color:var(--nr-border-default)">│</div>`;
+          var sep = new View('div');
+          sep.cssText('margin-left:16px;color:var(--nr-border-default)');
+          sep.el.textContent = '│';
+          fileDiv.el.appendChild(sep.el);
         }
       });
     }
-    html += `</div>`;
+    wrapper.el.appendChild(fileDiv.el);
   });
-  html += '</div>';
-  container.innerHTML = html;
+
+  container.innerHTML = '';
+  container.appendChild(wrapper.el);
 }
 
 function _devToggleFile(file) {
