@@ -1,31 +1,64 @@
 // ─── Browser Settings ──────────────────────────────────────
 
 function _renderDoomScrollSites() {
-  const sites = typeof _getDoomScrollSites === 'function' ? _getDoomScrollSites() : [];
-  let html = '';
-  for (let i = 0; i < sites.length; i++) {
-    const s = sites[i];
-    const pillColor = s.mode === 'block' ? 'bg-red-500/15 text-red-400' : 'bg-yellow-500/15 text-yellow-400';
-    const pillLabel = s.mode === 'block' ? 'Block' : s.minutes + ' min';
-    html += `<div class="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-hover group" style="margin-bottom:2px">
-      <span class="text-primary text-[0.8rem] flex-1">${escapeHtml(s.domain)}</span>
-      <span class="text-[0.7rem] font-medium px-2 py-0.5 rounded-full ${pillColor}">${pillLabel}</span>
-      <button onclick="_removeDoomScrollSite(${i})" class="text-dimmer hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" style="background:none;border:none;cursor:pointer;padding:2px">
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>`;
-  }
-  html += `<div class="flex items-center gap-2 mt-2 pt-2 border-t border-border-subtle">
-    <input type="text" id="doom-scroll-new-domain" placeholder="domain.com" class="flex-1 text-[0.8rem] px-2 py-1.5 rounded-md bg-transparent border border-border-input text-primary placeholder:text-dimmer focus:outline-none focus:border-accent" style="min-width:0" onkeydown="if(event.key==='Enter')_addDoomScrollSite()">
-    <select id="doom-scroll-new-mode" class="text-[0.78rem] px-2 py-1.5 rounded-md bg-card border border-border-input text-primary focus:outline-none focus:border-accent" style="color:var(--nr-text-primary);background:var(--nr-bg-surface)" onchange="document.getElementById('doom-scroll-new-minutes').style.display=this.value==='block'?'none':''">
-      <option value="nudge">Nudge</option>
-      <option value="block">Block</option>
-    </select>
-    <input type="number" id="doom-scroll-new-minutes" value="5" min="1" max="120" class="text-[0.8rem] px-2 py-1.5 rounded-md bg-transparent border border-border-input text-primary focus:outline-none focus:border-accent" style="width:52px">
-    <button onclick="_addDoomScrollSite()" class="text-[0.78rem] px-3 py-1.5 rounded-md border border-border-input bg-card text-primary hover:border-accent hover:text-accent transition-colors cursor-pointer" style="background:var(--nr-bg-surface)">Add</button>
-  </div>`;
-  html += `<div class="mt-2"><a href="#" onclick="event.preventDefault();_resetDoomScrollSites()" class="text-dimmer text-[0.72rem] hover:text-dim transition-colors">Reset to defaults</a></div>`;
-  return html;
+  var sites = typeof _getDoomScrollSites === 'function' ? _getDoomScrollSites() : [];
+  var siteRows = sites.map(function(s, i) {
+    var pillColor = s.mode === 'block' ? 'bg-red-500/15 text-red-400' : 'bg-yellow-500/15 text-yellow-400';
+    var pillLabel = s.mode === 'block' ? 'Block' : s.minutes + ' min';
+    var removeBtn = Button('').className('text-dimmer hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity')
+      .styles({ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' });
+    removeBtn.el.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    removeBtn.onTap(function() { _removeDoomScrollSite(i); });
+    return HStack(
+      Text(s.domain).className('text-primary text-[0.8rem] flex-1'),
+      Text(pillLabel).className('text-[0.7rem] font-medium px-2 py-0.5 rounded-full ' + pillColor),
+      removeBtn
+    ).spacing(2).className('flex items-center py-1.5 px-2 rounded-md hover:bg-hover group').styles({ marginBottom: '2px' });
+  });
+
+  var domainInput = new View('input');
+  domainInput.el.type = 'text';
+  domainInput.el.id = 'doom-scroll-new-domain';
+  domainInput.el.placeholder = 'domain.com';
+  domainInput.className('flex-1 text-[0.8rem] px-2 py-1.5 rounded-md bg-transparent border border-border-input text-primary placeholder:text-dimmer focus:outline-none focus:border-accent');
+  domainInput.styles({ minWidth: '0' });
+  domainInput.el.addEventListener('keydown', function(e) { if (e.key === 'Enter') _addDoomScrollSite(); });
+
+  var modeSelect = new View('select');
+  modeSelect.el.id = 'doom-scroll-new-mode';
+  modeSelect.className('text-[0.78rem] px-2 py-1.5 rounded-md bg-card border border-border-input text-primary focus:outline-none focus:border-accent');
+  modeSelect.styles({ color: 'var(--nr-text-primary)', background: 'var(--nr-bg-surface)' });
+  modeSelect.el.innerHTML = '<option value="nudge">Nudge</option><option value="block">Block</option>';
+  modeSelect.el.addEventListener('change', function() {
+    var minEl = document.getElementById('doom-scroll-new-minutes');
+    if (minEl) minEl.style.display = this.value === 'block' ? 'none' : '';
+  });
+
+  var minutesInput = new View('input');
+  minutesInput.el.type = 'number';
+  minutesInput.el.id = 'doom-scroll-new-minutes';
+  minutesInput.el.value = '5';
+  minutesInput.el.min = '1';
+  minutesInput.el.max = '120';
+  minutesInput.className('text-[0.8rem] px-2 py-1.5 rounded-md bg-transparent border border-border-input text-primary focus:outline-none focus:border-accent');
+  minutesInput.styles({ width: '52px' });
+
+  var addBtn = Button('Add').className('text-[0.78rem] px-3 py-1.5 rounded-md border border-border-input bg-card text-primary hover:border-accent hover:text-accent transition-colors cursor-pointer');
+  addBtn.styles({ background: 'var(--nr-bg-surface)' });
+  addBtn.onTap(function() { _addDoomScrollSite(); });
+
+  var inputRow = HStack(domainInput, modeSelect, minutesInput, addBtn)
+    .spacing(2).className('flex items-center mt-2 pt-2 border-t border-border-subtle');
+
+  var resetLink = Button('Reset to defaults').className('text-dimmer text-[0.72rem] hover:text-dim transition-colors')
+    .styles({ background: 'none', border: 'none', cursor: 'pointer', padding: '0' });
+  resetLink.onTap(function() { _resetDoomScrollSites(); });
+  var resetRow = new View('div');
+  resetRow.className('mt-2');
+  resetRow.el.appendChild(resetLink.el);
+
+  var all = siteRows.concat([inputRow, resetRow]);
+  return VStack.apply(null, all);
 }
 
 function _addDoomScrollSite() {
@@ -41,89 +74,101 @@ function _addDoomScrollSite() {
   if (sites.some(s => s.domain === domain)) return;
   sites.push({ domain, mode, minutes });
   _saveDoomScrollSites(sites);
-  AetherUI.mount(RawHTML(_renderDoomScrollSites()), '#doom-scroll-sites-list');
+  AetherUI.mount(_renderDoomScrollSites(), '#doom-scroll-sites-list');
 }
 
 function _removeDoomScrollSite(index) {
   const sites = _getDoomScrollSites();
   sites.splice(index, 1);
   _saveDoomScrollSites(sites);
-  AetherUI.mount(RawHTML(_renderDoomScrollSites()), '#doom-scroll-sites-list');
+  AetherUI.mount(_renderDoomScrollSites(), '#doom-scroll-sites-list');
 }
 
 function _resetDoomScrollSites() {
   Settings.remove('doomScrollSites');
-  AetherUI.mount(RawHTML(_renderDoomScrollSites()), '#doom-scroll-sites-list');
+  AetherUI.mount(_renderDoomScrollSites(), '#doom-scroll-sites-list');
 }
 
 const _expandedPermDomain = null;
 
 function _renderSettingsSitePermissions() {
-  if (typeof _getAllSitePermissions !== 'function') return '<div class="text-dimmer text-[0.75rem]">No site permissions set.</div>';
-  const all = _getAllSitePermissions();
-  const domains = Object.keys(all);
-  if (!domains.length) return '<div class="text-dimmer text-[0.75rem]">No site permissions set.</div>';
+  if (typeof _getAllSitePermissions !== 'function') return Text('No site permissions set.').className('text-dimmer text-[0.75rem]');
+  var all = _getAllSitePermissions();
+  var domains = Object.keys(all);
+  if (!domains.length) return Text('No site permissions set.').className('text-dimmer text-[0.75rem]');
 
-  let html = '';
-  for (const domain of domains.sort()) {
-    const perms = all[domain];
-    const count = Object.keys(perms).length;
-    const isExpanded = _expandedPermDomain === domain;
-    const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
-    html += '<div style="border:1px solid var(--nr-border-strong);border-radius:8px;margin-bottom:6px;overflow:hidden;">';
-    html += '<div style="display:flex;align-items:center;padding:8px 12px;cursor:pointer;gap:8px;" onclick="_expandedPermDomain=(_expandedPermDomain===\'' + safeDomain + '\'?null:\'' + safeDomain + '\');_remountSitePermissions();">';
-    html += icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') });
-    html += '<span style="flex:1;font-size:0.8rem;color:var(--nr-text-primary);font-weight:500;">' + escapeHtml(domain) + '</span>';
-    html += '<span style="font-size:0.68rem;color:var(--nr-text-quaternary);">' + count + ' permission' + (count !== 1 ? 's' : '') + '</span>';
-    html += '<button onclick="event.stopPropagation(); _clearSitePermissions(\'' + safeDomain + '\'); _remountSitePermissions();" style="padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-secondary);font-size:0.7rem;cursor:pointer;">Clear</button>';
-    html += '</div>';
+  var domainCards = domains.sort().map(function(domain) {
+    var perms = all[domain];
+    var count = Object.keys(perms).length;
+    var isExpanded = _expandedPermDomain === domain;
+
+    var clearBtn = Button('Clear').className('').styles({
+      padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--nr-border-strong)',
+      background: 'var(--nr-bg-surface)', color: 'var(--nr-text-secondary)', fontSize: '0.7rem', cursor: 'pointer'
+    });
+    clearBtn.onTap(function(e) { e.stopPropagation(); _clearSitePermissions(domain); _remountSitePermissions(); });
+
+    var chevron = RawHTML(icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') }));
+
+    var header = HStack(chevron, Text(domain).styles({ flex: '1', fontSize: '0.8rem', color: 'var(--nr-text-primary)', fontWeight: '500' }),
+      Text(count + ' permission' + (count !== 1 ? 's' : '')).styles({ fontSize: '0.68rem', color: 'var(--nr-text-quaternary)' }), clearBtn)
+      .spacing(2).styles({ padding: '8px 12px', cursor: 'pointer' });
+    header.onTap(function() { _expandedPermDomain = (_expandedPermDomain === domain ? null : domain); _remountSitePermissions(); });
+
+    var items = [header];
     if (isExpanded) {
-      html += '<div style="padding:0 12px 8px;border-top:1px solid var(--nr-border-subtle);">';
-      for (const key of _SITE_PERM_KEYS) {
-        const current = perms[key] || 'ask';
-        const label = _SITE_PERM_LABELS[key];
-        const icon = _SITE_PERM_ICONS[key];
-        html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">';
-        html += '<span style="color:var(--nr-text-quaternary);flex-shrink:0;">' + icon + '</span>';
-        html += '<span style="flex:1;font-size:0.78rem;color:var(--nr-text-primary);">' + label + '</span>';
-        html += '<div style="display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--nr-border-strong);">';
-        for (const val of ['ask', 'allow', 'block']) {
-          const active = current === val;
-          const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--nr-bg-surface))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--nr-bg-surface))' : 'color-mix(in srgb, var(--nr-accent) 20%, var(--nr-bg-surface))') : 'var(--nr-bg-surface)';
-          const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--nr-accent)') : 'var(--nr-text-quaternary)';
-          html += '<button onclick="_setSitePermission(\'' + safeDomain + '\',\'' + key + '\',\'' + val + '\'); _remountSitePermissions();" style="padding:2px 8px;font-size:0.68rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;">' + val + '</button>';
-        }
-        html += '</div></div>';
-      }
-      html += '</div>';
+      var permRows = _SITE_PERM_KEYS.map(function(key) {
+        var current = perms[key] || 'ask';
+        var label = _SITE_PERM_LABELS[key];
+        var permIcon = _SITE_PERM_ICONS[key];
+        var valBtns = ['ask', 'allow', 'block'].map(function(val) {
+          var active = current === val;
+          var bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--nr-bg-surface))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--nr-bg-surface))' : 'color-mix(in srgb, var(--nr-accent) 20%, var(--nr-bg-surface))') : 'var(--nr-bg-surface)';
+          var fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--nr-accent)') : 'var(--nr-text-quaternary)';
+          var b = Button(val).styles({ padding: '2px 8px', fontSize: '0.68rem', border: 'none', cursor: 'pointer', background: bg, color: fg, fontWeight: active ? '600' : '400', textTransform: 'capitalize' });
+          b.onTap(function() { _setSitePermission(domain, key, val); _remountSitePermissions(); });
+          return b;
+        });
+        var btnGroup = HStack.apply(null, valBtns).styles({ borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--nr-border-strong)' });
+        return HStack(RawHTML('<span style="color:var(--nr-text-quaternary);flex-shrink:0;">' + permIcon + '</span>'),
+          Text(label).styles({ flex: '1', fontSize: '0.78rem', color: 'var(--nr-text-primary)' }), btnGroup)
+          .spacing(2).styles({ padding: '5px 0' });
+      });
+      var detail = VStack.apply(null, permRows).styles({ padding: '0 12px 8px', borderTop: '1px solid var(--nr-border-subtle)' });
+      items.push(detail);
     }
-    html += '</div>';
-  }
-  return html;
+
+    return VStack.apply(null, items).styles({ border: '1px solid var(--nr-border-strong)', borderRadius: '8px', marginBottom: '6px', overflow: 'hidden' });
+  });
+  return VStack.apply(null, domainCards);
 }
 
 function _remountSitePermissions() {
-  AetherUI.mount(RawHTML(_renderSettingsSitePermissions()), '#settings-site-permissions');
+  AetherUI.mount(_renderSettingsSitePermissions(), '#settings-site-permissions');
 }
 
 function _renderUrlBarSectionsSettings() {
-  if (typeof _getUrlBarSections !== 'function') return '<div class="text-dimmer text-[0.75rem]">URL bar sections not available.</div>';
-  const sections = _getUrlBarSections();
-  let html = '<div id="urlbar-section-list">';
-  for (let i = 0; i < sections.length; i++) {
-    const s = sections[i];
-    const safeKey = escapeHtml(s.key);
-    html += '<div class="urlbar-sec-row" data-seckey="' + safeKey + '" style="display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--nr-border-strong);border-radius:8px;margin-bottom:4px;background:var(--nr-bg-surface);cursor:grab;user-select:none;">';
-    html += '<span style="color:var(--nr-text-quaternary);font-size:0.9rem;cursor:grab;flex-shrink:0;" title="Drag to reorder">\u2847</span>';
-    html += '<span style="flex:1;font-size:0.8rem;color:var(--nr-text-primary);">' + escapeHtml(s.label) + '</span>';
-    html += '<label class="nr-switch" style="flex-shrink:0;">';
-    html += '<input type="checkbox" ' + (s.enabled !== false ? 'checked' : '') + ' onchange="_toggleUrlBarSection(\'' + safeKey + '\', this.checked)">';
-    html += '<span class="slider"></span>';
-    html += '</label>';
-    html += '</div>';
-  }
-  html += '</div>';
-  return html;
+  if (typeof _getUrlBarSections !== 'function') return Text('URL bar sections not available.').className('text-dimmer text-[0.75rem]');
+  var sections = _getUrlBarSections();
+  var rows = sections.map(function(s) {
+    var toggle = Toggle(null);
+    var input = toggle.el.querySelector('input[type="checkbox"]');
+    if (input) input.checked = s.enabled !== false;
+    toggle.on('change', function(e) { if (e.target.type === 'checkbox') _toggleUrlBarSection(s.key, e.target.checked); });
+    var row = HStack(
+      Text('\u2847').styles({ color: 'var(--nr-text-quaternary)', fontSize: '0.9rem', cursor: 'grab', flexShrink: '0' }).attr('title', 'Drag to reorder'),
+      Text(s.label).styles({ flex: '1', fontSize: '0.8rem', color: 'var(--nr-text-primary)' }),
+      toggle
+    ).spacing(2).className('urlbar-sec-row').styles({
+      padding: '7px 10px', border: '1px solid var(--nr-border-strong)', borderRadius: '8px',
+      marginBottom: '4px', background: 'var(--nr-bg-surface)', cursor: 'grab', userSelect: 'none'
+    });
+    row.attr('data-seckey', s.key);
+    return row;
+  });
+  var list = VStack.apply(null, rows);
+  list.el.id = 'urlbar-section-list';
+  return list;
 }
 
 function _toggleUrlBarSection(key, enabled) {

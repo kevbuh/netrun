@@ -96,27 +96,13 @@ const _HELP_DATA = {
 // ─── AetherUI Settings Helpers ──────────────────────────────
 
 function _settingRow(label, desc, control) {
-  var row = new View('div');
-  row.el.className = 'nr-settings-group-row';
-  var left = document.createElement('div');
-  left.className = 'nr-settings-row-left';
-  if (label) {
-    var labelEl = document.createElement('div');
-    labelEl.className = 'nr-settings-row-label';
-    labelEl.textContent = label;
-    left.appendChild(labelEl);
-  }
-  if (desc) {
-    var descEl = document.createElement('div');
-    descEl.className = 'nr-settings-row-desc';
-    descEl.textContent = desc;
-    left.appendChild(descEl);
-  }
-  row.el.appendChild(left);
-  if (control) {
-    var ctrlEl = control.el || control;
-    row.el.appendChild(ctrlEl);
-  }
+  var leftChildren = [];
+  if (label) leftChildren.push(Text(label).className('nr-settings-row-label'));
+  if (desc) leftChildren.push(Text(desc).className('nr-settings-row-desc'));
+  var left = VStack.apply(null, leftChildren).className('nr-settings-row-left');
+  var rowChildren = [left];
+  if (control) rowChildren.push(control);
+  var row = HStack.apply(null, rowChildren).className('nr-settings-group-row');
   return row;
 }
 
@@ -160,13 +146,10 @@ function _settingBtnGroup(label, options, currentValue, onSelect) {
     return b;
   });
   var right = HStack.apply(null, btns).spacing(1);
-  var row = new View('div');
-  row.el.className = 'nr-settings-group-row';
-  var labelEl = document.createElement('div');
-  labelEl.className = 'nr-settings-row-label';
-  labelEl.textContent = label;
-  row.el.appendChild(labelEl);
-  row.el.appendChild(right.el);
+  var row = HStack(
+    Text(label).className('nr-settings-row-label'),
+    right
+  ).className('nr-settings-group-row');
   return row;
 }
 
@@ -203,24 +186,11 @@ function _settingSlider(label, desc, value, opts, onInput, onChange) {
   if (onChange) slider.el.addEventListener('change', function() { onChange(slider.el.value); });
   var right = HStack(slider, valSpan).spacing(2).className('flex-1 max-w-[200px]');
 
-  var row = new View('div');
-  row.el.className = 'nr-settings-group-row';
-  var left = document.createElement('div');
-  left.className = 'nr-settings-row-left';
-  if (label) {
-    var labelEl = document.createElement('div');
-    labelEl.className = 'nr-settings-row-label';
-    labelEl.textContent = label;
-    left.appendChild(labelEl);
-  }
-  if (desc) {
-    var descEl = document.createElement('div');
-    descEl.className = 'nr-settings-row-desc';
-    descEl.textContent = desc;
-    left.appendChild(descEl);
-  }
-  row.el.appendChild(left);
-  row.el.appendChild(right.el);
+  var leftChildren = [];
+  if (label) leftChildren.push(Text(label).className('nr-settings-row-label'));
+  if (desc) leftChildren.push(Text(desc).className('nr-settings-row-desc'));
+  var left = VStack.apply(null, leftChildren).className('nr-settings-row-left');
+  var row = HStack(left, right).className('nr-settings-group-row');
   return row;
 }
 
@@ -255,23 +225,12 @@ function _settingHeadingRow(title, desc, control) {
 }
 
 function _settingCard(title, children) {
-  var wrapper = new View('div');
-  if (title) {
-    var header = document.createElement('div');
-    header.className = 'nr-settings-group-header';
-    header.textContent = title;
-    wrapper.el.appendChild(header);
-  }
-  var group = document.createElement('div');
-  group.className = 'nr-settings-group';
+  var items = [];
+  if (title) items.push(Text(title).className('nr-settings-group-header'));
   var childArr = [].concat(children).filter(Boolean);
-  for (var i = 0; i < childArr.length; i++) {
-    var child = childArr[i];
-    var el = child.el || child;
-    group.appendChild(el);
-  }
-  wrapper.el.appendChild(group);
-  wrapper.className('mb-4');
+  var group = VStack.apply(null, childArr).className('nr-settings-group');
+  items.push(group);
+  var wrapper = VStack.apply(null, items).className('mb-4');
   return wrapper;
 }
 

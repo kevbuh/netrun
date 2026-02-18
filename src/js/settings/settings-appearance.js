@@ -265,43 +265,19 @@ function _renderAppearanceSettings() {
   ).className('mb-8');
 
   // Accent color row
-  var accentRow = new View('div');
-  accentRow.el.className = 'nr-settings-group-row';
-  var accentLabel = document.createElement('div');
-  accentLabel.className = 'nr-settings-row-label';
-  accentLabel.textContent = 'Accent Color';
-  accentRow.el.appendChild(accentLabel);
-  accentRow.el.appendChild(HStack.apply(null, accentSwatches).spacing(2).el);
+  var accentRow = _settingRow('Accent Color', null, HStack.apply(null, accentSwatches).spacing(2));
 
   // Spinner row in group-row format
-  var spinnerGroupRow = new View('div');
-  spinnerGroupRow.el.className = 'nr-settings-group-row';
-  var spinnerLabel = document.createElement('div');
-  spinnerLabel.className = 'nr-settings-row-label';
-  spinnerLabel.textContent = 'Loading Spinner';
-  spinnerGroupRow.el.appendChild(spinnerLabel);
-  spinnerGroupRow.el.appendChild(HStack(prevBtn, spinnerCenter, nextBtn).spacing(2).el);
+  var spinnerGroupRow = _settingRow('Loading Spinner', null, HStack(prevBtn, spinnerCenter, nextBtn).spacing(2));
 
   // Pet row in group-row format
-  var petGroupRow = new View('div');
-  petGroupRow.el.className = 'nr-settings-group-row';
-  var petLabel = document.createElement('div');
-  petLabel.className = 'nr-settings-row-label';
-  petLabel.textContent = 'Pixel Pet';
-  petGroupRow.el.appendChild(petLabel);
-  petGroupRow.el.appendChild(HStack.apply(null, petBtns).spacing(0.5).el);
+  var petGroupRow = _settingRow('Pixel Pet', null, HStack.apply(null, petBtns).spacing(0.5));
 
   // Noise as freeform content
   var noiseContent = _settingGroupContent([noiseSection]);
 
   // Sound row in group-row format
-  var soundGroupRow = new View('div');
-  soundGroupRow.el.className = 'nr-settings-group-row';
-  var soundLabel = document.createElement('div');
-  soundLabel.className = 'nr-settings-row-label';
-  soundLabel.textContent = 'Button Sounds';
-  soundGroupRow.el.appendChild(soundLabel);
-  soundGroupRow.el.appendChild(HStack.apply(null, soundBtns).spacing(0.5).el);
+  var soundGroupRow = _settingRow('Button Sounds', null, HStack.apply(null, soundBtns).spacing(0.5));
 
   return VStack(
     _settingCard('Visual', [

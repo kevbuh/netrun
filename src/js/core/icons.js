@@ -178,3 +178,5 @@ function icon(name, opts = {}) {
 // Make globally available (non-module script environment)
 window.icon = icon;
 window.ICONS = ICONS;
+
+export { icon, ICONS };

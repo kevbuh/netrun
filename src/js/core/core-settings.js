@@ -292,3 +292,7 @@ var Settings = (function() {
     getDefault: getDefault
   };
 })();
+
+window.Settings = Settings;
+
+export default Settings;
