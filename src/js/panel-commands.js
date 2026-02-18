@@ -564,14 +564,13 @@ function _aetherOpenNoteEditor(popup, note) {
 
   const popupRect = popup.getBoundingClientRect();
 
-  const editor = document.createElement('div');
-  editor.id = 'aether-note-editor';
-  editor.className = 'aether-note-editor-panel';
-  editor.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  var editorView = new View('div').id('aether-note-editor').className('aether-note-editor-panel');
+  editorView.on('mousedown', (ev) => ev.stopPropagation());
+  const editor = editorView.build();
 
   // Title bar with note title and close button
-  const titleBar = document.createElement('div');
-  titleBar.className = 'aether-note-editor-title-bar';
+  var titleBarView = new View('div').className('aether-note-editor-title-bar');
+  const titleBar = titleBarView.build();
 
   // Drag support
   let edDragging = false, edDragOff = { x: 0, y: 0 };
@@ -589,30 +588,26 @@ function _aetherOpenNoteEditor(popup, note) {
   });
   document.addEventListener('mouseup', () => { edDragging = false; });
 
-  const titleSpan = document.createElement('span');
-  titleSpan.className = 'aether-note-editor-title';
-  titleSpan.textContent = note.title || 'Untitled';
-  titleBar.appendChild(titleSpan);
+  var titleSpanView = new View('span').className('aether-note-editor-title')._bindText(note.title || 'Untitled');
+  titleBar.appendChild(titleSpanView.build());
 
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'aether-note-editor-close';
-  closeBtn.innerHTML = '&times;';
-  closeBtn.title = 'Close';
-  closeBtn.addEventListener('click', (ev) => { ev.stopPropagation(); editor.remove(); });
-  titleBar.appendChild(closeBtn);
+  var closeBtnView = new View('button').className('aether-note-editor-close').attr('title', 'Close');
+  closeBtnView.el.innerHTML = '&times;';
+  closeBtnView.onTap((ev) => { ev.stopPropagation(); editor.remove(); });
+  titleBar.appendChild(closeBtnView.build());
   editor.appendChild(titleBar);
 
   // Textarea for editing
-  const textarea = document.createElement('textarea');
-  textarea.className = 'aether-note-editor-textarea';
-  textarea.value = note.content || '';
-  textarea.placeholder = 'Start writing...';
+  var textareaView = new View('textarea').className('aether-note-editor-textarea');
+  textareaView.el.value = note.content || '';
+  textareaView.el.placeholder = 'Start writing...';
+  const textarea = textareaView.build();
   editor.appendChild(textarea);
 
   // Auto-save on input (debounced 600ms)
   let saveTimer = null;
-  const statusEl = document.createElement('div');
-  statusEl.className = 'aether-note-editor-status';
+  var statusView = new View('div').className('aether-note-editor-status');
+  const statusEl = statusView.build();
   editor.appendChild(statusEl);
 
   textarea.addEventListener('input', () => {
