@@ -19,7 +19,7 @@ function toggleBrowseMoreMenu() {
   function _mBtn(svgHtml, label, action, opts) {
     opts = opts || {};
     var btn = new View('button');
-    var row = HStack([RawHTML(svgHtml), Text(label).style('flex', '1')]).spacing(2).alignment('center');
+    var row = HStack([RawHTML(svgHtml), Text(label).flex(1)]).spacing(2).alignment('center');
     if (opts.trailing) row.el.appendChild(opts.trailing.build());
     btn.el.appendChild(row.build());
     btn.el.style.cssText = 'width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:' + (opts.disabled ? 'var(--aether-text-dimmest)' : (opts.color || 'var(--aether-text)')) + ';font-size:0.78rem;cursor:' + (opts.disabled ? 'default' : 'pointer') + ';display:flex;align-items:center;gap:8px;';
@@ -40,7 +40,7 @@ function toggleBrowseMoreMenu() {
     items.push(_mBtn('<svg class="w-4 h-4" viewBox="0 0 24 24" fill="' + (isSaved ? 'var(--nr-accent)' : 'none') + '" stroke="' + (isSaved ? 'var(--nr-accent)' : 'currentColor') + '" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>', isSaved ? 'Saved' : 'Save to Reading List', function() { browseSaveToReadingList(); _refreshOverflowBookmark(this); }));
     items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg>', 'Share', function() { browseShare(); _closeMenu(); }, { disabled: !hasTab }));
     var _adOn = Settings.get('adBlockEnabled') === 'true';
-    items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>', 'Ad Blocker', function() { toggleAdBlock(); _closeMenu(); }, { color: _adOn ? 'var(--nr-accent)' : undefined, trailing: Text(_adOn ? 'On' : 'Off').style('marginLeft', 'auto').style('fontSize', '0.7rem').style('color', 'var(--aether-text-dimmest)') }));
+    items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>', 'Ad Blocker', function() { toggleAdBlock(); _closeMenu(); }, { color: _adOn ? 'var(--nr-accent)' : undefined, trailing: Text(_adOn ? 'On' : 'Off').style('marginLeft', 'auto').font('caption2').foreground('quaternary') }));
     var _annEnabled = tab && _annotationsEnabled.get(tab.id);
     items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 9h8M8 13h6" stroke-linecap="round"/></svg>', _annEnabled ? 'Remove Annotations' : 'Annotate Page', function() { toggleAnnotations(); _closeMenu(); }, { disabled: !hasTab, color: _annEnabled ? 'var(--nr-accent)' : undefined }));
     items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>', 'Search History', function() { openSearchHistoryPage(); _closeMenu(); }));
@@ -66,7 +66,7 @@ function toggleBrowseMoreMenu() {
   }
 
   // Fixed items: divider, permissions, print, layout toggle, settings
-  items.push(new View('div').style('borderTop', '1px solid var(--aether-border)').style('margin', '2px 0'));
+  items.push(new View('div').style('borderTop', '1px solid var(--aether-border)').margin('2px', '0'));
 
   // Permissions
   var permsBtn = _mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>', 'Site Permissions', function(e) { _togglePermissionsInMenu(e || window.event); }, { disabled: !hasTab });
@@ -102,14 +102,11 @@ function toggleBrowseMoreMenu() {
   var btnRect = anchorBtn.getBoundingClientRect();
 
   var menuPanel = VStack(items)
-    .style('position', 'fixed')
-    .style('minWidth', '180px')
-    .style('background', 'var(--aether-dropdown-bg)')
-    .style('border', '1px solid var(--aether-border)')
+    .position('fixed')
+    .styles({ minWidth: '180px', background: 'var(--aether-dropdown-bg)', border: '1px solid var(--aether-border)', boxShadow: '0 8px 32px var(--aether-shadow)' })
     .cornerRadius('lg')
-    .style('boxShadow', '0 8px 32px var(--aether-shadow)')
     .zIndex('overlay')
-    .style('padding', '4px 0');
+    .padding('4px', '0');
 
   if (isIsland) {
     menuPanel.style('right', Math.round(window.innerWidth - btnRect.right) + 'px');

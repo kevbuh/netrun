@@ -220,14 +220,6 @@ let _qfAborted = false;
 let _qfRemaining = 0;
 let _qfPhase = ''; // 'verdict' or 'score'
 
-function stopFeedLoading() {
-  // Abort in-flight feed fetches
-  if (typeof _feedAbort !== 'undefined' && _feedAbort) { _feedAbort.abort(); _feedAbort = null; }
-  // Stop quality filter
-  _qfAborted = true;
-  _qfQueued = false;
-}
-
 async function qualityFilterPapers() {
   if (_qfRunning) { _qfQueued = true; return; }
   _qfRunning = true;

@@ -172,10 +172,10 @@ function _wizardWelcomeView() {
   continueBtn.onTap(function() { _renderWizardStep(1, 'forward'); });
   return VStack(
     avatarView,
-    Text('Welcome, ' + firstName).style('font-size', '22px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '6px'),
-    Text("Let's get your workspace set up. This only takes a moment.").style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '24px'),
+    Text('Welcome, ' + firstName).styles({fontSize:'22px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'6px'}),
+    Text("Let's get your workspace set up. This only takes a moment.").styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'24px'}),
     continueBtn
-  ).style('text-align', 'center');
+  ).textAlign('center');
 }
 
 // ── Step 1: Username ──
@@ -185,19 +185,19 @@ function _wizardUsernameView() {
   input.el.type = 'text';
   input.el.maxLength = 20;
   input.el.placeholder = 'username';
-  input.el.style.cssText = 'width:100%;box-sizing:border-box;padding:10px 14px;font-size:15px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--nr-text-primary,#e0e0e0);outline:none;text-align:center;';
-  var submitBtn = new View('button').id('wiz-username-btn').className('nr-btn nr-btn-primary nr-btn-lg').style('margin-top', '4px');
+  input.cssText('width:100%;box-sizing:border-box;padding:10px 14px;font-size:15px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--nr-text-primary,#e0e0e0);outline:none;text-align:center;');
+  var submitBtn = new View('button').id('wiz-username-btn').className('nr-btn nr-btn-primary nr-btn-lg').styles({marginTop:'4px'});
   submitBtn.el.textContent = 'Continue';
   submitBtn.el.disabled = true;
   submitBtn.onTap(function() { _wizardSubmitUsername(); });
   return VStack(
-    Text('Choose a username').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
-    Text('This will be your public identity.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
+    Text('Choose a username').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    Text('This will be your public identity.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
     input,
-    Text('2-20 characters: letters, numbers, hyphens, underscores').id('wiz-username-hint').style('font-size', '11px').style('color', 'var(--nr-text-secondary,#999)').style('margin-top', '6px'),
-    new View('div').id('wiz-username-error').style('font-size', '12px').style('color', '#e74c3c').style('margin-top', '6px').style('min-height', '18px'),
+    Text('2-20 characters: letters, numbers, hyphens, underscores').id('wiz-username-hint').styles({fontSize:'11px', color:'var(--nr-text-secondary,#999)', marginTop:'6px'}),
+    new View('div').id('wiz-username-error').styles({fontSize:'12px', color:'#e74c3c', marginTop:'6px', minHeight:'18px'}),
     submitBtn
-  ).style('text-align', 'center');
+  ).textAlign('center');
 }
 
 function _wizardUsernameInit() {
@@ -263,12 +263,12 @@ function _wizardAccentView() {
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _wizardAccentContinue(); });
   return VStack(
-    Text('Pick your color').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
-    Text('You can change this anytime in settings.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
+    Text('Pick your color').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    Text('You can change this anytime in settings.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
     HStack(swatches).className('flex flex-wrap justify-center gap-3 mb-3.5'),
-    Text(currentName).id('wiz-color-name').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '16px'),
+    Text(currentName).id('wiz-color-name').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'16px'}),
     continueBtn
-  ).style('text-align', 'center');
+  ).textAlign('center');
 }
 
 function _wizardAccentInit() {
@@ -313,7 +313,7 @@ function _wizardThemeView() {
     var btn = new View('button').className('wizard-theme-option' + (t.id === current ? ' selected' : ''));
     btn.el.dataset.theme = t.id;
     btn.el.appendChild(RawHTML(_wizardThemePreviewHTML(t)).build());
-    var labelWrap = new View('div').style('flex', '1').style('text-align', 'left').style('margin-left', '12px');
+    var labelWrap = new View('div').flex(1).textAlign('left').styles({marginLeft:'12px'});
     labelWrap.el.appendChild(RawHTML('<span class="wizard-theme-name">' + t.name + '</span><br/><span class="wizard-theme-desc">' + t.desc + '</span>').build());
     btn.el.appendChild(labelWrap.el);
     btn.onTap(function() { _wizardPickTheme(t.id, btn.el); });
@@ -323,11 +323,11 @@ function _wizardThemeView() {
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _wizardThemeContinue(); });
   return VStack(
-    Text('Choose a theme').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
-    Text('Sets the overall look and feel.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
-    VStack(options).spacing(2).style('margin-bottom', '20px'),
+    Text('Choose a theme').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    Text('Sets the overall look and feel.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
+    VStack(options).spacing(2).styles({marginBottom:'20px'}),
     continueBtn
-  ).style('text-align', 'center');
+  ).textAlign('center');
 }
 
 function _wizardThemeInit() {
@@ -387,14 +387,14 @@ function _wizardTabLayoutView() {
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _renderWizardStep(5, 'forward'); });
   return VStack(
-    Text('Browser tab style').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
-    Text('How should your browser tabs look?').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
+    Text('Browser tab style').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    Text('How should your browser tabs look?').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
     HStack(
       _layoutOption('island', 'Island', 'Sidebar tabs', islandPreview, current === 'island'),
       _layoutOption('horizontal', 'Horizontal', 'Top tab bar', horizPreview, current === 'horizontal')
     ).spacing(3).className('justify-center mb-5'),
     continueBtn
-  ).style('text-align', 'center');
+  ).textAlign('center');
 }
 
 function _wizardPickTabLayout(layout, el) {
@@ -416,12 +416,12 @@ function _wizardFeedsView() {
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _renderWizardStep(6, 'forward'); });
   return VStack(
-    Text('Choose your feeds').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
-    Text('Pick RSS feeds to follow. You can change these later.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '16px'),
+    Text('Choose your feeds').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    Text('Pick RSS feeds to follow. You can change these later.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'16px'}),
     new View('div').id('wiz-feed-tabs').className('flex flex-wrap gap-1.5 justify-center mb-3'),
-    new View('div').id('wiz-feed-grid').style('max-height', '280px').style('overflow-y', 'auto').style('text-align', 'left').style('margin-bottom', '16px'),
+    new View('div').id('wiz-feed-grid').styles({maxHeight:'280px', overflowY:'auto', textAlign:'left', marginBottom:'16px'}),
     continueBtn
-  ).style('text-align', 'center');
+  ).textAlign('center');
 }
 
 function _wizardFeedsInit() {
@@ -477,12 +477,12 @@ function _wizardFeedRenderGrid() {
     var allOn = items.every(function(f) { return _wizardFeedSelected.has(f.key); });
 
     // Category header
-    var catLabel = Text(cat).style('font-size', '0.72rem').style('color', 'var(--nr-text-secondary,#999)').style('text-transform', 'uppercase').style('letter-spacing', '0.05em').style('font-weight', '500');
-    var sep = new View('span').style('flex', '1').style('height', '1px').style('background', 'rgba(255,255,255,0.06)');
-    var toggleAllBtn = new View('button').style('font-size', '0.68rem').style('color', 'var(--nr-text-secondary,#777)').style('background', 'none').style('border', 'none').style('cursor', 'pointer');
+    var catLabel = Text(cat).styles({fontSize:'0.72rem', color:'var(--nr-text-secondary,#999)', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:'500'});
+    var sep = new View('span').flex(1).styles({height:'1px', background:'rgba(255,255,255,0.06)'});
+    var toggleAllBtn = new View('button').styles({fontSize:'0.68rem', color:'var(--nr-text-secondary,#777)', background:'none', border:'none'}).cursor();
     toggleAllBtn.el.textContent = allOn ? 'Deselect all' : 'Select all';
     (function(c) { toggleAllBtn.onTap(function() { _wizardFeedToggleCategory(c); }); })(cat);
-    var header = HStack(catLabel, sep, toggleAllBtn).spacing(2).className('items-center').style('padding', '0 4px').style('margin-bottom', '4px');
+    var header = HStack(catLabel, sep, toggleAllBtn).spacing(2).className('items-center').styles({padding:'0 4px', marginBottom:'4px'});
 
     // Feed items
     var feedRows = items.map(function(f) {
@@ -493,13 +493,13 @@ function _wizardFeedRenderGrid() {
       } else {
         faviconView = RawHTML('<span style="display:flex;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>');
       }
-      var nameView = Text(f.name).style('font-size', '0.82rem').style('font-weight', '500').style('color', sel ? 'var(--nr-text-primary,#e0e0e0)' : 'var(--nr-text-secondary,#999)').style('overflow', 'hidden').style('text-overflow', 'ellipsis').style('white-space', 'nowrap');
-      var descView = Text(f.desc).style('font-size', '0.7rem').style('color', 'var(--nr-text-secondary,#777)').style('overflow', 'hidden').style('text-overflow', 'ellipsis').style('white-space', 'nowrap');
-      var textCol = VStack(nameView, descView).style('flex', '1').style('min-width', '0');
+      var nameView = Text(f.name).styles({fontSize:'0.82rem', fontWeight:'500', color: sel ? 'var(--nr-text-primary,#e0e0e0)' : 'var(--nr-text-secondary,#999)'}).truncate();
+      var descView = Text(f.desc).styles({fontSize:'0.7rem', color:'var(--nr-text-secondary,#777)'}).truncate();
+      var textCol = VStack(nameView, descView).flex(1).styles({minWidth:'0'});
       var checkSvg = sel ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : '';
-      var checkCircle = new View('div').style('width', '20px').style('height', '20px').style('border-radius', '50%').style('border', '2px solid ' + (sel ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.15)')).style('background', sel ? 'var(--accent,#b4451a)' : 'transparent').style('display', 'flex').style('align-items', 'center').style('justify-content', 'center').style('flex-shrink', '0').style('transition', 'all 0.15s');
+      var checkCircle = new View('div').styles({width:'20px', height:'20px', borderRadius:'50%', border:'2px solid ' + (sel ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.15)'), background: sel ? 'var(--accent,#b4451a)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:'0', transition:'all 0.15s'});
       if (checkSvg) checkCircle.el.appendChild(RawHTML(checkSvg).build());
-      var row = HStack(faviconView, textCol, checkCircle).spacing(2.5).style('padding', '6px 10px').style('border-radius', '8px').style('cursor', 'pointer').style('transition', 'background 0.15s').style('background', sel ? 'rgba(255,255,255,0.04)' : 'transparent');
+      var row = HStack(faviconView, textCol, checkCircle).spacing(2.5).styles({padding:'6px 10px', borderRadius:'8px', transition:'background 0.15s', background: sel ? 'rgba(255,255,255,0.04)' : 'transparent'}).cursor();
       (function(key, isSel) {
         row.el.addEventListener('click', function() { _wizardFeedToggle(key); });
         row.el.addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.06)'; });
@@ -508,7 +508,7 @@ function _wizardFeedRenderGrid() {
       return row;
     });
 
-    sections.push(VStack([header].concat(feedRows)).style('margin-bottom', '12px'));
+    sections.push(VStack([header].concat(feedRows)).styles({marginBottom:'12px'}));
   }
   AetherUI.mount(VStack(sections), grid);
 
@@ -539,11 +539,11 @@ function _wizardChatModelView() {
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _renderWizardStep(7, 'forward'); });
   return VStack(
-    Text('Choose a model').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
-    Text('Pick the default Ollama model for chat and tools.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
-    new View('div').id('wiz-model-list').className('flex flex-col gap-1.5 mb-5').style('max-height', '200px').style('overflow-y', 'auto'),
+    Text('Choose a model').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    Text('Pick the default Ollama model for chat and tools.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
+    new View('div').id('wiz-model-list').className('flex flex-col gap-1.5 mb-5').styles({maxHeight:'200px', overflowY:'auto'}),
     continueBtn
-  ).style('text-align', 'center');
+  ).textAlign('center');
 }
 
 async function _wizardChatModelInit() {
@@ -558,7 +558,7 @@ async function _wizardChatModelInit() {
   if (!container) return;
 
   if (!_wizardModelList.length) {
-    AetherUI.mount(Text('No models found. Make sure Ollama is running.').style('font-size', '12px').style('color', 'var(--nr-text-secondary,#999)').style('padding', '16px 0'), container);
+    AetherUI.mount(Text('No models found. Make sure Ollama is running.').styles({fontSize:'12px', color:'var(--nr-text-secondary,#999)', padding:'16px 0'}), container);
     return;
   }
 
@@ -590,20 +590,20 @@ function _wizardPixelPetView() {
   var currentType = Settings.get('pixelPetType') || 'cat';
   var petBtns = _wizardPetTypes.map(function(p) {
     var sel = petOn && currentType === p.id;
-    var btn = new View('button').className('wizard-pet-option' + (sel ? ' selected' : '')).style('display', 'flex').style('flex-direction', 'column').style('align-items', 'center').style('gap', '6px').style('padding', '10px 12px');
+    var btn = new View('button').className('wizard-pet-option' + (sel ? ' selected' : '')).styles({display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', padding:'10px 12px'});
     btn.el.dataset.pet = p.id;
     btn.el.appendChild(RawHTML('<canvas class="wiz-pet-sprite" data-pet-id="' + p.id + '" width="48" height="48" style="image-rendering:pixelated;width:48px;height:48px;"></canvas>').build());
-    btn.el.appendChild(Text(p.name).style('font-size', '11px').build());
+    btn.el.appendChild(Text(p.name).styles({fontSize:'11px'}).build());
     (function(petId) {
       btn.onTap(function() { _wizardPickPet(petId, btn.el); });
     })(p.id);
     return btn;
   });
   // "None" option
-  var noneBtn = new View('button').className('wizard-pet-option' + (!petOn ? ' selected' : '')).style('display', 'flex').style('flex-direction', 'column').style('align-items', 'center').style('gap', '6px').style('padding', '10px 12px');
+  var noneBtn = new View('button').className('wizard-pet-option' + (!petOn ? ' selected' : '')).styles({display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', padding:'10px 12px'});
   noneBtn.el.dataset.pet = 'none';
   noneBtn.el.appendChild(RawHTML('<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--nr-text-secondary,#999)" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>').build());
-  noneBtn.el.appendChild(Text('None').style('font-size', '11px').build());
+  noneBtn.el.appendChild(Text('None').styles({fontSize:'11px'}).build());
   noneBtn.onTap(function() { _wizardPickPet('none', noneBtn.el); });
   petBtns.push(noneBtn);
 
@@ -611,11 +611,11 @@ function _wizardPixelPetView() {
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _renderWizardStep(8, 'forward'); });
   return VStack(
-    Text('Pick a companion').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
-    Text('A pixel pet that lives on your screen. Or go solo.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
+    Text('Pick a companion').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    Text('A pixel pet that lives on your screen. Or go solo.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
     HStack(petBtns).className('flex flex-wrap justify-center gap-2.5 mb-5'),
     continueBtn
-  ).style('text-align', 'center');
+  ).textAlign('center');
 }
 
 function _wizardPixelPetInit() {
@@ -764,12 +764,12 @@ function _wizardNeuralookView() {
   skipBtn.el.textContent = 'Set up later';
   skipBtn.onTap(function() { _renderWizardStep(9, 'forward'); });
   return VStack(
-    Text('Eye tracking').style('font-size', '20px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '4px'),
-    Text('Neuralook uses your camera for gaze-based navigation. A quick calibration is needed.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '20px'),
+    Text('Eye tracking').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    Text('Neuralook uses your camera for gaze-based navigation. A quick calibration is needed.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
     RawHTML('<div style="margin-bottom:24px;"><svg style="width:48px;height:48px;display:inline-block;" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>'),
     calibrateBtn,
     skipBtn
-  ).style('text-align', 'center');
+  ).textAlign('center');
 }
 
 async function _wizardStartNeuralook() {
@@ -796,10 +796,10 @@ function _wizardFinaleView() {
   enterBtn.onTap(function() { _wizardFinish(); });
   return VStack(
     RawHTML('<div class="wizard-finale-check"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>'),
-    Text("You're all set, @" + username).style('font-size', '22px').style('font-weight', '600').style('color', 'var(--nr-text-primary,#e0e0e0)').style('margin-bottom', '6px'),
-    Text('Neural link established. Jack in.').style('font-size', '13px').style('color', 'var(--nr-text-secondary,#999)').style('margin-bottom', '24px'),
+    Text("You're all set, @" + username).styles({fontSize:'22px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'6px'}),
+    Text('Neural link established. Jack in.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'24px'}),
     enterBtn
-  ).style('text-align', 'center');
+  ).textAlign('center');
 }
 
 async function _wizardFinish() {

@@ -278,26 +278,6 @@ function _ttsStopAll() {
   document.querySelectorAll('.doc-msg-speak-btn.doc-msg-speaking').forEach(function(b) { b.classList.remove('doc-msg-speaking'); });
 }
 
-function _ttsPauseResume() {
-  if (!_ttsAudio && !_ttsPaused) return;
-  if (_ttsPaused) {
-    _ttsPaused = false;
-    if (_ttsAudio) {
-      _ttsAudio.play();
-      _ttsStartWaveform(_ttsAudio);
-    } else if (_ttsQueue.length > 0) {
-      _ttsPlayNext();
-    }
-    _updateAudioUnified('tts', { label: 'Reading', detail: _ttsTimeDetail() });
-  } else {
-    _ttsPaused = true;
-    if (_ttsAudio) { _ttsAudio.pause(); }
-    _ttsStopWaveform();
-    _updateAudioUnified('tts', { label: 'Paused', detail: _ttsTimeDetail(), paused: true });
-  }
-  _ttsUpdateBtnIcon();
-}
-
 function _ttsFormatTime(secs) {
   let s = Math.round(secs);
   if (s < 0) s = 0;

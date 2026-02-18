@@ -177,7 +177,7 @@ function _populatePillMenuMoreItems() {
     opts = opts || {};
     var btn = new View('button');
     var icon = RawHTML(svgHtml);
-    var textEl = Text(label).style('flex', '1');
+    var textEl = Text(label).flex(1);
     var row = opts.trailing ? HStack([icon, textEl, opts.trailing]) : HStack([icon, textEl]);
     row.spacing(2).alignment('center');
     btn.el.appendChild(row.build());
@@ -188,7 +188,7 @@ function _populatePillMenuMoreItems() {
   }
 
   function _menuDivider() {
-    return new View('div').style('height', '1px').style('background', 'var(--aether-border)').style('margin', '2px 0');
+    return new View('div').style('height', '1px').style('background', 'var(--aether-border)').margin('2px', '0');
   }
 
   var items = [];
@@ -204,9 +204,10 @@ function _populatePillMenuMoreItems() {
       (function(w) {
         var isActiveWin = w.id === _browseActiveWindow;
         var countText = Text(String(w.tabs.length)).style('marginLeft', 'auto').font('caption2').foreground('quaternary');
+
         var trailing = HStack([countText]);
         if (!isActiveWin && _browseWindows.length > 1) {
-          var closeSpan = Text('\u00d7').style('marginLeft', '4px').style('opacity', '0.4').style('cursor', 'pointer');
+          var closeSpan = Text('\u00d7').style('marginLeft', '4px').opacity('0.4').cursor();
           closeSpan.onTap(function(e) { e.stopPropagation(); browseCloseWindow(w.id); _populatePillMenuMoreItems(); });
           trailing = HStack([countText, closeSpan]);
         }
@@ -237,7 +238,7 @@ function _populatePillMenuMoreItems() {
 
   // Ad Blocker
   var adOn = Settings.get('adBlockEnabled') === 'true';
-  var adTrailing = Text(adOn ? 'On' : 'Off').font('caption2').style('marginLeft', 'auto').style('color', 'var(--aether-text-dimmest)');
+  var adTrailing = Text(adOn ? 'On' : 'Off').font('caption2').style('marginLeft', 'auto').foreground('quaternary');
   items.push(_menuBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>',
     'Ad Blocker', function() { toggleAdBlock(); _closePillMenu(); }, { style: adOn ? { color: 'var(--nr-accent)' } : {}, trailing: adTrailing }));
 

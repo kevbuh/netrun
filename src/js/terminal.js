@@ -135,15 +135,6 @@ let _termSettings = {
   cursorStyle: 'block',
 };
 
-function openTerminal() {
-  // Redirect to vault with terminal mode
-  if (typeof openVault === 'function') {
-    openVault().then(() => {
-      if (!_vaultTerminalMode) vaultToggleTerminal();
-    });
-  }
-}
-
 function _nextTerminalId() {
   const used = new Set(_terminals.map(t => t.id));
   let n = 1;

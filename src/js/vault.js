@@ -973,12 +973,6 @@ function vaultToggleProject(projectId) {
   renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
 }
 
-// Expand a specific project in the tree (e.g. from route)
-function vaultExpandProject(projectId) {
-  _vaultExpandedProjects.add(projectId);
-  renderVaultFileTree(document.getElementById('vault-search-input')?.value || '');
-}
-
 // Render children of a project folder
 function _renderProjectChildren(children, projectId) {
   if (!children || !children.length) {
@@ -1974,52 +1968,6 @@ function vaultShowPublishModal(url) {
   modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 }
 
-// Open blog view (public)
-async function openBlogPost(username, slug) {
-  hideAllViews();
-  const view = await ensureView('blog-view');
-  view.classList.add('active');
-  view.style.display = 'block';
-  window.location.hash = `blog/${username}/${slug}`;
-  setSidebarActive('');
-
-  // Reset current post
-  _currentBlogPost = null;
-
-  // Load blog post
-  document.getElementById('blog-title').textContent = 'Loading...';
-  document.getElementById('blog-content').innerHTML = '';
-  document.getElementById('blog-author').textContent = '';
-  document.getElementById('blog-date').textContent = '';
-
-  try {
-    const post = await apiGet(`/api/blog/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`);
-    _currentBlogPost = post;
-    document.getElementById('blog-title').textContent = post.title;
-    AetherUI.mount(RawHTML(renderBlogMarkdown(post.content)), document.getElementById('blog-content'));
-    var authorChildren = [];
-    if (post.picture) authorChildren.push(Image(post.picture).className('blog-author-pic'));
-    var authorLink = Link(post.author, '#profile/' + encodeURIComponent(post.author));
-    authorChildren.push(authorLink);
-    AetherUI.mount(HStack.apply(null, authorChildren), document.getElementById('blog-author'));
-    if (post.published_at) {
-      document.getElementById('blog-date').textContent = new Date(post.published_at * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-    }
-    updateBlogBookmarkButton();
-    updateBlogVoteButtons();
-    loadBlogComments();
-    // Show unpost button if user is the author
-    const unpostBtn = document.getElementById('blog-unpost-btn');
-    const isAuthor = _authUserInfo && _authUserInfo.username === post.author;
-    if (unpostBtn) unpostBtn.style.display = isAuthor ? '' : 'none';
-  } catch (e) {
-    document.getElementById('blog-title').textContent = 'Post not found';
-    AetherUI.mount(Text('This post may have been unpublished or deleted.'), document.getElementById('blog-content'));
-    const unpostBtn = document.getElementById('blog-unpost-btn');
-    if (unpostBtn) unpostBtn.style.display = 'none';
-  }
-}
-
 // Current blog post data (for actions)
 let _currentBlogPost = null;
 
@@ -2057,20 +2005,6 @@ function toggleBlogBookmark() {
 
   Settings.setJSON('savedPosts', savedPosts);
   if (typeof syncToServer === 'function') syncToServer();
-}
-
-// Update bookmark button state
-function updateBlogBookmarkButton() {
-  if (!_currentBlogPost) return;
-
-  const url = window.location.origin + '/#' + window.location.hash.slice(1);
-  let savedPosts = {};
-  try {
-    savedPosts = Settings.getJSON('savedPosts', {});
-  } catch (e) { /* fire-and-forget */ }
-
-  const btn = document.getElementById('blog-bookmark-btn');
-  btn?.classList.toggle('active', !!savedPosts[url]);
 }
 
 // Copy blog post to user's vault (fork)
@@ -2181,49 +2115,6 @@ async function unpublishBlog() {
     console.error('Failed to unpublish', e);
     alert(e.message || 'Failed to unpublish');
   }
-}
-
-// Render markdown for blog (similar to vault but without wiki links interaction)
-function renderBlogMarkdown(content) {
-  if (!content) return '';
-  let html = escapeHtml(content);
-
-  // Remove wiki link syntax, just show text
-  html = html.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, target, display) => escapeHtml(display || target));
-
-  // Tags
-  html = html.replace(/#([a-zA-Z0-9_-]+)/g, '<span class="blog-tag">#$1</span>');
-
-  // Headers
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-
-  // Bold and italic
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-
-  // Code blocks
-  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-  // Blockquotes
-  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
-
-  // Lists
-  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
-
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-
-  // Paragraphs
-  html = html.replace(/\n\n/g, '</p><p>');
-  html = '<p>' + html + '</p>';
-  html = html.replace(/<p><\/p>/g, '');
-  html = html.replace(/\n/g, '<br>');
-
-  return html;
 }
 
 // ── Blog Comments ──
@@ -2588,209 +2479,6 @@ async function sendVaultChatMessage() {
   }
 }
 
-// ── NTP Vault Panel (lightweight notes + chat for new-tab page) ──
-
-async function renderNtpVaultPanel() {
-  const container = document.getElementById('ntp-vault-container');
-  if (!container) return;
-
-  // Load notes if not already loaded
-  if (!_vaultNotes.length) await loadVaultNotes();
-
-  _loadVaultChatMessages();
-
-  var ntpSearch = new View('input');
-  ntpSearch.id('ntp-vault-search').className('w-full pl-3 pr-4 py-1.5 rounded-lg border border-border-input bg-card text-primary text-[0.8rem] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all');
-  ntpSearch.el.type = 'text'; ntpSearch.el.placeholder = 'Search notes\u2026'; ntpSearch.el.autocomplete = 'off';
-
-  var ntpNotes = new View('div');
-  ntpNotes.id('ntp-vault-notes');
-  ntpNotes.el.style.cssText = 'max-height:200px;overflow-y:auto;margin-bottom:12px;';
-
-  var ntpChatMsgs = new View('div');
-  ntpChatMsgs.id('ntp-vault-chat-msgs').className('doc-chat-messages vault-chat-messages');
-  ntpChatMsgs.el.style.cssText = 'max-height:200px;overflow-y:auto;';
-
-  var ntpChatInput = new View('input');
-  ntpChatInput.id('ntp-vault-chat-input').className('nr-input');
-  ntpChatInput.el.type = 'text'; ntpChatInput.el.placeholder = 'Ask about your notes\u2026';
-  ntpChatInput.el.style.cssText = 'flex:1;background:var(--nr-bg-surface);color:var(--nr-text-primary);border:1px solid var(--border-color);border-radius:6px;padding:5px 8px;font-size:0.75rem;outline:none;';
-
-  var ntpSendBtn = Button('Send').id('ntp-vault-chat-send');
-  ntpSendBtn.el.style.cssText = 'background:var(--nr-accent);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.7rem;cursor:pointer;';
-
-  var ntpClearBtn = Button('Clear').id('ntp-vault-chat-clear');
-  ntpClearBtn.el.style.cssText = 'background:transparent;color:var(--nr-text-quaternary);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;font-size:0.7rem;cursor:pointer;';
-  ntpClearBtn.el.title = 'Clear chat';
-
-  var ntpInputRow = HStack(ntpChatInput, ntpSendBtn, ntpClearBtn).spacing(1);
-  ntpInputRow.el.style.marginTop = '6px';
-
-  var chatSection = VStack(ntpChatMsgs, ntpInputRow);
-  chatSection.el.style.cssText = 'border-top:1px solid var(--border-color);padding-top:8px;';
-
-  AetherUI.mount(VStack(
-    VStack(ntpSearch).style('marginBottom', '10px'),
-    ntpNotes,
-    chatSection
-  ), container);
-
-  // Render note list
-  _renderNtpVaultNotes('');
-
-  // Search filtering
-  const searchInput = document.getElementById('ntp-vault-search');
-  searchInput.addEventListener('input', () => _renderNtpVaultNotes(searchInput.value.trim()));
-
-  // Chat handlers
-  const chatInput = document.getElementById('ntp-vault-chat-input');
-  const sendBtn = document.getElementById('ntp-vault-chat-send');
-  const clearBtn = document.getElementById('ntp-vault-chat-clear');
-  sendBtn.addEventListener('click', () => _sendNtpVaultChat());
-  clearBtn.addEventListener('click', () => { clearVaultChat(); _renderNtpVaultChatMessages(true); });
-  chatInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _sendNtpVaultChat(); }
-  });
-
-  _renderNtpVaultChatMessages(true);
-}
-
-function _renderNtpVaultNotes(filter) {
-  const container = document.getElementById('ntp-vault-notes');
-  if (!container) return;
-  const lc = filter.toLowerCase();
-  const filtered = lc ? _vaultNotes.filter(n =>
-    (n.title || '').toLowerCase().includes(lc) ||
-    (n.content || '').toLowerCase().includes(lc)
-  ) : _vaultNotes;
-
-  if (!filtered.length) {
-    AetherUI.mount(Text(lc ? 'No matching notes' : 'No notes yet').className('text-dimmer text-[0.75rem]').padding(3).align('center'), container);
-    return;
-  }
-
-  var noteRows = filtered.slice(0, 30).map(function(n) {
-    var preview = (n.content || '').replace(/[#*_`>\-\[\]()]/g, '').replace(/\s+/g, ' ').trim();
-    var snippet = preview.length > 80 ? preview.slice(0, 77) + '...' : preview;
-    var row = VStack(
-      Text(n.title || 'Untitled').className('text-[0.8rem] text-primary font-medium')
-    );
-    if (snippet) row._appendChildren([Text(snippet).className('text-[0.7rem] text-dimmer mt-px truncate')]);
-    row.className('ntp-vault-note-row').attr('data-note-id', n.id);
-    row.onTap(function() {
-      window.location.hash = 'vault';
-      setTimeout(function() { if (typeof openVaultNote === 'function') openVaultNote(n.id); }, 100);
-    });
-    return row;
-  });
-  AetherUI.mount(VStack.apply(null, noteRows), container);
-}
-
-function _renderNtpVaultChatMessages(final) {
-  const container = document.getElementById('ntp-vault-chat-msgs');
-  if (!container) return;
-  if (!_vaultChatMessages.length) {
-    AetherUI.mount(Text('Ask a question about your notes').className('text-dimmer text-[0.75rem]').padding(3).align('center'), container);
-    return;
-  }
-  AetherUI.mount(RawHTML(_vaultChatMessages.map((m, i) => {
-    if (m.role === 'user') return `<div class="doc-msg-user">${escapeHtml(m.content)}</div>`;
-    if (m._thinking) return '<div class="doc-msg-ai"><span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span></div>';
-    let sourcesHtml = '';
-    if (m._sources && m._sources.length) {
-      sourcesHtml = '<div class="vault-chat-sources">' + m._sources.map(s =>
-        `<span class="vault-chat-source-chip" data-note-id="${escapeAttr(s.id)}" title="${escapeAttr(s.title)} (${Math.round(s.score * 100)}%)">${escapeHtml(s.title.length > 25 ? s.title.slice(0, 22) + '…' : s.title)}</span>`
-      ).join('') + '</div>';
-    }
-    const isLast = i === _vaultChatMessages.length - 1;
-    const content = (final || !isLast) && typeof marked !== 'undefined'
-      ? marked.parse(m.content) : escapeHtml(m.content);
-    return sourcesHtml + `<div class="doc-msg-ai">${content}</div>`;
-  }).join('')), container);
-
-  container.querySelectorAll('.vault-chat-source-chip[data-note-id]').forEach(el => {
-    el.addEventListener('click', () => {
-      const noteId = el.getAttribute('data-note-id');
-      window.location.hash = 'vault';
-      setTimeout(() => { if (typeof openVaultNote === 'function') openVaultNote(noteId); }, 100);
-    });
-  });
-  container.scrollTop = container.scrollHeight;
-}
-
-async function _sendNtpVaultChat() {
-  const input = document.getElementById('ntp-vault-chat-input');
-  if (!input) return;
-  const q = input.value.trim();
-  if (!q) return;
-  input.value = '';
-
-  _vaultChatMessages.push({ role: 'user', content: q });
-  _vaultChatMessages.push({ role: 'assistant', content: '', _thinking: true });
-  _renderNtpVaultChatMessages(false);
-
-  input.disabled = true;
-  const sendBtn = document.getElementById('ntp-vault-chat-send');
-  if (sendBtn) sendBtn.disabled = true;
-
-  _vaultChatAbort = new AbortController();
-  const _vcModel2 = Settings.get('chatModel') || 'default';
-  islandUpdate('ai-vault', { type: 'ai', label: _vcModel2, detail: 'Vault chat \u00B7 ' + _vcModel2 });
-
-  try {
-    const filteredMsgs = _vaultChatMessages.filter(m => !m._thinking).map(m => ({
-      role: m.role, content: m.content
-    }));
-    const result = await apiPost('/api/vault-chat', { messages: filteredMsgs, query: q });
-
-    let aiText = '';
-    const aiIdx = _vaultChatMessages.length - 1;
-    _vaultChatMessages[aiIdx]._thinking = false;
-
-    if (result && result._stream) {
-      await new Promise((resolve) => {
-        const handler = (_ev, sid, evt) => {
-          if (sid !== result.sessionId) return;
-          if (evt.event === 'sources') {
-            try { _vaultChatMessages[aiIdx]._sources = typeof evt.data === 'string' ? JSON.parse(evt.data) : evt.data; } catch (e) {}
-          } else if (evt.event === 'token') {
-            aiText += (evt.data || '');
-            _vaultChatMessages[aiIdx].content = aiText;
-            _renderNtpVaultChatMessages(false);
-          } else if (evt.event === 'error') {
-            _vaultChatMessages[aiIdx].content = 'Error: ' + (evt.data || 'unknown');
-          } else if (evt.event === 'done') {
-            window.electronAPI.removeVaultChatEventListener(handler);
-            resolve();
-          }
-        };
-        window.electronAPI.onVaultChatEvent(handler);
-        if (_vaultChatAbort) {
-          _vaultChatAbort.signal.addEventListener('abort', () => {
-            window.electronAPI.removeVaultChatEventListener(handler);
-            resolve();
-          });
-        }
-      });
-    }
-
-    _vaultChatMessages[aiIdx].content = aiText;
-    _renderNtpVaultChatMessages(true);
-    _saveVaultChatMessages();
-  } catch (e) {
-    if (e.name !== 'AbortError') {
-      const last = _vaultChatMessages[_vaultChatMessages.length - 1];
-      if (last && last.role === 'assistant') { last.content = 'Error: ' + e.message; last._thinking = false; }
-      _renderNtpVaultChatMessages(true);
-      _saveVaultChatMessages();
-    }
-  } finally {
-    islandRemove('ai-vault');
-    if (input) input.disabled = false;
-    if (sendBtn) sendBtn.disabled = false;
-    if (input) input.focus();
-  }
-}
 
 // ── Git status badges for file tree ──
 

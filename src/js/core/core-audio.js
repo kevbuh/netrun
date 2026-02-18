@@ -358,25 +358,28 @@ function _islandBuildTray(a, isBrowse) {
       trayHtml += '</div>';
     }
     if ((a.insight || a.ocrText) && a.items && a.items.length) trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 0"></div>';
+    if (a.items && a.items.length) {
+      trayHtml += '<div class="island-ann-header">Annotations</div>';
+    }
+    const thumbUpSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>';
+    const thumbDownSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>';
     for (let ai = 0; ai < (a.items || []).length; ai++) {
       const ann = a.items[ai];
       const ac = annColors[ann.type] || '#888';
       const al = annLabels[ann.type] || ann.type;
       const quote = ann.quote || '';
       const isConnection = ann.type === 'CONNECTION';
-      const displayText = isConnection ? ('Linked: ' + (ann.linkedTitle || 'Related content')) : quote;
-      const confBadge = ann.confidence != null ? '<span style="font-size:10px;color:var(--aether-text-dim, var(--nr-text-tertiary));margin-left:auto;flex-shrink:0">' + ann.confidence + '%</span>' : '';
-      trayHtml += '<div class="island-ann-item" data-island-ann="' + ai + '"' + (isConnection && ann.linkedUrl ? ' data-island-ann-url="' + escapeHtml(ann.linkedUrl) + '"' : '') + ' style="padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:2px;">';
-      trayHtml += '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' + ac + ';flex-shrink:0"></span><span style="font-size:11px;font-weight:600;color:' + ac + '">' + escapeHtml(al) + '</span>' + confBadge;
-      // Rating buttons
-      trayHtml += '<span style="margin-left:auto;display:flex;gap:2px">';
-      const thumbUpSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>';
-      const thumbDownSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>';
-      trayHtml += '<button data-ann-rate-good="' + ai + '" title="Good annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;opacity:0.5;color:var(--nr-text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#4caf50\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--nr-text-primary)\'">' + thumbUpSvg + '</button>';
-      trayHtml += '<button data-ann-rate-bad="' + ai + '" title="Bad annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;opacity:0.5;color:var(--nr-text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#ef5350\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--nr-text-primary)\'">' + thumbDownSvg + '</button>';
-      trayHtml += '</span></div>';
-      trayHtml += '<div style="font-size:12px;color:var(--aether-text, var(--nr-text-primary));padding-left:14px">' + escapeHtml(displayText) + '</div>';
-      if (ann.explanation) trayHtml += '<div style="font-size:11px;color:var(--aether-text-dim, var(--nr-text-secondary));padding-left:14px">' + escapeHtml(ann.explanation) + '</div>';
+      const displayText = isConnection ? ('Linked: ' + (ann.linkedTitle || 'Related content')) : (ann.explanation || quote);
+      const confStr = ann.confidence != null ? ann.confidence + '%' : '';
+      trayHtml += '<div class="island-ann-item" data-island-ann="' + ai + '"' + (isConnection && ann.linkedUrl ? ' data-island-ann-url="' + escapeHtml(ann.linkedUrl) + '"' : '') + '>';
+      trayHtml += '<span class="island-ann-dot" style="background:' + ac + '"></span>';
+      trayHtml += '<span class="island-ann-type" style="color:' + ac + '">' + escapeHtml(al) + '</span>';
+      trayHtml += '<span class="island-ann-text">' + escapeHtml(displayText) + '</span>';
+      if (confStr) trayHtml += '<span class="island-ann-conf">' + confStr + '</span>';
+      trayHtml += '<span class="island-ann-actions">';
+      trayHtml += '<button data-ann-rate-good="' + ai + '" title="Good annotation">' + thumbUpSvg + '</button>';
+      trayHtml += '<button data-ann-rate-bad="' + ai + '" title="Bad annotation">' + thumbDownSvg + '</button>';
+      trayHtml += '</span>';
       trayHtml += '</div>';
     }
     return trayHtml;

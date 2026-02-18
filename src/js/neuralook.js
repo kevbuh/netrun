@@ -1567,27 +1567,6 @@ function _nlHandleImplicitClick(e) {
   _nlFlushImplicitSamples().then(() => _nlCheckAutoRefine());
 }
 
-// Handle clicks relayed from webview iframes (screenX/Y already translated to parent coords)
-function _nlHandleIframeClick(clientX, clientY) {
-  if (!_nlTracking || !_nlLastCapture || !_nlLastPrediction) return;
-  const now = performance.now();
-  const age = Math.round(now - _nlLastPrediction.ts);
-  if (age > 500) return;
-  const dx = _nlLastPrediction.x - clientX;
-  const dy = _nlLastPrediction.y - clientY;
-  const dist = Math.round(Math.sqrt(dx * dx + dy * dy));
-  logger.debug(`neuralook iframe click collected — dist=${dist}px, age=${age}ms, buffer=${_nlImplicitBuffer.length + 1}`);
-  _nlShowClickFeedback(clientX, clientY, true, `${dist}px`);
-  _nlImplicitBuffer.push({
-    eyeData: Array.from(_nlLastCapture.eyeData),
-    headPose: _nlLastCapture.headPose,
-    irisFeatures: _nlLastCapture.irisFeatures,
-    screenX: clientX,
-    screenY: clientY
-  });
-  _nlFlushImplicitSamples().then(() => _nlCheckAutoRefine());
-}
-
 function _nlFlushImplicitSamples() {
   if (_nlImplicitBuffer.length === 0) return Promise.resolve();
   const samples = _nlImplicitBuffer.splice(0);

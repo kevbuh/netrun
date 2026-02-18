@@ -114,10 +114,6 @@ function clearFeedNotification(link) {
   _setFeedNotifications(notifications);
 }
 
-function clearAllFeedNotifications() {
-  _setFeedNotifications([]);
-}
-
 function getHiddenPosts() {
   return getLS('hiddenPosts', []);
 }
@@ -1634,30 +1630,6 @@ function populateCategories() {
 }
 
 let lastFilteredPapers = [];
-
-function getSearchHistory() {
-  try {
-    const raw = Settings.getJSON('searchHistory', []);
-    return raw.map(h => typeof h === 'string' ? { q: h, ts: 0, c: 0 } : h);
-  } catch { return []; }
-}
-function saveSearchHistory(query, resultCount) {
-  const q = query.trim();
-  if (!q) return;
-  let hist = getSearchHistory().filter(h => h.q !== q);
-  hist.unshift({ q, ts: Date.now(), c: resultCount || 0 });
-  if (hist.length > 50) hist = hist.slice(0, 50);
-  setLS('searchHistory', hist);
-}
-function _updateSearchHistoryCount(count) {
-  const hist = getSearchHistory();
-  if (hist.length) { hist[0].c = count; setLS('searchHistory', hist); }
-}
-function removeSearchHistory(index) {
-  const hist = getSearchHistory();
-  hist.splice(index, 1);
-  setLS('searchHistory', hist);
-}
 
 /**
  * Parse a search query string into structured parts:

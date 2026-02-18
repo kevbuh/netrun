@@ -64,7 +64,7 @@ function _renderTabStateDropdown() {
   var listItems = [];
   if (!sessions.length) {
     listItems.push(Text('No saved sessions').font('caption1').foreground('quaternary')
-      .style('padding', '12px').style('textAlign', 'center'));
+      .padding('12px').textAlign('center'));
   } else {
     sessions.forEach(function(s, i) {
       var count = s.tabs ? s.tabs.length : (s.windows ? s.windows.reduce(function(n, w) { return n + w.tabs.length; }, 0) : 0);
@@ -73,32 +73,30 @@ function _renderTabStateDropdown() {
       var subtitle = winCount > 1 ? winCount + ' windows \u00b7 ' + count + ' tabs \u00b7 ' + date : count + ' tab' + (count !== 1 ? 's' : '') + ' \u00b7 ' + date;
 
       var infoBtn = VStack([
-        Text(s.name).font('callout').foreground('primary')
-          .style('overflow', 'hidden').style('textOverflow', 'ellipsis').style('whiteSpace', 'nowrap'),
+        Text(s.name).font('callout').foreground('primary').truncate(),
         Text(subtitle).font('caption2').foreground('quaternary')
-      ]).spacing(0).style('flex', '1').style('minWidth', '0').style('textAlign', 'left')
-        .style('border', 'none').style('background', 'none').style('cursor', 'pointer').style('padding', '0');
+      ]).spacing(0).flex(1).style('minWidth', '0').textAlign('left')
+        .styles({ border: 'none', background: 'none', padding: '0' }).cursor();
       infoBtn.onTap(function() { loadTabSession(i); });
 
       var delBtn = Text('\u00d7').foreground('quaternary')
-        .style('border', 'none').style('background', 'none').style('cursor', 'pointer')
-        .style('padding', '2px').style('fontSize', '0.9rem').style('lineHeight', '1').style('flexShrink', '0')
+        .styles({ border: 'none', background: 'none', padding: '2px', fontSize: '0.9rem', lineHeight: '1', flexShrink: '0' }).cursor()
         .onHover(function() { delBtn.el.style.color = 'var(--nr-text-primary)'; }, function() { delBtn.el.style.color = 'var(--nr-text-quaternary)'; })
         .onTap(function(e) { e.stopPropagation(); deleteTabSession(i); });
       delBtn.el.title = 'Delete session';
 
       var row = HStack([infoBtn, delBtn]).spacing(2).alignment('center').className('tab-session-row')
-        .style('padding', '6px 12px').style('cursor', 'pointer').style('transition', 'background 0.1s')
+        .padding('6px', '12px').cursor().transition(['background'], '0.1s')
         .onHover(function() { row.el.style.background = 'var(--aether-hover)'; }, function() { row.el.style.background = 'none'; });
       listItems.push(row);
     });
   }
 
   var panel = VStack([saveSection].concat(listItems))
-    .style('position', 'absolute').style('right', '0').style('top', 'calc(100% + 4px)')
-    .style('minWidth', '260px').style('maxHeight', '360px').style('overflowY', 'auto')
+    .position('absolute').inset(null, 0, null, null).style('top', 'calc(100% + 4px)')
+    .styles({ minWidth: '260px', maxHeight: '360px', overflowY: 'auto' })
     .background('overlay').border('border-default').cornerRadius('md')
-    .shadow('popup').zIndex('overlay').style('padding', '4px 0');
+    .shadow('popup').zIndex('overlay').padding('4px', '0');
 
   AetherUI.mount(panel, dd);
 }

@@ -173,6 +173,38 @@
   color: rgba(0, 0, 0, 0.25);
 }
 
+/* Clear theme: annotation tray dropdown */
+[data-theme="clear"] .pill-island[data-island-id="annotate"] .island-ctx-tray {
+  background: rgba(235, 233, 231, 0.97) !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.9);
+}
+[data-theme="clear"] .pill-island[data-island-id="annotate"].island-has-items.island-tray-open {
+  background: rgba(235, 233, 231, 0.97) !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.6);
+}
+[data-theme="clear"] .island-ann-header {
+  color: rgba(0, 0, 0, 0.4);
+}
+[data-theme="clear"] .island-ann-item {
+  color: rgba(0, 0, 0, 0.6);
+}
+[data-theme="clear"] .island-ann-item:hover {
+  background: rgba(0, 0, 0, 0.07);
+}
+[data-theme="clear"] .island-ann-text {
+  color: rgba(0, 0, 0, 0.5);
+}
+[data-theme="clear"] .island-ann-conf {
+  color: rgba(0, 0, 0, 0.25);
+}
+[data-theme="clear"] .island-ann-actions button {
+  color: rgba(0, 0, 0, 0.4);
+}
+
 /* Clear theme: NTP search box should be translucent, not opaque */
 [data-theme="clear"] .ntp-search-box {
   background: rgba(255, 255, 255, 0.12);

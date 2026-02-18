@@ -127,8 +127,7 @@ function _showHistoryDropdown(direction, buttonEl) {
       .frame({ width: 14, height: 14 }).cornerRadius('xs')
       .style('flexShrink', '0')
       .on('error', function() { this.style.display = 'none'; });
-    var label = Text(_browseTitleFromUrl(url))
-      .style('overflow', 'hidden').style('textOverflow', 'ellipsis').style('whiteSpace', 'nowrap');
+    var label = Text(_browseTitleFromUrl(url)).truncate();
     return HStack([favImg, label]).className('browse-history-dropdown-item nr-menu-item')
       .onTap(function() { _historyDropdownNavigate(direction, i + 1); _hideHistoryDropdownNow(); });
   });
@@ -222,8 +221,7 @@ function _showTabsInPillDropdown() {
       ? Image(t.favicon).frame({ width: 14, height: 14 }).cornerRadius('xs').style('flexShrink', '0')
           .on('error', function() { this.style.display = 'none'; })
       : RawHTML(globeSvg);
-    var titleView = Text(title).style('flex', '1').style('minWidth', '0')
-      .style('overflow', 'hidden').style('textOverflow', 'ellipsis').style('whiteSpace', 'nowrap');
+    var titleView = Text(title).flex(1).style('minWidth', '0').truncate();
     var closeBtn = Text('\u00d7').foreground('quaternary').style('fontSize', '1rem')
       .style('lineHeight', '1').style('padding', '0 2px').opacity(0.5)
       .onHover(function() { closeBtn.el.style.opacity = '1'; }, function() { closeBtn.el.style.opacity = '0.5'; })
@@ -796,7 +794,7 @@ function _browseShowGroupContextMenu(e, groupId) {
   ];
 
   var menuView = VStack(menuItems).className('browse-ctx-menu nr-menu').material('thick')
-    .style('position', 'fixed').style('left', e.clientX + 'px').style('top', e.clientY + 'px').zIndex('max');
+    .position('fixed').style('left', e.clientX + 'px').style('top', e.clientY + 'px').zIndex('max');
 
   var menu = menuView.build();
   document.body.appendChild(menu);

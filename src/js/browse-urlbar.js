@@ -93,19 +93,6 @@ function _browseParseColor(str) {
   return null;
 }
 
-function _browseApplyAdaptiveColor(tab) {
-  if (Settings.get('adaptiveUrlBar') === 'off') {
-    _browseResetAdaptiveColor();
-    return;
-  }
-  const color = tab && tab.themeColor ? _browseParseColor(tab.themeColor) : null;
-  if (!color) {
-    _browseResetAdaptiveColor();
-    return;
-  }
-  document.documentElement.style.setProperty('--nr-bg-body', `rgb(${color.r},${color.g},${color.b})`);
-}
-
 function _browseResetAdaptiveColor() {
   document.documentElement.style.removeProperty('--nr-bg-body');
 }
@@ -142,10 +129,6 @@ function _getUrlBarSections() {
     if (!seen.has(d.key)) result.push({ key: d.key, label: d.label, enabled: true });
   }
   return result;
-}
-
-function _saveUrlBarSections(sections) {
-  Settings.setJSON('urlBarSections', sections.map(s => ({ key: s.key, enabled: s.enabled })));
 }
 
 let _browseUrlHistIdx = -1;
@@ -1297,15 +1280,6 @@ function _getWebSearchHistory() {
   } catch { return []; }
 }
 
-function _saveWebSearch(query) {
-  const q = (query || '').trim();
-  if (!q) return;
-  let hist = _getWebSearchHistory().filter(h => h.q !== q);
-  hist.unshift({ q, ts: Date.now() });
-  if (hist.length > 200) hist = hist.slice(0, 200);
-  Settings.setJSON('webSearchHistory', hist);
-}
-
 function _removeWebSearch(index) {
   const hist = _getWebSearchHistory();
   hist.splice(index, 1);
@@ -1674,20 +1648,6 @@ function _getBrowseHistory() {
   try { return Settings.getJSON('browseHistory', []); } catch { return []; }
 }
 
-function _saveBrowseVisit(url, title) {
-  if (!url || url === 'about:blank') return;
-  let hist = _getBrowseHistory();
-  // Don't duplicate the same URL if it's the most recent entry
-  if (hist.length && hist[0].url === url) {
-    hist[0].title = title || hist[0].title;
-    hist[0].ts = Date.now();
-  } else {
-    hist.unshift({ url, title: title || _browseTitleFromUrl(url), ts: Date.now() });
-  }
-  if (hist.length > 1000) hist = hist.slice(0, 1000);
-  Settings.setJSON('browseHistory', hist);
-}
-
 function _removeBrowseVisit(index) {
   const hist = _getBrowseHistory();
   hist.splice(index, 1);
@@ -1729,56 +1689,6 @@ function _browseUpdateAdBlockBtn() {
   btn.style.color = on ? 'var(--nr-accent)' : '';
   btn.title = on ? 'Ad Blocker (on)' : 'Ad Blocker (off)';
   btn.classList.toggle('text-dimmer', !on);
-}
-
-function _browseUpdateAdBlockBadge(url) {
-  const badge = document.getElementById('browse-adblock-badge');
-  if (!badge) return;
-  if (Settings.get('adBlockEnabled') !== 'true') {
-    badge.style.display = 'none';
-    return;
-  }
-  // Electron: read count from main process via IPC
-  if (_browseIsElectron && window.electronAPI && window.electronAPI.adblockGetCount) {
-    const tab = _browseTabs.find(t => t.id === _browseActiveTab);
-    if (tab && tab.el && typeof tab.el.getWebContentsId === 'function') {
-      try {
-        const wcId = tab.el.getWebContentsId();
-        window.electronAPI.adblockGetCount(wcId).then(count => {
-          if (count > 0) {
-            badge.textContent = count > 99 ? '99+' : String(count);
-            badge.style.display = 'flex';
-          } else {
-            badge.style.display = 'none';
-          }
-        }).catch(() => { badge.style.display = 'none'; });
-      } catch { badge.style.display = 'none'; }
-    } else {
-      badge.style.display = 'none';
-    }
-    return;
-  }
-  // Non-Electron: read from proxied iframe meta tag (same-origin)
-  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
-  if (tab && tab.el) {
-    try {
-      const doc = tab.el.contentDocument;
-      if (doc) {
-        const meta = doc.querySelector('meta[name="adblock-count"]');
-        if (meta) {
-          const count = parseInt(meta.getAttribute('content') || '0', 10);
-          if (count > 0) {
-            badge.textContent = count > 99 ? '99+' : String(count);
-            badge.style.display = 'flex';
-          } else {
-            badge.style.display = 'none';
-          }
-          return;
-        }
-      }
-    } catch (e) { /* cross-origin, fall through */ }
-  }
-  badge.style.display = 'none';
 }
 
 // ── Site Permissions ──
@@ -1834,10 +1744,6 @@ function _clearSitePermissions(domain) {
     delete all[domain];
     Settings.setJSON('sitePermissions', all);
   } catch {}
-}
-
-function _getAllSitePermissions() {
-  try { return Settings.getJSON('sitePermissions', {}); } catch { return {}; }
 }
 
 function _getCurrentBrowseDomain() {
