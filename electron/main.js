@@ -959,10 +959,11 @@ app.on('window-all-closed', async () => {
 
 app.on('before-quit', () => {
   stopStaticServer();
-  // Flush SQLite WAL and close the database cleanly
   if (_coreInitialized) {
     try {
-      const { closeDb } = require('../dist/main/init.js');
+      const { contextIntake, closeDb } = require('../dist/main/init.js');
+      // Flush queued context entries before closing the database
+      contextIntake.shutdown();
       closeDb();
     } catch (_e) { /* no-op if core not loaded */ }
   }

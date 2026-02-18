@@ -1,9 +1,11 @@
 import Database from 'better-sqlite3';
+import type { Statement } from 'better-sqlite3';
 import path from 'path';
 import { app } from 'electron';
 import { initSchema } from './schema.js';
 
 let db: Database.Database | null = null;
+const stmtCache = new Map<string, Statement>();
 
 /** Get or create the database connection */
 export function getDb(): Database.Database {
@@ -24,8 +26,19 @@ export function getDb(): Database.Database {
   return db;
 }
 
+/** Get a cached prepared statement, creating it on first use */
+export function prepare(sql: string): Statement {
+  let stmt = stmtCache.get(sql);
+  if (!stmt) {
+    stmt = getDb().prepare(sql);
+    stmtCache.set(sql, stmt);
+  }
+  return stmt;
+}
+
 /** Close the database connection (call on app quit) */
 export function closeDb(): void {
+  stmtCache.clear();
   if (db) {
     db.close();
     db = null;

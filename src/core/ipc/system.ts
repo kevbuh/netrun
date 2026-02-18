@@ -13,9 +13,13 @@ import {
 export function registerSystemIPC(): void {
   ipcMain.handle('db:read-view', (_event, viewPath: string) => {
     const dataDir = process.env.ARXIV_DATA_DIR ?? process.cwd();
-    const filePath = path.join(dataDir, viewPath.replace(/^\//, ''));
+    const resolved = path.resolve(dataDir, viewPath.replace(/^\//, ''));
+    const base = path.resolve(dataDir);
+    if (resolved !== base && !resolved.startsWith(base + path.sep)) {
+      return { error: 'Invalid view path' };
+    }
     try {
-      return { html: fs.readFileSync(filePath, 'utf-8') };
+      return { html: fs.readFileSync(resolved, 'utf-8') };
     } catch { return { error: 'View not found: ' + viewPath }; }
   });
 
@@ -47,7 +51,9 @@ export function registerSystemIPC(): void {
   ipcMain.handle('db:saved-content-set', (_event, url: string, data: { url: string; title: string; text: string; savedAt?: number }) => {
     if (!url) return { error: 'url required' };
     const p = contentPath(url);
-    fs.writeFileSync(p, JSON.stringify(data, null, 2));
+    try {
+      fs.writeFileSync(p, JSON.stringify(data, null, 2));
+    } catch (e: any) { return { error: 'Write failed: ' + (e.message ?? String(e)) }; }
     return { ok: true };
   });
 
@@ -109,7 +115,9 @@ export function registerSystemIPC(): void {
     else if (header.includes('webp')) ext = 'webp';
     const hash = createHash('sha256').update(googleId).digest('hex').slice(0, 16);
     const fname = `${hash}_pic.${ext}`;
-    fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
+    try {
+      fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
+    } catch (e: any) { return { error: 'Write failed: ' + (e.message ?? String(e)) }; }
     const pictureUrl = '/uploads/' + fname;
     userQueries.updateUserPicture(googleId, pictureUrl);
     return { ok: true, picture: pictureUrl };
@@ -125,7 +133,9 @@ export function registerSystemIPC(): void {
     else if (header.includes('webp')) ext = 'webp';
     const hash = createHash('sha256').update(googleId).digest('hex').slice(0, 16);
     const fname = `${hash}_bg.${ext}`;
-    fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
+    try {
+      fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
+    } catch (e: any) { return { error: 'Write failed: ' + (e.message ?? String(e)) }; }
     const bgUrl = '/uploads/' + fname;
     userQueries.updateUserProfileBg(googleId, bgUrl);
     return { ok: true, profile_bg: bgUrl };
@@ -190,7 +200,9 @@ export function registerSystemIPC(): void {
     if (!imageB64) return { error: 'image required' };
     const filename = randomUUID() + '.png';
     const filepath = path.join(uploadsDir, filename);
-    fs.writeFileSync(filepath, Buffer.from(imageB64, 'base64'));
+    try {
+      fs.writeFileSync(filepath, Buffer.from(imageB64, 'base64'));
+    } catch (e: any) { return { error: 'Write failed: ' + (e.message ?? String(e)) }; }
     return { url: '/api/images/' + filename };
   });
 
@@ -252,10 +264,15 @@ export function registerSystemIPC(): void {
   });
 
   ipcMain.handle('db:local-file', (_event, filePath: string) => {
-    if (!filePath || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-      return { error: 'File not found' };
+    if (!filePath) return { error: 'File not found' };
+    const resolved = path.resolve(filePath);
+    // Block sensitive dotfile directories
+    const BLOCKED_DIRS = ['.ssh', '.gnupg', '.aws', '.config', '.netrc', '.git', '.env'];
+    const parts = resolved.split(path.sep);
+    if (parts.some(p => BLOCKED_DIRS.includes(p))) {
+      return { error: 'Access denied' };
     }
-    const ext = path.extname(filePath).toLowerCase();
+    const ext = path.extname(resolved).toLowerCase();
     const mimeMap: Record<string, string> = {
       '.html': 'text/html', '.htm': 'text/html',
       '.js': 'text/javascript', '.css': 'text/css',
@@ -267,8 +284,12 @@ export function registerSystemIPC(): void {
       '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
       '.mp4': 'video/mp4', '.webm': 'video/webm',
     };
-    const mime = mimeMap[ext] ?? 'application/octet-stream';
-    const data = fs.readFileSync(filePath).toString('base64');
+    const mime = mimeMap[ext];
+    if (!mime) return { error: 'Unsupported file type' };
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+      return { error: 'File not found' };
+    }
+    const data = fs.readFileSync(resolved).toString('base64');
     return { _proxy: true, data, mime };
   });
 

@@ -1,19 +1,22 @@
 import { ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getDb } from '../db/connection.js';
+import { execFile as execFileCb } from 'child_process';
+import { promisify } from 'util';
+import { getDb, prepare } from '../db/connection.js';
 import { getUserVaultPath } from './shared.js';
 
+const execFile = promisify(execFileCb);
+
 export function registerDevIPC(): void {
-  const { execFileSync } = require('child_process') as typeof import('child_process');
   // From dist/main/ipc/ we need ../../.. to reach project root
   const gitRoot = path.resolve(__dirname, '..', '..', '..');
 
-  ipcMain.handle('db:dev-git-log', (_event, offset = 0, limit = 20) => {
+  ipcMain.handle('db:dev-git-log', async (_event, offset = 0, limit = 20) => {
     try {
       limit = Math.min(limit, 100);
       const sep = '\x1f';
-      const r = execFileSync('git', ['log', `--skip=${offset}`, `-${limit}`, `--format=COMMIT${sep}%H${sep}%an${sep}%ad${sep}%s`, '--date=iso', '--shortstat'], { cwd: gitRoot, timeout: 10_000, encoding: 'utf-8' });
+      const { stdout: r } = await execFile('git', ['log', `--skip=${offset}`, `-${limit}`, `--format=COMMIT${sep}%H${sep}%an${sep}%ad${sep}%s`, '--date=iso', '--shortstat'], { cwd: gitRoot, timeout: 10_000, encoding: 'utf-8' });
       const gitLog: any[] = [];
       let current: any = null;
       for (const line of r.split('\n')) {
@@ -37,12 +40,12 @@ export function registerDevIPC(): void {
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 
-  ipcMain.handle('db:dev-stats', () => {
+  ipcMain.handle('db:dev-stats', async () => {
     try {
       const srcDir = path.resolve(gitRoot, 'src');
       const db = getDb();
-      const users = (db.prepare('SELECT COUNT(*) as c FROM users').get() as any).c;
-      const activeSess = (db.prepare('SELECT COUNT(*) as c FROM sessions WHERE expires > ?').get(Date.now() / 1000) as any).c;
+      const users = (prepare('SELECT COUNT(*) as c FROM users').get() as any).c;
+      const activeSess = (prepare('SELECT COUNT(*) as c FROM sessions WHERE expires > ?').get(Date.now() / 1000) as any).c;
 
       let totalLoc = 0, coreLoc = 0, testLoc = 0, fileCount = 0;
       const walkLoc = (dir: string) => {
@@ -70,13 +73,15 @@ export function registerDevIPC(): void {
       let commitsToday = 0, totalCommits = 0, projectAgeDays = 0, firstCommitDate = '';
       try {
         const today = new Date().toISOString().slice(0, 10) + 'T00:00:00';
-        commitsToday = parseInt(execFileSync('git', ['rev-list', '--count', `--since=${today}`, 'HEAD'], { cwd: gitRoot, timeout: 5000, encoding: 'utf-8' }).trim()) || 0;
+        const { stdout } = await execFile('git', ['rev-list', '--count', `--since=${today}`, 'HEAD'], { cwd: gitRoot, timeout: 5000, encoding: 'utf-8' });
+        commitsToday = parseInt(stdout.trim()) || 0;
       } catch {}
       try {
-        totalCommits = parseInt(execFileSync('git', ['rev-list', '--count', 'HEAD'], { cwd: gitRoot, timeout: 5000, encoding: 'utf-8' }).trim()) || 0;
+        const { stdout } = await execFile('git', ['rev-list', '--count', 'HEAD'], { cwd: gitRoot, timeout: 5000, encoding: 'utf-8' });
+        totalCommits = parseInt(stdout.trim()) || 0;
       } catch {}
       try {
-        const r = execFileSync('git', ['log', '--reverse', '--format=%ad', '--date=short'], { cwd: gitRoot, timeout: 10000, encoding: 'utf-8' });
+        const { stdout: r } = await execFile('git', ['log', '--reverse', '--format=%ad', '--date=short'], { cwd: gitRoot, timeout: 10000, encoding: 'utf-8' });
         const lines = r.trim().split('\n');
         if (lines[0]) {
           firstCommitDate = lines[0];
@@ -88,7 +93,7 @@ export function registerDevIPC(): void {
       const gitLog: any[] = [];
       try {
         const sep = '\x1f';
-        const r = execFileSync('git', ['log', '-20', `--format=COMMIT${sep}%H${sep}%an${sep}%ad${sep}%s`, '--date=iso', '--shortstat'], { cwd: gitRoot, timeout: 10000, encoding: 'utf-8' });
+        const { stdout: r } = await execFile('git', ['log', '-20', `--format=COMMIT${sep}%H${sep}%an${sep}%ad${sep}%s`, '--date=iso', '--shortstat'], { cwd: gitRoot, timeout: 10000, encoding: 'utf-8' });
         let current: any = null;
         for (const line of r.split('\n')) {
           const trimmed = line.trim();
@@ -111,7 +116,7 @@ export function registerDevIPC(): void {
 
       const commitsPerDay: any[] = [];
       try {
-        const r = execFileSync('git', ['log', '--format=%ad', '--date=short', '--since=30 days ago'], { cwd: gitRoot, timeout: 10000, encoding: 'utf-8' });
+        const { stdout: r } = await execFile('git', ['log', '--format=%ad', '--date=short', '--since=30 days ago'], { cwd: gitRoot, timeout: 10000, encoding: 'utf-8' });
         const counts: Record<string, number> = {};
         for (const d of r.trim().split('\n')) {
           const date = d.trim();
@@ -149,7 +154,7 @@ export function registerDevIPC(): void {
 
       const locHistory: any[] = [];
       try {
-        const r = execFileSync('git', ['log', '--format=%ad', '--date=short', '--numstat', '--since=30 days ago'], { cwd: gitRoot, timeout: 15000, encoding: 'utf-8' });
+        const { stdout: r } = await execFile('git', ['log', '--format=%ad', '--date=short', '--numstat', '--since=30 days ago'], { cwd: gitRoot, timeout: 15000, encoding: 'utf-8' });
         const daily: Record<string, { added: number; deleted: number }> = {};
         let currentDate = '';
         for (const line of r.split('\n')) {
@@ -181,7 +186,7 @@ export function registerDevIPC(): void {
       const usageHistory: Record<string, Record<string, number>> = {};
       try {
         const thirtyDaysAgo = (Date.now() - 30 * 86400000) / 1000;
-        const rows = db.prepare(
+        const rows = prepare(
           "SELECT event, date(ts, 'unixepoch', 'localtime') as day, COUNT(*) as cnt FROM usage_log WHERE ts > ? GROUP BY event, day ORDER BY day"
         ).all(thirtyDaysAgo) as any[];
         for (const row of rows) {
@@ -205,9 +210,9 @@ export function registerDevIPC(): void {
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 
-  ipcMain.handle('db:function-registry', () => {
+  ipcMain.handle('db:function-registry', async () => {
     try {
-      execFileSync('node', ['scripts/function-registry.js'], { cwd: gitRoot, timeout: 30_000 });
+      await execFile('node', ['scripts/function-registry.js'], { cwd: gitRoot, timeout: 30_000 });
       const jsonPath = path.join(gitRoot, 'coverage', 'function-registry.json');
       if (!fs.existsSync(jsonPath)) return { error: 'Report file not found' };
       return JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
@@ -217,10 +222,10 @@ export function registerDevIPC(): void {
     }
   });
 
-  ipcMain.handle('db:validate-feeds', () => {
+  ipcMain.handle('db:validate-feeds', async () => {
     try {
       const scriptPath = path.join(gitRoot, 'scripts', 'validate-feeds.js');
-      const result = execFileSync('node', [scriptPath, '--json'], { timeout: 10_000, encoding: 'utf-8' });
+      const { stdout: result } = await execFile('node', [scriptPath, '--json'], { timeout: 10_000, encoding: 'utf-8' });
       return JSON.parse(result);
     } catch (e: any) {
       if (e.killed) return { status: 'error', message: 'Validation timed out' };
@@ -229,10 +234,10 @@ export function registerDevIPC(): void {
     }
   });
 
-  ipcMain.handle('db:validate-load-order', () => {
+  ipcMain.handle('db:validate-load-order', async () => {
     try {
       const scriptPath = path.join(gitRoot, 'scripts', 'function-registry.js');
-      const result = execFileSync('node', [scriptPath, '--check-load-order', '--json'], { cwd: gitRoot, timeout: 30_000, encoding: 'utf-8' });
+      const { stdout: result } = await execFile('node', [scriptPath, '--check-load-order', '--json'], { cwd: gitRoot, timeout: 30_000, encoding: 'utf-8' });
       return JSON.parse(result);
     } catch (e: any) {
       if (e.killed) return { status: 'error', message: 'Analysis timed out' };
@@ -240,10 +245,10 @@ export function registerDevIPC(): void {
     }
   });
 
-  ipcMain.handle('db:dependency-graph', (_event, level = 'file') => {
+  ipcMain.handle('db:dependency-graph', async (_event, level = 'file') => {
     try {
       const scriptPath = path.join(gitRoot, 'scripts', 'function-registry.js');
-      execFileSync('node', [scriptPath], { cwd: gitRoot, timeout: 30_000 });
+      await execFile('node', [scriptPath], { cwd: gitRoot, timeout: 30_000 });
       const jsonPath = path.join(gitRoot, 'coverage', 'function-registry.json');
       if (!fs.existsSync(jsonPath)) return { status: 'error', message: 'Report file not found' };
       const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
@@ -290,7 +295,7 @@ export function registerDevIPC(): void {
       // File-level graph
       let loadData: any = {};
       try {
-        const loadResult = execFileSync('node', [scriptPath, '--check-load-order', '--json'], { cwd: gitRoot, timeout: 30_000, encoding: 'utf-8' });
+        const { stdout: loadResult } = await execFile('node', [scriptPath, '--check-load-order', '--json'], { cwd: gitRoot, timeout: 30_000, encoding: 'utf-8' });
         loadData = JSON.parse(loadResult);
       } catch {}
 
@@ -346,22 +351,22 @@ export function registerDevIPC(): void {
     }
   });
 
-  ipcMain.handle('db:vibe-git', (_event, googleId: string, cmd: string, body: Record<string, any>) => {
+  ipcMain.handle('db:vibe-git', async (_event, googleId: string, cmd: string, body: Record<string, any>) => {
     const ALLOWED = new Set(['status', 'files', 'branches', 'log', 'stash', 'diff', 'show', 'reflog']);
     if (!ALLOWED.has(cmd)) return { error: 'Command not allowed' };
     const userVault = getUserVaultPath(googleId);
 
     if (!fs.existsSync(path.join(userVault, '.git'))) {
       try {
-        execFileSync('git', ['init'], { cwd: userVault, timeout: 10_000 });
-        execFileSync('git', ['add', '.'], { cwd: userVault, timeout: 10_000 });
-        execFileSync('git', ['commit', '-m', 'Initial commit', '--allow-empty'], { cwd: userVault, timeout: 10_000 });
+        await execFile('git', ['init'], { cwd: userVault, timeout: 10_000 });
+        await execFile('git', ['add', '.'], { cwd: userVault, timeout: 10_000 });
+        await execFile('git', ['commit', '-m', 'Initial commit', '--allow-empty'], { cwd: userVault, timeout: 10_000 });
       } catch { /* ignore init errors */ }
     }
 
-    const run = (args: string[], maxOutput = 50000): string | { error: string } => {
+    const run = async (args: string[], maxOutput = 50000): Promise<string | { error: string }> => {
       try {
-        const out = execFileSync('git', args, { cwd: userVault, timeout: 10_000, encoding: 'utf-8', maxBuffer: maxOutput + 1000 });
+        const { stdout: out } = await execFile('git', args, { cwd: userVault, timeout: 10_000, encoding: 'utf-8', maxBuffer: maxOutput + 1000 });
         return out.slice(0, maxOutput);
       } catch (e: any) {
         return { error: (e.stderr ?? e.message ?? String(e)).slice(0, 2000) };
@@ -369,12 +374,12 @@ export function registerDevIPC(): void {
     };
 
     if (cmd === 'status') {
-      const out = run(['status', '--porcelain', '-b']);
+      const out = await run(['status', '--porcelain', '-b']);
       if (typeof out !== 'string') return out;
       return { output: out };
     }
     if (cmd === 'files') {
-      const changedOut = run(['status', '--porcelain']);
+      const changedOut = await run(['status', '--porcelain']);
       const changed: Record<string, string> = {};
       if (typeof changedOut === 'string') {
         for (const line of changedOut.trim().split('\n')) {
@@ -382,7 +387,7 @@ export function registerDevIPC(): void {
           changed[line.slice(3)] = line.slice(0, 2).trim();
         }
       }
-      const trackedOut = run(['ls-files']);
+      const trackedOut = await run(['ls-files']);
       if (typeof trackedOut !== 'string') return trackedOut;
       const files: any[] = [];
       const seen = new Set<string>();
@@ -397,7 +402,7 @@ export function registerDevIPC(): void {
       return { files };
     }
     if (cmd === 'branches') {
-      const out = run(['branch', '-a', '--format=%(HEAD)%(refname:short)\t%(upstream:track)\t%(objectname:short)\t%(committerdate:relative)']);
+      const out = await run(['branch', '-a', '--format=%(HEAD)%(refname:short)\t%(upstream:track)\t%(objectname:short)\t%(committerdate:relative)']);
       if (typeof out !== 'string') return out;
       const branches: any[] = [];
       for (const line of out.trim().split('\n')) {
@@ -412,7 +417,7 @@ export function registerDevIPC(): void {
       const branch = body.branch ?? '';
       const args = ['log', '--oneline', '--graph', '-50', '--format=%h\t%s\t%an\t%ar'];
       if (branch) args.push(branch);
-      const out = run(args);
+      const out = await run(args);
       if (typeof out !== 'string') return out;
       const commits: any[] = [];
       for (const line of out.trim().split('\n')) {
@@ -425,7 +430,7 @@ export function registerDevIPC(): void {
       return { commits };
     }
     if (cmd === 'stash') {
-      const out = run(['stash', 'list']);
+      const out = await run(['stash', 'list']);
       if (typeof out !== 'string') return out;
       return { entries: out.trim().split('\n').filter(Boolean) };
     }
@@ -433,9 +438,9 @@ export function registerDevIPC(): void {
       const file = body.file ?? '';
       const args = ['diff'];
       if (file) { args.push('--'); args.push(file); }
-      const out = run(args);
+      const out = await run(args);
       if (typeof out !== 'string') return out;
-      let staged = run(['diff', '--cached', ...(file ? ['--', file] : [])]);
+      let staged = await run(['diff', '--cached', ...(file ? ['--', file] : [])]);
       if (typeof staged !== 'string') staged = '';
       let combined = '';
       if (staged) combined += '=== Staged ===\n' + staged + '\n';
@@ -446,12 +451,12 @@ export function registerDevIPC(): void {
     if (cmd === 'show') {
       const ref = body.ref ?? 'HEAD';
       if (!/^[a-zA-Z0-9_./@{}\-: ]+$/.test(ref)) return { error: 'Invalid ref' };
-      const out = run(['show', '--stat', '--patch', ref]);
+      const out = await run(['show', '--stat', '--patch', ref]);
       if (typeof out !== 'string') return out;
       return { output: out };
     }
     if (cmd === 'reflog') {
-      const out = run(['reflog', '--format=%h\t%gd\t%gs\t%ar', '-50']);
+      const out = await run(['reflog', '--format=%h\t%gd\t%gs\t%ar', '-50']);
       if (typeof out !== 'string') return out;
       return { entries: out.trim().split('\n').filter(Boolean) };
     }

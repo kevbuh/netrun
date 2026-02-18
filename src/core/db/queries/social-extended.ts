@@ -1,51 +1,45 @@
 import { randomUUID } from 'crypto';
-import { getDb } from '../connection.js';
+import { getDb, prepare } from '../connection.js';
 
 // ── DM operations ──
 
 export function markMessageRead(googleId: string, messageId: string): void {
-  const db = getDb();
-  db.prepare('UPDATE direct_messages SET read = 1 WHERE id = ? AND to_google_id = ?').run(messageId, googleId);
+  prepare('UPDATE direct_messages SET read = 1 WHERE id = ? AND to_google_id = ?').run(messageId, googleId);
 }
 
 export function deleteDirectMessage(googleId: string, messageId: string): boolean {
-  const db = getDb();
-  return db.prepare('DELETE FROM direct_messages WHERE id = ? AND to_google_id = ?').run(messageId, googleId).changes > 0;
+  return prepare('DELETE FROM direct_messages WHERE id = ? AND to_google_id = ?').run(messageId, googleId).changes > 0;
 }
 
 export function getUnreadMessageCount(googleId: string): number {
-  const db = getDb();
-  return (db.prepare('SELECT COUNT(*) as count FROM direct_messages WHERE to_google_id = ? AND read = 0').get(googleId) as { count: number }).count;
+  return (prepare('SELECT COUNT(*) as count FROM direct_messages WHERE to_google_id = ? AND read = 0').get(googleId) as { count: number }).count;
 }
 
 // ── Comments ──
 
 export function getComments(paperLink?: string): unknown[] {
-  const db = getDb();
   if (paperLink) {
-    return db.prepare('SELECT id, paper_link, google_id, author, content, timestamp, parent_id FROM comments WHERE paper_link = ? ORDER BY timestamp').all(paperLink);
+    return prepare('SELECT id, paper_link, google_id, author, content, timestamp, parent_id FROM comments WHERE paper_link = ? ORDER BY timestamp').all(paperLink);
   }
-  return db.prepare('SELECT id, paper_link, google_id, author, content, timestamp, parent_id FROM comments ORDER BY timestamp').all();
+  return prepare('SELECT id, paper_link, google_id, author, content, timestamp, parent_id FROM comments ORDER BY timestamp').all();
 }
 
 export function createComment(googleId: string, data: { paperLink: string; content: string; author?: string; parentId?: string }): unknown {
-  const db = getDb();
   const id = randomUUID();
   const ts = Date.now();
-  db.prepare(
+  prepare(
     'INSERT INTO comments (id, paper_link, google_id, author, content, timestamp, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
   ).run(id, data.paperLink, googleId, data.author ?? 'Anonymous', data.content, ts, data.parentId ?? null);
   return { id, paperLink: data.paperLink, author: data.author ?? 'Anonymous', content: data.content, timestamp: ts, parentId: data.parentId ?? null };
 }
 
 export function deleteComment(googleId: string, commentId: string): boolean {
-  const db = getDb();
-  const row = db.prepare('SELECT id FROM comments WHERE id = ? AND google_id = ?').get(commentId, googleId);
+  const row = prepare('SELECT id FROM comments WHERE id = ? AND google_id = ?').get(commentId, googleId);
   if (!row) return false;
 
   // Remove comment and all replies (cascade)
   const toRemove = new Set<string>([commentId]);
-  const allComments = db.prepare('SELECT id, parent_id FROM comments').all() as Array<{ id: string; parent_id: string | null }>;
+  const allComments = prepare('SELECT id, parent_id FROM comments').all() as Array<{ id: string; parent_id: string | null }>;
   let changed = true;
   while (changed) {
     changed = false;
@@ -56,31 +50,29 @@ export function deleteComment(googleId: string, commentId: string): boolean {
       }
     }
   }
+  // Dynamic placeholders — can't cache
   const placeholders = [...toRemove].map(() => '?').join(', ');
-  db.prepare(`DELETE FROM comments WHERE id IN (${placeholders})`).run(...toRemove);
+  getDb().prepare(`DELETE FROM comments WHERE id IN (${placeholders})`).run(...toRemove);
   return true;
 }
 
 // ── Reposts ──
 
 export function createRepost(googleId: string, username: string, paperLink: string, paperTitle: string): unknown {
-  const db = getDb();
   const id = randomUUID();
   const ts = Date.now();
-  db.prepare(
+  prepare(
     'INSERT INTO reposts (id, google_id, username, paper_link, paper_title, timestamp) VALUES (?, ?, ?, ?, ?, ?)'
   ).run(id, googleId, username, paperLink, paperTitle, ts);
   return { id, paperLink, paperTitle, username, timestamp: ts };
 }
 
 export function deleteRepost(googleId: string, paperLink: string): void {
-  const db = getDb();
-  db.prepare('DELETE FROM reposts WHERE google_id = ? AND paper_link = ?').run(googleId, paperLink);
+  prepare('DELETE FROM reposts WHERE google_id = ? AND paper_link = ?').run(googleId, paperLink);
 }
 
 export function getUserReposts(googleId: string, limit = 20): unknown[] {
-  const db = getDb();
-  return db.prepare(
+  return prepare(
     'SELECT id, paper_link, paper_title, username, timestamp FROM reposts WHERE google_id = ? ORDER BY timestamp DESC LIMIT ?'
   ).all(googleId, limit);
 }
@@ -88,26 +80,24 @@ export function getUserReposts(googleId: string, limit = 20): unknown[] {
 // ── Blog votes ──
 
 export function setBlogVote(blogAuthor: string, blogSlug: string, voterGoogleId: string, vote: number): { upvotes: number; downvotes: number } {
-  const db = getDb();
   if (vote === 0) {
-    db.prepare('DELETE FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND voter_google_id = ?').run(blogAuthor, blogSlug, voterGoogleId);
+    prepare('DELETE FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND voter_google_id = ?').run(blogAuthor, blogSlug, voterGoogleId);
   } else {
-    db.prepare(
+    prepare(
       'INSERT OR REPLACE INTO blog_votes (blog_author, blog_slug, voter_google_id, vote, timestamp) VALUES (?, ?, ?, ?, ?)'
     ).run(blogAuthor, blogSlug, voterGoogleId, vote, Date.now() / 1000);
   }
-  const upvotes = (db.prepare('SELECT COUNT(*) as c FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = 1').get(blogAuthor, blogSlug) as { c: number }).c;
-  const downvotes = (db.prepare('SELECT COUNT(*) as c FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = -1').get(blogAuthor, blogSlug) as { c: number }).c;
+  const upvotes = (prepare('SELECT COUNT(*) as c FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = 1').get(blogAuthor, blogSlug) as { c: number }).c;
+  const downvotes = (prepare('SELECT COUNT(*) as c FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = -1').get(blogAuthor, blogSlug) as { c: number }).c;
   return { upvotes, downvotes };
 }
 
 export function getBlogVotes(blogAuthor: string, blogSlug: string, viewerGoogleId?: string): { upvotes: number; downvotes: number; userVote: number } {
-  const db = getDb();
-  const upvotes = (db.prepare('SELECT COUNT(*) as c FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = 1').get(blogAuthor, blogSlug) as { c: number }).c;
-  const downvotes = (db.prepare('SELECT COUNT(*) as c FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = -1').get(blogAuthor, blogSlug) as { c: number }).c;
+  const upvotes = (prepare('SELECT COUNT(*) as c FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = 1').get(blogAuthor, blogSlug) as { c: number }).c;
+  const downvotes = (prepare('SELECT COUNT(*) as c FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND vote = -1').get(blogAuthor, blogSlug) as { c: number }).c;
   let userVote = 0;
   if (viewerGoogleId) {
-    const row = db.prepare('SELECT vote FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND voter_google_id = ?').get(blogAuthor, blogSlug, viewerGoogleId) as { vote: number } | undefined;
+    const row = prepare('SELECT vote FROM blog_votes WHERE blog_author = ? AND blog_slug = ? AND voter_google_id = ?').get(blogAuthor, blogSlug, viewerGoogleId) as { vote: number } | undefined;
     if (row) userVote = row.vote;
   }
   return { upvotes, downvotes, userVote };
@@ -126,8 +116,7 @@ const ACHIEVEMENTS: Record<string, { id: string; name: string; description: stri
 };
 
 export function getUserAchievements(googleId: string): unknown[] {
-  const db = getDb();
-  const rows = db.prepare(
+  const rows = prepare(
     'SELECT achievement_id, unlocked_at FROM achievements WHERE google_id = ? ORDER BY unlocked_at DESC'
   ).all(googleId) as Array<{ achievement_id: string; unlocked_at: number }>;
   return rows
@@ -137,19 +126,17 @@ export function getUserAchievements(googleId: string): unknown[] {
 
 export function grantAchievement(googleId: string, achievementId: string): unknown | null {
   if (!(achievementId in ACHIEVEMENTS)) return null;
-  const db = getDb();
-  const existing = db.prepare('SELECT 1 FROM achievements WHERE google_id = ? AND achievement_id = ?').get(googleId, achievementId);
+  const existing = prepare('SELECT 1 FROM achievements WHERE google_id = ? AND achievement_id = ?').get(googleId, achievementId);
   if (existing) return null;
   const unlockedAt = Date.now() / 1000;
-  db.prepare('INSERT INTO achievements (google_id, achievement_id, unlocked_at) VALUES (?, ?, ?)').run(googleId, achievementId, unlockedAt);
+  prepare('INSERT INTO achievements (google_id, achievement_id, unlocked_at) VALUES (?, ?, ?)').run(googleId, achievementId, unlockedAt);
   return { ...ACHIEVEMENTS[achievementId], unlocked_at: unlockedAt };
 }
 
 // ── User profile helpers ──
 
 export function getPublicUserInfo(username: string): Record<string, unknown> | null {
-  const db = getDb();
-  const row = db.prepare(
+  const row = prepare(
     'SELECT google_id, username, picture, created, profile_private, profile_bg, last_seen, status_emoji, status_text FROM users WHERE lower(username) = ?'
   ).get(username.toLowerCase()) as Record<string, unknown> | undefined;
   if (!row) return null;
@@ -157,23 +144,20 @@ export function getPublicUserInfo(username: string): Record<string, unknown> | n
 }
 
 export function getUserPublicStats(googleId: string): { comment_count: number; experiment_count: number; repost_count: number } {
-  const db = getDb();
-  const cc = (db.prepare('SELECT COUNT(*) as c FROM comments WHERE google_id = ?').get(googleId) as { c: number }).c;
-  const ec = (db.prepare('SELECT COUNT(*) as c FROM experiment_owners WHERE google_id = ?').get(googleId) as { c: number }).c;
-  const rc = (db.prepare('SELECT COUNT(*) as c FROM reposts WHERE google_id = ?').get(googleId) as { c: number }).c;
+  const cc = (prepare('SELECT COUNT(*) as c FROM comments WHERE google_id = ?').get(googleId) as { c: number }).c;
+  const ec = (prepare('SELECT COUNT(*) as c FROM experiment_owners WHERE google_id = ?').get(googleId) as { c: number }).c;
+  const rc = (prepare('SELECT COUNT(*) as c FROM reposts WHERE google_id = ?').get(googleId) as { c: number }).c;
   return { comment_count: cc, experiment_count: ec, repost_count: rc };
 }
 
 export function getUserRecentComments(googleId: string, limit = 20): unknown[] {
-  const db = getDb();
-  return db.prepare(
+  return prepare(
     'SELECT id, paper_link, content, author, timestamp FROM comments WHERE google_id = ? ORDER BY timestamp DESC LIMIT ?'
   ).all(googleId, limit);
 }
 
 export function getUserFeedSources(googleId: string): { feedSources: Record<string, unknown>; customFeeds: unknown[] } {
-  const db = getDb();
-  const rows = db.prepare(
+  const rows = prepare(
     "SELECT key, value FROM user_data WHERE google_id = ? AND key IN ('feedSources', 'customFeeds')"
   ).all(googleId) as Array<{ key: string; value: string }>;
   const result: { feedSources: Record<string, unknown>; customFeeds: unknown[] } = { feedSources: {}, customFeeds: [] };
@@ -186,8 +170,7 @@ export function getUserFeedSources(googleId: string): { feedSources: Record<stri
 }
 
 export function getUserAccentColor(googleId: string): string {
-  const db = getDb();
-  const row = db.prepare("SELECT value FROM user_data WHERE google_id = ? AND key = 'accentColor'").get(googleId) as { value: string } | undefined;
+  const row = prepare("SELECT value FROM user_data WHERE google_id = ? AND key = 'accentColor'").get(googleId) as { value: string } | undefined;
   if (!row) return '#b4451a';
   try { return JSON.parse(row.value); } catch { return '#b4451a'; }
 }

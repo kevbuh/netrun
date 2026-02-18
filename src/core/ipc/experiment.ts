@@ -1,13 +1,16 @@
 import { ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFile as execFileCb, spawn as spawnChild } from 'child_process';
+import { promisify } from 'util';
 import {
   getUserVaultPath, resolveExpDir, safePath, slugify, uniqueSlug,
   parseFrontmatter, stripFrontmatter,
 } from './shared.js';
 
+const execFile = promisify(execFileCb);
+
 export function registerExperimentIPC(): void {
-  const { execFileSync, spawn: spawnChild } = require('child_process') as typeof import('child_process');
 
   // ── Marimo start/stop ──
 
@@ -84,27 +87,33 @@ export function registerExperimentIPC(): void {
 
   // ── Experiments (non-kernel) ──
 
-  ipcMain.handle('db:exp-packages', (_event, googleId: string, expId: string) => {
+  ipcMain.handle('db:exp-packages', async (_event, googleId: string, expId: string) => {
     const expDir = resolveExpDir(googleId, expId);
     if (!expDir) return { error: 'Not found' };
     const venvPython = path.join(expDir, 'venv', 'bin', 'python3');
     const pythonPath = fs.existsSync(venvPython) ? venvPython : 'python3';
     try {
-      const out = execFileSync(pythonPath, ['-m', 'pip', 'list', '--format=json'], { timeout: 15_000, encoding: 'utf-8' });
+      const { stdout: out } = await execFile(pythonPath, ['-m', 'pip', 'list', '--format=json'], { timeout: 15_000, encoding: 'utf-8' });
       return JSON.parse(out);
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 
-  ipcMain.handle('db:exp-venv-info', (_event, googleId: string, expId: string) => {
+  ipcMain.handle('db:exp-venv-info', async (_event, googleId: string, expId: string) => {
     const expDir = resolveExpDir(googleId, expId);
     if (!expDir) return { error: 'Not found' };
     const venvDir = path.join(expDir, 'venv');
     if (!fs.existsSync(venvDir)) return { error: 'No venv' };
     const venvPython = path.join(venvDir, 'bin', 'python3');
     let pythonVersion = '';
-    try { pythonVersion = execFileSync(venvPython, ['--version'], { timeout: 5000, encoding: 'utf-8' }).trim(); } catch {}
+    try {
+      const { stdout } = await execFile(venvPython, ['--version'], { timeout: 5000, encoding: 'utf-8' });
+      pythonVersion = stdout.trim();
+    } catch {}
     let packages: any[] = [];
-    try { packages = JSON.parse(execFileSync(venvPython, ['-m', 'pip', 'list', '--format=json'], { timeout: 15_000, encoding: 'utf-8' })); } catch {}
+    try {
+      const { stdout } = await execFile(venvPython, ['-m', 'pip', 'list', '--format=json'], { timeout: 15_000, encoding: 'utf-8' });
+      packages = JSON.parse(stdout);
+    } catch {}
     let sizeBytes = 0;
     const walkVenv = (dir: string) => {
       try {
@@ -147,18 +156,18 @@ export function registerExperimentIPC(): void {
     return { ok: true, uploaded };
   });
 
-  ipcMain.handle('db:exp-create-venv', (_event, googleId: string, expId: string) => {
+  ipcMain.handle('db:exp-create-venv', async (_event, googleId: string, expId: string) => {
     const expDir = resolveExpDir(googleId, expId);
     if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
     const venvDir = path.join(expDir, 'venv');
     if (fs.existsSync(venvDir)) return { error: 'venv already exists' };
     try {
-      execFileSync('python3', ['-m', 'venv', venvDir], { timeout: 60_000 });
+      await execFile('python3', ['-m', 'venv', venvDir], { timeout: 60_000 });
       return { ok: true };
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 
-  ipcMain.handle('db:exp-install-packages', (_event, googleId: string, expId: string, packages: string[]) => {
+  ipcMain.handle('db:exp-install-packages', async (_event, googleId: string, expId: string, packages: string[]) => {
     const expDir = resolveExpDir(googleId, expId);
     if (!expDir) return { error: 'Not found' };
     if (!packages?.length) return { error: 'No packages specified' };
@@ -169,28 +178,28 @@ export function registerExperimentIPC(): void {
     const venvPython = path.join(expDir, 'venv', 'bin', 'python3');
     const pythonPath = fs.existsSync(venvPython) ? venvPython : 'python3';
     try {
-      execFileSync(pythonPath, ['-m', 'pip', 'install', ...packages], { timeout: 120_000, encoding: 'utf-8' });
+      await execFile(pythonPath, ['-m', 'pip', 'install', ...packages], { timeout: 120_000, encoding: 'utf-8' });
       return { ok: true };
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 
-  ipcMain.handle('db:exp-uninstall-package', (_event, googleId: string, expId: string, pkg: string) => {
+  ipcMain.handle('db:exp-uninstall-package', async (_event, googleId: string, expId: string, pkg: string) => {
     const expDir = resolveExpDir(googleId, expId);
     if (!expDir) return { error: 'Not found' };
     const venvPython = path.join(expDir, 'venv', 'bin', 'python3');
     const pythonPath = fs.existsSync(venvPython) ? venvPython : 'python3';
     try {
-      execFileSync(pythonPath, ['-m', 'pip', 'uninstall', '-y', pkg], { timeout: 30_000, encoding: 'utf-8' });
+      await execFile(pythonPath, ['-m', 'pip', 'uninstall', '-y', pkg], { timeout: 30_000, encoding: 'utf-8' });
       return { ok: true };
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 
-  ipcMain.handle('db:exp-clone-repo', (_event, googleId: string, expId: string, url: string) => {
+  ipcMain.handle('db:exp-clone-repo', async (_event, googleId: string, expId: string, url: string) => {
     const expDir = resolveExpDir(googleId, expId);
     if (!expDir || !fs.existsSync(expDir)) return { error: 'Not found' };
     if (!url || !/^https?:\/\/.+/.test(url)) return { error: 'Invalid URL' };
     try {
-      execFileSync('git', ['clone', '--depth', '1', url], { cwd: expDir, timeout: 60_000, encoding: 'utf-8' });
+      await execFile('git', ['clone', '--depth', '1', url], { cwd: expDir, timeout: 60_000, encoding: 'utf-8' });
       const repoName = url.split('/').pop()?.replace('.git', '') ?? '';
       const gitDir = path.join(expDir, repoName, '.git');
       if (fs.existsSync(gitDir)) fs.rmSync(gitDir, { recursive: true });
@@ -220,7 +229,7 @@ export function registerExperimentIPC(): void {
     return { ok: true, id: expId };
   });
 
-  ipcMain.handle('db:exp-compile-tex', (_event, googleId: string, expId: string, fname: string) => {
+  ipcMain.handle('db:exp-compile-tex', async (_event, googleId: string, expId: string, fname: string) => {
     const expDir = resolveExpDir(googleId, expId);
     const fpath = expDir ? safePath(expDir, fname) : null;
     if (!fpath) return { error: 'Invalid path' };
@@ -228,9 +237,9 @@ export function registerExperimentIPC(): void {
     const texDir = path.dirname(fpath);
     const baseName = path.basename(fname, '.tex');
     try {
-      execFileSync('pdflatex', ['-interaction=nonstopmode', '-output-directory=' + texDir, fpath], { cwd: texDir, timeout: 30_000 });
-      try { execFileSync('bibtex', [baseName], { cwd: texDir, timeout: 15_000 }); } catch {}
-      execFileSync('pdflatex', ['-interaction=nonstopmode', '-output-directory=' + texDir, fpath], { cwd: texDir, timeout: 30_000 });
+      await execFile('pdflatex', ['-interaction=nonstopmode', '-output-directory=' + texDir, fpath], { cwd: texDir, timeout: 30_000 });
+      try { await execFile('bibtex', [baseName], { cwd: texDir, timeout: 15_000 }); } catch {}
+      await execFile('pdflatex', ['-interaction=nonstopmode', '-output-directory=' + texDir, fpath], { cwd: texDir, timeout: 30_000 });
       const pdfPath = path.join(texDir, baseName + '.pdf');
       if (!fs.existsSync(pdfPath)) return { error: 'PDF not generated' };
       const pdfData = fs.readFileSync(pdfPath).toString('base64');
