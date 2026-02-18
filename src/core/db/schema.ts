@@ -108,15 +108,6 @@ export function initSchema(db: Database.Database): void {
       cached_at REAL NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS quality_cache (
-      title_hash TEXT NOT NULL,
-      prompt_hash TEXT NOT NULL,
-      verdict TEXT,
-      score INTEGER,
-      cached_at REAL NOT NULL,
-      PRIMARY KEY (title_hash, prompt_hash)
-    );
-
     CREATE TABLE IF NOT EXISTS smart_highlights_cache (
       url_hash TEXT PRIMARY KEY,
       highlights_json TEXT NOT NULL,

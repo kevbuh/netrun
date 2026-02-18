@@ -5,12 +5,12 @@ if (window.AetherUI) AetherUI.globals();
 // ── Island mode tab renderer ──
 
 function toggleBrowseTabLayout() {
-  _browseTabLayout = _browseTabLayout === 'island' ? 'horizontal' : 'island';
-  Settings.set('browseTabLayout', _browseTabLayout);
+  const newLayout = Settings.get('browseTabLayout') === 'island' ? 'horizontal' : 'island';
+  Settings.set('browseTabLayout', newLayout);
   const browseView = document.getElementById('browse-view');
   const browseOpen = browseView && browseView.style.display !== 'none';
   if (browseOpen) {
-    if (_browseTabLayout === 'island') {
+    if (newLayout === 'island') {
       _setPillBrowseMode(false);
       _applyBrowseTabLayout();
     } else {
@@ -25,7 +25,7 @@ function _applyBrowseTabLayout() {
   const pill = document.getElementById('sidebar-nav');
   const browseView = document.getElementById('browse-view');
   const browseOpen = browseView && browseView.style.display === 'flex';
-  if (_browseTabLayout === 'island') {
+  if (Settings.get('browseTabLayout') === 'island') {
     if (tabRow) tabRow.style.display = 'none';
     if (bar) bar.style.display = 'none';
     if (browseOpen) {
@@ -61,7 +61,7 @@ function _pillSyncUrl() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   const isBlankNtp = tab && tab.blank;
   _browseSetUrlDisplay(input, (!isBlankNtp && tab && tab.url) ? tab.url : '');
-  if (_browseTabLayout === 'island') {
+  if (Settings.get('browseTabLayout') === 'island') {
     const pill = document.getElementById('sidebar-nav');
     if (pill) pill.classList.remove('ntp-active');
     // Hide URL input on NTP, show only tabs pill
@@ -371,7 +371,7 @@ function _pillMicClick() {
 }
 
 function _browseRenderTabs() {
-  const isIsland = _browseTabLayout === 'island';
+  const isIsland = Settings.get('browseTabLayout') === 'island';
   const bar = isIsland ? null : document.getElementById('browse-tabs');
   const win = _getCurrentWindow();
   const tabs = win ? win.tabs : [];

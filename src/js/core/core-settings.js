@@ -135,153 +135,147 @@ var Settings = (function() {
   }
 
   // ── Setting Definitions ──────────────────────────────────
-  // Sync = true means synced across devices via the auth system
+  // @persisted = sync:true  — synced across devices via the auth system
+  // @local     = sync:false — device-local only, never sent to server
 
   // Appearance
-  define('theme', { default: 'clear', sync: true });
-  define('accentColor', { default: '#b4451a', sync: true });
-  define('editorTheme', { default: 'auto', sync: true });
-  define('aetherColor', { default: 'match', sync: true });
-  define('iconSize', { default: 'medium', sync: true });
-  define('spinner', { default: 'squareCorners', sync: true });
-  define('browseTabLayout', { default: 'island', sync: false });
-  define('customCursor', { default: 'on', sync: false });
+  define('theme',          { default: 'clear',         sync: true  }); // @persisted
+  define('accentColor',    { default: '#b4451a',        sync: true  }); // @persisted
+  define('editorTheme',    { default: 'auto',           sync: true  }); // @persisted
+  define('aetherColor',    { default: 'match',          sync: true  }); // @persisted
+  define('iconSize',       { default: 'medium',         sync: true  }); // @persisted
+  define('spinner',        { default: 'squareCorners',  sync: true  }); // @persisted
+  define('browseTabLayout',{ default: 'island',         sync: false }); // @local
+  define('customCursor',   { default: 'on',             sync: false }); // @local
 
   // Sidebar
-  define('sidebarOrder', { default: null, sync: true });
-  define('hiddenSidebarIcons', { default: '[]', sync: true });
-  define('browseBarOrder', { default: null, sync: true });
-  define('browseBarOverflow', { default: '[]', sync: false });
+  define('sidebarOrder',       { default: null,  sync: true  }); // @persisted
+  define('hiddenSidebarIcons', { default: '[]',  sync: true  }); // @persisted
+  define('browseBarOrder',     { default: null,  sync: true  }); // @persisted
+  define('browseBarOverflow',  { default: '[]',  sync: false }); // @local
 
   // Sounds
-  define('clickSound', { default: 'off', sync: true });
-  define('clickSoundType', { default: 'thud', sync: true });
-  define('clickAether', { default: 'on', sync: true });
-  define('rainNoiseType', { default: 'rain', sync: true });
-  define('rainVolume', { default: '0.3', sync: true });
-  define('rainFreq', { default: '0', sync: true });
-  define('rainOn', { default: '0', sync: false });
-  define('rainSidebarVisible', { default: null, sync: true });
+  define('clickSound',         { default: 'off',   sync: true  }); // @persisted
+  define('clickSoundType',     { default: 'thud',  sync: true  }); // @persisted
+  define('clickAether',        { default: 'on',    sync: true  }); // @persisted
+  define('rainNoiseType',      { default: 'rain',  sync: true  }); // @persisted
+  define('rainVolume',         { default: '0.3',   sync: true  }); // @persisted
+  define('rainFreq',           { default: '0',     sync: true  }); // @persisted
+  define('rainOn',             { default: '0',     sync: false }); // @local
+  define('rainSidebarVisible', { default: null,    sync: true  }); // @persisted
 
   // Read Aloud
-  define('ttsSpeed', { default: '1', sync: false });
-  define('ttsHighlight', { default: 'true', sync: false });
+  define('ttsSpeed',     { default: '1',    sync: false }); // @local
+  define('ttsHighlight', { default: 'true', sync: false }); // @local
 
-  // Feed & Quality
-  define('feedSources', { default: null, sync: true });
-  define('customFeeds', { default: '[]', sync: true });
-  define('feedNotifications', { default: '[]', sync: true });
-  define('feedNotifSources', { default: '[]', sync: true });
-  define('qualityFilter', { default: 'on', sync: true });
-  define('qualityPrompt', { default: null, sync: true });
-  define('qualityThreshold', { default: '30', sync: true });
-  define('qualityCache', { default: '{}', sync: true });
-  define('qualityTestTitles', { default: '[]', sync: true });
-  define('qualityBypass', { default: '[]', sync: true });
-  define('blockedWords', { default: '[]', sync: true });
-  define('interestProfile', { default: null, sync: true });
-  define('fyWeightBase', { default: '0.7', sync: true });
-  define('fyWeightAffinity', { default: '0.3', sync: true });
-  define('fyWeightRecency', { default: '1', sync: true });
-  define('maxPerCategoryRun', { default: '3', sync: true });
+  // Feed
+  define('feedSources',       { default: null,  sync: true }); // @persisted
+  define('customFeeds',       { default: '[]',  sync: true }); // @persisted
+  define('feedNotifications', { default: '[]',  sync: true }); // @persisted
+  define('feedNotifSources',  { default: '[]',  sync: true }); // @persisted
+  define('blockedWords',      { default: '[]',  sync: true }); // @persisted
+  define('interestProfile',   { default: null,  sync: true }); // @persisted
+  define('fyWeightBase',      { default: '0.7', sync: true }); // @persisted
+  define('fyWeightAffinity',  { default: '0.3', sync: true }); // @persisted
+  define('fyWeightRecency',   { default: '1',   sync: true }); // @persisted
+  define('maxPerCategoryRun', { default: '3',   sync: true }); // @persisted
 
   // Posts
-  define('hiddenPosts', { default: '[]', sync: true });
-  define('savedPosts', { default: '{}', sync: true });
-  define('readPosts', { default: '[]', sync: true });
-  define('paperRatings', { default: '{}', sync: true });
-  define('seenPostLinks', { default: null, sync: true });
-  define('repostedLinks', { default: null, sync: true });
+  define('hiddenPosts',   { default: '[]',  sync: true }); // @persisted
+  define('savedPosts',    { default: '{}',  sync: true }); // @persisted
+  define('readPosts',     { default: '[]',  sync: true }); // @persisted
+  define('paperRatings',  { default: '{}',  sync: true }); // @persisted
+  define('seenPostLinks', { default: null,  sync: true }); // @persisted
+  define('repostedLinks', { default: null,  sync: true }); // @persisted
 
   // Search & History
-  define('searchHistory', { default: '[]', sync: true });
-  define('browseHistory', { default: '[]', sync: true });
-  define('webSearchHistory', { default: '[]', sync: true });
+  define('searchHistory',    { default: '[]', sync: true }); // @persisted
+  define('browseHistory',    { default: '[]', sync: true }); // @persisted
+  define('webSearchHistory', { default: '[]', sync: true }); // @persisted
 
   // AI Models
-  define('chatModel', { default: 'qwen2.5:3b', sync: true });
-  define('chatTools', { default: 'on', sync: true });
-  define('chatThinking', { default: 'off', sync: false });
-  define('visionModel', { default: 'qwen3-vl:8b', sync: false });
-  define('summaryModel', { default: 'qwen3:0.6b', sync: false });
-  define('annotateModel', { default: 'qwen3:8b', sync: false });
-  define('ocrModel', { default: 'glm-ocr', sync: false });
-  define('insightsAllowHeuristics', { default: null, sync: true });
-  define('smartHighlights', { default: null, sync: true });
+  define('chatModel',              { default: 'qwen2.5:3b',  sync: true  }); // @persisted
+  define('chatTools',              { default: 'on',           sync: true  }); // @persisted
+  define('chatThinking',           { default: 'off',          sync: false }); // @local
+  define('visionModel',            { default: 'qwen3-vl:8b',  sync: false }); // @local
+  define('summaryModel',           { default: 'qwen3:0.6b',   sync: false }); // @local
+  define('annotateModel',          { default: 'qwen3:8b',     sync: false }); // @local
+  define('ocrModel',               { default: 'glm-ocr',      sync: false }); // @local
+  define('insightsAllowHeuristics',{ default: null,           sync: true  }); // @persisted
+  define('smartHighlights',        { default: null,           sync: true  }); // @persisted
 
   // Browser
-  define('adBlockEnabled', { default: 'true', sync: true });
-  define('urlBarSections', { default: null, sync: true });
-  define('urlShorten', { default: 'true', sync: false });
-  define('adaptiveUrlBar', { default: 'on', sync: false });
-  define('hideYTShorts', { default: 'false', sync: false });
-  define('doomScrollEnabled', { default: 'true', sync: false });
-  define('doomScrollSites', { default: '[]', sync: false });
-  define('sitePermissions', { default: '{}', sync: false });
-  define('browseClosedTabs', { default: '[]', sync: false });
-  define('browseDownloads', { default: '[]', sync: false });
-  define('browseDownloadsLastSeen', { default: '0', sync: false });
+  define('adBlockEnabled',          { default: 'true', sync: true  }); // @persisted
+  define('urlBarSections',          { default: null,   sync: true  }); // @persisted
+  define('urlShorten',              { default: 'true', sync: false }); // @local
+  define('adaptiveUrlBar',          { default: 'on',   sync: false }); // @local
+  define('hideYTShorts',            { default: 'false',sync: false }); // @local
+  define('doomScrollEnabled',       { default: 'true', sync: false }); // @local
+  define('doomScrollSites',         { default: '[]',   sync: false }); // @local
+  define('sitePermissions',         { default: '{}',   sync: false }); // @local
+  define('browseClosedTabs',        { default: '[]',   sync: false }); // @local
+  define('browseDownloads',         { default: '[]',   sync: false }); // @local
+  define('browseDownloadsLastSeen', { default: '0',    sync: false }); // @local
 
   // Annotations/Insights
-  define('insightEnabled', { default: 'on', sync: false });
-  define('insightOcr', { default: 'on', sync: false });
-  define('insightCache', { default: '{}', sync: false });
+  define('insightEnabled', { default: 'on', sync: false }); // @local
+  define('insightOcr',     { default: 'on', sync: false }); // @local
+  define('insightCache',   { default: '{}', sync: false }); // @local
 
   // Panel
-  define('panelTabComplete', { default: 'on', sync: false });
-  define('voiceAutoSend', { default: null, sync: false });
-  define('chatThreads', { default: null, sync: true });
+  define('panelTabComplete', { default: 'on', sync: false }); // @local
+  define('voiceAutoSend',    { default: null, sync: false }); // @local
+  define('chatThreads',      { default: null, sync: true  }); // @persisted
 
   // Profile
-  define('userName', { default: '', sync: true });
+  define('userName', { default: '', sync: true }); // @persisted
 
   // Pixel Pet
-  define('pixelPet', { default: 'off', sync: true });
-  define('pixelPetType', { default: 'cat', sync: true });
-  define('pixelPetMode', { default: 'free', sync: true });
+  define('pixelPet',     { default: 'off',  sync: true }); // @persisted
+  define('pixelPetType', { default: 'cat',  sync: true }); // @persisted
+  define('pixelPetMode', { default: 'free', sync: true }); // @persisted
 
-  // Navigation state (local only)
-  define('_lastActiveView', { default: 'feed', sync: false });
-  define('_navHistory', { default: '[]', sync: false });
-  define('_navForward', { default: '[]', sync: false });
-  define('_browseReturnView', { default: null, sync: false });
-  define('lastHash', { default: null, sync: false });
-  define('universalPanelVisible', { default: 'true', sync: false });
-  define('universalPanelWidth', { default: '280', sync: false });
-  define('settingsSection', { default: 'profile', sync: false });
+  // Navigation state (@local — runtime routing, never synced)
+  define('_lastActiveView',     { default: 'feed',    sync: false }); // @local
+  define('_navHistory',         { default: '[]',      sync: false }); // @local
+  define('_navForward',         { default: '[]',      sync: false }); // @local
+  define('_browseReturnView',   { default: null,      sync: false }); // @local
+  define('lastHash',            { default: null,      sync: false }); // @local
+  define('universalPanelVisible',{ default: 'true',   sync: false }); // @local
+  define('universalPanelWidth', { default: '280',     sync: false }); // @local
+  define('settingsSection',     { default: 'profile', sync: false }); // @local
 
   // Layout
-  define('downloadBannerDismissed', { default: 'false', sync: false });
-
+  define('downloadBannerDismissed', { default: 'false', sync: false }); // @local
 
   // Dashboard
-  define('daySummaryCache', { default: '{}', sync: false });
-  define('devPanelSection', { default: 'overview', sync: false });
+  define('daySummaryCache', { default: '{}',       sync: false }); // @local
+  define('devPanelSection', { default: 'overview', sync: false }); // @local
 
   // Experiments
-  define('expSidebarWidth', { default: null, sync: false });
-  define('expSidebarCollapsed', { default: '0', sync: false });
+  define('expSidebarWidth',     { default: null, sync: false }); // @local
+  define('expSidebarCollapsed', { default: '0',  sync: false }); // @local
 
   // Terminal
-  define('terminalState', { default: null, sync: false });
+  define('terminalState', { default: null, sync: false }); // @local
 
   // Whiteboard
-  define('whiteboardBoards', { default: '[]', sync: false });
+  define('whiteboardBoards', { default: '[]', sync: false }); // @local
 
   // Neuralook
-  define('nlRefinementHistory', { default: '[]', sync: false });
+  define('nlRefinementHistory', { default: '[]', sync: false }); // @local
 
   // Debug
-  define('debugLogs', { default: 'false', sync: false });
+  define('debugLogs', { default: 'false', sync: false }); // @local
 
-  // Achievements
-  define('ach_its_alive', { default: null, sync: false });
-  define('ach_gaze_master', { default: null, sync: false });
-  define('ach_curator', { default: null, sync: false });
-  define('ach_bookworm', { default: null, sync: false });
-  define('ach_critic', { default: null, sync: false });
-  define('ach_model_switch', { default: null, sync: false });
-  define('ach_pixel_parent', { default: null, sync: false });
+  // Achievements (@local — unlocked per-device, not synced)
+  define('ach_its_alive',    { default: null, sync: false }); // @local
+  define('ach_gaze_master',  { default: null, sync: false }); // @local
+  define('ach_curator',      { default: null, sync: false }); // @local
+  define('ach_bookworm',     { default: null, sync: false }); // @local
+  define('ach_critic',       { default: null, sync: false }); // @local
+  define('ach_model_switch', { default: null, sync: false }); // @local
+  define('ach_pixel_parent', { default: null, sync: false }); // @local
 
   return {
     define: define,

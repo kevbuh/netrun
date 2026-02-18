@@ -1,5 +1,4 @@
 import { ipcMain } from 'electron';
-import { createHash } from 'crypto';
 import * as feedQueries from '../db/queries/feeds.js';
 import { cachedFetch, ollamaProvider } from './shared.js';
 
@@ -151,73 +150,4 @@ export function registerFeedsIPC(): void {
     } catch { return { suggestions: [] }; }
   });
 
-  ipcMain.handle('db:quality-filter', async (_event, body: { titles: string[]; mode?: string; prompt?: string; interest_context?: string }) => {
-    const { titles, mode = 'verdict', interest_context } = body;
-    if (!titles?.length) return { error: 'titles required' };
-    try {
-      if (mode === 'score') {
-        let scoreSystem = 'Rate the following paper/article title on a scale of 0-100 for quality, novelty, and interest. Return ONLY the number, nothing else.';
-        if (interest_context) {
-          scoreSystem += `\n\nThe reader's interests: ${interest_context.slice(0, 500)}\nBoost scores for content matching these interests, but still score objectively.`;
-        }
-        const promptHash = createHash('sha256').update(scoreSystem).digest('hex').slice(0, 16);
-        const results: Record<string, number> = {};
-        const uncached: string[] = [];
-        for (const t of titles) {
-          const cached = feedQueries.getQualityCache(createHash('sha256').update(t).digest('hex').slice(0, 16), promptHash);
-          if (cached?.score != null) results[t] = cached.score;
-          else uncached.push(t);
-        }
-        if (uncached.length) {
-          const scored = await Promise.all(uncached.map(async (t) => {
-            try {
-              const r = await ollamaProvider.chat({
-                model: 'qwen3:8b',
-                messages: [{ role: 'system', content: scoreSystem }, { role: 'user', content: t }],
-                temperature: 0,
-                maxTokens: 8,
-              });
-              const raw = (r.message.content ?? '').trim();
-              const m = raw.match(/\d+/);
-              return { title: t, score: Math.max(0, Math.min(100, m ? parseInt(m[0]) : 50)) };
-            } catch { return { title: t, score: 50 }; }
-          }));
-          for (const { title, score } of scored) {
-            results[title] = score;
-            feedQueries.setQualityCache(createHash('sha256').update(title).digest('hex').slice(0, 16), promptHash, 'score', score);
-          }
-        }
-        return results;
-      } else {
-        const systemMsg = body.prompt?.trim() || 'You are a content quality filter. Given a paper/article title, respond with ONLY "keep" or "hide". Keep titles that are interesting, novel, or important. Hide clickbait, low-quality, or boring titles.';
-        const promptHash = createHash('sha256').update(systemMsg).digest('hex').slice(0, 16);
-        const results: Record<string, string> = {};
-        const uncached: string[] = [];
-        for (const t of titles) {
-          const cached = feedQueries.getQualityCache(createHash('sha256').update(t).digest('hex').slice(0, 16), promptHash);
-          if (cached?.verdict) results[t] = cached.verdict;
-          else uncached.push(t);
-        }
-        if (uncached.length) {
-          const classified = await Promise.all(uncached.map(async (t) => {
-            try {
-              const r = await ollamaProvider.chat({
-                model: 'qwen3:8b',
-                messages: [{ role: 'system', content: systemMsg }, { role: 'user', content: t }],
-                temperature: 0,
-                maxTokens: 8,
-              });
-              const raw = (r.message.content ?? '').trim().toLowerCase();
-              return { title: t, verdict: raw.includes('hide') ? 'hide' : 'keep' };
-            } catch { return { title: t, verdict: 'keep' }; }
-          }));
-          for (const { title, verdict } of classified) {
-            results[title] = verdict;
-            feedQueries.setQualityCache(createHash('sha256').update(title).digest('hex').slice(0, 16), promptHash, verdict, 0);
-          }
-        }
-        return results;
-      }
-    } catch (e: any) { return { error: e.message ?? String(e) }; }
-  });
 }

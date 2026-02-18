@@ -1,7 +1,13 @@
 // panel-state.js — Shared state for panel system
 // All state variables used across panel modules
+//
+// State variable conventions:
+//   @settings — backed by Settings.get/set; no local var needed
+//   @signal   — AetherUI State() reactive signal; access via .value
+//   @runtime  — ephemeral in-memory state; plain var, not persisted
+//   @const    — set once at init, never changes
 
-// ── Chat State ──
+// ── Chat State ──  @runtime
 let _popupChatMessages = [];
 let _popupChatAbort = null;
 let _chatStreamStart = 0;

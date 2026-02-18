@@ -13,12 +13,10 @@ function _feedTabBtn(key, label) {
 function _renderFeedSettings() {
   var tabs = HStack(
     _feedTabBtn('insights', 'Insights'),
-    _feedTabBtn('quality', 'Quality Filter'),
     _feedTabBtn('algorithm', 'Algorithm')
   ).spacing(1).className('mb-6');
   var content;
-  if (_settingsFeedTab === 'quality') content = _renderFeedQualityTab();
-  else if (_settingsFeedTab === 'algorithm') content = _renderFeedAlgorithmTab();
+  if (_settingsFeedTab === 'algorithm') content = _renderFeedAlgorithmTab();
   else content = _renderFeedInsightsTab();
   return VStack(tabs, content);
 }
@@ -28,96 +26,6 @@ function _renderFeedInsightsTab() {
     _settingToggleLS('Allow heuristics', 'Use regex/keyword matching for repos, hardware, and insight fallback',
       'insightsAllowHeuristics', { defaultOn: true, trueValue: 'true', falseValue: 'false' })
   ], { desc: 'Extracts key insights when viewing a paper. Uses local LLM (qwen2.5:3b).' });
-}
-
-function _renderFeedQualityTab() {
-  var cache = typeof getQualityCache === 'function' ? getQualityCache() : {};
-  var cacheEntries = Object.entries(cache);
-  var keptCount = cacheEntries.filter(function(e) { return (e[1]?.v || e[1]) === 'keep'; }).length;
-  var skippedCount = cacheEntries.filter(function(e) { return (e[1]?.v || e[1]) === 'skip'; }).length;
-
-  var qfEnabled = typeof isQualityFilterOn === 'function' && isQualityFilterOn();
-  var enableToggle = Toggle(null);
-  var enableInput = enableToggle.el.querySelector('input[type="checkbox"]');
-  if (enableInput) enableInput.checked = qfEnabled;
-  enableToggle.on('change', function(e) { if (e.target.type === 'checkbox') setQualityFilter(e.target.checked); });
-
-  var header = HStack(
-    Text('Quality Filter').className('text-white_ text-sm font-semibold'),
-    Text('qwen3:8b').className('text-dimmer text-[0.62rem]'),
-    Spacer(),
-    Text('Enable').className('text-primary text-sm'),
-    enableToggle
-  ).spacing(2).className('mb-1');
-
-  var isEdited = typeof getQualityPrompt === 'function' && typeof DEFAULT_QUALITY_PROMPT !== 'undefined' && getQualityPrompt() !== DEFAULT_QUALITY_PROMPT;
-  var editedBadge = isEdited ? '<span class="text-[0.65rem] text-accent bg-accent/10 border border-accent/30 rounded px-1.5 py-0.5">Edited</span>' : '';
-  var resetPromptBtn = isEdited ? '<button onclick="resetQualityPrompt(); renderSettingsView()" class="text-dim text-[0.78rem] hover:text-red-400 bg-transparent border border-border-input hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors">Reset</button>' : '';
-
-  var promptHtml = typeof getQualityPrompt === 'function' ? escapeHtml(getQualityPrompt()) : '';
-  var threshold = typeof getQualityThreshold === 'function' ? getQualityThreshold() : 30;
-
-  var verdictSection = RawHTML(
-    '<div class="mb-5">' +
-    '<div class="flex items-center gap-2 mb-2"><span class="text-muted text-[0.78rem] font-medium">Verdict Prompt</span>' + editedBadge + '</div>' +
-    '<p class="text-dimmer text-[0.72rem] mb-2">Classifies each post title as KEEP or SKIP.</p>' +
-    '<div id="verdict-prompt-readonly" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-2 max-h-[200px] overflow-y-auto">' + promptHtml + '</div>' +
-    '<textarea id="quality-prompt-input" rows="6" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-primary text-[0.78rem] font-mono leading-relaxed outline-none focus:border-accent resize-y" spellcheck="false" style="display:none">' + promptHtml + '</textarea>' +
-    '<div id="verdict-prompt-actions" class="flex items-center gap-2 justify-end">' +
-    '<button onclick="_editVerdictPrompt()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors">Edit</button>' + resetPromptBtn + '</div>' +
-    '<div id="verdict-prompt-edit-actions" class="flex items-center gap-2 justify-end" style="display:none">' +
-    '<button onclick="_cancelEditVerdictPrompt()" class="text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input rounded-md px-3 py-1 cursor-pointer transition-colors">Cancel</button>' +
-    '<button onclick="saveQualityPrompt().then(function(){ renderSettingsView(); })" class="bg-accent text-white text-[0.78rem] px-3 py-1 rounded-md border-none cursor-pointer hover:bg-accent-hover">Save</button></div></div>'
-  );
-
-  var scoringSection = RawHTML(
-    '<div class="mb-5 pt-4 border-t border-border-subtle">' +
-    '<span class="text-muted text-[0.78rem] font-medium mb-2 block">Scoring Threshold</span>' +
-    '<p class="text-dimmer text-[0.72rem] mb-2">Posts passing the verdict are scored 0\u2013100%. Below threshold = hidden.</p>' +
-    '<div id="scoring-prompt-display" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-3">Loading\u2026</div>' +
-    '<div class="flex items-center gap-3">' +
-    '<input type="range" id="quality-threshold-slider" min="0" max="100" value="' + threshold + '" oninput="document.getElementById(\'quality-threshold-value\').textContent=this.value+\'%\'" onchange="setQualityThreshold(parseInt(this.value))" class="flex-1 accent-[var(--nr-accent)]" />' +
-    '<span id="quality-threshold-value" class="text-primary text-sm font-mono w-10 text-right">' + threshold + '%</span></div>' +
-    '<p class="text-dimmer text-[0.68rem] mt-1">Minimum score to display (0% = show all kept, 100% = strictest)</p></div>'
-  );
-
-  var blockedWordsSection = RawHTML(
-    '<div class="mb-5 pt-4 border-t border-border-subtle">' +
-    '<span class="text-muted text-[0.78rem] font-medium mb-2 block">Blocked Words</span>' +
-    '<p class="text-dimmer text-[0.72rem] mb-3">Posts with titles containing any of these words will be automatically hidden.</p>' +
-    '<div class="flex gap-2 mb-3">' +
-    '<input type="text" id="blocked-word-input" placeholder="e.g. politics, lawsuit, review" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addBlockedWord()}">' +
-    '<button onclick="addBlockedWord()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover">Add</button></div>' +
-    '<div id="blocked-words-list" class="flex flex-wrap gap-1.5"></div></div>'
-  );
-
-  var blockedPostsBtn = new View('button');
-  blockedPostsBtn.className('flex items-center gap-2 text-muted text-[0.78rem] font-medium bg-transparent border-none cursor-pointer p-0 hover:text-primary transition-colors');
-  blockedPostsBtn.el.innerHTML = '<span id="blocked-posts-chevron" class="transition-transform" style="transform:rotate(-90deg)">' + icon('chevronDown', { size: 14, class: 'w-3.5 h-3.5' }) + '</span> Blocked Posts';
-  blockedPostsBtn.onTap(function() { _toggleBlockedPostsList(); });
-  var blockedPostsSection = VStack(
-    blockedPostsBtn,
-    RawHTML('<div id="quality-blocked-list" class="text-[0.78rem] text-muted max-h-[300px] overflow-y-auto mt-2" style="display:none"></div>')
-  ).className('mb-5 pt-4 border-t border-border-subtle');
-
-  var resetAllBtn = new View('button');
-  resetAllBtn.el.textContent = 'Reset all & clear cache';
-  resetAllBtn.className('text-red-400/80 text-[0.75rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
-  resetAllBtn.onTap(function() { resetEverything(); });
-  var footer = HStack(
-    Text('Cached: ' + cacheEntries.length + ' \u00b7 Kept: ' + keptCount + ' \u00b7 Skipped: ' + skippedCount).className('text-dim text-[0.75rem]'),
-    Spacer(), resetAllBtn
-  ).className('pt-4 border-t border-border-subtle');
-
-  return VStack(
-    header,
-    Text('Uses a local LLM (Ollama) to hide low-quality posts. Two phases: verdict (KEEP/SKIP), then scoring.').className('text-dim text-[0.78rem] mb-5'),
-    verdictSection,
-    scoringSection,
-    blockedWordsSection,
-    blockedPostsSection,
-    footer
-  );
 }
 
 function _renderFeedAlgorithmTab() {

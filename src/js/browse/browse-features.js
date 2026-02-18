@@ -392,7 +392,7 @@ function _browseInstallKeyGuard() {
     if (!win) return;
 
     // Arrow keys for navigation when tab bar is focused
-    const islandMode = _browseTabLayout === 'island';
+    const islandMode = Settings.get('browseTabLayout') === 'island';
     if (islandMode) {
       // Island layout: Up/Down switch tabs, no window switching via arrows
       if (e.key === 'ArrowUp' && win.tabs.length > 1) {

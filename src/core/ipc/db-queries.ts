@@ -61,13 +61,6 @@ export function registerDbQueriesIPC(): void {
   ipcMain.handle('db:feed-items-upsert', (_event, items: any[]) => {
     return feedQueries.upsertFeedItems(items);
   });
-  ipcMain.handle('db:quality-cache-get', (_event, titleHash: string, promptHash: string) => {
-    return feedQueries.getQualityCache(titleHash, promptHash);
-  });
-  ipcMain.handle('db:quality-cache-set', (_event, titleHash: string, promptHash: string, verdict: string, score: number) => {
-    feedQueries.setQualityCache(titleHash, promptHash, verdict, score);
-  });
-
   // Social
   ipcMain.handle('db:direct-messages', (_event, googleId: string) => {
     return socialQueries.getDirectMessages(googleId);
@@ -209,13 +202,6 @@ export function registerDbQueriesIPC(): void {
   ipcMain.handle('db:blocked-titles-set', (_event, titles: string[]) => {
     feedQueries.setBlockedTitles(titles);
   });
-  ipcMain.handle('db:quality-prompt-get', () => {
-    return feedQueries.getQualityPrompt();
-  });
-  ipcMain.handle('db:quality-prompt-set', (_event, prompt: string | null) => {
-    feedQueries.setQualityPrompt(prompt);
-  });
-
   // ── Auth: Google login ──
   ipcMain.handle('db:auth-google', async (_event, credential: string) => {
     if (!credential) return { error: 'Missing credential' };

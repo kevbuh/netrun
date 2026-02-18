@@ -20,7 +20,7 @@ export {
 } from './browser/index.js';
 
 // Feed tools
-export { feedList, feedFetch, feedQualityFilter } from './feed/index.js';
+export { feedList, feedFetch } from './feed/index.js';
 
 // Social tools
 export { socialUserProfile } from './social/index.js';
@@ -39,7 +39,7 @@ import { webSearch, paperSearch } from './search/index.js';
 import { extractText } from './content/index.js';
 import { navigate, openTab, saveToReadingList, createCalendarEvent } from './system/index.js';
 import { browserReadPage, browserClick, browserType, browserScroll, browserNavigate, browserScreenshot, browserQuerySelector, browserWaitFor, browserGetUrl, browserGetTabs, browserSwitchTab, browserBack, browserForward, browserPressKey, browserGetStorage } from './browser/index.js';
-import { feedList, feedFetch, feedQualityFilter } from './feed/index.js';
+import { feedList, feedFetch } from './feed/index.js';
 import { socialUserProfile } from './social/index.js';
 import { mediaTranscribe, mediaTts } from './media/index.js';
 import { calendarList, calendarCreate, calendarUpdate, calendarDelete } from './calendar/index.js';
@@ -77,10 +77,9 @@ export function registerAllTools(): void {
   toolRegistry.register(browserPressKey);
   toolRegistry.register(browserGetStorage);
 
-  // Feed (3)
+  // Feed (2)
   toolRegistry.register(feedList);
   toolRegistry.register(feedFetch);
-  toolRegistry.register(feedQualityFilter);
 
   // Social (1)
   toolRegistry.register(socialUserProfile);

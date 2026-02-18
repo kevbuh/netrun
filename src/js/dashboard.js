@@ -37,10 +37,9 @@ function _dashTrending(limit) {
   const now = Date.now();
   return papers.map(p => {
     const engagement = (p.points || 0) + (p.citations || 0);
-    const qs = p._qualityScore || 0;
     const ageH = (now - (p.pubDate || now)) / 3600000;
     const recency = Math.max(0, 1 - ageH / 72);
-    const score = (engagement * 2 + qs) * (0.3 + recency * 0.7);
+    const score = engagement * 2 * (0.3 + recency * 0.7);
     return { ...p, _trendScore: score };
   }).filter(p => p._trendScore > 0).sort((a, b) => b._trendScore - a._trendScore).slice(0, limit);
 }

@@ -457,7 +457,7 @@
   var _pulseListeners = [];
   var _pulseRecent = [];
   var _PULSE_MAX = 50;
-  var _pulseStats = { ai: 0, network: 0, feed: 0, quality: 0, system: 0 };
+  var _pulseStats = { ai: 0, network: 0, feed: 0, system: 0 };
   var _pulseStatsWindow = [];
   var _PULSE_WINDOW_MS = 3000;
 
@@ -465,9 +465,7 @@
     { prefix: '/api/doc-chat', cat: 'ai' },
     { prefix: '/api/panel-suggest', cat: 'ai' },
     { prefix: '/api/search-suggest', cat: 'ai' },
-    { prefix: '/api/quality-filter', cat: 'quality' },
-    { prefix: '/api/quality-prompt', cat: 'quality' },
-    { prefix: '/api/blocked-titles', cat: 'quality' },
+    { prefix: '/api/blocked-titles', cat: 'feed' },
     { prefix: '/api/feed-items', cat: 'feed' },
     { prefix: '/feed', cat: 'feed' },
     { prefix: '/hn-feed', cat: 'feed' },

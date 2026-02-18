@@ -93,7 +93,6 @@ function setEditorTheme(theme) {
 }
 
 function setBrowseTabLayout(layout) {
-  _browseTabLayout = layout;
   Settings.set('browseTabLayout', layout);
   // Apply immediately if browse view is open
   const browseView = document.getElementById('browse-view');

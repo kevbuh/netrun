@@ -156,7 +156,7 @@ function _handleAgentAction(act) {
       if (!saved[act.url]) toggleSavePost(paper);
     }
   } else if (act.type === 'navigate' && act.view) {
-    const routes = { home: '#', browse: '#browse', saved: '#saved', calendar: '#calendar', settings: '#settings', quality: '#quality' };
+    const routes = { home: '#', browse: '#browse', saved: '#saved', calendar: '#calendar', settings: '#settings' };
     location.hash = routes[act.view] || '#';
   } else if (act.type === 'open_tab') {
     if (typeof browseNewTab === 'function') {

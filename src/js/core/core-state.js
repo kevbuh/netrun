@@ -1,5 +1,11 @@
 // core-state.js — Global state for core module
 // All state variables used across core modules
+//
+// State variable conventions:
+//   @settings — backed by Settings.get/set; no local var needed (read Settings directly)
+//   @signal   — AetherUI State() reactive signal; access via .value
+//   @runtime  — ephemeral in-memory state; plain var, not persisted
+//   @const    — set once at init, never changes
 
 // ── SVG assets ──
 var _ELL_SVG = icon('ell', { size: 16, class: 'ell-favicon' });
@@ -17,14 +23,14 @@ var _PILL_BOTTOM = 20;
 var _customAnnotationCategories = [];
 
 // ── Dynamic Island ──
-var _islandActivities = {};  // { id: { type, label, detail, progress, done, _ts } }
+var _islandActivities = State({});  // @signal { id: { type, label, detail, progress, done, _ts } }
 var _islandDismissTimers = {};  // { id: timeoutId }
 var _islandWaveformBars = '<span class="island-waveform"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 var _islandAudioBars = '<span class="island-waveform island-waveform-anim"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 var _islandResizeTimer = null;
 
 // ── Audio ──
-var _audioUnifiedState = { tab: null, tts: null, cc: null, mic: null };
+var _audioUnifiedState = State({ tab: null, tts: null, cc: null, mic: null });  // @signal
 var _ttsSpeeds = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 
 // ── Layout ──
@@ -35,8 +41,7 @@ let _spinnerData = null;
 let _spinnerNames = [];
 let _spinnerInterval = null;
 
-// ── Views ──
-let _lastActiveView = Settings.get('_lastActiveView') || 'feed';
+// ── Views ── (@settings — backed by Settings.get('_lastActiveView'))
 const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-browse': 'browse', 'sb-settings': 'settings', 'sb-neuralook': 'neuralook' };
 // ── Sidebar navigation ──
 let _sidebarFocused = false;

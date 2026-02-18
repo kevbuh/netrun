@@ -65,7 +65,7 @@ npm run validate-load-order # Check script load order
 
 - **CSS tokens** (`src/aether/css/tokens.css`): Source of truth for all `--nr-*` custom properties. Foundation CSS files alongside it: `reset.css`, `layout.css`, `typography.css`, `surfaces.css`, `animations.css`, `ambient.css`.
 - **Component CSS** (`src/aether/css/components/`): buttons, cards, inputs, pills, menus, modals, toast, tooltips, aether-ui.
-- **Feature CSS** (`src/aether/css/features/`): 27 feature-specific stylesheets loaded via `<link>` tags in `index.html`.
+- **Feature CSS** (`src/aether/css/features/`): 24 feature-specific stylesheets loaded via `<link>` tags in `index.html`.
 - **Themes** (`src/aether/css/themes/`): dark, light, daylight, clear.
 - **JS modules**: `aether.js` (main entry), `tokens.js`, `motion.js`, `materials.js`, `ambient.js`, `cursor.js`. Exposed as `window.Aether`.
 - **AetherUI** (`src/aether/ui/`): Declarative UI framework — `State`, `Computed`, `Effect` (SolidJS-style signals), layout primitives (`VStack`, `HStack`, `ZStack`), controls (`Button`, `TextField`, `Toggle`, `Slider`, `Picker`), overlays (`Sheet`, `Alert`, `Popover`, `Menu`). Exposed as `window.AetherUI` and `Aether.ui`.
@@ -74,7 +74,7 @@ npm run validate-load-order # Check script load order
 
 - `src/js/` files are plain browser JS (`sourceType: 'script'`), not ES modules. They use the global `electronAPI` object for IPC.
 - Organized by feature: `core/` (routing, sidebar, layout, state, audio, sounds, auth, navigation, profile, context-intake, UI utils, icons), `browse/` (tabs, sessions, passwords, agent, annotations, audio, captions, downloads, features, island, menu, NTP, paper, pill, split-panes, state, windows), `settings/` (theme, colors, sections, core, init).
-- Feature modules at top level: api, calendar, chat-threads, dashboard, draw-editor, feed, neuralook, notebook-editor, onboarding, panel (chat, commands, state, tts), pixel-pet, quality, search, terminal, vibe, whiteboard.
+- Feature modules at top level: api, api-ipc, calendar, chat-threads, dashboard, draw-editor, feed, logger, login-auth, neuralook, notebook-editor, onboarding, panel (chat, commands, state, tts), pixel-pet, quality, search, terminal, vibe, views, whiteboard.
 - Tests co-located as `*.test.js` files, run by Vitest with happy-dom.
 
 #### Rendering conventions
@@ -95,7 +95,7 @@ npm run validate-load-order # Check script load order
 
 ### Views (`src/views/`)
 
-HTML pages: algorithm, author-profile, blog, dashboard, dev, inbox, neuralook, onboarding, profile, quality, research, settings, vibe.
+HTML pages: algorithm, author-profile, dashboard, dev, inbox, neuralook, onboarding, profile, quality, research, settings, vibe.
 
 ### Python (legacy/auxiliary)
 

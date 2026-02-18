@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Tool, ToolResult } from '../types.js';
 
 const parameters = z.object({
-  view: z.string().describe('View to navigate to: home, browse, saved, calendar, settings, quality'),
+  view: z.string().describe('View to navigate to: home, browse, saved, calendar, settings'),
 });
 
 /**

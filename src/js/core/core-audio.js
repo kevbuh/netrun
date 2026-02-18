@@ -30,22 +30,19 @@ function _ttsCycleSpeed() {
 }
 
 function _updateAudioUnified(source, data) {
-  _audioUnifiedState[source] = data;
+  _audioUnifiedState.value = { ..._audioUnifiedState.value, [source]: data };
   _renderAudioPill();
 }
 
 function _clearAudioUnified(source) {
-  _audioUnifiedState[source] = null;
+  _audioUnifiedState.value = { ..._audioUnifiedState.value, [source]: null };
   _renderAudioPill();
 }
 
 function _renderAudioPill() {
   const el = document.getElementById('pill-audio-unified');
   if (!el) return;
-  const tab = _audioUnifiedState.tab;
-  const tts = _audioUnifiedState.tts;
-  const cc = _audioUnifiedState.cc;
-  const mic = _audioUnifiedState.mic;
+  const { tab, tts, cc, mic } = _audioUnifiedState.value;
   var micRecording = typeof _pillMicRecorder !== 'undefined' && _pillMicRecorder;
   const rainActive = typeof _rainOn !== 'undefined' && _rainOn;
   const active = !!(tab || tts || cc || mic || micRecording || rainActive);
@@ -423,7 +420,7 @@ function _islandBuildTray(a, isBrowse) {
     const start = Math.max(0, recent.length - 30);
     for (let ri = recent.length - 1; ri >= start; ri--) {
       const ev = recent[ri];
-      const catColors = { ai: '#a78bfa', feed: '#f97316', quality: '#22c55e', network: '#94a3b8', system: '#e879f9' };
+      const catColors = { ai: '#a78bfa', feed: '#f97316', network: '#94a3b8', system: '#e879f9' };
       const col = catColors[ev.category] || '#94a3b8';
       const age = Math.round((Date.now() - ev.timestamp) / 1000);
       const ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
@@ -443,7 +440,7 @@ function _islandAttachHandlers(pill, a, hasTray) {
     if (dismissEl) {
       e.stopPropagation();
       const dismissId = dismissEl.getAttribute('data-island-dismiss');
-      const act = _islandActivities[dismissId];
+      const act = _islandActivities.value[dismissId];
       if (act && act.dismiss) act.dismiss();
       else islandRemove(dismissId);
       return;
@@ -607,7 +604,7 @@ function _islandRender() {
   if (!container) return;
   const rightContainer = document.getElementById('pill-island-right');
 
-  let ids = Object.keys(_islandActivities);
+  let ids = Object.keys(_islandActivities.value);
   if (!ids.length) {
     container.innerHTML = '';
     if (rightContainer) rightContainer.innerHTML = '';
@@ -622,9 +619,9 @@ function _islandRender() {
   });
   const priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, bookmark: 2.55, insight: 2.5, 'feed-notif': 2, audio: 2, qf: 2, feed: 1, context: 0 };
   ids.sort(function(a, b) {
-    const pa = priority[_islandActivities[a].type] || 0;
-    const pb = priority[_islandActivities[b].type] || 0;
-    return pb - pa || _islandActivities[b]._ts - _islandActivities[a]._ts;
+    const pa = priority[_islandActivities.value[a].type] || 0;
+    const pb = priority[_islandActivities.value[b].type] || 0;
+    return pb - pa || _islandActivities.value[b]._ts - _islandActivities.value[a]._ts;
   });
   ids = pinnedLeft.concat(ids);
 
@@ -649,7 +646,7 @@ function _islandRender() {
 
   const prevPill = null; // track insertion order
   ids.forEach(function(id) {
-    const a = _islandActivities[id];
+    const a = _islandActivities.value[id];
     let pill = existingEls[id];
     const isNew = !pill;
     if (isNew) {
@@ -690,7 +687,7 @@ function _islandRender() {
     }
     // Fill items tray for context / download pills
     if (tray) {
-      const isBrowse = (typeof _browseTabLayout !== 'undefined') && ((_currentRouteHash || window.location.hash || '').match(/^#(browse|research|search)$/));
+      const isBrowse = ((_currentRouteHash || window.location.hash || '').match(/^#(browse|research|search)$/));
       tray.innerHTML = _islandBuildTray(a, isBrowse);
     }
     const hasItems = !!(a.items && a.items.length);
@@ -978,7 +975,7 @@ function _islandRender() {
 window.addEventListener('resize', function() {
   clearTimeout(_islandResizeTimer);
   _islandResizeTimer = setTimeout(function() {
-    if (Object.keys(_islandActivities).length) _islandRender();
+    if (Object.keys(_islandActivities.value).length) _islandRender();
   }, 100);
 });
 

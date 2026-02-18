@@ -219,7 +219,7 @@ function debounce(fn, ms) {
 // Research view tab state
 
 function setSidebarActive(id) {
-  if (id && _sidebarToView[id]) { _lastActiveView = _sidebarToView[id]; Settings.set('_lastActiveView', _lastActiveView); }
+  if (id && _sidebarToView[id]) { Settings.set('_lastActiveView', _sidebarToView[id]); }
   document.querySelectorAll('.sidebar-icon').forEach(b => {
     b.classList.remove('active');
     // Don't remove sb-loading here - let animation finish on its own

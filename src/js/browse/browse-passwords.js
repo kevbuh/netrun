@@ -488,7 +488,7 @@ function _browseUpdateNewTabPage(tab) {
   const container = document.getElementById('browse-content');
   if (!container) return;
   const bar = document.getElementById('browse-bar');
-  if (bar) bar.style.display = (tab && tab.blank) || _browseTabLayout === 'island' ? 'none' : '';
+  if (bar) bar.style.display = (tab && tab.blank) || Settings.get('browseTabLayout') === 'island' ? 'none' : '';
   let ntp = container.querySelector('.browse-ntp');
   if (tab && tab.blank) {
     if (!ntp) {
@@ -549,7 +549,7 @@ function _browseUpdateNewTabPage(tab) {
   } else if (ntp) {
     ntp.style.display = 'none';
   }
-  if (_browseTabLayout === 'island') _pillSyncUrl();
+  if (Settings.get('browseTabLayout') === 'island') _pillSyncUrl();
   const pinchOverlay = container.querySelector('.browse-pinch-overlay');
   if (pinchOverlay) pinchOverlay.style.pointerEvents = (_browseZoomLevel > 1 && tab && !tab.blank) ? 'auto' : 'none';
 }

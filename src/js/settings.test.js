@@ -101,17 +101,6 @@ const ACCENT_COLORS = [
   { color: '#111111', name: 'Black' },
 ];
 
-/**
- * Quality cache statistics calculation
- * Extracted from settings.js _renderFeedQualityTab()
- */
-function qualityCacheStats(cache) {
-  const entries = Object.entries(cache);
-  const keptCount = entries.filter(([, v]) => (v?.v || v) === 'keep').length;
-  const skippedCount = entries.filter(([, v]) => (v?.v || v) === 'skip').length;
-  return { total: entries.length, kept: keptCount, skipped: skippedCount };
-}
-
 // ──────────────────────────────────────────────────────────
 // Tests
 // ──────────────────────────────────────────────────────────
@@ -284,49 +273,3 @@ describe('OKLCh Lerp', () => {
   });
 });
 
-describe('Quality Cache Stats', () => {
-  it('should count kept and skipped with new format', () => {
-    const cache = {
-      'Paper A': { v: 'keep', s: 80 },
-      'Paper B': { v: 'skip' },
-      'Paper C': { v: 'keep', s: 45 },
-      'Paper D': { v: 'skip' },
-      'Paper E': { v: 'keep', s: 90 },
-    };
-    const stats = qualityCacheStats(cache);
-    expect(stats.total).toBe(5);
-    expect(stats.kept).toBe(3);
-    expect(stats.skipped).toBe(2);
-  });
-
-  it('should handle old format (verdict as string)', () => {
-    const cache = {
-      'Paper A': 'keep',
-      'Paper B': 'skip',
-      'Paper C': 'keep',
-    };
-    const stats = qualityCacheStats(cache);
-    expect(stats.total).toBe(3);
-    expect(stats.kept).toBe(2);
-    expect(stats.skipped).toBe(1);
-  });
-
-  it('should handle empty cache', () => {
-    const stats = qualityCacheStats({});
-    expect(stats.total).toBe(0);
-    expect(stats.kept).toBe(0);
-    expect(stats.skipped).toBe(0);
-  });
-
-  it('should handle mixed old and new format', () => {
-    const cache = {
-      'Paper A': { v: 'keep', s: 80 },
-      'Paper B': 'skip',
-      'Paper C': 'keep',
-    };
-    const stats = qualityCacheStats(cache);
-    expect(stats.total).toBe(3);
-    expect(stats.kept).toBe(2);
-    expect(stats.skipped).toBe(1);
-  });
-});

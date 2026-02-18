@@ -106,20 +106,7 @@ function renderSettingsView() {
   if (_settingsSection === 'appearance') {
     updateSpinnerPreview(getSelectedSpinner());
   } else if (_settingsSection === 'feed') {
-    if (_settingsFeedTab === 'quality') {
-      if (typeof renderBlockedWordsList === 'function') renderBlockedWordsList();
-      apiGet('/api/quality-prompt').then(function(data) {
-        if (data.prompt) {
-          Settings.set('qualityPrompt', data.prompt);
-          const el = document.getElementById('quality-prompt-input');
-          if (el) el.value = data.prompt;
-        }
-        const scoringEl = document.getElementById('scoring-prompt-display');
-        if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
-      }).catch(function(e){ console.warn('loadQualityPrompt:', e); });
-    } else if (_settingsFeedTab === 'algorithm') {
-      if (typeof _renderPersonalizationPanel === 'function') _renderPersonalizationPanel();
-    }
+    // No post-render hooks needed for feed section
   } else if (_settingsSection === 'ai') {
     _loadSettingsModels();
   } else if (_settingsSection === 'browser') {

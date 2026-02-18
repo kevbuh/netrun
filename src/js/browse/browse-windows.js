@@ -143,7 +143,6 @@ function _animateWindowSwitch(direction, callback) {
 
 
 function _setBrowseReturnView(view) {
-  _browseReturnView = view;
   if (view) Settings.set('_browseReturnView', view);
   else Settings.remove('_browseReturnView');
 }
@@ -155,7 +154,7 @@ function _browseGoBack() {
     return;
   }
   const nav = { feed: goHome, dashboard: openDashboard, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, calendar: typeof openDashboard === 'function' ? openDashboard : null, settings: typeof openSettings === 'function' ? openSettings : null, neuralook: typeof openNeuralook === 'function' ? openNeuralook : null };
-  const fn = nav[_browseReturnView];
+  const fn = nav[Settings.get('_browseReturnView')];
   _setBrowseReturnView(null);
   if (fn) fn(); else goHome();
 }
@@ -170,7 +169,7 @@ function openBrowse(url) {
     view.style.display = 'flex';
     view.style.flexDirection = 'column';
     setSidebarActive('sb-browse');
-    if (_browseTabLayout === 'island') {
+    if (Settings.get('browseTabLayout') === 'island') {
       // Island mode: normal sidebar, full browse bar, no pill mode
       _setPillBrowseMode(false);
       _applyBrowseTabLayout();
@@ -252,7 +251,7 @@ function browseNewTab(url) {
 
   const tab = { id, url: resolved, title: isBlank ? 'New Tab' : _browseTitleFromUrl(resolved), favicon: isBlank ? '' : _browseFaviconUrl(resolved), el, blank: isBlank, backStack: [], forwardStack: [] };
   // Island mode: new tabs at top; horizontal: insert after active
-  if (_browseTabLayout === 'island') {
+  if (Settings.get('browseTabLayout') === 'island') {
     const firstUnpinned = win.tabs.findIndex(t => !t.pinned);
     if (firstUnpinned >= 0) win.tabs.splice(firstUnpinned, 0, tab);
     else win.tabs.push(tab);

@@ -1,5 +1,11 @@
 // browse-state.js — Shared state for browse module
 // All state variables used across browse modules
+//
+// State variable conventions:
+//   @settings — backed by Settings.get/set; no local var needed
+//   @signal   — AetherUI State() reactive signal; access via .value
+//   @runtime  — ephemeral in-memory state; plain var, not persisted
+//   @const    — set once at init, never changes
 
 // Window & tab state
 let _browseWindows = []; // { id, name, tabs: [], activeTab, groups: [] }
@@ -37,8 +43,7 @@ let _ccTabId = null;
 let _ccCaptionLines = [];
 let _ccFadeTimer = null;
 
-// UI state
-let _browseTabLayout = Settings.get('browseTabLayout') || 'island';
+// UI state — browseTabLayout is read directly from Settings.get('browseTabLayout')
 
 // NTP uploaded files: { name, content, file }
 let _ntpUploadedFiles = [];
@@ -56,8 +61,7 @@ let _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
 // Split pane state
 let _browseNextPaneId = 1;
 
-// Return view for "back" button
-let _browseReturnView = Settings.get('_browseReturnView') || null;
+// Return view for "back" button — backed by Settings.get('_browseReturnView')
 
 // Convenience getters for current window's tabs (backward compatibility)
 function _getCurrentWindow() {
@@ -123,8 +127,3 @@ function _browseSaveTabsNow() {
   });
 }
 
-function _setBrowseReturnView(view) {
-  _browseReturnView = view;
-  if (view) Settings.set('_browseReturnView', view);
-  else Settings.remove('_browseReturnView');
-}

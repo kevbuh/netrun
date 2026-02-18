@@ -57,19 +57,6 @@ export function upsertFeedItems(items: Omit<FeedItem, 'id'>[]): number {
   return inserted;
 }
 
-export function getQualityCache(titleHash: string, promptHash: string): { verdict: string; score: number } | null {
-  const row = prepare(
-    'SELECT verdict, score FROM quality_cache WHERE title_hash = ? AND prompt_hash = ?'
-  ).get(titleHash, promptHash) as { verdict: string; score: number } | undefined;
-  return row ?? null;
-}
-
-export function setQualityCache(titleHash: string, promptHash: string, verdict: string, score: number): void {
-  prepare(
-    'INSERT OR REPLACE INTO quality_cache (title_hash, prompt_hash, verdict, score, cached_at) VALUES (?, ?, ?, ?, ?)'
-  ).run(titleHash, promptHash, verdict, score, Date.now() / 1000);
-}
-
 // ── Blocked titles (file-based in Python, we use user_data) ──
 
 export function getBlockedTitles(): string[] {
@@ -84,25 +71,3 @@ export function setBlockedTitles(titles: string[]): void {
   ).run(JSON.stringify(titles), Date.now() / 1000);
 }
 
-// ── Quality prompt (file-based in Python, we use user_data) ──
-
-export function getQualityPrompt(): string | null {
-  const row = prepare("SELECT value FROM user_data WHERE google_id = '__global__' AND key = 'qualityPrompt'").get() as { value: string } | undefined;
-  if (!row) return null;
-  try {
-    const val = JSON.parse(row.value);
-    return val || null;
-  } catch {
-    return row.value || null;
-  }
-}
-
-export function setQualityPrompt(prompt: string | null): void {
-  if (!prompt) {
-    prepare("DELETE FROM user_data WHERE google_id = '__global__' AND key = 'qualityPrompt'").run();
-  } else {
-    prepare(
-      "INSERT OR REPLACE INTO user_data (google_id, key, value, updated) VALUES ('__global__', 'qualityPrompt', ?, ?)"
-    ).run(JSON.stringify(prompt), Date.now() / 1000);
-  }
-}

@@ -235,4 +235,14 @@
     resolve: resolve
   };
 
+  // Expose primitives directly on window so they are available to scripts
+  // that load before the full AetherUI framework (e.g. core-state.js).
+  // aether-ui.js globals() will re-assign the same references later.
+  window.State = State;
+  window.Computed = Computed;
+  window.Effect = Effect;
+  window.Binding = Binding;
+  window.batch = batch;
+  window.untrack = untrack;
+
 })();

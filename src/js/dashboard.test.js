@@ -34,10 +34,9 @@ function _dashReadingStreak(activityItems, now = new Date()) {
  */
 function trendingScore(paper, now = Date.now()) {
   const engagement = (paper.points || 0) + (paper.citations || 0);
-  const qs = paper._qualityScore || 0;
   const ageH = (now - (paper.pubDate || now)) / 3600000;
   const recency = Math.max(0, 1 - ageH / 72);
-  return (engagement * 2 + qs) * (0.3 + recency * 0.7);
+  return engagement * 2 * (0.3 + recency * 0.7);
 }
 
 /**
@@ -217,17 +216,10 @@ describe('Trending Score', () => {
     expect(recent).toBeGreaterThan(old);
   });
 
-  it('should be 0 for very old papers with no quality score', () => {
+  it('should be 0 for very old papers with no engagement', () => {
     const now = Date.now();
     const score = trendingScore({ points: 0, citations: 0, pubDate: now - 100 * 3600000 }, now);
     expect(score).toBe(0);
-  });
-
-  it('should factor in quality score', () => {
-    const now = Date.now();
-    const withQs = trendingScore({ points: 10, _qualityScore: 80, pubDate: now }, now);
-    const withoutQs = trendingScore({ points: 10, pubDate: now }, now);
-    expect(withQs).toBeGreaterThan(withoutQs);
   });
 });
 

@@ -243,21 +243,5 @@ describe('Storage Utilities', () => {
       });
     });
 
-    it('should handle quality cache workflow', () => {
-      // Cache quality scores
-      setStorageItem('qualityCache', {
-        'Post Title 1': { v: 'KEEP', s: 85 },
-        'Post Title 2': { v: 'SKIP', s: 15 }
-      });
-
-      // Add new entry
-      mergeStorageObject('qualityCache', {
-        'Post Title 3': { v: 'KEEP', s: 92 }
-      });
-
-      const cache = getStorageObject('qualityCache');
-      expect(Object.keys(cache)).toHaveLength(3);
-      expect(cache['Post Title 3']).toEqual({ v: 'KEEP', s: 92 });
-    });
   });
 });

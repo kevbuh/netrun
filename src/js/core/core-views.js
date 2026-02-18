@@ -255,7 +255,6 @@ const VIEW_REGISTRY = {
   'dashboard-view':      { template: '/views/dashboard.html', tier: 2 },
   'research-view':       { template: '/views/research.html',  tier: 2 },
   'settings-view':       { template: '/views/settings.html',  tier: 2 },
-  'quality-view':        { template: '/views/quality.html',   tier: 2 },
   'algorithm-view':      { template: '/views/algorithm.html', tier: 2 },
   'inbox-view':          { template: '/views/inbox.html',     tier: 2 },
   'profile-view':        { template: '/views/profile.html',   tier: 2 },

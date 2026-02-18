@@ -341,17 +341,6 @@ async function ipcRoute(path, opts = {}) {
     return { ok: true };
   }
 
-  // ── Feed: quality prompt ──
-  if (pathOnly === '/api/quality-prompt' && method === 'GET') {
-    const prompt = await window.electronAPI.dbQuery('quality-prompt-get');
-    return { prompt, default: null }; // default prompts are client-side constants
-  }
-  if (pathOnly === '/api/quality-prompt' && method === 'PUT') {
-    await window.electronAPI.dbQuery('quality-prompt-set', body.prompt || null);
-    const prompt = await window.electronAPI.dbQuery('quality-prompt-get');
-    return { ok: true, prompt };
-  }
-
   // ── User profile updates ──
   if (pathOnly === '/api/users/me/privacy' && method === 'PUT') {
     if (!googleId) return null;
@@ -462,10 +451,6 @@ async function ipcRoute(path, opts = {}) {
   if (pathOnly === '/api/search-suggest' && method === 'POST') {
     return await window.electronAPI.dbQuery('search-suggest', body.query || '');
   }
-  if (pathOnly === '/api/quality-filter' && method === 'POST') {
-    return await window.electronAPI.dbQuery('quality-filter', body);
-  }
-
   // ═══════════════════════════════════════════════════════════════════
   // Phase 4: Complex Ollama / Streaming
   // ═══════════════════════════════════════════════════════════════════

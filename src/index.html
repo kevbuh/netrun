@@ -233,7 +233,6 @@
           <button class="sort-btn shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" id="view-mode-btn" onclick="toggleViewMode()" title="Toggle view"><svg id="view-mode-icon" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
           <select id="category" class="hidden"><option value="">All</option></select>
           <button class="sort-btn shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" onclick="showOnboarding()" title="Feed sources"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor"/></svg></button>
-          <button class="sort-btn shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" id="quality-filter-btn" onclick="toggleQualityPanel()" title="Quality filter"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></button>
           <span class="w-px h-5 bg-border-dim mx-0.5 shrink-0"></span>
           <div id="source-bubbles" class="flex gap-1.5 shrink-0"></div>
         </div>
@@ -335,6 +334,8 @@
 
   <script defer src="/js/core/core-settings.js"></script>
   <script defer src="/js/logger.js"></script>
+  <!-- AetherUI State — must load before core-state.js to make State() available -->
+  <script defer src="/aether/ui/state.js"></script>
   <!-- Core modules (split from core.js) -->
   <script defer src="/js/core/icons.js"></script>
   <script defer src="/js/core/core-state.js"></script>
@@ -359,8 +360,7 @@
   <script defer src="/aether/ambient.js"></script>
   <script defer src="/aether/aether.js"></script>
   <script defer src="/aether/cursor.js"></script>
-  <!-- AetherUI — declarative view framework -->
-  <script defer src="/aether/ui/state.js"></script>
+  <!-- AetherUI — declarative view framework (state.js loaded earlier) -->
   <script defer src="/aether/ui/view.js"></script>
   <script defer src="/aether/ui/primitives.js"></script>
   <script defer src="/aether/ui/controls.js"></script>
@@ -370,7 +370,6 @@
   <script defer src="/aether/ui/aether-ui.js"></script>
   <script defer src="/js/pixel-pet.js"></script>
   <script defer src="/js/feed.js"></script>
-  <script defer src="/js/quality.js"></script>
   <script defer src="/js/settings/settings-colors.js"></script>
   <script defer src="/js/settings/settings-theme.js"></script>
   <script defer src="/js/settings/settings-helpers.js"></script>
@@ -426,9 +425,6 @@
     window.FilesetResolver = FilesetResolver;
     window.dispatchEvent(new Event('mediapipe-ready'));
   </script>
-
-  <div id="quality-filter-panel" style="display:none" class="fixed w-64 p-3 rounded-lg border border-border-card bg-card shadow-lg z-[9999]"></div>
-
 
   <!-- Link hover preview (bottom-left status bar) -->
   <div id="link-hover-preview" style="position:fixed;bottom:0;left:0;max-width:50vw;padding:3px 10px;font-size:12px;color:#999;background:#1a1a1a;border:1px solid #333;border-bottom:none;border-left:none;border-top-right-radius:6px;z-index:99999;pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0;transition:opacity 0.15s;font-family:system-ui,sans-serif"></div>

@@ -1,12 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { feedList, feedFetch, feedQualityFilter } from '../feed/index';
+import { feedList, feedFetch } from '../feed/index';
 
 describe('feed tools', () => {
   it('has correct metadata', () => {
     expect(feedList.name).toBe('feed-list');
     expect(feedList.category).toBe('feed');
     expect(feedFetch.name).toBe('feed-fetch');
-    expect(feedQualityFilter.name).toBe('feed-quality-filter');
   });
 
   it('fetches and parses RSS feed', async () => {
@@ -56,12 +55,4 @@ describe('feed tools', () => {
     vi.unstubAllGlobals();
   });
 
-  it('quality filter returns scores', async () => {
-    const result = await feedQualityFilter.execute(
-      { titles: ['ML Paper', 'Cat Video'] },
-      {}
-    );
-    expect(result.success).toBe(true);
-    expect(Object.keys(result.data.scores)).toHaveLength(2);
-  });
 });

@@ -193,15 +193,6 @@ function hidePost(link, title, event) {
   }
   renderPapers();
 }
-function getTestTitles() {
-  return getLS('qualityTestTitles', []);
-}
-function addTestTitle(title) {
-  const titles = getTestTitles();
-  if (!titles.includes(title)) { titles.push(title); setLS('qualityTestTitles', titles); }
-  apiPost('/api/blocked-titles', { title })
-    .catch((e) => { /* fire-and-forget */ });
-}
 // ── Blocked Words ──
 function getBlockedWords() {
   return getLS('blockedWords', []);
@@ -807,88 +798,6 @@ function toggleCustomFeed(index, enabled) {
 }
 
 
-// ── Quality Filter Panel (feed page) ──
-
-function toggleQualityPanel() {
-  const panel = document.getElementById('quality-filter-panel');
-  if (!panel) return;
-  if (panel.style.display !== 'none') {
-    _closeQualityPanel();
-  } else {
-    const btn = document.getElementById('quality-filter-btn');
-    if (btn) {
-      const r = btn.getBoundingClientRect();
-      panel.style.top = (r.bottom + 6) + 'px';
-      panel.style.left = Math.max(8, r.right - 256) + 'px';
-    }
-    panel.style.display = '';
-    btn?.classList.add('border-accent', 'text-accent');
-    renderQualityPanel();
-    _updateQfProgress();
-    setTimeout(() => document.addEventListener('click', _qualityPanelOutsideClick), 0);
-  }
-}
-function _closeQualityPanel() {
-  const panel = document.getElementById('quality-filter-panel');
-  if (panel) panel.style.display = 'none';
-  document.getElementById('quality-filter-btn')?.classList.remove('border-accent', 'text-accent');
-  document.removeEventListener('click', _qualityPanelOutsideClick);
-}
-function _qualityPanelOutsideClick(e) {
-  const panel = document.getElementById('quality-filter-panel');
-  const btn = document.getElementById('quality-filter-btn');
-  if (panel && !panel.contains(e.target) && btn && !btn.contains(e.target)) {
-    _closeQualityPanel();
-  }
-}
-
-function renderQualityPanel() {
-  var panel = document.getElementById('quality-filter-panel');
-  if (!panel) return;
-  var cache = getQualityCache();
-  var cacheEntries = Object.entries(cache);
-  var keptCount = cacheEntries.filter(function(e) { return (e[1]?.v || e[1]) === 'keep'; }).length;
-  var skippedCount = cacheEntries.filter(function(e) { return (e[1]?.v || e[1]) === 'skip'; }).length;
-
-  var qfOn = isQualityFilterOn();
-  var toggleSwitch = RawHTML('<span class="nr-switch" style="transform:scale(0.8)"><input type="checkbox" ' + (qfOn ? 'checked' : '') + '><span class="slider"></span></span>');
-  toggleSwitch.el.querySelector('input').addEventListener('change', function() { setQualityFilter(this.checked); renderQualityPanel(); });
-
-  var customPromptChip = getQualityPrompt() !== DEFAULT_QUALITY_PROMPT
-    ? Text('Custom prompt').className('text-[0.65rem] text-accent bg-accent/10 border border-accent/30 rounded px-1.5 py-0.5 mb-2.5 inline-block')
-    : null;
-
-  var manageLink = RawHTML('<a href="#quality" class="flex items-center justify-center gap-1.5 text-[0.72rem] text-accent hover:text-accent-hover cursor-pointer w-full py-1.5 rounded-md border border-border-input hover:border-accent transition-colors" style="text-decoration:none">Manage filters ' + icon('settings', {size: 12, class: 'w-3 h-3'}) + '</a>');
-  manageLink.el.querySelector('a').addEventListener('click', function() { toggleQualityPanel(); });
-
-  var algoLink = RawHTML('<a href="#algorithm" class="flex items-center justify-center gap-1.5 text-[0.65rem] text-dimmer hover:text-dim cursor-pointer w-full py-1 transition-colors mt-1" style="text-decoration:none">How the algorithm works</a>');
-  algoLink.el.querySelector('a').addEventListener('click', function() { toggleQualityPanel(); });
-
-  var view = VStack(
-    HStack(
-      HStack(
-        Text('Quality Filter').className('text-primary text-[0.78rem] font-medium'),
-        Text('qwen3:8b').className('text-dimmer text-[0.62rem]'),
-        new View('span').id('qf-progress')
-      ).spacing(2),
-      HStack(
-        Text(qfOn ? 'On' : 'Off').className('text-dim text-[0.7rem]'),
-        toggleSwitch
-      ).spacing(1).className('cursor-pointer')
-    ).className('flex items-center justify-between mb-2.5'),
-    VStack(
-      HStack(Text('Threshold'), Text(getQualityThreshold() + '%').className('text-primary')).className('flex justify-between'),
-      HStack(Text('Kept'), Text(String(keptCount)).className('text-green-400/80')).className('flex justify-between'),
-      HStack(Text('Skipped'), Text(String(skippedCount)).className('text-red-400/80')).className('flex justify-between')
-    ).spacing(1).className('text-[0.7rem] text-dim mb-2.5'),
-    customPromptChip,
-    manageLink,
-    algoLink
-  );
-  AetherUI.mount(view, panel);
-}
-
-// ── Quality Filter Dedicated View ──
 
 function renderAlgorithmView() {
   var container = document.getElementById('algorithm-view-content');
@@ -926,14 +835,12 @@ function renderAlgorithmView() {
     ).spacing(3);
   }
 
-  var backLink = RawHTML('<a href="#quality" class="text-dim text-[0.72rem] hover:text-primary transition-colors inline-flex items-center gap-1 mb-4" style="text-decoration:none">' + icon('arrowLeft', {size: 12, class: 'w-3 h-3'}) + ' Back to Quality Filter</a>');
 
   var resetBtn = new View('button').className('text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
   resetBtn.el.textContent = 'Reset all personalization';
   resetBtn.onTap(function() { resetPersonalization(); renderAlgorithmView(); });
 
   var view = VStack(
-    backLink,
     RawHTML('<h2 class="text-[1.3rem] font-semibold text-white_ mb-1">How the Algorithm Works</h2>'),
     Text('Your feed is ranked using a personalized composite score that combines LLM relevance scoring, source affinity from your reading habits, and recency.').className('text-dim text-[0.8rem] mb-6'),
 
@@ -990,276 +897,6 @@ function renderAlgorithmView() {
       resetBtn,
       Text('Clears your interest profile, resets all weights to defaults').className('text-dimmer text-[0.68rem]')
     ).spacing(3).className('pt-5 border-t border-border-subtle')
-  );
-  AetherUI.mount(view, container);
-}
-
-function _toggleBlockedPostsList() {
-  const list = document.getElementById('quality-blocked-list');
-  const chevron = document.getElementById('blocked-posts-chevron');
-  if (!list) return;
-  const hidden = list.style.display === 'none';
-  list.style.display = hidden ? '' : 'none';
-  if (chevron) chevron.style.transform = hidden ? 'rotate(0deg)' : 'rotate(-90deg)';
-  if (hidden) renderBlockedList();
-}
-
-function _editVerdictPrompt() {
-  document.getElementById('verdict-prompt-readonly').style.display = 'none';
-  document.getElementById('verdict-prompt-actions').style.display = 'none';
-  const ta = document.getElementById('quality-prompt-input');
-  ta.style.display = '';
-  ta.focus();
-  document.getElementById('verdict-prompt-edit-actions').style.display = 'flex';
-}
-
-function _cancelEditVerdictPrompt() {
-  document.getElementById('quality-prompt-input').style.display = 'none';
-  document.getElementById('verdict-prompt-edit-actions').style.display = 'none';
-  document.getElementById('verdict-prompt-readonly').style.display = '';
-  document.getElementById('verdict-prompt-actions').style.display = 'flex';
-  document.getElementById('quality-prompt-input').value = getQualityPrompt();
-}
-
-function renderQualityView() {
-  var container = document.getElementById('quality-view-content');
-  if (!container) return;
-  var cache = getQualityCache();
-  var cacheEntries = Object.entries(cache);
-  var keptCount = cacheEntries.filter(function(e) { return (e[1]?.v || e[1]) === 'keep'; }).length;
-  var skippedCount = cacheEntries.filter(function(e) { return (e[1]?.v || e[1]) === 'skip'; }).length;
-  var qfOn = isQualityFilterOn();
-  var qPrompt = getQualityPrompt();
-  var isCustomPrompt = qPrompt !== DEFAULT_QUALITY_PROMPT;
-  var threshold = getQualityThreshold();
-
-  // Toggle switch
-  var toggleSwitch = RawHTML('<span class="nr-switch"><input type="checkbox" id="toggle-quality-filter" ' + (qfOn ? 'checked' : '') + '><span class="slider"></span></span>');
-  toggleSwitch.el.querySelector('input').addEventListener('change', function() { setQualityFilter(this.checked); });
-
-  // Verdict prompt section
-  var editBtn = new View('button').className('text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors');
-  editBtn.el.textContent = 'Edit';
-  editBtn.onTap(function() { _editVerdictPrompt(); });
-  var resetPromptBtn = null;
-  if (isCustomPrompt) {
-    resetPromptBtn = new View('button').className('text-dim text-[0.78rem] hover:text-red-400 bg-transparent border border-border-input hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
-    resetPromptBtn.el.textContent = 'Reset';
-    resetPromptBtn.onTap(function() { resetQualityPrompt(); renderQualityView(); });
-  }
-  var cancelBtn = new View('button').className('text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input rounded-md px-3 py-1 cursor-pointer transition-colors');
-  cancelBtn.el.textContent = 'Cancel';
-  cancelBtn.onTap(function() { _cancelEditVerdictPrompt(); });
-  var saveBtn = new View('button').className('bg-accent text-white text-[0.78rem] px-3 py-1 rounded-md border-none cursor-pointer hover:bg-accent-hover');
-  saveBtn.el.textContent = 'Save';
-  saveBtn.onTap(function() { saveQualityPrompt().then(function() { renderQualityView(); }); });
-
-  // Threshold slider
-  var thresholdSlider = new View('input');
-  thresholdSlider.el.type = 'range'; thresholdSlider.el.min = '0'; thresholdSlider.el.max = '100';
-  thresholdSlider.el.value = threshold; thresholdSlider.el.id = 'quality-threshold-slider';
-  thresholdSlider.el.className = 'flex-1 accent-[var(--nr-accent)]';
-  thresholdSlider.el.addEventListener('input', function() { document.getElementById('quality-threshold-value').textContent = this.value + '%'; });
-  thresholdSlider.el.addEventListener('change', function() { setQualityThreshold(parseInt(this.value)); });
-
-  // Blocked word input
-  var wordInput = new View('input');
-  wordInput.el.type = 'text'; wordInput.el.id = 'blocked-word-input';
-  wordInput.el.placeholder = 'e.g. politics, lawsuit, review';
-  wordInput.el.className = 'flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent';
-  wordInput.el.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); addBlockedWord(); } });
-  var addWordBtn = new View('button').className('bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover');
-  addWordBtn.el.textContent = 'Add';
-  addWordBtn.onTap(function() { addBlockedWord(); });
-
-  // Blocked posts toggle
-  var blockedPostsBtn = RawHTML('<button class="flex items-center gap-2 text-muted text-[0.8rem] font-medium bg-transparent border-none cursor-pointer p-0 hover:text-primary transition-colors"><span id="blocked-posts-chevron" style="transform:rotate(-90deg);display:inline-block" class="transition-transform">' + icon('chevronDown', {size: 14, class: 'w-3.5 h-3.5'}) + '</span> Blocked Posts</button>');
-  blockedPostsBtn.el.querySelector('button').addEventListener('click', function() { _toggleBlockedPostsList(); });
-
-  // Reset everything button
-  var resetAllBtn = new View('button').id('reset-everything-btn').className('text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
-  resetAllBtn.el.textContent = 'Reset all & clear cache';
-  resetAllBtn.onTap(function() { resetEverything(); });
-
-  var view = VStack(
-    // Header
-    HStack(
-      RawHTML('<h2 class="text-[1.3rem] font-semibold text-white_">Quality Filter</h2>'),
-      Text('qwen3:8b').className('text-dimmer text-[0.68rem]'),
-      HStack(Text('Enable').className('text-primary text-sm'), toggleSwitch).spacing(2).className('cursor-pointer ml-auto')
-    ).spacing(3).className('mb-1'),
-    Text('Uses a local LLM (Ollama) to hide low-quality posts. Two phases: verdict (KEEP/SKIP), then scoring.').className('text-dim text-[0.8rem] mb-6'),
-
-    // Verdict Prompt
-    VStack(
-      HStack(
-        RawHTML('<h3 class="text-muted text-[0.8rem] font-medium">Verdict Prompt</h3>'),
-        isCustomPrompt ? Text('Edited').className('text-[0.65rem] text-accent bg-accent/10 border border-accent/30 rounded px-1.5 py-0.5') : null
-      ).spacing(2).className('mb-2'),
-      Text('Classifies each post title as KEEP or SKIP.').className('text-dimmer text-[0.72rem] mb-2'),
-      new View('div').id('verdict-prompt-readonly').className('w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-2 max-h-[200px] overflow-y-auto').onAppear(function() { document.getElementById('verdict-prompt-readonly').textContent = qPrompt; }),
-      RawHTML('<textarea id="quality-prompt-input" rows="6" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-primary text-[0.78rem] font-mono leading-relaxed outline-none focus:border-accent resize-y" spellcheck="false" style="display:none">' + escapeHtml(qPrompt) + '</textarea>'),
-      HStack(editBtn, resetPromptBtn).spacing(2).className('justify-end').id('verdict-prompt-actions'),
-      HStack(cancelBtn, saveBtn).spacing(2).className('justify-end').id('verdict-prompt-edit-actions').styles({display:'none'})
-    ).className('mb-6'),
-
-    // Scoring Threshold
-    VStack(
-      RawHTML('<h3 class="text-muted text-[0.8rem] font-medium mb-2">Scoring Threshold</h3>'),
-      Text('Posts passing the verdict are scored 0\u2013100%. Below threshold = hidden.').className('text-dimmer text-[0.72rem] mb-2'),
-      new View('div').id('scoring-prompt-display').className('w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-3').onAppear(function() { document.getElementById('scoring-prompt-display').textContent = 'Loading\u2026'; }),
-      HStack(thresholdSlider, Text(threshold + '%').id('quality-threshold-value').className('text-primary text-sm font-mono w-10 text-right')).spacing(3),
-      Text('Minimum score to display (0% = show all kept, 100% = strictest)').className('text-dimmer text-[0.68rem] mt-1')
-    ).className('mb-6 pt-5 border-t border-border-subtle'),
-
-    // Blocked Words
-    VStack(
-      RawHTML('<h3 class="text-muted text-[0.8rem] font-medium mb-2">Blocked Words</h3>'),
-      Text('Posts with titles containing any of these words will be automatically hidden.').className('text-dimmer text-[0.75rem] mb-3'),
-      HStack(wordInput, addWordBtn).spacing(2).className('mb-3'),
-      new View('div').id('blocked-words-list').className('flex flex-wrap gap-1.5')
-    ).className('mb-6 pt-5 border-t border-border-subtle'),
-
-    // Blocked Posts
-    VStack(
-      blockedPostsBtn,
-      new View('div').id('quality-blocked-list').className('text-[0.78rem] text-muted max-h-[300px] overflow-y-auto mt-2').styles({display:'none'})
-    ).className('mb-6 pt-5 border-t border-border-subtle'),
-
-    // Personalization
-    new View('div').id('personalization-panel-container').className('mb-6 pt-5 border-t border-border-subtle'),
-
-    // Footer
-    HStack(
-      RawHTML('<div class="text-dim text-[0.78rem]">Cached: ' + cacheEntries.length + ' &middot; Kept: ' + keptCount + ' &middot; Skipped: ' + skippedCount + '</div>'),
-      resetAllBtn
-    ).className('flex items-center justify-between pt-5 border-t border-border-subtle')
-  );
-  AetherUI.mount(view, container);
-
-  renderBlockedWordsList();
-  _renderPersonalizationPanel();
-  apiGet('/api/quality-prompt').then(function(data) {
-    if (data.prompt) {
-      Settings.set('qualityPrompt', data.prompt);
-      var el = document.getElementById('quality-prompt-input');
-      if (el) el.value = data.prompt;
-    }
-    var scoringEl = document.getElementById('scoring-prompt-display');
-    if (scoringEl && data.scoringPrompt) scoringEl.textContent = data.scoringPrompt;
-  }).catch(function(e) { console.warn('loadQualityPrompt:', e); });
-}
-
-function _renderPersonalizationPanel() {
-  var container = document.getElementById('personalization-panel-container');
-  if (!container) return;
-  var profile = typeof getInterestProfile === 'function' ? getInterestProfile() : null;
-  var readCount = getReadPosts().length;
-
-  if (readCount < 10 || !profile) {
-    AetherUI.mount(VStack(
-      RawHTML('<h3 class="text-muted text-[0.8rem] font-medium mb-2">Personalization</h3>'),
-      Text('Read more posts to build your profile (' + readCount + '/10).').className('text-dimmer text-[0.75rem]')
-    ), container);
-    return;
-  }
-
-  var topicChips = (profile.topTopics || []).map(function(t) {
-    return Text(t).className('bg-hover text-dim text-[0.68rem] px-1.5 py-0.5 rounded');
-  });
-  var catChips = (profile.topCategories || []).map(function(c) {
-    return Text(c).className('bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20');
-  });
-
-  // Source engagement table
-  var affinity = typeof getSourceAffinity === 'function' ? getSourceAffinity() : {};
-  var sourceRowsHtml = Object.entries(profile.sourceCounts || {})
-    .filter(function(e) { return e[1].total > 0; })
-    .sort(function(a, b) { return (affinity[b[0]] || 0) - (affinity[a[0]] || 0); })
-    .map(function(e) {
-      var src = e[0], c = e[1];
-      var name = SOURCE_NAMES[src] || (src.startsWith('custom:') ? src.slice(7) : src);
-      var readPct = c.total > 0 ? Math.round(c.read / c.total * 100) : 0;
-      var savedPct = c.total > 0 ? Math.round(c.saved / c.total * 100) : 0;
-      var aff = affinity[src] != null ? affinity[src] : 0.5;
-      var barW = Math.round(aff * 100);
-      return '<tr class="border-b border-border-subtle last:border-0"><td class="py-1 pr-2 text-[0.72rem] text-primary truncate max-w-[120px]">' + escapeHtml(name) + '</td><td class="py-1 px-2 text-[0.68rem] text-dim text-right tabular-nums">' + readPct + '%</td><td class="py-1 px-2 text-[0.68rem] text-dim text-right tabular-nums">' + savedPct + '%</td><td class="py-1 pl-2 w-20"><div class="h-1.5 rounded-full bg-hover overflow-hidden"><div class="h-full rounded-full bg-accent" style="width:' + barW + '%"></div></div></td></tr>';
-    }).join('');
-
-  var maxRun = parseInt(Settings.get('maxPerCategoryRun') || '3', 10) || 3;
-
-  function _pSlider(label, id, min, max, value, onInput, onChange) {
-    var s = new View('input');
-    s.el.type = 'range'; s.el.min = min; s.el.max = max; s.el.value = value;
-    s.el.className = 'flex-1 accent-[var(--nr-accent)]';
-    s.el.addEventListener('input', onInput);
-    s.el.addEventListener('change', onChange);
-    return HStack(
-      Text(label).className('text-dim text-[0.68rem] w-16 shrink-0'),
-      s,
-      Text(String(max <= 10 ? value : (value / 100).toFixed(2))).id(id).className('text-dim text-[0.68rem] tabular-nums w-8 text-right')
-    ).spacing(3);
-  }
-
-  var diversitySlider = (function() {
-    var s = new View('input');
-    s.el.type = 'range'; s.el.min = '1'; s.el.max = '10'; s.el.value = maxRun;
-    s.el.className = 'flex-1 accent-[var(--nr-accent)]';
-    s.el.addEventListener('input', function() { document.getElementById('diversity-val').textContent = this.value; });
-    s.el.addEventListener('change', function() { Settings.set('maxPerCategoryRun', this.value); renderPapers(); });
-    return HStack(
-      Text('Category diversity').className('text-dimmer text-[0.68rem]'),
-      s,
-      Text(String(maxRun)).id('diversity-val').className('text-dim text-[0.68rem] tabular-nums w-4 text-right')
-    ).spacing(3);
-  })();
-
-  var resetBtn = new View('button').className('text-red-400/80 text-[0.72rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-2.5 py-0.5 cursor-pointer transition-colors shrink-0');
-  resetBtn.el.textContent = 'Reset personalization';
-  resetBtn.onTap(function() { resetPersonalization(); });
-
-  var wBase = parseFloat(Settings.get('fyWeightBase') || '0.7');
-  var wAff = parseFloat(Settings.get('fyWeightAffinity') || '0.3');
-  var wRec = parseFloat(Settings.get('fyWeightRecency') || '1.0');
-
-  var view = VStack(
-    RawHTML('<h3 class="text-muted text-[0.8rem] font-medium mb-3">Personalization</h3>'),
-
-    VStack(
-      Text('Top Topics').className('text-dimmer text-[0.68rem]'),
-      topicChips.length ? HStack(topicChips).className('flex flex-wrap gap-1 mt-1') : Text('None yet').className('text-dimmer text-[0.68rem] mt-1')
-    ).className('mb-3'),
-
-    VStack(
-      Text('Top Categories').className('text-dimmer text-[0.68rem]'),
-      catChips.length ? HStack(catChips).className('flex flex-wrap gap-1 mt-1') : Text('None yet').className('text-dimmer text-[0.68rem] mt-1')
-    ).className('mb-4'),
-
-    sourceRowsHtml ? VStack(
-      Text('Source Engagement').className('text-dimmer text-[0.68rem]'),
-      RawHTML('<div class="max-h-[240px] overflow-y-auto mt-1"><table class="w-full text-left"><thead><tr class="text-dimmer text-[0.62rem]"><th class="pb-1 font-normal">Source</th><th class="pb-1 font-normal text-right pr-2">Read</th><th class="pb-1 font-normal text-right pr-2">Saved</th><th class="pb-1 font-normal pl-2">Affinity</th></tr></thead><tbody>' + sourceRowsHtml + '</tbody></table></div>')
-    ).className('mb-4') : null,
-
-    VStack(
-      diversitySlider,
-      Text('Max posts from same category in a row before mixing in others.').className('text-dimmer text-[0.62rem] mt-0.5')
-    ).className('mb-4'),
-
-    VStack(
-      Text('Composite Score Weights').className('text-dimmer text-[0.68rem]'),
-      RawHTML('<p class="text-dimmer text-[0.62rem] mt-0.5 mb-2">score = LLM \u00d7 (base + affinity \u00d7 aff_weight) + recency_boost \u00d7 recency_weight</p>'),
-      _pSlider('Base', 'fy-base-val', 0, 100, Math.round(wBase * 100),
-        function() { document.getElementById('fy-base-val').textContent = (this.value / 100).toFixed(2); },
-        function() { Settings.set('fyWeightBase', (this.value / 100).toFixed(2)); renderPapers(); }),
-      _pSlider('Affinity', 'fy-aff-val', 0, 100, Math.round(wAff * 100),
-        function() { document.getElementById('fy-aff-val').textContent = (this.value / 100).toFixed(2); },
-        function() { Settings.set('fyWeightAffinity', (this.value / 100).toFixed(2)); renderPapers(); }),
-      _pSlider('Recency', 'fy-rec-val', 0, 200, Math.round(wRec * 100),
-        function() { document.getElementById('fy-rec-val').textContent = (this.value / 100).toFixed(2); },
-        function() { Settings.set('fyWeightRecency', (this.value / 100).toFixed(2)); renderPapers(); })
-    ).spacing(1).className('mb-4'),
-
-    resetBtn
   );
   AetherUI.mount(view, container);
 }
@@ -1377,7 +1014,6 @@ async function loadAllFeeds() {
     renderPapers();
     if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Feeds loaded', detail: 'Feed refresh complete', done: true });
     if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
-    if (isQualityFilterOn()) qualityFilterPapers();
     _detectNewPosts();
     startRefreshTimer();
   } catch (e) {
@@ -1578,8 +1214,7 @@ function getFilteredPapers(ctx) {
   if (!ctx) ctx = _buildRenderCtx();
   const rawSearch = (document.getElementById('search')?.value || '').toLowerCase();
   const category = document.getElementById('category').value;
-  const { hiddenSet: hidden, blockedWords: _blockedWordsSet, qfOn, qCache, bypass } = ctx;
-  const qThreshold = qfOn ? getQualityThreshold() : 0;
+  const { hiddenSet: hidden, blockedWords: _blockedWordsSet } = ctx;
 
   // Parse structured search prefixes, quoted phrases, and title: prefix
   const parsed = parseSearchQuery(rawSearch);
@@ -1594,14 +1229,6 @@ function getFilteredPapers(ctx) {
       for (const w of _blockedWordsSet) {
         if (titleLower.includes(w)) return false;
       }
-    }
-    const bypassed = bypass[p.source];
-    if (qfOn && !bypassed && !(p.title in qCache)) return false;
-    if (qfOn && !bypassed && (p.title in qCache)) {
-      const entry = qCache[p.title];
-      const verdict = entry?.v ?? entry;
-      if (verdict === 'skip') return false;
-      if (verdict === 'keep' && entry?.s != null && entry.s < qThreshold) return false;
     }
     if (category && !(Array.isArray(p.categories) ? p.categories : []).includes(category)) return false;
     if (authorFilter && !(p.authors || '').toLowerCase().includes(authorFilter)) return false;
@@ -1627,8 +1254,8 @@ function getFilteredPapers(ctx) {
     const wAff = parseFloat(Settings.get('fyWeightAffinity') || '0.3');
     const wRecency = parseFloat(Settings.get('fyWeightRecency') || '1.0');
     filtered = [...filtered].sort((a, b) => {
-      const aLlm = qfOn && qCache[a.title]?.s != null ? qCache[a.title].s : 50;
-      const bLlm = qfOn && qCache[b.title]?.s != null ? qCache[b.title].s : 50;
+      const aLlm = 50;
+      const bLlm = 50;
       const aAff = affinity[a.source] ?? 0.5;
       const bAff = affinity[b.source] ?? 0.5;
       const aAge = a.pubDate ? Math.max(0, (now - new Date(a.pubDate).getTime()) / 3600000) : 24;
@@ -1707,13 +1334,10 @@ function _renderPaperCompactRow(p, i, ctx) {
 }
 
 function _renderPaperCard(p, i, ctx) {
-  var qfOn = ctx.qfOn, qCache = ctx.qCache, readSet = ctx.readSet;
+  var readSet = ctx.readSet;
   var isHN = p.source === 'hn';
   var _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
   var sourceLabel = _hasExternalLink ? (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
-  var aiEntry = qfOn ? qCache[p.title] : null;
-  var aiVerdict = aiEntry ? (aiEntry.v || aiEntry) : null;
-  var aiScore = aiEntry ? aiEntry.s : null;
   var isPoly = p.source === 'polymarket';
   var snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
   var nLink = _normalizeRatingKey(p.link);
@@ -1739,7 +1363,6 @@ function _renderPaperCard(p, i, ctx) {
   // Meta row
   var metaItems = [Text(sourceLabel).className('text-[0.75rem] text-dim')];
   if (_hasExternalLink) metaItems.push(RawHTML('<span class="text-[0.68rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>'));
-  if (qfOn && aiVerdict === 'keep') metaItems.push(RawHTML('<span class="inline-flex items-center gap-0.5 text-[0.68rem]" title="AI quality score: ' + (aiScore != null ? aiScore + '%' : 'scoring\u2026') + '">' + (aiScore != null ? '<span class="text-dim">' + aiScore + '%</span>' : '<span class="text-dim animate-pulse">\u2026</span>') + '<span class="text-green-500">&#10003;</span></span>'));
   if (!(isHN && _hasExternalLink)) {
     if (isHN) metaItems.push(Text(p.hnScore + ' pts').className('text-[0.68rem] text-dim'));
     else if (isPoly) metaItems.push(Text(p.polyYesPct + '%').className('text-[0.68rem] font-semibold ' + (p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400')));
@@ -1769,46 +1392,26 @@ function renderPapers() {
 }
 
 function _buildRenderCtx() {
-  const qfOn = isQualityFilterOn();
-  const qCache = qfOn ? getQualityCache() : {};
   const hiddenSet = new Set(getHiddenPosts());
   const readSet = new Set(getReadPosts());
-  const bypass = qfOn ? getQualityBypass() : {};
   const blockedWords = new Set(getBlockedWords());
   const savedPosts = getSavedPosts();
   const repostedSet = new Set(_getRepostedLinks());
   const ratings = getPaperRatings();
-  return { qfOn, qCache, hiddenSet, readSet, bypass, blockedWords, savedPosts, repostedSet, ratings };
+  return { hiddenSet, readSet, blockedWords, savedPosts, repostedSet, ratings };
 }
 
-function _renderFeedEmptyState(container, qfOn) {
-  var threshold = qfOn ? getQualityThreshold() : 0;
-  var filledDots = Math.round(threshold / 10);
-  var dotViews = Array.from({ length: 10 }, function(_, i) {
-    return new View('span')
-      .styles({display:'inline-block', width:'10px', height:'10px', borderRadius:'50%', margin:'0 4px',
-        background: i < filledDots ? 'var(--nr-accent)' : 'var(--nr-border-default)', transition:'background 0.2s'})
-      .attr('title', (i + 1) * 10 + '%');
-  });
-  var children = [
-    Text('No papers match your filter').className('text-dim').styles({fontSize:'0.9rem'})
-  ];
-  if (qfOn) {
-    children.push(HStack(dotViews).styles({justifyContent:'center'}));
-    children.push(Text('Quality threshold: ' + threshold + '%').className('text-dimmer').styles({fontSize:'0.75rem'}));
-  }
+function _renderFeedEmptyState(container) {
+  var children = [ Text('No papers match your filter').className('text-dim').styles({fontSize:'0.9rem'}) ];
   var v = VStack(children).alignment('center').styles({justifyContent:'center', columnSpan:'all', padding:'5rem 0'}).spacing(4);
   AetherUI.mount(v, container);
 }
 
 function _renderPaperVerboseCard(p, i, ctx) {
-  var qfOn = ctx.qfOn, qCache = ctx.qCache, readSet = ctx.readSet;
+  var readSet = ctx.readSet;
   var isHN = p.source === 'hn';
   var _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
   var sourceName = _hasExternalLink ? (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
-  var aiEntry = qfOn ? qCache[p.title] : null;
-  var aiVerdict = aiEntry ? (aiEntry.v || aiEntry) : null;
-  var aiScore = aiEntry ? aiEntry.s : null;
   var isPoly = p.source === 'polymarket';
   var fullDesc = isPoly ? '' : (p.description || '');
   var pCats = Array.isArray(p.categories) ? p.categories : [];
@@ -1844,7 +1447,6 @@ function _renderPaperVerboseCard(p, i, ctx) {
   // Meta row
   var metaItems = [Text(sourceName).className('text-[0.72rem] text-dim')];
   if (_hasExternalLink) metaItems.push(RawHTML('<span class="text-[0.72rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>'));
-  if (qfOn && aiVerdict === 'keep') metaItems.push(RawHTML('<span class="inline-flex items-center gap-0.5 text-[0.72rem]" title="AI quality score: ' + (aiScore != null ? aiScore + '%' : 'scoring\u2026') + '">' + (aiScore != null ? '<span class="text-dim">' + aiScore + '%</span>' : '<span class="text-dim animate-pulse">\u2026</span>') + '<span class="text-green-500">&#10003;</span></span>'));
   if (!(isHN && _hasExternalLink)) {
     if (isHN) metaItems.push(Text(p.hnScore + ' pts').className('text-[0.72rem] text-dim'));
     else if (isPoly) metaItems.push(Text(p.polyYesPct + '%').className('text-[0.72rem] font-semibold ' + (p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400')));
@@ -1863,7 +1465,7 @@ function _renderPaperVerboseCard(p, i, ctx) {
 }
 
 function _renderPaperTwitterCard(p, i, ctx) {
-  var qfOn = ctx.qfOn, qCache = ctx.qCache, readSet = ctx.readSet;
+  var readSet = ctx.readSet;
   var isHN = p.source === 'hn';
   var sourceName = SOURCE_NAMES[p.source] || p.source;
   var handle = (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return p.source; } })();
@@ -1878,8 +1480,6 @@ function _renderPaperTwitterCard(p, i, ctx) {
   var pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
   var avatarView = RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-10 h-10 rounded-full shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
   var tAgo = p.pubDate && typeof _relativeTime === 'function' ? _relativeTime(p.pubDate) : (p.date || '');
-  var aiEntry = qfOn ? qCache[p.title] : null;
-  var aiScore = aiEntry ? aiEntry.s : null;
   var hnPts = isHN ? p.hnScore || 0 : 0;
   var citations = p.citations !== undefined ? p.citations : null;
   var statsNum = isPoly ? p.polyYesPct + '%' : isHN ? String(hnPts) : (citations !== null ? String(citations) : '');
@@ -1905,7 +1505,6 @@ function _renderPaperTwitterCard(p, i, ctx) {
   headerItems.push(Text('@' + handle).className('text-[0.8rem] text-dimmer'));
   headerItems.push(Text('\u00b7').className('text-dimmer'));
   headerItems.push(Text(tAgo).className('text-[0.8rem] text-dimmer'));
-  if (aiScore != null) headerItems.push(RawHTML('<span class="text-[0.72rem] text-dim ml-auto">' + aiScore + '% <span class="text-green-500">&#10003;</span></span>'));
   var headerRow = HStack.apply(null, headerItems).spacing(1).className('flex-wrap');
 
   // Title
@@ -1930,26 +1529,14 @@ function _renderPaperTwitterCard(p, i, ctx) {
 
 function _renderPapersNow() {
   var ctx = _buildRenderCtx();
-  var qfOn = ctx.qfOn, qCache = ctx.qCache, hiddenSet = ctx.hiddenSet, readSet = ctx.readSet, bypass = ctx.bypass;
+  var hiddenSet = ctx.hiddenSet;
   var filtered = getFilteredPapers(ctx);
   lastFilteredPapers = filtered;
   var visible = filtered.slice(0, visibleCount);
-  var pendingCount = qfOn ? allPapers.filter(function(p) { return !hiddenSet.has(p.link) && !bypass[p.source] && !(p.title in qCache); }).length : 0;
   document.getElementById('stats').textContent = 'Showing ' + visible.length + ' of ' + filtered.length + ' papers';
-  var evalEl = document.getElementById('eval-indicator');
-  var evalCountEl = document.getElementById('eval-count');
-  if (evalEl) {
-    if (pendingCount > 0) {
-      evalCountEl.textContent = pendingCount;
-      evalEl.classList.remove('hidden');
-    } else {
-      evalEl.classList.add('hidden');
-    }
-  }
   var container = document.getElementById('papers');
-  if (!filtered.length && pendingCount > 0) return;
   if (!filtered.length) {
-    _renderFeedEmptyState(container, qfOn);
+    _renderFeedEmptyState(container);
     return;
   }
 

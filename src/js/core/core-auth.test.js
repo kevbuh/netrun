@@ -5,9 +5,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // ──────────────────────────────────────────────────────────
 
 const SYNC_KEYS = [
-  'feedSources', 'customFeeds', 'qualityFilter', 'qualityPrompt',
-  'qualityThreshold', 'qualityCache', 'hiddenPosts', 'savedPosts',
-  'readPosts', 'qualityTestTitles', 'paperRatings', 'theme',
+  'feedSources', 'customFeeds', 'hiddenPosts', 'savedPosts',
+  'readPosts', 'paperRatings', 'theme',
   'accentColor', 'spinner', 'userName', 'sidebarOrder',
   'clickSound', 'clickSoundType', 'clickAether', 'rainNoiseType', 'rainVolume', 'rainFreq',
   'editorTheme', 'rainSidebarVisible',
@@ -18,7 +17,7 @@ const SYNC_KEYS = [
   'aetherColor',
   'interestProfile',
   'urlBarSections',
-  'blockedWords', 'qualityBypass', 'searchHistory', 'repostedLinks',
+  'blockedWords', 'searchHistory', 'repostedLinks',
   'fyWeightBase', 'fyWeightAffinity', 'fyWeightRecency', 'maxPerCategoryRun',
   'smartHighlights',
   'chatModel', 'chatTools', 'insightsAllowHeuristics',
@@ -136,8 +135,6 @@ describe('SYNC_KEYS', () => {
   it('should include feed settings', () => {
     expect(SYNC_KEYS).toContain('feedSources');
     expect(SYNC_KEYS).toContain('customFeeds');
-    expect(SYNC_KEYS).toContain('qualityFilter');
-    expect(SYNC_KEYS).toContain('qualityThreshold');
   });
 
   it('should include user data', () => {

@@ -69,7 +69,7 @@ function matchesSearch(paper, textTokens, exactPhrases, titleTokens, titlePhrase
 }
 
 /**
- * Filter papers based on quality, source, hidden state, blocked words, category, author, source, search
+ * Filter papers based on source, hidden state, blocked words, category, author, source, search
  * Extracted from feed.js getFilteredPapers()
  */
 function filterPapers(allPapers, options) {
@@ -77,7 +77,6 @@ function filterPapers(allPapers, options) {
     hiddenSourceFilters = new Set(),
     hiddenPosts = new Set(),
     blockedWords = new Set(),
-    qualityFilter = { enabled: false, cache: {}, bypass: {}, threshold: 30 },
     category = null,
     searchQuery = '',
   } = options;
@@ -98,16 +97,6 @@ function filterPapers(allPapers, options) {
       for (const w of blockedWords) {
         if (titleLower.includes(w)) return false;
       }
-    }
-
-    // Quality filter
-    const bypassed = qualityFilter.bypass[p.source];
-    if (qualityFilter.enabled && !bypassed && !(p.title in qualityFilter.cache)) return false;
-    if (qualityFilter.enabled && !bypassed && (p.title in qualityFilter.cache)) {
-      const entry = qualityFilter.cache[p.title];
-      const verdict = entry?.v ?? entry;
-      if (verdict === 'skip') return false;
-      if (verdict === 'keep' && entry?.s != null && entry.s < qualityFilter.threshold) return false;
     }
 
     // Category filter
@@ -177,10 +166,10 @@ function applyDiversityInterleaving(papers, maxPerCategoryRun = 3, categoryMap =
 /**
  * Sort papers by "For You" composite score
  */
-function sortByForYou(papers, qualityCache, sourceAffinity, weights, now = Date.now()) {
+function sortByForYou(papers, sourceAffinity, weights, now = Date.now()) {
   return [...papers].sort((a, b) => {
-    const aLlm = qualityCache[a.title]?.s != null ? qualityCache[a.title].s : 50;
-    const bLlm = qualityCache[b.title]?.s != null ? qualityCache[b.title].s : 50;
+    const aLlm = 50;
+    const bLlm = 50;
 
     const aAff = sourceAffinity[a.source] ?? 0.5;
     const bAff = sourceAffinity[b.source] ?? 0.5;
@@ -322,75 +311,11 @@ describe('Feed Filtering', () => {
       expect(filtered.every(p => p.source === 'arxiv')).toBe(true);
     });
 
-    it('should apply quality filter with verdict', () => {
-      const { filtered } = filterPapers(mockPapers, {
-        qualityFilter: {
-          enabled: true,
-          cache: {
-            'Deep Learning for Computer Vision': { v: 'keep', s: 80 },
-            'Introduction to Quantum Computing': { v: 'skip' },
-            'Show HN: New JavaScript Framework': { v: 'keep', s: 60 }
-          },
-          bypass: {},
-          threshold: 30
-        }
-      });
-      // Should exclude: Quantum (verdict=skip) and Python (not in cache)
-      expect(filtered).toHaveLength(2);
-      expect(filtered.map(p => p.title)).toEqual([
-        'Deep Learning for Computer Vision',
-        'Show HN: New JavaScript Framework'
-      ]);
-    });
-
-    it('should apply quality filter with threshold', () => {
-      const { filtered } = filterPapers(mockPapers, {
-        qualityFilter: {
-          enabled: true,
-          cache: {
-            'Deep Learning for Computer Vision': { v: 'keep', s: 80 },
-            'Introduction to Quantum Computing': { v: 'keep', s: 25 },
-            'Show HN: New JavaScript Framework': { v: 'keep', s: 60 },
-            'Python Best Practices 2023': { v: 'keep', s: 45 }
-          },
-          bypass: {},
-          threshold: 50
-        }
-      });
-      // Should exclude: Quantum (s=25 < 50) and Python (s=45 < 50)
-      expect(filtered).toHaveLength(2);
-      expect(filtered.map(p => p.title)).toEqual([
-        'Deep Learning for Computer Vision',
-        'Show HN: New JavaScript Framework'
-      ]);
-    });
-
-    it('should bypass quality filter for specific sources', () => {
-      const { filtered } = filterPapers(mockPapers, {
-        qualityFilter: {
-          enabled: true,
-          cache: {},
-          bypass: { 'hn': true },
-          threshold: 50
-        }
-      });
-      // HN post should pass even though not in cache
-      expect(filtered.some(p => p.source === 'hn')).toBe(true);
-      expect(filtered.every(p => p.source === 'hn')).toBe(true);
-    });
 
     it('should handle combined filters', () => {
       const { filtered } = filterPapers(mockPapers, {
         hiddenSourceFilters: new Set(['custom:blog']),
-        category: 'cs.CV',
-        qualityFilter: {
-          enabled: true,
-          cache: {
-            'Deep Learning for Computer Vision': { v: 'keep', s: 80 }
-          },
-          bypass: {},
-          threshold: 30
-        }
+        category: 'cs.CV'
       });
       expect(filtered).toHaveLength(1);
       expect(filtered[0].title).toBe('Deep Learning for Computer Vision');
@@ -584,51 +509,42 @@ describe('Feed Sorting', () => {
   });
 
   describe('sortByForYou', () => {
-    const qualityCache = {
-      'Recent Paper': { s: 70 },
-      'Old Paper': { s: 90 },
-      'HN Post': { s: 60 }
-    };
-
     const sourceAffinity = {
       'arxiv': 0.8,
       'hn': 0.5
     };
 
     it('should sort by composite score', () => {
-      const sorted = sortByForYou(mockPapers, qualityCache, sourceAffinity, {
+      const sorted = sortByForYou(mockPapers, sourceAffinity, {
         base: 0.7,
         affinityWeight: 0.3,
         recencyWeight: 1.0
       }, now);
 
-      // Recent Paper: age = 24h, recency = 10 - 24*0.5 = -2 → 0, score = 70*(0.7+0.8*0.3) = 65.8
-      // Old Paper: age = 336h, recency = 10 - 336*0.5 = -158 → 0, score = 90*(0.7+0.8*0.3) = 84.6
-      // HN Post: age = 24h, recency = 0, score = 60*(0.7+0.5*0.3) = 51
+      // All LLM scores are 50 (constant)
+      // arxiv papers: score = 50*(0.7+0.8*0.3) = 47, recency = 0 (age > 20h)
+      // HN Post: score = 50*(0.7+0.5*0.3) = 42.5, recency = 0
+      // HN Post sorts last due to lower source affinity
 
-      expect(sorted[0].title).toBe('Old Paper'); // Highest quality score
-      expect(sorted[1].title).toBe('Recent Paper');
-      expect(sorted[2].title).toBe('HN Post');
+      expect(sorted[2].title).toBe('HN Post'); // Lowest score due to lower affinity
     });
 
     it('should boost recent papers with recency weight', () => {
-      const sorted = sortByForYou(mockPapers, qualityCache, sourceAffinity, {
+      const sorted = sortByForYou(mockPapers, sourceAffinity, {
         base: 0.7,
         affinityWeight: 0.3,
         recencyWeight: 5.0
       }, now);
 
-      // Recent Paper: recency = 0, score = 65.8
-      // Old Paper: recency = 0, score = 84.6
-      // Still same order due to age > 20 hours
-
-      expect(sorted[0].title).toBe('Old Paper');
+      // All LLM scores are 50, all ages > 20h so recency = 0
+      // HN Post sorts last due to lower source affinity
+      expect(sorted[2].title).toBe('HN Post');
     });
 
     it('should use default score of 50 for uncached papers', () => {
       const sorted = sortByForYou([
         { title: 'Uncached', source: 'arxiv', pubDate: '2023-03-14', link: 'link4' }
-      ], {}, { 'arxiv': 0.5 }, {}, now);
+      ], { 'arxiv': 0.5 }, {}, now);
 
       expect(sorted).toHaveLength(1);
     });
@@ -820,12 +736,6 @@ describe('Post Interactions', () => {
       expect(hiddenPosts.has(paper.link)).toBe(true);
     });
 
-    it('should be used in quality test suite', () => {
-      const qualityTestTitles = new Set(['Bad Title', 'Spam Article']);
-
-      expect(qualityTestTitles.has('Bad Title')).toBe(true);
-      expect(qualityTestTitles.has('Good Title')).toBe(false);
-    });
   });
 
   describe('read tracking', () => {
@@ -918,13 +828,6 @@ describe('Feed View Modes', () => {
       expect(shouldShowEmpty).toBe(false);
     });
 
-    it('should show quality threshold in empty state', () => {
-      const threshold = 75;
-      const dots = Array.from({ length: 10 }, (_, i) => i < Math.round(threshold / 10));
-
-      const filledCount = dots.filter(Boolean).length;
-      expect(filledCount).toBe(8); // 75/10 = 7.5 → 8
-    });
   });
 });
 
@@ -948,26 +851,13 @@ describe('Edge Cases and Error Handling', () => {
       expect(matches).toBe(true);
     });
 
-    it('should handle malformed quality cache entries', () => {
-      const { filtered } = filterPapers([
-        { title: 'Test', source: 'test', link: 'link1', categories: [] }
-      ], {
-        qualityFilter: {
-          enabled: true,
-          cache: { 'Test': 'keep' }, // Old format: verdict as string
-          bypass: {},
-          threshold: 50
-        }
-      });
-      expect(filtered).toHaveLength(1);
-    });
   });
 
   describe('sorting edge cases', () => {
     it('should handle empty arrays', () => {
       expect(sortByLatest([])).toEqual([]);
       expect(sortByCitations([])).toEqual([]);
-      expect(sortByForYou([], {}, {}, {})).toEqual([]);
+      expect(sortByForYou([], {}, {})).toEqual([]);
     });
 
     it('should handle papers with null/undefined dates', () => {

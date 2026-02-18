@@ -111,7 +111,7 @@ window.addEventListener('resize', function() {
 (function() {
   let _pulseFlashTimer = null;
   let _pulseLastEventTs = 0;
-  const _pulseCatColors = { ai: '#a78bfa', feed: '#f97316', quality: '#22c55e', network: '#94a3b8', system: '#e879f9' };
+  const _pulseCatColors = { ai: '#a78bfa', feed: '#f97316', network: '#94a3b8', system: '#e879f9' };
 
   function _renderLivePulse() {
     const el = document.getElementById('pill-live-pulse');
@@ -183,8 +183,18 @@ window.addEventListener('resize', function() {
   else setTimeout(_initPulse, 0);
 })();
 
+function _setIslandActivity(id, data) {
+  const acts = _islandActivities.value;
+  _islandActivities.value = { ...acts, [id]: Object.assign({}, acts[id] || {}, data, { _ts: Date.now() }) };
+}
+function _clearIslandActivity(id) {
+  const acts = { ..._islandActivities.value };
+  delete acts[id];
+  _islandActivities.value = acts;
+}
+
 function islandUpdate(id, data) {
-  _islandActivities[id] = Object.assign(_islandActivities[id] || {}, data, { _ts: Date.now() });
+  _setIslandActivity(id, data);
   _islandRender();
 }
 
@@ -195,7 +205,7 @@ function islandRemove(id) {
     if (anchor) el = anchor.querySelector('.pill-island[data-island-id="'+id+'"]');
   }
   if (_islandDismissTimers[id]) { clearTimeout(_islandDismissTimers[id]); delete _islandDismissTimers[id]; }
-  delete _islandActivities[id];
+  _clearIslandActivity(id);
   if (el && !el.classList.contains('island-exiting')) {
     const parentCont = el.parentNode;
     _islandSnapshotRects(parentCont);

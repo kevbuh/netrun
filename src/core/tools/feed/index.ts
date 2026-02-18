@@ -59,27 +59,6 @@ export const feedFetch: Tool<z.infer<typeof fetchFeedParams>, any> = {
   },
 };
 
-const qualityFilterParams = z.object({
-  titles: z.array(z.string()).describe('Titles to score for relevance'),
-});
-
-export const feedQualityFilter: Tool<z.infer<typeof qualityFilterParams>, any> = {
-  name: 'feed-quality-filter',
-  description: 'Score feed item titles for relevance using the LLM quality filter.',
-  category: 'feed',
-  access: ['agent', 'ui'],
-  parameters: qualityFilterParams,
-  async execute(input): Promise<ToolResult> {
-    // Quality filtering requires LLM calls - placeholder for now.
-    // In full integration, this calls the provider to score titles.
-    const scores: Record<string, number> = {};
-    for (const title of input.titles) {
-      scores[title] = 50; // neutral score
-    }
-    return { success: true, data: { scores } };
-  },
-};
-
 /** Simple RSS/Atom parser - extracts items from XML */
 function parseRssItems(xml: string, source: string): Array<{
   title: string; link: string; description: string; pubDate: string | null; source: string;
