@@ -19,12 +19,12 @@
     var keyFn = renderFn ? keyFnOrRenderFn : null;
     var render = renderFn || keyFnOrRenderFn;
     var _childViews = [];
+    var _keyedMap = {}; // key → { view, el }
 
-    function _rebuild() {
+    function _rebuildFull() {
       var arr = S.isSignal(items) ? items.value : items;
       if (!Array.isArray(arr)) arr = [];
 
-      // Dispose old child effects
       for (var i = 0; i < _childViews.length; i++) {
         if (_childViews[i].dispose) _childViews[i].dispose();
       }
@@ -44,14 +44,76 @@
       }
     }
 
+    function _reconcile() {
+      var arr = S.isSignal(items) ? items.value : items;
+      if (!Array.isArray(arr)) arr = [];
+
+      var newKeys = [];
+      var newMap = {};
+      var i, key, entry, child;
+
+      // Build new key list
+      for (i = 0; i < arr.length; i++) {
+        key = '' + keyFn(arr[i], i);
+        newKeys.push(key);
+        newMap[key] = arr[i];
+      }
+
+      // Remove entries whose keys are gone
+      for (key in _keyedMap) {
+        if (!newMap.hasOwnProperty(key)) {
+          entry = _keyedMap[key];
+          if (entry.view.dispose) entry.view.dispose();
+          if (entry.el.parentNode) entry.el.parentNode.removeChild(entry.el);
+          delete _keyedMap[key];
+        }
+      }
+
+      // Create new entries for added keys
+      for (i = 0; i < newKeys.length; i++) {
+        key = newKeys[i];
+        if (!_keyedMap[key]) {
+          child = render(newMap[key], i);
+          if (child == null) continue;
+          if (child instanceof View) {
+            _keyedMap[key] = { view: child, el: child.build() };
+            if (child._onAppearFn) child._onAppearFn();
+          } else if (child instanceof HTMLElement) {
+            _keyedMap[key] = { view: null, el: child };
+          }
+        }
+      }
+
+      // Reorder DOM via cursor walk
+      var cursor = v.el.firstChild;
+      for (i = 0; i < newKeys.length; i++) {
+        entry = _keyedMap[newKeys[i]];
+        if (!entry) continue;
+        if (entry.el !== cursor) {
+          v.el.insertBefore(entry.el, cursor);
+        } else {
+          cursor = cursor.nextSibling;
+        }
+      }
+
+      // Update _childViews
+      _childViews.length = 0;
+      for (i = 0; i < newKeys.length; i++) {
+        entry = _keyedMap[newKeys[i]];
+        if (entry && entry.view) _childViews.push(entry.view);
+      }
+    }
+
+    var _doUpdate = keyFn ? _reconcile : _rebuildFull;
+
     if (S.isSignal(items)) {
-      _rebuild();
+      _doUpdate();
       v._effects.push(S.Effect(function() {
         items.value; // track dependency
-        _rebuild();
+        _doUpdate();
       }));
     } else {
-      _rebuild();
+      _doUpdate();
     }
 
     v.spacing = function(s) {

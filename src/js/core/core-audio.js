@@ -225,9 +225,9 @@ function _islandRenderPill(a) {
     if (a.loading) {
       return '<span class="island-annotate-dot"></span><span>' + escapeHtml(a.label || 'Analyzing\u2026') + '</span>';
     }
-    const _annModeColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
+    const _annModeColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', EXAGGERATION: '#ffc107', AD: '#ff9800', CONNECTION: '#2196f3' };
     const annColor = _annModeColors[a.modeType] || '#4caf50';
-    const annIcon = a.insight ? icon('brain', { size: 14, stroke: annColor }) : icon('comment', { size: 14, stroke: annColor });
+    const annIcon = icon('comment', { size: 14, stroke: annColor });
     // Paper mode — append citation badge after the normal label
     let paperBadge = '';
     if (a._paper && a._paperState && a._paperState.s2Data) {
@@ -348,12 +348,12 @@ function _islandBuildTray(a, isBrowse) {
     }
     // Insight text
     if (a.insight) {
-      trayHtml += '<div style="padding:8px 10px;font-size:12px;color:var(--nr-text-primary);line-height:1.5;opacity:0.9">' + escapeHtml(a.insight) + '</div>';
+      trayHtml += '<div style="padding:8px 10px;font-size:12px;color:var(--aether-text, var(--nr-text-primary));line-height:1.5">' + escapeHtml(a.insight) + '</div>';
     }
     // OCR text
     if (a.ocrText) {
-      trayHtml += '<div style="padding:6px 10px;font-size:11px;color:var(--nr-text-tertiary);line-height:1.4;border-top:1px solid var(--aether-border, var(--nr-border-default))">';
-      trayHtml += '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--nr-text-quaternary)">OCR</span><br>';
+      trayHtml += '<div style="padding:6px 10px;font-size:11px;color:var(--aether-text-dim, var(--nr-text-secondary));line-height:1.4;border-top:1px solid var(--aether-border, var(--nr-border-default))">';
+      trayHtml += '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--aether-text-dim, var(--nr-text-tertiary))">OCR</span><br>';
       trayHtml += escapeHtml(a.ocrText.length > 300 ? a.ocrText.slice(0, 297) + '\u2026' : a.ocrText);
       trayHtml += '</div>';
     }
@@ -365,7 +365,7 @@ function _islandBuildTray(a, isBrowse) {
       const quote = ann.quote || '';
       const isConnection = ann.type === 'CONNECTION';
       const displayText = isConnection ? ('Linked: ' + (ann.linkedTitle || 'Related content')) : quote;
-      const confBadge = ann.confidence != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:auto;flex-shrink:0">' + ann.confidence + '%</span>' : '';
+      const confBadge = ann.confidence != null ? '<span style="font-size:10px;color:var(--aether-text-dim, var(--nr-text-tertiary));margin-left:auto;flex-shrink:0">' + ann.confidence + '%</span>' : '';
       trayHtml += '<div class="island-ann-item" data-island-ann="' + ai + '"' + (isConnection && ann.linkedUrl ? ' data-island-ann-url="' + escapeHtml(ann.linkedUrl) + '"' : '') + ' style="padding:6px 10px;cursor:pointer;display:flex;flex-direction:column;gap:2px;">';
       trayHtml += '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:' + ac + ';flex-shrink:0"></span><span style="font-size:11px;font-weight:600;color:' + ac + '">' + escapeHtml(al) + '</span>' + confBadge;
       // Rating buttons
@@ -375,8 +375,8 @@ function _islandBuildTray(a, isBrowse) {
       trayHtml += '<button data-ann-rate-good="' + ai + '" title="Good annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;opacity:0.5;color:var(--nr-text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#4caf50\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--nr-text-primary)\'">' + thumbUpSvg + '</button>';
       trayHtml += '<button data-ann-rate-bad="' + ai + '" title="Bad annotation" style="background:none;border:none;cursor:pointer;padding:1px 3px;opacity:0.5;color:var(--nr-text-primary)" onmouseenter="this.style.opacity=1;this.style.color=\'#ef5350\'" onmouseleave="this.style.opacity=0.5;this.style.color=\'var(--nr-text-primary)\'">' + thumbDownSvg + '</button>';
       trayHtml += '</span></div>';
-      trayHtml += '<div style="font-size:12px;color:var(--nr-text-primary);padding-left:14px;opacity:0.85">' + escapeHtml(displayText) + '</div>';
-      if (ann.explanation) trayHtml += '<div style="font-size:11px;color:var(--nr-text-quaternary);padding-left:14px">' + escapeHtml(ann.explanation) + '</div>';
+      trayHtml += '<div style="font-size:12px;color:var(--aether-text, var(--nr-text-primary));padding-left:14px">' + escapeHtml(displayText) + '</div>';
+      if (ann.explanation) trayHtml += '<div style="font-size:11px;color:var(--aether-text-dim, var(--nr-text-secondary));padding-left:14px">' + escapeHtml(ann.explanation) + '</div>';
       trayHtml += '</div>';
     }
     return trayHtml;
@@ -779,8 +779,8 @@ function _islandRender() {
     }
 
     // Auto-dismiss on done — stagger so pills collapse one by one
-    // Never auto-dismiss insight pill when paper metadata is attached
-    if (a.done && !_islandDismissTimers[id] && !(a.type === 'insight' && a._paper)) {
+    // Never auto-dismiss insight pill (it's always-on, user clicks to annotate)
+    if (a.done && !_islandDismissTimers[id] && a.type !== 'insight') {
       const baseDelay = a.type === 'achievement' ? 5000 : a.type === 'feed-notif' ? 10000 : 2500;
       const pendingCount = Object.keys(_islandDismissTimers).length;
       const stagger = pendingCount * 500;

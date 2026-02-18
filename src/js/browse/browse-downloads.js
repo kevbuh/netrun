@@ -505,8 +505,8 @@ function _browseHandleNavigation(tab, frame) {
     }
     // YouTube: inject ad-block CSS immediately on navigation (before dom-ready / first paint)
     _browseInjectYouTubeCSS(frame, navUrl);
-    // Clear insight pill on navigation
-    if (typeof islandRemove === 'function') islandRemove('insight');
+    // Reset insight pill to offer state on navigation (don't remove it)
+    if (typeof _showAnnotateOfferPill === 'function' && tab.id === _browseActiveTab) _showAnnotateOfferPill(tab);
     // Update nav buttons so back/forward reflect history stacks
     if (typeof _updateIslandNavButtons === 'function') _updateIslandNavButtons();
     // Clear adaptive color on navigation (will re-extract on did-finish-load)
@@ -1423,7 +1423,17 @@ function _browseUpdateRssPill(tab) {
     subscribed: isSubscribed,
     feedUrl: feedUrl,
     feedTitle: feed.title || '',
-    action: isSubscribed ? null : function() {
+    action: isSubscribed ? function() {
+      // Unsubscribe from feed
+      let feeds = [];
+      try { feeds = Settings.getJSON('customFeeds', []); } catch {}
+      feeds = feeds.filter(function(f) { return f.url !== feedUrl; });
+      Settings.setJSON('customFeeds', feeds);
+      // Refresh pill to show unsubscribed state
+      _browseUpdateRssPill(tab);
+      // Reload feeds if available
+      if (typeof loadAllFeeds === 'function') { allPapers = []; loadAllFeeds(); }
+    } : function() {
       // Subscribe to feed
       let feeds = [];
       try { feeds = Settings.getJSON('customFeeds', []); } catch {}

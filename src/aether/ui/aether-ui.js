@@ -14,15 +14,24 @@
 
   // ─── Mount / Append ───────────────────────────────────────
 
+  var _mountedViews = new WeakMap();
+
   function mount(view, target) {
     var container = typeof target === 'string' ? document.querySelector(target) : target;
     if (!container) return;
+
+    // Dispose previous view tree if any
+    var prev = _mountedViews.get(container);
+    if (prev && prev.dispose) prev.dispose();
+
     container.innerHTML = '';
     if (view instanceof View) {
       container.appendChild(view.build());
       if (view._onAppearFn) view._onAppearFn();
+      _mountedViews.set(container, view);
     } else if (view instanceof HTMLElement) {
       container.appendChild(view);
+      _mountedViews.delete(container);
     }
   }
 

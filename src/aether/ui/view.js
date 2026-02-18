@@ -54,6 +54,7 @@
   function View(tag) {
     this.el = document.createElement(tag || 'div');
     this._effects = [];
+    this._children = [];
     this._onAppearFn = null;
     this._onDisappearFn = null;
   }
@@ -63,10 +64,15 @@
   // Build returns the DOM element
   VP.build = function() { return this.el; };
 
-  // Dispose all effects
+  // Dispose: call onDisappear, recurse into children, then dispose own effects
   VP.dispose = function() {
-    for (var i = 0; i < this._effects.length; i++) {
-      if (this._effects[i].dispose) this._effects[i].dispose();
+    if (this._onDisappearFn) this._onDisappearFn();
+    for (var i = 0; i < this._children.length; i++) {
+      if (this._children[i].dispose) this._children[i].dispose();
+    }
+    this._children.length = 0;
+    for (var j = 0; j < this._effects.length; j++) {
+      if (this._effects[j].dispose) this._effects[j].dispose();
     }
     this._effects.length = 0;
   };
@@ -373,6 +379,89 @@
     return this;
   };
 
+  VP.styles = function(obj) {
+    for (var k in obj) {
+      if (obj.hasOwnProperty(k)) this.el.style[k] = obj[k];
+    }
+    return this;
+  };
+
+  VP.truncate = function() {
+    this.el.style.overflow = 'hidden';
+    this.el.style.textOverflow = 'ellipsis';
+    this.el.style.whiteSpace = 'nowrap';
+    return this;
+  };
+
+  VP.gap = function(v) {
+    this.el.style.gap = _spaceToken(v);
+    return this;
+  };
+
+  VP.wrap = function() {
+    this.el.style.flexWrap = 'wrap';
+    return this;
+  };
+
+  VP.textAlign = function(v) {
+    this.el.style.textAlign = v;
+    return this;
+  };
+
+  VP.margin = function(v, h) {
+    if (h !== undefined) {
+      this.el.style.margin = _spaceToken(v) + ' ' + _spaceToken(h);
+    } else {
+      this.el.style.margin = _spaceToken(v);
+    }
+    return this;
+  };
+
+  VP.marginH = function(v) {
+    this.el.style.marginLeft = _spaceToken(v);
+    this.el.style.marginRight = _spaceToken(v);
+    return this;
+  };
+
+  VP.marginV = function(v) {
+    this.el.style.marginTop = _spaceToken(v);
+    this.el.style.marginBottom = _spaceToken(v);
+    return this;
+  };
+
+  VP.flex = function(v) {
+    this.el.style.flex = v != null ? v : '1';
+    return this;
+  };
+
+  VP.cursor = function(v) {
+    this.el.style.cursor = v || 'pointer';
+    return this;
+  };
+
+  VP.position = function(v) {
+    this.el.style.position = v;
+    return this;
+  };
+
+  VP.inset = function(t, r, b, l) {
+    if (t != null) this.el.style.top = typeof t === 'number' ? t + 'px' : t;
+    if (r != null) this.el.style.right = typeof r === 'number' ? r + 'px' : r;
+    if (b != null) this.el.style.bottom = typeof b === 'number' ? b + 'px' : b;
+    if (l != null) this.el.style.left = typeof l === 'number' ? l + 'px' : l;
+    return this;
+  };
+
+  VP.cssText = function(str) {
+    this.el.style.cssText = str;
+    return this;
+  };
+
+  VP.cssVar = function(name, val) {
+    this.el.style.setProperty(name, val);
+    return this;
+  };
+
   // ─── Child management (used by container views) ───────────
 
   VP._appendChildren = function(children) {
@@ -381,7 +470,7 @@
       if (child == null) continue;
       if (child instanceof View) {
         this.el.appendChild(child.build());
-        // Trigger onAppear
+        this._children.push(child);
         if (child._onAppearFn) child._onAppearFn();
       } else if (child instanceof HTMLElement) {
         this.el.appendChild(child);

@@ -121,13 +121,10 @@ function _restoreInsightPill(tab) {
   const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'ALPHA';
 
   if (typeof islandUpdate === 'function') {
-    const label = insight
-      ? (insight.length > 60 ? insight.slice(0, 57) + '\u2026' : insight)
-      : (annotations.length + ' insights');
     islandUpdate('insight', {
       type: 'insight',
-      label: label,
-      detail: insight || (annotations.length + ' insights on this page'),
+      label: annotations.length + ' annotation' + (annotations.length !== 1 ? 's' : ''),
+      detail: insight || (annotations.length + ' annotations on this page'),
       insight: insight,
       items: annotations,
       related: cached.related || [],
@@ -289,13 +286,11 @@ function _initInsightListener() {
     const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'ALPHA';
 
     if (typeof islandUpdate === 'function') {
-      const label = insight
-        ? (insight.length > 60 ? insight.slice(0, 57) + '\u2026' : insight)
-        : (annotations.length ? annotations.length + ' insights' : 'No insights');
+      const count = annotations.length;
       islandUpdate('insight', {
         type: 'insight',
-        label: label,
-        detail: insight || (annotations.length + ' insights on this page'),
+        label: count ? count + ' annotation' + (count !== 1 ? 's' : '') : 'No annotations',
+        detail: insight || (count + ' annotations on this page'),
         insight: insight,
         ocrText: ocrText,
         items: annotations,
@@ -303,7 +298,7 @@ function _initInsightListener() {
         modeType,
         loading: false,
         offer: false,
-        done: (!insight && !annotations.length),
+        done: (!insight && !count),
       });
     }
   });
@@ -318,19 +313,6 @@ function _initInsightPartialListener() {
     if (!partial || !partial.tabId) return;
     if (typeof _browseActiveTab !== 'undefined' && partial.tabId !== _browseActiveTab) return;
 
-    // Update pill with streamed insight text
-    if (partial.insight && typeof islandUpdate === 'function') {
-      const label = partial.insight.length > 60
-        ? partial.insight.slice(0, 57) + '\u2026'
-        : partial.insight;
-      islandUpdate('insight', {
-        type: 'insight',
-        label: label,
-        loading: true,
-        offer: false,
-      });
-    }
-
     // Inject streamed annotation incrementally only if user enabled for this tab
     if (partial.annotation) {
       var tab = _browseTabs.find(function(t) { return t.id === partial.tabId; });
@@ -340,9 +322,7 @@ function _initInsightPartialListener() {
       }
       if (typeof islandUpdate === 'function') {
         var count = partial.annotationCount || 0;
-        var currentLabel = partial.insight
-          ? (partial.insight.length > 60 ? partial.insight.slice(0, 57) + '\u2026' : partial.insight)
-          : (count + ' insight' + (count !== 1 ? 's' : ''));
+        var currentLabel = count + ' annotation' + (count !== 1 ? 's' : '');
         islandUpdate('insight', {
           type: 'insight',
           label: currentLabel,
@@ -761,7 +741,6 @@ function _execInFrame(frame, script) {
 
 function clearAnnotations(tab) {
   if (!tab || !tab.el) return;
-  if (typeof islandRemove === 'function') islandRemove('insight');
   const hostTooltip = document.getElementById('aether-annotation-tooltip');
   if (hostTooltip) hostTooltip.remove();
   const frame = tab.el;
