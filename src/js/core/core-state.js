@@ -8,7 +8,7 @@
 //   @const    — set once at init, never changes
 
 // ── SVG assets ──
-var _ELL_SVG = icon('ell', { size: 16, class: 'ell-favicon' });
+var _ELL_SVG = null;  // @const — set in _initCoreState()
 
 // ── Link preview ──
 var _linkPreviewEl = null;
@@ -23,14 +23,14 @@ var _PILL_BOTTOM = 20;
 var _customAnnotationCategories = [];
 
 // ── Dynamic Island ──
-var _islandActivities = State({});  // @signal { id: { type, label, detail, progress, done, _ts } }
+var _islandActivities = null;  // @signal — set in _initCoreState()
 var _islandDismissTimers = {};  // { id: timeoutId }
 var _islandWaveformBars = '<span class="island-waveform"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 var _islandAudioBars = '<span class="island-waveform island-waveform-anim"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 var _islandResizeTimer = null;
 
 // ── Audio ──
-var _audioUnifiedState = State({ tab: null, tts: null, cc: null, mic: null });  // @signal
+var _audioUnifiedState = null;  // @signal — set in _initCoreState()
 var _ttsSpeeds = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 
 // ── Layout ──
@@ -86,3 +86,12 @@ function _authHeaders() {
   if (_authToken) h['Authorization'] = 'Bearer ' + _authToken;
   return h;
 }
+
+// ── Deferred init — no load-order dependency on State/icon ──
+function _initCoreState() {
+  _ELL_SVG = icon('ell', { size: 16, class: 'ell-favicon' });
+  _islandActivities = State({});  // { id: { type, label, detail, progress, done, _ts } }
+  _audioUnifiedState = State({ tab: null, tts: null, cc: null, mic: null });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _initCoreState);
+else _initCoreState();

@@ -51,12 +51,13 @@
 }
 
 
-/* Clear theme: pill bar strip should be transparent —
+/* Clear theme: pill bar strips should be transparent —
    backdrop-filter can't blur webview content anyway */
-[data-theme="clear"] .pill-bar.browse-mode {
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
+[data-theme="clear"] .pill-bar {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: 0 !important;
 }
 
 /* Frosty nav menu in clear theme
@@ -219,4 +220,180 @@
 /* Clear theme: NTP send button arrow should be white (--nr-bg-body is transparent) */
 [data-theme="clear"] .ntp-action-submit {
   color: #fff;
+}
+
+/* ── Clear theme: dark OS variant ──────────────────────────────────────
+   When the system is in dark mode the desktop behind is dark,
+   so chrome switches to dark frosted surfaces with light text. */
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="clear"] {
+    --nr-text-primary:    rgba(255, 255, 255, 0.9);
+    --nr-text-secondary:  rgba(255, 255, 255, 0.65);
+    --nr-text-quaternary: rgba(255, 255, 255, 0.35);
+
+    --nr-border-default: rgba(255, 255, 255, 0.1);
+    --nr-border-strong:  rgba(255, 255, 255, 0.15);
+    --nr-border-subtle:  rgba(255, 255, 255, 0.07);
+    --nr-border-dim:     rgba(255, 255, 255, 0.04);
+  }
+
+  /* Materials — dark frosted surfaces */
+  [data-theme="clear"] .nr-material-ultra-thin {
+    background: rgba(30, 30, 30, 0.9);
+  }
+  [data-theme="clear"] .nr-material-thin {
+    background: rgba(30, 30, 30, 0.92);
+  }
+  [data-theme="clear"] .nr-material-regular {
+    background: rgba(30, 30, 30, 0.95);
+  }
+  [data-theme="clear"] .nr-material-thick {
+    background: rgba(30, 30, 30, 0.97);
+  }
+  [data-theme="clear"] .nr-material-chrome {
+    background: rgba(30, 30, 30, 0.98);
+  }
+
+  /* Nav icons */
+  [data-theme="clear"] .browse-mode #pill-nav-icons {
+    background: rgba(30, 30, 30, 0.97);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.3),
+      0 2px 8px rgba(0, 0, 0, 0.15),
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
+  }
+  [data-theme="clear"] .browse-mode #pill-nav-icons .sidebar-icon {
+    color: rgba(255, 255, 255, 0.6);
+  }
+  [data-theme="clear"] .browse-mode #pill-nav-icons .sidebar-icon:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+  }
+  [data-theme="clear"] .browse-mode #pill-nav-icons #pill-menu-more-items {
+    border-top-color: rgba(255, 255, 255, 0.1);
+  }
+  [data-theme="clear"] .browse-mode #pill-nav-icons #pill-menu-more-items button {
+    color: rgba(255, 255, 255, 0.6);
+  }
+  [data-theme="clear"] .browse-mode #pill-nav-icons #pill-menu-more-items button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+  }
+  [data-theme="clear"] .browse-mode #pill-nav-icons #pill-menu-more-items button:disabled {
+    color: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Container-scoped token overrides for dropdowns */
+  [data-theme="clear"] .ntp-search-box,
+  [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open,
+  [data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-ctx-tray {
+    --nr-border-default:  rgba(255, 255, 255, 0.1);
+    --nr-border-strong:   rgba(255, 255, 255, 0.15);
+    --nr-border-subtle:   rgba(255, 255, 255, 0.07);
+    --nr-bg-raised:       rgba(255, 255, 255, 0.08);
+    --nr-bg-surface:      rgba(30, 30, 30, 0.97);
+    --nr-bg-input:        rgba(255, 255, 255, 0.06);
+  }
+
+  /* URL dropdown */
+  [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open {
+    background: rgba(30, 30, 30, 0.97) !important;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.3),
+      0 2px 8px rgba(0, 0, 0, 0.15),
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
+  }
+  [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown {
+    background: rgba(30, 30, 30, 0.97) !important;
+  }
+  [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown div {
+    color: rgba(255, 255, 255, 0.7) !important;
+  }
+  [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-browse-url-input {
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  /* Tabs tray */
+  [data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-ctx-tray {
+    background: rgba(30, 30, 30, 0.97) !important;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.3),
+      0 2px 8px rgba(0, 0, 0, 0.15),
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
+  }
+  [data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-tab-item {
+    color: rgba(255, 255, 255, 0.7);
+  }
+  [data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-tab-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  /* Audio & pulse dropdowns */
+  [data-theme="clear"] .audio-pill-dropdown,
+  [data-theme="clear"] .pulse-dropdown {
+    background: rgba(30, 30, 30, 0.97);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.3),
+      0 2px 8px rgba(0, 0, 0, 0.15),
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
+  }
+  [data-theme="clear"] .audio-pill-dropdown button {
+    color: rgba(255, 255, 255, 0.6);
+  }
+  [data-theme="clear"] .audio-pill-dropdown button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+  }
+  [data-theme="clear"] .audio-pill-dropdown button:disabled {
+    color: rgba(255, 255, 255, 0.2);
+  }
+  [data-theme="clear"] .pulse-dropdown-header {
+    color: rgba(255, 255, 255, 0.4);
+  }
+  [data-theme="clear"] .pulse-event-row {
+    color: rgba(255, 255, 255, 0.6);
+  }
+  [data-theme="clear"] .pulse-event-row .pulse-label {
+    color: rgba(255, 255, 255, 0.5);
+  }
+  [data-theme="clear"] .pulse-event-row .pulse-age {
+    color: rgba(255, 255, 255, 0.25);
+  }
+
+  /* Annotation tray */
+  [data-theme="clear"] .pill-island[data-island-id="annotate"] .island-ctx-tray {
+    background: rgba(30, 30, 30, 0.97) !important;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.3),
+      0 2px 8px rgba(0, 0, 0, 0.15),
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
+  }
+  [data-theme="clear"] .pill-island[data-island-id="annotate"].island-has-items.island-tray-open {
+    background: rgba(30, 30, 30, 0.97) !important;
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+  [data-theme="clear"] .island-ann-header {
+    color: rgba(255, 255, 255, 0.4);
+  }
+  [data-theme="clear"] .island-ann-item {
+    color: rgba(255, 255, 255, 0.6);
+  }
+  [data-theme="clear"] .island-ann-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  [data-theme="clear"] .island-ann-text {
+    color: rgba(255, 255, 255, 0.5);
+  }
+  [data-theme="clear"] .island-ann-conf {
+    color: rgba(255, 255, 255, 0.25);
+  }
+  [data-theme="clear"] .island-ann-actions button {
+    color: rgba(255, 255, 255, 0.4);
+  }
 }
