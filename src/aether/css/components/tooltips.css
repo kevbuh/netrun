@@ -81,7 +81,7 @@
 
 .nr-ref-tooltip-authors {
   font-size: 11px;
-  color: var(--nr-text-tertiary);
+  color: var(--nr-text-secondary);
   margin-bottom: 2px;
 }
 

@@ -27,7 +27,7 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       gap: 6px; padding: 12px 8px; border-radius: 10px;
       background: transparent; border: 1px solid var(--nr-border-default);
-      color: var(--nr-text-tertiary); cursor: pointer; transition: all 0.15s;
+      color: var(--nr-text-secondary); cursor: pointer; transition: all 0.15s;
       font-size: 0.72rem;
     }
     .bento-action-btn:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); border-color: var(--nr-border-strong); }

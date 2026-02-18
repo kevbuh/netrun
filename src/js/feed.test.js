@@ -101,7 +101,7 @@ function filterPapers(allPapers, options) {
     }
 
     // Quality filter
-    const bypassed = qualityFilter.bypass[p.source] || p.source === 'quote';
+    const bypassed = qualityFilter.bypass[p.source];
     if (qualityFilter.enabled && !bypassed && !(p.title in qualityFilter.cache)) return false;
     if (qualityFilter.enabled && !bypassed && (p.title in qualityFilter.cache)) {
       const entry = qualityFilter.cache[p.title];

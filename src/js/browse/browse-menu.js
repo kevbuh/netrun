@@ -309,7 +309,7 @@ function browseShowAIView() {
     badge.textContent = elCount + ' elements \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars';
 
     var urlBadge = document.createElement('span');
-    urlBadge.style.cssText = 'font-size:0.65rem;color:var(--nr-text-tertiary, #666);margin-left:8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    urlBadge.style.cssText = 'font-size:0.65rem;color:var(--nr-text-secondary, #666);margin-left:8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
     urlBadge.textContent = dom.title ? dom.title + ' \u2014 ' + dom.url : dom.url;
 
     var closeBtn = document.createElement('button');
@@ -339,7 +339,7 @@ function browseShowAIView() {
       .replace(/<(\w+)/g, '<span style="color:#8bdb8b">&lt;$1</span>')
       .replace(/>/g, '<span style="color:#8bdb8b">&gt;</span>')
       .replace(/((?:aria-\w+|role|type|name|placeholder|href|value|title|disabled|checked)(?:="[^"]*")?)/g, '<span style="color:#e8c87a">$1</span>')
-      .replace(/(@-?\d+,-?\d+,\d+,\d+)/g, '<span style="color:var(--nr-text-tertiary,#555)">$1</span>');
+      .replace(/(@-?\d+,-?\d+,\d+,\d+)/g, '<span style="color:var(--nr-text-secondary,#555)">$1</span>');
     content.innerHTML = highlighted;
 
     overlay.appendChild(header);

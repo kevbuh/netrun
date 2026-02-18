@@ -29,27 +29,6 @@ function _dashPapersReadRecent() {
   return papers.filter(p => readSet.has(p.link)).length;
 }
 
-function _dashReadingStreak(activityItems) {
-  const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  let streak = 0;
-  // Grace period: if before 9am, don't require today to have activity
-  const graceToday = today.getHours() < 9;
-  const d = new Date(today);
-  if (graceToday && !(activityItems[todayKey] || []).length) {
-    d.setDate(d.getDate() - 1);
-  }
-  for (let i = 0; i < 365; i++) {
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    if ((activityItems[key] || []).length > 0) {
-      streak++;
-      d.setDate(d.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
 
 function _dashTrending(limit) {
   limit = limit || 5;
@@ -66,10 +45,9 @@ function _dashTrending(limit) {
   }).filter(p => p._trendScore > 0).sort((a, b) => b._trendScore - a._trendScore).slice(0, limit);
 }
 
-function _dashBuildStatsRow(papersRead, streak, savedCount, projectCount) {
+function _dashBuildStatsRow(papersRead, savedCount, projectCount) {
   var stats = [
     { value: papersRead, label: 'Papers Read', sub: 'in feed', color: '#60a5fa' },
-    { value: streak, label: 'Streak', sub: streak === 1 ? 'day' : 'days', color: '#f97316', suffix: streak > 0 ? ' \u{1F525}' : '' },
     { value: savedCount, label: 'Saved', sub: 'reading list', color: '#34d399' },
     { value: projectCount, label: 'Projects', sub: 'active', color: '#a78bfa' },
   ];
@@ -92,8 +70,9 @@ function _dashBuildQuickActions() {
   var grid = new (window._AetherUIView || AetherUI.View)('div');
   grid.className('grid grid-cols-2 gap-2 h-full');
   actions.forEach(function(a) {
-    var btn = Button(a.label).ghost().onTap(a.fn);
-    btn.el.insertAdjacentHTML('afterbegin', icon(a.iconName, {size: 20, class: 'w-5 h-5'}));
+    var btn = Button('').ghost().onTap(a.fn);
+    btn.el.innerHTML = icon(a.iconName, {size: 16, class: 'w-4 h-4 shrink-0'}) +
+                       '<span>' + a.label + '</span>';
     grid.el.appendChild(btn.build());
   });
   return grid;
@@ -761,40 +740,6 @@ async function renderDashboard() {
     expsView = Text('No projects yet').className('text-[0.8rem] text-dimmer');
   }
 
-  // ── User Quotes ──
-  const userQuotes = typeof _getUserQuotes === 'function' ? _getUserQuotes() : [];
-  var quotesView;
-  if (userQuotes.length) {
-    quotesView = VStack(userQuotes.slice().reverse().map(function(q) {
-      var hostname = (function() { try { return new URL(q.link).hostname.replace(/^www\./, ''); } catch(e) { return ''; } })();
-      var dateStr = q.pubDate ? new Date(q.pubDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-      var accentBar = new (window._AetherUIView || AetherUI.View)('div');
-      accentBar.className('w-0.5 bg-accent rounded shrink-0 self-stretch');
-      var sourceLink = Text(q.title || hostname).className('text-[0.7rem] text-dimmer truncate cursor-pointer hover:text-primary')
-        .onTap(function(e) {
-          if (_isNewTabClick(e)) { _openInNewTab(q.link); return; }
-          window.location.hash = 'view/' + encodeURIComponent(q.link);
-        });
-      var dateView = dateStr ? Text(dateStr).className('text-[0.68rem] text-dimmest') : null;
-      var delBtn = new (window._AetherUIView || AetherUI.View)('button');
-      delBtn.className('dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none');
-      delBtn.styles({ color: 'var(--nr-text-quaternary)', fontSize: '1rem' });
-      delBtn.el.textContent = '\u00d7';
-      delBtn.el.title = 'Remove';
-      delBtn.onTap(function() { deleteUserQuote(q.id); renderDashboard(); });
-      return HStack(
-        accentBar,
-        VStack(
-          Text(truncate(q.quote, 200)).className('text-[0.82rem] text-primary italic leading-snug'),
-          HStack(sourceLink, dateView).spacing('6px').className('mt-1')
-        ).className('flex-1 min-w-0'),
-        delBtn
-      ).className('dash-row flex gap-2 px-2 py-2 rounded-md hover:bg-hover transition-colors group');
-    }));
-  } else {
-    quotesView = Text('No quotes yet. Open a page and use Post Quote in the sidebar.').className('text-[0.8rem] text-dimmer px-2');
-  }
-
   // Task priority colors/labels (used in bento grid)
   const _priColors = { high: '#f87171', medium: '#fbbf24', low: '#6ee7b7' };
   const _priLabels = { high: 'High', medium: 'Med', low: 'Low' };
@@ -876,7 +821,6 @@ async function renderDashboard() {
 
   // ── Bento layout data ──
   const _papersRead = _dashPapersReadRecent();
-  const _streak = _dashReadingStreak(activityItems);
   const _savedCount = Object.keys(mergedSaved).length;
   const _projectCount = experiments.length;
   const _trending = _dashTrending(5);
@@ -990,14 +934,6 @@ async function renderDashboard() {
   ), 'bento-2x1');
   bentoGrid.el.appendChild(expsCard.build());
 
-  // Quotes (2x1)
-  var quotesScroll = VStack(quotesView).className('scrollbar-hide').styles({maxHeight:'180px', overflowY:'auto'});
-  var quotesCard = _bentoCard(VStack(
-    _cardHeader('Quotes', Text(String(userQuotes.length)).className('text-[0.68rem] text-dimmest')),
-    quotesScroll
-  ), 'bento-2x1');
-  bentoGrid.el.appendChild(quotesCard.build());
-
   // Bottom row: comments, reposts
   if (myComments.length || myReposts.length) {
     if (myComments.length) {
@@ -1019,7 +955,7 @@ async function renderDashboard() {
   }
 
   // ── Mount the full dashboard view ──
-  var dashView = VStack(profileHeaderView, _dashBuildStatsRow(_papersRead, _streak, _savedCount, _projectCount), bentoGrid);
+  var dashView = VStack(profileHeaderView, _dashBuildStatsRow(_papersRead, _savedCount, _projectCount), bentoGrid);
   AetherUI.mount(dashView, container);
 
   document.removeEventListener('mousedown', _closeDashSearch);

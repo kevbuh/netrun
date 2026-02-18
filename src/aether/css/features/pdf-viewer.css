@@ -372,7 +372,7 @@
     }
     .citation-popup-abstract {
       font-size: 0.75rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       line-height: 1.45;
       margin-bottom: 10px;
       padding: 8px;

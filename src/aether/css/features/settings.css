@@ -78,7 +78,7 @@
 
 .nr-settings-group-row .nr-settings-row-desc {
   font-size: 0.72rem;
-  color: var(--nr-text-tertiary);
+  color: var(--nr-text-secondary);
   line-height: 1.4;
 }
 
@@ -104,7 +104,7 @@
 
 .nr-settings-section-desc {
   font-size: 0.78rem;
-  color: var(--nr-text-tertiary);
+  color: var(--nr-text-secondary);
   margin-bottom: 12px;
 }
 

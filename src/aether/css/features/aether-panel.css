@@ -34,7 +34,7 @@
   --aether-bg: var(--nr-bg-body);
   --aether-text: var(--nr-text-primary);
   --aether-text-secondary: var(--nr-text-secondary);
-  --aether-text-dim: var(--nr-text-tertiary);
+  --aether-text-dim: var(--nr-text-secondary);
   --aether-text-dimmer: var(--nr-text-quaternary);
   --aether-text-dimmest: var(--nr-text-quaternary);
   --aether-border: var(--nr-border-subtle);
@@ -63,7 +63,7 @@
     .doc-chat-status {
       padding: 4px 0;
       font-size: 0.75rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       flex-shrink: 0;
     }
     .doc-chat-messages {
@@ -126,7 +126,7 @@
       margin-top: 4px;
     }
     .doc-msg-action-btn {
-      background: none; border: none; color: var(--nr-text-tertiary); cursor: pointer;
+      background: none; border: none; color: var(--nr-text-secondary); cursor: pointer;
       padding: 2px; border-radius: 3px; transition: color 0.15s, transform 0.15s;
       line-height: 1;
     }
@@ -243,7 +243,7 @@
 
     .doc-thinking-block { margin-bottom: 6px; font-size: 0.75rem; }
     .doc-thinking-block summary { color: var(--nr-text-quaternary); cursor: pointer; font-style: italic; user-select: none; }
-    .doc-thinking-block summary:hover { color: var(--nr-text-tertiary); }
+    .doc-thinking-block summary:hover { color: var(--nr-text-secondary); }
     .doc-thinking-content { color: var(--nr-text-quaternary); margin-top: 4px; padding: 6px 8px; background: var(--aether-hover-subtle); border-radius: 4px; white-space: pre-wrap; line-height: 1.4; max-height: 200px; overflow-y: auto; }
 
     .doc-chat-input-row {
@@ -286,7 +286,7 @@
       bottom: 4px;
       background: none;
       border: none;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       font-size: 0.85rem;
       cursor: pointer;
       opacity: 0;
@@ -302,7 +302,7 @@
     .chat-clear-btn {
       background: none;
       border: none;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       font-size: 0.7rem;
       cursor: pointer;
       padding: 2px 4px;
@@ -391,7 +391,7 @@
     .doc-selection-copy-btn {
       background: none;
       border: none;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       font-size: 0.6rem;
       padding: 1px 5px;
       border-radius: 4px;
@@ -442,7 +442,7 @@
       padding: 4px 8px;
       font-size: 0.7rem;
       line-height: 1.4;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       max-height: 60px;
       overflow: hidden;
     }
@@ -476,7 +476,7 @@
       height: 22px;
       background: none;
       border: none;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       cursor: pointer;
       font-size: 0.85rem;
       line-height: 1;
@@ -489,7 +489,7 @@
     .doc-ask-mic-btn {
       display: flex; align-items: center; justify-content: center;
       width: 26px; height: 22px;
-      background: none; border: none; color: var(--nr-text-tertiary); cursor: pointer;
+      background: none; border: none; color: var(--nr-text-secondary); cursor: pointer;
       line-height: 1; flex-shrink: 0; border-radius: 4px;
       transition: color 0.15s, background 0.15s;
     }
@@ -662,7 +662,7 @@
     }
     .doc-search-result-url {
       font-size: 0.65rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       margin-top: 2px;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -714,7 +714,7 @@
     }
     .doc-sources-label {
       font-size: 0.6rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       font-weight: 500;
       white-space: nowrap;
     }
@@ -770,7 +770,7 @@
     }
     .doc-paper-result-meta {
       font-size: 0.68rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       margin-top: 1px;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -896,7 +896,7 @@
     }
     .doc-wiki-extract {
       font-size: 0.7rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       line-height: 1.4;
       margin-top: 2px;
     }
@@ -920,13 +920,13 @@
     }
     .doc-author-affil {
       font-size: 0.68rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
     }
     .doc-author-stats {
       display: flex;
       gap: 8px;
       font-size: 0.68rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       margin-top: 2px;
     }
     .doc-author-stats span { white-space: nowrap; }
@@ -938,7 +938,7 @@
     }
     .doc-author-paper {
       font-size: 0.68rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       line-height: 1.3;
       padding-left: 6px;
       border-left: 2px solid var(--nr-accent);
@@ -1060,13 +1060,13 @@
     }
     .doc-chat-stats {
       font-size: 0.6rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       opacity: 0.6;
       white-space: nowrap;
     }
     .aether-context-usage {
       font-size: 0.58rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       opacity: 0.6;
       white-space: nowrap;
       font-family: 'SF Mono', 'Fira Code', monospace;
@@ -1121,7 +1121,7 @@
       font-size: 0.6rem;
       padding: 1px 5px;
       opacity: 0.6;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
     }
     .aether-topbar-btn:hover { opacity: 1; }
     .aether-topbar-right {
@@ -1142,7 +1142,7 @@
       border: none;
       cursor: pointer;
       border-radius: 4px;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       line-height: 1;
     }
     .aether-topbar-icon:hover {
@@ -1170,7 +1170,7 @@
       border: none;
       padding: 4px 6px;
       border-radius: 4px;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       transition: opacity 0.12s, background 0.12s;
     }
     .aether-input-btn:hover {
@@ -1180,7 +1180,7 @@
     .doc-popup-chat-actions button {
       background: none;
       border: none;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       font-size: 0.68rem;
       cursor: pointer;
       padding: 2px 6px;
@@ -1228,7 +1228,7 @@
     }
     .doc-link-preview-site {
       font-size: 0.6rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       text-transform: uppercase;
       letter-spacing: 0.03em;
       margin-bottom: 1px;
@@ -1265,7 +1265,7 @@
       padding: 6px 12px;
       cursor: pointer;
       font-size: 0.75rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       white-space: nowrap;
     }
     .doc-aether-ctx-item:not(.doc-aether-ctx-info):hover {
@@ -1315,7 +1315,7 @@
     .aether-profile-items .doc-aether-ctx-item {
       font-size: 0.7rem;
       padding: 4px 10px;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       display: flex;
       align-items: center;
       gap: 6px;
@@ -1544,7 +1544,7 @@
     .aether-note-editor-close {
       background: none;
       border: none;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       font-size: 1.1rem;
       cursor: pointer;
       padding: 0 2px;
@@ -1564,10 +1564,10 @@
       outline: none;
       line-height: 1.5;
     }
-    .aether-note-editor-textarea::placeholder { color: var(--nr-text-tertiary); }
+    .aether-note-editor-textarea::placeholder { color: var(--nr-text-secondary); }
     .aether-note-editor-status {
       font-size: 0.65rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       padding: 3px 10px;
       text-align: right;
       flex-shrink: 0;
@@ -1669,7 +1669,7 @@
     }
     .aether-tab-item-url {
       font-size: 0.65rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -1681,7 +1681,7 @@
     .aether-tab-item-loading {
       margin-left: auto;
       font-size: 0.65rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       flex-shrink: 0;
     }
 
@@ -1693,12 +1693,12 @@
       align-items: center;
       gap: 6px;
       font-size: 0.75rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       padding: 4px 0;
     }
     .doc-ref-error {
       font-size: 0.75rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       padding: 2px 0;
     }
     .doc-ref-badge {
@@ -1716,12 +1716,12 @@
     }
     .doc-ref-meta {
       font-size: 0.68rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       margin-bottom: 4px;
     }
     .doc-ref-abstract {
       font-size: 0.7rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       line-height: 1.4;
       padding: 4px 6px;
       background: rgba(255,255,255,0.03);
@@ -1738,7 +1738,7 @@
     .doc-ref-cited {
       font-size: 0.68rem;
       font-weight: 600;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
     }
     .doc-ref-link {
       font-size: 0.68rem;

@@ -345,7 +345,6 @@ function computeInterestProfile() {
   const wordMap = {};
 
   for (const p of allPapers) {
-    if (p.source === 'quote') continue;
     const src = p.source;
     if (!sourceCounts[src]) sourceCounts[src] = { read: 0, saved: 0, rated: 0, hidden: 0, total: 0 };
     sourceCounts[src].total++;

@@ -25,7 +25,7 @@
   padding: var(--nr-space-2) var(--nr-space-3);
   font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--nr-text-tertiary);
+  color: var(--nr-text-secondary);
   background: none;
   border: none;
   cursor: pointer;

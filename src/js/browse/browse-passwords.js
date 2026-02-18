@@ -114,7 +114,7 @@ function _pwShowSavePrompt(tab, data) {
 
   var neverBtn = new View('button');
   neverBtn.el.textContent = 'Never';
-  neverBtn.cssText('padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-tertiary);font-size:0.78rem;cursor:pointer;');
+  neverBtn.cssText('padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-secondary);font-size:0.78rem;cursor:pointer;');
   neverBtn.onTap(function() {
     _pwSaveDismissed.set(key, true);
     _pwHideSavePrompt(true);

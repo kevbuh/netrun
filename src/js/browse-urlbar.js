@@ -513,7 +513,7 @@ function _browseUrlRenderHistoryCommand(dd, input) {
   }
 
   if (!hist.length) {
-    dd.innerHTML = '<div style="padding:12px;font-size:0.8rem;color:var(--nr-text-tertiary);text-align:center;">No browsing history</div>';
+    dd.innerHTML = '<div style="padding:12px;font-size:0.8rem;color:var(--nr-text-secondary);text-align:center;">No browsing history</div>';
     dd.style.display = '';
     dd.classList.remove('hidden');
     return;
@@ -625,7 +625,7 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
           : `event.preventDefault(); var el=document.getElementById('browse-url-input'); el.value='${fillValue}'; el.focus(); _browseUrlShowHistory();`;
         return `<div data-histq="bang:${escapeHtml(key)}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${setInput}">
           <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span style="font-weight:600;color:var(--nr-accent);">!${escapeHtml(key)}</span> <span style="color:var(--nr-text-tertiary);">${escapeHtml(label)}</span></span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span style="font-weight:600;color:var(--nr-accent);">!${escapeHtml(key)}</span> <span style="color:var(--nr-text-secondary);">${escapeHtml(label)}</span></span>
         </div>`;
       }).join('');
       return h;
@@ -640,7 +640,7 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
         <svg style="width:14px;height:14px;flex-shrink:0;color:var(--nr-text-quaternary);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
           <span style="font-weight:600;color:var(--nr-text-primary);">Feeling Lucky</span>
-          <span class="browse-lucky-text" style="margin-left:6px;color:var(--nr-text-tertiary);font-size:0.75rem;">${displayText}</span>
+          <span class="browse-lucky-text" style="margin-left:6px;color:var(--nr-text-secondary);font-size:0.75rem;">${displayText}</span>
         </span>
         ${hasText && !_feelingLuckyLoading ? '<span class="browse-lucky-redo" style="flex-shrink:0;cursor:pointer;padding:2px 4px;border-radius:4px;color:var(--nr-text-quaternary);font-size:0.7rem;">\u21BB</span>' : ''}
       </div>`;
@@ -652,7 +652,7 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
       h += '<div style="display:flex;align-items:baseline;gap:8px;">';
       h += '<span style="font-size:1rem;font-weight:700;color:var(--nr-text-primary);">' + escapeHtml(entry.word) + '</span>';
       const phonetic = entry.phonetics?.find(p => p.text)?.text;
-      if (phonetic) h += '<span style="font-size:0.78rem;color:var(--nr-text-tertiary);">' + escapeHtml(phonetic) + '</span>';
+      if (phonetic) h += '<span style="font-size:0.78rem;color:var(--nr-text-secondary);">' + escapeHtml(phonetic) + '</span>';
       const audio = entry.phonetics?.find(p => p.audio);
       if (audio) h += '<button onclick="event.stopPropagation();event.preventDefault();new Audio(\'' + escapeHtml(audio.audio) + '\').play()" style="background:none;border:none;cursor:pointer;color:var(--nr-text-quaternary);padding:0;margin-left:2px;" title="Listen"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>';
       h += '</div>';
@@ -660,7 +660,7 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
         h += '<div style="margin-top:6px;"><span style="font-size:0.65rem;font-weight:600;color:var(--nr-accent);text-transform:uppercase;letter-spacing:0.04em;">' + escapeHtml(meaning.partOfSpeech) + '</span></div>';
         for (const def of (meaning.definitions || []).slice(0, 1)) {
           h += '<div style="font-size:0.8rem;color:var(--nr-text-primary);line-height:1.45;margin-top:2px;padding-left:8px;border-left:2px solid color-mix(in srgb, var(--nr-accent) 30%, transparent);">' + escapeHtml(def.definition) + '</div>';
-          if (def.example) h += '<div style="font-size:0.72rem;color:var(--nr-text-tertiary);font-style:italic;margin-top:1px;padding-left:8px;">"' + escapeHtml(def.example) + '"</div>';
+          if (def.example) h += '<div style="font-size:0.72rem;color:var(--nr-text-secondary);font-style:italic;margin-top:1px;padding-left:8px;">"' + escapeHtml(def.example) + '"</div>';
         }
       }
       h += '</div>';
@@ -962,7 +962,7 @@ function _tryMathAnswer(q) {
     const formatted = Number.isInteger(result) ? result.toLocaleString() : parseFloat(result.toPrecision(10)).toLocaleString(undefined, { maximumFractionDigits: 10 });
     return { type: 'math', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:10px;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
-      <div><span style="font-size:0.8rem;color:var(--nr-text-tertiary);">${escapeHtml(q)} =</span> <span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(formatted)}</span></div>
+      <div><span style="font-size:0.8rem;color:var(--nr-text-secondary);">${escapeHtml(q)} =</span> <span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(formatted)}</span></div>
     </div>` };
   } catch { return null; }
 }
@@ -991,7 +991,7 @@ function _tryColorAnswer(q) {
   return { type: 'color', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:12px;">
     <div style="width:36px;height:36px;border-radius:8px;background:${color};border:1px solid var(--nr-border-default);flex-shrink:0;"></div>
     <div><div style="font-size:0.95rem;font-weight:600;color:var(--nr-text-primary);">${escapeHtml(label)}</div>
-    <div style="font-size:0.72rem;color:var(--nr-text-tertiary);">Color preview</div></div>
+    <div style="font-size:0.72rem;color:var(--nr-text-secondary);">Color preview</div></div>
   </div>` };
 }
 
@@ -1029,7 +1029,7 @@ function _tryConversionAnswer(q) {
   const formatted = parseFloat(result.toPrecision(6)).toLocaleString(undefined, { maximumFractionDigits: 6 });
   return { type: 'conversion', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:10px;">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-    <div><span style="font-size:0.8rem;color:var(--nr-text-tertiary);">${escapeHtml(m[1])} ${escapeHtml(m[2])} =</span> <span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(formatted)} ${escapeHtml(m[3])}</span></div>
+    <div><span style="font-size:0.8rem;color:var(--nr-text-secondary);">${escapeHtml(m[1])} ${escapeHtml(m[2])} =</span> <span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(formatted)} ${escapeHtml(m[3])}</span></div>
   </div>` };
 }
 
@@ -1079,8 +1079,8 @@ function _tryTimezoneAnswer(q) {
     const offset = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(now).find(p => p.type === 'timeZoneName')?.value || '';
     return { type: 'timezone', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:10px;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      <div><div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(time)}</span><span style="font-size:0.75rem;color:var(--nr-text-tertiary);">${escapeHtml(date)}</span></div>
-      <div style="font-size:0.72rem;color:var(--nr-text-tertiary);">${escapeHtml(m[1].trim())} · ${escapeHtml(offset)}</div></div>
+      <div><div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(time)}</span><span style="font-size:0.75rem;color:var(--nr-text-secondary);">${escapeHtml(date)}</span></div>
+      <div style="font-size:0.72rem;color:var(--nr-text-secondary);">${escapeHtml(m[1].trim())} · ${escapeHtml(offset)}</div></div>
     </div>` };
   } catch { return null; }
 }
@@ -1103,11 +1103,11 @@ async function _fetchWeatherAnswer(city) {
   return { type: 'weather', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:12px;">
     <span style="font-size:1.6rem;">${emoji}</span>
     <div style="flex:1;">
-      <div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:1.1rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(temp)}°C</span><span style="font-size:0.82rem;color:var(--nr-text-tertiary);">${escapeHtml(tempF)}°F</span></div>
-      <div style="font-size:0.78rem;color:var(--nr-text-tertiary);">${escapeHtml(desc)}</div>
+      <div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:1.1rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(temp)}°C</span><span style="font-size:0.82rem;color:var(--nr-text-secondary);">${escapeHtml(tempF)}°F</span></div>
+      <div style="font-size:0.78rem;color:var(--nr-text-secondary);">${escapeHtml(desc)}</div>
       <div style="font-size:0.7rem;color:var(--nr-text-quaternary);margin-top:2px;">Feels ${escapeHtml(feelsC)}°C · Humidity ${escapeHtml(humidity)}% · Wind ${escapeHtml(wind)} km/h</div>
     </div>
-    <div style="font-size:0.72rem;color:var(--nr-text-tertiary);text-align:right;">${escapeHtml(city)}</div>
+    <div style="font-size:0.72rem;color:var(--nr-text-secondary);text-align:right;">${escapeHtml(city)}</div>
   </div>` };
 }
 
@@ -1239,7 +1239,7 @@ async function _fetchStockAnswer(ticker) {
     <div style="flex:1;">
       <div style="display:flex;align-items:baseline;gap:8px;">
         <span style="font-size:0.82rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(ticker)}</span>
-        <span style="font-size:0.72rem;color:var(--nr-text-tertiary);">${escapeHtml(name)}</span>
+        <span style="font-size:0.72rem;color:var(--nr-text-secondary);">${escapeHtml(name)}</span>
       </div>
       <div style="display:flex;align-items:baseline;gap:8px;margin-top:2px;">
         <span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">$${parseFloat(price).toFixed(2)}</span>
@@ -1412,15 +1412,15 @@ function _renderHelpPage(el) {
   const th = `${s}="text-align:left;padding:6px 12px;font-size:0.7rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--nr-border-default);"`;
   const td = `${s}="padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);"`;
   const tdk = `${s}="padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);color:var(--nr-text-primary);font-weight:500;white-space:nowrap;"`;
-  const tdv = `${s}="padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);color:var(--nr-text-tertiary);"`;
+  const tdv = `${s}="padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);color:var(--nr-text-secondary);"`;
 
   let html = '<div style="max-width:640px;margin:0 auto;padding:40px 24px;">';
   html += '<h1 style="font-size:1.4rem;font-weight:700;color:var(--nr-text-primary);margin-bottom:4px;">Help</h1>';
-  html += '<p style="font-size:0.82rem;color:var(--nr-text-tertiary);margin-bottom:32px;">Everything you can do from the URL bar and aether panel.</p>';
+  html += '<p style="font-size:0.82rem;color:var(--nr-text-secondary);margin-bottom:32px;">Everything you can do from the URL bar and aether panel.</p>';
 
   // Instant Answers
   html += `<div ${section}><div ${h2}>Instant Answers</div>`;
-  html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">Type in the URL bar — results appear inline as you type.</p>';
+  html += '<p style="font-size:0.78rem;color:var(--nr-text-secondary);margin-bottom:8px;">Type in the URL bar — results appear inline as you type.</p>';
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Type</th><th ${th}>Try</th></tr>`;
   _HELP_DATA.instantAnswers.forEach(([k, v]) => {
@@ -1430,7 +1430,7 @@ function _renderHelpPage(el) {
 
   // Search Syntax
   html += `<div ${section}><div ${h2}>Search Syntax</div>`;
-  html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">Use these in the Papers search on new tab pages.</p>';
+  html += '<p style="font-size:0.78rem;color:var(--nr-text-secondary);margin-bottom:8px;">Use these in the Papers search on new tab pages.</p>';
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Syntax</th><th ${th}>Effect</th></tr>`;
   _HELP_DATA.searchSyntax.forEach(([k, v]) => {
@@ -1442,7 +1442,7 @@ function _renderHelpPage(el) {
   const bangs = _HELP_DATA.getBangs();
   if (bangs.length) {
     html += `<div ${section}><div ${h2}>Bangs</div>`;
-    html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">Type <code style="font-size:0.8rem;">!</code> followed by a shortcut and your query to search a specific site. Works at the start or end of input.</p>';
+    html += '<p style="font-size:0.78rem;color:var(--nr-text-secondary);margin-bottom:8px;">Type <code style="font-size:0.8rem;">!</code> followed by a shortcut and your query to search a specific site. Works at the start or end of input.</p>';
     html += `<table ${table}>`;
     html += `<tr><th ${th}>Bang</th><th ${th}>Site</th></tr>`;
     bangs.forEach(([k, v]) => {
@@ -1453,7 +1453,7 @@ function _renderHelpPage(el) {
 
   // Slash Commands
   html += `<div ${section}><div ${h2}>Slash Commands</div>`;
-  html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">Right-click → type / in the aether panel.</p>';
+  html += '<p style="font-size:0.78rem;color:var(--nr-text-secondary);margin-bottom:8px;">Right-click → type / in the aether panel.</p>';
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Command</th><th ${th}>Action</th></tr>`;
   _HELP_DATA.slashCommands.forEach(([k, v]) => {
@@ -1476,7 +1476,7 @@ function _renderHelpPage(el) {
 
   // Aether Panel
   html += `<div ${section}><div ${h2}>Aether Panel</div>`;
-  html += '<div style="font-size:0.82rem;color:var(--nr-text-tertiary);line-height:1.6;">';
+  html += '<div style="font-size:0.82rem;color:var(--nr-text-secondary);line-height:1.6;">';
   html += '<strong style="color:var(--nr-text-primary);">Right-click</strong> anywhere to open the panel.<br>';
   html += 'Type to <strong style="color:var(--nr-text-primary);">chat with AI</strong> about the current page.<br>';
   html += '<strong style="color:var(--nr-text-primary);">Select text</strong> → highlight, quote, or define.<br>';
@@ -1485,7 +1485,7 @@ function _renderHelpPage(el) {
 
   // Chat Tools
   html += `<div ${section}><div ${h2}>Chat Tools</div>`;
-  html += '<p style="font-size:0.78rem;color:var(--nr-text-tertiary);margin-bottom:8px;">When enabled, the chat assistant can use these tools autonomously. Requires qwen3:8b.</p>';
+  html += '<p style="font-size:0.78rem;color:var(--nr-text-secondary);margin-bottom:8px;">When enabled, the chat assistant can use these tools autonomously. Requires qwen3:8b.</p>';
   html += `<table ${table}>`;
   html += `<tr><th ${th}>Tool</th><th ${th}>Description</th></tr>`;
   _HELP_DATA.chatTools.forEach(([k, v]) => {
@@ -1531,7 +1531,7 @@ function _renderWebSearchHistoryPage(el) {
   html += '</div>';
 
   // Tab switcher
-  const tabStyle = (active) => `padding:6px 14px;border:none;border-bottom:2px solid ${active ? 'var(--nr-accent)' : 'transparent'};background:none;color:${active ? 'var(--nr-text-primary)' : 'var(--nr-text-tertiary)'};font-size:0.82rem;cursor:pointer;font-weight:${active ? '600' : '400'};`;
+  const tabStyle = (active) => `padding:6px 14px;border:none;border-bottom:2px solid ${active ? 'var(--nr-accent)' : 'transparent'};background:none;color:${active ? 'var(--nr-text-primary)' : 'var(--nr-text-secondary)'};font-size:0.82rem;cursor:pointer;font-weight:${active ? '600' : '400'};`;
   html += '<div style="display:flex;gap:0;border-bottom:1px solid var(--nr-border-strong);margin-bottom:16px;">';
   html += `<button onclick="_historyPageTab='browse';_renderWebSearchHistoryPage(this.closest('[id^=browse-history-]'));" style="${tabStyle(isBrowse)}">Sites <span style="font-size:0.7rem;color:var(--nr-text-quaternary);">${browseHist.length}</span></button>`;
   html += `<button onclick="_historyPageTab='search';_renderWebSearchHistoryPage(this.closest('[id^=browse-history-]'));" style="${tabStyle(!isBrowse)}">Searches <span style="font-size:0.7rem;color:var(--nr-text-quaternary);">${searchHist.length}</span></button>`;
@@ -1565,7 +1565,7 @@ function _filterWebSearchHistory() {
 }
 
 function _renderWebSearchHistoryList(hist) {
-  if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--nr-text-tertiary);font-size:0.85rem;">No searches found</div>';
+  if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--nr-text-secondary);font-size:0.85rem;">No searches found</div>';
 
   // Group by date
   const groups = [];
@@ -1615,7 +1615,7 @@ function _renderWebSearchHistoryList(hist) {
 }
 
 function _renderBrowseHistoryList(hist) {
-  if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--nr-text-tertiary);font-size:0.85rem;">No browsing history</div>';
+  if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--nr-text-secondary);font-size:0.85rem;">No browsing history</div>';
 
   const groups = [];
   const groupMap = {};
@@ -1877,7 +1877,7 @@ function _showPermissionPrompt(domain, permKey) {
       </div>
       <div style="padding:0 20px 16px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-          <span style="font-size:0.75rem;color:var(--nr-text-tertiary);">Remember my decision</span>
+          <span style="font-size:0.75rem;color:var(--nr-text-secondary);">Remember my decision</span>
           <select id="perm-prompt-remember" style="padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.75rem;cursor:pointer;">
             <option value="session">Until I close this site</option>
             <option value="always" selected>Always</option>

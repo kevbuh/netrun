@@ -18,7 +18,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--nr-text-tertiary);
+  color: var(--nr-text-secondary);
   padding: var(--nr-space-2) var(--nr-space-1);
 }
 

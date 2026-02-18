@@ -72,7 +72,6 @@ function _detectNewPosts() {
     const hasNotifConfig = Object.keys(notifSources).length > 0;
     const existingLinks = new Set(notifications.map(n => n.link));
     for (const p of allPapers) {
-      if (p.source === 'quote') continue;
       // Skip sources with notifications disabled (if config exists)
       if (hasNotifConfig && notifSources[p.source] === false) continue;
       if (!seen.has(p.link) && !existingLinks.has(p.link)) {
@@ -151,18 +150,10 @@ function openCardMenu(btn, ev, index) {
   var menu = document.createElement('div');
   menu.id = 'card-menu-portal';
   menu.className = 'card-menu';
-  var isQuote = p.source === 'quote' && p._quoteId;
-  var menuItems;
-  if (isQuote) {
-    menuItems = VStack(
-      _menuBtn('Delete quote', function() { deleteUserQuote(p._quoteId); closeCardMenu(); })
-    );
-  } else {
-    menuItems = VStack(
-      _menuBtn('Block post', function() { hidePost(p.link, p.title); closeCardMenu(); }),
-      _menuBtn('Unsubscribe from ' + sourceName, function() { unsubscribeSource(sourceKey); closeCardMenu(); })
-    );
-  }
+  var menuItems = VStack(
+    _menuBtn('Block post', function() { hidePost(p.link, p.title); closeCardMenu(); }),
+    _menuBtn('Unsubscribe from ' + sourceName, function() { unsubscribeSource(sourceKey); closeCardMenu(); })
+  );
   menu.appendChild(menuItems.build());
   document.body.appendChild(menu);
 
@@ -211,17 +202,6 @@ function addTestTitle(title) {
   apiPost('/api/blocked-titles', { title })
     .catch((e) => { /* fire-and-forget */ });
 }
-// ── User Quotes ──
-function _getUserQuotes() {
-  return getLS('userQuotes', []);
-}
-function deleteUserQuote(id) {
-  const quotes = _getUserQuotes().filter(q => q.id !== id);
-  setLS('userQuotes', quotes);
-  allPapers = allPapers.filter(p => p._quoteId !== id);
-  renderPapers();
-}
-
 // ── Blocked Words ──
 function getBlockedWords() {
   return getLS('blockedWords', []);
@@ -1340,24 +1320,6 @@ async function loadAllFeeds() {
   allPapers = [];
   _renderedLinks = new Set();
 
-  // Inject user quotes immediately so they show while feeds load
-  const userQuotes = _getUserQuotes();
-  for (const q of userQuotes) {
-    allPapers.push({
-      source: 'quote',
-      title: q.title || 'Quote',
-      link: q.link,
-      authors: '',
-      categories: [],
-      description: q.quote,
-      date: formatDate(new Date(q.pubDate)),
-      pubDate: q.pubDate,
-      arxivId: null,
-      _quoteId: q.id,
-      _quoteText: q.quote,
-    });
-  }
-
   // Show spinner only if we have nothing to show yet
   const container = document.getElementById('papers');
   if (allPapers.length === 0) {
@@ -1611,30 +1573,6 @@ function parseSearchQuery(raw) {
   return { authorFilter, sourceFilter, sortOverride, textTokens, exactPhrases, titleTokens, titlePhrases };
 }
 
-function _syncUserQuotesIntoAllPapers() {
-  const quotes = _getUserQuotes();
-  const existingIds = new Set(allPapers.filter(p => p._quoteId).map(p => p._quoteId));
-  // Remove quotes that were deleted
-  allPapers = allPapers.filter(p => !p._quoteId || quotes.some(q => q.id === p._quoteId));
-  // Add new quotes not yet in allPapers
-  for (const q of quotes) {
-    if (!existingIds.has(q.id)) {
-      allPapers.push({
-        source: 'quote',
-        title: q.title || 'Quote',
-        link: q.link,
-        authors: '',
-        categories: [],
-        description: q.quote,
-        date: formatDate(new Date(q.pubDate)),
-        pubDate: q.pubDate,
-        arxivId: null,
-        _quoteId: q.id,
-        _quoteText: q.quote,
-      });
-    }
-  }
-}
 
 function getFilteredPapers(ctx) {
   if (!ctx) ctx = _buildRenderCtx();
@@ -1657,7 +1595,7 @@ function getFilteredPapers(ctx) {
         if (titleLower.includes(w)) return false;
       }
     }
-    const bypassed = bypass[p.source] || p.source === 'quote';
+    const bypassed = bypass[p.source];
     if (qfOn && !bypassed && !(p.title in qCache)) return false;
     if (qfOn && !bypassed && (p.title in qCache)) {
       const entry = qCache[p.title];
@@ -1794,12 +1732,7 @@ function _renderPaperCard(p, i, ctx) {
 
   // Body
   var body = null;
-  if (p.source === 'quote' && p._quoteText) {
-    body = VStack(
-      Text(p._quoteText).className('text-[0.82rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 my-1.5'),
-      Text(p.link).className('text-[0.68rem] text-dim truncate')
-    );
-  } else if (snippet) {
+  if (snippet) {
     body = Text(snippet).className('text-[0.78rem] text-muted leading-relaxed mt-1.5');
   }
 
@@ -1982,7 +1915,6 @@ function _renderPaperTwitterCard(p, i, ctx) {
   // Body content
   var bodyChildren = [headerRow, titleEl];
   if (snippet) bodyChildren.push(Text(snippet).className('text-[0.84rem] text-muted leading-relaxed mt-1'));
-  if (p.source === 'quote' && p._quoteText) bodyChildren.push(Text(p._quoteText).className('text-[0.84rem] text-muted leading-relaxed italic border-l-2 border-accent pl-3 mt-2'));
   bodyChildren.push(actionBar);
   bodyChildren.push(_cardCommentContainer(p, i));
 
@@ -1997,13 +1929,12 @@ function _renderPaperTwitterCard(p, i, ctx) {
 }
 
 function _renderPapersNow() {
-  _syncUserQuotesIntoAllPapers();
   var ctx = _buildRenderCtx();
   var qfOn = ctx.qfOn, qCache = ctx.qCache, hiddenSet = ctx.hiddenSet, readSet = ctx.readSet, bypass = ctx.bypass;
   var filtered = getFilteredPapers(ctx);
   lastFilteredPapers = filtered;
   var visible = filtered.slice(0, visibleCount);
-  var pendingCount = qfOn ? allPapers.filter(function(p) { return !hiddenSet.has(p.link) && !bypass[p.source] && p.source !== 'quote' && !(p.title in qCache); }).length : 0;
+  var pendingCount = qfOn ? allPapers.filter(function(p) { return !hiddenSet.has(p.link) && !bypass[p.source] && !(p.title in qCache); }).length : 0;
   document.getElementById('stats').textContent = 'Showing ' + visible.length + ' of ' + filtered.length + ' papers';
   var evalEl = document.getElementById('eval-indicator');
   var evalCountEl = document.getElementById('eval-count');

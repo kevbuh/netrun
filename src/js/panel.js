@@ -191,22 +191,6 @@ document.addEventListener('mouseup', async function(e) {
   if (existing) { existing.remove(); _aetherTrackMode = false; _aetherPinned = false; }
 });
 
-function _postQuoteText(text) {
-  const paper = _currentPaperViewPaper;
-  if (!paper || !text) return;
-  const quotes = Settings.getJSON('userQuotes', []);
-  quotes.push({
-    id: 'q-' + Date.now(),
-    quote: text,
-    link: paper.link,
-    title: paper.title,
-    source: 'quote',
-    pubDate: new Date().toISOString()
-  });
-  Settings.setJSON('userQuotes', quotes);
-  Motion.toast('Quote posted to feed');
-}
-
 // Any left-click dismisses the aether panel (capture phase to bypass stopPropagation)
 document.addEventListener('mousedown', function(e) {
   if (e.button !== 0) return;

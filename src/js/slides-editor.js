@@ -565,7 +565,7 @@ function _slidesShowThemePicker(btn) {
   html += '</div>';
 
   // "Apply to all slides" checkbox
-  html += `<label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:0.7rem;color:var(--nr-text-tertiary);cursor:pointer">
+  html += `<label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:0.7rem;color:var(--nr-text-secondary);cursor:pointer">
     <input type="checkbox" id="slides-theme-all" checked style="accent-color:var(--nr-accent)"> Apply to all slides
   </label>`;
 

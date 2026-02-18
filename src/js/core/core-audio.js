@@ -219,8 +219,8 @@ function _islandRenderPill(a) {
   } else if (a.type === 'insight') {
     if (a.offer) {
       // Clickable offer pill — user clicks to trigger annotation
-      const offerIcon = icon('comment', { size: 14, stroke: 'var(--nr-text-tertiary)' });
-      return offerIcon + '<span style="color:var(--nr-text-tertiary)">' + escapeHtml(a.label || 'Annotate') + '</span>';
+      const offerIcon = icon('comment', { size: 14, stroke: 'var(--nr-text-secondary)' });
+      return offerIcon + '<span style="color:var(--nr-text-secondary)">' + escapeHtml(a.label || 'Annotate') + '</span>';
     }
     if (a.loading) {
       return '<span class="island-annotate-dot"></span><span>' + escapeHtml(a.label || 'Analyzing\u2026') + '</span>';
@@ -315,7 +315,7 @@ function _islandBuildTray(a, isBrowse) {
         if (s2.venue) paperDetails.push(s2.venue);
         if (s2.citationCount != null) paperDetails.push(s2.citationCount + ' citation' + (s2.citationCount !== 1 ? 's' : ''));
         if (paperDetails.length) {
-          trayHtml += '<div style="padding:2px 10px 4px;font-size:11px;color:var(--nr-text-tertiary)">' + escapeHtml(paperDetails.join(' \u00b7 ')) + '</div>';
+          trayHtml += '<div style="padding:2px 10px 4px;font-size:11px;color:var(--nr-text-secondary)">' + escapeHtml(paperDetails.join(' \u00b7 ')) + '</div>';
         }
       }
       var paperAuthors = (s2 && s2.authors) || [];
@@ -353,7 +353,7 @@ function _islandBuildTray(a, isBrowse) {
     // OCR text
     if (a.ocrText) {
       trayHtml += '<div style="padding:6px 10px;font-size:11px;color:var(--aether-text-dim, var(--nr-text-secondary));line-height:1.4;border-top:1px solid var(--aether-border, var(--nr-border-default))">';
-      trayHtml += '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--aether-text-dim, var(--nr-text-tertiary))">OCR</span><br>';
+      trayHtml += '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--aether-text-dim, var(--nr-text-secondary))">OCR</span><br>';
       trayHtml += escapeHtml(a.ocrText.length > 300 ? a.ocrText.slice(0, 297) + '\u2026' : a.ocrText);
       trayHtml += '</div>';
     }

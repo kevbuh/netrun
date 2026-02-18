@@ -18,7 +18,7 @@ const SYNC_KEYS = [
   'aetherColor',
   'interestProfile',
   'urlBarSections',
-  'blockedWords', 'qualityBypass', 'searchHistory', 'userQuotes', 'repostedLinks',
+  'blockedWords', 'qualityBypass', 'searchHistory', 'repostedLinks',
   'fyWeightBase', 'fyWeightAffinity', 'fyWeightRecency', 'maxPerCategoryRun',
   'smartHighlights',
   'chatModel', 'chatTools', 'insightsAllowHeuristics',

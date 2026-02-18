@@ -15,7 +15,7 @@
       user-select: none;
     }
     .hc-circle:hover {
-      border-color: var(--nr-text-tertiary);
+      border-color: var(--nr-text-secondary);
     }
     .hc-circle.selected {
       border-color: var(--nr-accent);
@@ -82,13 +82,13 @@
       border-radius: 20px;
       border: 1px solid var(--nr-border-default);
       background: transparent;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       cursor: pointer;
       transition: all 0.15s;
       white-space: nowrap;
     }
     .hc-tab:hover {
-      border-color: var(--nr-text-tertiary);
+      border-color: var(--nr-text-secondary);
       color: var(--nr-text-secondary);
     }
     .hc-tab.active {
@@ -104,13 +104,13 @@
       border-radius: 20px;
       border: 1px solid var(--nr-border-default);
       background: transparent;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       cursor: pointer;
       transition: all 0.15s;
       white-space: nowrap;
     }
     .wizard-feed-tab:hover {
-      border-color: var(--nr-text-tertiary);
+      border-color: var(--nr-text-secondary);
       color: var(--nr-text-secondary);
     }
     .wizard-feed-tab.active {

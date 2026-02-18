@@ -224,7 +224,6 @@ const _aetherCommands = [
   { name: 'tab', desc: 'Add a tab to context', _special: true },
   { name: 'tabs', desc: 'Switch to an open tab', _special: true },
   { name: 'define', desc: 'Look up a word definition', hasArgs: true },
-  { name: 'quote', desc: 'Post selected text as a quote', fn: () => { const p = document.getElementById('doc-chat-ask-float'); if (p && p._capturedText) _postQuoteText(p._capturedText); } },
   { name: 'upload', desc: 'Open a local file', fn: () => { const fi = document.getElementById('browse-pdf-file-input'); if (fi) { fi.click(); return; } const tmp = document.createElement('input'); tmp.type = 'file'; tmp.style.display = 'none'; tmp.onchange = function() { if (tmp.files[0] && typeof openLocalPdf === 'function') openLocalPdf(tmp.files[0]); tmp.remove(); }; document.body.appendChild(tmp); tmp.click(); } },
   { name: 'history', desc: 'Browse visited sites', _special: true },
   { name: 'help', desc: 'Show all commands & features', _special: true },
@@ -351,7 +350,7 @@ function _aetherRenderHistoryDropdown(popup, query) {
       if (askWrap) popup.insertBefore(dropdown, askWrap);
       else popup.appendChild(dropdown);
     }
-    dropdown.innerHTML = '<div style="padding:10px 12px;font-size:0.8rem;color:var(--nr-text-tertiary);text-align:center;">No history found</div>';
+    dropdown.innerHTML = '<div style="padding:10px 12px;font-size:0.8rem;color:var(--nr-text-secondary);text-align:center;">No history found</div>';
     _repositionSelectionPopup();
     return;
   }

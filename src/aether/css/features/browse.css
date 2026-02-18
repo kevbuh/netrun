@@ -81,7 +81,7 @@
     .browse-find-input:focus { border-color: var(--nr-accent); background: var(--nr-bg-surface); }
     .browse-find-count {
       font-size: 0.62rem;
-      color: var(--nr-text-tertiary);
+      color: var(--nr-text-secondary);
       white-space: nowrap;
       min-width: 36px;
       text-align: center;

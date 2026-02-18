@@ -75,7 +75,7 @@ function _renderSettingsSitePermissions() {
     html += icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') });
     html += '<span style="flex:1;font-size:0.8rem;color:var(--nr-text-primary);font-weight:500;">' + escapeHtml(domain) + '</span>';
     html += '<span style="font-size:0.68rem;color:var(--nr-text-quaternary);">' + count + ' permission' + (count !== 1 ? 's' : '') + '</span>';
-    html += '<button onclick="event.stopPropagation(); _clearSitePermissions(\'' + safeDomain + '\'); _remountSitePermissions();" style="padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-tertiary);font-size:0.7rem;cursor:pointer;">Clear</button>';
+    html += '<button onclick="event.stopPropagation(); _clearSitePermissions(\'' + safeDomain + '\'); _remountSitePermissions();" style="padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-secondary);font-size:0.7rem;cursor:pointer;">Clear</button>';
     html += '</div>';
     if (isExpanded) {
       html += '<div style="padding:0 12px 8px;border-top:1px solid var(--nr-border-subtle);">';
@@ -245,7 +245,7 @@ function _renderPasswordsList(container, entries) {
         if (entry.createdAt) {
           html += '<span style="font-size:0.65rem;color:var(--nr-text-quaternary);">' + new Date(entry.createdAt).toLocaleDateString() + '</span>';
         }
-        html += '<button onclick="_pwDeleteEntry(\'' + entry.id + '\')" style="padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-tertiary);font-size:0.7rem;cursor:pointer;">Delete</button>';
+        html += '<button onclick="_pwDeleteEntry(\'' + entry.id + '\')" style="padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-secondary);font-size:0.7rem;cursor:pointer;">Delete</button>';
         html += '</div>';
       }
       html += '</div>';

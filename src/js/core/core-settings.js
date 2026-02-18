@@ -230,7 +230,6 @@ var Settings = (function() {
   // Panel
   define('panelTabComplete', { default: 'on', sync: false });
   define('voiceAutoSend', { default: null, sync: false });
-  define('userQuotes', { default: '[]', sync: true });
   define('chatThreads', { default: null, sync: true });
 
   // Profile

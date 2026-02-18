@@ -2,12 +2,6 @@
 
 function _renderAISettings() {
   // ── Models group ──
-  var chatModel = Settings.get('chatModel') || 'qwen2.5:3b';
-  var visionModel = Settings.get('visionModel') || 'qwen3-vl:8b';
-  var summaryModel = Settings.get('summaryModel') || 'qwen3:0.6b';
-  var annotateModel = Settings.get('annotateModel') || 'qwen3:8b';
-  var ocrModel = Settings.get('ocrModel') || 'glm-ocr';
-
   function _modelRow(label, desc, lsKey, fallback) {
     var currentVal = Settings.get(lsKey) || fallback;
     var sel = new View('select');
@@ -73,6 +67,31 @@ function _renderAISettings() {
     insightToggle,
     autoInsightToggle,
     ocrToggle,
+  ]);
+
+  // ── Search group ──
+  var semSearch = Settings.get('panelSemanticSearch') !== 'off';
+  var semMin = parseInt(Settings.get('panelSemanticMin') || '80', 10);
+  var vaultMin = parseInt(Settings.get('vaultChatMinSimilarity') || '70', 10);
+
+  var semToggle = _settingToggle('Semantic Search in Lookup', 'Show related posts when you highlight text. Uses nomic-embed-text.',
+    semSearch, function(on) { Settings.set('panelSemanticSearch', on ? 'on' : 'off'); });
+  var semSlider = _settingSlider('Min Similarity', 'Only results above this score appear in the highlight popup.', semMin,
+    { min: 10, max: 80, format: function(v) { return v + '%'; } },
+    null,
+    function(v) { Settings.set('panelSemanticMin', v); }
+  );
+  if (!semSearch) semSlider.styles({ opacity: '0.4', pointerEvents: 'none' });
+  var vaultSlider = _settingSlider('Notes RAG Threshold', 'Minimum similarity for vault notes to be included as chat context.', vaultMin,
+    { min: 10, max: 80, format: function(v) { return v + '%'; } },
+    null,
+    function(v) { Settings.set('vaultChatMinSimilarity', v); }
+  );
+
+  var searchGroup = _settingCard('Search', [
+    semToggle,
+    semSlider,
+    vaultSlider,
   ]);
 
   // ── Storage group ──
@@ -142,6 +161,7 @@ function _renderAISettings() {
     modelsGroup,
     behaviorGroup,
     insightGroup,
+    searchGroup,
     storageGroup,
     toolsRef,
     systemPrompts,
