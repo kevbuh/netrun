@@ -175,6 +175,7 @@
         h.textContent = header;
       } else if (header instanceof View) {
         h.appendChild(header.build());
+        v._children.push(header);
       }
       v.el.appendChild(h);
     }
@@ -190,6 +191,7 @@
       if (child == null) continue;
       if (child instanceof View) {
         content.appendChild(child.build());
+        v._children.push(child);
         if (child._onAppearFn) child._onAppearFn();
       } else if (child instanceof HTMLElement) {
         content.appendChild(child);

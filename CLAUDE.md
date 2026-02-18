@@ -77,6 +77,22 @@ npm run validate-load-order # Check script load order
 - Feature modules at top level: api, calendar, chat-threads, dashboard, draw-editor, editors, experiments, feed, neuralook, notebook-editor, onboarding, panel (chat, commands, state, tts), pixel-pet, quality, search, slides-editor, terminal, vault, vibe, whiteboard.
 - Tests co-located as `*.test.js` files, run by Vitest with happy-dom.
 
+#### Rendering conventions
+
+- New UI code uses AetherUI (`VStack`, `HStack`, `Text`, `Button`, `ForEach`, etc.)
+- `RawHTML()` bridges HTML strings (SVG icons, incremental migration)
+- `innerHTML = ''` is fine for clearing containers before `AetherUI.mount()`
+- `document.createElement` is fine for canvas/video/low-level DOM
+- Avoid `innerHTML` with template literals for building UI
+
+#### State management conventions
+
+- `Settings.get/set/getJSON/setJSON` for all persisted preferences and app state
+- Raw `localStorage` only for auth tokens (`authToken`, `authUser`, `authUserInfo`)
+- `sessionStorage` only for session-scoped ephemeral data (guest mode stash, focus timers)
+- Global module variables (`core-state.js`, `browse-state.js`, `panel-state.js`) for runtime-only state
+- `electronAPI.dbQuery` for backend data operations, not client-side state
+
 ### Views (`src/views/`)
 
 HTML pages: algorithm, author-profile, blog, dashboard, dev, experiment-detail, inbox, neuralook, onboarding, profile, quality, research, settings, vault, vibe.

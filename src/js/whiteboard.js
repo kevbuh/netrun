@@ -1,4 +1,5 @@
 // ── Whiteboard ──
+if (window.AetherUI) AetherUI.globals();
 let _wbStrokes = [];
 let _wbRedoStack = [];
 const _wbDrawing = false;
@@ -97,20 +98,32 @@ function _wbStartEditable(el, onFinish) {
 function _renderWbList() {
   const list = document.getElementById('wb-list');
   if (!list) return;
-  list.innerHTML = _wbBoards.map(b => {
-    const sel = b.id === _wbCurrentId;
-    const date = new Date(b.createdAt);
-    const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
-    return `<div class="wb-list-item group flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${sel ? 'bg-accent/15' : 'hover:bg-hover'}" onclick="wbOpen('${b.id}')">
-      <div class="flex-1 min-w-0">
-        <div id="wb-name-${b.id}" class="text-[0.82rem] text-primary truncate" ondblclick="event.stopPropagation(); wbRename('${b.id}')">${escapeHtml(b.name)}</div>
-        <div class="text-[0.68rem] text-dimmer">${dateStr}</div>
-      </div>
-      <button onclick="event.stopPropagation(); wbDelete('${b.id}')" class="shrink-0 bg-transparent border-none cursor-pointer p-0.5 text-dimmer hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete">
-        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
-    </div>`;
-  }).join('');
+  const closeSvg = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+  AetherUI.mount(VStack(
+    _wbBoards.map(b => {
+      const sel = b.id === _wbCurrentId;
+      const date = new Date(b.createdAt);
+      const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+      const nameEl = Text(b.name).font('0.82rem').foreground('primary').truncate().id('wb-name-' + b.id)
+        .on('dblclick', e => { e.stopPropagation(); wbRename(b.id); });
+      const deleteBtn = Button(RawHTML(closeSvg)).ghost().small()
+        .styles({ background: 'transparent', border: 'none', padding: '2px', flexShrink: 0, opacity: 0, transition: 'opacity 0.15s' })
+        .foreground('quaternary').attr('title', 'Delete')
+        .onTap(e => { e.stopPropagation(); wbDelete(b.id); });
+      const row = HStack([
+        VStack([nameEl, Text(dateStr).font('0.68rem').foreground('quaternary')]).flex(1).styles({ minWidth: 0 }),
+        deleteBtn
+      ]).spacing(1.5).padding(1, 1.5).cornerRadius('md')
+        .className(sel ? 'bg-accent/15' : 'hover:bg-hover')
+        .styles({ cursor: 'pointer', transition: 'background 0.15s' })
+        .onTap(() => wbOpen(b.id))
+        .onHover(
+          () => { deleteBtn.el.style.opacity = '1'; },
+          () => { deleteBtn.el.style.opacity = '0'; }
+        );
+      return row;
+    })
+  ), list);
 }
 
 

@@ -76,9 +76,13 @@
       }));
     }
 
+    var _bindListener = null;
     v.bind = function(b) {
+      // Remove previous listener if re-binding
+      if (_bindListener) v.el.removeEventListener('input', _bindListener);
       v.el.value = S.resolve(b);
-      v.el.addEventListener('input', function() { b.value = v.el.value; });
+      _bindListener = function() { b.value = v.el.value; };
+      v.el.addEventListener('input', _bindListener);
       v._effects.push(S.Effect(function() {
         var val = S.resolve(b);
         if (v.el.value !== val) v.el.value = val;
@@ -264,6 +268,7 @@
       })
     ).spacing(1);
 
+    v._effects.push(display);
     return v;
   }
 

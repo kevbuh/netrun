@@ -55,6 +55,8 @@
     Effect: state.Effect,
     Binding: state.Binding,
     batch: state.batch,
+    untrack: state.untrack,
+    Context: state.Context,
 
     // View base
     View: View,
@@ -63,6 +65,7 @@
     VStack: prims.VStack,
     HStack: prims.HStack,
     ZStack: prims.ZStack,
+    Grid: prims.Grid,
     Spacer: prims.Spacer,
     Divider: prims.Divider,
     ScrollView: prims.ScrollView,
@@ -112,8 +115,8 @@
     globals: function() {
       var names = [
         'View',
-        'State', 'Computed', 'Effect', 'Binding', 'batch',
-        'VStack', 'HStack', 'ZStack', 'Spacer', 'Divider', 'ScrollView',
+        'State', 'Computed', 'Effect', 'Binding', 'batch', 'untrack', 'Context',
+        'VStack', 'HStack', 'ZStack', 'Grid', 'Spacer', 'Divider', 'ScrollView',
         'Text', 'Label', 'Link', 'Image', 'Icon', 'RawHTML',
         'Button', 'TextField', 'Textarea', 'Toggle', 'Checkbox', 'RadioGroup',
         'Slider', 'Picker', 'Stepper', 'TabView', 'ProgressBar', 'Pill',

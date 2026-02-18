@@ -76,7 +76,10 @@
         childEl.style.inset = '0';
       }
       v.el.appendChild(childEl);
-      if (child instanceof View && child._onAppearFn) child._onAppearFn();
+      if (child instanceof View) {
+        v._children.push(child);
+        if (child._onAppearFn) child._onAppearFn();
+      }
     }
     v.alignment = function(a) {
       var map = {
@@ -222,6 +225,48 @@
     return v;
   }
 
+  // ─── Grid ───────────────────────────────────────────────
+
+  function Grid() {
+    var children = Array.prototype.slice.call(arguments);
+    if (children.length === 1 && Array.isArray(children[0])) children = children[0];
+    var v = new View('div');
+    v.el.style.display = 'grid';
+    v._appendChildren(children);
+
+    v.columns = function(n) {
+      v.el.style.gridTemplateColumns = 'repeat(' + n + ', 1fr)';
+      return v;
+    };
+    v.columnWidth = function(min) {
+      v.el.style.gridTemplateColumns = 'repeat(auto-fill, minmax(' + min + ', 1fr))';
+      return v;
+    };
+    v.rows = function(n) {
+      v.el.style.gridTemplateRows = 'repeat(' + n + ', 1fr)';
+      return v;
+    };
+    v.spacing = function(s) {
+      v.el.style.gap = _spaceToken(s);
+      return v;
+    };
+    v.rowSpacing = function(s) {
+      v.el.style.rowGap = _spaceToken(s);
+      return v;
+    };
+    v.columnSpacing = function(s) {
+      v.el.style.columnGap = _spaceToken(s);
+      return v;
+    };
+    v.alignment = function(a) {
+      var map = { center: 'center', start: 'start', end: 'end', stretch: 'stretch' };
+      v.el.style.alignItems = map[a] || a;
+      return v;
+    };
+
+    return v;
+  }
+
   // ─── RawHTML (trusted HTML string → View) ─────────────────
 
   function RawHTML(htmlString) {
@@ -233,7 +278,7 @@
   // ─── Export ───────────────────────────────────────────────
 
   window._AetherUIPrimitives = {
-    VStack: VStack, HStack: HStack, ZStack: ZStack,
+    VStack: VStack, HStack: HStack, ZStack: ZStack, Grid: Grid,
     Spacer: Spacer, Divider: Divider, ScrollView: ScrollView,
     Text: Text, Label: Label, Link: Link,
     Image: Image, Icon: Icon, RawHTML: RawHTML

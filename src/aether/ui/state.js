@@ -29,10 +29,20 @@
     }
   }
 
-  // ─── State(value) — read/write signal ─────────────────────
+  // ─── untrack(fn) — read signals without subscribing ──────
 
-  function State(initial) {
+  function untrack(fn) {
+    var prev = _currentSubscriber;
+    _currentSubscriber = null;
+    try { return fn(); }
+    finally { _currentSubscriber = prev; }
+  }
+
+  // ─── State(value, opts) — read/write signal ─────────────
+
+  function State(initial, opts) {
     var _value = initial;
+    var _equals = (opts && opts.equals) || function(a, b) { return a === b; };
     var signal = {
       _subscribers: new Set(),
       _isSignal: true,
@@ -41,7 +51,7 @@
         return _value;
       },
       set value(next) {
-        if (next === _value) return;
+        if (_equals(next, _value)) return;
         _value = next;
         _notify(signal);
       },
@@ -87,6 +97,14 @@
         return _value;
       },
       peek: function() { return _value; }
+    };
+
+    signal.dispose = function() {
+      signal._dependencies.forEach(function(dep) {
+        dep._subscribers.delete(signal);
+      });
+      signal._dependencies.clear();
+      signal._subscribers.clear();
     };
 
     // Initial computation to set up subscriptions
@@ -170,6 +188,22 @@
     }
   }
 
+  // ─── Context — stack-based provide/inject ─────────────────
+
+  function Context(defaultValue) {
+    var _stack = [];
+    return {
+      provide: function(value, fn) {
+        _stack.push(value);
+        try { return fn(); }
+        finally { _stack.pop(); }
+      },
+      use: function() {
+        return _stack.length > 0 ? _stack[_stack.length - 1] : defaultValue;
+      }
+    };
+  }
+
   // ─── isSignal helper ──────────────────────────────────────
 
   function isSignal(v) {
@@ -194,6 +228,8 @@
     Effect: Effect,
     Binding: Binding,
     batch: batch,
+    untrack: untrack,
+    Context: Context,
     isSignal: isSignal,
     isBinding: isBinding,
     resolve: resolve

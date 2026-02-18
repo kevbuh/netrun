@@ -99,10 +99,22 @@
     return this;
   };
 
+  // ─── Reactive helper — DRY signal-aware modifier pattern ──
+
+  function _reactive(view, signal, applyFn) {
+    applyFn(S.resolve(signal));
+    view._effects.push(S.Effect(function() {
+      applyFn(S.resolve(signal));
+    }));
+  }
+
   // ─── Layout Modifiers ─────────────────────────────────────
 
   VP.padding = function(v, h) {
-    if (h !== undefined) {
+    if (S.isSignal(v)) {
+      var el = this.el;
+      _reactive(this, v, function(val) { el.style.padding = _spaceToken(val); });
+    } else if (h !== undefined) {
       this.el.style.padding = _spaceToken(v) + ' ' + _spaceToken(h);
     } else {
       this.el.style.padding = _spaceToken(v);
@@ -164,24 +176,42 @@
   // ─── Styling Modifiers ────────────────────────────────────
 
   VP.background = function(v) {
-    this.el.style.background = _colorToken(v);
+    if (S.isSignal(v)) {
+      var el = this.el;
+      _reactive(this, v, function(val) { el.style.background = _colorToken(val); });
+    } else {
+      this.el.style.background = _colorToken(v);
+    }
     return this;
   };
 
   VP.foreground = function(v) {
-    this.el.style.color = _colorToken(v);
+    if (S.isSignal(v)) {
+      var el = this.el;
+      _reactive(this, v, function(val) { el.style.color = _colorToken(val); });
+    } else {
+      this.el.style.color = _colorToken(v);
+    }
     return this;
   };
 
   VP.font = function(name) {
-    var spec = _fontToken(name);
-    if (spec) {
-      this.el.style.fontSize = spec.size;
-      this.el.style.fontWeight = spec.weight;
-      this.el.style.lineHeight = spec.lineHeight;
-      if (spec.tracking) this.el.style.letterSpacing = spec.tracking;
+    var el = this.el;
+    function _applyFont(n) {
+      var spec = _fontToken(n);
+      if (spec) {
+        el.style.fontSize = spec.size;
+        el.style.fontWeight = spec.weight;
+        el.style.lineHeight = spec.lineHeight;
+        if (spec.tracking) el.style.letterSpacing = spec.tracking;
+      } else {
+        el.style.fontSize = n;
+      }
+    }
+    if (S.isSignal(name)) {
+      _reactive(this, name, _applyFont);
     } else {
-      this.el.style.fontSize = name;
+      _applyFont(name);
     }
     return this;
   };
@@ -210,7 +240,12 @@
   };
 
   VP.cornerRadius = function(v) {
-    this.el.style.borderRadius = _radiusToken(v);
+    if (S.isSignal(v)) {
+      var el = this.el;
+      _reactive(this, v, function(val) { el.style.borderRadius = _radiusToken(val); });
+    } else {
+      this.el.style.borderRadius = _radiusToken(v);
+    }
     return this;
   };
 
@@ -220,12 +255,23 @@
       popup: '0 8px 32px var(--nr-shadow-popup)',
       overlay: '0 24px 64px var(--nr-shadow-overlay)'
     };
-    this.el.style.boxShadow = shadowMap[v] || v;
+    if (S.isSignal(v)) {
+      var el = this.el;
+      _reactive(this, v, function(val) { el.style.boxShadow = shadowMap[val] || val; });
+    } else {
+      this.el.style.boxShadow = shadowMap[v] || v;
+    }
     return this;
   };
 
   VP.border = function(color, width) {
-    this.el.style.border = (width || 1) + 'px solid ' + _colorToken(color || 'border-default');
+    if (S.isSignal(color)) {
+      var el = this.el;
+      var w = width || 1;
+      _reactive(this, color, function(val) { el.style.border = w + 'px solid ' + _colorToken(val || 'border-default'); });
+    } else {
+      this.el.style.border = (width || 1) + 'px solid ' + _colorToken(color || 'border-default');
+    }
     return this;
   };
 
@@ -321,6 +367,28 @@
     return this;
   };
 
+  VP.when = function(signal, modifierFn) {
+    var self = this;
+    if (S.isSignal(signal)) {
+      _reactive(this, signal, function(val) {
+        if (val) modifierFn(self);
+      });
+    } else if (signal) {
+      modifierFn(this);
+    }
+    return this;
+  };
+
+  VP.html = function(content) {
+    var el = this.el;
+    if (S.isSignal(content)) {
+      _reactive(this, content, function(val) { el.innerHTML = val || ''; });
+    } else {
+      el.innerHTML = content || '';
+    }
+    return this;
+  };
+
   VP.visible = function(v) {
     if (S.isSignal(v)) {
       var el = this.el;
@@ -355,7 +423,16 @@
   };
 
   VP.className = function(v) {
-    if (v) this.el.className += (this.el.className ? ' ' : '') + v;
+    if (S.isSignal(v)) {
+      var el = this.el;
+      var _prev = '';
+      _reactive(this, v, function(val) {
+        if (_prev) el.classList.remove(_prev);
+        if (val) { el.classList.add(val); _prev = val; }
+      });
+    } else {
+      if (v) this.el.className += (this.el.className ? ' ' : '') + v;
+    }
     return this;
   };
 
@@ -409,7 +486,10 @@
   };
 
   VP.margin = function(v, h) {
-    if (h !== undefined) {
+    if (S.isSignal(v)) {
+      var el = this.el;
+      _reactive(this, v, function(val) { el.style.margin = _spaceToken(val); });
+    } else if (h !== undefined) {
       this.el.style.margin = _spaceToken(v) + ' ' + _spaceToken(h);
     } else {
       this.el.style.margin = _spaceToken(v);
@@ -430,7 +510,12 @@
   };
 
   VP.flex = function(v) {
-    this.el.style.flex = v != null ? v : '1';
+    if (S.isSignal(v)) {
+      var el = this.el;
+      _reactive(this, v, function(val) { el.style.flex = val != null ? val : '1'; });
+    } else {
+      this.el.style.flex = v != null ? v : '1';
+    }
     return this;
   };
 
@@ -458,7 +543,12 @@
   };
 
   VP.cssVar = function(name, val) {
-    this.el.style.setProperty(name, val);
+    if (S.isSignal(val)) {
+      var el = this.el;
+      _reactive(this, val, function(v) { el.style.setProperty(name, v); });
+    } else {
+      this.el.style.setProperty(name, val);
+    }
     return this;
   };
 

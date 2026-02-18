@@ -12,11 +12,59 @@
     return v;
   }
 
+  // ─── Shared: position below anchor with collision detection ──
+
+  function _positionBelow(el, anchor, opts) {
+    opts = opts || {};
+    var rect = anchor.getBoundingClientRect();
+    var gap = opts.gap || 4;
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+
+    // Position initially below anchor
+    el.style.position = 'fixed';
+    el.style.top = (rect.bottom + gap) + 'px';
+    el.style.left = rect.left + 'px';
+
+    // After a frame, check for viewport overflow and flip/clamp
+    requestAnimationFrame(function() {
+      var elRect = el.getBoundingClientRect();
+
+      // Bottom overflow — flip above anchor
+      if (elRect.bottom > vh) {
+        var above = rect.top - gap - elRect.height;
+        if (above >= 0) el.style.top = above + 'px';
+      }
+
+      // Right overflow — shift left
+      if (elRect.right > vw) {
+        el.style.left = Math.max(4, vw - elRect.width - 4) + 'px';
+      }
+
+      // Left overflow — clamp
+      if (elRect.left < 0) {
+        el.style.left = '4px';
+      }
+    });
+  }
+
+  // ─── Shared: Escape key handler ──────────────────────────────
+
+  function _escHandler(dismissFn) {
+    function onKey(e) {
+      if (e.key === 'Escape') { e.stopPropagation(); dismissFn(); }
+    }
+    document.addEventListener('keydown', onKey);
+    return function() { document.removeEventListener('keydown', onKey); };
+  }
+
   // ─── Sheet (bottom drawer) ────────────────────────────────
 
   function Sheet(isPresented, contentFn) {
     var backdrop = null;
     var sheetEl = null;
+    var _effect = null;
+    var _escCleanup = null;
 
     function _show() {
       if (backdrop) return;
@@ -49,6 +97,8 @@
       backdrop.appendChild(sheetEl);
       document.body.appendChild(backdrop);
 
+      _escCleanup = _escHandler(_dismiss);
+
       // Animate in
       if (window.Motion) {
         window.Motion.animate(sheetEl, {
@@ -61,6 +111,7 @@
 
     function _dismiss() {
       if (!backdrop) return;
+      if (_escCleanup) { _escCleanup(); _escCleanup = null; }
       var bd = backdrop;
       if (window.Motion) {
         window.Motion.animate(sheetEl, {
@@ -78,13 +129,20 @@
     }
 
     if (S.isSignal(isPresented)) {
-      S.Effect(function() {
+      _effect = S.Effect(function() {
         if (isPresented.value) _show();
         else _dismiss();
       });
     }
 
-    return { show: _show, dismiss: _dismiss };
+    return {
+      show: _show,
+      dismiss: _dismiss,
+      dispose: function() {
+        _dismiss();
+        if (_effect) { _effect.dispose(); _effect = null; }
+      }
+    };
   }
 
   // ─── Alert ────────────────────────────────────────────────
@@ -92,12 +150,17 @@
   function Alert(isPresented, opts) {
     opts = opts || {};
     var backdrop = null;
+    var _effect = null;
+    var _escCleanup = null;
 
     function _show() {
       if (backdrop) return;
 
       backdrop = document.createElement('div');
       backdrop.className = 'nr-modal-backdrop';
+      backdrop.addEventListener('click', function(e) {
+        if (e.target === backdrop) _dismiss();
+      });
 
       var modal = document.createElement('div');
       modal.className = 'nr-modal';
@@ -147,6 +210,8 @@
       backdrop.appendChild(modal);
       document.body.appendChild(backdrop);
 
+      _escCleanup = _escHandler(_dismiss);
+
       if (window.Motion) {
         window.Motion.animate(modal, {
           spring: 'snappy',
@@ -158,19 +223,38 @@
 
     function _dismiss() {
       if (!backdrop) return;
-      backdrop.remove();
+      if (_escCleanup) { _escCleanup(); _escCleanup = null; }
+      var bd = backdrop;
+      var modal = bd.querySelector('.nr-modal');
+      if (window.Motion && modal) {
+        window.Motion.animate(modal, {
+          spring: 'snappy',
+          from: { scale: 1, opacity: 1 },
+          to: { scale: 0.9, opacity: 0 },
+          onFinish: function() { bd.remove(); }
+        });
+      } else {
+        bd.remove();
+      }
       backdrop = null;
       if (S.isSignal(isPresented)) isPresented.value = false;
     }
 
     if (S.isSignal(isPresented)) {
-      S.Effect(function() {
+      _effect = S.Effect(function() {
         if (isPresented.value) _show();
         else _dismiss();
       });
     }
 
-    return { show: _show, dismiss: _dismiss };
+    return {
+      show: _show,
+      dismiss: _dismiss,
+      dispose: function() {
+        _dismiss();
+        if (_effect) { _effect.dispose(); _effect = null; }
+      }
+    };
   }
 
   // ─── Popover ──────────────────────────────────────────────
@@ -178,13 +262,14 @@
   function Popover(anchorView, isPresented, contentFn) {
     var popEl = null;
     var _cleanup = null;
+    var _effect = null;
+    var _escCleanup = null;
 
     function _show() {
       if (popEl) return;
 
       popEl = document.createElement('div');
       popEl.className = 'aether-ui-popover';
-      popEl.style.position = 'absolute';
       popEl.style.zIndex = 'var(--nr-z-overlay, 1000)';
       popEl.style.background = 'var(--nr-bg-overlay)';
       popEl.style.border = '1px solid var(--nr-border-subtle)';
@@ -200,13 +285,9 @@
         popEl.appendChild(content);
       }
 
-      // Position below anchor
       var anchor = anchorView instanceof View ? anchorView.el : anchorView;
-      var rect = anchor.getBoundingClientRect();
-      popEl.style.top = (rect.bottom + 4) + 'px';
-      popEl.style.left = rect.left + 'px';
-
       document.body.appendChild(popEl);
+      _positionBelow(popEl, anchor);
 
       // Click outside to dismiss
       function onDocClick(e) {
@@ -216,6 +297,8 @@
       }
       setTimeout(function() { document.addEventListener('click', onDocClick); }, 0);
       _cleanup = function() { document.removeEventListener('click', onDocClick); };
+
+      _escCleanup = _escHandler(_dismiss);
 
       if (window.Motion) {
         window.Motion.animate(popEl, {
@@ -229,19 +312,37 @@
     function _dismiss() {
       if (!popEl) return;
       if (_cleanup) { _cleanup(); _cleanup = null; }
-      popEl.remove();
+      if (_escCleanup) { _escCleanup(); _escCleanup = null; }
+      var el = popEl;
+      if (window.Motion) {
+        window.Motion.animate(el, {
+          spring: 'snappy',
+          from: { opacity: 1, y: 0 },
+          to: { opacity: 0, y: -4 },
+          onFinish: function() { el.remove(); }
+        });
+      } else {
+        el.remove();
+      }
       popEl = null;
       if (S.isSignal(isPresented)) isPresented.value = false;
     }
 
     if (S.isSignal(isPresented)) {
-      S.Effect(function() {
+      _effect = S.Effect(function() {
         if (isPresented.value) _show();
         else _dismiss();
       });
     }
 
-    return { show: _show, dismiss: _dismiss };
+    return {
+      show: _show,
+      dismiss: _dismiss,
+      dispose: function() {
+        _dismiss();
+        if (_effect) { _effect.dispose(); _effect = null; }
+      }
+    };
   }
 
   // ─── Menu ─────────────────────────────────────────────────
@@ -250,13 +351,13 @@
     var isOpen = S.State(false);
     var menuEl = null;
     var _cleanup = null;
+    var _escCleanup = null;
 
     function _show() {
       if (menuEl) return;
 
       menuEl = document.createElement('div');
       menuEl.className = 'nr-menu aether-ui-menu';
-      menuEl.style.position = 'absolute';
       menuEl.style.zIndex = 'var(--nr-z-overlay, 1000)';
       menuEl.style.minWidth = '160px';
 
@@ -294,10 +395,8 @@
       }
 
       var anchor = anchorView instanceof View ? anchorView.el : anchorView;
-      var rect = anchor.getBoundingClientRect();
-      menuEl.style.top = (rect.bottom + 4) + 'px';
-      menuEl.style.left = rect.left + 'px';
       document.body.appendChild(menuEl);
+      _positionBelow(menuEl, anchor);
 
       function onDocClick(e) {
         if (!menuEl.contains(e.target) && !anchor.contains(e.target)) {
@@ -306,6 +405,8 @@
       }
       setTimeout(function() { document.addEventListener('click', onDocClick); }, 0);
       _cleanup = function() { document.removeEventListener('click', onDocClick); };
+
+      _escCleanup = _escHandler(_dismiss);
 
       if (window.Motion) {
         window.Motion.animate(menuEl, {
@@ -319,7 +420,18 @@
     function _dismiss() {
       if (!menuEl) return;
       if (_cleanup) { _cleanup(); _cleanup = null; }
-      menuEl.remove();
+      if (_escCleanup) { _escCleanup(); _escCleanup = null; }
+      var el = menuEl;
+      if (window.Motion) {
+        window.Motion.animate(el, {
+          spring: 'snappy',
+          from: { opacity: 1, y: 0 },
+          to: { opacity: 0, y: -4 },
+          onFinish: function() { el.remove(); }
+        });
+      } else {
+        el.remove();
+      }
       menuEl = null;
       isOpen.value = false;
     }
@@ -332,7 +444,14 @@
       else _show();
     });
 
-    return { show: _show, dismiss: _dismiss, isOpen: isOpen };
+    return {
+      show: _show,
+      dismiss: _dismiss,
+      isOpen: isOpen,
+      dispose: function() {
+        _dismiss();
+      }
+    };
   }
 
   // ─── Export ───────────────────────────────────────────────

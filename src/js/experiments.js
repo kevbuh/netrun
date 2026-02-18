@@ -1,4 +1,5 @@
 // ── RL Templates ──
+if (window.AetherUI) AetherUI.globals();
 const _RL_ENV_TEMPLATE = `import gymnasium as gym
 
 # ── Classic Control (works out of the box with just gymnasium) ──
@@ -308,13 +309,13 @@ function _renderBulkActionBar() {
     sidebar.style.position = 'relative';
     sidebar.appendChild(bar);
   }
-  bar.style.cssText = 'position:absolute;bottom:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--nr-bg-surface);border-top:1px solid var(--nr-border-dim);';
+  bar.style.cssText = 'position:absolute;bottom:0;left:0;right:0;z-index:10;background:var(--nr-bg-surface);border-top:1px solid var(--nr-border-dim);';
   sidebar.style.paddingBottom = '44px';
-  bar.innerHTML = `
-    <span class="text-[0.78rem] text-primary font-medium flex-1">${_selectedFiles.size} selected</span>
-    <button onclick="_bulkMoveFiles()" class="px-2 py-1 rounded text-[0.72rem] bg-card border border-border-input text-muted cursor-pointer hover:border-accent hover:text-primary transition-colors" title="Move selected files">Move</button>
-    <button onclick="_bulkDeleteFiles()" class="px-2 py-1 rounded text-[0.72rem] bg-card border border-red-500/30 text-red-400 cursor-pointer hover:bg-red-500/10 transition-colors" title="Delete selected files">Delete</button>
-  `;
+  AetherUI.mount(HStack([
+    Text(`${_selectedFiles.size} selected`).font('0.78rem').foreground('primary').fontWeight('500').flex(1),
+    Button('Move').secondary().small().attr('title', 'Move selected files').onTap(() => _bulkMoveFiles()),
+    Button('Delete').danger().small().attr('title', 'Delete selected files').onTap(() => _bulkDeleteFiles())
+  ]).spacing(2).padding(2, 3).alignment('center'), bar);
 }
 
 async function _bulkDeleteFiles() {
@@ -579,83 +580,68 @@ async function createExpFile(ext, content, template) {
   return actualName;
 }
 
-function promptCloneRepo() {
+function _expPromptBar(barId, placeholder, buttonLabel, onSubmit) {
   const filesEl = document.getElementById('exp-sidebar-files');
-  const existing = document.getElementById('clone-repo-bar');
+  const existing = document.getElementById(barId);
   if (existing) { existing.querySelector('input').focus(); return; }
   const bar = document.createElement('div');
-  bar.id = 'clone-repo-bar';
+  bar.id = barId;
   bar.className = 'mb-2';
-  bar.innerHTML = `<div class="flex items-center gap-1.5">
-    <input id="clone-repo-url" type="text" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.78rem] focus:outline-none focus:border-accent" placeholder="https://github.com/user/repo" autofocus />
-    <button id="clone-repo-btn" onmousedown="event.preventDefault(); submitCloneRepo()" class="px-2 py-1 rounded border-none bg-accent text-white text-[0.75rem] cursor-pointer hover:bg-accent-hover whitespace-nowrap">Clone</button>
-  </div>
-  <div id="clone-repo-error" class="text-red-400 text-[0.72rem] mt-1 hidden"></div>`;
+  const inputId = barId + '-input';
+  const errorId = barId + '-error';
+  const errorText = Text('').font('0.72rem').foreground('red').id(errorId).visible(false).styles({ marginTop: 'var(--nr-space-1)' });
+  const input = TextField(placeholder).id(inputId).font('0.78rem');
+  const btn = Button(buttonLabel).primary().small().onTap(e => { e.preventDefault(); onSubmit(); });
+  btn.el.addEventListener('mousedown', e => e.preventDefault());
+  AetherUI.mount(VStack([
+    HStack([input.flex(1), btn]).spacing(1.5),
+    errorText
+  ]), bar);
   filesEl.parentNode.insertBefore(bar, filesEl);
-  const input = document.getElementById('clone-repo-url');
-  input.focus();
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); submitCloneRepo(); }
+  input.el.focus();
+  input.el.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); onSubmit(); }
     if (e.key === 'Escape') { bar.remove(); }
   });
+  return { bar, input: input.el, errorEl: errorText.el };
+}
+
+function promptCloneRepo() {
+  _expPromptBar('clone-repo-bar', 'https://github.com/user/repo', 'Clone', submitCloneRepo);
 }
 
 async function submitCloneRepo() {
-  const input = document.getElementById('clone-repo-url');
-  const btn = document.getElementById('clone-repo-btn');
-  const errEl = document.getElementById('clone-repo-error');
-  if (!input || !btn) return;
+  const input = document.getElementById('clone-repo-bar-input');
+  if (!input) return;
   const url = input.value.trim();
   if (!url) return;
-  btn.textContent = 'Cloning...';
-  btn.disabled = true;
   input.disabled = true;
-  errEl.classList.add('hidden');
   try {
     await api(`/api/experiments/${currentExpId}/clone-repo`, {
       method: 'POST',
       body: JSON.stringify({ url }),
       signal: AbortSignal.timeout(120000)
     });
-    const bar = document.getElementById('clone-repo-bar');
-    if (bar) bar.remove();
-    fetchExpFiles();
   } catch (e) {
-    // Clone may have succeeded even if the connection dropped, or there was an error
-    const bar = document.getElementById('clone-repo-bar');
-    if (bar) bar.remove();
-    fetchExpFiles();
+    // Clone may have succeeded even if the connection dropped
   }
+  const bar = document.getElementById('clone-repo-bar');
+  if (bar) bar.remove();
+  fetchExpFiles();
 }
 
 // ── Folder Management ──
 function promptCreateFolder() {
-  const filesEl = document.getElementById('exp-sidebar-files');
-  const existing = document.getElementById('create-folder-bar');
-  if (existing) { existing.querySelector('input').focus(); return; }
-  const bar = document.createElement('div');
-  bar.id = 'create-folder-bar';
-  bar.className = 'mb-2';
-  bar.innerHTML = `<div class="flex items-center gap-1.5">
-    <input id="create-folder-name" type="text" class="flex-1 px-2 py-1 rounded border border-border-input bg-input text-primary text-[0.78rem] focus:outline-none focus:border-accent" placeholder="Folder name" autofocus />
-    <button id="create-folder-btn" onmousedown="event.preventDefault(); submitCreateFolder()" class="px-2 py-1 rounded border-none bg-accent text-white text-[0.75rem] cursor-pointer hover:bg-accent-hover whitespace-nowrap">Create</button>
-  </div>
-  <div id="create-folder-error" class="text-red-400 text-[0.72rem] mt-1 hidden"></div>`;
-  filesEl.parentNode.insertBefore(bar, filesEl);
-  const input = document.getElementById('create-folder-name');
-  input.focus();
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); submitCreateFolder(); }
-    if (e.key === 'Escape') { bar.remove(); }
-  });
-  input.addEventListener('blur', () => {
-    setTimeout(() => { if (document.getElementById('create-folder-bar')) document.getElementById('create-folder-bar').remove(); }, 150);
+  const result = _expPromptBar('create-folder-bar', 'Folder name', 'Create', submitCreateFolder);
+  if (!result) return;
+  result.input.addEventListener('blur', () => {
+    setTimeout(() => { const bar = document.getElementById('create-folder-bar'); if (bar) bar.remove(); }, 150);
   });
 }
 
 async function submitCreateFolder() {
-  const input = document.getElementById('create-folder-name');
-  const errEl = document.getElementById('create-folder-error');
+  const input = document.getElementById('create-folder-bar-input');
+  const errEl = document.getElementById('create-folder-bar-error');
   if (!input) return;
   const name = input.value.trim();
   if (!name) return;
@@ -665,8 +651,10 @@ async function submitCreateFolder() {
     if (bar) bar.remove();
     fetchExpFiles();
   } catch (e) {
-    errEl.textContent = e.message;
-    errEl.classList.remove('hidden');
+    if (errEl) {
+      errEl.textContent = e.message;
+      errEl.style.display = '';
+    }
   }
 }
 
