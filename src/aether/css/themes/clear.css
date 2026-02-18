@@ -173,6 +173,18 @@
   color: rgba(0, 0, 0, 0.25);
 }
 
+/* Clear theme: NTP search box should be translucent, not opaque */
+[data-theme="clear"] .ntp-search-box {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
+}
+[data-theme="clear"] .ntp-search-box:hover,
+[data-theme="clear"] .ntp-search-box:focus-within {
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.08);
+}
+
 /* Clear theme: NTP send button arrow should be white (--nr-bg-body is transparent) */
 [data-theme="clear"] .ntp-action-submit {
   color: #fff;

@@ -1,16 +1,6 @@
 // browse-core.js — Core browse functionality (tabs, navigation)  
 // Depends on: browse-state.js
 
-// Check if URL is a heavy video site that should be lazy-loaded
-function _isHeavyVideoSite(url) {
-  if (!url) return false;
-  const heavyDomains = ['youtube.com', 'youtu.be', 'vimeo.com', 'twitch.tv', 'netflix.com', 'dailymotion.com'];
-  try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    return heavyDomains.some(d => hostname.includes(d));
-  } catch { return false; }
-}
-
 function _browseRestoreTabs() {
   try {
     // Try new multi-window format first (user-specific key)
@@ -67,9 +57,9 @@ function _browseRestoreTabs() {
             win.tabs.push(tab);
             continue;
           }
-          // Lazy load: don't create frame for heavy video sites in background tabs
+          // Lazy load: only create frame for the active tab, defer all others
           const isActiveTab = saved.id === savedWin.activeTab && savedWin.id === activeWindow;
-          const shouldDefer = !isActiveTab && _isHeavyVideoSite(saved.url);
+          const shouldDefer = !isActiveTab;
 
           let el = null;
           if (!shouldDefer) {

@@ -1,6 +1,7 @@
 import { ipcMain, shell } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import { createHash, randomUUID } from 'crypto';
 import * as userQueries from '../db/queries/users.js';
 import * as socialExtQueries from '../db/queries/social-extended.js';
@@ -29,10 +30,10 @@ export function registerSystemIPC(): void {
 
   ipcMain.handle('db:version', () => {
     try {
-      // From dist/main/ipc/ we need ../../.. to reach project root
-      const pkgPath = path.resolve(__dirname, '..', '..', '..', 'package.json');
-      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-      return { version: pkg.version || '0.0', sha: '' };
+      const rootDir = path.resolve(__dirname, '..', '..', '..');
+      const count = execFileSync('git', ['rev-list', '--count', 'HEAD'], { cwd: rootDir, encoding: 'utf-8', timeout: 5000 }).trim();
+      const sha = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: rootDir, encoding: 'utf-8', timeout: 5000 }).trim();
+      return { version: '0.' + count, sha };
     } catch { return { version: '0.0', sha: '' }; }
   });
 

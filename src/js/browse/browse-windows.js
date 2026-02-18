@@ -84,6 +84,7 @@ function _createBrowseWindow(name) {
 }
 
 // Helper: create a tab in a specific window (for session restore)
+// Tabs are created deferred (lazy) — frame is only built when the tab is selected.
 function _browseCreateTabInWindow(windowId, url) {
   const win = _browseWindows.find(w => w.id === windowId);
   if (!win) return null;
@@ -91,23 +92,18 @@ function _browseCreateTabInWindow(windowId, url) {
   const id = _browseNextTabId++;
   const resolved = _browseResolveUrl(url);
 
-  const container = document.getElementById('browse-content');
-  const el = _browseCreateFrame(id, resolved);
-  el.style.display = 'none';
-  container.appendChild(el);
-
   const tab = {
     id,
     url: resolved,
     title: _browseTitleFromUrl(resolved),
     favicon: _browseFaviconUrl(resolved),
-    el,
+    el: null,
     blank: false,
+    deferred: true,
     backStack: [],
     forwardStack: []
   };
   win.tabs.push(tab);
-  _browseBindFrame(tab);
   if (resolved) _saveBrowseVisit(resolved, tab.title);
 
   return tab;
@@ -218,7 +214,7 @@ function openBrowse(url) {
     const tab = win?.tabs.find(t => t.id === win.activeTab);
     if (tab && tab.url && !tab.blank) {
       if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(tab.url);
-      if (!_restoreInsightPill(tab)) _triggerInsight(tab);
+      if (typeof _showAnnotateOfferPill === 'function') _showAnnotateOfferPill(tab);
     }
   }
   _browseInstallPinchOverlay();

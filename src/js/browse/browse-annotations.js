@@ -25,13 +25,15 @@ function _persistInsightCache() {
   Settings.setJSON('insightCache', obj);
 }
 
-// ── Trigger insight on page load ──
+// ── Trigger insight (manual — called when user clicks annotate pill) ──
 
 function _triggerInsight(tab) {
   if (!tab || tab.blank) return;
-  if (Settings.get('insightEnabled') === 'off') return;
   const url = tab.url || '';
   if (!url || url.startsWith('about:') || url.startsWith('chrome:')) return;
+
+  // Ensure this is the current active tab
+  if (tab.id !== _browseActiveTab) return;
 
   // If we have a cached result for this URL, restore it directly
   if (_restoreInsightPill(tab)) return;
@@ -107,9 +109,8 @@ function _restoreInsightPill(tab) {
   const insight = cached.insight || null;
   if (!annotations.length && !insight) return false;
 
-  // Auto-enable and inject cached annotations
-  if (annotations.length) {
-    _annotationsEnabled.set(tab.id, true);
+  // Restore annotations only if user had already enabled them for this tab
+  if (annotations.length && _annotationsEnabled.get(tab.id)) {
     injectAnnotations(tab, annotations);
     _updateAnnotateButtonState();
   }
@@ -138,6 +139,29 @@ function _restoreInsightPill(tab) {
   return true;
 }
 
+// ── Show "Annotate" offer pill for current tab ──
+
+function _showAnnotateOfferPill(tab) {
+  if (!tab || tab.blank) return;
+  const url = tab.url || '';
+  if (!url || url.startsWith('about:') || url.startsWith('chrome:')) return;
+  if (_annotationsEnabled.get(tab.id)) return; // already enabled
+
+  // Check if we have cached results — restore pill if so
+  if (_restoreInsightPill(tab)) return;
+
+  // Show clickable "Annotate" offer pill
+  if (typeof islandUpdate === 'function') {
+    islandUpdate('insight', {
+      type: 'insight',
+      label: 'Annotate',
+      loading: false,
+      offer: true,
+      action: function() { toggleAnnotations(); },
+    });
+  }
+}
+
 // ── Toggle insight (clear/restore) ──
 
 function toggleInsight() {
@@ -153,6 +177,8 @@ function toggleInsight() {
     }
   } else {
     clearAnnotations(tab);
+    // Show the offer pill again so user can re-annotate
+    _showAnnotateOfferPill(tab);
   }
 }
 
@@ -251,9 +277,8 @@ function _initInsightListener() {
     _insightCache.set(result.url, { insight, annotations, related, ocrText, ts: Date.now() });
     _persistInsightCache();
 
-    // Auto-inject annotations on page
-    if (tab && annotations.length) {
-      _annotationsEnabled.set(tab.id, true);
+    // Only inject annotations if user explicitly enabled for this tab
+    if (tab && annotations.length && _annotationsEnabled.get(tab.id)) {
       injectAnnotations(tab, annotations);
       _updateAnnotateButtonState();
     }
@@ -306,11 +331,10 @@ function _initInsightPartialListener() {
       });
     }
 
-    // Inject streamed annotation incrementally
+    // Inject streamed annotation incrementally only if user enabled for this tab
     if (partial.annotation) {
       var tab = _browseTabs.find(function(t) { return t.id === partial.tabId; });
-      if (tab) {
-        _annotationsEnabled.set(tab.id, true);
+      if (tab && _annotationsEnabled.get(tab.id)) {
         injectSingleAnnotation(tab, partial.annotation);
         _updateAnnotateButtonState();
       }

@@ -324,7 +324,8 @@ function browseSelectTab(id) {
       }
       _browseUpdateBarForTab(tab);
     }
-    if (tab && !tab.blank && tab.url && !_restoreInsightPill(tab) && !_annotationsEnabled.get(tab.id)) _triggerInsight(tab);
+    // Show annotate offer pill (restores cache or shows clickable "Annotate" pill)
+    if (tab && !tab.blank && tab.url && typeof _showAnnotateOfferPill === 'function') _showAnnotateOfferPill(tab);
     return;
   }
 
@@ -365,7 +366,7 @@ function browseSelectTab(id) {
     }
   }
 
-  // Load deferred tab if needed (lazy loading for YouTube etc.)
+  // Load deferred tab if needed (lazy loading — tabs only load when selected)
   if (tab && tab.deferred && !tab.el && tab.url) {
     const container = document.getElementById('browse-content');
     tab.el = _browseCreateFrame(tab.id, tab.url);
@@ -437,11 +438,9 @@ function browseSelectTab(id) {
   }
   if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
   _updateAnnotateButtonState();
-  // Restore insight pill or trigger for non-blank tabs
-  if (tab && !tab.blank && tab.url) {
-    if (!_restoreInsightPill(tab)) {
-      if (!_annotationsEnabled.get(tab.id)) _triggerInsight(tab);
-    }
+  // Show annotate offer pill (restores cache or shows clickable "Annotate" pill)
+  if (tab && !tab.blank && tab.url && typeof _showAnnotateOfferPill === 'function') {
+    _showAnnotateOfferPill(tab);
   } else {
     const act = typeof _islandActivities !== 'undefined' ? _islandActivities['insight'] : null;
     if (act) islandRemove('insight');

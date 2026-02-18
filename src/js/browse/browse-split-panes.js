@@ -128,10 +128,11 @@ function _browseEnsureTabFrame(tab) {
     tab.el = el;
     return;
   }
-  if (tab.deferred || !tab.url) return;
+  if (!tab.url) return;
   tab.el = _browseCreateFrame(tab.id, tab.url);
   container.appendChild(tab.el);
   _browseBindFrame(tab);
+  tab.deferred = false;
 }
 
 function browseUnsplitPane(paneId) {

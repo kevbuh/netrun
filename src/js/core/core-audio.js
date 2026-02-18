@@ -217,6 +217,11 @@ function _islandRenderPill(a) {
     html += '</span>';
     return html;
   } else if (a.type === 'insight') {
+    if (a.offer) {
+      // Clickable offer pill — user clicks to trigger annotation
+      const offerIcon = icon('comment', { size: 14, stroke: 'var(--nr-text-tertiary)' });
+      return offerIcon + '<span style="color:var(--nr-text-tertiary)">' + escapeHtml(a.label || 'Annotate') + '</span>';
+    }
     if (a.loading) {
       return '<span class="island-annotate-dot"></span><span>' + escapeHtml(a.label || 'Analyzing\u2026') + '</span>';
     }

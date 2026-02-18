@@ -495,8 +495,8 @@ function _browseHandleNavigation(tab, frame) {
     // Clear any existing annotation state for this tab on navigation
     _annotationsEnabled.delete(tab.id);
     _updateAnnotateButtonState();
-    // Offer to annotate the new page
-    if (_browseActiveTab === tab.id) _triggerInsight(tab);
+    // Show annotate offer pill for the new page (user clicks to annotate)
+    if (_browseActiveTab === tab.id && typeof _showAnnotateOfferPill === 'function') _showAnnotateOfferPill(tab);
     // Academic paper: re-inject on navigation
     if (typeof _paperOnPageLoad === 'function') _paperOnPageLoad(tab, frame);
     // Adblock: reset count for this webview on navigation
@@ -620,9 +620,9 @@ function _browseHandleNavigation(tab, frame) {
           }
         }).catch(() => {});
       } catch {}
-      // Ambient AI: extract page text and send to main process
-      if (typeof _triggerInsight === 'function') {
-        _triggerInsight(tab);
+      // Show annotate offer pill (user clicks to trigger annotation)
+      if (typeof _showAnnotateOfferPill === 'function' && tab.id === _browseActiveTab) {
+        _showAnnotateOfferPill(tab);
       }
       // Academic paper detection & metadata extraction
       if (typeof _paperOnPageLoad === 'function') {
