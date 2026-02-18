@@ -136,7 +136,18 @@
     return -1;
   }
 
+  function isClearTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'clear';
+  }
+
   function detectContext(target) {
+    // Clear theme: always use difference blend so cursor inverts against
+    // whatever is visible through the transparent UI (desktop, webview, etc.)
+    if (isClearTheme()) {
+      setCtx('is-media');
+      return;
+    }
+
     // Media elements
     if (target.closest && target.closest(mediaSelectors)) {
       setCtx('is-media');
@@ -262,7 +273,9 @@
     setHover(data.hovering);
     setText(data.text);
 
-    if (data.media) {
+    if (isClearTheme()) {
+      setCtx('is-media');
+    } else if (data.media) {
       setCtx('is-media');
     } else if (data.lum >= 0) {
       if (data.lum > 180) setCtx('is-dark');
