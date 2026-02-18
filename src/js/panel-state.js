@@ -74,4 +74,6 @@ let _aetherHistoryIdx = -1;
 let _aetherHistoryList = [];
 let _aetherModelIdx = -1;
 let _aetherModelList = [];
+let _aetherAgentIdx = -1;
+let _aetherAgentList = [];
 let _aetherTabAutoAdding = false;

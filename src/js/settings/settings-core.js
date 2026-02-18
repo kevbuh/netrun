@@ -47,7 +47,7 @@ function renderSettingsView() {
       var active = _settingsSection === s.key;
       var btn = new (window._AetherUIView || View)('button');
       btn.el.className = 'w-full flex items-center gap-2.5 px-3 py-2 text-left text-[0.8rem] rounded-md transition-colors ' + (active ? 'bg-accent/10 text-accent' : 'text-muted hover:text-primary hover:bg-hover');
-      btn.el.style.cssText = 'width:calc(100% - 16px);margin:0 8px;';
+      btn.cssText('width:calc(100% - 16px);margin:0 8px;');
       btn.el.innerHTML = s.icon + ' ' + s.label;
       btn.el.addEventListener('click', function() { _setSettingsSection(s.key); });
       sbViews.push(btn);

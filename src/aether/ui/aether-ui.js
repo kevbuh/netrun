@@ -76,10 +76,16 @@
     // Controls
     Button: ctrls.Button,
     TextField: ctrls.TextField,
+    Textarea: ctrls.Textarea,
     Toggle: ctrls.Toggle,
+    Checkbox: ctrls.Checkbox,
+    RadioGroup: ctrls.RadioGroup,
     Slider: ctrls.Slider,
     Picker: ctrls.Picker,
     Stepper: ctrls.Stepper,
+    TabView: ctrls.TabView,
+    ProgressBar: ctrls.ProgressBar,
+    Pill: ctrls.Pill,
 
     // Containers
     ForEach: conts.ForEach,
@@ -109,7 +115,8 @@
         'State', 'Computed', 'Effect', 'Binding', 'batch',
         'VStack', 'HStack', 'ZStack', 'Spacer', 'Divider', 'ScrollView',
         'Text', 'Label', 'Link', 'Image', 'Icon', 'RawHTML',
-        'Button', 'TextField', 'Toggle', 'Slider', 'Picker', 'Stepper',
+        'Button', 'TextField', 'Textarea', 'Toggle', 'Checkbox', 'RadioGroup',
+        'Slider', 'Picker', 'Stepper', 'TabView', 'ProgressBar', 'Pill',
         'ForEach', 'List', 'Group', 'Section',
         'Sheet', 'Alert', 'Popover', 'Menu',
         'defineComponent'

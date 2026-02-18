@@ -1175,7 +1175,7 @@ function renderQualityView() {
       new View('div').id('verdict-prompt-readonly').className('w-full bg-input border border-border-input rounded-md px-3 py-2 text-dim text-[0.78rem] font-mono leading-relaxed whitespace-pre-wrap mb-2 max-h-[200px] overflow-y-auto').onAppear(function() { document.getElementById('verdict-prompt-readonly').textContent = qPrompt; }),
       RawHTML('<textarea id="quality-prompt-input" rows="6" class="w-full bg-input border border-border-input rounded-md px-3 py-2 text-primary text-[0.78rem] font-mono leading-relaxed outline-none focus:border-accent resize-y" spellcheck="false" style="display:none">' + escapeHtml(qPrompt) + '</textarea>'),
       HStack(editBtn, resetPromptBtn).spacing(2).className('justify-end').id('verdict-prompt-actions'),
-      HStack(cancelBtn, saveBtn).spacing(2).className('justify-end').id('verdict-prompt-edit-actions').style('display', 'none')
+      HStack(cancelBtn, saveBtn).spacing(2).className('justify-end').id('verdict-prompt-edit-actions').styles({display:'none'})
     ).className('mb-6'),
 
     // Scoring Threshold
@@ -1198,7 +1198,7 @@ function renderQualityView() {
     // Blocked Posts
     VStack(
       blockedPostsBtn,
-      new View('div').id('quality-blocked-list').className('text-[0.78rem] text-muted max-h-[300px] overflow-y-auto mt-2').style('display', 'none')
+      new View('div').id('quality-blocked-list').className('text-[0.78rem] text-muted max-h-[300px] overflow-y-auto mt-2').styles({display:'none'})
     ).className('mb-6 pt-5 border-t border-border-subtle'),
 
     // Personalization
@@ -1908,21 +1908,18 @@ function _renderFeedEmptyState(container, qfOn) {
   var filledDots = Math.round(threshold / 10);
   var dotViews = Array.from({ length: 10 }, function(_, i) {
     return new View('span')
-      .style('display', 'inline-block').style('width', '10px').style('height', '10px')
-      .style('borderRadius', '50%').style('margin', '0 4px')
-      .style('background', i < filledDots ? 'var(--nr-accent)' : 'var(--nr-border-default)')
-      .style('transition', 'background 0.2s')
+      .styles({display:'inline-block', width:'10px', height:'10px', borderRadius:'50%', margin:'0 4px',
+        background: i < filledDots ? 'var(--nr-accent)' : 'var(--nr-border-default)', transition:'background 0.2s'})
       .attr('title', (i + 1) * 10 + '%');
   });
   var children = [
-    Text('No papers match your filter').className('text-dim').style('fontSize', '0.9rem')
+    Text('No papers match your filter').className('text-dim').styles({fontSize:'0.9rem'})
   ];
   if (qfOn) {
-    children.push(HStack(dotViews).style('justifyContent', 'center'));
-    children.push(Text('Quality threshold: ' + threshold + '%').className('text-dimmer').style('fontSize', '0.75rem'));
+    children.push(HStack(dotViews).styles({justifyContent:'center'}));
+    children.push(Text('Quality threshold: ' + threshold + '%').className('text-dimmer').styles({fontSize:'0.75rem'}));
   }
-  var v = VStack(children).alignment('center').style('justifyContent', 'center')
-    .style('columnSpan', 'all').style('padding', '5rem 0').spacing(4);
+  var v = VStack(children).alignment('center').styles({justifyContent:'center', columnSpan:'all', padding:'5rem 0'}).spacing(4);
   AetherUI.mount(v, container);
 }
 
@@ -2092,7 +2089,7 @@ function _renderPapersNow() {
   if (feedViewMode === 'compact' || feedViewMode === 'verbose' || feedViewMode === 'twitter') {
     var wrapClass = feedViewMode === 'twitter' ? 'flex flex-col max-w-[600px] mx-auto' : 'flex flex-col' + (feedViewMode === 'verbose' ? ' gap-3' : '');
     var wrap = VStack.apply(null, cards).className(wrapClass);
-    wrap.el.style.columnSpan = 'all';
+    wrap.styles({ columnSpan: 'all' });
     container.appendChild(wrap.build());
   } else {
     // Block view: cards are direct children of container for CSS columns
@@ -2191,7 +2188,7 @@ function _renderTweetComments(container, comments, link, idx) {
     var isOwn = c.author === currentUser;
 
     var threadEl = new View('div');
-    threadEl.el.style.cssText = ml + '; margin-bottom: 6px;';
+    threadEl.cssText(ml + '; margin-bottom: 6px;');
 
     var delBtnHtml = isOwn ? '<button class="cmt-del text-dimmest hover:text-red-400 text-[0.65rem] ml-auto bg-transparent border-none cursor-pointer" data-cid="' + c.id + '">x</button>' : '';
     var replyFormHtml = '<div id="tweet-reply-' + c.id + '" class="hidden mt-1"><textarea id="tweet-reply-ta-' + c.id + '" class="w-full text-[0.75rem] bg-input border border-border-input rounded px-2 py-1 text-primary resize-none outline-none focus:border-accent" rows="2" placeholder="Write a reply..."></textarea><div class="flex gap-1 mt-1"><button class="cmt-reply-submit px-2 py-0.5 text-[0.68rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none" data-cid="' + c.id + '">Reply</button><button class="cmt-reply-cancel px-2 py-0.5 text-[0.68rem] rounded border border-border-input text-dim hover:text-primary cursor-pointer bg-transparent" data-cid="' + c.id + '">Cancel</button></div></div>';
@@ -2373,7 +2370,7 @@ function _cardActionRow(p, i, ctx) {
 
 function _cardCommentContainer(p, i) {
   var v = new View('div').id('tweet-comments-' + i);
-  v.el.style.display = _tweetCommentsOpen.has(p.link) ? 'block' : 'none';
+  v.styles({ display: _tweetCommentsOpen.has(p.link) ? 'block' : 'none' });
   return v;
 }
 

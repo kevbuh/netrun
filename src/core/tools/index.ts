@@ -16,6 +16,7 @@ export {
 export {
   browserReadPage, browserClick, browserType, browserScroll, browserNavigate, browserScreenshot,
   browserQuerySelector, browserWaitFor, browserGetUrl, browserGetTabs, browserSwitchTab, browserBack, browserForward,
+  browserPressKey, browserGetStorage,
 } from './browser/index.js';
 
 // Vault tools
@@ -48,7 +49,7 @@ import { toolRegistry } from './registry.js';
 import { webSearch, paperSearch } from './search/index.js';
 import { extractText } from './content/index.js';
 import { navigate, openTab, saveToReadingList, createExperiment, createCalendarEvent } from './system/index.js';
-import { browserReadPage, browserClick, browserType, browserScroll, browserNavigate, browserScreenshot, browserQuerySelector, browserWaitFor, browserGetUrl, browserGetTabs, browserSwitchTab, browserBack, browserForward } from './browser/index.js';
+import { browserReadPage, browserClick, browserType, browserScroll, browserNavigate, browserScreenshot, browserQuerySelector, browserWaitFor, browserGetUrl, browserGetTabs, browserSwitchTab, browserBack, browserForward, browserPressKey, browserGetStorage } from './browser/index.js';
 import { vaultListNotes, vaultGetNote, vaultCreateNote, vaultUpdateNote, vaultDeleteNote, vaultSearch } from './vault/index.js';
 import { experimentList, experimentCreate, experimentListFiles, experimentGetFile, experimentWriteFile, experimentDelete, experimentExecuteCode } from './experiment/index.js';
 import { feedList, feedFetch, feedQualityFilter } from './feed/index.js';
@@ -73,7 +74,7 @@ export function registerAllTools(): void {
   toolRegistry.register(createExperiment);
   toolRegistry.register(createCalendarEvent);
 
-  // Browser (13)
+  // Browser (15)
   toolRegistry.register(browserReadPage);
   toolRegistry.register(browserClick);
   toolRegistry.register(browserType);
@@ -87,6 +88,8 @@ export function registerAllTools(): void {
   toolRegistry.register(browserSwitchTab);
   toolRegistry.register(browserBack);
   toolRegistry.register(browserForward);
+  toolRegistry.register(browserPressKey);
+  toolRegistry.register(browserGetStorage);
 
   // Vault (6)
   toolRegistry.register(vaultListNotes);

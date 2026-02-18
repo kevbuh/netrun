@@ -1687,7 +1687,23 @@ function _panelBuildChatInput(popup, config) {
   const buttonRow = document.createElement('div');
   buttonRow.className = 'aether-button-row';
 
-  // Model label (moved from topBar)
+  // Agent chip — clickable to switch agents
+  const agentChip = document.createElement('span');
+  agentChip.className = 'aether-agent-chip';
+  agentChip.title = 'Switch agent';
+  const agentNames = { 'research-assistant': 'Research Assistant', 'chat': 'Chat', 'browser': 'Browser' };
+  const currentAgentId = Settings.get('chatAgent') || 'research-assistant';
+  const agentLabel = document.createElement('span');
+  agentLabel.className = 'aether-agent-chip-label';
+  agentLabel.textContent = agentNames[currentAgentId] || currentAgentId;
+  agentChip.appendChild(agentLabel);
+  agentChip.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    _doAetherAgent(popup);
+  });
+  buttonRow.appendChild(agentChip);
+
+  // Model label (secondary info beside agent chip)
   const modelLabel = document.createElement('span');
   modelLabel.className = 'aether-model-label';
   const cm = Settings.get('chatModel') || 'qwen2.5:3b';

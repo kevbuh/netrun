@@ -86,6 +86,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   agentStart: (options) => ipcRenderer.invoke('agent:start', options),
   agentCancel: (sessionId) => ipcRenderer.invoke('agent:cancel', sessionId),
   agentSessions: () => ipcRenderer.invoke('agent:sessions'),
+  agentList: () => ipcRenderer.invoke('agent:list'),
   onAgentEvent: (callback) => ipcRenderer.on('agent:event', callback),
   removeAgentEventListener: (callback) => ipcRenderer.removeListener('agent:event', callback),
   agentActionResult: (requestId, result) => ipcRenderer.invoke('agent:action-result', requestId, result),

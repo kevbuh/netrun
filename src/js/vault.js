@@ -1940,7 +1940,7 @@ function vaultShowPublishModal(url) {
   var urlInput = new View('input');
   urlInput.className('nr-input');
   urlInput.el.type = 'text'; urlInput.el.value = url; urlInput.el.readOnly = true;
-  urlInput.el.style.flex = '1';
+  urlInput.styles({ flex: '1' });
   urlInput.onTap(function() { urlInput.el.select(); });
 
   var copyBtn = Button('Copy').className('nr-btn nr-btn-primary');
@@ -1959,11 +1959,11 @@ function vaultShowPublishModal(url) {
   AetherUI.mount(VStack(
     HStack(Text('Published!').className('nr-modal-title')).className('nr-modal-header'),
     VStack(
-      Text('Your post is now live at:').style('marginBottom', 'var(--nr-space-3)'),
+      Text('Your post is now live at:').styles({marginBottom:'var(--nr-space-3)'}),
       HStack(urlInput, copyBtn).spacing(2)
     ).className('nr-modal-body'),
     HStack(viewBtn, closeBtn).className('nr-modal-footer')
-  ).className('nr-modal').style('maxWidth', '400px'), modal);
+  ).className('nr-modal').styles({maxWidth:'400px'}), modal);
   document.body.appendChild(modal);
   modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 }
@@ -2342,19 +2342,19 @@ function renderVaultChatPanel(container) {
   var chatInput = new View('input');
   chatInput.id('vault-chat-input').className('nr-input vault-chat-input');
   chatInput.el.type = 'text'; chatInput.el.placeholder = 'Ask about your notes\u2026';
-  chatInput.el.style.cssText = 'flex:1;background:var(--nr-bg-surface);color:var(--nr-text-primary);border:1px solid var(--border-color);border-radius:6px;padding:5px 8px;font-size:0.75rem;outline:none;';
+  chatInput.cssText('flex:1;background:var(--nr-bg-surface);color:var(--nr-text-primary);border:1px solid var(--border-color);border-radius:6px;padding:5px 8px;font-size:0.75rem;outline:none;');
 
   var sendBtn = Button('Send').id('vault-chat-send');
-  sendBtn.el.style.cssText = 'background:var(--nr-accent);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.7rem;cursor:pointer;';
+  sendBtn.cssText('background:var(--nr-accent);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.7rem;cursor:pointer;');
   sendBtn.onTap(function() { sendVaultChatMessage(); });
 
   var clearBtn = Button('Clear').id('vault-chat-clear');
-  clearBtn.el.style.cssText = 'background:transparent;color:var(--nr-text-quaternary);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;font-size:0.7rem;cursor:pointer;';
+  clearBtn.cssText('background:transparent;color:var(--nr-text-quaternary);border:1px solid var(--border-color);border-radius:6px;padding:4px 8px;font-size:0.7rem;cursor:pointer;');
   clearBtn.el.title = 'Clear chat';
   clearBtn.onTap(function() { clearVaultChat(); });
 
   var inputRow = HStack(chatInput, sendBtn, clearBtn).spacing(1);
-  inputRow.el.style.cssText = 'padding:6px 8px;border-top:1px solid var(--border-color);';
+  inputRow.cssText('padding:6px 8px;border-top:1px solid var(--border-color);');
 
   AetherUI.mount(VStack(chatMsgs, inputRow), container);
   _renderVaultChatMessages(true);

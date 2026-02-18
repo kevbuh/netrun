@@ -1,0 +1,110 @@
+/* Aether Controls — TabView, ProgressBar */
+
+/* ─── TabView ─────────────────────────────────────────── */
+
+.nr-tab-view {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.nr-tab-bar {
+  display: flex;
+  gap: var(--nr-space-1);
+  border-bottom: 1px solid var(--nr-border-default);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nr-tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.nr-tab-btn {
+  position: relative;
+  padding: var(--nr-space-2) var(--nr-space-3);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--nr-text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+  font-family: inherit;
+}
+
+.nr-tab-btn:hover {
+  color: var(--nr-text-primary);
+}
+
+.nr-tab-btn.nr-tab-active {
+  color: var(--nr-accent);
+}
+
+.nr-tab-btn.nr-tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--nr-accent);
+  border-radius: 1px 1px 0 0;
+}
+
+/* Segmented variant */
+.nr-tab-bar-segmented {
+  border-bottom: none;
+  background: var(--nr-bg-inset);
+  border-radius: var(--nr-radius-md);
+  padding: 2px;
+  gap: 2px;
+}
+
+.nr-tab-bar-segmented .nr-tab-btn {
+  border-radius: var(--nr-radius-sm);
+  padding: var(--nr-space-1) var(--nr-space-3);
+  font-size: 0.75rem;
+}
+
+.nr-tab-bar-segmented .nr-tab-btn.nr-tab-active {
+  background: var(--nr-bg-surface);
+  color: var(--nr-text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.nr-tab-bar-segmented .nr-tab-btn.nr-tab-active::after {
+  display: none;
+}
+
+.nr-tab-content {
+  padding-top: var(--nr-space-3);
+}
+
+/* ─── ProgressBar ─────────────────────────────────────── */
+
+.nr-progress {
+  width: 100%;
+  height: 4px;
+  background: var(--nr-bg-inset);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.nr-progress-fill {
+  height: 100%;
+  background: var(--nr-accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.nr-progress-indeterminate .nr-progress-fill {
+  width: 30% !important;
+  animation: nr-progress-slide 1.5s ease-in-out infinite;
+}
+
+@keyframes nr-progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}

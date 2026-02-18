@@ -25,7 +25,7 @@ function _saveChatMemory() {
 /** Handle a single agent event from IPC streaming */
 function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiText, setInThinkTag) {
   if (!_popupChatMessages[aiIdx]) return; // guard: message was cleared
-  const labels = { 'web-search': 'Searching web…', 'paper-search': 'Searching papers…', 'extract-text': 'Fetching page…', 'save-to-reading-list': 'Bookmarking…', navigate: 'Navigating…', 'create-experiment': 'Creating experiment…', 'create-calendar-event': 'Adding to calendar…', 'open-tab': 'Opening tab…', 'browser-read-page': 'Reading page…', 'browser-click': 'Clicking…', 'browser-type': 'Typing…', 'browser-scroll': 'Scrolling…', 'browser-navigate': 'Navigating…', 'browser-screenshot': 'Taking screenshot…', 'browser-query-selector': 'Querying page…', 'browser-wait-for': 'Waiting for element…', 'browser-get-url': 'Getting URL…', 'browser-get-tabs': 'Listing tabs…', 'browser-switch-tab': 'Switching tab…', 'browser-back': 'Going back…', 'browser-forward': 'Going forward…' };
+  const labels = { 'web-search': 'Searching web…', 'paper-search': 'Searching papers…', 'extract-text': 'Fetching page…', 'save-to-reading-list': 'Bookmarking…', navigate: 'Navigating…', 'create-experiment': 'Creating experiment…', 'create-calendar-event': 'Adding to calendar…', 'open-tab': 'Opening tab…', 'browser-read-page': 'Reading page…', 'browser-click': 'Clicking…', 'browser-type': 'Typing…', 'browser-scroll': 'Scrolling…', 'browser-navigate': 'Navigating…', 'browser-screenshot': 'Taking screenshot…', 'browser-query-selector': 'Querying page…', 'browser-wait-for': 'Waiting for element…', 'browser-get-url': 'Getting URL…', 'browser-get-tabs': 'Listing tabs…', 'browser-switch-tab': 'Switching tab…', 'browser-back': 'Going back…', 'browser-forward': 'Going forward…', 'browser-press-key': 'Pressing key…', 'browser-get-storage': 'Reading storage…' };
 
   if (agentEvent.type === 'thinking') {
     if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
@@ -111,6 +111,13 @@ function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiText, se
         if (data.found) {
           confirmation = 'Found: `<' + (data.tag || '?') + '>` ' + (data.text ? '"' + data.text.slice(0, 100) + '"' : '');
         } else { confirmation = data.timeout ? 'Timed out waiting.' : 'Not found.'; }
+        break;
+      case 'browser-press-key': confirmation = 'Pressed key.'; break;
+      case 'browser-get-storage':
+        if (data.entries && data.entries.length) {
+          confirmation = '**' + (data.type || 'Storage') + '** (' + data.count + ' entries):\n```\n' +
+            data.entries.map(function(e) { return e.key + '=' + e.value; }).join('\n') + '\n```';
+        } else { confirmation = data.error || 'No entries found.'; }
         break;
       default: break;
     }
@@ -217,6 +224,18 @@ function _handleAgentAction(act) {
     if (act.requestId && window.electronAPI && window.electronAPI.agentActionResult) {
       const result = agentForward();
       window.electronAPI.agentActionResult(act.requestId, result);
+    }
+  } else if (act.type === 'agent_press_key') {
+    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+    if (_tab) agentPressKey(_tab, act.key, act.modifiers, act.element_id);
+  } else if (act.type === 'agent_get_storage') {
+    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+    if (_tab && act.requestId) {
+      agentGetStorage(_tab, act.storage_type, act.key_filter).then(result => {
+        if (window.electronAPI && window.electronAPI.agentActionResult) {
+          window.electronAPI.agentActionResult(act.requestId, result);
+        }
+      });
     }
   }
 }
@@ -397,6 +416,7 @@ function _sendPopupChatMessage(popup, capturedText) {
         try {
           await window.electronAPI.agentStart({
             sessionId,
+            agentId: Settings.get('chatAgent') || 'research-assistant',
             messages: agentMessages,
             context: {
               googleId: _getGoogleId(),

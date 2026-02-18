@@ -257,6 +257,7 @@ const _aetherCommands = [
   { name: 'user', desc: 'Search for users', hasArgs: true },
   { name: 'notes', desc: 'Browse your notes', _special: true },
   { name: 'capture', desc: 'Screenshot the page', _special: true },
+  { name: 'agent', desc: 'Switch AI agent', _special: true },
   { name: 'model', desc: 'Change chat model', _special: true },
   { name: 'search', desc: 'Web search in new tab', hasArgs: true },
   { name: 'links', desc: 'List all links on page', _special: true },
@@ -315,6 +316,7 @@ function _aetherRenderCmdDropdown(popup, query) {
       } else if (cmd._special) {
         _aetherHideCmdDropdown(popup);
         if (cmd.name === 'capture') _doAetherCapture(popup);
+        else if (cmd.name === 'agent') _doAetherAgent(popup);
         else if (cmd.name === 'model') _doAetherModel(popup);
         else if (cmd.name === 'links') _doAetherLinks(popup);
         else if (cmd.name === 'tab') _doAetherTab(popup);
@@ -819,6 +821,97 @@ function _aetherSelectModel(popup) {
   }
 }
 
+// ── /agent command — switch AI agent ──
+// State variables declared in panel-state.js: _aetherAgentIdx, _aetherAgentList
+
+async function _doAetherAgent(popup) {
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.value = '';
+  _aetherHideCmdDropdown(popup);
+  _aetherTrackMode = false;
+
+  // Fetch available agents
+  _aetherAgentList = [];
+  _aetherAgentIdx = 0;
+  try {
+    if (window.electronAPI?.agentList) {
+      _aetherAgentList = await window.electronAPI.agentList();
+    }
+  } catch (e) {
+    _aetherAgentList = [];
+  }
+
+  if (!_aetherAgentList.length) {
+    if (input) { input.value = ''; input.placeholder = 'No agents available'; input.focus(); }
+    return;
+  }
+
+  const currentAgent = Settings.get('chatAgent') || 'research-assistant';
+  const curIdx = _aetherAgentList.findIndex(a => a.id === currentAgent);
+  if (curIdx >= 0) _aetherAgentIdx = curIdx;
+
+  _aetherRenderAgentDropdown(popup);
+}
+
+function _aetherRenderAgentDropdown(popup) {
+  let dropdown = popup.querySelector('.aether-agent-dropdown');
+  if (!dropdown) {
+    dropdown = document.createElement('div');
+    dropdown.className = 'aether-note-dropdown aether-agent-dropdown';
+    dropdown.addEventListener('mousedown', ev => ev.stopPropagation());
+    const askWrap = popup.querySelector('.doc-ask-inline-wrap');
+    if (askWrap) popup.insertBefore(dropdown, askWrap);
+    else popup.appendChild(dropdown);
+  }
+  const currentAgent = Settings.get('chatAgent') || 'research-assistant';
+  dropdown.innerHTML = _aetherAgentList.map((a, i) => {
+    const active = a.id === currentAgent;
+    return `<div class="aether-note-item ${i === _aetherAgentIdx ? 'selected' : ''}" data-idx="${i}">` +
+      `<div class="aether-note-item-title">${escapeHtml(a.name)}</div>` +
+      `<div class="aether-note-item-snippet">${escapeHtml(a.description)}</div>` +
+      (active ? `<span class="aether-note-item-tags" style="margin-left:auto;opacity:0.6;">current</span>` : '') +
+      `</div>`;
+  }).join('');
+
+  dropdown.querySelectorAll('.aether-note-item').forEach(el => {
+    el.addEventListener('click', ev => {
+      ev.stopPropagation(); ev.preventDefault();
+      const idx = parseInt(el.dataset.idx);
+      const agent = _aetherAgentList[idx];
+      if (agent) {
+        _aetherAgentIdx = idx;
+        Settings.set('chatAgent', agent.id);
+        _aetherRenderAgentDropdown(popup);
+        // Update the agent chip label
+        const chip = popup.querySelector('.aether-agent-chip-label');
+        if (chip) chip.textContent = agent.name;
+        const input = popup.querySelector('.doc-ask-inline-input');
+        if (input) { input.value = ''; input.focus(); }
+      }
+    });
+  });
+  _repositionSelectionPopup();
+}
+
+function _aetherHideAgentDropdown(popup) {
+  const dd = popup.querySelector('.aether-agent-dropdown');
+  if (dd) dd.remove();
+  _aetherAgentList = [];
+  _aetherAgentIdx = 0;
+}
+
+function _aetherSelectAgent(popup) {
+  const agent = _aetherAgentList[_aetherAgentIdx];
+  if (agent) {
+    Settings.set('chatAgent', agent.id);
+    _aetherHideAgentDropdown(popup);
+    const chip = popup.querySelector('.aether-agent-chip-label');
+    if (chip) chip.textContent = agent.name;
+    const input = popup.querySelector('.doc-ask-inline-input');
+    if (input) { input.value = ''; input.placeholder = 'Ask anything…'; input.focus(); }
+  }
+}
+
 // ── /search command — open web search in new tab ──
 function _doAetherSearchNewTab(popup, query) {
   const url = 'https://www.google.com/search?q=' + encodeURIComponent(query);
@@ -1266,6 +1359,7 @@ function _aetherExecCommand(popup, text) {
     if (cmd._special) {
       _aetherHideCmdDropdown(popup);
       if (cmd.name === 'capture') _doAetherCapture(popup);
+      else if (cmd.name === 'agent') _doAetherAgent(popup);
       else if (cmd.name === 'model') _doAetherModel(popup);
       else if (cmd.name === 'links') _doAetherLinks(popup);
       else if (cmd.name === 'tab') _doAetherTab(popup);

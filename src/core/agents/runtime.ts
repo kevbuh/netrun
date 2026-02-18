@@ -106,6 +106,7 @@ function waitForActionResult(requestId: string, timeoutMs = 15000): Promise<unkn
 const ASYNC_ACTION_TOOLS = new Set([
   'browser-query-selector', 'browser-wait-for', 'browser-get-url',
   'browser-get-tabs', 'browser-switch-tab', 'browser-back', 'browser-forward',
+  'browser-get-storage',
 ]);
 
 /**
@@ -196,6 +197,15 @@ async function executeTool(
       const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       actions.push({ type: 'agent_forward', requestId });
       return { success: true, data: { status: 'pending', message: 'Going forward...' } };
+    },
+    'browser-press-key': (a) => {
+      actions.push({ type: 'agent_press_key', key: a.key, modifiers: a.modifiers, element_id: a.element_id });
+      return { success: true, data: { status: 'ok', message: `Pressed ${a.key}` } };
+    },
+    'browser-get-storage': (a) => {
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      actions.push({ type: 'agent_get_storage', storage_type: a.type, key_filter: a.key_filter, requestId });
+      return { success: true, data: { status: 'pending', message: `Reading ${a.type}...` } };
     },
   };
 

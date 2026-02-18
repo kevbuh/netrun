@@ -45,19 +45,19 @@ function _renderTabStateDropdown() {
   nameInput.el.type = 'text';
   nameInput.el.id = 'tab-session-name-input';
   nameInput.el.placeholder = 'Session name\u2026';
-  nameInput.el.style.cssText = 'flex:1;min-width:0;padding:5px 8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:0.78rem;border-radius:6px;outline:none;';
+  nameInput.cssText('flex:1;min-width:0;padding:5px 8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:0.78rem;border-radius:6px;outline:none;');
   nameInput.on('keydown', function(e) { if (e.key === 'Enter') confirmSaveTabSession(); });
   if (!canSave) nameInput.el.disabled = true;
 
   var saveBtn = new View('button');
   saveBtn.el.textContent = 'Save ' + openTabs.length + ' tab' + (openTabs.length !== 1 ? 's' : '');
-  saveBtn.el.style.cssText = 'padding:5px 10px;border:none;background:' + (canSave ? 'var(--nr-accent)' : 'var(--nr-bg-raised)') + ';color:' + (canSave ? '#fff' : 'var(--nr-text-quaternary)') + ';font-size:0.78rem;border-radius:6px;cursor:' + (canSave ? 'pointer' : 'default') + ';white-space:nowrap;';
+  saveBtn.cssText('padding:5px 10px;border:none;background:' + (canSave ? 'var(--nr-accent)' : 'var(--nr-bg-raised)') + ';color:' + (canSave ? '#fff' : 'var(--nr-text-quaternary)') + ';font-size:0.78rem;border-radius:6px;cursor:' + (canSave ? 'pointer' : 'default') + ';white-space:nowrap;');
   if (!canSave) saveBtn.el.disabled = true;
   saveBtn.onTap(function() { confirmSaveTabSession(); });
 
   var saveRow = HStack([nameInput, saveBtn]).spacing(1).alignment('center').id('tab-session-save-row');
   var saveSection = new View('div');
-  saveSection.el.style.cssText = 'padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);';
+  saveSection.cssText('padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);');
   saveSection.el.appendChild(saveRow.build());
 
   // Session list
@@ -75,7 +75,7 @@ function _renderTabStateDropdown() {
       var infoBtn = VStack([
         Text(s.name).font('callout').foreground('primary').truncate(),
         Text(subtitle).font('caption2').foreground('quaternary')
-      ]).spacing(0).flex(1).style('minWidth', '0').textAlign('left')
+      ]).spacing(0).flex(1).styles({minWidth:'0'}).textAlign('left')
         .styles({ border: 'none', background: 'none', padding: '0' }).cursor();
       infoBtn.onTap(function() { loadTabSession(i); });
 
@@ -93,7 +93,7 @@ function _renderTabStateDropdown() {
   }
 
   var panel = VStack([saveSection].concat(listItems))
-    .position('absolute').inset(null, 0, null, null).style('top', 'calc(100% + 4px)')
+    .position('absolute').inset(null, 0, null, null).styles({top:'calc(100% + 4px)'})
     .styles({ minWidth: '260px', maxHeight: '360px', overflowY: 'auto' })
     .background('overlay').border('border-default').cornerRadius('md')
     .shadow('popup').zIndex('overlay').padding('4px', '0');
@@ -260,7 +260,7 @@ function _renderToolbarSessions() {
   }
 
   var sessionsList = VStack(listChildren).className('browse-sessions-list');
-  var menuDiv = VStack([header, sessionsList]).className('browse-sessions-menu').style('display', 'none');
+  var menuDiv = VStack([header, sessionsList]).className('browse-sessions-menu').styles({display:'none'});
   var wrapper = VStack([toggleBtn, menuDiv]);
 
   AetherUI.mount(wrapper, container);

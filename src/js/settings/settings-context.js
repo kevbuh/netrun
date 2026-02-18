@@ -36,7 +36,7 @@ function _renderContextSettings() {
         var ta = new View('textarea');
         ta.el.id = 'context-editor-textarea';
         ta.el.className = 'w-full rounded-lg border border-border-subtle bg-card/50 text-primary text-[0.78rem] p-3 focus:outline-none focus:border-accent/50 transition-colors';
-        ta.el.style.cssText = 'font-family:var(--nr-font-mono);height:40vh;resize:vertical;';
+        ta.cssText('font-family:var(--nr-font-mono);height:40vh;resize:vertical;');
         return ta;
       })(),
 

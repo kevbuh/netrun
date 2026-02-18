@@ -75,7 +75,7 @@ function _dashBuildStatsRow(papersRead, streak, savedCount, projectCount) {
   ];
   return HStack(stats.map(function(s) {
     return VStack(
-      Text(s.value + (s.suffix || '')).className('stat-value').style('color', s.color),
+      Text(s.value + (s.suffix || '')).className('stat-value').styles({color: s.color}),
       Text(s.label).className('stat-label'),
       Text(s.sub).className('stat-sub')
     ).className('bento-stat');
@@ -237,13 +237,13 @@ async function renderDashboard() {
     _eventsBanner = VStack(
       HStack(
         RawHTML(icon('calendar', {size: 16, class: 'w-4 h-4 shrink-0', style: 'color:#60a5fa'})),
-        Text("Today's Events").className('text-[0.78rem] font-semibold').style('color', '#60a5fa')
+        Text("Today's Events").className('text-[0.78rem] font-semibold').styles({color:'#60a5fa'})
       ).spacing('8px').className('mb-2'),
       VStack(_todayEvents.map(function(ev) {
         var evColor = ev.color || '#60a5fa';
         var dot = new (window._AetherUIView || AetherUI.View)('span');
         dot.className('w-2 h-2 rounded-full shrink-0');
-        dot.el.style.background = evColor;
+        dot.styles({ background: evColor });
         var descView = ev.description ? Text(ev.description).className('text-[0.72rem] text-dimmer truncate') : null;
         return HStack(
           dot,
@@ -274,7 +274,7 @@ async function renderDashboard() {
   function _buildSummaryEl(cls) {
     var el = new (window._AetherUIView || AetherUI.View)('div');
     el.id('dash-day-summary').className('text-[0.8rem] text-dim leading-relaxed ' + (cls || 'mb-3'));
-    el.el.style.minHeight = '1.2em';
+    el.styles({ minHeight: '1.2em' });
     var inner = Text('Summarizing your day...').className('text-dimmest text-[0.75rem]');
     el.el.appendChild(inner.build());
     return el;
@@ -584,7 +584,7 @@ async function renderDashboard() {
       var addBtn = new View('button');
       addBtn.el.textContent = '+';
       addBtn.el.title = 'Add event';
-      addBtn.el.style.cssText = 'background:none;border:none;color:var(--nr-accent);cursor:pointer;font-size:13px;font-weight:600;padding:0 2px';
+      addBtn.cssText('background:none;border:none;color:var(--nr-accent);cursor:pointer;font-size:13px;font-weight:600;padding:0 2px');
       addBtn.onTap(function() { window._heatmapPopoverAddForm = !window._heatmapPopoverAddForm; window._renderHeatmapPopover(key); });
       var header = HStack(
         Text(dateLabel).styles({color:'var(--nr-text-quaternary)', fontSize:'11px'}),
@@ -623,7 +623,7 @@ async function renderDashboard() {
             var delBtn = new View('button');
             delBtn.el.innerHTML = '&times;';
             delBtn.el.title = 'Delete event';
-            delBtn.el.style.cssText = 'background:none;border:none;color:var(--nr-text-quaternary);cursor:pointer;padding:0 2px;font-size:14px;line-height:1;flex-shrink:0';
+            delBtn.cssText('background:none;border:none;color:var(--nr-text-quaternary);cursor:pointer;padding:0 2px;font-size:14px;line-height:1;flex-shrink:0');
             (function(eventId) {
               delBtn.onTap(function(e) { e.stopPropagation(); _heatmapDeleteEvent(eventId, key); });
             })(item.id);
@@ -710,8 +710,7 @@ async function renderDashboard() {
 
     var delBtn = new (window._AetherUIView || AetherUI.View)('button');
     delBtn.className('dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none');
-    delBtn.el.style.color = 'var(--nr-text-quaternary)';
-    delBtn.el.style.fontSize = '1rem';
+    delBtn.styles({ color: 'var(--nr-text-quaternary)', fontSize: '1rem' });
     delBtn.el.textContent = '\u00d7';
     delBtn.el.title = 'Remove';
     delBtn.onTap(function() { dashRemoveSaved(p.link); });
@@ -779,8 +778,7 @@ async function renderDashboard() {
       var dateView = dateStr ? Text(dateStr).className('text-[0.68rem] text-dimmest') : null;
       var delBtn = new (window._AetherUIView || AetherUI.View)('button');
       delBtn.className('dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none');
-      delBtn.el.style.color = 'var(--nr-text-quaternary)';
-      delBtn.el.style.fontSize = '1rem';
+      delBtn.styles({ color: 'var(--nr-text-quaternary)', fontSize: '1rem' });
       delBtn.el.textContent = '\u00d7';
       delBtn.el.title = 'Remove';
       delBtn.onTap(function() { deleteUserQuote(q.id); renderDashboard(); });
@@ -808,11 +806,15 @@ async function renderDashboard() {
   // Background banner
   var bgBanner = new (window._AetherUIView || AetherUI.View)('div');
   bgBanner.className('relative rounded-xl overflow-hidden mb-6 ' + (profile.profile_bg ? '' : 'nr-living-gradient'));
-  bgBanner.el.style.minHeight = '120px';
-  bgBanner.el.style.background = profile.profile_bg
-    ? "url('" + escapeAttr(profile.profile_bg) + "') center/cover no-repeat"
-    : 'linear-gradient(135deg, ' + _pAccent + '33, ' + _pAccent + '11)';
-  bgBanner.el.innerHTML = '<div style="position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,var(--nr-bg-body),transparent)"></div>';
+  bgBanner.styles({
+    minHeight: '120px',
+    background: profile.profile_bg
+      ? "url('" + escapeAttr(profile.profile_bg) + "') center/cover no-repeat"
+      : 'linear-gradient(135deg, ' + _pAccent + '33, ' + _pAccent + '11)'
+  });
+  var bgGrad = new (window._AetherUIView || AetherUI.View)('div');
+  bgGrad.styles({ position: 'absolute', bottom: '0', left: '0', right: '0', height: '60px', background: 'linear-gradient(to top,var(--nr-bg-body),transparent)' });
+  bgBanner.el.appendChild(bgGrad.build());
   var bgBtn = new (window._AetherUIView || AetherUI.View)('button');
   bgBtn.className('absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center bg-black/40 text-white/70 hover:text-white border-none cursor-pointer transition-colors');
   bgBtn.el.title = 'Change background';
@@ -886,7 +888,7 @@ async function renderDashboard() {
     var link = new (window._AetherUIView || AetherUI.View)('a');
     link.el.href = '#paper/' + encodeURIComponent(c.paperLink);
     link.className('block px-2 py-1.5 rounded-md hover:bg-hover transition-colors');
-    link.el.style.textDecoration = 'none';
+    link.styles({ textDecoration: 'none' });
     var inner = VStack(
       Text(preview).className('text-[0.75rem] text-primary leading-snug truncate'),
       Text(timeAgo).className('text-dimmest text-[0.65rem] mt-0.5')
@@ -901,10 +903,7 @@ async function renderDashboard() {
     var link = new (window._AetherUIView || AetherUI.View)('a');
     link.el.href = '#view/' + encodeURIComponent(r.paperLink);
     link.className('flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover transition-colors');
-    link.el.style.textDecoration = 'none';
-    link.el.style.display = 'flex';
-    link.el.style.alignItems = 'center';
-    link.el.style.gap = '8px';
+    link.styles({ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' });
     var inner = HStack(
       RawHTML(icon('repost', {size: 12, class: 'w-3 h-3 text-green-400 shrink-0'})),
       Text(r.paperTitle || r.paperLink).className('text-[0.75rem] text-primary truncate flex-1'),
@@ -945,7 +944,7 @@ async function renderDashboard() {
 
   // Quick Actions (1x1)
   var qaCard = _bentoCard(_dashBuildQuickActions(), 'bento-1x1');
-  qaCard.el.style.padding = '10px';
+  qaCard.styles({ padding: '10px' });
   bentoGrid.el.appendChild(qaCard.build());
 
   // Inbox (2x1) — conditional
@@ -1298,8 +1297,7 @@ async function openAllSaved() {
 
       var delBtn = new (window._AetherUIView || AetherUI.View)('button');
       delBtn.className('dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none');
-      delBtn.el.style.color = 'var(--nr-text-quaternary)';
-      delBtn.el.style.fontSize = '1rem';
+      delBtn.styles({ color: 'var(--nr-text-quaternary)', fontSize: '1rem' });
       delBtn.el.textContent = '\u00d7';
       delBtn.el.title = 'Remove';
       delBtn.onTap(function(e) { e.stopPropagation(); dashRemoveSaved(p.link); openAllSaved(); });
@@ -1497,7 +1495,7 @@ function renderDevSection(sectionId) {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
-  AetherUI.mount(Text('Loading\u2026').className('text-sm').style('color', 'var(--nr-text-quaternary)'), contentPane);
+  AetherUI.mount(Text('Loading\u2026').className('text-sm').foreground('quaternary'), contentPane);
 
   switch (sectionId) {
     case 'overview':
@@ -1522,7 +1520,7 @@ function renderDevSection(sectionId) {
       _renderDevTools();
       break;
     default:
-      AetherUI.mount(Text('Unknown section').className('text-sm').style('color', 'var(--nr-text-quaternary)'), contentPane);
+      AetherUI.mount(Text('Unknown section').className('text-sm').foreground('quaternary'), contentPane);
   }
 }
 
@@ -1544,14 +1542,14 @@ async function _renderDevOverview() {
   const cards = document.getElementById('dev-stats-cards');
   const chart = document.getElementById('dev-loc-chart');
 
-  AetherUI.mount(Text('Loading\u2026').className('text-sm').style('color', 'var(--nr-text-quaternary)'), cards);
+  AetherUI.mount(Text('Loading\u2026').className('text-sm').foreground('quaternary'), cards);
 
   let data;
   try {
     data = await apiGet('/api/dev-stats');
     if (data.error) throw new Error(data.error);
   } catch (e) {
-    AetherUI.mount(Text('Error: ' + e.message).className('text-sm').style('color', 'var(--nr-text-quaternary)'), cards);
+    AetherUI.mount(Text('Error: ' + e.message).className('text-sm').foreground('quaternary'), cards);
     return;
   }
 
@@ -2064,7 +2062,7 @@ async function _renderDevGitLog() {
   AetherUI.mount(VStack(header, logContainer), contentPane);
 
   const container = document.getElementById('dev-git-log-container');
-  AetherUI.mount(Text('Loading\u2026').className('text-sm').style('color', 'var(--nr-text-quaternary)'), container);
+  AetherUI.mount(Text('Loading\u2026').className('text-sm').foreground('quaternary'), container);
 
   try {
     const data = await apiGet('/api/dev-stats');
@@ -2076,10 +2074,10 @@ async function _renderDevGitLog() {
       _devGitLogOffset = log.length;
       if (log.length >= 20) _devAppendLoadMoreBtn();
     } else {
-      AetherUI.mount(Text('No commits found').className('text-sm').style('color', 'var(--nr-text-quaternary)'), container);
+      AetherUI.mount(Text('No commits found').className('text-sm').foreground('quaternary'), container);
     }
   } catch (e) {
-    AetherUI.mount(Text('Error: ' + e.message).className('text-sm').style('color', 'var(--nr-text-quaternary)'), container);
+    AetherUI.mount(Text('Error: ' + e.message).className('text-sm').foreground('quaternary'), container);
   }
 }
 
@@ -2094,7 +2092,7 @@ function _renderDevTools() {
   ).styles({marginBottom:'24px'});
 
   var achSelect = new (window._AetherUIView || AetherUI.View)('select');
-  achSelect.id('dev-ach-select').className('dev-input').style('minWidth', '180px');
+  achSelect.id('dev-ach-select').className('dev-input').styles({minWidth:'180px'});
   achSelect.el.innerHTML = '<option value="bookworm">Bookworm</option><option value="curator">Curator</option><option value="critic">Critic</option><option value="explorer">Explorer</option><option value="model_switch">Model Swapper</option><option value="its_alive">It\'s Alive!</option><option value="pixel_parent">Pixel Parent</option>';
 
   var showBtn = Button('Show').onTap(function() { _devTestAchievement(); })

@@ -122,6 +122,135 @@
   opacity: 1;
 }
 
+/* ─── Checkbox ─────────────────────────────────────── */
+
+.nr-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nr-space-2);
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--nr-text-primary);
+  user-select: none;
+}
+
+.nr-checkbox-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.nr-checkbox {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--nr-border-strong);
+  border-radius: var(--nr-radius-xs);
+  background: var(--nr-bg-input);
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.nr-checkbox::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 4px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.15s ease;
+}
+
+.nr-checkbox-input:checked + .nr-checkbox {
+  background: var(--nr-accent);
+  border-color: var(--nr-accent);
+}
+
+.nr-checkbox-input:checked + .nr-checkbox::after {
+  transform: rotate(45deg) scale(1);
+}
+
+.nr-checkbox-input:indeterminate + .nr-checkbox::after {
+  top: 6px;
+  left: 3px;
+  width: 8px;
+  height: 0;
+  border-width: 0 0 2px 0;
+  transform: rotate(0deg) scale(1);
+}
+
+.nr-checkbox-input:indeterminate + .nr-checkbox {
+  background: var(--nr-accent);
+  border-color: var(--nr-accent);
+}
+
+/* ─── RadioGroup ──────────────────────────────────── */
+
+.nr-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nr-space-2);
+}
+
+.nr-radio-group-horizontal {
+  flex-direction: row;
+  gap: var(--nr-space-4);
+}
+
+.nr-radio-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nr-space-2);
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--nr-text-primary);
+  user-select: none;
+}
+
+.nr-radio-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.nr-radio {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--nr-border-strong);
+  border-radius: 50%;
+  background: var(--nr-bg-input);
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.nr-radio::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.15s ease;
+}
+
+.nr-radio-input:checked + .nr-radio {
+  background: var(--nr-accent);
+  border-color: var(--nr-accent);
+}
+
+.nr-radio-input:checked + .nr-radio::after {
+  transform: translate(-50%, -50%) scale(1);
+}
+
 /* Label wrapper */
 .nr-label {
   display: flex;

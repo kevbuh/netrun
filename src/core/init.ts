@@ -1,4 +1,5 @@
 import { registerAllTools, toolRegistry } from './tools/index.js';
+import { registerAllAgents, agentRegistry } from './agents/index.js';
 import { providerRegistry } from './providers/registry.js';
 import { OllamaProvider } from './providers/ollama.js';
 import { registerToolIPC } from './ipc-handlers.js';
@@ -8,12 +9,15 @@ import { contextIntake } from './context/intake.js';
 import { parakeetManager } from './parakeet-manager.js';
 
 /**
- * Initialize the core system: tools, providers, IPC handlers.
+ * Initialize the core system: tools, providers, agents, IPC handlers.
  * Call this from the Electron main process before creating windows.
  */
 export function initCore(): void {
   // Register all built-in tools
   registerAllTools();
+
+  // Register all built-in agents
+  registerAllAgents();
 
   // Register default LLM provider (Ollama)
   const ollama = new OllamaProvider();
@@ -31,11 +35,13 @@ export function initCore(): void {
 
   console.log(
     `[core] Initialized: ${toolRegistry.names().length} tools, ` +
-    `${providerRegistry.names().length} providers`
+    `${providerRegistry.names().length} providers, ` +
+    `${agentRegistry.names().length} agents`
   );
 }
 
 export { toolRegistry } from './tools/index.js';
+export { agentRegistry } from './agents/index.js';
 export { providerRegistry } from './providers/registry.js';
 export { getDb, closeDb } from './db/connection.js';
 export { contextIntake } from './context/intake.js';

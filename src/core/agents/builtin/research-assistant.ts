@@ -29,11 +29,13 @@ function buildLivingContext(budgetChars: number): string {
 
 function buildBrowserToolsDescription(hasDom: boolean): string {
   const commonTools =
+    'browser-press-key(key, modifiers?, element_id?) to press keyboard keys like Enter/Tab/Escape or combos like Ctrl+A, ' +
     'browser-query-selector(selector) to find elements by CSS selector, ' +
     'browser-wait-for(selector, timeout_ms) to wait for an element to appear, ' +
     'browser-get-url() to check current URL/title, ' +
     'browser-get-tabs() to list open tabs, browser-switch-tab(tab_id) to switch tabs, ' +
-    'browser-back() and browser-forward() for history navigation. ';
+    'browser-back() and browser-forward() for history navigation, ' +
+    'browser-get-storage(type, key_filter?) to read cookies/localStorage/sessionStorage. ';
 
   if (hasDom) {
     return (
@@ -89,6 +91,8 @@ export const researchAssistant: AgentDefinition = {
     'browser-switch-tab',
     'browser-back',
     'browser-forward',
+    'browser-press-key',
+    'browser-get-storage',
     'context-update',
   ],
 

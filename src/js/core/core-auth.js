@@ -120,8 +120,7 @@ function _updateAccountUI() {
     if (_authUserInfo.picture) {
       AetherUI.mount(
         Image(_authUserInfo.picture)
-          .style('width', '22px').style('height', '22px').style('object-fit', 'cover')
-          .style('border-radius', '50%').style('display', 'block')
+          .styles({width:'22px', height:'22px', objectFit:'cover', borderRadius:'50%', display:'block'})
           .attr('referrerpolicy', 'no-referrer'),
         avatarSpan
       );
@@ -129,10 +128,9 @@ function _updateAccountUI() {
       const letter = (_authUserInfo.username || _authUserInfo.name || '?')[0].toUpperCase();
       AetherUI.mount(
         new View('span')
-          .style('width', '22px').style('height', '22px').style('border-radius', '50%')
-          .style('background', 'var(--nr-accent)').style('display', 'flex')
-          .style('align-items', 'center').style('justify-content', 'center')
-          .style('font-size', '11px').style('font-weight', '600').style('color', '#fff')
+          .styles({width:'22px', height:'22px', borderRadius:'50%', background:'var(--nr-accent)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:'11px', fontWeight:'600', color:'#fff'})
           ._bindText(letter),
         avatarSpan
       );

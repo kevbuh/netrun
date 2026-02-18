@@ -188,7 +188,7 @@ function _populatePillMenuMoreItems() {
   }
 
   function _menuDivider() {
-    return new View('div').style('height', '1px').style('background', 'var(--aether-border)').margin('2px', '0');
+    return new View('div').styles({height:'1px', background:'var(--aether-border)'}).margin('2px', '0');
   }
 
   var items = [];
@@ -196,18 +196,18 @@ function _populatePillMenuMoreItems() {
   // Windows section
   if (typeof _browseWindows !== 'undefined' && _browseWindows.length > 0) {
     var header = Text('Windows').font('caption2').foreground('quaternary')
-      .style('padding', '4px 12px 2px').style('textTransform', 'uppercase').style('letterSpacing', '0.05em');
+      .styles({padding:'4px 12px 2px', textTransform:'uppercase', letterSpacing:'0.05em'});
     items.push(header);
 
     var winSvg = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 9h18" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     for (var i = 0; i < _browseWindows.length; i++) {
       (function(w) {
         var isActiveWin = w.id === _browseActiveWindow;
-        var countText = Text(String(w.tabs.length)).style('marginLeft', 'auto').font('caption2').foreground('quaternary');
+        var countText = Text(String(w.tabs.length)).styles({marginLeft:'auto'}).font('caption2').foreground('quaternary');
 
         var trailing = HStack([countText]);
         if (!isActiveWin && _browseWindows.length > 1) {
-          var closeSpan = Text('\u00d7').style('marginLeft', '4px').opacity('0.4').cursor();
+          var closeSpan = Text('\u00d7').styles({marginLeft:'4px'}).opacity('0.4').cursor();
           closeSpan.onTap(function(e) { e.stopPropagation(); browseCloseWindow(w.id); _populatePillMenuMoreItems(); });
           trailing = HStack([countText, closeSpan]);
         }
@@ -238,7 +238,7 @@ function _populatePillMenuMoreItems() {
 
   // Ad Blocker
   var adOn = Settings.get('adBlockEnabled') === 'true';
-  var adTrailing = Text(adOn ? 'On' : 'Off').font('caption2').style('marginLeft', 'auto').foreground('quaternary');
+  var adTrailing = Text(adOn ? 'On' : 'Off').font('caption2').styles({marginLeft:'auto'}).foreground('quaternary');
   items.push(_menuBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>',
     'Ad Blocker', function() { toggleAdBlock(); _closePillMenu(); }, { style: adOn ? { color: 'var(--nr-accent)' } : {}, trailing: adTrailing }));
 

@@ -71,7 +71,7 @@ async function renderUserProfile(username) {
       } else {
         var grid = new View('div');
         grid.el.className = 'grid gap-3';
-        grid.el.style.gridTemplateColumns = 'repeat(auto-fill, minmax(180px, 1fr))';
+        grid.styles({ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' });
         users.forEach(function(u) { AetherUI.append(_profileUserCard(u, 'grid'), grid.el); });
         AetherUI.mount(grid, allUsersEl);
       }
@@ -155,11 +155,11 @@ async function renderUserProfile(username) {
     // ── Header banner ──
     var banner = new View('div');
     banner.className('relative rounded-xl overflow-hidden mb-6');
-    banner.el.style.cssText = 'min-height:120px;' + (profile.profile_bg
+    banner.cssText('min-height:120px;' + (profile.profile_bg
       ? "background:url('" + profile.profile_bg.replace(/'/g, "\\'") + "') center/cover no-repeat"
-      : 'background:linear-gradient(135deg, ' + accentColor + '33, ' + accentColor + '11)');
+      : 'background:linear-gradient(135deg, ' + accentColor + '33, ' + accentColor + '11)'));
     var bannerGrad = new View('div');
-    bannerGrad.el.style.cssText = 'position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,var(--nr-bg-body),transparent)';
+    bannerGrad.cssText('position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,var(--nr-bg-body),transparent)');
     banner._appendChildren([bannerGrad]);
     if (isOwnProfile) {
       var bgBtn = new View('button');
@@ -175,11 +175,11 @@ async function renderUserProfile(username) {
     var avatar;
     if (profile.picture) {
       avatar = Image(profile.picture).className('w-16 h-16 rounded-full border-[3px]').attr('referrerpolicy', 'no-referrer');
-      avatar.el.style.borderColor = 'var(--nr-bg-body)';
+      avatar.styles({ borderColor: 'var(--nr-bg-body)' });
     } else {
       avatar = Text((profile.username || '?')[0].toUpperCase())
         .className('w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-[3px]');
-      avatar.el.style.cssText = 'border-color:var(--nr-bg-body);background:' + accentColor + '33;color:' + accentColor;
+      avatar.cssText('border-color:var(--nr-bg-body);background:' + accentColor + '33;color:' + accentColor);
     }
     var avatarWrap = new View('div');
     avatarWrap.className('relative group');
@@ -197,8 +197,9 @@ async function renderUserProfile(username) {
     var isOnline = profile.last_seen && (Date.now() / 1000 - profile.last_seen) < 300;
     var statusDot = new View('div');
     statusDot.className('w-2.5 h-2.5 rounded-full');
-    statusDot.el.style.background = isOnline ? '#22c55e' : '#6b7280';
-    if (isOnline) statusDot.el.style.boxShadow = '0 0 4px #22c55e80';
+    statusDot.styles(isOnline
+      ? { background: '#22c55e', boxShadow: '0 0 4px #22c55e80' }
+      : { background: '#6b7280' });
     statusDot.el.title = isOnline ? 'Online' : 'Offline';
 
     var nameCol = VStack(
@@ -212,7 +213,7 @@ async function renderUserProfile(username) {
         petCanvas.className('profile-status-pet shrink-0');
         petCanvas.el.width = 18; petCanvas.el.height = 18;
         petCanvas.attr('data-type', profile.status_emoji);
-        petCanvas.el.style.imageRendering = 'pixelated';
+        petCanvas.styles({ imageRendering: 'pixelated' });
         statusRow._appendChildren([petCanvas]);
       }
       if (profile.status_text) statusRow._appendChildren([Text(profile.status_text).className('text-dim text-[0.78rem]')]);

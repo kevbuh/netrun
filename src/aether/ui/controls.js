@@ -267,6 +267,277 @@
     return v;
   }
 
+  // ─── Textarea ────────────────────────────────────────────
+
+  function Textarea(binding, placeholder) {
+    var v = new View('textarea');
+    v.el.className = 'nr-textarea';
+
+    if (typeof binding === 'string' && !placeholder) {
+      v.el.placeholder = binding;
+      binding = null;
+    } else if (placeholder) {
+      v.el.placeholder = placeholder;
+    }
+
+    if (binding) {
+      v.el.value = S.resolve(binding);
+      v.el.addEventListener('input', function() {
+        if (S.isSignal(binding)) binding.value = v.el.value;
+        else if (S.isBinding(binding)) binding.value = v.el.value;
+      });
+      v._effects.push(S.Effect(function() {
+        var val = S.resolve(binding);
+        if (v.el.value !== val) v.el.value = val;
+      }));
+    }
+
+    v.rows = function(n) { v.el.rows = n; return v; };
+    v.maxLength = function(n) { v.el.maxLength = n; return v; };
+    v.autoResize = function() {
+      function resize() {
+        v.el.style.height = 'auto';
+        v.el.style.height = v.el.scrollHeight + 'px';
+      }
+      v.el.addEventListener('input', resize);
+      v.el.style.overflow = 'hidden';
+      v.el.style.resize = 'none';
+      // Resize on appear
+      var origAppear = v._onAppearFn;
+      v._onAppearFn = function() {
+        if (origAppear) origAppear();
+        resize();
+      };
+      return v;
+    };
+
+    return v;
+  }
+
+  // ─── Checkbox ───────────────────────────────────────────
+
+  function Checkbox(binding, label) {
+    var v = new View('label');
+    v.el.className = 'nr-checkbox-label';
+
+    var input = document.createElement('input');
+    input.type = 'checkbox';
+    input.className = 'nr-checkbox-input';
+    var box = document.createElement('span');
+    box.className = 'nr-checkbox';
+    v.el.appendChild(input);
+    v.el.appendChild(box);
+
+    if (label) {
+      var span = document.createElement('span');
+      span.textContent = label;
+      v.el.appendChild(span);
+    }
+
+    if (binding) {
+      input.checked = !!S.resolve(binding);
+      input.addEventListener('change', function() {
+        if (S.isSignal(binding)) binding.value = input.checked;
+        else if (S.isBinding(binding)) binding.value = input.checked;
+      });
+      v._effects.push(S.Effect(function() {
+        input.checked = !!S.resolve(binding);
+      }));
+    }
+
+    v.indeterminate = function() {
+      input.indeterminate = true;
+      return v;
+    };
+
+    return v;
+  }
+
+  // ─── RadioGroup ─────────────────────────────────────────
+
+  function RadioGroup(binding, options) {
+    var v = new View('div');
+    v.el.className = 'nr-radio-group';
+    var groupName = 'nr-radio-' + Math.random().toString(36).slice(2, 8);
+
+    function buildOptions(opts) {
+      v.el.innerHTML = '';
+      for (var i = 0; i < opts.length; i++) {
+        var opt = opts[i];
+        var val = typeof opt === 'object' ? opt.value : opt;
+        var lbl = typeof opt === 'object' ? opt.label : opt;
+
+        var label = document.createElement('label');
+        label.className = 'nr-radio-item';
+
+        var input = document.createElement('input');
+        input.type = 'radio';
+        input.className = 'nr-radio-input';
+        input.name = groupName;
+        input.value = val;
+
+        var circle = document.createElement('span');
+        circle.className = 'nr-radio';
+
+        var text = document.createElement('span');
+        text.textContent = lbl;
+
+        label.appendChild(input);
+        label.appendChild(circle);
+        label.appendChild(text);
+        v.el.appendChild(label);
+
+        if (binding) {
+          if (S.resolve(binding) === val) input.checked = true;
+          (function(inp, value) {
+            inp.addEventListener('change', function() {
+              if (inp.checked) {
+                if (S.isSignal(binding)) binding.value = value;
+                else if (S.isBinding(binding)) binding.value = value;
+              }
+            });
+          })(input, val);
+        }
+      }
+    }
+
+    if (options) buildOptions(options);
+
+    if (binding) {
+      v._effects.push(S.Effect(function() {
+        var cur = S.resolve(binding);
+        var radios = v.el.querySelectorAll('input[type="radio"]');
+        for (var i = 0; i < radios.length; i++) {
+          radios[i].checked = radios[i].value === cur;
+        }
+      }));
+    }
+
+    v.horizontal = function() { v.el.classList.add('nr-radio-group-horizontal'); return v; };
+    v.options = function(opts) { buildOptions(opts); return v; };
+
+    return v;
+  }
+
+  // ─── TabView ────────────────────────────────────────────
+
+  function TabView(binding, tabs) {
+    var v = new View('div');
+    v.el.className = 'nr-tab-view';
+    var _segmented = false;
+
+    var bar = document.createElement('div');
+    bar.className = 'nr-tab-bar';
+    var content = document.createElement('div');
+    content.className = 'nr-tab-content';
+    v.el.appendChild(bar);
+    v.el.appendChild(content);
+
+    function render(index) {
+      // Update buttons
+      var btns = bar.querySelectorAll('.nr-tab-btn');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.toggle('nr-tab-active', i === index);
+      }
+      // Update content
+      content.innerHTML = '';
+      if (tabs && tabs[index] && tabs[index].content) {
+        var child = tabs[index].content();
+        if (child instanceof View) {
+          content.appendChild(child.build());
+          if (child._onAppearFn) child._onAppearFn();
+        } else if (child instanceof HTMLElement) {
+          content.appendChild(child);
+        }
+      }
+    }
+
+    function buildTabs(tabList) {
+      bar.innerHTML = '';
+      for (var i = 0; i < tabList.length; i++) {
+        var btn = document.createElement('button');
+        btn.className = 'nr-tab-btn';
+        btn.textContent = tabList[i].label;
+        (function(idx) {
+          btn.addEventListener('click', function() {
+            if (S.isSignal(binding)) binding.value = idx;
+            else if (S.isBinding(binding)) binding.value = idx;
+          });
+        })(i);
+        bar.appendChild(btn);
+      }
+      render(S.resolve(binding) || 0);
+    }
+
+    if (tabs) buildTabs(tabs);
+
+    if (binding) {
+      v._effects.push(S.Effect(function() {
+        render(S.resolve(binding));
+      }));
+    }
+
+    v.segmented = function() {
+      _segmented = true;
+      bar.classList.add('nr-tab-bar-segmented');
+      return v;
+    };
+    v.underlined = function() {
+      _segmented = false;
+      bar.classList.remove('nr-tab-bar-segmented');
+      return v;
+    };
+
+    return v;
+  }
+
+  // ─── ProgressBar ────────────────────────────────────────
+
+  function ProgressBar(binding) {
+    var v = new View('div');
+    v.el.className = 'nr-progress';
+
+    var fill = document.createElement('div');
+    fill.className = 'nr-progress-fill';
+    v.el.appendChild(fill);
+
+    if (binding) {
+      fill.style.width = (S.resolve(binding) * 100) + '%';
+      v._effects.push(S.Effect(function() {
+        fill.style.width = (S.resolve(binding) * 100) + '%';
+      }));
+    }
+
+    v.tint = function(color) {
+      var resolved = color.startsWith('--') ? 'var(' + color + ')' : 'var(--nr-' + color + ')';
+      fill.style.background = resolved;
+      return v;
+    };
+    v.indeterminate = function() {
+      v.el.classList.add('nr-progress-indeterminate');
+      return v;
+    };
+
+    return v;
+  }
+
+  // ─── Pill ───────────────────────────────────────────────
+
+  function Pill(textOrBinding) {
+    var v = new View('span');
+    v.el.className = 'nr-pill';
+    v._bindText(textOrBinding);
+
+    v.accent = function() { v.el.classList.add('nr-pill-accent'); return v; };
+    v.outline = function() { v.el.classList.add('nr-pill-outline'); return v; };
+    v.small = function() { v.el.classList.add('nr-pill-sm'); return v; };
+    v.large = function() { v.el.classList.add('nr-pill-lg'); return v; };
+    v.dot = function() { v.el.classList.add('nr-pill-dot'); return v; };
+    v.interactive = function() { v.el.classList.add('nr-pill-interactive'); return v; };
+
+    return v;
+  }
+
   // ─── Export ───────────────────────────────────────────────
 
   window._AetherUIControls = {
@@ -275,7 +546,13 @@
     Toggle: Toggle,
     Slider: Slider,
     Picker: Picker,
-    Stepper: Stepper
+    Stepper: Stepper,
+    Textarea: Textarea,
+    Checkbox: Checkbox,
+    RadioGroup: RadioGroup,
+    TabView: TabView,
+    ProgressBar: ProgressBar,
+    Pill: Pill
   };
 
 })();

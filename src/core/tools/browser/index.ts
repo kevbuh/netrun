@@ -181,3 +181,41 @@ export const browserForward: Tool<z.infer<typeof emptyParams>, { status: string;
     return { success: true, data: { status: 'ok', message: 'Navigated forward' } };
   },
 };
+
+// ── Keyboard support ──
+
+const pressKeyParams = z.object({
+  key: z.string().describe('Key to press: "Enter", "Tab", "Escape", "ArrowDown", "ArrowUp", "Backspace", "Space", or any single character'),
+  modifiers: z.array(z.enum(['ctrl', 'shift', 'alt', 'meta'])).optional().describe('Optional modifier keys to hold'),
+  element_id: z.coerce.number().optional().describe('Optional element ID to target (defaults to active element)'),
+});
+
+export const browserPressKey: Tool<z.infer<typeof pressKeyParams>, { status: string; message: string }> = {
+  name: 'browser-press-key',
+  description: 'Press a keyboard key on the current page. Useful for Enter to submit forms, Tab to move focus, Escape to close dialogs, arrow keys for navigation, or modifier combos like Ctrl+A.',
+  category: 'browser',
+  access: ['agent'],
+  parameters: pressKeyParams,
+  async execute(input): Promise<ToolResult<{ status: string; message: string }>> {
+    const mods = input.modifiers?.length ? ` with ${input.modifiers.join('+')}` : '';
+    return { success: true, data: { status: 'ok', message: `Pressed ${input.key}${mods}` } };
+  },
+};
+
+// ── Storage inspection ──
+
+const getStorageParams = z.object({
+  type: z.enum(['cookies', 'localStorage', 'sessionStorage']).describe('Which storage to read'),
+  key_filter: z.string().optional().describe('Optional substring filter for key names'),
+});
+
+export const browserGetStorage: Tool<z.infer<typeof getStorageParams>, { status: string; message: string }> = {
+  name: 'browser-get-storage',
+  description: 'Read cookies, localStorage, or sessionStorage from the current page. Useful for debugging auth state and inspecting page data.',
+  category: 'browser',
+  access: ['agent'],
+  parameters: getStorageParams,
+  async execute(input): Promise<ToolResult<{ status: string; message: string }>> {
+    return { success: true, data: { status: 'pending', message: `Reading ${input.type}...` } };
+  },
+};

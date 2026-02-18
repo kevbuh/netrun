@@ -125,7 +125,7 @@ function _showHistoryDropdown(direction, buttonEl) {
   const rows = items.map(function(url, i) {
     var favImg = Image(_browseFaviconUrl(url))
       .frame({ width: 14, height: 14 }).cornerRadius('xs')
-      .style('flexShrink', '0')
+      .styles({flexShrink:'0'})
       .on('error', function() { this.style.display = 'none'; });
     var label = Text(_browseTitleFromUrl(url)).truncate();
     return HStack([favImg, label]).className('browse-history-dropdown-item nr-menu-item')
@@ -218,12 +218,11 @@ function _showTabsInPillDropdown() {
     var isActive = t.id === activeTab;
     var title = (t.title || 'New Tab').length > 40 ? (t.title || 'New Tab').slice(0, 38) + '\u2026' : (t.title || 'New Tab');
     var favView = t.favicon
-      ? Image(t.favicon).frame({ width: 14, height: 14 }).cornerRadius('xs').style('flexShrink', '0')
+      ? Image(t.favicon).frame({ width: 14, height: 14 }).cornerRadius('xs').styles({flexShrink:'0'})
           .on('error', function() { this.style.display = 'none'; })
       : RawHTML(globeSvg);
-    var titleView = Text(title).flex(1).style('minWidth', '0').truncate();
-    var closeBtn = Text('\u00d7').foreground('quaternary').style('fontSize', '1rem')
-      .style('lineHeight', '1').style('padding', '0 2px').opacity(0.5)
+    var titleView = Text(title).flex(1).styles({minWidth:'0'}).truncate();
+    var closeBtn = Text('\u00d7').foreground('quaternary').styles({fontSize:'1rem', lineHeight:'1', padding:'0 2px'}).opacity(0.5)
       .onHover(function() { closeBtn.el.style.opacity = '1'; }, function() { closeBtn.el.style.opacity = '0.5'; })
       .onTap(function(e) {
         e.stopPropagation();
@@ -241,7 +240,7 @@ function _showTabsInPillDropdown() {
   if (pinnedItems.length) {
     pinnedItems.forEach(function(t) { views.push(renderTabView(t)); });
     if (unpinnedItems.length) {
-      views.push(new View('div').style('height', '1px').style('background', 'var(--aether-border, var(--nr-border-default))').style('margin', '2px 12px'));
+      views.push(new View('div').styles({height:'1px', background:'var(--aether-border, var(--nr-border-default))', margin:'2px 12px'}));
     }
   }
   unpinnedItems.forEach(function(t) { views.push(renderTabView(t)); });
@@ -794,7 +793,7 @@ function _browseShowGroupContextMenu(e, groupId) {
   ];
 
   var menuView = VStack(menuItems).className('browse-ctx-menu nr-menu').material('thick')
-    .position('fixed').style('left', e.clientX + 'px').style('top', e.clientY + 'px').zIndex('max');
+    .position('fixed').styles({left: e.clientX + 'px', top: e.clientY + 'px'}).zIndex('max');
 
   var menu = menuView.build();
   document.body.appendChild(menu);

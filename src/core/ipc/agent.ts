@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import { runAgent, resolveActionResult } from '../agents/runtime.js';
-import { researchAssistant } from '../agents/builtin/research-assistant.js';
+import { agentRegistry } from '../agents/registry.js';
 import type { AgentContext, AgentMessage } from '../agents/types.js';
 import { activeSessions } from './shared.js';
 
@@ -17,8 +17,20 @@ export function registerAgentIPC(): void {
   }) => {
     const { sessionId, messages, context } = options;
 
-    // Look up agent definition (default: research-assistant)
-    const agent = researchAssistant; // TODO: agent registry for multiple agents
+    // Look up agent definition from registry (default: research-assistant)
+    const agent = agentRegistry.get(options.agentId ?? 'research-assistant')
+      ?? agentRegistry.get('research-assistant');
+
+    if (!agent) {
+      const webContents = event.sender;
+      if (!webContents.isDestroyed()) {
+        webContents.send('agent:event', sessionId, {
+          type: 'error',
+          error: `Unknown agent: ${options.agentId}`,
+        });
+      }
+      return { sessionId };
+    }
 
     // Set up abort controller
     const abortController = new AbortController();
@@ -75,6 +87,11 @@ export function registerAgentIPC(): void {
   /** List active agent sessions */
   ipcMain.handle('agent:sessions', () => {
     return [...activeSessions.keys()];
+  });
+
+  /** List all registered agents (lightweight metadata) */
+  ipcMain.handle('agent:list', () => {
+    return agentRegistry.list();
   });
 
   /** Receive async action results from the renderer */
