@@ -346,6 +346,15 @@ export function browseSelectTab(id) {
   _browseUpdateScrollPill(-1);
   _browseUpdateTokenCount(0);
 
+  // Clean up chat morph if switching away from a chat tab
+  const prevTab = win.tabs.find(t => t.id === win.activeTab);
+  if (prevTab && prevTab._chatPage && prevTab.id !== id) {
+    const ntpMorphed = document.getElementById('browse-content')?.querySelector('.browse-ntp.chat-mode');
+    if (ntpMorphed && typeof chatViewCleanupMorph === 'function') chatViewCleanupMorph();
+    delete prevTab._chatPage;
+    delete prevTab._chatThreadId;
+  }
+
   win.activeTab = id;
   const tab = win.tabs.find(t => t.id === id);
   // Focus timer: start/stop based on new tab's URL
@@ -517,11 +526,77 @@ export function _browseUpdateNewTabPage(tab) {
       searchInput.onblur = function() { _browseUrlScheduleHide(); };
       searchInput.onkeydown = function(ev) { _browseUrlKeydown(ev); };
 
-      // + button (add files)
-      var addBtn = new View('button').className('ntp-add-btn').attr('type', 'button').attr('title', 'Add tabs or files');
+      // + button (dropdown menu)
+      var addBtn = new View('button').className('ntp-add-btn').attr('type', 'button').attr('title', 'More options');
       addBtn.el.innerHTML = plusSvg;
       addBtn.on('mousedown', function(e) { e.preventDefault(); });
-      addBtn.onTap(function() { _browseUrlCancelHide(); fileInput.click(); });
+      addBtn.onTap(function() {
+        _browseUrlCancelHide();
+        // Dismiss existing menu if any
+        var existing = document.querySelector('.ntp-plus-menu');
+        if (existing) { existing.remove(); return; }
+
+        var icons = {
+          file: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 002.112 2.13"/></svg>',
+          chat: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>',
+          research: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v16.5c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9zm3.75 11.625a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>',
+          terminal: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3M3.75 3.75h16.5v16.5H3.75z"/></svg>',
+          notebook: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>',
+        };
+
+        function _menuRow(iconHtml, label, action) {
+          var iconView = RawHTML(iconHtml);
+          iconView.el.style.cssText = 'width:20px;height:20px;flex-shrink:0;color:var(--nr-text-secondary);';
+          var row = HStack([iconView, Text(label)]).alignment('center').gap(3)
+            .className('ntp-plus-menu-item');
+          row.onTap(function() {
+            var m = document.querySelector('.ntp-plus-menu');
+            if (m) m.remove();
+            action();
+          });
+          return row;
+        }
+
+        var rows = [
+          _menuRow(icons.file, 'Add files', function() { fileInput.click(); }),
+          new View('div').className('ntp-plus-menu-divider'),
+          _menuRow(icons.chat, 'Chat', function() {
+            var input = document.getElementById('search-query');
+            var text = input ? input.value.trim() : '';
+            if (text && typeof chatViewNewThread === 'function') chatViewNewThread(text);
+            else if (typeof openChatPage === 'function') openChatPage();
+          }),
+          _menuRow(icons.research, 'Research', function() {
+            if (typeof openResearch === 'function') openResearch();
+          }),
+          _menuRow(icons.terminal, 'Terminal', function() {
+            if (typeof wmOpen === 'function') wmOpen('terminal');
+          }),
+          _menuRow(icons.notebook, 'Notebook', function() {
+            if (typeof wmOpen === 'function') wmOpen('notebook');
+          }),
+        ];
+
+        var menuView = VStack(rows).className('ntp-plus-menu nr-menu').material('thin');
+        var menu = menuView.build();
+        document.body.appendChild(menu);
+
+        // Position above the + button
+        var rect = addBtn.el.getBoundingClientRect();
+        menu.style.position = 'fixed';
+        menu.style.left = rect.left + 'px';
+        menu.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+        menu.style.zIndex = '10001';
+
+        // Close on outside click
+        setTimeout(function() {
+          document.addEventListener('mousedown', function _dismiss(e) {
+            if (menu.contains(e.target) || addBtn.el.contains(e.target)) return;
+            menu.remove();
+            document.removeEventListener('mousedown', _dismiss, true);
+          }, true);
+        }, 0);
+      });
 
       // Mic button
       var micBtn = new View('button').className('ntp-mic-btn').attr('type', 'button').attr('title', 'Voice input');

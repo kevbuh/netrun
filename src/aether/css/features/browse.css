@@ -222,6 +222,31 @@
       transform: scale(1.08);
     }
 
+    /* ── NTP Plus Menu ── */
+    .ntp-plus-menu {
+      min-width: 200px;
+      padding: 6px 0;
+      border-radius: var(--nr-radius-lg);
+      background: var(--nr-bg-raised);
+      border: 1px solid var(--nr-border);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .ntp-plus-menu-item {
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--nr-text-primary);
+      transition: background 0.1s;
+    }
+    .ntp-plus-menu-item:hover {
+      background: var(--nr-bg-hover);
+    }
+    .ntp-plus-menu-divider {
+      height: 1px;
+      background: var(--nr-border);
+      margin: 4px 12px;
+    }
+
     /* ── NTP File Cards ── */
     .ntp-file-chips-container {
       display: flex;
