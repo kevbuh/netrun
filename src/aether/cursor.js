@@ -324,9 +324,11 @@ function _initCursor() {
     });
 
     // Also inject if already loaded
-    if (wv.getWebContentsId && wv.getWebContentsId()) {
-      doInject();
-    }
+    try {
+      if (wv.getWebContentsId && wv.getWebContentsId()) {
+        doInject();
+      }
+    } catch (e) { /* webview not ready yet — dom-ready listener will handle it */ }
   }
 
   /**

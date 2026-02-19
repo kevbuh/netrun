@@ -214,6 +214,7 @@ var AetherUI = {
 // ─── Expose ───────────────────────────────────────────────
 
 window.AetherUI = AetherUI;
+AetherUI.globals();
 
 // Extend Aether if loaded
 if (window.Aether) {

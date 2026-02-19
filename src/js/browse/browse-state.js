@@ -65,8 +65,10 @@ export let _browseNextPaneId = 1;
 // Return view for "back" button — backed by Settings.get('_browseReturnView')
 
 // Convenience getters for current window's tabs (backward compatibility)
+// NOTE: read window._browseActiveWindow because other modules assign to it via bare name
+// (which updates the window property, not this module's local let)
 export function _getCurrentWindow() {
-  return _browseWindows.find(w => w.id === _browseActiveWindow);
+  return _browseWindows.find(w => w.id === window._browseActiveWindow);
 }
 
 Object.defineProperty(window, '_browseTabs', {
@@ -120,11 +122,11 @@ export function _browseSaveTabsNow() {
   }));
   Settings.setJSON(_getBrowseStorageKey('browseWindows'), {
     windows: data,
-    activeWindow: _browseActiveWindow,
-    nextWindowId: _browseNextWindowId,
-    nextTabId: _browseNextTabId,
-    nextGroupId: _browseNextGroupId,
-    nextPaneId: _browseNextPaneId
+    activeWindow: window._browseActiveWindow,
+    nextWindowId: window._browseNextWindowId,
+    nextTabId: window._browseNextTabId,
+    nextGroupId: window._browseNextGroupId,
+    nextPaneId: window._browseNextPaneId
   });
 }
 
