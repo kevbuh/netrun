@@ -220,6 +220,14 @@ export function openChatPage(threadId) {
   }
 
   const container = document.getElementById('browse-content');
+
+  // If coming from the chat list page, tear it down first
+  if (tab._chatPage && !tab._chatThreadId && tab.el) {
+    tab.el.remove();
+    tab.el = null;
+    delete tab._chatPage;
+  }
+
   let ntp = container?.querySelector('.browse-ntp');
 
   // If already in chat-mode, just switch threads
@@ -313,7 +321,6 @@ async function _chatViewRenderThreadList(container) {
   const threads = await electronAPI.dbQuery('chat-thread-list', 50, 0);
 
   const chatIcon = icon('chatHistory', { size: 18 });
-  const backIcon = icon('chevronLeft', { size: 16 });
   const plusIcon = icon('plus', { size: 14 });
 
   // Group threads by date
@@ -334,7 +341,6 @@ async function _chatViewRenderThreadList(container) {
 
   // Header: back button + icon + title + new chat button
   html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">';
-  html += '<button onclick="if(typeof browseBack===\'function\')browseBack();" style="background:none;border:none;cursor:pointer;padding:4px;border-radius:6px;color:var(--nr-text-secondary);display:flex;align-items:center;transition:background 0.15s;" onmouseenter="this.style.background=\'var(--nr-bg-raised)\'" onmouseleave="this.style.background=\'none\'">' + backIcon + '</button>';
   html += '<span style="display:flex;align-items:center;color:var(--nr-text-quaternary);">' + chatIcon + '</span>';
   html += '<span style="font-size:1.1rem;font-weight:600;color:var(--nr-text-primary);flex:1;">Chats</span>';
   html += '<button onclick="_chatListNewChat()" style="background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;color:var(--nr-text-secondary);display:flex;align-items:center;gap:4px;font-size:0.75rem;transition:background 0.15s;" onmouseenter="this.style.background=\'var(--nr-bg-raised)\'" onmouseleave="this.style.background=\'none\'">' + plusIcon + ' New</button>';
@@ -364,13 +370,13 @@ async function _chatViewRenderThreadList(container) {
       const safeId = escapeHtml(t.id);
       const title = escapeHtml(t.title || 'Untitled');
       html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" '
-        + 'onmouseenter="this.style.background=\'var(--nr-bg-raised)\';this.querySelector(\'.chat-del\').style.opacity=\'1\'" '
-        + 'onmouseleave="this.style.background=\'none\';this.querySelector(\'.chat-del\').style.opacity=\'0\'" '
+        + 'onmouseenter="this.style.background=\'var(--nr-bg-raised)\';this.querySelector(\'.chat-del\').style.display=\'flex\';this.querySelector(\'.chat-time\').style.display=\'none\'" '
+        + 'onmouseleave="this.style.background=\'none\';this.querySelector(\'.chat-del\').style.display=\'none\';this.querySelector(\'.chat-time\').style.display=\'\'" '
         + 'onclick="openChatPage(\'' + safeId + '\')">';
       html += '<svg style="width:14px;height:14px;color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>';
       html += '<span style="font-size:0.82rem;color:var(--nr-text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + title + '</span>';
-      html += '<span style="font-size:0.7rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">' + escapeHtml(time) + '</span>';
-      html += '<button class="chat-del" onclick="event.stopPropagation();_chatListDelete(\'' + safeId + '\');" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);opacity:0;flex-shrink:0;transition:opacity 0.15s;">'
+      html += '<span class="chat-time" style="font-size:0.7rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">' + escapeHtml(time) + '</span>';
+      html += '<button class="chat-del" onclick="event.stopPropagation();_chatListDelete(\'' + safeId + '\');" style="display:none;align-items:center;background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);flex-shrink:0;border-radius:4px;">'
         + '<svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>'
         + '</button>';
       html += '</div>';

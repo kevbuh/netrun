@@ -4,6 +4,7 @@
   --aether-dropdown-bg: var(--aether-bg);
   --aether-text: #fff;
   --aether-text-secondary: #ccc;
+  --aether-text-muted: rgba(255,255,255,0.55);
   --aether-text-dim: rgba(255,255,255,0.55);
   --aether-text-dimmer: rgba(255,255,255,0.4);
   --aether-text-dimmest: rgba(255,255,255,0.3);
@@ -19,6 +20,7 @@
   --aether-bg: #fff;
   --aether-text: #111;
   --aether-text-secondary: #444;
+  --aether-text-muted: rgba(0,0,0,0.55);
   --aether-text-dim: rgba(0,0,0,0.55);
   --aether-text-dimmer: rgba(0,0,0,0.4);
   --aether-text-dimmest: rgba(0,0,0,0.3);
@@ -34,6 +36,7 @@
   --aether-bg: var(--nr-bg-body);
   --aether-text: var(--nr-text-primary);
   --aether-text-secondary: var(--nr-text-secondary);
+  --aether-text-muted: var(--nr-text-tertiary);
   --aether-text-dim: var(--nr-text-secondary);
   --aether-text-dimmer: var(--nr-text-quaternary);
   --aether-text-dimmest: var(--nr-text-quaternary);

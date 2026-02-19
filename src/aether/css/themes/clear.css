@@ -10,7 +10,14 @@
 
   --nr-text-primary:    rgba(0, 0, 0, 0.85);
   --nr-text-secondary:  rgba(0, 0, 0, 0.65);
---nr-text-quaternary: rgba(0, 0, 0, 0.35);
+  --nr-text-tertiary:   rgba(0, 0, 0, 0.50);
+  --nr-text-quaternary: rgba(0, 0, 0, 0.35);
+
+  /* Adaptive tint: used for hover backgrounds & separators.
+     Light bg → dark tint, dark bg → light tint.
+     Controlled by adaptive-text JS when active. */
+  --nr-tint:         rgba(0, 0, 0, 0.07);
+  --nr-tint-strong:  rgba(0, 0, 0, 0.12);
 
   --nr-border-default: rgba(255,255,255,0.08);
   --nr-border-strong:  rgba(255,255,255,0.12);
@@ -72,24 +79,24 @@
     inset 0 0.5px 0 rgba(255, 255, 255, 0.9);
 }
 [data-theme="clear"] .browse-mode #pill-nav-icons .sidebar-icon {
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--nr-text-secondary);
 }
 [data-theme="clear"] .browse-mode #pill-nav-icons .sidebar-icon:hover {
-  background: rgba(0, 0, 0, 0.07);
-  color: rgba(0, 0, 0, 0.85);
+  background: var(--nr-tint);
+  color: var(--nr-text-primary);
 }
 [data-theme="clear"] .browse-mode #pill-nav-icons #pill-menu-more-items {
-  border-top-color: rgba(0, 0, 0, 0.09);
+  border-top-color: var(--nr-tint);
 }
 [data-theme="clear"] .browse-mode #pill-nav-icons #pill-menu-more-items button {
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--nr-text-secondary);
 }
 [data-theme="clear"] .browse-mode #pill-nav-icons #pill-menu-more-items button:hover {
-  background: rgba(0, 0, 0, 0.07);
-  color: rgba(0, 0, 0, 0.85);
+  background: var(--nr-tint);
+  color: var(--nr-text-primary);
 }
 [data-theme="clear"] .browse-mode #pill-nav-icons #pill-menu-more-items button:disabled {
-  color: rgba(0, 0, 0, 0.25);
+  color: var(--nr-text-quaternary);
 }
 
 /* Clear theme: container-scoped overrides for opaque frosted surfaces
@@ -97,12 +104,12 @@
 [data-theme="clear"] .ntp-search-box,
 [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open,
 [data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-ctx-tray {
-  --nr-border-default:  rgba(0, 0, 0, 0.08);
-  --nr-border-strong:   rgba(0, 0, 0, 0.12);
-  --nr-border-subtle:   rgba(0, 0, 0, 0.06);
-  --nr-bg-raised:       rgba(0, 0, 0, 0.05);
+  --nr-border-default:  var(--nr-tint);
+  --nr-border-strong:   var(--nr-tint-strong);
+  --nr-border-subtle:   var(--nr-tint);
+  --nr-bg-raised:       var(--nr-tint);
   --nr-bg-surface:      rgba(235, 233, 231, 0.97);
-  --nr-bg-input:        rgba(0, 0, 0, 0.04);
+  --nr-bg-input:        var(--nr-tint);
 }
 
 /* Clear theme: island URL dropdown */
@@ -118,10 +125,10 @@
   background: rgba(235, 233, 231, 0.97) !important;
 }
 [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown div {
-  color: rgba(0, 0, 0, 0.7) !important;
+  color: var(--nr-text-secondary) !important;
 }
 [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-browse-url-input {
-  color: rgba(0, 0, 0, 0.85);
+  color: var(--nr-text-primary);
 }
 
 /* Clear theme: island tabs tray dropdown */
@@ -134,10 +141,10 @@
     inset 0 0.5px 0 rgba(255, 255, 255, 0.9);
 }
 [data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-tab-item {
-  color: rgba(0, 0, 0, 0.7);
+  color: var(--nr-text-secondary);
 }
 [data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-tab-item:hover {
-  background: rgba(0, 0, 0, 0.07);
+  background: var(--nr-tint);
 }
 
 /* Clear theme: audio & pulse dropdowns */
@@ -151,26 +158,26 @@
     inset 0 0.5px 0 rgba(255, 255, 255, 0.9);
 }
 [data-theme="clear"] .audio-pill-dropdown button {
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--nr-text-secondary);
 }
 [data-theme="clear"] .audio-pill-dropdown button:hover {
-  background: rgba(0, 0, 0, 0.07);
-  color: rgba(0, 0, 0, 0.85);
+  background: var(--nr-tint);
+  color: var(--nr-text-primary);
 }
 [data-theme="clear"] .audio-pill-dropdown button:disabled {
-  color: rgba(0, 0, 0, 0.25);
+  color: var(--nr-text-quaternary);
 }
 [data-theme="clear"] .pulse-dropdown-header {
-  color: rgba(0, 0, 0, 0.4);
+  color: var(--nr-text-quaternary);
 }
 [data-theme="clear"] .pulse-event-row {
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--nr-text-secondary);
 }
 [data-theme="clear"] .pulse-event-row .pulse-label {
-  color: rgba(0, 0, 0, 0.5);
+  color: var(--nr-text-tertiary);
 }
 [data-theme="clear"] .pulse-event-row .pulse-age {
-  color: rgba(0, 0, 0, 0.25);
+  color: var(--nr-text-quaternary);
 }
 
 /* Clear theme: annotation tray dropdown */
@@ -187,22 +194,22 @@
   border: 0.5px solid rgba(255, 255, 255, 0.6);
 }
 [data-theme="clear"] .island-ann-header {
-  color: rgba(0, 0, 0, 0.4);
+  color: var(--nr-text-quaternary);
 }
 [data-theme="clear"] .island-ann-item {
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--nr-text-secondary);
 }
 [data-theme="clear"] .island-ann-item:hover {
-  background: rgba(0, 0, 0, 0.07);
+  background: var(--nr-tint);
 }
 [data-theme="clear"] .island-ann-text {
-  color: rgba(0, 0, 0, 0.5);
+  color: var(--nr-text-tertiary);
 }
 [data-theme="clear"] .island-ann-conf {
-  color: rgba(0, 0, 0, 0.25);
+  color: var(--nr-text-quaternary);
 }
 [data-theme="clear"] .island-ann-actions button {
-  color: rgba(0, 0, 0, 0.4);
+  color: var(--nr-text-quaternary);
 }
 
 /* Clear theme: NTP search box should be translucent, not opaque */
@@ -224,13 +231,18 @@
 
 /* ── Clear theme: dark OS variant ──────────────────────────────────────
    When the system is in dark mode the desktop behind is dark,
-   so chrome switches to dark frosted surfaces with light text. */
+   so chrome switches to dark frosted surfaces with light text.
+   Text colors are handled via --nr-text-* tokens (no per-element overrides needed). */
 
 @media (prefers-color-scheme: dark) {
   [data-theme="clear"] {
     --nr-text-primary:    rgba(255, 255, 255, 0.9);
     --nr-text-secondary:  rgba(255, 255, 255, 0.65);
+    --nr-text-tertiary:   rgba(255, 255, 255, 0.50);
     --nr-text-quaternary: rgba(255, 255, 255, 0.35);
+
+    --nr-tint:         rgba(255, 255, 255, 0.10);
+    --nr-tint-strong:  rgba(255, 255, 255, 0.15);
 
     --nr-border-default: rgba(255, 255, 255, 0.1);
     --nr-border-strong:  rgba(255, 255, 255, 0.15);
@@ -255,7 +267,7 @@
     background: rgba(30, 30, 30, 0.98);
   }
 
-  /* Nav icons */
+  /* Nav icons — dark frosted surface */
   [data-theme="clear"] .browse-mode #pill-nav-icons {
     background: rgba(30, 30, 30, 0.97);
     border-color: rgba(255, 255, 255, 0.12);
@@ -264,40 +276,15 @@
       0 2px 8px rgba(0, 0, 0, 0.15),
       inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
   }
-  [data-theme="clear"] .browse-mode #pill-nav-icons .sidebar-icon {
-    color: rgba(255, 255, 255, 0.6);
-  }
-  [data-theme="clear"] .browse-mode #pill-nav-icons .sidebar-icon:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.9);
-  }
-  [data-theme="clear"] .browse-mode #pill-nav-icons #pill-menu-more-items {
-    border-top-color: rgba(255, 255, 255, 0.1);
-  }
-  [data-theme="clear"] .browse-mode #pill-nav-icons #pill-menu-more-items button {
-    color: rgba(255, 255, 255, 0.6);
-  }
-  [data-theme="clear"] .browse-mode #pill-nav-icons #pill-menu-more-items button:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.9);
-  }
-  [data-theme="clear"] .browse-mode #pill-nav-icons #pill-menu-more-items button:disabled {
-    color: rgba(255, 255, 255, 0.2);
-  }
 
-  /* Container-scoped token overrides for dropdowns */
+  /* Container-scoped overrides for dark frosted dropdowns */
   [data-theme="clear"] .ntp-search-box,
   [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open,
   [data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-ctx-tray {
-    --nr-border-default:  rgba(255, 255, 255, 0.1);
-    --nr-border-strong:   rgba(255, 255, 255, 0.15);
-    --nr-border-subtle:   rgba(255, 255, 255, 0.07);
-    --nr-bg-raised:       rgba(255, 255, 255, 0.08);
     --nr-bg-surface:      rgba(30, 30, 30, 0.97);
-    --nr-bg-input:        rgba(255, 255, 255, 0.06);
   }
 
-  /* URL dropdown */
+  /* URL dropdown — dark frosted */
   [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open {
     background: rgba(30, 30, 30, 0.97) !important;
     border-color: rgba(255, 255, 255, 0.12);
@@ -309,14 +296,8 @@
   [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown {
     background: rgba(30, 30, 30, 0.97) !important;
   }
-  [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown div {
-    color: rgba(255, 255, 255, 0.7) !important;
-  }
-  [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-browse-url-input {
-    color: rgba(255, 255, 255, 0.9);
-  }
 
-  /* Tabs tray */
+  /* Tabs tray — dark frosted */
   [data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-ctx-tray {
     background: rgba(30, 30, 30, 0.97) !important;
     border-color: rgba(255, 255, 255, 0.12);
@@ -325,14 +306,8 @@
       0 2px 8px rgba(0, 0, 0, 0.15),
       inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
   }
-  [data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-tab-item {
-    color: rgba(255, 255, 255, 0.7);
-  }
-  [data-theme="clear"] .browse-mode.island-mode #pill-island-tabs-anchor .island-tab-item:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
 
-  /* Audio & pulse dropdowns */
+  /* Audio & pulse dropdowns — dark frosted */
   [data-theme="clear"] .audio-pill-dropdown,
   [data-theme="clear"] .pulse-dropdown {
     background: rgba(30, 30, 30, 0.97);
@@ -342,30 +317,8 @@
       0 2px 8px rgba(0, 0, 0, 0.15),
       inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
   }
-  [data-theme="clear"] .audio-pill-dropdown button {
-    color: rgba(255, 255, 255, 0.6);
-  }
-  [data-theme="clear"] .audio-pill-dropdown button:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.9);
-  }
-  [data-theme="clear"] .audio-pill-dropdown button:disabled {
-    color: rgba(255, 255, 255, 0.2);
-  }
-  [data-theme="clear"] .pulse-dropdown-header {
-    color: rgba(255, 255, 255, 0.4);
-  }
-  [data-theme="clear"] .pulse-event-row {
-    color: rgba(255, 255, 255, 0.6);
-  }
-  [data-theme="clear"] .pulse-event-row .pulse-label {
-    color: rgba(255, 255, 255, 0.5);
-  }
-  [data-theme="clear"] .pulse-event-row .pulse-age {
-    color: rgba(255, 255, 255, 0.25);
-  }
 
-  /* Annotation tray */
+  /* Annotation tray — dark frosted */
   [data-theme="clear"] .pill-island[data-island-id="annotate"] .island-ctx-tray {
     background: rgba(30, 30, 30, 0.97) !important;
     border-color: rgba(255, 255, 255, 0.12);
@@ -377,23 +330,5 @@
   [data-theme="clear"] .pill-island[data-island-id="annotate"].island-has-items.island-tray-open {
     background: rgba(30, 30, 30, 0.97) !important;
     border-color: rgba(255, 255, 255, 0.12);
-  }
-  [data-theme="clear"] .island-ann-header {
-    color: rgba(255, 255, 255, 0.4);
-  }
-  [data-theme="clear"] .island-ann-item {
-    color: rgba(255, 255, 255, 0.6);
-  }
-  [data-theme="clear"] .island-ann-item:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-  [data-theme="clear"] .island-ann-text {
-    color: rgba(255, 255, 255, 0.5);
-  }
-  [data-theme="clear"] .island-ann-conf {
-    color: rgba(255, 255, 255, 0.25);
-  }
-  [data-theme="clear"] .island-ann-actions button {
-    color: rgba(255, 255, 255, 0.4);
   }
 }

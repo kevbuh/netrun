@@ -1025,6 +1025,8 @@ document.addEventListener('keydown', (e) => {
 });
 
 export function _browseTitleFromUrl(url) {
+  if (url === 'ntp://' || url === 'ntp://newtab') return 'New Tab';
+  if (url === 'chat://') return 'Chats';
   try {
     const u = new URL(url);
     if (u.hostname === 'www.google.com' && u.pathname === '/search') {
@@ -1201,14 +1203,30 @@ export let _browseNavDirection = null;
 // Hide/restore active webview so DOM popups can render on top (Electron GPU compositing fix)
 
 export function browseBack() {
-  // Intercept back nav when in chat morph mode — un-morph back to NTP
+  // Intercept back nav when in chat mode — return to NTP
   const tab0 = _browseTabs.find(t => t.id === _browseActiveTab);
   if (tab0 && tab0._chatPage) {
+    // Morphed NTP chat — un-morph
     const ntp = document.getElementById('browse-content')?.querySelector('.browse-ntp.chat-mode');
     if (ntp && typeof chatViewUnmorph === 'function') {
       chatViewUnmorph();
       return;
     }
+    // Chat list page — tear down and restore NTP
+    if (tab0.el) { tab0.el.remove(); tab0.el = null; }
+    delete tab0._chatPage;
+    delete tab0._chatThreadId;
+    tab0.url = 'ntp://';
+    tab0.title = 'New Tab';
+    tab0.favicon = '';
+    tab0.blank = true;
+    tab0.backStack = [];
+    tab0.forwardStack = [];
+    _browseUpdateNewTabPage(tab0);
+    _browseRenderTabs();
+    const urlInput = document.getElementById('browse-url-input');
+    _browseSetUrlDisplay(urlInput, 'ntp://');
+    return;
   }
   const el = _browseActiveEl();
   if (_browseIsElectron && el && el.canGoBack && el.canGoBack()) { _browseNavDirection = 'back'; el.goBack(); return; }

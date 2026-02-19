@@ -105,11 +105,84 @@ export function _browseApplyAdaptiveColor(tab) {
     _browseResetAdaptiveColor();
     return;
   }
-  document.documentElement.style.setProperty('--nr-bg-body', `rgb(${color.r},${color.g},${color.b})`);
+  const el = document.documentElement;
+  el.style.setProperty('--nr-bg-body', `rgb(${color.r},${color.g},${color.b})`);
+  // Adaptive text: flip text tokens to contrast with the adaptive background
+  _browseApplyAdaptiveText(color);
+}
+
+// Compute relative luminance (sRGB → linear → BT.709)
+function _relativeLuminance(r, g, b) {
+  const lin = v => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+// Set text + tint + aether token overrides to guarantee contrast against adaptive bg
+function _browseApplyAdaptiveText({ r, g, b }) {
+  const lum = _relativeLuminance(r, g, b);
+  const el = document.documentElement;
+  if (lum > 0.4) {
+    // Light background → dark text & dark tints
+    el.style.setProperty('--nr-text-primary',    'rgba(0,0,0,0.85)');
+    el.style.setProperty('--nr-text-secondary',   'rgba(0,0,0,0.60)');
+    el.style.setProperty('--nr-text-tertiary',    'rgba(0,0,0,0.50)');
+    el.style.setProperty('--nr-text-quaternary',  'rgba(0,0,0,0.35)');
+    el.style.setProperty('--nr-tint',             'rgba(0,0,0,0.07)');
+    el.style.setProperty('--nr-tint-strong',      'rgba(0,0,0,0.12)');
+    // Aether panel vars (island, pill bar, etc.)
+    el.style.setProperty('--aether-text',          'rgba(0,0,0,0.85)');
+    el.style.setProperty('--aether-text-secondary', 'rgba(0,0,0,0.60)');
+    el.style.setProperty('--aether-text-dim',      'rgba(0,0,0,0.50)');
+    el.style.setProperty('--aether-text-dimmer',   'rgba(0,0,0,0.35)');
+    el.style.setProperty('--aether-text-dimmest',  'rgba(0,0,0,0.20)');
+    el.style.setProperty('--aether-text-muted',    'rgba(0,0,0,0.50)');
+    el.style.setProperty('--aether-placeholder',   'rgba(0,0,0,0.35)');
+    el.style.setProperty('--aether-border',        'rgba(0,0,0,0.10)');
+    el.style.setProperty('--aether-hover',         'rgba(0,0,0,0.05)');
+    el.style.setProperty('--aether-hover-subtle',  'rgba(0,0,0,0.04)');
+    el.style.setProperty('--aether-scrollbar',     'rgba(0,0,0,0.12)');
+  } else if (lum < 0.15) {
+    // Dark background → light text & light tints
+    el.style.setProperty('--nr-text-primary',    'rgba(255,255,255,0.90)');
+    el.style.setProperty('--nr-text-secondary',   'rgba(255,255,255,0.60)');
+    el.style.setProperty('--nr-text-tertiary',    'rgba(255,255,255,0.50)');
+    el.style.setProperty('--nr-text-quaternary',  'rgba(255,255,255,0.35)');
+    el.style.setProperty('--nr-tint',             'rgba(255,255,255,0.10)');
+    el.style.setProperty('--nr-tint-strong',      'rgba(255,255,255,0.15)');
+    // Aether panel vars
+    el.style.setProperty('--aether-text',          'rgba(255,255,255,0.90)');
+    el.style.setProperty('--aether-text-secondary', 'rgba(255,255,255,0.60)');
+    el.style.setProperty('--aether-text-dim',      'rgba(255,255,255,0.50)');
+    el.style.setProperty('--aether-text-dimmer',   'rgba(255,255,255,0.35)');
+    el.style.setProperty('--aether-text-dimmest',  'rgba(255,255,255,0.20)');
+    el.style.setProperty('--aether-text-muted',    'rgba(255,255,255,0.50)');
+    el.style.setProperty('--aether-placeholder',   'rgba(255,255,255,0.35)');
+    el.style.setProperty('--aether-border',        'rgba(255,255,255,0.08)');
+    el.style.setProperty('--aether-hover',         'rgba(255,255,255,0.08)');
+    el.style.setProperty('--aether-hover-subtle',  'rgba(255,255,255,0.06)');
+    el.style.setProperty('--aether-scrollbar',     'rgba(255,255,255,0.12)');
+  } else {
+    // Mid-range — let theme tokens handle it
+    _browseResetAdaptiveText();
+  }
 }
 
 export function _browseResetAdaptiveColor() {
   document.documentElement.style.removeProperty('--nr-bg-body');
+  _browseResetAdaptiveText();
+}
+
+var _adaptiveTextProps = [
+  '--nr-text-primary', '--nr-text-secondary', '--nr-text-tertiary',
+  '--nr-text-quaternary', '--nr-tint', '--nr-tint-strong',
+  '--aether-text', '--aether-text-secondary', '--aether-text-dim',
+  '--aether-text-dimmer', '--aether-text-dimmest', '--aether-text-muted',
+  '--aether-placeholder', '--aether-border', '--aether-hover',
+  '--aether-hover-subtle', '--aether-scrollbar'
+];
+function _browseResetAdaptiveText() {
+  const el = document.documentElement;
+  for (const p of _adaptiveTextProps) el.style.removeProperty(p);
 }
 
 // ── Browse URL Bar History Dropdown ──
@@ -124,6 +197,7 @@ export const _URL_BAR_SECTIONS = [
   { key: 'suggestions',label: 'Suggestions' },
   { key: 'projects',   label: 'Projects' },
   { key: 'users',      label: 'Users' },
+  { key: 'threads',    label: 'Chat History' },
   { key: 'notes',      label: 'Notes' },
   { key: 'history',    label: 'Search History' },
   { key: 'lucky',      label: 'Feeling Lucky' },
@@ -161,6 +235,7 @@ export let _currentSuggestions = [];
 export const _defCache = {};
 export let _defDebounce = null;
 export let _currentDef = null; // cached definition entry for current word
+export let _currentChatThreads = []; // cached chat threads matching filter
 export let _instantAnswer = null; // { type, html } for non-definition instant answers
 export let _instantDebounce = null;
 export const _instantCache = {};
@@ -454,6 +529,24 @@ export function _browseUrlShowHistory() {
   // Project matches (only when there's a filter)
   const projects = (filter && typeof allExperiments !== 'undefined') ?
     allExperiments.filter(exp => exp.title.toLowerCase().includes(filter) || (exp.desc || '').toLowerCase().includes(filter)).slice(0, 5) : [];
+
+  // Chat thread matches (only when there's a filter)
+  let chatThreads = [];
+  if (filter && filter.length >= 2 && typeof electronAPI !== 'undefined') {
+    electronAPI.dbQuery('chat-thread-list', 50, 0).then(threads => {
+      if (!threads) return;
+      _currentChatThreads = threads.filter(t =>
+        (t.title || '').toLowerCase().includes(filter)
+      ).slice(0, 4);
+      // Re-render dropdown with thread results
+      const { dd: dd2, input: input2 } = _getOmniInput();
+      if (dd2 && dd2.style.display !== 'none') {
+        _browseUrlRenderDropdown(dd2, input2, projects, showHist, filter, showBrowse);
+      }
+    });
+  } else {
+    _currentChatThreads = [];
+  }
 
   // Kick off suggestion fetch (debounced)
   if (filter && filter.length >= 2) {
@@ -759,6 +852,22 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
         return `<div data-histq="user:${safeU}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof openUserProfile==='function') openUserProfile('${safeU.replace(/'/g, "\\'")}');">
           <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeU}</span>
+        </div>`;
+      }).join('');
+      return h;
+    },
+    threads: () => {
+      if (!_currentChatThreads.length || !ntp) return '';
+      const iconSize = '16px';
+      let h = '';
+      h += _currentChatThreads.map(t => {
+        const safeId = escapeHtml(t.id).replace(/'/g, "\\'");
+        const title = escapeHtml(t.title || 'Untitled');
+        const time = _relativeTime(t.updated_at * 1000);
+        return `<div data-histq="thread:${escapeHtml(t.id)}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof openChatPage==='function') openChatPage('${safeId}');">
+          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title} <span style="color:var(--nr-text-secondary);">\u2014 Chat</span></span>
+          <span style="font-size:0.75rem;color:var(--nr-text-quaternary);flex-shrink:0;">${escapeHtml(time)}</span>
         </div>`;
       }).join('');
       return h;
@@ -2091,6 +2200,7 @@ window._currentSuggestions = _currentSuggestions;
 window._defCache = _defCache;
 window._defDebounce = _defDebounce;
 window._currentDef = _currentDef;
+window._currentChatThreads = _currentChatThreads;
 window._instantAnswer = _instantAnswer;
 window._instantDebounce = _instantDebounce;
 window._instantCache = _instantCache;
