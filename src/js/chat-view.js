@@ -280,6 +280,11 @@ function _openChatListPage(tab) {
     tab.el = null;
   }
 
+  // Save back stack for back button
+  if (!tab.backStack) tab.backStack = [];
+  tab.backStack.push(tab.url || 'ntp://');
+  tab.forwardStack = [];
+
   tab.blank = false;
   tab._chatPage = true;
   tab._chatThreadId = null;
@@ -288,67 +293,93 @@ function _openChatListPage(tab) {
   tab.favicon = '';
 
   const container = document.getElementById('browse-content');
-  const { View } = window.AetherUI ? AetherUI : {};
-  if (!View) return;
-  var elView = new View('div').attr('id', 'browse-chat-' + tab.id);
-  elView.el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow:hidden;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;display:flex;flex-direction:column;';
-  container.appendChild(elView.el);
-  tab.el = elView.el;
+  const el = document.createElement('div');
+  el.id = 'browse-chat-' + tab.id;
+  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;';
+  container.appendChild(el);
+  tab.el = el;
 
   _browseUpdateNewTabPage(tab);
   _browseRenderTabs();
   const urlInput = document.getElementById('browse-url-input');
   _browseSetUrlDisplay(urlInput, tab.url);
 
-  _chatViewRenderThreadList(elView.el);
+  _chatViewRenderThreadList(el);
 }
 
 // ── Thread list ──
 
 async function _chatViewRenderThreadList(container) {
-  container.innerHTML = '';
-  const { VStack, HStack, Text, Button } = window.AetherUI ? AetherUI : {};
-  if (!VStack) { container.textContent = 'AetherUI not loaded'; return; }
-
   const threads = await electronAPI.dbQuery('chat-thread-list', 50, 0);
 
-  const header = HStack(
-    Text('Chats').className('chat-view-title'),
-    Button('New Chat').className('nr-btn nr-btn-sm nr-btn-primary').onTap(() => _chatViewNewThread())
-  ).className('chat-view-header');
+  const chatIcon = icon('chatHistory', { size: 18 });
+  const backIcon = icon('chevronLeft', { size: 16 });
+  const plusIcon = icon('plus', { size: 14 });
+
+  // Group threads by date
+  const now = Date.now();
+  const today = new Date().setHours(0, 0, 0, 0);
+  const yesterday = today - 86400000;
+  const weekAgo = today - 604800000;
+
+  function _groupLabel(ts) {
+    const ms = ts * 1000;
+    if (ms >= today) return 'Today';
+    if (ms >= yesterday) return 'Yesterday';
+    if (ms >= weekAgo) return 'This Week';
+    return new Date(ms).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
+
+  let html = '<div style="max-width:680px;margin:0 auto;padding:32px 24px 64px;">';
+
+  // Header: back button + icon + title + new chat button
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">';
+  html += '<button onclick="if(typeof browseBack===\'function\')browseBack();" style="background:none;border:none;cursor:pointer;padding:4px;border-radius:6px;color:var(--nr-text-secondary);display:flex;align-items:center;transition:background 0.15s;" onmouseenter="this.style.background=\'var(--nr-bg-raised)\'" onmouseleave="this.style.background=\'none\'">' + backIcon + '</button>';
+  html += '<span style="display:flex;align-items:center;color:var(--nr-text-quaternary);">' + chatIcon + '</span>';
+  html += '<span style="font-size:1.1rem;font-weight:600;color:var(--nr-text-primary);flex:1;">Chats</span>';
+  html += '<button onclick="_chatListNewChat()" style="background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;color:var(--nr-text-secondary);display:flex;align-items:center;gap:4px;font-size:0.75rem;transition:background 0.15s;" onmouseenter="this.style.background=\'var(--nr-bg-raised)\'" onmouseleave="this.style.background=\'none\'">' + plusIcon + ' New</button>';
+  html += '</div>';
 
   if (!threads || threads.length === 0) {
-    const empty = VStack(
-      header,
-      VStack(
-        Text('No chats yet').className('text-secondary text-center'),
-        Text('Start a new conversation').className('text-tertiary text-center text-sm'),
-      ).className('chat-view-empty').gap(2)
-    ).className('chat-view-list-wrap');
-    AetherUI.mount(empty, container);
+    html += '<div style="text-align:center;padding:48px 0;color:var(--nr-text-secondary);font-size:0.85rem;">No chats yet</div>';
+    html += '</div>';
+    container.innerHTML = html;
     return;
   }
 
-  const listItems = threads.map(t => {
-    const date = new Date(t.updated_at * 1000);
-    const timeStr = _chatViewRelativeTime(date);
-    const row = HStack(
-      VStack(
-        Text(t.title || 'Untitled').className('chat-view-thread-title'),
-        Text(timeStr).className('chat-view-thread-time'),
-      ).gap(1).styles({ flex: '1', minWidth: '0' }),
-      Button('\u00d7').className('chat-view-thread-delete').onTap((e) => {
-        e.stopPropagation();
-        _chatViewDeleteThread(t.id, container);
-      })
-    ).className('chat-view-thread-row').onTap(() => {
-      openChatPage(t.id);
-    });
-    return row;
+  // Build grouped list
+  const groups = [];
+  const groupMap = {};
+  threads.forEach(t => {
+    const label = _groupLabel(t.updated_at);
+    if (!groupMap[label]) { groupMap[label] = []; groups.push(label); }
+    groupMap[label].push(t);
   });
 
-  const layout = VStack(header, ...listItems).className('chat-view-list-wrap');
-  AetherUI.mount(layout, container);
+  for (const label of groups) {
+    html += '<div style="margin-bottom:12px;">';
+    html += '<div style="font-size:0.7rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;padding:0 4px;">' + escapeHtml(label) + '</div>';
+    for (const t of groupMap[label]) {
+      const time = _chatViewRelativeTime(new Date(t.updated_at * 1000));
+      const safeId = escapeHtml(t.id);
+      const title = escapeHtml(t.title || 'Untitled');
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" '
+        + 'onmouseenter="this.style.background=\'var(--nr-bg-raised)\';this.querySelector(\'.chat-del\').style.opacity=\'1\'" '
+        + 'onmouseleave="this.style.background=\'none\';this.querySelector(\'.chat-del\').style.opacity=\'0\'" '
+        + 'onclick="openChatPage(\'' + safeId + '\')">';
+      html += '<svg style="width:14px;height:14px;color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>';
+      html += '<span style="font-size:0.82rem;color:var(--nr-text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + title + '</span>';
+      html += '<span style="font-size:0.7rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">' + escapeHtml(time) + '</span>';
+      html += '<button class="chat-del" onclick="event.stopPropagation();_chatListDelete(\'' + safeId + '\');" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);opacity:0;flex-shrink:0;transition:opacity 0.15s;">'
+        + '<svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>'
+        + '</button>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
 }
 
 function _chatViewRelativeTime(date) {
@@ -361,9 +392,15 @@ function _chatViewRelativeTime(date) {
   return date.toLocaleDateString();
 }
 
-async function _chatViewDeleteThread(id, container) {
+async function _chatListDelete(id) {
   await electronAPI.dbQuery('chat-thread-delete', id);
-  _chatViewRenderThreadList(container);
+  // Re-render the list in the current container
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (tab && tab.el) _chatViewRenderThreadList(tab.el);
+}
+
+function _chatListNewChat() {
+  _chatViewNewThread();
 }
 
 // ── Chat conversation (load existing thread into morphed NTP) ──
@@ -488,3 +525,5 @@ window.openChatPage = openChatPage;
 window.chatViewNewThread = chatViewNewThread;
 window.chatViewUnmorph = chatViewUnmorph;
 window.chatViewCleanupMorph = chatViewCleanupMorph;
+window._chatListDelete = _chatListDelete;
+window._chatListNewChat = _chatListNewChat;

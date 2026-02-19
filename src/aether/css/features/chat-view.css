@@ -32,6 +32,7 @@
 .browse-ntp.chat-mode .ntp-dropdown { display: none !important; }
 .browse-ntp.chat-mode .ntp-add-btn { display: none !important; }
 .browse-ntp.chat-mode .ntp-mic-btn { display: none !important; }
+.browse-ntp.chat-mode .ntp-chat-history-btn { display: none !important; }
 .browse-ntp.chat-mode .browse-ntp-version { display: none !important; }
 
 /* Smooth transition for the center element */

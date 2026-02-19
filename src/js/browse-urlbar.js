@@ -2046,7 +2046,13 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
     } else if (command === 'close-tab') {
       const win = _getCurrentWindow();
       if (win && win.activeTab) {
-        browseCloseTab(win.activeTab);
+        // If the active tab is in chat-mode, unmorph back to NTP instead of closing
+        const _activeTab = win.tabs.find(t => t.id === win.activeTab);
+        if (_activeTab && _activeTab._chatPage && typeof chatViewUnmorph === 'function') {
+          chatViewUnmorph();
+        } else {
+          browseCloseTab(win.activeTab);
+        }
       }
     } else if (command === 'reopen-tab') {
       browseReopenTab();
