@@ -14,7 +14,7 @@ export function _saveChatMemory() {
     ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
   const pageUrl = (paper && paper.link) || (browseTab && browseTab.url) || '';
   const pageTitle = (paper && paper.title) || (browseTab && browseTab.title) || '';
-  apiPost('/api/chat-memory', { messages: msgs, pageUrl, pageTitle }).catch(() => {});
+  apiPost('/api/chat-memory', { messages: msgs, pageUrl, pageTitle }).catch(e => logger.warn('[chat] Memory save failed:', e));
   // Capture conversation summary into living context
   if (msgs.length >= 4 && typeof contextIngest === 'function') {
     var summary = userMsgs.map(function(m) { return (m.content || '').slice(0, 80); }).join('; ').slice(0, 200);

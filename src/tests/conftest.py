@@ -1,11 +1,10 @@
 """
-Pytest configuration and fixtures for alpha project tests.
+Pytest configuration and fixtures for project tests.
 
 Provides common fixtures for:
-- Flask app instances
 - Test database
 - Mock external APIs (Ollama, Semantic Scholar, arXiv)
-- Test users and authentication
+- Sample test data
 """
 
 import os
@@ -18,54 +17,6 @@ from unittest.mock import Mock, patch
 # Add src to path so we can import app modules
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-
-@pytest.fixture
-def app(monkeypatch, tmp_path):
-    """Create and configure a Flask app instance for testing."""
-    # Create temp directory for test data
-    test_data_dir = tmp_path / 'test_data'
-    test_data_dir.mkdir()
-    test_db_path = test_data_dir / 'test.db'
-
-    # Mock sys.argv to prevent argparse conflicts with pytest
-    monkeypatch.setattr(sys, 'argv', ['app.py', '--data-dir', str(test_data_dir)])
-
-    # Set environment variable before importing persistence
-    monkeypatch.setenv('ARXIV_DATA_DIR', str(test_data_dir))
-
-    # Import app after mocking argv
-    from app import app as flask_app
-    import db as db_module
-
-    # Also patch db DB_PATH to use test database
-    monkeypatch.setattr(db_module, 'DB_PATH', str(test_db_path))
-
-    # Initialize the test database
-    db_module.init_db()
-
-    flask_app.config.update({
-        'TESTING': True,
-        'DATABASE': str(test_db_path),
-        'SECRET_KEY': 'test-secret-key',
-        'WTF_CSRF_ENABLED': False,  # Disable CSRF for testing
-    })
-
-    yield flask_app
-
-    # Cleanup is automatic with tmp_path
-
-
-@pytest.fixture
-def client(app):
-    """Create a test client for the Flask app."""
-    return app.test_client()
-
-
-@pytest.fixture
-def runner(app):
-    """Create a test CLI runner for the Flask app."""
-    return app.test_cli_runner()
 
 
 @pytest.fixture
@@ -83,18 +34,6 @@ def test_db():
     conn.close()
     os.close(db_fd)
     os.unlink(db_path)
-
-
-@pytest.fixture
-def init_db(test_db):
-    """Initialize test database with schema."""
-    from db import _initialize_db
-
-    cursor = test_db.cursor()
-    _initialize_db(cursor)
-    test_db.commit()
-
-    return test_db
 
 
 @pytest.fixture
@@ -160,41 +99,6 @@ def mock_arxiv():
 
 
 @pytest.fixture
-def test_user(init_db):
-    """Create a test user in the database."""
-    cursor = init_db.cursor()
-
-    # Create test user
-    cursor.execute('''
-        INSERT INTO users (username, password_hash, email, created_at)
-        VALUES (?, ?, ?, datetime('now'))
-    ''', ('testuser', 'hashed_password', 'test@example.com'))
-
-    user_id = cursor.lastrowid
-    init_db.commit()
-
-    # Return user data
-    return {
-        'id': user_id,
-        'username': 'testuser',
-        'email': 'test@example.com',
-        'password': 'testpass123'
-    }
-
-
-@pytest.fixture
-def authenticated_client(client, test_user):
-    """Create an authenticated test client."""
-    # Login the test user
-    client.post('/api/auth/login', json={
-        'username': test_user['username'],
-        'password': test_user['password']
-    })
-
-    return client
-
-
-@pytest.fixture
 def sample_papers():
     """Return sample paper data for testing."""
     return [
@@ -246,23 +150,3 @@ def sample_feed_items():
 def does_not_raise():
     """Context manager for tests that should not raise exceptions."""
     yield
-
-
-# Helper functions for tests
-
-def assert_valid_json(response):
-    """Assert that response is valid JSON."""
-    assert response.content_type == 'application/json'
-    assert response.json is not None
-
-
-def assert_success_response(response, status_code=200):
-    """Assert that response is successful."""
-    assert response.status_code == status_code
-    assert_valid_json(response)
-
-
-def assert_error_response(response, status_code=400):
-    """Assert that response is an error."""
-    assert response.status_code == status_code
-    # Errors may or may not be JSON depending on route

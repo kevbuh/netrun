@@ -1513,7 +1513,7 @@ export async function _nlStartTracking() {
     return;
   }
   // Reset LSTM hidden state for fresh tracking session
-  apiPost('/api/neuralook/reset-hidden', { method: _nlModelType }).catch(() => {});
+  apiPost('/api/neuralook/reset-hidden', { method: _nlModelType }).catch(e => logger.warn('[neuralook] Reset hidden state failed:', e));
   _nlTracking = true;
   _nlResetSessionStats();
   _nlUpdatePillIndicator();
@@ -1578,13 +1578,13 @@ export function _nlFlushImplicitSamples() {
   _nlImplicitLastFlush = Date.now();
   return apiPost('/api/neuralook/implicit-samples', { samples }).then(data => {
     if (data.count != null) _nlImplicitCount = data.count;
-  }).catch(() => {});
+  }).catch(e => logger.warn('[neuralook] Flush implicit samples failed:', e));
 }
 
 export function _nlFetchImplicitCount() {
   apiGet('/api/neuralook/implicit-samples')
     .then(data => { if (data.count != null) _nlImplicitCount = data.count; })
-    .catch(() => {});
+    .catch(e => logger.warn('[neuralook] Fetch implicit count failed:', e));
 }
 
 // ── Click Feedback Indicators ──

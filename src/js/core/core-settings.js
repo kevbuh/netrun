@@ -47,7 +47,7 @@ var Settings = (function() {
     localStorage.setItem(key, strVal);
     // Write-through to SQLite (fire-and-forget)
     if (window.electronAPI && window.electronAPI.dbQuery) {
-      window.electronAPI.dbQuery('settings-set', key, strVal).catch(function() {});
+      window.electronAPI.dbQuery('settings-set', key, strVal).catch(function(e) { logger.warn('[settings] set failed:', key, e); });
     }
     // Notify listeners
     if (_listeners[key]) {
@@ -64,7 +64,7 @@ var Settings = (function() {
     delete _cache[key];
     localStorage.removeItem(key);
     if (window.electronAPI && window.electronAPI.dbQuery) {
-      window.electronAPI.dbQuery('settings-delete', key).catch(function() {});
+      window.electronAPI.dbQuery('settings-delete', key).catch(function(e) { logger.warn('[settings] delete failed:', key, e); });
     }
   }
 
@@ -97,7 +97,7 @@ var Settings = (function() {
       for (var key in _defs) {
         var val = localStorage.getItem(key);
         if (val !== null) {
-          window.electronAPI.dbQuery('settings-set', key, val).catch(function() {});
+          window.electronAPI.dbQuery('settings-set', key, val).catch(function(e) { logger.warn('[settings] sync failed:', key, e); });
         }
       }
       _ready = true;

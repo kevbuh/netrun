@@ -213,13 +213,114 @@ function Section(header) {
   return v;
 }
 
+// ─── Show — reactive conditional rendering ────────────────
+
+function Show(condition, thenFn, elseFn) {
+  var v = new View('div');
+  v._viewType = 'Show';
+  v.el.style.display = 'contents';
+  var _current = null;
+
+  function _update() {
+    var val = S.isSignal(condition) ? condition.value : condition;
+
+    // Dispose previous subtree
+    if (_current) {
+      if (_current.dispose) _current.dispose();
+      if (_current.el && _current.el.parentNode) _current.el.parentNode.removeChild(_current.el);
+      var idx = v._children.indexOf(_current);
+      if (idx > -1) v._children.splice(idx, 1);
+      _current = null;
+    }
+
+    // Mount new subtree
+    var factory = val ? thenFn : elseFn;
+    if (factory) {
+      var child = factory();
+      if (child instanceof View) {
+        v.el.appendChild(child.build());
+        v._children.push(child);
+        if (child._onAppearFn) child._onAppearFn();
+        _current = child;
+      } else if (child instanceof HTMLElement) {
+        v.el.appendChild(child);
+      }
+    }
+  }
+
+  _update();
+
+  if (S.isSignal(condition)) {
+    v._effects.push(S.Effect(function() {
+      condition.value; // track
+      _update();
+    }));
+  }
+
+  return v;
+}
+
+// ─── Switch — reactive multi-branch rendering ──────────────
+
+function Switch(signal, cases) {
+  var v = new View('div');
+  v._viewType = 'Switch';
+  v.el.style.display = 'contents';
+  var _current = null;
+  var _currentKey = undefined;
+
+  function _update() {
+    var val = S.isSignal(signal) ? signal.value : signal;
+
+    // Skip if same case
+    if (val === _currentKey && _current) return;
+    _currentKey = val;
+
+    // Dispose previous subtree
+    if (_current) {
+      if (_current.dispose) _current.dispose();
+      if (_current.el && _current.el.parentNode) _current.el.parentNode.removeChild(_current.el);
+      var idx = v._children.indexOf(_current);
+      if (idx > -1) v._children.splice(idx, 1);
+      _current = null;
+    }
+
+    // Find matching case or default
+    var factory = cases[val] || cases.default;
+    if (factory) {
+      var child = factory();
+      if (child instanceof View) {
+        v.el.appendChild(child.build());
+        v._children.push(child);
+        if (child._onAppearFn) child._onAppearFn();
+        _current = child;
+      } else if (child instanceof HTMLElement) {
+        v.el.appendChild(child);
+      }
+    }
+  }
+
+  _update();
+
+  if (S.isSignal(signal)) {
+    v._effects.push(S.Effect(function() {
+      signal.value; // track
+      _update();
+    }));
+  }
+
+  return v;
+}
+
 // ─── Export ───────────────────────────────────────────────
 
 window._AetherUIContainers = {
   ForEach: ForEach,
   List: List,
   Group: Group,
-  Section: Section
+  Section: Section,
+  Show: Show,
+  Switch: Switch
 };
 
-export { ForEach, List, Group, Section };
+export { ForEach, List, Group, Section, Show, Switch };

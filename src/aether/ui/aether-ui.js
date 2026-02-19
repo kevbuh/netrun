@@ -7,7 +7,7 @@ import { State, Computed, Effect, Binding, batch, untrack, Context } from '/aeth
 import { View } from '/aether/ui/view.js';
 import { VStack, HStack, ZStack, Grid, Spacer, Divider, ScrollView, Text, Label, Link, Image, Icon, RawHTML } from '/aether/ui/primitives.js';
 import { Button, TextField, Textarea, Toggle, Checkbox, RadioGroup, Slider, Picker, Stepper, TabView, ProgressBar, Pill } from '/aether/ui/controls.js';
-import { ForEach, List, Group, Section } from '/aether/ui/containers.js';
+import { ForEach, List, Group, Section, Show, Switch } from '/aether/ui/containers.js';
 import { Sheet, Alert, Popover, Menu } from '/aether/ui/overlay.js';
 import { defineComponent, getComponent, listComponents } from '/aether/ui/component.js';
 
@@ -175,6 +175,8 @@ var AetherUI = {
   List: List,
   Group: Group,
   Section: Section,
+  Show: Show,
+  Switch: Switch,
 
   // Overlays
   Sheet: Sheet,
@@ -201,7 +203,7 @@ var AetherUI = {
       'Text', 'Label', 'Link', 'Image', 'Icon', 'RawHTML',
       'Button', 'TextField', 'Textarea', 'Toggle', 'Checkbox', 'RadioGroup',
       'Slider', 'Picker', 'Stepper', 'TabView', 'ProgressBar', 'Pill',
-      'ForEach', 'List', 'Group', 'Section',
+      'ForEach', 'List', 'Group', 'Section', 'Show', 'Switch',
       'Sheet', 'Alert', 'Popover', 'Menu',
       'defineComponent'
     ];

@@ -7,7 +7,7 @@ function contextIngest(source, section, content, opts) {
   var entry = { source: source, section: section, content: content };
   if (opts && opts.file) entry.file = opts.file;
   if (opts && opts.dedupeKey) entry.dedupeKey = opts.dedupeKey;
-  electronAPI.dbQuery('context-ingest', entry).catch(function() {});
+  electronAPI.dbQuery('context-ingest', entry).catch(function(e) { logger.warn('[context] Ingest failed:', e); });
 }
 
 window.contextIngest = contextIngest;

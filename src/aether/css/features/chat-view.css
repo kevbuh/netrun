@@ -330,6 +330,30 @@
   background: var(--nr-bg-hover);
 }
 
+/* ══════════════════════════════════════════════════
+   Command dropdowns in chat mode
+   ══════════════════════════════════════════════════ */
+
+.browse-ntp.chat-mode .aether-cmd-dropdown,
+.browse-ntp.chat-mode .aether-note-dropdown,
+.browse-ntp.chat-mode .aether-tab-dropdown,
+.browse-ntp.chat-mode .aether-history-dropdown {
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--nr-bg-overlay);
+  border: 1px solid var(--nr-border);
+  border-radius: var(--nr-radius-md);
+  margin-bottom: 4px;
+}
+
+/* Attachment strip in chat mode */
+.browse-ntp.chat-mode .doc-screenshot-attachments {
+  display: flex;
+  gap: 6px;
+  padding: 4px 0;
+  flex-wrap: wrap;
+}
+
 /* ── NTP Chat Row (dropdown) ── */
 .ntp-chat-row {
   background: color-mix(in srgb, var(--nr-accent) 20%, transparent);

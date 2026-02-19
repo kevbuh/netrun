@@ -1128,7 +1128,7 @@ export function _panelBuildSelectionUI(popup, config) {
           const fTab = _browseTabs.find(tb => tb.id === _browseActiveTab);
           if (fTab) { feedbackUrl = fTab.url || ''; feedbackTitle = fTab.title || ''; }
         }
-        apiPost('/api/annotation-feedback', { quote: capturedText, annType: t.key, rating: 'good', url: feedbackUrl, pageTitle: feedbackTitle }).catch(() => {});
+        apiPost('/api/annotation-feedback', { quote: capturedText, annType: t.key, rating: 'good', url: feedbackUrl, pageTitle: feedbackTitle }).catch(e => logger.warn('[panel] Feedback failed:', e));
         // Inject highlight on the page
         if (typeof injectSingleAnnotation === 'function' && typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
           const hlTab = _browseTabs.find(tb => tb.id === _browseActiveTab);

@@ -1,14 +1,12 @@
 // api-ipc.js — IPC route bridge
-// Maps Flask HTTP endpoint paths to Electron IPC calls.
-// When the core TypeScript backend is available (window.electronAPI.coreAvailable),
-// this intercepts API calls and routes them through IPC instead of HTTP.
-// Falls back to null (meaning "use HTTP") for unhandled routes.
+// Maps API endpoint paths to Electron IPC calls.
+// All routes are handled via IPC through the core TypeScript backend.
 
 import Settings from '/js/core/core-settings.js';
 
-/** Unwrap a tool result {success, data, error} to match Flask response format */
+/** Unwrap a tool result {success, data, error} */
 export function _unwrapTool(result, dataKey) {
-  if (!result || !result.success) return null; // fall back to HTTP
+  if (!result || !result.success) return { error: result?.error || 'Tool call failed' };
   if (dataKey && result.data && result.data[dataKey] !== undefined) return result.data[dataKey];
   return result.data;
 }
@@ -88,7 +86,7 @@ export async function ipcRoute(path, opts = {}) {
 
   // ── Users ──
   if (pathOnly === '/api/auth/me' && method === 'GET') {
-    if (!googleId) return null; // fall back to Flask for full auth flow
+    if (!googleId) return { error: 'Not authenticated' };
     return await window.electronAPI.dbQuery('user-get', googleId);
   }
   if (pathOnly === '/api/users' && method === 'GET') {
@@ -128,7 +126,7 @@ export async function ipcRoute(path, opts = {}) {
     if (!googleId) return null;
     const ok = await window.electronAPI.dbQuery('user-set-username', googleId, body.username);
     if (ok) return { ok: true, username: body.username };
-    return null; // fall back to Flask for error handling
+    return { error: 'Username update failed' };
   }
 
   // ── Auth: delete account ──
@@ -156,7 +154,7 @@ export async function ipcRoute(path, opts = {}) {
     if (!googleId) return null;
     // Need to resolve username to google_id
     const toUser = await window.electronAPI.dbQuery('user-by-username', body.to_username);
-    if (!toUser) return null; // fall back
+    if (!toUser) return { error: 'User not found' };
     return await window.electronAPI.dbQuery('direct-message-send', googleId, toUser.google_id, body.content);
   }
 
@@ -173,7 +171,7 @@ export async function ipcRoute(path, opts = {}) {
     if (!googleId) return null;
     const msgId = pathOnly.split('/').pop();
     const ok = await window.electronAPI.dbQuery('dm-delete', googleId, msgId);
-    return ok ? { ok: true } : null;
+    return ok ? { ok: true } : { error: 'Delete failed' };
   }
 
   // ── Messages: unread count ──
@@ -196,7 +194,7 @@ export async function ipcRoute(path, opts = {}) {
     if (!googleId) return null;
     const commentId = pathOnly.split('/').pop();
     const ok = await window.electronAPI.dbQuery('comment-delete', googleId, commentId);
-    return ok ? { ok: true } : null;
+    return ok ? { ok: true } : { error: 'Delete failed' };
   }
 
   // ── Reposts ──
@@ -234,7 +232,7 @@ export async function ipcRoute(path, opts = {}) {
     if (!googleId) return null;
     const username = decodeURIComponent(pathOnly.split('/').pop());
     const info = await window.electronAPI.dbQuery('public-user-info', username);
-    if (!info) return null; // fall back for 404
+    if (!info) return { error: 'User not found' };
     if (info.profile_private && info.google_id !== googleId) {
       return { username: info.username, picture: info.picture, profile_private: true };
     }
@@ -504,11 +502,6 @@ export async function ipcRoute(path, opts = {}) {
     return { ok: true };
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // Flask Migration: Routes now handled by IPC
-  // ═══════════════════════════════════════════════════════════════════
-
-
   // ── Social uploads ──
   if (pathOnly === '/api/users/me/picture' && method === 'PUT') {
     if (!googleId) return null;
@@ -599,14 +592,10 @@ export async function ipcRoute(path, opts = {}) {
 
   // ── Spinners.json (static file) ──
   if (pathOnly === '/spinners.json' && method === 'GET') {
-    // Return empty or fetch from local
     return [];
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // Flask Migration Phase 4: Neuralook (gaze tracking)
-  // ═══════════════════════════════════════════════════════════════════
-
+  // ── Neuralook (gaze tracking) ──
   if (pathOnly === '/api/neuralook/save-calibration' && method === 'POST') {
     return await window.electronAPI.dbQuery('neuralook-save-calibration', body);
   }
@@ -676,7 +665,7 @@ export async function ipcRoute(path, opts = {}) {
 function _getAuthToken() {
   try {
     return localStorage.getItem('authToken') || null;
-  } catch (e) {}
+  } catch (e) { logger.warn('[api-ipc] Auth token read failed:', e); }
   return null;
 }
 
@@ -694,7 +683,7 @@ export function _getGoogleId() {
       const info = JSON.parse(authInfo);
       if (info.google_id) return info.google_id;
     }
-  } catch (e) {}
+  } catch (e) { logger.warn('[api-ipc] Google ID parse failed:', e); }
   return null;
 }
 

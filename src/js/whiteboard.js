@@ -21,7 +21,7 @@ export function _loadWbBoards() {
 }
 
 export function _saveWbBoards() {
-  try { Settings.setJSON('whiteboardBoards', _wbBoards); } catch {}
+  try { Settings.setJSON('whiteboardBoards', _wbBoards); } catch (e) { logger.warn('[whiteboard] Board save failed:', e); }
 }
 
 export function _wbStrokesKey(id) { return 'wb_strokes_' + id; }
@@ -175,7 +175,7 @@ export function _saveWbStrokes() {
   if (!_wbCurrentId) return;
   try {
     Settings.setJSON(_wbStrokesKey(_wbCurrentId), _wbStrokes);
-  } catch {}
+  } catch (e) { logger.warn('[whiteboard] Stroke save failed:', e); }
 }
 
 // ── Window exports ──

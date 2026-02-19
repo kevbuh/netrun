@@ -108,7 +108,7 @@ export function _pwShowSavePrompt(tab, data) {
   saveBtn.el.textContent = 'Save';
   saveBtn.cssText('padding:3px 12px;border-radius:4px;border:none;background:var(--nr-accent);color:#fff;font-size:0.78rem;cursor:pointer;font-weight:500;');
   saveBtn.onTap(function() {
-    window.electronAPI.pwSave({ origin: data.origin, username: data.username, password: password }).catch(function() {});
+    window.electronAPI.pwSave({ origin: data.origin, username: data.username, password: password }).catch(function(e) { logger.error('[passwords] Save failed:', e); });
     _pwHideSavePrompt(true);
   });
 

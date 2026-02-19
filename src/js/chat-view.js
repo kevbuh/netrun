@@ -8,6 +8,7 @@ var _chatViewSession = null;      // ChatEngine session
 var _chatViewMsgList = null;       // the .chat-view-messages div inside the morphed NTP
 var _chatViewOrigPlaceholder = ''; // original input placeholder to restore on un-morph
 var _chatViewOrigHandlers = null;  // original input handlers to restore on un-morph
+var _chatViewCmdPopup = null;      // the "popup" adapter element for command handlers
 
 // ── Morph NTP into chat mode ──
 
@@ -89,6 +90,7 @@ function _chatViewMorphNTP(ntp) {
 
   // Swap the search input to chat mode
   const input = ntp.querySelector('#search-query');
+  const form = ntp.querySelector('#search-form');
   if (input) {
     _chatViewOrigPlaceholder = input.placeholder;
     // Save original handlers
@@ -100,25 +102,220 @@ function _chatViewMorphNTP(ntp) {
     };
     input.placeholder = 'Type a message...';
     input.value = '';
-    input.oninput = null;
     input.onfocus = null;
     input.onblur = null;
-    input.onkeydown = function(e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        var text = input.value.trim();
-        if (text && _chatViewSession && !_chatViewSession.streaming) {
-          input.value = '';
-          _chatViewSend(text);
+
+    // Add adapter classes so panel-commands.js querySelector calls find our elements
+    input.classList.add('doc-ask-inline-input');
+    if (form) form.classList.add('doc-ask-inline-wrap');
+
+    // Insert attachment strip (for /capture, /tab context chips) before the form
+    var attachStrip = document.createElement('div');
+    attachStrip.className = 'doc-screenshot-attachments';
+    attachStrip.style.display = 'none';
+    if (form) center.insertBefore(attachStrip, form);
+    else center.appendChild(attachStrip);
+
+    // Store center as the command popup adapter
+    _chatViewCmdPopup = center;
+    // Override center.remove so command handlers that call popup.remove() don't destroy our DOM
+    center._origRemove = center.remove;
+    center.remove = function() {
+      _chatViewHideAllDropdowns();
+      if (input) { input.value = ''; input.focus(); }
+    };
+
+    // ── oninput: slash command detection ──
+    input.oninput = function() {
+      var val = input.value;
+      if (val.startsWith('/')) {
+        var histMatch = val.match(/^\/history(\s+(.*))?$/i);
+        if (histMatch && histMatch[1] !== undefined) {
+          _aetherHideCmdDropdown(_chatViewCmdPopup);
+          _aetherHistoryIdx = -1;
+          _aetherRenderHistoryDropdown(_chatViewCmdPopup, (histMatch[2] || '').trim());
+        } else {
+          _aetherHideHistoryDropdown(_chatViewCmdPopup);
+          _aetherCmdIdx = 0;
+          _aetherRenderCmdDropdown(_chatViewCmdPopup, val.slice(1).trim());
         }
+      } else {
+        _aetherHideCmdDropdown(_chatViewCmdPopup);
+        _aetherHideHistoryDropdown(_chatViewCmdPopup);
       }
     };
+
+    // ── onkeydown: full keyboard handling for dropdowns + chat ──
+    input.onkeydown = function(ev) {
+      var val = input.value;
+      var isCmd = val.startsWith('/');
+      var popup = _chatViewCmdPopup;
+      if (!popup) return;
+
+      var dropdown = popup.querySelector('.aether-cmd-dropdown');
+      var modelDropdown = popup.querySelector('.aether-model-dropdown');
+      var agentDropdown = popup.querySelector('.aether-agent-dropdown');
+      var tabDropdown = popup.querySelector('.aether-tab-dropdown');
+      var histDropdown = popup.querySelector('.aether-history-dropdown');
+
+      // ── Model dropdown navigation ──
+      if (modelDropdown && _aetherModelList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+        ev.preventDefault();
+        if (ev.key === 'ArrowDown') _aetherModelIdx = Math.min(_aetherModelIdx + 1, _aetherModelList.length - 1);
+        else _aetherModelIdx = Math.max(_aetherModelIdx - 1, 0);
+        _aetherRenderModelDropdown(popup);
+        var sel = modelDropdown.querySelector('.aether-note-item.selected');
+        if (sel) sel.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (modelDropdown && _aetherModelList.length && ev.key === 'Enter') {
+        ev.preventDefault();
+        _aetherSelectModel(popup);
+        return;
+      }
+      if (modelDropdown && ev.key === 'Escape') {
+        ev.preventDefault();
+        _aetherHideModelDropdown(popup);
+        return;
+      }
+
+      // ── Agent dropdown navigation ──
+      if (agentDropdown && _aetherAgentList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+        ev.preventDefault();
+        if (ev.key === 'ArrowDown') _aetherAgentIdx = Math.min(_aetherAgentIdx + 1, _aetherAgentList.length - 1);
+        else _aetherAgentIdx = Math.max(_aetherAgentIdx - 1, 0);
+        _aetherRenderAgentDropdown(popup);
+        var sel2 = agentDropdown.querySelector('.aether-note-item.selected');
+        if (sel2) sel2.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (agentDropdown && _aetherAgentList.length && ev.key === 'Enter') {
+        ev.preventDefault();
+        _aetherSelectAgent(popup);
+        return;
+      }
+      if (agentDropdown && ev.key === 'Escape') {
+        ev.preventDefault();
+        _aetherHideAgentDropdown(popup);
+        return;
+      }
+
+      // ── Tab dropdown navigation ──
+      if (tabDropdown && _aetherTabList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+        ev.preventDefault();
+        if (ev.key === 'ArrowDown') _aetherTabIdx = Math.min(_aetherTabIdx + 1, _aetherTabList.length - 1);
+        else _aetherTabIdx = Math.max(_aetherTabIdx - 1, 0);
+        var items = tabDropdown.querySelectorAll('.aether-tab-item');
+        items.forEach(function(el, i) { el.classList.toggle('selected', i === _aetherTabIdx); });
+        var selTab = items[_aetherTabIdx];
+        if (selTab) selTab.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (tabDropdown && _aetherTabList.length && ev.key === 'Enter') {
+        ev.preventDefault();
+        if (_aetherTabSwitchMode) _aetherSwitchToTab(popup);
+        else _aetherSelectTab(popup);
+        return;
+      }
+      if (tabDropdown && ev.key === 'Escape') {
+        ev.preventDefault();
+        _aetherHideTabDropdown(popup);
+        return;
+      }
+
+      // ── History dropdown navigation ──
+      if (histDropdown && _aetherHistoryList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+        ev.preventDefault();
+        if (ev.key === 'ArrowDown') _aetherHistoryIdx = Math.min(_aetherHistoryIdx + 1, _aetherHistoryList.length - 1);
+        else _aetherHistoryIdx = Math.max(_aetherHistoryIdx - 1, -1);
+        var hItems = histDropdown.querySelectorAll('.aether-note-item');
+        hItems.forEach(function(el) { el.classList.toggle('selected', parseInt(el.dataset.idx) === _aetherHistoryIdx); });
+        var selHist = histDropdown.querySelector('.aether-note-item[data-idx="' + _aetherHistoryIdx + '"]');
+        if (selHist) selHist.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (histDropdown && ev.key === 'Enter') {
+        ev.preventDefault();
+        _aetherSelectHistory(popup);
+        return;
+      }
+      if (histDropdown && ev.key === 'Escape') {
+        ev.preventDefault();
+        _aetherHideHistoryDropdown(popup);
+        return;
+      }
+
+      // ── Command dropdown navigation ──
+      if (isCmd && dropdown && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+        ev.preventDefault();
+        var cmdItems = dropdown.querySelectorAll('.aether-cmd-item');
+        if (ev.key === 'ArrowDown') _aetherCmdIdx = Math.min(_aetherCmdIdx + 1, cmdItems.length - 1);
+        else _aetherCmdIdx = Math.max(_aetherCmdIdx - 1, 0);
+        _aetherRenderCmdDropdown(popup, val.slice(1).trim());
+        var dd = popup.querySelector('.aether-cmd-dropdown');
+        var selCmd = dd && dd.querySelector('.aether-cmd-item.selected');
+        if (selCmd) selCmd.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (isCmd && dropdown && ev.key === 'Tab') {
+        ev.preventDefault();
+        var matches = _aetherFilterCommands(val.slice(1).trim());
+        if (matches[_aetherCmdIdx]) input.value = '/' + matches[_aetherCmdIdx].name;
+        _aetherRenderCmdDropdown(popup, matches[_aetherCmdIdx]?.name || '');
+        return;
+      }
+
+      // ── Enter: execute command or send chat message ──
+      if (ev.key === 'Enter' && !ev.shiftKey) {
+        ev.preventDefault();
+        if (isCmd && dropdown) {
+          var cmdMatches = _aetherFilterCommands(val.slice(1).trim());
+          var cmd = cmdMatches[_aetherCmdIdx] || cmdMatches[0];
+          if (cmd) {
+            if (cmd.hasArgs) {
+              input.value = '/' + cmd.name + ' ';
+              _aetherHideCmdDropdown(popup);
+            } else if (cmd._special) {
+              _aetherHideCmdDropdown(popup);
+              _chatViewExecSpecial(cmd.name, popup);
+            } else {
+              _aetherHideCmdDropdown(popup);
+              cmd.fn();
+              input.value = '';
+            }
+            return;
+          }
+        }
+        if (isCmd && val.trim().length > 1) {
+          _chatViewExecFullCommand(popup, val);
+        } else if (!isCmd) {
+          var text = val.trim();
+          if (text && _chatViewSession && !_chatViewSession.streaming) {
+            input.value = '';
+            _chatViewSend(text);
+          }
+        }
+        return;
+      }
+
+      // ── Escape: dismiss dropdowns or do nothing ──
+      if (ev.key === 'Escape') {
+        ev.preventDefault();
+        if (modelDropdown) { _aetherHideModelDropdown(popup); return; }
+        if (agentDropdown) { _aetherHideAgentDropdown(popup); return; }
+        if (dropdown) { _aetherHideCmdDropdown(popup); return; }
+        if (tabDropdown) { _aetherHideTabDropdown(popup); return; }
+        if (histDropdown) { _aetherHideHistoryDropdown(popup); return; }
+        // Clear input if it has text
+        if (input.value) { input.value = ''; return; }
+      }
+    };
+
     // Focus after morph
     requestAnimationFrame(() => input.focus());
   }
 
   // Override form submit
-  const form = ntp.querySelector('#search-form');
   if (form) {
     form._origOnsubmit = form.onsubmit;
     form.onsubmit = function(e) {
@@ -135,12 +332,82 @@ function _chatViewMorphNTP(ntp) {
   ntp.classList.add('chat-mode');
 }
 
+// ── Slash command helpers ──
+
+function _chatViewHideAllDropdowns() {
+  if (!_chatViewCmdPopup) return;
+  _aetherHideCmdDropdown(_chatViewCmdPopup);
+  _aetherHideModelDropdown(_chatViewCmdPopup);
+  _aetherHideAgentDropdown(_chatViewCmdPopup);
+  _aetherHideTabDropdown(_chatViewCmdPopup);
+  _aetherHideHistoryDropdown(_chatViewCmdPopup);
+}
+
+function _chatViewExecSpecial(name, popup) {
+  // Commands that use popup chat (panel-specific) — send as natural language instead
+  if (name === 'links') {
+    var input = popup.querySelector('.doc-ask-inline-input');
+    if (input) input.value = '';
+    _chatViewSend('List all links on the current page');
+    return;
+  }
+  // Commands that work as-is with the adapter
+  if (name === 'capture') _doAetherCapture(popup);
+  else if (name === 'agent') _doAetherAgent(popup);
+  else if (name === 'model') _doAetherModel(popup);
+  else if (name === 'tab') _doAetherTab(popup);
+  else if (name === 'tabs') _doAetherTabs(popup);
+  else if (name === 'history') _doAetherHistory(popup);
+  else if (name === 'help') _doAetherHelp(popup);
+}
+
+function _chatViewExecFullCommand(popup, text) {
+  var raw = text.slice(1).trim();
+  var spaceIdx = raw.indexOf(' ');
+  if (spaceIdx > 0) {
+    var cmdName = raw.slice(0, spaceIdx).toLowerCase();
+    var args = raw.slice(spaceIdx + 1).trim();
+    var cmd = _aetherCommands.find(function(c) { return c.name === cmdName; });
+    if (cmd && cmd.hasArgs && args) {
+      _aetherHideCmdDropdown(popup);
+      var input = popup.querySelector('.doc-ask-inline-input');
+      if (input) input.value = '';
+      // Commands with chat results — send as natural language
+      if (cmdName === 'define') { _chatViewSend('Define: ' + args); return; }
+      if (cmdName === 'paper') { _chatViewSend('Search for papers about: ' + args); return; }
+      if (cmdName === 'user') { _chatViewSend('Search for user: ' + args); return; }
+      // /search opens in new tab
+      if (cmdName === 'search') { _doAetherSearchNewTab(popup, args); return; }
+    }
+    if (cmd && cmd.fn) { cmd.fn(); if (input) input.value = ''; return; }
+  }
+  // No space — try to match and execute
+  var query = raw.toLowerCase();
+  var matches = _aetherFilterCommands(query);
+  var matched = matches[_aetherCmdIdx] || matches[0];
+  if (matched) {
+    if (matched.hasArgs) return; // needs args
+    if (matched._special) {
+      _aetherHideCmdDropdown(popup);
+      _chatViewExecSpecial(matched.name, popup);
+      return;
+    }
+    _aetherHideCmdDropdown(popup);
+    matched.fn();
+    var inp = popup.querySelector('.doc-ask-inline-input');
+    if (inp) inp.value = '';
+  }
+}
+
 // ── Clean up morph DOM (no tab state changes) ──
 
 function _chatViewCleanupMorph() {
   const container = document.getElementById('browse-content');
   const ntp = container?.querySelector('.browse-ntp');
   if (!ntp) return;
+
+  // Hide all dropdowns before tearing down
+  _chatViewHideAllDropdowns();
 
   ntp.classList.remove('chat-mode');
 
@@ -152,6 +419,7 @@ function _chatViewCleanupMorph() {
   if (input) {
     input.placeholder = _chatViewOrigPlaceholder || 'Ask anything...';
     input.value = '';
+    input.classList.remove('doc-ask-inline-input');
     if (_chatViewOrigHandlers) {
       input.oninput = _chatViewOrigHandlers.oninput;
       input.onfocus = _chatViewOrigHandlers.onfocus;
@@ -162,10 +430,26 @@ function _chatViewCleanupMorph() {
   }
 
   const form = ntp.querySelector('#search-form');
-  if (form && form._origOnsubmit) {
-    form.onsubmit = form._origOnsubmit;
-    delete form._origOnsubmit;
+  if (form) {
+    form.classList.remove('doc-ask-inline-wrap');
+    if (form._origOnsubmit) {
+      form.onsubmit = form._origOnsubmit;
+      delete form._origOnsubmit;
+    }
   }
+
+  // Remove attachment strip
+  const center = ntp.querySelector('.browse-ntp-center');
+  if (center) {
+    const strip = center.querySelector('.doc-screenshot-attachments');
+    if (strip) strip.remove();
+    // Restore original remove method
+    if (center._origRemove) {
+      center.remove = center._origRemove;
+      delete center._origRemove;
+    }
+  }
+  _chatViewCmdPopup = null;
 
   if (_chatViewSession) {
     _chatViewSession.cancel();
@@ -515,10 +799,26 @@ function _chatViewRenderMessages(isFinal) {
 async function _chatViewSend(text) {
   if (!_chatViewSession || _chatViewSession.streaming) return;
 
+  // Collect pending attachments
+  var sendOpts = {};
+  if (typeof _pendingScreenshots !== 'undefined' && _pendingScreenshots.length) {
+    sendOpts.images = _pendingScreenshots.slice();
+    _pendingScreenshots.length = 0;
+  }
+  if (typeof _pendingTabContexts !== 'undefined' && _pendingTabContexts.length) {
+    sendOpts.tabContexts = _pendingTabContexts.slice();
+    _pendingTabContexts.length = 0;
+  }
+  // Clear attachment strip UI
+  if (_chatViewCmdPopup) {
+    var strip = _chatViewCmdPopup.querySelector('.doc-screenshot-attachments');
+    if (strip) { strip.innerHTML = ''; strip.style.display = 'none'; }
+  }
+
   // Render immediately to show the sending state
   _chatViewRenderMessages(false);
 
-  await _chatViewSession.send(text);
+  await _chatViewSession.send(text, sendOpts);
 
   // Update tab title after send
   if (_chatViewSession.thread.title) {
