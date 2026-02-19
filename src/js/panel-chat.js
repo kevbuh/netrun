@@ -957,26 +957,25 @@ function _addTabContextToPanel(popup, tabInfo) {
   if (!strip) return;
   strip.style.display = 'flex';
 
-  const chip = document.createElement('div');
-  chip.className = 'doc-tab-context-chip';
-  chip.dataset.tabId = tabInfo.tabId;
+  var chipView = new View('div').className('doc-tab-context-chip');
+  chipView.attr('data-tab-id', tabInfo.tabId);
+  var chip = chipView.el;
   const domain = (() => { try { return new URL(tabInfo.url).hostname.replace('www.', ''); } catch { return ''; } })();
-  const favUrl = tabInfo.url ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=16` : '';
-  chip.innerHTML = (favUrl ? `<img src="${favUrl}" class="w-3 h-3 flex-shrink-0 rounded-sm" onerror="this.style.display='none'">` :
-    icon('browserTab', { size: 12, class: 'w-3 h-3 flex-shrink-0' })) +
-    `<span class="truncate">${escapeHtml(tabInfo.title || domain || 'Tab')}</span>`;
+  const favUrl = tabInfo.url ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=16' : '';
+  var favHtml = favUrl ? '<img src="' + favUrl + '" class="w-3 h-3 flex-shrink-0 rounded-sm" onerror="this.style.display=\'none\'">' :
+    icon('browserTab', { size: 12, class: 'w-3 h-3 flex-shrink-0' });
+  chip.appendChild(RawHTML(favHtml).el);
+  chip.appendChild(Text(tabInfo.title || domain || 'Tab').className('truncate').el);
 
-  const removeBtn = document.createElement('button');
-  removeBtn.className = 'doc-note-context-remove';
-  removeBtn.textContent = '\u00d7';
-  removeBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  removeBtn.addEventListener('click', (ev) => {
+  var removeBtn = Button('\u00d7').className('doc-note-context-remove');
+  removeBtn.on('mousedown', function(ev) { ev.stopPropagation(); });
+  removeBtn.onTap(function(ev) {
     ev.stopPropagation();
     _pendingTabContexts = _pendingTabContexts.filter(t => t.tabId !== tabInfo.tabId);
     chip.remove();
     if (_pendingTabContexts.length === 0 && _pendingScreenshots.length === 0) strip.style.display = 'none';
   });
-  chip.appendChild(removeBtn);
+  chip.appendChild(removeBtn.el);
   strip.appendChild(chip);
 
   const input = popup.querySelector('.doc-ask-inline-input');
@@ -1084,24 +1083,22 @@ function _addScreenshotToPanel(popup, base64) {
   if (!strip) return;
   strip.style.display = 'flex';
 
-  const thumb = document.createElement('div');
-  thumb.className = 'doc-screenshot-thumb';
-  const img = document.createElement('img');
-  img.src = 'data:image/png;base64,' + base64;
-  thumb.appendChild(img);
+  var thumbView = new View('div').className('doc-screenshot-thumb');
+  var thumb = thumbView.el;
+  var imgView = new View('img');
+  imgView.el.src = 'data:image/png;base64,' + base64;
+  thumb.appendChild(imgView.el);
 
-  const removeBtn = document.createElement('button');
-  removeBtn.className = 'doc-screenshot-thumb-remove';
-  removeBtn.textContent = '\u00d7';
-  removeBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  removeBtn.addEventListener('click', (ev) => {
+  var removeBtn = Button('\u00d7').className('doc-screenshot-thumb-remove');
+  removeBtn.on('mousedown', function(ev) { ev.stopPropagation(); });
+  removeBtn.onTap(function(ev) {
     ev.stopPropagation();
-    const idx = _pendingScreenshots.indexOf(base64);
+    var idx = _pendingScreenshots.indexOf(base64);
     if (idx !== -1) _pendingScreenshots.splice(idx, 1);
     thumb.remove();
     if (_pendingScreenshots.length === 0) strip.style.display = 'none';
   });
-  thumb.appendChild(removeBtn);
+  thumb.appendChild(removeBtn.el);
   strip.appendChild(thumb);
 
   const input = popup.querySelector('.doc-ask-inline-input');

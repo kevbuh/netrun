@@ -2,6 +2,8 @@
 // Loaded before other modules to provide global logger.
 // All logs can be toggled via Settings.get('debugLogs')
 
+import Settings from '/js/core/core-settings.js';
+
 const _DEBUG_ENABLED = Settings.get('debugLogs') === 'true';
 
 const logger = {
@@ -33,3 +35,6 @@ window.disableDebugLogs = () => {
   Settings.remove('debugLogs');
   console.log('Debug logging disabled. Reload to take effect.');
 };
+
+window.logger = logger;
+export { logger };

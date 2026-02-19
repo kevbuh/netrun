@@ -1,6 +1,8 @@
 // core-sidebar.js — Sidebar config, drag-to-reorder
 // Extracted from core.js
 
+import Settings from '/js/core/core-settings.js';
+
 // ── Sidebar icon visibility & order ──
 const SIDEBAR_ICON_IDS = ['sb-dashboard','sb-home','sb-browse','sb-neuralook','sb-dev','sb-settings'];
 
@@ -39,6 +41,12 @@ function applySidebarOrder() {
     if (el) nav.insertBefore(el, pet);
   });
 }
+
+// Backward compat window assignments
+window.applySidebarVisibility = applySidebarVisibility;
+window.getSidebarOrder = getSidebarOrder;
+window.applySidebarOrder = applySidebarOrder;
+window.SIDEBAR_ICON_IDS = SIDEBAR_ICON_IDS;
 
 // ── Sidebar drag-to-reorder ──
 (function() {
@@ -358,3 +366,5 @@ function applySidebarOrder() {
 })();
 
 // ── Button click sound (Web Audio API) ──
+
+export { applySidebarVisibility, getSidebarOrder, applySidebarOrder, SIDEBAR_ICON_IDS };

@@ -1332,11 +1332,10 @@ function openSearchHistoryPage() {
   if (tab.el) tab.el.remove();
 
   const container = document.getElementById('browse-content');
-  const el = document.createElement('div');
-  el.id = 'browse-history-' + tab.id;
-  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;';
-  container.appendChild(el);
-  tab.el = el;
+  var elView = new View('div').attr('id', 'browse-history-' + tab.id);
+  elView.cssText('width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;');
+  container.appendChild(elView.el);
+  tab.el = elView.el;
 
   // Hide new tab page
   _browseUpdateNewTabPage(tab);
@@ -1374,11 +1373,10 @@ function openHelpPage() {
   if (tab.el) tab.el.remove();
 
   const container = document.getElementById('browse-content');
-  const el = document.createElement('div');
-  el.id = 'browse-help-' + tab.id;
-  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;';
-  container.appendChild(el);
-  tab.el = el;
+  var elView = new View('div').attr('id', 'browse-help-' + tab.id);
+  elView.cssText('width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;');
+  container.appendChild(elView.el);
+  tab.el = elView.el;
 
   _browseUpdateNewTabPage(tab);
   _browseRenderTabs();
@@ -1841,77 +1839,81 @@ function _showPermissionPrompt(domain, permKey) {
   const label = _SITE_PERM_PROMPTS[permKey] || permKey;
   const icon = _SITE_PERM_ICONS_LG[permKey] || '';
 
-  const overlay = document.createElement('div');
-  overlay.id = 'site-permission-prompt';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-start;justify-content:center;padding-top:80px;background:rgba(0,0,0,0.45);';
+  var overlayView = new View('div').attr('id', 'site-permission-prompt');
+  overlayView.cssText('position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-start;justify-content:center;padding-top:80px;background:rgba(0,0,0,0.45);');
+  var overlay = overlayView.el;
 
-  overlay.innerHTML = `
-    <div style="background:var(--nr-bg-overlay);border:1px solid var(--nr-border-default);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,0.4);width:380px;overflow:hidden;">
-      <div style="padding:20px 20px 12px;display:flex;align-items:flex-start;gap:12px;">
-        <div style="flex:1;">
-          <div style="font-size:0.92rem;font-weight:600;color:var(--nr-text-primary);line-height:1.4;">
-            <strong>${escapeHtml(domain)}</strong> wants to
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--nr-bg-raised);">
-            <span style="color:var(--nr-text-quaternary);flex-shrink:0;">${icon}</span>
-            <span style="font-size:0.84rem;color:var(--nr-text-primary);">${escapeHtml(label)}</span>
-          </div>
-        </div>
-        <button id="perm-prompt-close" style="background:none;border:none;cursor:pointer;color:var(--nr-text-quaternary);padding:2px;flex-shrink:0;" title="Dismiss">
-          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <div style="padding:0 20px 16px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-          <span style="font-size:0.75rem;color:var(--nr-text-secondary);">Remember my decision</span>
-          <select id="perm-prompt-remember" style="padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.75rem;cursor:pointer;">
-            <option value="session">Until I close this site</option>
-            <option value="always" selected>Always</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
-          <button id="perm-prompt-block" style="padding:6px 20px;border-radius:8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.82rem;font-weight:500;cursor:pointer;">Block</button>
-          <button id="perm-prompt-allow" style="padding:6px 20px;border-radius:8px;border:1px solid var(--nr-accent);background:var(--nr-accent);color:#fff;font-size:0.82rem;font-weight:600;cursor:pointer;">Allow</button>
-        </div>
-      </div>
-      <div style="padding:8px 20px;border-top:1px solid var(--nr-border-subtle);font-size:0.68rem;color:var(--nr-text-quaternary);">
-        You can change your site permissions at any time from the more menu in the toolbar.
-      </div>
-    </div>
-  `;
+  // Build select element for remember decision
+  var selectView = new View('select');
+  selectView.cssText('padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.75rem;cursor:pointer;');
+  var optSession = new View('option').attr('value', 'session');
+  optSession.el.textContent = 'Until I close this site';
+  var optAlways = new View('option').attr('value', 'always');
+  optAlways.el.textContent = 'Always';
+  optAlways.el.selected = true;
+  selectView.el.appendChild(optSession.el);
+  selectView.el.appendChild(optAlways.el);
+
+  function _getRememberVal() { return selectView.el.value; }
+  function _dismissPrompt() { overlay.remove(); }
+
+  var closeSvg = '<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+
+  var card = VStack(
+    // Header row
+    HStack(
+      VStack(
+        RawHTML('<div style="font-size:0.92rem;font-weight:600;color:var(--nr-text-primary);line-height:1.4;"><strong>' + escapeHtml(domain) + '</strong> wants to</div>'),
+        HStack(
+          RawHTML('<span style="color:var(--nr-text-quaternary);flex-shrink:0;">' + icon + '</span>'),
+          Text(label).cssText('font-size:0.84rem;color:var(--nr-text-primary);')
+        ).cssText('display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--nr-bg-raised);')
+      ).cssText('flex:1;'),
+      Button(RawHTML(closeSvg)).cssText('background:none;border:none;cursor:pointer;color:var(--nr-text-quaternary);padding:2px;flex-shrink:0;').attr('title', 'Dismiss').onTap(function() { _dismissPrompt(); })
+    ).cssText('padding:20px 20px 12px;display:flex;align-items:flex-start;gap:12px;'),
+    // Remember + action buttons
+    VStack(
+      HStack(
+        Text('Remember my decision').cssText('font-size:0.75rem;color:var(--nr-text-secondary);')
+      ).cssText('display:flex;align-items:center;gap:8px;margin-bottom:16px;'),
+      HStack(
+        Button('Block').cssText('padding:6px 20px;border-radius:8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.82rem;font-weight:500;cursor:pointer;').onTap(function() {
+          if (_getRememberVal() === 'always') _setSitePermission(domain, permKey, 'block');
+          _browseApplyPermissions();
+          _dismissPrompt();
+          _renderSitePermissionsDropdown();
+        }),
+        Button('Allow').cssText('padding:6px 20px;border-radius:8px;border:1px solid var(--nr-accent);background:var(--nr-accent);color:#fff;font-size:0.82rem;font-weight:600;cursor:pointer;').onTap(function() {
+          if (_getRememberVal() === 'always') {
+            _setSitePermission(domain, permKey, 'allow');
+          } else {
+            _sessionPermissions[domain] = _sessionPermissions[domain] || {};
+            _sessionPermissions[domain][permKey] = 'allow';
+          }
+          _browseApplyPermissions();
+          _dismissPrompt();
+          _renderSitePermissionsDropdown();
+        })
+      ).cssText('display:flex;gap:8px;justify-content:flex-end;')
+    ).cssText('padding:0 20px 16px;'),
+    // Footer
+    Text('You can change your site permissions at any time from the more menu in the toolbar.').cssText('padding:8px 20px;border-top:1px solid var(--nr-border-subtle);font-size:0.68rem;color:var(--nr-text-quaternary);')
+  ).cssText('background:var(--nr-bg-overlay);border:1px solid var(--nr-border-default);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,0.4);width:380px;overflow:hidden;');
+
+  // Insert select into the remember row
+  var rememberRow = card.el.querySelector('.nr-hstack');
+  // The remember row is the first HStack inside the second VStack child
+  var actionSection = card.el.children[1]; // second VStack (padding:0 20px 16px)
+  var rememberHStack = actionSection && actionSection.children[0];
+  if (rememberHStack) rememberHStack.appendChild(selectView.el);
+
+  AetherUI.mount(card, overlay);
 
   document.body.appendChild(overlay);
 
   // Close on overlay background click
-  overlay.addEventListener('mousedown', (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
-
-  overlay.querySelector('#perm-prompt-close').addEventListener('click', () => overlay.remove());
-
-  overlay.querySelector('#perm-prompt-block').addEventListener('click', () => {
-    const remember = overlay.querySelector('#perm-prompt-remember').value;
-    if (remember === 'always') {
-      _setSitePermission(domain, permKey, 'block');
-    }
-    // Session-only block: just leave it as default (blocked), don't persist
-    _browseApplyPermissions();
-    overlay.remove();
-    _renderSitePermissionsDropdown();
-  });
-
-  overlay.querySelector('#perm-prompt-allow').addEventListener('click', () => {
-    const remember = overlay.querySelector('#perm-prompt-remember').value;
-    if (remember === 'always') {
-      _setSitePermission(domain, permKey, 'allow');
-    } else {
-      // Session-only: set on iframe but don't persist to localStorage
-      _sessionPermissions[domain] = _sessionPermissions[domain] || {};
-      _sessionPermissions[domain][permKey] = 'allow';
-    }
-    _browseApplyPermissions();
-    overlay.remove();
-    _renderSitePermissionsDropdown();
+  overlayView.on('mousedown', function(e) {
+    if (e.target === overlay) _dismissPrompt();
   });
 }
 

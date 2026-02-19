@@ -9,3 +9,6 @@ function contextIngest(source, section, content, opts) {
   if (opts && opts.dedupeKey) entry.dedupeKey = opts.dedupeKey;
   electronAPI.dbQuery('context-ingest', entry).catch(function() {});
 }
+
+window.contextIngest = contextIngest;
+export { contextIngest };

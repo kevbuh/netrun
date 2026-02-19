@@ -315,13 +315,32 @@ function _renderTabs() {
   const tabsEl = document.getElementById('vault-terminal-tabs') || document.getElementById('terminal-tabs');
   if (!tabsEl) return;
 
-  tabsEl.innerHTML = _terminals.map(t => `
-    <div class="term-tab ${t.id === _activeTerminalId ? 'active' : ''}" data-term-id="${t.id}" onclick="selectTerminal(${t.id})">
-      <svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>
-      <span class="term-tab-title" ondblclick="event.stopPropagation();_startRenameTab(${t.id})">${_escapeHtml(t.name)}</span>
-      <button class="term-tab-close" onclick="event.stopPropagation();destroyTerminal(${t.id})" title="Close">×</button>
-    </div>
-  `).join('') + `<button class="term-tab-new" onclick="createTerminal()" title="New Tab">+</button>`;
+  tabsEl.innerHTML = '';
+  _terminals.forEach(function(t) {
+    var tab = document.createElement('div');
+    tab.className = 'term-tab' + (t.id === _activeTerminalId ? ' active' : '');
+    tab.dataset.termId = t.id;
+    tab.onclick = function() { selectTerminal(t.id); };
+    tab.innerHTML = '<svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>';
+    var title = document.createElement('span');
+    title.className = 'term-tab-title';
+    title.textContent = t.name;
+    title.ondblclick = function(e) { e.stopPropagation(); _startRenameTab(t.id); };
+    tab.appendChild(title);
+    var closeBtn = document.createElement('button');
+    closeBtn.className = 'term-tab-close';
+    closeBtn.textContent = '\u00d7';
+    closeBtn.title = 'Close';
+    closeBtn.onclick = function(e) { e.stopPropagation(); destroyTerminal(t.id); };
+    tab.appendChild(closeBtn);
+    tabsEl.appendChild(tab);
+  });
+  var newBtn = document.createElement('button');
+  newBtn.className = 'term-tab-new';
+  newBtn.textContent = '+';
+  newBtn.title = 'New Tab';
+  newBtn.onclick = function() { createTerminal(); };
+  tabsEl.appendChild(newBtn);
 }
 
 function _startRenameTab(id) {
@@ -411,34 +430,30 @@ function _renderLayout() {
     }
 
     if (node.type === 'split') {
-      const wrapper = document.createElement('div');
+      var wrapper = document.createElement('div');
       wrapper.className = 'term-split';
-      wrapper.style.cssText = `display:flex;flex-direction:${node.direction === 'horizontal' ? 'column' : 'row'};width:100%;height:100%;`;
+      wrapper.style.cssText = 'display:flex;flex-direction:' + (node.direction === 'horizontal' ? 'column' : 'row') + ';width:100%;height:100%;';
 
-      const ratio = node.ratio || 0.5;
+      var ratio = node.ratio || 0.5;
 
-      const pane1 = document.createElement('div');
+      var pane1 = document.createElement('div');
       pane1.className = 'term-split-pane';
-      if (node.direction === 'horizontal') {
-        pane1.style.cssText = `height:${ratio * 100}%;width:100%;overflow:hidden;`;
-      } else {
-        pane1.style.cssText = `width:${ratio * 100}%;height:100%;overflow:hidden;`;
-      }
+      pane1.style.cssText = node.direction === 'horizontal'
+        ? 'height:' + (ratio * 100) + '%;width:100%;overflow:hidden;'
+        : 'width:' + (ratio * 100) + '%;height:100%;overflow:hidden;';
 
-      const handle = document.createElement('div');
+      var handle = document.createElement('div');
       handle.className = 'term-split-handle';
       handle.style.cssText = node.direction === 'horizontal'
         ? 'height:4px;width:100%;cursor:row-resize;background:var(--nr-border-dim);flex-shrink:0;'
         : 'width:4px;height:100%;cursor:col-resize;background:var(--nr-border-dim);flex-shrink:0;';
       _initSplitResize(handle, node, pane1);
 
-      const pane2 = document.createElement('div');
+      var pane2 = document.createElement('div');
       pane2.className = 'term-split-pane';
-      if (node.direction === 'horizontal') {
-        pane2.style.cssText = `height:${(1 - ratio) * 100}%;width:100%;overflow:hidden;`;
-      } else {
-        pane2.style.cssText = `width:${(1 - ratio) * 100}%;height:100%;overflow:hidden;`;
-      }
+      pane2.style.cssText = node.direction === 'horizontal'
+        ? 'height:' + ((1 - ratio) * 100) + '%;width:100%;overflow:hidden;'
+        : 'width:' + ((1 - ratio) * 100) + '%;height:100%;overflow:hidden;';
 
       wrapper.appendChild(pane1);
       wrapper.appendChild(handle);
@@ -937,13 +952,33 @@ function _renderBottomTerminalTabs() {
   const tabsEl = document.getElementById('bottom-terminal-tabs');
   if (!tabsEl) return;
 
-  tabsEl.innerHTML = _terminals.map(t => `
-    <div class="term-tab ${t.id === _activeTerminalId ? 'active' : ''}" data-term-id="${t.id}" onclick="_bottomSelectTerminal(${t.id})">
-      <svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>
-      <span class="term-tab-title">${_escapeHtml(t.name)}</span>
-      ${_terminals.length > 1 ? `<button class="term-tab-close" onclick="event.stopPropagation();destroyTerminal(${t.id});_renderBottomTerminalTabs();_renderBottomTerminalPane()" title="Close">×</button>` : ''}
-    </div>
-  `).join('') + `<button class="term-tab-new" onclick="createTerminal();_renderBottomTerminalTabs();_renderBottomTerminalPane()" title="New Tab">+</button>`;
+  tabsEl.innerHTML = '';
+  _terminals.forEach(function(t) {
+    var tab = document.createElement('div');
+    tab.className = 'term-tab' + (t.id === _activeTerminalId ? ' active' : '');
+    tab.dataset.termId = t.id;
+    tab.onclick = function() { _bottomSelectTerminal(t.id); };
+    tab.innerHTML = '<svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>';
+    var title = document.createElement('span');
+    title.className = 'term-tab-title';
+    title.textContent = t.name;
+    tab.appendChild(title);
+    if (_terminals.length > 1) {
+      var closeBtn = document.createElement('button');
+      closeBtn.className = 'term-tab-close';
+      closeBtn.textContent = '\u00d7';
+      closeBtn.title = 'Close';
+      closeBtn.onclick = function(e) { e.stopPropagation(); destroyTerminal(t.id); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); };
+      tab.appendChild(closeBtn);
+    }
+    tabsEl.appendChild(tab);
+  });
+  var newBtn = document.createElement('button');
+  newBtn.className = 'term-tab-new';
+  newBtn.textContent = '+';
+  newBtn.title = 'New Tab';
+  newBtn.onclick = function() { createTerminal(); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); };
+  tabsEl.appendChild(newBtn);
 }
 
 function _bottomSelectTerminal(id) {

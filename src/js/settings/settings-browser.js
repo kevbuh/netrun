@@ -262,42 +262,47 @@ function _loadSettingsPasswords() {
 
 function _renderPasswordsList(container, entries) {
   if (!entries.length) {
-    AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem]">No saved passwords.</div>'), container);
+    AetherUI.mount(Text('No saved passwords.').className('text-dimmer text-[0.75rem]'), container);
     return;
   }
-  const grouped = {};
-  for (const e of entries) {
+  var grouped = {};
+  for (var i = 0; i < entries.length; i++) {
+    var e = entries[i];
     if (!grouped[e.origin]) grouped[e.origin] = [];
     grouped[e.origin].push(e);
   }
-  let html = '';
-  for (const origin of Object.keys(grouped).sort()) {
-    const items = grouped[origin];
-    const isExpanded = _expandedPwDomain === origin;
-    const safeOrigin = escapeHtml(origin).replace(/'/g, "\\'");
-    html += '<div style="border:1px solid var(--nr-border-strong);border-radius:8px;margin-bottom:6px;overflow:hidden;">';
-    html += '<div style="display:flex;align-items:center;padding:8px 12px;cursor:pointer;gap:8px;" onclick="_expandedPwDomain=(_expandedPwDomain===\'' + safeOrigin + '\'?null:\'' + safeOrigin + '\');_loadSettingsPasswords();">';
-    html += icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') });
-    html += '<span style="flex:1;font-size:0.8rem;color:var(--nr-text-primary);font-weight:500;">' + escapeHtml(origin) + '</span>';
-    html += '<span style="font-size:0.68rem;color:var(--nr-text-quaternary);">' + items.length + ' account' + (items.length !== 1 ? 's' : '') + '</span>';
-    html += '</div>';
+  var cards = Object.keys(grouped).sort().map(function(origin) {
+    var items = grouped[origin];
+    var isExpanded = _expandedPwDomain === origin;
+    var chevron = RawHTML(icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') }));
+    var header = HStack(chevron,
+      Text(origin).styles({ flex: '1', fontSize: '0.8rem', color: 'var(--nr-text-primary)', fontWeight: '500' }),
+      Text(items.length + ' account' + (items.length !== 1 ? 's' : '')).styles({ fontSize: '0.68rem', color: 'var(--nr-text-quaternary)' })
+    ).spacing(2).styles({ padding: '8px 12px', cursor: 'pointer' });
+    header.onTap(function() { _expandedPwDomain = (_expandedPwDomain === origin ? null : origin); _loadSettingsPasswords(); });
+
+    var cardItems = [header];
     if (isExpanded) {
-      html += '<div style="padding:0 12px 8px;border-top:1px solid var(--nr-border-subtle);">';
-      for (const entry of items) {
-        html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;">';
-        html += icon('users', { size: 14, stroke: 'var(--nr-text-quaternary)', style: 'flex-shrink:0;' });
-        html += '<span style="flex:1;font-size:0.78rem;color:var(--nr-text-primary);">' + escapeHtml(entry.username || '(no username)') + '</span>';
-        if (entry.createdAt) {
-          html += '<span style="font-size:0.65rem;color:var(--nr-text-quaternary);">' + new Date(entry.createdAt).toLocaleDateString() + '</span>';
-        }
-        html += '<button onclick="_pwDeleteEntry(\'' + entry.id + '\')" style="padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-secondary);font-size:0.7rem;cursor:pointer;">Delete</button>';
-        html += '</div>';
-      }
-      html += '</div>';
+      var entryRows = items.map(function(entry) {
+        var delBtn = Button('Delete').styles({
+          padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--nr-border-strong)',
+          background: 'var(--nr-bg-surface)', color: 'var(--nr-text-secondary)', fontSize: '0.7rem', cursor: 'pointer'
+        });
+        delBtn.onTap(function() { _pwDeleteEntry(entry.id); });
+        var rowItems = [
+          RawHTML(icon('users', { size: 14, stroke: 'var(--nr-text-quaternary)', style: 'flex-shrink:0;' })),
+          Text(entry.username || '(no username)').styles({ flex: '1', fontSize: '0.78rem', color: 'var(--nr-text-primary)' })
+        ];
+        if (entry.createdAt) rowItems.push(Text(new Date(entry.createdAt).toLocaleDateString()).styles({ fontSize: '0.65rem', color: 'var(--nr-text-quaternary)' }));
+        rowItems.push(delBtn);
+        return HStack.apply(null, rowItems).spacing(2).styles({ padding: '5px 0' });
+      });
+      var detail = VStack.apply(null, entryRows).styles({ padding: '0 12px 8px', borderTop: '1px solid var(--nr-border-subtle)' });
+      cardItems.push(detail);
     }
-    html += '</div>';
-  }
-  AetherUI.mount(RawHTML(html), container);
+    return VStack.apply(null, cardItems).styles({ border: '1px solid var(--nr-border-strong)', borderRadius: '8px', marginBottom: '6px', overflow: 'hidden' });
+  });
+  AetherUI.mount(VStack.apply(null, cards), container);
 }
 
 function _pwDeleteEntry(id) {
@@ -336,7 +341,11 @@ function _renderBrowserSettings() {
   // Focus mode
   var focusToggle = _settingToggle('Focus Mode', 'Block or limit time on distracting sites to prevent doom scrolling.',
     Settings.get('doomScrollEnabled') !== 'false', function(on) { Settings.set('doomScrollEnabled', on ? 'true' : 'false'); });
-  var focusSites = RawHTML('<div id="doom-scroll-sites-list" class="mt-3">' + _renderDoomScrollSites() + '</div>');
+  var focusSitesWrap = new View('div');
+  focusSitesWrap.el.id = 'doom-scroll-sites-list';
+  focusSitesWrap.className('mt-3');
+  AetherUI.mount(_renderDoomScrollSites(), focusSitesWrap.el);
+  var focusSites = focusSitesWrap;
 
   // Simplify URLs
   var urlShortenToggle = Toggle(null);
@@ -368,10 +377,16 @@ function _renderBrowserSettings() {
   var adaptiveRow = _settingRow('Adaptive Background', 'Match the browser background to the current website\'s color.', adaptiveToggle);
 
   // URL bar sections
-  var urlBarSections = RawHTML('<div id="settings-urlbar-sections">' + _renderUrlBarSectionsSettings() + '</div>');
+  var urlBarSectionsWrap = new View('div');
+  urlBarSectionsWrap.el.id = 'settings-urlbar-sections';
+  AetherUI.mount(_renderUrlBarSectionsSettings(), urlBarSectionsWrap.el);
+  var urlBarSections = urlBarSectionsWrap;
 
   // Site permissions
-  var sitePermContent = RawHTML('<div id="settings-site-permissions">' + _renderSettingsSitePermissions() + '</div>');
+  var sitePermWrap = new View('div');
+  sitePermWrap.el.id = 'settings-site-permissions';
+  AetherUI.mount(_renderSettingsSitePermissions(), sitePermWrap.el);
+  var sitePermContent = sitePermWrap;
 
   // Passwords
   var pwContent = RawHTML('<div id="settings-passwords"><div class="text-dimmer text-[0.75rem]">Loading...</div></div>');

@@ -243,11 +243,10 @@ function _aetherRenderCmdDropdown(popup, query) {
     return;
   }
   if (!dropdown) {
-    dropdown = document.createElement('div');
-    dropdown.className = 'aether-cmd-dropdown';
-    dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    // Insert before askWrap
-    const askWrap = popup.querySelector('.doc-ask-inline-wrap');
+    var ddView = new View('div').className('aether-cmd-dropdown');
+    ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
+    dropdown = ddView.el;
+    var askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
     else popup.appendChild(dropdown);
   }
@@ -336,9 +335,9 @@ function _aetherRenderHistoryDropdown(popup, query) {
 
   if (!_aetherHistoryList.length) {
     if (!dropdown) {
-      dropdown = document.createElement('div');
-      dropdown.className = 'aether-history-dropdown aether-note-dropdown';
-      dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
+      var ddView = new View('div').className('aether-history-dropdown aether-note-dropdown');
+      ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
+      dropdown = ddView.el;
       const askWrap = popup.querySelector('.doc-ask-inline-wrap');
       if (askWrap) popup.insertBefore(dropdown, askWrap);
       else popup.appendChild(dropdown);
@@ -353,9 +352,9 @@ function _aetherRenderHistoryDropdown(popup, query) {
   }
 
   if (!dropdown) {
-    dropdown = document.createElement('div');
-    dropdown.className = 'aether-history-dropdown aether-note-dropdown';
-    dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    var ddView = new View('div').className('aether-history-dropdown aether-note-dropdown');
+    ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
+    dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
     else popup.appendChild(dropdown);
@@ -536,9 +535,9 @@ async function _doAetherModel(popup) {
 function _aetherRenderModelDropdown(popup) {
   let dropdown = popup.querySelector('.aether-model-dropdown');
   if (!dropdown) {
-    dropdown = document.createElement('div');
-    dropdown.className = 'aether-note-dropdown aether-model-dropdown';
-    dropdown.addEventListener('mousedown', ev => ev.stopPropagation());
+    var ddView = new View('div').className('aether-note-dropdown aether-model-dropdown');
+    ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
+    dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
     else popup.appendChild(dropdown);
@@ -638,9 +637,9 @@ async function _doAetherAgent(popup) {
 function _aetherRenderAgentDropdown(popup) {
   let dropdown = popup.querySelector('.aether-agent-dropdown');
   if (!dropdown) {
-    dropdown = document.createElement('div');
-    dropdown.className = 'aether-note-dropdown aether-agent-dropdown';
-    dropdown.addEventListener('mousedown', ev => ev.stopPropagation());
+    var ddView = new View('div').className('aether-note-dropdown aether-agent-dropdown');
+    ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
+    dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
     else popup.appendChild(dropdown);
@@ -825,9 +824,9 @@ function _renderTabDropdown(popup) {
     return;
   }
   if (!dropdown) {
-    dropdown = document.createElement('div');
-    dropdown.className = 'aether-tab-dropdown';
-    dropdown.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    var ddView = new View('div').className('aether-tab-dropdown');
+    ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
+    dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
     else popup.appendChild(dropdown);
@@ -1061,7 +1060,7 @@ Type in the browser URL bar:
   titleBar.appendChild(titleSpanView.build());
 
   var closeBtnView = new View('button').className('aether-note-editor-close').attr('title', 'Close');
-  closeBtnView.el.innerHTML = '&times;';
+  closeBtnView.el.textContent = '\u00d7';
   closeBtnView.onTap((ev) => { ev.stopPropagation(); panel.remove(); document.removeEventListener('mousemove', hMove); document.removeEventListener('mouseup', hUp); });
   titleBar.appendChild(closeBtnView.build());
   panel.appendChild(titleBar);

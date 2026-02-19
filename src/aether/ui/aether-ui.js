@@ -1,224 +1,223 @@
 /* AetherUI — Assembler
    Exposes window.AetherUI and Aether.ui. Optional globals() to put primitives on window. */
 
-(function() {
-  'use strict';
+'use strict';
 
-  var state = window._AetherUIState || {};
-  var View = window._AetherUIView;
-  var prims = window._AetherUIPrimitives || {};
-  var ctrls = window._AetherUIControls || {};
-  var conts = window._AetherUIContainers || {};
-  var ovrl = window._AetherUIOverlay || {};
-  var comp = window._AetherUIComponent || {};
+import { State, Computed, Effect, Binding, batch, untrack, Context } from '/aether/ui/state.js';
+import { View } from '/aether/ui/view.js';
+import { VStack, HStack, ZStack, Grid, Spacer, Divider, ScrollView, Text, Label, Link, Image, Icon, RawHTML } from '/aether/ui/primitives.js';
+import { Button, TextField, Textarea, Toggle, Checkbox, RadioGroup, Slider, Picker, Stepper, TabView, ProgressBar, Pill } from '/aether/ui/controls.js';
+import { ForEach, List, Group, Section } from '/aether/ui/containers.js';
+import { Sheet, Alert, Popover, Menu } from '/aether/ui/overlay.js';
+import { defineComponent, getComponent, listComponents } from '/aether/ui/component.js';
 
-  // ─── Mount / Append ───────────────────────────────────────
+// ─── Mount / Append ───────────────────────────────────────
 
-  var _mountedViews = new WeakMap();
+var _mountedViews = new WeakMap();
 
-  function mount(view, target) {
-    var container = typeof target === 'string' ? document.querySelector(target) : target;
-    if (!container) return;
+function mount(view, target) {
+  var container = typeof target === 'string' ? document.querySelector(target) : target;
+  if (!container) return;
 
-    // Dispose previous view tree if any
-    var prev = _mountedViews.get(container);
-    if (prev && prev.dispose) prev.dispose();
+  // Dispose previous view tree if any
+  var prev = _mountedViews.get(container);
+  if (prev && prev.dispose) prev.dispose();
 
-    container.innerHTML = '';
-    if (view instanceof View) {
-      container.appendChild(view.build());
-      if (view._onAppearFn) view._onAppearFn();
-      _mountedViews.set(container, view);
-    } else if (view instanceof HTMLElement) {
-      container.appendChild(view);
-      _mountedViews.delete(container);
+  container.innerHTML = '';
+  if (view instanceof View) {
+    container.appendChild(view.build());
+    if (view._onAppearFn) view._onAppearFn();
+    _mountedViews.set(container, view);
+  } else if (view instanceof HTMLElement) {
+    container.appendChild(view);
+    _mountedViews.delete(container);
+  }
+}
+
+function append(view, target) {
+  var container = typeof target === 'string' ? document.querySelector(target) : target;
+  if (!container) return;
+  if (view instanceof View) {
+    container.appendChild(view.build());
+    if (view._onAppearFn) view._onAppearFn();
+  } else if (view instanceof HTMLElement) {
+    container.appendChild(view);
+  }
+}
+
+// ─── Serialize: walk a view tree into a semantic indented string ──
+
+var INTERACTIVE_VIEW_TYPES = { Button: 1, TextField: 1, Textarea: 1, Toggle: 1, Checkbox: 1, RadioGroup: 1, Slider: 1, Picker: 1, Stepper: 1, Link: 1 };
+
+function _serializeAttrs(view) {
+  var el = view.el;
+  var t = view._viewType;
+  var parts = [];
+
+  if (t === 'TextField') {
+    if (el.placeholder) parts.push('placeholder="' + el.placeholder + '"');
+    if (el.type && el.type !== 'text') parts.push('type=' + el.type);
+    if (el.type === 'password') parts.push('secure');
+    if (el.value) parts.push('value="' + el.value + '"');
+    if (el.disabled) parts.push('disabled');
+  } else if (t === 'Button') {
+    var label = (el.textContent || '').trim();
+    if (label) parts.push('"' + label + '"');
+    if (el.disabled) parts.push('disabled');
+  } else if (t === 'Link') {
+    var linkText = (el.textContent || '').trim();
+    if (linkText) parts.push('"' + linkText + '"');
+    if (el.href) parts.push('href="' + el.href + '"');
+  } else if (t === 'Toggle' || t === 'Checkbox') {
+    var lbl = el.getAttribute('aria-label') || (el.textContent || '').trim();
+    if (lbl) parts.push('label="' + lbl + '"');
+    var inp = el.querySelector('input') || el;
+    parts.push('checked=' + !!inp.checked);
+  } else if (t === 'Slider') {
+    if (el.min) parts.push('min=' + el.min);
+    if (el.max) parts.push('max=' + el.max);
+    parts.push('value=' + (el.value || 0));
+  } else if (t === 'Picker') {
+    if (el.value) parts.push('value="' + el.value + '"');
+    if (el.options) parts.push('options=' + el.options.length);
+  } else if (t === 'Textarea') {
+    if (el.placeholder) parts.push('placeholder="' + el.placeholder + '"');
+    if (el.value) parts.push('value="' + el.value + '"');
+  } else if (t === 'Text') {
+    var txt = (el.textContent || '').trim();
+    if (txt) parts.push('"' + (txt.length > 80 ? txt.slice(0, 80) + '\u2026' : txt) + '"');
+  } else if (t === 'Image') {
+    if (el.alt) parts.push('alt="' + el.alt + '"');
+  } else if (t === 'Section') {
+    var header = el.querySelector('.aether-ui-section-header');
+    if (header) {
+      var hText = (header.textContent || '').trim();
+      if (hText) parts.push('"' + hText + '"');
     }
   }
 
-  function append(view, target) {
-    var container = typeof target === 'string' ? document.querySelector(target) : target;
-    if (!container) return;
-    if (view instanceof View) {
-      container.appendChild(view.build());
-      if (view._onAppearFn) view._onAppearFn();
-    } else if (view instanceof HTMLElement) {
-      container.appendChild(view);
-    }
+  return parts.length ? ' ' + parts.join(' ') : '';
+}
+
+var _serializeNextId = 1;
+
+function _serializeNode(view, depth, lines) {
+  var t = view._viewType || view.el.getAttribute('data-component') || view.el.tagName.toLowerCase();
+  var indent = '';
+  for (var d = 0; d < depth; d++) indent += '  ';
+  var isInteractive = !!INTERACTIVE_VIEW_TYPES[t];
+
+  if (isInteractive) {
+    var id = _serializeNextId++;
+    lines.push(indent + '[' + id + '] ' + t + _serializeAttrs(view));
+  } else {
+    lines.push(indent + t + _serializeAttrs(view));
   }
 
-  // ─── Serialize: walk a view tree into a semantic indented string ──
-
-  var INTERACTIVE_VIEW_TYPES = { Button: 1, TextField: 1, Textarea: 1, Toggle: 1, Checkbox: 1, RadioGroup: 1, Slider: 1, Picker: 1, Stepper: 1, Link: 1 };
-
-  function _serializeAttrs(view) {
-    var el = view.el;
-    var t = view._viewType;
-    var parts = [];
-
-    if (t === 'TextField') {
-      if (el.placeholder) parts.push('placeholder="' + el.placeholder + '"');
-      if (el.type && el.type !== 'text') parts.push('type=' + el.type);
-      if (el.type === 'password') parts.push('secure');
-      if (el.value) parts.push('value="' + el.value + '"');
-      if (el.disabled) parts.push('disabled');
-    } else if (t === 'Button') {
-      var label = (el.textContent || '').trim();
-      if (label) parts.push('"' + label + '"');
-      if (el.disabled) parts.push('disabled');
-    } else if (t === 'Link') {
-      var linkText = (el.textContent || '').trim();
-      if (linkText) parts.push('"' + linkText + '"');
-      if (el.href) parts.push('href="' + el.href + '"');
-    } else if (t === 'Toggle' || t === 'Checkbox') {
-      var lbl = el.getAttribute('aria-label') || (el.textContent || '').trim();
-      if (lbl) parts.push('label="' + lbl + '"');
-      var inp = el.querySelector('input') || el;
-      parts.push('checked=' + !!inp.checked);
-    } else if (t === 'Slider') {
-      if (el.min) parts.push('min=' + el.min);
-      if (el.max) parts.push('max=' + el.max);
-      parts.push('value=' + (el.value || 0));
-    } else if (t === 'Picker') {
-      if (el.value) parts.push('value="' + el.value + '"');
-      if (el.options) parts.push('options=' + el.options.length);
-    } else if (t === 'Textarea') {
-      if (el.placeholder) parts.push('placeholder="' + el.placeholder + '"');
-      if (el.value) parts.push('value="' + el.value + '"');
-    } else if (t === 'Text') {
-      var txt = (el.textContent || '').trim();
-      if (txt) parts.push('"' + (txt.length > 80 ? txt.slice(0, 80) + '…' : txt) + '"');
-    } else if (t === 'Image') {
-      if (el.alt) parts.push('alt="' + el.alt + '"');
-    } else if (t === 'Section') {
-      var header = el.querySelector('.aether-ui-section-header');
-      if (header) {
-        var hText = (header.textContent || '').trim();
-        if (hText) parts.push('"' + hText + '"');
-      }
-    }
-
-    return parts.length ? ' ' + parts.join(' ') : '';
+  for (var i = 0; i < view._children.length; i++) {
+    _serializeNode(view._children[i], depth + 1, lines);
   }
+}
 
-  var _serializeNextId = 1;
+function serialize(view) {
+  _serializeNextId = 1;
+  var lines = [];
+  _serializeNode(view, 0, lines);
+  return lines.join('\n');
+}
 
-  function _serializeNode(view, depth, lines) {
-    var t = view._viewType || view.el.getAttribute('data-component') || view.el.tagName.toLowerCase();
-    var indent = '';
-    for (var d = 0; d < depth; d++) indent += '  ';
-    var isInteractive = !!INTERACTIVE_VIEW_TYPES[t];
+// ─── API Object ───────────────────────────────────────────
 
-    if (isInteractive) {
-      var id = _serializeNextId++;
-      lines.push(indent + '[' + id + '] ' + t + _serializeAttrs(view));
-    } else {
-      lines.push(indent + t + _serializeAttrs(view));
-    }
+var AetherUI = {
+  // State
+  State: State,
+  Computed: Computed,
+  Effect: Effect,
+  Binding: Binding,
+  batch: batch,
+  untrack: untrack,
+  Context: Context,
 
-    for (var i = 0; i < view._children.length; i++) {
-      _serializeNode(view._children[i], depth + 1, lines);
+  // View base
+  View: View,
+
+  // Primitives
+  VStack: VStack,
+  HStack: HStack,
+  ZStack: ZStack,
+  Grid: Grid,
+  Spacer: Spacer,
+  Divider: Divider,
+  ScrollView: ScrollView,
+  Text: Text,
+  Label: Label,
+  Link: Link,
+  Image: Image,
+  Icon: Icon,
+  RawHTML: RawHTML,
+
+  // Controls
+  Button: Button,
+  TextField: TextField,
+  Textarea: Textarea,
+  Toggle: Toggle,
+  Checkbox: Checkbox,
+  RadioGroup: RadioGroup,
+  Slider: Slider,
+  Picker: Picker,
+  Stepper: Stepper,
+  TabView: TabView,
+  ProgressBar: ProgressBar,
+  Pill: Pill,
+
+  // Containers
+  ForEach: ForEach,
+  List: List,
+  Group: Group,
+  Section: Section,
+
+  // Overlays
+  Sheet: Sheet,
+  Alert: Alert,
+  Popover: Popover,
+  Menu: Menu,
+
+  // Component
+  defineComponent: defineComponent,
+  getComponent: getComponent,
+  listComponents: listComponents,
+
+  // Mount
+  mount: mount,
+  append: append,
+  serialize: serialize,
+
+  // Put all primitives, controls, containers on window for convenience
+  globals: function() {
+    var names = [
+      'View',
+      'State', 'Computed', 'Effect', 'Binding', 'batch', 'untrack', 'Context',
+      'VStack', 'HStack', 'ZStack', 'Grid', 'Spacer', 'Divider', 'ScrollView',
+      'Text', 'Label', 'Link', 'Image', 'Icon', 'RawHTML',
+      'Button', 'TextField', 'Textarea', 'Toggle', 'Checkbox', 'RadioGroup',
+      'Slider', 'Picker', 'Stepper', 'TabView', 'ProgressBar', 'Pill',
+      'ForEach', 'List', 'Group', 'Section',
+      'Sheet', 'Alert', 'Popover', 'Menu',
+      'defineComponent'
+    ];
+    for (var i = 0; i < names.length; i++) {
+      if (AetherUI[names[i]]) window[names[i]] = AetherUI[names[i]];
     }
   }
+};
 
-  function serialize(view) {
-    _serializeNextId = 1;
-    var lines = [];
-    _serializeNode(view, 0, lines);
-    return lines.join('\n');
-  }
+// ─── Expose ───────────────────────────────────────────────
 
-  // ─── API Object ───────────────────────────────────────────
+window.AetherUI = AetherUI;
 
-  var api = {
-    // State
-    State: state.State,
-    Computed: state.Computed,
-    Effect: state.Effect,
-    Binding: state.Binding,
-    batch: state.batch,
-    untrack: state.untrack,
-    Context: state.Context,
+// Extend Aether if loaded
+if (window.Aether) {
+  window.Aether.ui = AetherUI;
+}
 
-    // View base
-    View: View,
-
-    // Primitives
-    VStack: prims.VStack,
-    HStack: prims.HStack,
-    ZStack: prims.ZStack,
-    Grid: prims.Grid,
-    Spacer: prims.Spacer,
-    Divider: prims.Divider,
-    ScrollView: prims.ScrollView,
-    Text: prims.Text,
-    Label: prims.Label,
-    Link: prims.Link,
-    Image: prims.Image,
-    Icon: prims.Icon,
-    RawHTML: prims.RawHTML,
-
-    // Controls
-    Button: ctrls.Button,
-    TextField: ctrls.TextField,
-    Textarea: ctrls.Textarea,
-    Toggle: ctrls.Toggle,
-    Checkbox: ctrls.Checkbox,
-    RadioGroup: ctrls.RadioGroup,
-    Slider: ctrls.Slider,
-    Picker: ctrls.Picker,
-    Stepper: ctrls.Stepper,
-    TabView: ctrls.TabView,
-    ProgressBar: ctrls.ProgressBar,
-    Pill: ctrls.Pill,
-
-    // Containers
-    ForEach: conts.ForEach,
-    List: conts.List,
-    Group: conts.Group,
-    Section: conts.Section,
-
-    // Overlays
-    Sheet: ovrl.Sheet,
-    Alert: ovrl.Alert,
-    Popover: ovrl.Popover,
-    Menu: ovrl.Menu,
-
-    // Component
-    defineComponent: comp.defineComponent,
-    getComponent: comp.getComponent,
-    listComponents: comp.listComponents,
-
-    // Mount
-    mount: mount,
-    append: append,
-    serialize: serialize,
-
-    // Put all primitives, controls, containers on window for convenience
-    globals: function() {
-      var names = [
-        'View',
-        'State', 'Computed', 'Effect', 'Binding', 'batch', 'untrack', 'Context',
-        'VStack', 'HStack', 'ZStack', 'Grid', 'Spacer', 'Divider', 'ScrollView',
-        'Text', 'Label', 'Link', 'Image', 'Icon', 'RawHTML',
-        'Button', 'TextField', 'Textarea', 'Toggle', 'Checkbox', 'RadioGroup',
-        'Slider', 'Picker', 'Stepper', 'TabView', 'ProgressBar', 'Pill',
-        'ForEach', 'List', 'Group', 'Section',
-        'Sheet', 'Alert', 'Popover', 'Menu',
-        'defineComponent'
-      ];
-      for (var i = 0; i < names.length; i++) {
-        if (api[names[i]]) window[names[i]] = api[names[i]];
-      }
-    }
-  };
-
-  // ─── Expose ───────────────────────────────────────────────
-
-  window.AetherUI = api;
-
-  // Extend Aether if loaded
-  if (window.Aether) {
-    window.Aether.ui = api;
-  }
-
-})();
+export { AetherUI };

@@ -650,26 +650,15 @@ function _islandRender() {
     let pill = existingEls[id];
     const isNew = !pill;
     if (isNew) {
-      pill = document.createElement('div');
-      pill.className = 'pill-island';
-      pill.setAttribute('data-island-id', id);
-      // Goo background layer — filtered shapes that merge pill + tray into organic blob
-      const gooBg = document.createElement('div');
-      gooBg.className = 'pill-goo-bg';
-      const gooPill = document.createElement('div');
-      gooPill.className = 'goo-shape goo-pill-shape';
-      const gooTray = document.createElement('div');
-      gooTray.className = 'goo-shape goo-tray-shape';
-      gooBg.appendChild(gooPill);
-      gooBg.appendChild(gooTray);
-      pill.appendChild(gooBg);
-      const compactDiv = document.createElement('div');
-      compactDiv.className = 'pill-island-content';
-      pill.appendChild(compactDiv);
-      // Items tray for context pills (morphs inside the pill)
-      const itemsTray = document.createElement('div');
-      itemsTray.className = 'island-ctx-tray';
-      pill.appendChild(itemsTray);
+      var gooBg = VStack(
+        new View('div').className('goo-shape goo-pill-shape'),
+        new View('div').className('goo-shape goo-tray-shape')
+      ).className('pill-goo-bg');
+      var compactDiv = new View('div').className('pill-island-content');
+      var itemsTray = new View('div').className('island-ctx-tray');
+      var pillView = VStack(gooBg, compactDiv, itemsTray).className('pill-island');
+      pillView.attr('data-island-id', id);
+      pill = pillView.el;
     }
     delete existingEls[id];
     const compact = pill.querySelector('.pill-island-content');

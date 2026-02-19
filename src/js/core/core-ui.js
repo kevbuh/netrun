@@ -118,10 +118,10 @@ window.addEventListener('resize', function() {
     if (!el) return;
     var recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];
     const lastEvent = recent.length ? recent[recent.length - 1] : null;
-    let dot = el.querySelector('.live-pulse-dot');
+    var dot = el.querySelector('.live-pulse-dot');
     if (!dot) {
-      dot = document.createElement('span');
-      dot.className = 'live-pulse-dot island-pulse-dot island-pulse-dot-idle nr-breathe';
+      var dotView = new View('span').className('live-pulse-dot island-pulse-dot island-pulse-dot-idle nr-breathe');
+      dot = dotView.el;
       el.appendChild(dot);
     }
 
@@ -146,10 +146,10 @@ window.addEventListener('resize', function() {
     }
 
     // Build dropdown
-    let dropdown = el.querySelector('.pulse-dropdown');
+    var dropdown = el.querySelector('.pulse-dropdown');
     if (!dropdown) {
-      dropdown = document.createElement('div');
-      dropdown.className = 'pulse-dropdown';
+      var ddView = new View('div').className('pulse-dropdown');
+      dropdown = ddView.el;
       el.appendChild(dropdown);
     }
     var recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];

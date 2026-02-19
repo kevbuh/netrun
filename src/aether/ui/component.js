@@ -1,40 +1,40 @@
 /* AetherUI Component — defineComponent(name, fn)
    Reusable view definitions with lifecycle hooks. */
 
-(function() {
-  'use strict';
+'use strict';
 
-  var View = window._AetherUIView;
-  var _registry = {};
+import { View } from '/aether/ui/view.js';
 
-  function defineComponent(name, fn) {
-    _registry[name] = fn;
+var _registry = {};
 
-    // Return a factory function
-    return function() {
-      var args = Array.prototype.slice.call(arguments);
-      var view = fn.apply(null, args);
-      if (view instanceof View) {
-        view.el.setAttribute('data-component', name);
-      }
-      return view;
-    };
-  }
+function defineComponent(name, fn) {
+  _registry[name] = fn;
 
-  function getComponent(name) {
-    return _registry[name] || null;
-  }
-
-  function listComponents() {
-    return Object.keys(_registry);
-  }
-
-  // ─── Export ───────────────────────────────────────────────
-
-  window._AetherUIComponent = {
-    defineComponent: defineComponent,
-    getComponent: getComponent,
-    listComponents: listComponents
+  // Return a factory function
+  return function() {
+    var args = Array.prototype.slice.call(arguments);
+    var view = fn.apply(null, args);
+    if (view instanceof View) {
+      view.el.setAttribute('data-component', name);
+    }
+    return view;
   };
+}
 
-})();
+function getComponent(name) {
+  return _registry[name] || null;
+}
+
+function listComponents() {
+  return Object.keys(_registry);
+}
+
+// ─── Export ───────────────────────────────────────────────
+
+window._AetherUIComponent = {
+  defineComponent: defineComponent,
+  getComponent: getComponent,
+  listComponents: listComponents
+};
+
+export { defineComponent, getComponent, listComponents };
