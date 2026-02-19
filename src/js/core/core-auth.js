@@ -16,6 +16,10 @@ if (!_authToken && window.electronAPI?.getAuthToken) {
 let _authUser = localStorage.getItem('authUser') || null;  // email or name
 let _syncInterval = null;
 let _authReady = false;  // true once login gate has been resolved
+Object.defineProperty(window, '_authReady', {
+  get() { return _authReady; },
+  set(v) { _authReady = v; }
+});
 
 // Track dirty sync keys so we only serialize changed ones
 const _syncDirtyKeys = new Set();
