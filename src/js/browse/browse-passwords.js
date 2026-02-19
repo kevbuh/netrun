@@ -502,9 +502,10 @@ export function _browseUpdateNewTabPage(tab) {
       fileInput.onchange = function() { handleNtpFileInput(fileInput); };
       ntp.appendChild(fileInput);
 
-      // Search icon SVG
-      var searchIconSvg = '<svg class="ntp-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>';
+      // SVGs
       var submitSvg = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-5 5m5-5l5 5"/></svg>';
+      var plusSvg = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5"/></svg>';
+      var micSvg = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
 
       // Search input (low-level form element)
       var searchInput = document.createElement('input');
@@ -516,31 +517,42 @@ export function _browseUpdateNewTabPage(tab) {
       searchInput.onblur = function() { _browseUrlScheduleHide(); };
       searchInput.onkeydown = function(ev) { _browseUrlKeydown(ev); };
 
+      // + button (add files)
+      var addBtn = new View('button').className('ntp-add-btn').attr('type', 'button').attr('title', 'Add tabs or files');
+      addBtn.el.innerHTML = plusSvg;
+      addBtn.on('mousedown', function(e) { e.preventDefault(); });
+      addBtn.onTap(function() { _browseUrlCancelHide(); fileInput.click(); });
+
+      // Mic button
+      var micBtn = new View('button').className('ntp-mic-btn').attr('type', 'button').attr('title', 'Voice input');
+      micBtn.el.innerHTML = micSvg;
+      micBtn.on('mousedown', function(e) { e.preventDefault(); });
+      micBtn.onTap(function() { if (typeof _pillMicClick === 'function') _pillMicClick(); });
+
+      // Submit button
+      var submitBtn = new View('button').className('ntp-action-submit').attr('title', 'Search').attr('type', 'submit');
+      submitBtn.el.innerHTML = submitSvg;
+
+      // Single-row search bar: [+] [input] [mic] [send]
       var searchRow = new View('div').className('ntp-search-row');
-      searchRow.el.appendChild(RawHTML(searchIconSvg).el);
+      searchRow.el.appendChild(addBtn.el);
       searchRow.el.appendChild(searchInput);
+      searchRow.el.appendChild(micBtn.el);
+      searchRow.el.appendChild(submitBtn.el);
 
       var histDropdown = new View('div').attr('id', 'search-history-dropdown-view').className('ntp-dropdown');
       histDropdown.styles({ display: 'none' });
 
       var fileChips = new View('div').attr('id', 'ntp-file-chips').className('ntp-file-chips-container');
 
-      var addBtn = Button('+ Add tabs or files').className('ntp-action-pill');
-      addBtn.on('mousedown', function(e) { e.preventDefault(); });
-      addBtn.onTap(function() { _browseUrlCancelHide(); fileInput.click(); });
-
-      var dotsBtn = Button('\u00b7\u00b7\u00b7').className('ntp-action-dots').attr('title', 'More options');
-
-      var submitBtn = new View('button').className('nr-btn ntp-action-submit').attr('title', 'Search').attr('type', 'submit');
-      submitBtn.el.innerHTML = submitSvg;
-
-      var actions = HStack(addBtn, dotsBtn, new View('div').cssText('flex:1'), submitBtn).className('ntp-search-actions');
-
-      var searchBox = VStack(searchRow, histDropdown, fileChips, actions).className('ntp-search-box max-w-[680px] mx-auto');
+      var searchBox = new View('div').className('ntp-search-box max-w-[680px] mx-auto');
+      searchBox.el.appendChild(searchRow.el);
 
       var form = new View('form').attr('id', 'search-form');
       form.on('submit', function(e) { e.preventDefault(); submitSearch(); });
       form.el.appendChild(searchBox.el);
+      form.el.appendChild(histDropdown.el);
+      form.el.appendChild(fileChips.el);
 
       var center = new View('div').className('browse-ntp-center');
       center.el.appendChild(form.el);
@@ -583,7 +595,8 @@ export function _browseUpdateNewTabPage(tab) {
       }
     }
   } else if (ntp) {
-    ntp.style.display = 'none';
+    // Keep NTP visible when in chat-mode morph
+    if (!ntp.classList.contains('chat-mode')) ntp.style.display = 'none';
   }
   if (Settings.get('browseTabLayout') === 'island') _pillSyncUrl();
   const pinchOverlay = container.querySelector('.browse-pinch-overlay');

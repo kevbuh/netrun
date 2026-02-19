@@ -235,6 +235,11 @@ export function browseNewTab(url) {
     openHelpPage();
     return;
   }
+  if (/^chat:\/\//i.test(trimUrl)) {
+    const threadId = trimUrl.replace(/^chat:\/\//i, '').replace(/\/$/, '');
+    if (typeof openChatPage === 'function') openChatPage(threadId || null);
+    return;
+  }
   const win = _getCurrentWindow();
   if (!win) return;
 

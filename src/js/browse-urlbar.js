@@ -115,6 +115,8 @@ export function _browseResetAdaptiveColor() {
 // ── Browse URL Bar History Dropdown ──
 
 export const _URL_BAR_SECTIONS = [
+  { key: 'chat',       label: 'Chat' },
+  { key: 'search',     label: 'Search' },
   { key: 'bangs',      label: 'Bangs' },
   { key: 'definition', label: 'Definition' },
   { key: 'instant',    label: 'Instant Answers' },
@@ -288,7 +290,9 @@ export function _browseUrlKeydown(e) {
       if (items[_browseUrlHistIdx]) {
         const q = items[_browseUrlHistIdx].dataset.histq;
         _browseUrlHideHistory();
-        if (q.startsWith('project:')) {
+        if (q.startsWith('chat:')) {
+          if (typeof chatViewNewThread === 'function') chatViewNewThread(q.slice(5));
+        } else if (q.startsWith('project:')) {
           openExperimentDetail(q.slice(8));
         } else {
           browseNavigate(q);
@@ -313,7 +317,7 @@ export function _browseUrlKeydown(e) {
     _browseUrlHighlight(items);
     if (input && _browseUrlHistIdx >= 0 && items[_browseUrlHistIdx]) {
       const q = items[_browseUrlHistIdx].dataset.histq;
-      input.value = q.startsWith('project:') ? items[_browseUrlHistIdx].querySelector('span').textContent : q;
+      input.value = q.startsWith('project:') ? items[_browseUrlHistIdx].querySelector('span').textContent : q.startsWith('chat:') ? q.slice(5) : q;
     }
   } else if (e.key === 'ArrowUp') {
     e.preventDefault();
@@ -324,7 +328,7 @@ export function _browseUrlKeydown(e) {
         input.value = _browseUrlOriginalInput;
       } else if (items[_browseUrlHistIdx]) {
         const q = items[_browseUrlHistIdx].dataset.histq;
-        input.value = q.startsWith('project:') ? items[_browseUrlHistIdx].querySelector('span').textContent : q;
+        input.value = q.startsWith('project:') ? items[_browseUrlHistIdx].querySelector('span').textContent : q.startsWith('chat:') ? q.slice(5) : q;
       }
     }
   } else if (e.key === 'Escape') {
@@ -571,7 +575,7 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
   const pillWrap = document.getElementById('pill-url-wrap');
   const isIsland = dd.id === 'pill-url-dropdown';
 
-  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length && !matchedBangs.length) {
+  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length && !matchedBangs.length && !(ntp && filter)) {
     dd.style.display = 'none'; dd.classList.add('hidden');
     if (isIsland && pillWrap) pillWrap.classList.remove('pill-dropdown-open');
     return;
@@ -615,6 +619,24 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
 
   // Section renderers — each returns HTML string or '' if nothing to show
   const _urlBarRenderers = {
+    chat: () => {
+      if (!filter || !ntp) return '';
+      const safeFilter = escapeHtml(filter).replace(/'/g, "\\'");
+      const iconSize = '16px';
+      return `<div class="ntp-chat-row" data-histq="chat:${escapeHtml(filter).replace(/"/g, '&quot;')}" style="${rowStyle}background:color-mix(in srgb, var(--nr-accent) 20%, transparent);font-weight:500;" onmouseenter="this.style.background='color-mix(in srgb, var(--nr-accent) 30%, transparent)'" onmouseleave="this.style.background='color-mix(in srgb, var(--nr-accent) 20%, transparent)'" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof chatViewNewThread==='function') chatViewNewThread('${safeFilter}');">
+        <svg style="width:${iconSize};height:${iconSize};color:var(--nr-accent);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(filter)} <span style="color:var(--nr-text-secondary);font-weight:400;">\u2014 Chat</span></span>
+      </div>`;
+    },
+    search: () => {
+      if (!filter || !ntp) return '';
+      const safeFilter = escapeHtml(filter).replace(/'/g, "\\'");
+      const iconSize = '16px';
+      return `<div data-histq="${escapeHtml(filter).replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('search-query').value='${safeFilter}'; _browseUrlHideHistory(); submitSearch();">
+        <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(filter)} <span style="color:var(--nr-text-secondary);">\u2014 Google</span></span>
+      </div>`;
+    },
     bangs: () => {
       if (!matchedBangs.length) return '';
       const iconSize = ntp ? '16px' : '13px';

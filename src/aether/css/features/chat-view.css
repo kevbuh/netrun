@@ -1,0 +1,180 @@
+/* chat-view.css — Chat view: NTP morph + thread list */
+
+/* ══════════════════════════════════════════════════
+   NTP → Chat morph (in-place animation)
+   ══════════════════════════════════════════════════ */
+
+/* The .browse-ntp-inner becomes a flex column: messages on top, search box at bottom */
+.browse-ntp.chat-mode .browse-ntp-inner {
+  overflow: hidden;
+}
+
+/* Search box slides from center (margin-top:40vh) to bottom (margin-top:auto) */
+.browse-ntp.chat-mode .browse-ntp-center {
+  margin-top: 0;
+  flex-shrink: 0;
+  padding-bottom: 8px;
+}
+
+/* Messages area fills the space above the search box */
+.browse-ntp.chat-mode .chat-view-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--nr-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--nr-space-3);
+  min-height: 0;
+}
+
+/* Hide NTP-only controls in chat mode */
+.browse-ntp.chat-mode .ntp-file-chips-container { display: none !important; }
+.browse-ntp.chat-mode .ntp-dropdown { display: none !important; }
+.browse-ntp.chat-mode .ntp-add-btn { display: none !important; }
+.browse-ntp.chat-mode .ntp-mic-btn { display: none !important; }
+.browse-ntp.chat-mode .browse-ntp-version { display: none !important; }
+
+/* Smooth transition for the center element */
+.browse-ntp .browse-ntp-center {
+  transition: margin-top 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ══════════════════════════════════════════════════
+   Thread list (standalone page)
+   ══════════════════════════════════════════════════ */
+
+.chat-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--nr-space-3) var(--nr-space-4);
+  border-bottom: 1px solid var(--nr-border);
+  flex-shrink: 0;
+  gap: var(--nr-space-3);
+}
+
+.chat-view-title {
+  font-size: var(--nr-text-lg);
+  font-weight: 600;
+  color: var(--nr-text-primary);
+}
+
+.chat-view-list-wrap {
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+  padding: var(--nr-space-4);
+}
+
+.chat-view-empty {
+  padding: var(--nr-space-8) 0;
+}
+
+.chat-view-thread-row {
+  display: flex;
+  align-items: center;
+  padding: var(--nr-space-3) var(--nr-space-3);
+  border-radius: var(--nr-radius-md);
+  cursor: pointer;
+  transition: background 0.15s;
+  gap: var(--nr-space-2);
+}
+
+.chat-view-thread-row:hover {
+  background: var(--nr-bg-hover);
+}
+
+.chat-view-thread-title {
+  display: block;
+  font-size: var(--nr-text-sm);
+  color: var(--nr-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-view-thread-time {
+  display: block;
+  font-size: var(--nr-text-xs);
+  color: var(--nr-text-tertiary);
+}
+
+.chat-view-thread-delete {
+  opacity: 0;
+  font-size: var(--nr-text-lg);
+  color: var(--nr-text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--nr-radius-sm);
+  flex-shrink: 0;
+}
+
+.chat-view-thread-row:hover .chat-view-thread-delete {
+  opacity: 1;
+}
+
+.chat-view-thread-delete:hover {
+  color: var(--nr-text-primary);
+  background: var(--nr-bg-hover);
+}
+
+/* ══════════════════════════════════════════════════
+   Messages (shared between morph and thread list)
+   ══════════════════════════════════════════════════ */
+
+.chat-view-msg {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.chat-view-msg-content {
+  padding: var(--nr-space-3) var(--nr-space-4);
+  border-radius: var(--nr-radius-lg);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-view-msg-user .chat-view-msg-content {
+  background: var(--nr-accent);
+  color: var(--nr-text-on-accent, #fff);
+  margin-left: auto;
+  max-width: 85%;
+  width: fit-content;
+  border-bottom-right-radius: var(--nr-radius-sm);
+}
+
+.chat-view-msg-assistant .chat-view-msg-content {
+  background: var(--nr-bg-surface);
+  color: var(--nr-text-primary);
+  border: 1px solid var(--nr-border);
+  border-bottom-left-radius: var(--nr-radius-sm);
+}
+
+.chat-view-msg-streaming::after {
+  content: '\25CF';
+  animation: chat-view-blink 1s steps(2) infinite;
+  margin-left: 2px;
+  color: var(--nr-text-tertiary);
+}
+
+@keyframes chat-view-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.chat-view-msg-error {
+  color: var(--nr-red, #e53e3e);
+  border-color: var(--nr-red, #e53e3e);
+}
+
+/* ── NTP Chat Row (dropdown) ── */
+.ntp-chat-row {
+  background: color-mix(in srgb, var(--nr-accent) 20%, transparent);
+  border-radius: var(--nr-radius-md);
+  font-weight: 500;
+}

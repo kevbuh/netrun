@@ -77,9 +77,10 @@ export function _pillSyncUrl() {
     if (newtab) newtab.style.display = isBlankNtp ? 'none' : '';
   }
   // Safety net: ensure NTP is hidden when a non-blank tab is active in island mode
+  // But keep it visible when in chat-mode morph (NTP is the chat container)
   if (!isBlankNtp) {
     const ntp = document.getElementById('browse-content')?.querySelector('.browse-ntp');
-    if (ntp) ntp.style.display = 'none';
+    if (ntp && !ntp.classList.contains('chat-mode')) ntp.style.display = 'none';
   }
   _updateIslandNavButtons();
   // Reapply adaptive URL bar color for the active tab
@@ -1062,6 +1063,12 @@ export function browseNavigate(input) {
     document.body.appendChild(tmp); tmp.click();
     return;
   }
+  // Intercept chat:// URLs — open as a browse special page
+  if (/^chat:\/\//i.test(cmd)) {
+    const threadId = cmd.replace(/^chat:\/\//i, '').replace(/\/$/, '');
+    if (typeof openChatPage === 'function') openChatPage(threadId || null);
+    return;
+  }
   const url = _browseResolveUrl(input);
   // Track web searches (when input resolved to a Google search, not a direct URL)
   const trimmed = (input || '').trim();
@@ -1071,11 +1078,18 @@ export function browseNavigate(input) {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab) { browseNewTab(url); return; }
   // Tear down special pages if this tab was showing one
-  if (tab._historyPage || tab._helpPage) {
+  if (tab._historyPage || tab._helpPage || tab._chatPage) {
+    // Clean up NTP morph if in chat-mode (DOM only; tab state handled below)
+    if (tab._chatPage && typeof chatViewCleanupMorph === 'function') {
+      const ntpMorphed = document.getElementById('browse-content')?.querySelector('.browse-ntp.chat-mode');
+      if (ntpMorphed) chatViewCleanupMorph();
+    }
     if (tab.el) tab.el.remove();
     tab.el = null;
     delete tab._historyPage;
     delete tab._helpPage;
+    delete tab._chatPage;
+    delete tab._chatThreadId;
   }
   // Push current URL onto back stack for navigation history
   // Skip hash routes (app views like #feed, #settings) and blank/empty URLs
@@ -1153,7 +1167,7 @@ export function _browseResolveUrl(input) {
   input = (input || '').trim();
   if (!input) return 'https://www.google.com';
   // Collapse internal whitespace/newlines from multi-line pastes (e.g. URLs copied across line breaks)
-  if (/^(https?|file|blob|data|aether):\/\//i.test(input)) return input.replace(/\s+/g, '');
+  if (/^(https?|file|blob|data|aether|chat):\/\//i.test(input)) return input.replace(/\s+/g, '');
   // Resolve relative paths against the current tab's URL
   if (/^\//.test(input)) {
     const tab = _browseTabs.find(t => t.id === _browseActiveTab);
@@ -1187,6 +1201,15 @@ export let _browseNavDirection = null;
 // Hide/restore active webview so DOM popups can render on top (Electron GPU compositing fix)
 
 export function browseBack() {
+  // Intercept back nav when in chat morph mode — un-morph back to NTP
+  const tab0 = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (tab0 && tab0._chatPage) {
+    const ntp = document.getElementById('browse-content')?.querySelector('.browse-ntp.chat-mode');
+    if (ntp && typeof chatViewUnmorph === 'function') {
+      chatViewUnmorph();
+      return;
+    }
+  }
   const el = _browseActiveEl();
   if (_browseIsElectron && el && el.canGoBack && el.canGoBack()) { _browseNavDirection = 'back'; el.goBack(); return; }
   // Use our own history stack for non-Electron (cross-origin iframes block history.back())

@@ -131,8 +131,8 @@
     .ntp-search-box {
       background: var(--nr-bg-surface);
       border: 1px solid var(--nr-border-strong);
-      border-radius: 20px;
-      padding: 16px 20px 12px;
+      border-radius: 28px;
+      padding: 6px 8px;
       box-shadow: 0 0 20px color-mix(in srgb, var(--nr-accent) 12%, transparent), 0 0 40px color-mix(in srgb, var(--nr-accent) 6%, transparent);
       transition: border-color 0.2s, box-shadow 0.2s;
     }
@@ -147,13 +147,7 @@
     .ntp-search-row {
       display: flex;
       align-items: center;
-      gap: 10px;
-    }
-    .ntp-search-icon {
-      width: 18px;
-      height: 18px;
-      color: var(--nr-text-quaternary);
-      flex-shrink: 0;
+      gap: 4px;
     }
     .ntp-search-input {
       flex: 1;
@@ -162,8 +156,10 @@
       outline: none;
       color: var(--nr-text-primary);
       font-size: 0.95rem;
-      line-height: 1.5;
-      padding: 0;
+      line-height: 36px;
+      height: 36px;
+      padding: 0 8px;
+      min-width: 0;
     }
     .ntp-search-input::placeholder {
       color: var(--nr-text-quaternary);
@@ -174,50 +170,37 @@
       max-height: 320px;
       overflow-y: auto;
     }
-    .ntp-search-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 12px;
-      padding-top: 0;
-    }
-    .ntp-action-pill {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 5px 14px;
-      font-size: 0.8rem;
-      color: var(--nr-text-secondary);
-      background: transparent;
-      border: 1px solid var(--nr-border-strong);
-      border-radius: 20px;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s;
-    }
-    .ntp-action-pill:hover {
-      background: color-mix(in srgb, var(--nr-accent) 12%, transparent);
-      color: var(--nr-text-primary);
-      border-color: color-mix(in srgb, var(--nr-accent) 30%, transparent);
-    }
-    .ntp-action-dots {
-      background: none;
+
+    /* Inline icon buttons in search row */
+    .ntp-add-btn,
+    .ntp-mic-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
       border: none;
-      color: var(--nr-text-quaternary);
-      font-size: 1.1rem;
+      background: transparent;
+      color: var(--nr-text-secondary);
       cursor: pointer;
-      padding: 4px 6px;
-      letter-spacing: 1px;
-      line-height: 1;
-      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      flex-shrink: 0;
       transition: background 0.15s, color 0.15s;
     }
-    .ntp-action-dots:hover {
-      background: color-mix(in srgb, var(--nr-accent) 12%, transparent);
+    .ntp-add-btn:hover,
+    .ntp-mic-btn:hover {
+      background: var(--nr-bg-hover);
       color: var(--nr-text-primary);
+    }
+    .ntp-add-btn svg,
+    .ntp-mic-btn svg {
+      width: 18px;
+      height: 18px;
     }
     .ntp-action-submit {
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       border: none;
       background: var(--nr-text-quaternary);
@@ -227,6 +210,7 @@
       align-items: center;
       justify-content: center;
       padding: 0;
+      flex-shrink: 0;
       transition: background 0.15s, transform 0.15s;
     }
     .ntp-action-submit svg {

@@ -1,7 +1,9 @@
 import { ipcMain } from 'electron';
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DATA_DIR, activeDocChatSessions, ollamaProvider } from './shared.js';
+import * as chatDb from '../db/queries/chat.js';
 
 const CHAT_MEMORY_DIR = path.join(DATA_DIR, 'chat-memories');
 fs.mkdirSync(CHAT_MEMORY_DIR, { recursive: true });
@@ -130,5 +132,55 @@ export function registerChatIPC(): void {
       return { cancelled: true };
     }
     return { cancelled: false };
+  });
+
+  // ── Chat thread CRUD ──
+
+  ipcMain.handle('db:chat-thread-create', (_event, title?: string, model?: string) => {
+    const id = crypto.randomUUID();
+    return chatDb.createThread(id, title || 'New Chat', model || '');
+  });
+
+  ipcMain.handle('db:chat-thread-get', (_event, id: string) => {
+    return chatDb.getThread(id) || null;
+  });
+
+  ipcMain.handle('db:chat-thread-list', (_event, limit?: number, archived?: number) => {
+    return chatDb.listThreads(limit ?? 50, archived ?? 0);
+  });
+
+  ipcMain.handle('db:chat-thread-update', (_event, id: string, updates: { title?: string; model?: string; metadata?: string }) => {
+    chatDb.updateThread(id, updates);
+    return chatDb.getThread(id) || null;
+  });
+
+  ipcMain.handle('db:chat-thread-archive', (_event, id: string) => {
+    chatDb.archiveThread(id);
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:chat-thread-delete', (_event, id: string) => {
+    chatDb.deleteThread(id);
+    return { ok: true };
+  });
+
+  ipcMain.handle('db:chat-thread-search', (_event, query: string) => {
+    return chatDb.searchThreads(query);
+  });
+
+  // ── Chat message CRUD ──
+
+  ipcMain.handle('db:chat-message-add', (_event, threadId: string, role: string, content: string, metadata?: string) => {
+    const id = crypto.randomUUID();
+    return chatDb.addMessage(id, threadId, role, content, metadata);
+  });
+
+  ipcMain.handle('db:chat-message-list', (_event, threadId: string, limit?: number, offset?: number) => {
+    return chatDb.getMessages(threadId, limit ?? 200, offset ?? 0);
+  });
+
+  ipcMain.handle('db:chat-message-delete', (_event, id: string) => {
+    chatDb.deleteMessage(id);
+    return { ok: true };
   });
 }

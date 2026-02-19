@@ -150,6 +150,32 @@ export function initSchema(db: Database.Database): void {
     );
   `);
 
+  // ── Chat threads & messages ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS chat_threads (
+      id TEXT PRIMARY KEY,
+      title TEXT,
+      created_at REAL,
+      updated_at REAL,
+      model TEXT,
+      archived INTEGER DEFAULT 0,
+      metadata TEXT DEFAULT '{}'
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_threads_updated
+      ON chat_threads(updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL DEFAULT '',
+      created_at REAL,
+      metadata TEXT DEFAULT '{}'
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_thread
+      ON chat_messages(thread_id, created_at ASC);
+  `);
+
   // Migration: add file_type and description columns for existing DBs
   try {
     db.exec(`ALTER TABLE context_meta ADD COLUMN file_type TEXT DEFAULT 'topic'`);
