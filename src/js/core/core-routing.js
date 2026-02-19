@@ -1,5 +1,6 @@
 // core-routing.js — Route table
 // Extracted from core.js
+import Settings from '/js/core/core-settings.js';
 
 // ── Route table — exact hash → action ──
 var _ROUTE_TABLE = {
@@ -26,7 +27,7 @@ var _ROUTE_PREFIX_HANDLERS = [
   ['#profile/',    (rest) => openUserProfile(decodeURIComponent(rest))],
 ];
 
-function routeFromHash() {
+export function routeFromHash() {
   const hash = window.location.hash;
   const _oldHash = _currentRouteHash || '';
   _currentRouteHash = hash;
@@ -83,5 +84,8 @@ if (document.readyState === 'loading') {
     _updateNowPlayingContext();
   }, 0);
 }
+
+// ── Window assignments for backward compatibility ──
+window.routeFromHash = routeFromHash;
 
 // ── User Profile ──

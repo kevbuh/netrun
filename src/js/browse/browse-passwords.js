@@ -4,7 +4,7 @@ if (window.AetherUI) AetherUI.globals();
 
 // ── Password Manager ──
 
-function _pwCheckAutofill(tab, frame) {
+export function _pwCheckAutofill(tab, frame) {
   if (!_browseIsElectron || !window.electronAPI || !window.electronAPI.pwGet) return;
   if (_pwAutofillOffered.has(tab.id)) return;
   _pwAutofillOffered.add(tab.id);
@@ -21,7 +21,7 @@ function _pwCheckAutofill(tab, frame) {
   } catch (e) {}
 }
 
-function _pwDoAutofill(tab, frame, entryId) {
+export function _pwDoAutofill(tab, frame, entryId) {
   if (!window.electronAPI || !window.electronAPI.pwFill) return;
   window.electronAPI.pwFill(entryId).then(cred => {
     if (!cred) return;
@@ -55,7 +55,7 @@ function _pwDoAutofill(tab, frame, entryId) {
   }).catch(() => {});
 }
 
-function _pwShowAutofillPicker(tab, frame, entries) {
+export function _pwShowAutofillPicker(tab, frame, entries) {
   _pwHideSavePrompt();
   const container = document.getElementById('browse-content');
   if (!container) return;
@@ -82,7 +82,7 @@ function _pwShowAutofillPicker(tab, frame, entries) {
   container.prepend(row.build());
 }
 
-function _pwShowSavePrompt(tab, data) {
+export function _pwShowSavePrompt(tab, data) {
   if (!_browseIsElectron || !window.electronAPI || !window.electronAPI.pwSave) return;
   if (!data.password) return;
   // Dedup rapid submits
@@ -135,7 +135,7 @@ function _pwShowSavePrompt(tab, data) {
   bar._pwDismissTimer = timer;
 }
 
-function _pwHideSavePrompt(clearPending) {
+export function _pwHideSavePrompt(clearPending) {
   if (clearPending) _pwPendingPrompt = null;
   const bar = document.getElementById('browse-pw-bar');
   if (bar) {
@@ -145,10 +145,10 @@ function _pwHideSavePrompt(clearPending) {
 }
 
 // Context menu for Browse view (links and images)
-let _browseContextMenu = null;
-let _browseContextData = null;
+export let _browseContextMenu = null;
+export let _browseContextData = null;
 
-function _hideBrowseContextMenu() {
+export function _hideBrowseContextMenu() {
   if (_browseContextMenu) {
     _browseContextMenu.remove();
     _browseContextMenu = null;
@@ -156,7 +156,7 @@ function _hideBrowseContextMenu() {
   _browseContextData = null;
 }
 
-function _showBrowseContextMenu(x, y, data) {
+export function _showBrowseContextMenu(x, y, data) {
   _hideBrowseContextMenu();
   _browseContextData = data;
 
@@ -214,7 +214,7 @@ function _showBrowseContextMenu(x, y, data) {
 }
 
 // Helper to trigger download
-function _browseDownloadFile(url, defaultFilename = 'download') {
+export function _browseDownloadFile(url, defaultFilename = 'download') {
   const filename = url.split('/').pop().split('?')[0] || defaultFilename;
 
   if (window.electronAPI && window.electronAPI.downloadURL) {
@@ -257,11 +257,11 @@ function _browseDownloadFile(url, defaultFilename = 'download') {
   }
 }
 
-function _browseSaveImage(url) {
+export function _browseSaveImage(url) {
   _browseDownloadFile(url, 'image');
 }
 
-function _browseSaveLink(url) {
+export function _browseSaveLink(url) {
   _browseDownloadFile(url, 'download');
 }
 
@@ -285,7 +285,7 @@ document.addEventListener('mousedown', (e) => {
   else if (e.button === 4) { e.preventDefault(); browseForward(); }
 });
 
-function browseSelectTab(id) {
+export function browseSelectTab(id) {
   const win = _getCurrentWindow();
   if (!win) return;
 
@@ -447,7 +447,7 @@ function browseSelectTab(id) {
   }
 }
 
-function _browseUpdateBarForTab(tab) {
+export function _browseUpdateBarForTab(tab) {
   let citeBtn = document.getElementById('browse-cite-btn');
   let bookmarkBtn = document.getElementById('browse-paper-bookmark-btn');
   if (tab && tab.paper) {
@@ -484,7 +484,7 @@ function _browseUpdateBarForTab(tab) {
   }
 }
 
-function _browseUpdateNewTabPage(tab) {
+export function _browseUpdateNewTabPage(tab) {
   const container = document.getElementById('browse-content');
   if (!container) return;
   const bar = document.getElementById('browse-bar');
@@ -492,30 +492,65 @@ function _browseUpdateNewTabPage(tab) {
   let ntp = container.querySelector('.browse-ntp');
   if (tab && tab.blank) {
     if (!ntp) {
-      ntp = document.createElement('div');
-      ntp.className = 'browse-ntp nr-living-gradient';
-      ntp.innerHTML = `<input type="file" id="browse-pdf-file-input" multiple style="display:none" onchange="handleNtpFileInput(this)">
-        <div class="browse-ntp-inner">
-          <div class="browse-ntp-center">
-            <form id="search-form" onsubmit="event.preventDefault(); submitSearch()">
-              <div class="ntp-search-box max-w-[680px] mx-auto">
-                <div class="ntp-search-row">
-                  <svg class="ntp-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-                  <input type="text" id="search-query" placeholder="Ask anything..." autocomplete="off" class="ntp-search-input" oninput="onSearchInput()" onfocus="_browseUrlCancelHide(); this.select(); _browseUrlShowHistory()" onblur="_browseUrlScheduleHide()" onkeydown="_browseUrlKeydown(event)" />
-                </div>
-                <div id="search-history-dropdown-view" class="ntp-dropdown" style="display:none;"></div>
-                <div id="ntp-file-chips" class="ntp-file-chips-container"></div>
-                <div class="ntp-search-actions">
-                  <button type="button" class="ntp-action-pill" onmousedown="event.preventDefault()" onclick="_browseUrlCancelHide(); document.getElementById('browse-pdf-file-input').click()">+ Add tabs or files</button>
-                  <button type="button" class="ntp-action-dots" title="More options">&middot;&middot;&middot;</button>
-                  <div style="flex:1"></div>
-                  <button type="submit" class="ntp-action-submit" title="Search"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-5 5m5-5l5 5"/></svg></button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-        <div class="browse-ntp-version" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--nr-text-quaternary);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;">netrun</div>`;
+      var ntpView = new View('div').className('browse-ntp nr-living-gradient');
+      ntp = ntpView.el;
+
+      // File input (low-level)
+      var fileInput = document.createElement('input');
+      fileInput.type = 'file'; fileInput.id = 'browse-pdf-file-input'; fileInput.multiple = true;
+      fileInput.style.display = 'none';
+      fileInput.onchange = function() { handleNtpFileInput(fileInput); };
+      ntp.appendChild(fileInput);
+
+      // Search icon SVG
+      var searchIconSvg = '<svg class="ntp-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>';
+      var submitSvg = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-5 5m5-5l5 5"/></svg>';
+
+      // Search input (low-level form element)
+      var searchInput = document.createElement('input');
+      searchInput.type = 'text'; searchInput.id = 'search-query';
+      searchInput.placeholder = 'Ask anything...'; searchInput.autocomplete = 'off';
+      searchInput.className = 'ntp-search-input';
+      searchInput.oninput = function() { onSearchInput(); };
+      searchInput.onfocus = function() { _browseUrlCancelHide(); searchInput.select(); _browseUrlShowHistory(); };
+      searchInput.onblur = function() { _browseUrlScheduleHide(); };
+      searchInput.onkeydown = function(ev) { _browseUrlKeydown(ev); };
+
+      var searchRow = new View('div').className('ntp-search-row');
+      searchRow.el.appendChild(RawHTML(searchIconSvg).el);
+      searchRow.el.appendChild(searchInput);
+
+      var histDropdown = new View('div').attr('id', 'search-history-dropdown-view').className('ntp-dropdown');
+      histDropdown.styles({ display: 'none' });
+
+      var fileChips = new View('div').attr('id', 'ntp-file-chips').className('ntp-file-chips-container');
+
+      var addBtn = Button('+ Add tabs or files').className('ntp-action-pill');
+      addBtn.on('mousedown', function(e) { e.preventDefault(); });
+      addBtn.onTap(function() { _browseUrlCancelHide(); fileInput.click(); });
+
+      var dotsBtn = Button('\u00b7\u00b7\u00b7').className('ntp-action-dots').attr('title', 'More options');
+
+      var submitBtn = Button(RawHTML(submitSvg)).className('ntp-action-submit').attr('title', 'Search').attr('type', 'submit');
+
+      var actions = HStack(addBtn, dotsBtn, new View('div').cssText('flex:1'), submitBtn).className('ntp-search-actions');
+
+      var searchBox = VStack(searchRow, histDropdown, fileChips, actions).className('ntp-search-box max-w-[680px] mx-auto');
+
+      var form = new View('form').attr('id', 'search-form');
+      form.on('submit', function(e) { e.preventDefault(); submitSearch(); });
+      form.el.appendChild(searchBox.el);
+
+      var center = new View('div').className('browse-ntp-center');
+      center.el.appendChild(form.el);
+
+      var inner = new View('div').className('browse-ntp-inner');
+      inner.el.appendChild(center.el);
+      ntp.appendChild(inner.el);
+
+      var versionEl = Text('netrun').className('browse-ntp-version');
+      versionEl.cssText('position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--nr-text-quaternary);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;');
+      ntp.appendChild(versionEl.el);
       container.appendChild(ntp);
       apiGet('/api/version').then(v => {
         const el = ntp.querySelector('.browse-ntp-version');
@@ -554,7 +589,7 @@ function _browseUpdateNewTabPage(tab) {
   if (pinchOverlay) pinchOverlay.style.pointerEvents = (_browseZoomLevel > 1 && tab && !tab.blank) ? 'auto' : 'none';
 }
 
-function browseCloseTab(id) {
+export function browseCloseTab(id) {
   const win = _getCurrentWindow();
   if (!win) return;
   const idx = win.tabs.findIndex(t => t.id === id);
@@ -598,7 +633,7 @@ function browseCloseTab(id) {
   _browseSaveTabs();
 }
 
-function browseReopenTab() {
+export function browseReopenTab() {
   if (!_browseClosedTabs.length) return;
   const closed = _browseClosedTabs.pop();
   Settings.setJSON('browseClosedTabs', _browseClosedTabs);
@@ -609,7 +644,7 @@ function browseReopenTab() {
   }
 }
 
-function _browseAnimateBounce() {
+export function _browseAnimateBounce() {
   const content = document.getElementById('browse-content');
   if (!content) return;
   Motion.sequence([
@@ -617,3 +652,22 @@ function _browseAnimateBounce() {
     { el: content, spring: 'snappy', from: { x: -60, scale: 0.97 }, to: { x: 0, scale: 1 } }
   ]);
 }
+
+window._pwCheckAutofill = _pwCheckAutofill;
+window._pwDoAutofill = _pwDoAutofill;
+window._pwShowAutofillPicker = _pwShowAutofillPicker;
+window._pwShowSavePrompt = _pwShowSavePrompt;
+window._pwHideSavePrompt = _pwHideSavePrompt;
+window._browseContextMenu = _browseContextMenu;
+window._browseContextData = _browseContextData;
+window._hideBrowseContextMenu = _hideBrowseContextMenu;
+window._showBrowseContextMenu = _showBrowseContextMenu;
+window._browseDownloadFile = _browseDownloadFile;
+window._browseSaveImage = _browseSaveImage;
+window._browseSaveLink = _browseSaveLink;
+window.browseSelectTab = browseSelectTab;
+window._browseUpdateBarForTab = _browseUpdateBarForTab;
+window._browseUpdateNewTabPage = _browseUpdateNewTabPage;
+window.browseCloseTab = browseCloseTab;
+window.browseReopenTab = browseReopenTab;
+window._browseAnimateBounce = _browseAnimateBounce;

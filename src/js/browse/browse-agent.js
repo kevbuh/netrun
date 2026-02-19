@@ -6,7 +6,7 @@
 
 // ── DOM extraction: build compressed accessible tree ──
 
-async function agentGetAccessibleDOM(tab) {
+export async function agentGetAccessibleDOM(tab) {
   if (!tab || !tab.el) return { error: 'no active tab' };
   const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
@@ -144,7 +144,7 @@ async function agentGetAccessibleDOM(tab) {
 
 // ── Semantic DOM extraction: build component tree ──
 
-async function agentGetSemanticDOM(tab) {
+export async function agentGetSemanticDOM(tab) {
   if (!tab || !tab.el) return { error: 'no active tab' };
   const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
@@ -451,7 +451,7 @@ async function agentGetSemanticDOM(tab) {
 
 // ── Click element by agent ID ──
 
-async function agentClick(tab, elementId) {
+export async function agentClick(tab, elementId) {
   if (!tab || !tab.el) return { error: 'no active tab' };
   const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
@@ -478,7 +478,7 @@ async function agentClick(tab, elementId) {
 
 // ── Type into element by agent ID ──
 
-async function agentType(tab, elementId, text) {
+export async function agentType(tab, elementId, text) {
   if (!tab || !tab.el) return { error: 'no active tab' };
   const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
@@ -511,7 +511,7 @@ async function agentType(tab, elementId, text) {
 
 // ── Scroll page up or down ──
 
-async function agentScroll(tab, direction) {
+export async function agentScroll(tab, direction) {
   if (!tab || !tab.el) return { error: 'no active tab' };
   const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
@@ -533,7 +533,7 @@ async function agentScroll(tab, direction) {
 
 // ── Take screenshot of current tab ──
 
-async function agentScreenshot(tab) {
+export async function agentScreenshot(tab) {
   if (!tab || !tab.el) return { error: 'no active tab' };
   const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
@@ -549,7 +549,7 @@ async function agentScreenshot(tab) {
 
 // ── Query selector: find elements by CSS selector ──
 
-async function agentQuerySelector(tab, selector, maxResults) {
+export async function agentQuerySelector(tab, selector, maxResults) {
   if (!tab || !tab.el) return { error: 'no active tab' };
   const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
@@ -629,7 +629,7 @@ async function agentQuerySelector(tab, selector, maxResults) {
 
 // ── Wait for selector to appear ──
 
-async function agentWaitFor(tab, selector, timeoutMs) {
+export async function agentWaitFor(tab, selector, timeoutMs) {
   if (!tab || !tab.el) return { error: 'no active tab' };
   const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
@@ -665,7 +665,7 @@ async function agentWaitFor(tab, selector, timeoutMs) {
 
 // ── Get current URL and title ──
 
-async function agentGetUrl(tab) {
+export async function agentGetUrl(tab) {
   if (!tab || !tab.el) return { error: 'no active tab' };
   const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
@@ -683,7 +683,7 @@ async function agentGetUrl(tab) {
 
 // ── Get all open tabs ──
 
-function agentGetTabs() {
+export function agentGetTabs() {
   if (typeof _browseTabs === 'undefined') return { error: 'browse not initialized' };
   const tabs = _browseTabs.map(t => ({
     id: t.id,
@@ -696,7 +696,7 @@ function agentGetTabs() {
 
 // ── Switch to a tab ──
 
-function agentSwitchTab(tabId) {
+export function agentSwitchTab(tabId) {
   if (typeof _browseTabs === 'undefined') return { error: 'browse not initialized' };
   const tab = _browseTabs.find(t => t.id === tabId);
   if (!tab) return { error: 'tab not found: ' + tabId };
@@ -706,7 +706,7 @@ function agentSwitchTab(tabId) {
 
 // ── Navigate back ──
 
-function agentBack() {
+export function agentBack() {
   if (typeof browseBack === 'function') browseBack();
   const tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
   return { ok: true, url: tab ? tab.url : '', title: tab ? tab.title : '' };
@@ -714,7 +714,7 @@ function agentBack() {
 
 // ── Navigate forward ──
 
-function agentForward() {
+export function agentForward() {
   if (typeof browseForward === 'function') browseForward();
   const tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
   return { ok: true, url: tab ? tab.url : '', title: tab ? tab.title : '' };
@@ -722,7 +722,7 @@ function agentForward() {
 
 // ── Press a keyboard key ──
 
-async function agentPressKey(tab, key, modifiers, elementId) {
+export async function agentPressKey(tab, key, modifiers, elementId) {
   if (!tab || !tab.el) return { error: 'no active tab' };
   const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
@@ -763,7 +763,7 @@ async function agentPressKey(tab, key, modifiers, elementId) {
 
 // ── Read page storage (cookies, localStorage, sessionStorage) ──
 
-async function agentGetStorage(tab, storageType, keyFilter) {
+export async function agentGetStorage(tab, storageType, keyFilter) {
   if (!tab || !tab.el) return { error: 'no active tab' };
   const wc = tab.el.getWebContentsId?.();
   if (!wc) return { error: 'no webContentsId' };
@@ -810,3 +810,19 @@ async function agentGetStorage(tab, storageType, keyFilter) {
     return { error: e.message };
   }
 }
+
+window.agentGetAccessibleDOM = agentGetAccessibleDOM;
+window.agentGetSemanticDOM = agentGetSemanticDOM;
+window.agentClick = agentClick;
+window.agentType = agentType;
+window.agentScroll = agentScroll;
+window.agentScreenshot = agentScreenshot;
+window.agentQuerySelector = agentQuerySelector;
+window.agentWaitFor = agentWaitFor;
+window.agentGetUrl = agentGetUrl;
+window.agentGetTabs = agentGetTabs;
+window.agentSwitchTab = agentSwitchTab;
+window.agentBack = agentBack;
+window.agentForward = agentForward;
+window.agentPressKey = agentPressKey;
+window.agentGetStorage = agentGetStorage;

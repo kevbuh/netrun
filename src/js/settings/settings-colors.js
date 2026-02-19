@@ -1,9 +1,11 @@
+import Settings from '../core/core-settings.js';
+
 /* ── Daylight Theme Engine ── */
-var _daylightInterval = null;
-var _daylightSpeedMultiplier = 1; // set to 1440 in console for fast-forward (1 day = 1 min)
+export var _daylightInterval = null;
+export var _daylightSpeedMultiplier = 1; // set to 1440 in console for fast-forward (1 day = 1 min)
 
 // OKLCH→sRGB conversion
-function _oklchToHex(L, C, H) {
+export function _oklchToHex(L, C, H) {
   const hRad = H * Math.PI / 180;
   const a_ = C * Math.cos(hRad), b_ = C * Math.sin(hRad);
   // OKLab → linear sRGB
@@ -22,7 +24,7 @@ function _oklchToHex(L, C, H) {
   return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
 }
 
-function _lerpOklch(a, b, t) {
+export function _lerpOklch(a, b, t) {
   // Lerp L, C linearly; lerp H on shortest arc
   const L = a[0] + (b[0] - a[0]) * t;
   const C = a[1] + (b[1] - a[1]) * t;
@@ -34,7 +36,7 @@ function _lerpOklch(a, b, t) {
 
 // 6 keyframes: [hour, { cssVar: [L,C,H], ... }]
 // Special keys ending in '$a' are rgba alpha values (0-1)
-var _daylightKeyframes = [
+export var _daylightKeyframes = [
   [5, { // Dawn — warm rose-gray
     '--bg-body':       [0.30, 0.02, 30],
     '--text-primary':  [0.85, 0.01, 60],
@@ -283,12 +285,12 @@ var _daylightKeyframes = [
   }],
 ];
 
-function _getDaylightHour() {
+export function _getDaylightHour() {
   const now = new Date();
   return now.getHours() + now.getMinutes() / 60;
 }
 
-function _applyDaylightColors() {
+export function _applyDaylightColors() {
   const kf = _daylightKeyframes;
   let h = _getDaylightHour();
   // Allow speed multiplier for testing
@@ -382,14 +384,14 @@ function _applyDaylightColors() {
   }
 }
 
-function startDaylightTheme() {
+export function startDaylightTheme() {
   stopDaylightTheme();
   document.documentElement.setAttribute('data-theme', 'daylight');
   _applyDaylightColors();
   _daylightInterval = setInterval(_applyDaylightColors, 60000);
 }
 
-function stopDaylightTheme() {
+export function stopDaylightTheme() {
   if (_daylightInterval) { clearInterval(_daylightInterval); _daylightInterval = null; }
   window._daylightStartReal = null;
   // Remove all inline --nr-* properties set by daylight
@@ -416,7 +418,7 @@ function stopDaylightTheme() {
   }
 }
 
-function setAccentColor(color) {
+export function setAccentColor(color) {
   Settings.set('accentColor', color);
   applyAccentColor(color);
   // Update swatch rings
@@ -433,9 +435,9 @@ function setAccentColor(color) {
   });
 }
 
-let _spinnerPreviewInterval = null;
+export let _spinnerPreviewInterval = null;
 
-function cycleSpinner(dir) {
+export function cycleSpinner(dir) {
   if (!_spinnerData || !_spinnerNames.length) return;
   const current = getSelectedSpinner();
   let idx = _spinnerNames.indexOf(current);
@@ -446,7 +448,7 @@ function cycleSpinner(dir) {
   updateSpinnerPreview(name);
 }
 
-function updateSpinnerPreview(name) {
+export function updateSpinnerPreview(name) {
   const el = document.getElementById('spinner-preview');
   const nameEl = document.getElementById('spinner-name');
   if (!el || !_spinnerData) return;
@@ -462,7 +464,7 @@ function updateSpinnerPreview(name) {
   }, spinner.interval);
 }
 
-function applyAccentColor(color) {
+export function applyAccentColor(color) {
   // Compute a lighter hover variant
   const r = parseInt(color.slice(1,3), 16), g = parseInt(color.slice(3,5), 16), b = parseInt(color.slice(5,7), 16);
   const hover = '#' + [Math.min(255, r + 20), Math.min(255, g + 20), Math.min(255, b + 20)].map(v => v.toString(16).padStart(2, '0')).join('');
@@ -470,8 +472,24 @@ function applyAccentColor(color) {
   document.documentElement.style.setProperty('--nr-accent-hover', hover);
 }
 
-function setAetherColor(mode) {
+export function setAetherColor(mode) {
   Settings.set('aetherColor', mode);
   document.documentElement.setAttribute('data-aether-theme', mode);
   renderSettingsView();
 }
+
+window._daylightInterval = _daylightInterval;
+window._daylightSpeedMultiplier = _daylightSpeedMultiplier;
+window._oklchToHex = _oklchToHex;
+window._lerpOklch = _lerpOklch;
+window._daylightKeyframes = _daylightKeyframes;
+window._getDaylightHour = _getDaylightHour;
+window._applyDaylightColors = _applyDaylightColors;
+window.startDaylightTheme = startDaylightTheme;
+window.stopDaylightTheme = stopDaylightTheme;
+window.setAccentColor = setAccentColor;
+window._spinnerPreviewInterval = _spinnerPreviewInterval;
+window.cycleSpinner = cycleSpinner;
+window.updateSpinnerPreview = updateSpinnerPreview;
+window.applyAccentColor = applyAccentColor;
+window.setAetherColor = setAetherColor;

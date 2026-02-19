@@ -1,6 +1,8 @@
 // onboarding.js — Onboarding wizard (standalone page)
 // Steps: 0=Welcome, 1=Username, 2=Accent Color, 3=Theme, 4=Tab Layout, 5=Feed Selection, 6=Chat Model, 7=Pixel Pet, 8=Neuralook, 9=Finale
 
+import Settings from '/js/core/core-settings.js';
+
 // Auth guard: no token → redirect to login
 (function() {
   if (!localStorage.getItem('authToken')) {
@@ -126,9 +128,9 @@ function _renderWizardStep(stepIndex, direction) {
     else if (stepIndex === 8) contentView = _wizardNeuralookView();
     else if (stepIndex === 9) contentView = _wizardFinaleView();
 
-    var step = document.createElement('div');
-    step.className = 'wizard-step';
-    step.style.position = 'relative';
+    var stepView = new View('div').className('wizard-step');
+    stepView.styles({ position: 'relative' });
+    var step = stepView.el;
     var backView = _wizardBackView(stepIndex);
     if (backView) step.appendChild(backView.build());
     step.appendChild(_wizardDotsView(stepIndex).build());

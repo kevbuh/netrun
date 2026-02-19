@@ -1,5 +1,5 @@
 // ── arXiv category labels ──
-const ARXIV_CAT_NAMES = {
+export const ARXIV_CAT_NAMES = {
   'cs.AI':'Artificial Intelligence','cs.AR':'Hardware Architecture','cs.CC':'Computational Complexity',
   'cs.CE':'Computational Engineering','cs.CG':'Computational Geometry','cs.CL':'Computation and Language',
   'cs.CR':'Cryptography and Security','cs.CV':'Computer Vision and Pattern Recognition',
@@ -25,27 +25,27 @@ const ARXIV_CAT_NAMES = {
 };
 
 // ── Topbar overflow (three-dots menu) ──
-const _topbarOverflowRO = null;
+export const _topbarOverflowRO = null;
 
 
-function _closeTopbarOverflow() {
+export function _closeTopbarOverflow() {
   const menu = document.getElementById('topbar-overflow-menu');
   if (menu) menu.style.display = 'none';
   document.removeEventListener('click', _topbarOverflowOutside);
 }
 
-function _topbarOverflowOutside(e) {
+export function _topbarOverflowOutside(e) {
   const wrap = document.getElementById('topbar-overflow-wrap');
   if (wrap && !wrap.contains(e.target)) _closeTopbarOverflow();
 }
 
 // ── Paper Viewer (shared) ──
-const paperViewOrigin = 'arxiv';
+export const paperViewOrigin = 'arxiv';
 
-let _currentPaperViewPaper = null;
-const _paperOriginExpId = null;
-const _paperInsightsLoaded = false;
-function toggleBrowseSidebar() {
+export let _currentPaperViewPaper = null;
+export const _paperOriginExpId = null;
+export const _paperInsightsLoaded = false;
+export function toggleBrowseSidebar() {
   togglePanel();
 }
 
@@ -58,4 +58,13 @@ function toggleBrowseSidebar() {
 
 // ── Mobile Paper Sidebar ──
 
-
+// ── Window exports ──
+window.ARXIV_CAT_NAMES = ARXIV_CAT_NAMES;
+window._topbarOverflowRO = _topbarOverflowRO;
+window._closeTopbarOverflow = _closeTopbarOverflow;
+window._topbarOverflowOutside = _topbarOverflowOutside;
+window.paperViewOrigin = paperViewOrigin;
+window._currentPaperViewPaper = _currentPaperViewPaper;
+window._paperOriginExpId = _paperOriginExpId;
+window._paperInsightsLoaded = _paperInsightsLoaded;
+window.toggleBrowseSidebar = toggleBrowseSidebar;

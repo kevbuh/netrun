@@ -1,11 +1,12 @@
 // core-profile.js — User profile, greeting
 // Extracted from core.js
+import Settings from '/js/core/core-settings.js';
 
 if (window.AetherUI) AetherUI.globals();
 
 // ── User Profile ──
 
-async function openUserProfile(username) {
+export async function openUserProfile(username) {
   hideAllViews();
   const view = await ensureView('profile-view');
   view.classList.add('active');
@@ -46,7 +47,7 @@ function _profileUserCard(u, size) {
   return row;
 }
 
-async function renderUserProfile(username) {
+export async function renderUserProfile(username) {
   const el = document.getElementById('profile-content');
   if (!el) return;
 
@@ -368,13 +369,10 @@ window._profileSubscribeFeed = function(key, btn) {
   sources[key] = true;
   Settings.setJSON('feedSources', sources);
   if (typeof syncToServer === 'function') syncToServer();
-  btn.replaceWith(Object.assign(document.createElement('span'), {
-    className: 'text-[0.65rem] text-green-400 ml-1',
-    textContent: 'Subscribed'
-  }));
+  btn.replaceWith(Text('Subscribed').className('text-[0.65rem] text-green-400 ml-1').el);
 };
 
-function showProfileMessageForm(username) {
+export function showProfileMessageForm(username) {
   const el = document.getElementById('profile-message-form');
   if (!el) return;
   if (!el.classList.contains('hidden')) { el.classList.add('hidden'); return; }
@@ -400,7 +398,7 @@ function showProfileMessageForm(username) {
   setTimeout(() => document.getElementById('profile-msg-textarea')?.focus(), 50);
 }
 
-async function sendProfileMessage(username) {
+export async function sendProfileMessage(username) {
   const textarea = document.getElementById('profile-msg-textarea');
   const status = document.getElementById('profile-msg-status');
   const content = (textarea?.value || '').trim();
@@ -419,7 +417,7 @@ async function sendProfileMessage(username) {
   }
 }
 
-function _uploadProfilePic() {
+export function _uploadProfilePic() {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
@@ -443,7 +441,7 @@ function _uploadProfilePic() {
   input.click();
 }
 
-function _uploadProfileBg() {
+export function _uploadProfileBg() {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
@@ -465,7 +463,7 @@ function _uploadProfileBg() {
 }
 
 // ── Greeting system ──
-function getGreeting() {
+export function getGreeting() {
   const name = (_authUserInfo && (_authUserInfo.name || '').split(' ')[0]) || Settings.get('userName') || '';
   const now = new Date();
   const hour = now.getHours();
@@ -503,5 +501,14 @@ function getGreeting() {
   const all = [...timeGreetings, ...dayGreetings, ...casual];
   return all[Math.floor(Math.random() * all.length)];
 }
+
+// ── Window assignments for backward compatibility ──
+window.openUserProfile = openUserProfile;
+window.renderUserProfile = renderUserProfile;
+window.showProfileMessageForm = showProfileMessageForm;
+window.sendProfileMessage = sendProfileMessage;
+window.getGreeting = getGreeting;
+window._uploadProfilePic = _uploadProfilePic;
+window._uploadProfileBg = _uploadProfileBg;
 
 // ── Utilities ──

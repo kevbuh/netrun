@@ -1,5 +1,6 @@
 // login-auth.js — Auth logic for standalone login page
 // Stub _showLoginGate so api.js:10 doesn't error on 401
+window._showLoginGate = function() {};
 function _showLoginGate() {}
 
 let GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com';

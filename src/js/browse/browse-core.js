@@ -1,7 +1,8 @@
 // browse-core.js — Core browse functionality (tabs, navigation)  
 // Depends on: browse-state.js
 
-function _browseRestoreTabs() {
+import Settings from '/js/core/core-settings.js';
+export function _browseRestoreTabs() {
   try {
     // Try new multi-window format first (user-specific key)
     const raw = Settings.get(_getBrowseStorageKey('browseWindows'));
@@ -92,3 +93,5 @@ function _browseRestoreTabs() {
     return false;
   } catch (e) { console.error('[browse] restore tabs failed:', e); return false; }
 }
+
+window._browseRestoreTabs = _browseRestoreTabs;

@@ -1,12 +1,14 @@
+import Settings from '../core/core-settings.js';
+
 // ─── Context Settings ──────────────────────────────────────
 
 if (window.AetherUI) AetherUI.globals();
 
-let _contextFiles = [];
-let _contextDir = '';
-let _selectedContextFile = null;
+export let _contextFiles = [];
+export let _contextDir = '';
+export let _selectedContextFile = null;
 
-function _renderContextSettings() {
+export function _renderContextSettings() {
   return VStack(
     VStack(
       Text('Loading context info...').className('text-dimmer text-[0.75rem]')
@@ -54,7 +56,7 @@ function _renderContextSettings() {
   );
 }
 
-function _renderContextFileCard(f) {
+export function _renderContextFileCard(f) {
   var name = f.file_id || f.fileId || '';
   var charCount = f.char_count || f.charCount || 0;
   var kb = (charCount / 1024).toFixed(1);
@@ -82,7 +84,7 @@ function _renderContextFileCard(f) {
   return card;
 }
 
-function _renderContextFileList() {
+export function _renderContextFileList() {
   var list = document.getElementById('context-file-list');
   if (!list) return;
   list.innerHTML = '';
@@ -91,7 +93,7 @@ function _renderContextFileList() {
   }
 }
 
-function _loadContextFiles() {
+export function _loadContextFiles() {
   apiGet('/api/context/list')
     .then(function(data) {
       _contextFiles = data.files || [];
@@ -124,7 +126,7 @@ function _loadContextFiles() {
     }).catch(function(e) { console.warn('loadContextFiles:', e); });
 }
 
-function _selectContextFile(fileId) {
+export function _selectContextFile(fileId) {
   _selectedContextFile = fileId;
   _renderContextFileList();
   var editor = document.getElementById('context-editor');
@@ -160,7 +162,7 @@ function _selectContextFile(fileId) {
     });
 }
 
-function _saveContextFile() {
+export function _saveContextFile() {
   if (!_selectedContextFile) return;
   var textarea = document.getElementById('context-editor-textarea');
   if (!textarea) return;
@@ -178,7 +180,7 @@ function _saveContextFile() {
     }).catch(function(e) { console.warn('saveContextFile:', e); });
 }
 
-function _compactContextFile() {
+export function _compactContextFile() {
   if (!_selectedContextFile) return;
   var compactBtn = document.getElementById('context-compact-btn');
   if (compactBtn) { compactBtn.textContent = 'Compacting...'; compactBtn.disabled = true; }
@@ -193,7 +195,7 @@ function _compactContextFile() {
     });
 }
 
-function _deleteContextFile() {
+export function _deleteContextFile() {
   if (!_selectedContextFile) return;
   if (!confirm('Delete ' + _selectedContextFile + '? This cannot be undone.')) return;
   apiDelete('/api/context/' + encodeURIComponent(_selectedContextFile))
@@ -205,7 +207,7 @@ function _deleteContextFile() {
     }).catch(function(e) { console.warn('deleteContextFile:', e); });
 }
 
-function _createTaskContext() {
+export function _createTaskContext() {
   var taskId = prompt('Enter a task ID (e.g. "research-llm"):');
   if (!taskId) return;
   taskId = taskId.trim().replace(/[^a-zA-Z0-9_-]/g, '-');
@@ -217,3 +219,16 @@ function _createTaskContext() {
       setTimeout(function() { _selectContextFile(file); }, 300);
     }).catch(function(e) { console.warn('createTaskContext:', e); });
 }
+
+window._contextFiles = _contextFiles;
+window._contextDir = _contextDir;
+window._selectedContextFile = _selectedContextFile;
+window._renderContextSettings = _renderContextSettings;
+window._renderContextFileCard = _renderContextFileCard;
+window._renderContextFileList = _renderContextFileList;
+window._loadContextFiles = _loadContextFiles;
+window._selectContextFile = _selectContextFile;
+window._saveContextFile = _saveContextFile;
+window._compactContextFile = _compactContextFile;
+window._deleteContextFile = _deleteContextFile;
+window._createTaskContext = _createTaskContext;

@@ -1,6 +1,9 @@
-// ─── Appearance Settings ──────────────────────────────────────
+import Settings from '../core/core-settings.js';
 
-function toggleSidebarIcon(id, visible) {
+// ─── Appearance Settings ──────────────────────────────────────
+if (window.AetherUI) AetherUI.globals();
+
+export function toggleSidebarIcon(id, visible) {
   let hidden = [];
   hidden = getLS('hiddenSidebarIcons', []);
   if (visible) {
@@ -12,7 +15,7 @@ function toggleSidebarIcon(id, visible) {
   applySidebarVisibility();
 }
 
-function resetSidebarIcons() {
+export function resetSidebarIcons() {
   Settings.remove('sidebarOrder');
   Settings.remove('hiddenSidebarIcons');
   applySidebarOrder();
@@ -22,9 +25,9 @@ function resetSidebarIcons() {
 
 // ─── Sidebar Icon Drag (uses setPointerCapture) ─────────────
 
-let _sbDragEl = null, _sbDragGhost = null, _sbDragStartY = 0, _sbDragStarted = false;
+export let _sbDragEl = null, _sbDragGhost = null, _sbDragStartY = 0, _sbDragStarted = false;
 
-function _sbDragDown(e) {
+export function _sbDragDown(e) {
   const handle = e.target.closest('.sb-drag-handle');
   if (!handle) return;
   const row = handle.closest('.sb-icon-row');
@@ -36,7 +39,7 @@ function _sbDragDown(e) {
   e.preventDefault();
 }
 
-function _sbDragMove(e) {
+export function _sbDragMove(e) {
   if (!_sbDragEl) return;
   if (!_sbDragStarted && Math.abs(e.clientY - _sbDragStartY) < 4) return;
   const list = document.getElementById('sb-icon-list');
@@ -62,7 +65,7 @@ function _sbDragMove(e) {
   list.appendChild(_sbDragEl);
 }
 
-function _sbDragEnd() {
+export function _sbDragEnd() {
   if (!_sbDragEl) return;
   _sbDragEl.style.opacity = '';
   if (_sbDragGhost) { _sbDragGhost.remove(); _sbDragGhost = null; }
@@ -79,7 +82,7 @@ function _sbDragEnd() {
   _sbDragStarted = false;
 }
 
-function _renderAppearanceSettings() {
+export function _renderAppearanceSettings() {
   var currentTheme = Settings.get('theme') || 'light';
   var currentAccent = Settings.get('accentColor') || '#b4451a';
   var accentColors = [
@@ -307,3 +310,14 @@ function _renderAppearanceSettings() {
     menuSection
   );
 }
+
+window.toggleSidebarIcon = toggleSidebarIcon;
+window.resetSidebarIcons = resetSidebarIcons;
+window._sbDragEl = _sbDragEl;
+window._sbDragGhost = _sbDragGhost;
+window._sbDragStartY = _sbDragStartY;
+window._sbDragStarted = _sbDragStarted;
+window._sbDragDown = _sbDragDown;
+window._sbDragMove = _sbDragMove;
+window._sbDragEnd = _sbDragEnd;
+window._renderAppearanceSettings = _renderAppearanceSettings;

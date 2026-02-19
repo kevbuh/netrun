@@ -4,11 +4,13 @@
  * Adapts color/style based on what's underneath.
  * Works across the main app AND inside Electron webviews / same-origin iframes.
  */
-(function () {
-  'use strict';
 
-  // Don't run inside webviews or iframes
-  if (window.frameElement) return;
+// Don't run inside webviews or iframes
+if (!window.frameElement) {
+_initCursor();
+}
+
+function _initCursor() {
 
   var dot = document.createElement('div');
   var ring = document.createElement('div');
@@ -471,4 +473,4 @@
     Aether.cursor = api;
   }
   window.AetherCursor = api;
-})();
+}

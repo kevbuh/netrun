@@ -1,12 +1,14 @@
+import Settings from '/js/core/core-settings.js';
+
 // ── Dashboard ──
 
 // Make AetherUI primitives available as globals (VStack, HStack, Text, Button, etc.)
 if (window.AetherUI) AetherUI.globals();
 
-const _dashSearchDebounce = null;
+export const _dashSearchDebounce = null;
 
 
-function _closeDashSearch(e) {
+export function _closeDashSearch(e) {
   const dropdown = document.getElementById('dashboard-search-results');
   const input = document.getElementById('dashboard-search');
   if (dropdown && !dropdown.contains(e.target) && e.target !== input) {
@@ -15,14 +17,14 @@ function _closeDashSearch(e) {
 }
 
 
-function dashRemoveSaved(link) {
+export function dashRemoveSaved(link) {
   toggleSavePostByLink(link);
   renderDashboard();
 }
 
 // ── Bento dashboard helpers ──
 
-function _dashPapersReadRecent() {
+export function _dashPapersReadRecent() {
   const readSet = new Set(Settings.getJSON('readPosts', []));
   if (!readSet.size) return 0;
   const papers = typeof allPapers !== 'undefined' ? allPapers : [];
@@ -30,7 +32,7 @@ function _dashPapersReadRecent() {
 }
 
 
-function _dashTrending(limit) {
+export function _dashTrending(limit) {
   limit = limit || 5;
   const papers = typeof allPapers !== 'undefined' ? allPapers : [];
   if (!papers.length) return [];
@@ -44,7 +46,7 @@ function _dashTrending(limit) {
   }).filter(p => p._trendScore > 0).sort((a, b) => b._trendScore - a._trendScore).slice(0, limit);
 }
 
-function _dashBuildStatsRow(papersRead, savedCount, projectCount) {
+export function _dashBuildStatsRow(papersRead, savedCount, projectCount) {
   var stats = [
     { value: papersRead, label: 'Papers Read', sub: 'in feed', color: '#60a5fa' },
     { value: savedCount, label: 'Saved', sub: 'reading list', color: '#34d399' },
@@ -59,7 +61,7 @@ function _dashBuildStatsRow(papersRead, savedCount, projectCount) {
   })).className('bento-stats');
 }
 
-function _dashBuildQuickActions() {
+export function _dashBuildQuickActions() {
   var actions = [
     { label: 'Search', fn: function() { openSearch(); }, iconName: 'search' },
     { label: 'Calendar', fn: function() { wmOpen('calendar'); }, iconName: 'calendar' },
@@ -75,7 +77,7 @@ function _dashBuildQuickActions() {
   return grid;
 }
 
-function _dashBuildTrendingCard(trending) {
+export function _dashBuildTrendingCard(trending) {
   if (!trending.length) return Text('No trending posts yet. Open your feed to get started.').className('text-[0.8rem] text-dimmer px-1');
   return ForEach(trending, function(p, i) {
     var chip = typeof getSourceChip === 'function' ? getSourceChip(p.source, p.arxivId) : '';
@@ -94,7 +96,7 @@ function _dashBuildTrendingCard(trending) {
   });
 }
 
-async function renderDashboard() {
+export async function renderDashboard() {
   const container = document.getElementById('dashboard-content');
   AetherUI.mount(RawHTML('<div class="text-center py-20 text-dim"><div class="spinner"></div></div>'), container);
 
@@ -935,9 +937,9 @@ async function renderDashboard() {
   heatmapCard.el.appendChild(heatmapHeader.build());
   var heatmapWrap = RawHTML(heatmapHtml);
   heatmapCard.el.appendChild(heatmapWrap.build());
-  var popoverEl = document.createElement('div');
-  popoverEl.id = 'heatmap-popover';
-  popoverEl.style.cssText = 'display:none;position:fixed;z-index:10001;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;padding:8px 0;min-width:220px;max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px';
+  var popoverView = new View('div').attr('id', 'heatmap-popover');
+  popoverView.cssText('display:none;position:fixed;z-index:10001;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;padding:8px 0;min-width:220px;max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px');
+  var popoverEl = popoverView.el;
   heatmapCard.el.appendChild(popoverEl);
   bentoGrid.el.appendChild(heatmapCard.build());
 
@@ -1036,9 +1038,9 @@ async function renderDashboard() {
 
 // ── LLM Day Summary ──
 
-let _dashSummaryAbort = null;
+export let _dashSummaryAbort = null;
 
-async function _streamDaySummary(el, activityLines, openTasks, unreadCount, dateStr, model, cacheKey) {
+export async function _streamDaySummary(el, activityLines, openTasks, unreadCount, dateStr, model, cacheKey) {
   // Abort any in-flight summary
   if (_dashSummaryAbort) { try { _dashSummaryAbort.abort(); } catch(e) {} }
   _dashSummaryAbort = new AbortController();
@@ -1106,9 +1108,9 @@ Write a brief, friendly 1-2 sentence summary of their day so far. Be warm and co
 
 // ── Status Picker ──
 
-let _dashStatusProfile = null;
+export let _dashStatusProfile = null;
 
-function _openStatusPicker() {
+export function _openStatusPicker() {
   const picker = document.getElementById('dash-status-picker');
   if (!picker) return;
   if (!picker.classList.contains('hidden')) { picker.classList.add('hidden'); return; }
@@ -1170,7 +1172,7 @@ function _openStatusPicker() {
   }
 }
 
-function _selectStatusPet(el) {
+export function _selectStatusPet(el) {
   const grid = document.getElementById('status-pet-grid');
   if (!grid) return;
   grid.querySelectorAll('[data-pet]').forEach(d => {
@@ -1181,7 +1183,7 @@ function _selectStatusPet(el) {
   el.classList.add('border-accent', 'bg-accent/10');
 }
 
-async function _saveStatus() {
+export async function _saveStatus() {
   const grid = document.getElementById('status-pet-grid');
   const selected = grid?.querySelector('.border-accent[data-pet]');
   const emoji = selected?.dataset.pet || '';
@@ -1197,7 +1199,7 @@ async function _saveStatus() {
   } catch (e) { console.error('Save status error', e); }
 }
 
-async function _clearStatus() {
+export async function _clearStatus() {
   try {
     await apiPut('/api/users/me/status', { emoji: '', text: '' });
     document.getElementById('dash-status-picker')?.classList.add('hidden');
@@ -1206,7 +1208,7 @@ async function _clearStatus() {
 }
 
 // ── All Saved Posts view ──
-async function openAllSaved() {
+export async function openAllSaved() {
   hideAllViews();
   const view = await ensureView('dashboard-view');
   view.classList.add('active');
@@ -1279,13 +1281,13 @@ async function openAllSaved() {
 
 // ── Dev Stats ──
 
-let _devFpsRaf = null;
+export let _devFpsRaf = null;
 
-var _devChartId = 0;
-var _devChartRegistry = [];
+export var _devChartId = 0;
+export var _devChartRegistry = [];
 
 // Dev panel navigation structure
-const DEV_SECTIONS = [
+export const DEV_SECTIONS = [
   { id: 'overview', label: 'Overview' },
   { id: 'function-registry', label: 'Function Registry' },
   { id: 'feed-validator', label: 'Feed Validator' },
@@ -1295,12 +1297,12 @@ const DEV_SECTIONS = [
   { id: 'tools', label: 'Dev Tools' }
 ];
 
-var _devActiveSection = null;
-var _devD3Loaded = false;
-var _devGraphLevel = 'file'; // 'file' or 'function'
-var _devGraphData = null;
+export var _devActiveSection = null;
+export var _devD3Loaded = false;
+export var _devGraphLevel = 'file'; // 'file' or 'function'
+export var _devGraphData = null;
 
-function _devLineChart(hist, yKey, label, color, tooltipFn) {
+export function _devLineChart(hist, yKey, label, color, tooltipFn) {
   if (!hist || hist.length < 2) return `<div class="text-sm mt-4" style="color:var(--nr-text-quaternary)">Not enough data for ${label}</div>`;
   const id = '_dchart_' + (_devChartId++);
   const W = 400, H = 130, PAD = { t: 16, r: 12, b: 24, l: 42 };
@@ -1345,7 +1347,7 @@ function _devLineChart(hist, yKey, label, color, tooltipFn) {
   return `<div class="dev-chart-wrap" style="position:relative"><svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px" id="${id}">${svg}</svg><div id="${id}-tip" class="dev-chart-tooltip"></div></div>`;
 }
 
-function _devBindCharts() {
+export function _devBindCharts() {
   _devChartRegistry.forEach(c => {
     const svg = document.getElementById(c.id);
     const tip = document.getElementById(c.id + '-tip');
@@ -1394,7 +1396,7 @@ function _devBindCharts() {
   });
 }
 
-function _devRelativeTime(d) {
+export function _devRelativeTime(d) {
   const s = Math.floor((Date.now() - d.getTime()) / 1000);
   if (s < 60) return 'just now';
   if (s < 3600) return Math.floor(s / 60) + 'm ago';
@@ -1403,7 +1405,7 @@ function _devRelativeTime(d) {
   return d.toLocaleDateString();
 }
 
-function renderDevPanel() {
+export function renderDevPanel() {
   if (_devFpsRaf) { cancelAnimationFrame(_devFpsRaf); _devFpsRaf = null; }
 
   const sidebar = document.getElementById('dev-sidebar');
@@ -1443,13 +1445,13 @@ function renderDevPanel() {
   renderDevSection(_devActiveSection);
 }
 
-function _devNavigateTo(sectionId) {
+export function _devNavigateTo(sectionId) {
   _devActiveSection = sectionId;
   Settings.set('devPanelSection', sectionId);
   renderDevPanel();
 }
 
-function renderDevSection(sectionId) {
+export function renderDevSection(sectionId) {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
@@ -1483,7 +1485,7 @@ function renderDevSection(sectionId) {
 }
 
 // ── Overview Section ──
-async function _renderDevOverview() {
+export async function _renderDevOverview() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
@@ -1583,7 +1585,7 @@ async function _renderDevOverview() {
 }
 
 // ── Function Registry Section ──
-function _renderDevFunctionRegistry() {
+export function _renderDevFunctionRegistry() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
@@ -1603,7 +1605,7 @@ function _renderDevFunctionRegistry() {
 }
 
 // ── Feed Validator Section ──
-function _renderDevFeedValidator() {
+export function _renderDevFeedValidator() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
@@ -1622,7 +1624,7 @@ function _renderDevFeedValidator() {
 }
 
 // ── Load Order Section ──
-function _renderDevLoadOrder() {
+export function _renderDevLoadOrder() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
@@ -1641,7 +1643,7 @@ function _renderDevLoadOrder() {
 }
 
 // ── Dependency Graph Section ──
-function _renderDevDependencyGraph() {
+export function _renderDevDependencyGraph() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
@@ -1707,7 +1709,7 @@ function _renderDevDependencyGraph() {
   AetherUI.mount(VStack(header, controlsRow1, controlsRow2, legend, graphContainer), contentPane);
 }
 
-function _devSetGraphLevel(level) {
+export function _devSetGraphLevel(level) {
   _devGraphLevel = level;
 
   // Update button styles
@@ -1735,7 +1737,7 @@ function _devSetGraphLevel(level) {
   }
 }
 
-async function _devLoadDependencyGraph() {
+export async function _devLoadDependencyGraph() {
   const btn = document.getElementById('dev-dep-graph-btn');
   const status = document.getElementById('dev-dep-graph-status');
   const container = document.getElementById('dev-dep-graph-container');
@@ -1785,9 +1787,9 @@ async function _devLoadDependencyGraph() {
   }
 }
 
-var _devCollapsedFiles = new Set();
+export var _devCollapsedFiles = new Set();
 
-function _devRenderFileTree(nodes, edges) {
+export function _devRenderFileTree(nodes, edges) {
   const container = document.getElementById('dev-dep-graph-container');
   if (!container) return;
 
@@ -1876,7 +1878,7 @@ function _devRenderFileTree(nodes, edges) {
   container.appendChild(wrapper.el);
 }
 
-function _devToggleFileInFileView(file) {
+export function _devToggleFileInFileView(file) {
   if (_devCollapsedFiles.has(file)) {
     _devCollapsedFiles.delete(file);
   } else {
@@ -1887,7 +1889,7 @@ function _devToggleFileInFileView(file) {
   }
 }
 
-function _devExpandAllFiles() {
+export function _devExpandAllFiles() {
   _devCollapsedFiles.clear();
   if (_devGraphData) {
     if (_devGraphLevel === 'file') {
@@ -1898,7 +1900,7 @@ function _devExpandAllFiles() {
   }
 }
 
-function _devCollapseAllFiles() {
+export function _devCollapseAllFiles() {
   if (_devGraphData) {
     if (_devGraphLevel === 'file') {
       _devGraphData.nodes.forEach(n => _devCollapsedFiles.add(n.id));
@@ -1910,7 +1912,7 @@ function _devCollapseAllFiles() {
   }
 }
 
-function _devRenderFunctionTree(allNodes, allEdges) {
+export function _devRenderFunctionTree(allNodes, allEdges) {
   const container = document.getElementById('dev-dep-graph-container');
   if (!container) return;
 
@@ -2046,7 +2048,7 @@ function _devRenderFunctionTree(allNodes, allEdges) {
   container.appendChild(wrapper.el);
 }
 
-function _devToggleFile(file) {
+export function _devToggleFile(file) {
   if (_devCollapsedFiles.has(file)) {
     _devCollapsedFiles.delete(file);
   } else {
@@ -2057,7 +2059,7 @@ function _devToggleFile(file) {
   }
 }
 
-function _devGraphSearch(query) {
+export function _devGraphSearch(query) {
   if (!_devGraphData || _devGraphLevel !== 'function') return;
 
   query = query.toLowerCase().trim();
@@ -2078,18 +2080,18 @@ function _devGraphSearch(query) {
   _devRenderFunctionGraph(filtered, edges);
 }
 
-function _devGraphFilterByFile(file) {
+export function _devGraphFilterByFile(file) {
   if (!_devGraphData || _devGraphLevel !== 'function') return;
   _devRenderFunctionGraph(_devGraphData.nodes, _devGraphData.edges);
 }
 
-function _devGraphToggleUnused(show) {
+export function _devGraphToggleUnused(show) {
   if (!_devGraphData || _devGraphLevel !== 'function') return;
   _devRenderFunctionGraph(_devGraphData.nodes, _devGraphData.edges);
 }
 
 // ── Git Log Section ──
-async function _renderDevGitLog() {
+export async function _renderDevGitLog() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
@@ -2122,7 +2124,7 @@ async function _renderDevGitLog() {
 }
 
 // ── Dev Tools Section ──
-function _renderDevTools() {
+export function _renderDevTools() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
@@ -2148,7 +2150,7 @@ function _renderDevTools() {
   AetherUI.mount(VStack(header, tester), contentPane);
 }
 
-var _devAchievements = {
+export var _devAchievements = {
   bookworm:     { name: 'Bookworm',      desc: 'Saved your first post' },
   curator:      { name: 'Curator',       desc: 'Curated your feed by hiding a post' },
   critic:       { name: 'Critic',        desc: 'Rated your first paper' },
@@ -2158,7 +2160,7 @@ var _devAchievements = {
   gaze_master:  { name: 'Gaze Master',  desc: 'Trained your eye-tracking model 5 times' }
 };
 
-function _devTestAchievement() {
+export function _devTestAchievement() {
   const sel = document.getElementById('dev-ach-select');
   if (!sel) return;
   const ach = _devAchievements[sel.value];
@@ -2167,13 +2169,13 @@ function _devTestAchievement() {
   setTimeout(function() { showAchievement(ach.name, ach.desc); }, 50);
 }
 
-function _devResetAchievements() {
+export function _devResetAchievements() {
   const keys = ['ach_bookworm', 'ach_curator', 'ach_critic', 'ach_explorer', 'ach_model_switch', 'ach_pixel_parent', 'ach_gaze_master'];
   keys.forEach(function(k) { Settings.remove(k); });
   islandRemove('achievement');
 }
 
-async function _devRunFunctionRegistry() {
+export async function _devRunFunctionRegistry() {
   const btn = document.getElementById('dev-fn-reg-btn');
   const status = document.getElementById('dev-fn-reg-status');
   const results = document.getElementById('dev-fn-reg-results');
@@ -2322,7 +2324,7 @@ async function _devRunFunctionRegistry() {
   }
 }
 
-function _devOpenFunctionRegistryReport() {
+export function _devOpenFunctionRegistryReport() {
   if (window.electronAPI && window.electronAPI.openExternal) {
     const path = require('path');
     const reportPath = path.join(process.cwd(), 'coverage', 'function-registry.html');
@@ -2332,7 +2334,7 @@ function _devOpenFunctionRegistryReport() {
   }
 }
 
-async function _devRunFeedValidator() {
+export async function _devRunFeedValidator() {
   const btn = document.getElementById('dev-feed-val-btn');
   const status = document.getElementById('dev-feed-val-status');
   const results = document.getElementById('dev-feed-val-results');
@@ -2393,7 +2395,7 @@ async function _devRunFeedValidator() {
   }
 }
 
-function _devRenderFeedValidatorErrors(errors) {
+export function _devRenderFeedValidatorErrors(errors) {
   const byType = { MISSING_IN_PY: [], MISSING_IN_JS: [], URL_MISMATCH: [], SPECIAL_MISMATCH: [] };
   errors.forEach(e => byType[e.type].push(e));
 
@@ -2468,7 +2470,7 @@ function _devRenderFeedValidatorErrors(errors) {
   `;
 }
 
-async function _devRunLoadOrderAnalysis() {
+export async function _devRunLoadOrderAnalysis() {
   const btn = document.getElementById('dev-load-ord-btn');
   const status = document.getElementById('dev-load-ord-status');
   const results = document.getElementById('dev-load-ord-results');
@@ -2587,9 +2589,9 @@ async function _devRunLoadOrderAnalysis() {
   }
 }
 
-var _devGitLogOffset = 0;
+export var _devGitLogOffset = 0;
 
-function _devRenderCommitRows(log) {
+export function _devRenderCommitRows(log) {
   return log.map(c => {
     const d = new Date(c.date);
     const relative = _devRelativeTime(d);
@@ -2603,20 +2605,18 @@ function _devRenderCommitRows(log) {
   }).join('');
 }
 
-function _devAppendLoadMoreBtn() {
+export function _devAppendLoadMoreBtn() {
   const list = document.getElementById('dev-git-log-list');
   if (!list) return;
   const old = document.getElementById('dev-git-load-more');
   if (old) old.remove();
-  const btn = document.createElement('button');
-  btn.id = 'dev-git-load-more';
-  btn.className = 'dev-git-load-more-btn';
-  btn.textContent = 'Load more commits';
-  btn.onclick = () => _devLoadMoreCommits(btn);
+  var btnView = Button('Load more commits').className('dev-git-load-more-btn').attr('id', 'dev-git-load-more');
+  var btn = btnView.el;
+  btnView.onTap(function() { _devLoadMoreCommits(btn); });
   list.after(btn);
 }
 
-async function _devLoadMoreCommits(btn) {
+export async function _devLoadMoreCommits(btn) {
   btn.textContent = 'Loading…';
   btn.disabled = true;
   try {
@@ -2639,3 +2639,67 @@ async function _devLoadMoreCommits(btn) {
   }
 }
 
+
+// ── Window exports ──
+window._dashSearchDebounce = _dashSearchDebounce;
+window._closeDashSearch = _closeDashSearch;
+window.dashRemoveSaved = dashRemoveSaved;
+window._dashPapersReadRecent = _dashPapersReadRecent;
+window._dashTrending = _dashTrending;
+window._dashBuildStatsRow = _dashBuildStatsRow;
+window._dashBuildQuickActions = _dashBuildQuickActions;
+window._dashBuildTrendingCard = _dashBuildTrendingCard;
+window.renderDashboard = renderDashboard;
+window._dashSummaryAbort = _dashSummaryAbort;
+window._streamDaySummary = _streamDaySummary;
+window._dashStatusProfile = _dashStatusProfile;
+window._openStatusPicker = _openStatusPicker;
+window._selectStatusPet = _selectStatusPet;
+window._saveStatus = _saveStatus;
+window._clearStatus = _clearStatus;
+window.openAllSaved = openAllSaved;
+window._devFpsRaf = _devFpsRaf;
+window._devChartId = _devChartId;
+window._devChartRegistry = _devChartRegistry;
+window.DEV_SECTIONS = DEV_SECTIONS;
+window._devActiveSection = _devActiveSection;
+window._devD3Loaded = _devD3Loaded;
+window._devGraphLevel = _devGraphLevel;
+window._devGraphData = _devGraphData;
+window._devLineChart = _devLineChart;
+window._devBindCharts = _devBindCharts;
+window._devRelativeTime = _devRelativeTime;
+window.renderDevPanel = renderDevPanel;
+window._devNavigateTo = _devNavigateTo;
+window.renderDevSection = renderDevSection;
+window._renderDevOverview = _renderDevOverview;
+window._renderDevFunctionRegistry = _renderDevFunctionRegistry;
+window._renderDevFeedValidator = _renderDevFeedValidator;
+window._renderDevLoadOrder = _renderDevLoadOrder;
+window._renderDevDependencyGraph = _renderDevDependencyGraph;
+window._devSetGraphLevel = _devSetGraphLevel;
+window._devLoadDependencyGraph = _devLoadDependencyGraph;
+window._devCollapsedFiles = _devCollapsedFiles;
+window._devRenderFileTree = _devRenderFileTree;
+window._devToggleFileInFileView = _devToggleFileInFileView;
+window._devExpandAllFiles = _devExpandAllFiles;
+window._devCollapseAllFiles = _devCollapseAllFiles;
+window._devRenderFunctionTree = _devRenderFunctionTree;
+window._devToggleFile = _devToggleFile;
+window._devGraphSearch = _devGraphSearch;
+window._devGraphFilterByFile = _devGraphFilterByFile;
+window._devGraphToggleUnused = _devGraphToggleUnused;
+window._renderDevGitLog = _renderDevGitLog;
+window._renderDevTools = _renderDevTools;
+window._devAchievements = _devAchievements;
+window._devTestAchievement = _devTestAchievement;
+window._devResetAchievements = _devResetAchievements;
+window._devRunFunctionRegistry = _devRunFunctionRegistry;
+window._devOpenFunctionRegistryReport = _devOpenFunctionRegistryReport;
+window._devRunFeedValidator = _devRunFeedValidator;
+window._devRenderFeedValidatorErrors = _devRenderFeedValidatorErrors;
+window._devRunLoadOrderAnalysis = _devRunLoadOrderAnalysis;
+window._devGitLogOffset = _devGitLogOffset;
+window._devRenderCommitRows = _devRenderCommitRows;
+window._devAppendLoadMoreBtn = _devAppendLoadMoreBtn;
+window._devLoadMoreCommits = _devLoadMoreCommits;

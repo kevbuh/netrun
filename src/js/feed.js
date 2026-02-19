@@ -1,12 +1,14 @@
+import Settings from '/js/core/core-settings.js';
+
 if (window.AetherUI) AetherUI.globals();
 
 // ── Auto-refresh timer ──
-let _refreshTimer = null;
-let _refreshSecondsLeft = 300;
-let _previousPostLinks = new Set();
-let _renderedLinks = new Set();
+export let _refreshTimer = null;
+export let _refreshSecondsLeft = 300;
+export let _previousPostLinks = new Set();
+export let _renderedLinks = new Set();
 
-function startRefreshTimer() {
+export function startRefreshTimer() {
   if (_refreshTimer) clearInterval(_refreshTimer);
   _refreshSecondsLeft = 300;
   renderRefreshCountdown();
@@ -21,7 +23,7 @@ function startRefreshTimer() {
   }, 1000);
 }
 
-function renderRefreshCountdown() {
+export function renderRefreshCountdown() {
   const el = document.getElementById('refresh-countdown');
   if (!el) return;
   const m = Math.floor(_refreshSecondsLeft / 60);
@@ -31,7 +33,7 @@ function renderRefreshCountdown() {
 
 // ── Reading List (localStorage) ──
 setTimeout(updateSavedBadge, 0);
-function updateSavedBadge() {
+export function updateSavedBadge() {
   const saved = getSavedPosts();
   const unread = Object.values(saved).filter(e => !e.read).length;
   const badge = document.getElementById('saved-badge');
@@ -45,24 +47,24 @@ function updateSavedBadge() {
 }
 
 // ── Feed Notifications ──
-function _getSeenPostLinks() {
+export function _getSeenPostLinks() {
   return new Set(getLS('seenPostLinks', []));
 }
-function _setSeenPostLinks(set) {
+export function _setSeenPostLinks(set) {
   setLS('seenPostLinks', [...set]);
 }
-function _getFeedNotifications() {
+export function _getFeedNotifications() {
   return getLS('feedNotifications', []);
 }
-function _setFeedNotifications(arr) {
+export function _setFeedNotifications(arr) {
   setLS('feedNotifications', arr);
 }
 
-function _getFeedNotifSources() {
+export function _getFeedNotifSources() {
   return getLS('feedNotifSources', {});
 }
 
-function _detectNewPosts() {
+export function _detectNewPosts() {
   const seen = _getSeenPostLinks();
   const isFirstRun = seen.size === 0;
   const notifications = isFirstRun ? [] : _getFeedNotifications();
@@ -108,18 +110,18 @@ function _detectNewPosts() {
   _setSeenPostLinks(updatedSeen);
 }
 
-function clearFeedNotification(link) {
+export function clearFeedNotification(link) {
   const notifications = _getFeedNotifications().filter(n => n.link !== link);
   _setFeedNotifications(notifications);
 }
 
-function getHiddenPosts() {
+export function getHiddenPosts() {
   return getLS('hiddenPosts', []);
 }
-function getReadPosts() {
+export function getReadPosts() {
   return getLS('readPosts', []);
 }
-function markPostAsRead(link) {
+export function markPostAsRead(link) {
   const read = getReadPosts();
   if (!read.includes(link)) { read.push(link); setLS('readPosts', read); }
   // Capture read article into living context
@@ -131,14 +133,14 @@ function markPostAsRead(link) {
   }
 }
 
-function _menuBtn(label, fn) {
+export function _menuBtn(label, fn) {
   var b = new View('button');
   b.el.textContent = label;
   b.el.addEventListener('mousedown', function(e) { e.stopPropagation(); fn(); });
   return b;
 }
 
-function openCardMenu(btn, ev, index) {
+export function openCardMenu(btn, ev, index) {
   ev.stopPropagation();
   ev.preventDefault();
   closeCardMenu();
@@ -147,9 +149,8 @@ function openCardMenu(btn, ev, index) {
   const sourceKey = p.source;
   const sourceName = SOURCE_NAMES[p.source] || p.source;
 
-  var menu = document.createElement('div');
-  menu.id = 'card-menu-portal';
-  menu.className = 'card-menu';
+  var menuView = new View('div').attr('id', 'card-menu-portal').className('card-menu');
+  var menu = menuView.el;
   var menuItems = VStack(
     _menuBtn('Block post', function() { hidePost(p.link, p.title); closeCardMenu(); }),
     _menuBtn('Unsubscribe from ' + sourceName, function() { unsubscribeSource(sourceKey); closeCardMenu(); })
@@ -169,19 +170,19 @@ function openCardMenu(btn, ev, index) {
   }, 0);
 }
 
-function _cardMenuOutsideClick(e) {
+export function _cardMenuOutsideClick(e) {
   const menu = document.getElementById('card-menu-portal');
   if (menu && !menu.contains(e.target)) closeCardMenu();
 }
 
-function closeCardMenu() {
+export function closeCardMenu() {
   const menu = document.getElementById('card-menu-portal');
   if (menu) menu.remove();
   document.removeEventListener('mousedown', _cardMenuOutsideClick);
   window.removeEventListener('scroll', closeCardMenu, true);
 }
 
-function hidePost(link, title, event) {
+export function hidePost(link, title, event) {
   if (event) event.stopPropagation();
   const hidden = getHiddenPosts();
   if (!hidden.includes(link)) hidden.push(link);
@@ -194,13 +195,13 @@ function hidePost(link, title, event) {
   renderPapers();
 }
 // ── Blocked Words ──
-function getBlockedWords() {
+export function getBlockedWords() {
   return getLS('blockedWords', []);
 }
-function setBlockedWords(words) {
+export function setBlockedWords(words) {
   setLS('blockedWords', words);
 }
-function addBlockedWord() {
+export function addBlockedWord() {
   const input = document.getElementById('blocked-word-input');
   if (!input) return;
   const raw = input.value.trim().toLowerCase();
@@ -218,13 +219,13 @@ function addBlockedWord() {
   }
   input.value = '';
 }
-function removeBlockedWord(word) {
+export function removeBlockedWord(word) {
   const words = getBlockedWords().filter(w => w !== word);
   setBlockedWords(words);
   renderBlockedWordsList();
   renderPapers();
 }
-function renderBlockedWordsList() {
+export function renderBlockedWordsList() {
   var el = document.getElementById('blocked-words-list');
   if (!el) return;
   var words = getBlockedWords();
@@ -249,15 +250,15 @@ function renderBlockedWordsList() {
 
 // ── Offline caching ──
 
-function getOfflineCachedSet() {
+export function getOfflineCachedSet() {
   return new Set(getLS('offlineCached', []));
 }
 
-function isPostCached(link) {
+export function isPostCached(link) {
   return getOfflineCachedSet().has(link);
 }
 
-async function cachePostOffline(link, paper, btnEl) {
+export async function cachePostOffline(link, paper, btnEl) {
   if (isPostCached(link)) return;
   if (btnEl) {
     AetherUI.mount(Text('Caching\u2026').className('text-dimmer text-[0.7rem]'), btnEl);
@@ -280,22 +281,22 @@ async function cachePostOffline(link, paper, btnEl) {
   }
 }
 
-function _offlineDownloadIcon() {
+export function _offlineDownloadIcon() {
   return icon('download', {size: 14, class: 'text-dimmer'});
 }
 
-function _offlineCachedIcon() {
+export function _offlineCachedIcon() {
   return icon('checkCircle', {size: 14, class: 'text-green-400'});
 }
 
-function getSavedPosts() {
+export function getSavedPosts() {
   return getLS('savedPosts', {});
 }
-function savePosts(data) { setLS('savedPosts', data); }
-function isPostSaved(link) { return !!getSavedPosts()[link]; }
+export function savePosts(data) { setLS('savedPosts', data); }
+export function isPostSaved(link) { return !!getSavedPosts()[link]; }
 
 
-function toggleSavePost(paper, event) {
+export function toggleSavePost(paper, event) {
   if (event) event.stopPropagation();
   const saved = getSavedPosts();
   const wasAdding = !saved[paper.link];
@@ -324,7 +325,7 @@ function toggleSavePost(paper, event) {
   }
 }
 
-function _showBookmarkFly(event) {
+export function _showBookmarkFly(event) {
   // Flying bookmark icon from click position to pill island
   const target = document.getElementById('pill-island') || document.getElementById('sb-dashboard');
   if (target) {
@@ -348,7 +349,7 @@ function _showBookmarkFly(event) {
   }
 }
 
-function markPostRead(link) {
+export function markPostRead(link) {
   const saved = getSavedPosts();
   if (!saved[link]) return;
   saved[link].read = true;
@@ -356,11 +357,11 @@ function markPostRead(link) {
   updateSavedBadge();
 }
 
-function renderSavedPosts() {
+export function renderSavedPosts() {
   // Reading list is now part of the dashboard — no-op
 }
 
-function toggleSavePostByLink(link) {
+export function toggleSavePostByLink(link) {
   const saved = getSavedPosts();
   if (saved[link]) {
     delete saved[link];
@@ -371,30 +372,30 @@ function toggleSavePostByLink(link) {
   }
 }
 
-function openSavedPaper(link, e) {
+export function openSavedPaper(link, e) {
   if (_isNewTabClick(e)) { _openInNewTab(link); return; }
   markPostRead(link);
   openBrowse(link);
 }
 
 // ── arXiv Feed (loads on startup) ──
-let allPapers = [];
-const allCategories = new Set();
-const citationMap = {};
-let currentSort = 'foryou';
-const PAGE_SIZE = 20;
-let visibleCount = PAGE_SIZE;
-const hiddenSourceFilters = new Set();
-let feedViewMode = 'block'; // 'block', 'verbose', 'twitter', or 'compact'
-const _viewModes = ['block', 'verbose', 'twitter', 'compact'];
-const _viewModeIcons = {
+export let allPapers = [];
+export const allCategories = new Set();
+export const citationMap = {};
+export let currentSort = 'foryou';
+export const PAGE_SIZE = 20;
+export let visibleCount = PAGE_SIZE;
+export const hiddenSourceFilters = new Set();
+export let feedViewMode = 'block'; // 'block', 'verbose', 'twitter', or 'compact'
+export const _viewModes = ['block', 'verbose', 'twitter', 'compact'];
+export const _viewModeIcons = {
   block: '<path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>',
   verbose: '<path d="M4 5h16v2H4zm0 4h16v2H4zm0 4h10v2H4zm0 4h16v2H4z"/>',
   twitter: '<path d="M22.46 6c-.77.35-1.6.58-2.46.69a4.3 4.3 0 001.88-2.38 8.59 8.59 0 01-2.72 1.04A4.28 4.28 0 0015.86 4c-2.37 0-4.29 1.92-4.29 4.29 0 .34.04.67.1.98C8.28 9.09 5.11 7.38 3 4.79a4.28 4.28 0 001.33 5.72A4.26 4.26 0 012.8 10v.05a4.29 4.29 0 003.44 4.2 4.27 4.27 0 01-1.93.07 4.29 4.29 0 004 2.98A8.6 8.6 0 012 19.54a12.13 12.13 0 006.56 1.92c7.88 0 12.2-6.53 12.2-12.2 0-.19 0-.37-.01-.56A8.72 8.72 0 0024 6.56a8.49 8.49 0 01-2.54.7z"/>',
   compact: '<path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/>',
 };
 
-function toggleViewMode() {
+export function toggleViewMode() {
   const idx = _viewModes.indexOf(feedViewMode);
   feedViewMode = _viewModes[(idx + 1) % _viewModes.length];
   const icon = document.getElementById('view-mode-icon');
@@ -402,14 +403,14 @@ function toggleViewMode() {
   renderPapers();
 }
 
-function toggleSourceBubble(key) {
+export function toggleSourceBubble(key) {
   if (hiddenSourceFilters.has(key)) hiddenSourceFilters.delete(key);
   else hiddenSourceFilters.add(key);
   renderSourceBubbles();
   renderPapers();
 }
 
-function unsubscribeSource(key) {
+export function unsubscribeSource(key) {
   // Check catalog sources
   const sources = getFeedSources();
   if (key in sources) {
@@ -429,7 +430,7 @@ function unsubscribeSource(key) {
   renderPapers();
 }
 
-function renderSourceBubbles() {
+export function renderSourceBubbles() {
   var el = document.getElementById('source-bubbles');
   if (!el) return;
   var sourceCounts = {};
@@ -475,7 +476,7 @@ function renderSourceBubbles() {
   if (arxivSel) _fitArxivSelect(arxivSel);
 }
 
-function _fitArxivSelect(sel) {
+export function _fitArxivSelect(sel) {
   const span = document.createElement('span');
   span.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font-size:0.78rem;';
   span.textContent = sel.options[sel.selectedIndex].text;
@@ -484,7 +485,7 @@ function _fitArxivSelect(sel) {
   document.body.removeChild(span);
 }
 
-function setSortMode(mode) {
+export function setSortMode(mode) {
   currentSort = mode;
   const citBtn = document.getElementById('sort-citations');
   if (citBtn) citBtn.classList.toggle('active', mode === 'citations');
@@ -494,7 +495,7 @@ function setSortMode(mode) {
   renderPapers();
 }
 
-async function fetchHNFeed() {
+export async function fetchHNFeed() {
   try {
     const stories = await apiGet('/hn-feed');
     return stories.map(s => {
@@ -522,7 +523,7 @@ async function fetchHNFeed() {
   }
 }
 
-async function fetchPolymarketFeed() {
+export async function fetchPolymarketFeed() {
   try {
     const markets = await apiGet('/polymarket-feed');
     if (markets.error) return [];
@@ -550,28 +551,28 @@ async function fetchPolymarketFeed() {
   }
 }
 
-const FEED_SOURCE_DEFAULTS = {};
+export const FEED_SOURCE_DEFAULTS = {};
 FEED_CATALOG.forEach(f => { FEED_SOURCE_DEFAULTS[f.key] = false; });
 
-function hasOnboarded() { return Settings.get('feedSources') !== null; }
+export function hasOnboarded() { return Settings.get('feedSources') !== null; }
 
-const onboardSelected = new Set();
-const onboardNotifSelected = new Set();
+export const onboardSelected = new Set();
+export const onboardNotifSelected = new Set();
 
 /* === Honeycomb globals === */
-const _hcPanX = 0, _hcPanY = 0;
-const _hcDragging = false, _hcDragStartX = 0, _hcDragStartY = 0, _hcPanStartX = 0, _hcPanStartY = 0;
-const _hcDidDrag = false;
-const _hcCircleEls = [];
-const _hcPositions = []; // {x, y, key}
-const _hcRafId = 0;
-const _hcMouseX = 0, _hcMouseY = 0;
-const _hcListenersAttached = false;
-let _hcActiveCategory = null; // null = All
-const _hcHoveredIdx = -1;
-const _hcZoom = 1;
+export const _hcPanX = 0, _hcPanY = 0;
+export const _hcDragging = false, _hcDragStartX = 0, _hcDragStartY = 0, _hcPanStartX = 0, _hcPanStartY = 0;
+export const _hcDidDrag = false;
+export const _hcCircleEls = [];
+export const _hcPositions = []; // {x, y, key}
+export const _hcRafId = 0;
+export const _hcMouseX = 0, _hcMouseY = 0;
+export const _hcListenersAttached = false;
+export let _hcActiveCategory = null; // null = All
+export const _hcHoveredIdx = -1;
+export const _hcZoom = 1;
 
-function _renderHcCategoryTabs() {
+export function _renderHcCategoryTabs() {
   var container = document.getElementById('hc-category-tabs');
   if (!container) return;
   var cats = [];
@@ -591,14 +592,14 @@ function _renderHcCategoryTabs() {
   AetherUI.mount(wrap, container);
 }
 
-function _hcSelectCategory(cat) {
+export function _hcSelectCategory(cat) {
   _hcActiveCategory = cat;
   _renderHcCategoryTabs();
   renderOnboardGrid();
   _updateOnboardCardStates();
 }
 
-function renderOnboardGrid() {
+export function renderOnboardGrid() {
   var grid = document.getElementById('onboard-grid');
   var entries = _hcActiveCategory
     ? FEED_CATALOG.filter(function(f) { return f.cat === _hcActiveCategory; })
@@ -652,7 +653,7 @@ function renderOnboardGrid() {
 
 
 
-function toggleOnboardSource(key) {
+export function toggleOnboardSource(key) {
   if (onboardSelected.has(key)) {
     onboardSelected.delete(key);
     onboardNotifSelected.delete(key);
@@ -663,7 +664,7 @@ function toggleOnboardSource(key) {
   document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
 }
 
-function _toggleOnboardCategory(cat) {
+export function _toggleOnboardCategory(cat) {
   const items = FEED_CATALOG.filter(f => f.cat === cat);
   const allOn = items.every(f => onboardSelected.has(f.key));
   items.forEach(f => {
@@ -674,11 +675,11 @@ function _toggleOnboardCategory(cat) {
   document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
 }
 
-function _updateOnboardCardStates() {
+export function _updateOnboardCardStates() {
   document.getElementById('onboard-start-btn').disabled = onboardSelected.size === 0;
 }
 
-function showOnboarding() {
+export function showOnboarding() {
   onboardSelected.clear();
   onboardNotifSelected.clear();
   if (hasOnboarded()) {
@@ -708,7 +709,7 @@ function showOnboarding() {
   renderCustomFeedsList();
 }
 
-function completeOnboarding() {
+export function completeOnboarding() {
   const sources = {};
   const notifSources = {};
   FEED_CATALOG.forEach(f => {
@@ -725,15 +726,15 @@ function completeOnboarding() {
   loadAllFeeds();
 }
 
-function getFeedSources() {
+export function getFeedSources() {
   return { ...FEED_SOURCE_DEFAULTS, ...getLS('feedSources', {}) };
 }
 
-function getCustomFeeds() {
+export function getCustomFeeds() {
   return getLS('customFeeds', []);
 }
 
-function renderCustomFeedsList() {
+export function renderCustomFeedsList() {
   var list = document.getElementById('custom-feeds-list');
   if (!list) return;
   var feeds = getCustomFeeds();
@@ -752,7 +753,7 @@ function renderCustomFeedsList() {
   AetherUI.mount(VStack(rows).spacing(2), list);
 }
 
-async function addCustomFeed() {
+export async function addCustomFeed() {
   const input = document.getElementById('custom-feed-url');
   let url = input.value.trim();
   if (!url) return;
@@ -780,7 +781,7 @@ async function addCustomFeed() {
   loadAllFeeds();
 }
 
-function removeCustomFeed(index) {
+export function removeCustomFeed(index) {
   const feeds = getCustomFeeds();
   feeds.splice(index, 1);
   setLS('customFeeds', feeds);
@@ -789,7 +790,7 @@ function removeCustomFeed(index) {
   loadAllFeeds();
 }
 
-function toggleCustomFeed(index, enabled) {
+export function toggleCustomFeed(index, enabled) {
   const feeds = getCustomFeeds();
   feeds[index].enabled = enabled;
   setLS('customFeeds', feeds);
@@ -799,7 +800,7 @@ function toggleCustomFeed(index, enabled) {
 
 
 
-function renderAlgorithmView() {
+export function renderAlgorithmView() {
   var container = document.getElementById('algorithm-view-content');
   if (!container) return;
 
@@ -901,7 +902,7 @@ function renderAlgorithmView() {
   AetherUI.mount(view, container);
 }
 
-async function fetchGenericRSS(feedUrl, sourceName) {
+export async function fetchGenericRSS(feedUrl, sourceName) {
   try {
     const result = await apiGet(`/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`);
     const xml = result && result._proxy ? atob(result.data) : '';
@@ -933,15 +934,15 @@ async function fetchGenericRSS(feedUrl, sourceName) {
   } catch { return []; }
 }
 
-function allSourcesOff() {
+export function allSourcesOff() {
   const s = getFeedSources();
   const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
   return !FEED_CATALOG.some(f => s[f.key]) && customFeeds.length === 0;
 }
 
-let _feedAbort = null;
+export let _feedAbort = null;
 
-async function loadAllFeeds() {
+export async function loadAllFeeds() {
   if (!hasOnboarded() || allSourcesOff()) { showOnboarding(); return; }
   // Abort any in-flight feed load
   if (_feedAbort) _feedAbort.abort();
@@ -1027,12 +1028,12 @@ async function loadAllFeeds() {
   }
 }
 
-function extractArxivId(link) {
+export function extractArxivId(link) {
   const m = link.match(/arxiv\.org\/abs\/(\d+\.\d+)/);
   return m ? m[1] : null;
 }
 
-function parseFeed(xml) {
+export function parseFeed(xml) {
   try {
     const doc = new DOMParser().parseFromString(xml, 'text/xml');
 
@@ -1126,7 +1127,7 @@ function parseFeed(xml) {
   }
 }
 
-async function fetchCitationsFor(papers) {
+export async function fetchCitationsFor(papers) {
   const ids = papers.map(p => p.arxivId).filter(Boolean).filter(id => citationMap[id] === undefined);
   if (!ids.length) return;
   try {
@@ -1143,7 +1144,7 @@ async function fetchCitationsFor(papers) {
 
 // ── Trends extraction ──
 
-function renderTrends() {
+export function renderTrends() {
   const panel = document.getElementById('trends-panel');
   if (!allPapers.length) { panel.style.display = 'none'; return; }
   panel.style.display = 'flex';
@@ -1151,12 +1152,12 @@ function renderTrends() {
   renderSourceBubbles();
 }
 
-function extractAuthors(desc) {
+export function extractAuthors(desc) {
   const m = desc.match(/Authors?:\s*(.+?)(?:\.|<br|$)/i);
   return m ? m[1].trim() : '';
 }
 
-function populateCategories() {
+export function populateCategories() {
   const select = document.getElementById('category');
   const current = select.value;
   const freq = {};
@@ -1172,7 +1173,7 @@ function populateCategories() {
   select.value = current;
 }
 
-let lastFilteredPapers = [];
+export let lastFilteredPapers = [];
 
 /**
  * Parse a search query string into structured parts:
@@ -1183,7 +1184,7 @@ let lastFilteredPapers = [];
  * - sort:mode → sort override
  * - bare words → loose token match (across title+authors+desc)
  */
-function parseSearchQuery(raw) {
+export function parseSearchQuery(raw) {
   let authorFilter = null, sourceFilter = null, sortOverride = null;
   const textTokens = [], exactPhrases = [], titleTokens = [], titlePhrases = [];
 
@@ -1210,7 +1211,7 @@ function parseSearchQuery(raw) {
 }
 
 
-function getFilteredPapers(ctx) {
+export function getFilteredPapers(ctx) {
   if (!ctx) ctx = _buildRenderCtx();
   const rawSearch = (document.getElementById('search')?.value || '').toLowerCase();
   const category = document.getElementById('category').value;
@@ -1313,7 +1314,7 @@ function getFilteredPapers(ctx) {
   return filtered;
 }
 
-function _renderPaperCompactRow(p, i, ctx) {
+export function _renderPaperCompactRow(p, i, ctx) {
   var readSet = ctx.readSet;
   var sourceChip = getSourceChip(p.source, p.arxivId);
   var isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
@@ -1333,7 +1334,7 @@ function _renderPaperCompactRow(p, i, ctx) {
     .attr('data-link', p.link);
 }
 
-function _renderPaperCard(p, i, ctx) {
+export function _renderPaperCard(p, i, ctx) {
   var readSet = ctx.readSet;
   var isHN = p.source === 'hn';
   var _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
@@ -1381,8 +1382,8 @@ function _renderPaperCard(p, i, ctx) {
 }
 
 // ── Debounced renderPapers ──
-let _renderPapersRafId = 0;
-function renderPapers() {
+export let _renderPapersRafId = 0;
+export function renderPapers() {
   if (_renderPapersRafId) return; // already scheduled
   _renderPapersRafId = requestAnimationFrame(() => {
     _renderPapersRafId = 0;
@@ -1391,7 +1392,7 @@ function renderPapers() {
   });
 }
 
-function _buildRenderCtx() {
+export function _buildRenderCtx() {
   const hiddenSet = new Set(getHiddenPosts());
   const readSet = new Set(getReadPosts());
   const blockedWords = new Set(getBlockedWords());
@@ -1401,13 +1402,13 @@ function _buildRenderCtx() {
   return { hiddenSet, readSet, blockedWords, savedPosts, repostedSet, ratings };
 }
 
-function _renderFeedEmptyState(container) {
+export function _renderFeedEmptyState(container) {
   var children = [ Text('No papers match your filter').className('text-dim').styles({fontSize:'0.9rem'}) ];
   var v = VStack(children).alignment('center').styles({justifyContent:'center', columnSpan:'all', padding:'5rem 0'}).spacing(4);
   AetherUI.mount(v, container);
 }
 
-function _renderPaperVerboseCard(p, i, ctx) {
+export function _renderPaperVerboseCard(p, i, ctx) {
   var readSet = ctx.readSet;
   var isHN = p.source === 'hn';
   var _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
@@ -1464,7 +1465,7 @@ function _renderPaperVerboseCard(p, i, ctx) {
   return card;
 }
 
-function _renderPaperTwitterCard(p, i, ctx) {
+export function _renderPaperTwitterCard(p, i, ctx) {
   var readSet = ctx.readSet;
   var isHN = p.source === 'hn';
   var sourceName = SOURCE_NAMES[p.source] || p.source;
@@ -1527,7 +1528,7 @@ function _renderPaperTwitterCard(p, i, ctx) {
   return card;
 }
 
-function _renderPapersNow() {
+export function _renderPapersNow() {
   var ctx = _buildRenderCtx();
   var hiddenSet = ctx.hiddenSet;
   var filtered = getFilteredPapers(ctx);
@@ -1592,10 +1593,10 @@ function _renderPapersNow() {
 
 // ── Twitter view: inline comments & repost ──
 
-const _tweetCommentCounts = {}; // link -> count
-const _tweetCommentsOpen = new Set(); // links with expanded comment sections
+export const _tweetCommentCounts = {}; // link -> count
+export const _tweetCommentsOpen = new Set(); // links with expanded comment sections
 
-async function _fetchTweetCommentCounts(papers) {
+export async function _fetchTweetCommentCounts(papers) {
   const needed = papers.filter(p => _tweetCommentCounts[p.link] === undefined);
   if (needed.length) {
     await Promise.all(needed.map(async p => {
@@ -1613,7 +1614,7 @@ async function _fetchTweetCommentCounts(papers) {
   });
 }
 
-async function _toggleTweetComments(link, idx) {
+export async function _toggleTweetComments(link, idx) {
   const container = document.getElementById('tweet-comments-' + idx);
   if (!container) return;
   if (_tweetCommentsOpen.has(link)) {
@@ -1637,7 +1638,7 @@ async function _toggleTweetComments(link, idx) {
   }
 }
 
-function _renderTweetComments(container, comments, link, idx) {
+export function _renderTweetComments(container, comments, link, idx) {
   var topLevel = comments.filter(function(c) { return !c.parentId; }).sort(function(a, b) { return a.timestamp - b.timestamp; });
   var byParent = {};
   comments.forEach(function(c) { if (c.parentId) (byParent[c.parentId] = byParent[c.parentId] || []).push(c); });
@@ -1766,7 +1767,7 @@ function _renderTweetComments(container, comments, link, idx) {
   AetherUI.mount(wrap, container);
 }
 
-async function _postTweetComment(link, idx) {
+export async function _postTweetComment(link, idx) {
   const ta = document.getElementById('tweet-comment-input-' + idx);
   if (!ta) return;
   const content = ta.value.trim();
@@ -1785,7 +1786,7 @@ async function _postTweetComment(link, idx) {
   } catch { /* silent */ }
 }
 
-async function _postTweetReply(parentId, link, idx) {
+export async function _postTweetReply(parentId, link, idx) {
   const ta = document.getElementById('tweet-reply-ta-' + parentId);
   if (!ta) return;
   const content = ta.value.trim();
@@ -1802,7 +1803,7 @@ async function _postTweetReply(parentId, link, idx) {
   } catch { /* silent */ }
 }
 
-async function _deleteTweetComment(commentId, link, idx) {
+export async function _deleteTweetComment(commentId, link, idx) {
   try {
     await apiDelete('/api/comments/' + commentId);
     const comments = await apiGet('/api/comments?paperLink=' + encodeURIComponent(link));
@@ -1814,30 +1815,30 @@ async function _deleteTweetComment(commentId, link, idx) {
   } catch { /* silent */ }
 }
 
-function _showTweetReply(id) {
+export function _showTweetReply(id) {
   const el = document.getElementById('tweet-reply-' + id);
   if (el) { el.classList.remove('hidden'); el.querySelector('textarea')?.focus(); }
 }
 
-function _hideTweetReply(id) {
+export function _hideTweetReply(id) {
   const el = document.getElementById('tweet-reply-' + id);
   if (el) el.classList.add('hidden');
 }
 
-function _getRepostedLinks() {
+export function _getRepostedLinks() {
   return getLS('repostedLinks', []);
 }
-function _isReposted(link) { return _getRepostedLinks().includes(link); }
-function _markReposted(link) {
+export function _isReposted(link) { return _getRepostedLinks().includes(link); }
+export function _markReposted(link) {
   const links = _getRepostedLinks();
   if (!links.includes(link)) { links.push(link); setLS('repostedLinks', links); }
 }
-function _unmarkReposted(link) {
+export function _unmarkReposted(link) {
   const links = _getRepostedLinks().filter(l => l !== link);
   setLS('repostedLinks', links);
 }
 
-function _tweetRepost(idx, btn) {
+export function _tweetRepost(idx, btn) {
   const p = lastFilteredPapers[idx];
   if (!p) return;
   const svg = btn.querySelector('svg');
@@ -1874,7 +1875,7 @@ function _tweetRepost(idx, btn) {
 }
 
 // Shared comment & repost action buttons for all card views
-function _cardActionRow(p, i, ctx) {
+export function _cardActionRow(p, i, ctx) {
   var isSaved = ctx ? !!ctx.savedPosts[p.link] : isPostSaved(p.link);
   var bmFill = isSaved ? 'var(--nr-accent)' : 'none';
   var bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
@@ -1895,14 +1896,14 @@ function _cardActionRow(p, i, ctx) {
   return v;
 }
 
-function _cardCommentContainer(p, i) {
+export function _cardCommentContainer(p, i) {
   var v = new View('div').id('tweet-comments-' + i);
   v.styles({ display: _tweetCommentsOpen.has(p.link) ? 'block' : 'none' });
   return v;
 }
 
 // Infinite scroll
-let scrollTicking = false;
+export let scrollTicking = false;
 (document.getElementById('app-bezel') || window).addEventListener('scroll', () => {
   if (scrollTicking) return;
   scrollTicking = true;
@@ -1943,3 +1944,134 @@ let scrollTicking = false;
 })();
 
 // Feed loading is triggered by goHome() via routing
+
+// ── Window exports ──
+window._refreshTimer = _refreshTimer;
+window._refreshSecondsLeft = _refreshSecondsLeft;
+window._previousPostLinks = _previousPostLinks;
+window._renderedLinks = _renderedLinks;
+window.startRefreshTimer = startRefreshTimer;
+window.renderRefreshCountdown = renderRefreshCountdown;
+window.updateSavedBadge = updateSavedBadge;
+window._getSeenPostLinks = _getSeenPostLinks;
+window._setSeenPostLinks = _setSeenPostLinks;
+window._getFeedNotifications = _getFeedNotifications;
+window._setFeedNotifications = _setFeedNotifications;
+window._getFeedNotifSources = _getFeedNotifSources;
+window._detectNewPosts = _detectNewPosts;
+window.clearFeedNotification = clearFeedNotification;
+window.getHiddenPosts = getHiddenPosts;
+window.getReadPosts = getReadPosts;
+window.markPostAsRead = markPostAsRead;
+window._menuBtn = _menuBtn;
+window.openCardMenu = openCardMenu;
+window._cardMenuOutsideClick = _cardMenuOutsideClick;
+window.closeCardMenu = closeCardMenu;
+window.hidePost = hidePost;
+window.getBlockedWords = getBlockedWords;
+window.setBlockedWords = setBlockedWords;
+window.addBlockedWord = addBlockedWord;
+window.removeBlockedWord = removeBlockedWord;
+window.renderBlockedWordsList = renderBlockedWordsList;
+window.getOfflineCachedSet = getOfflineCachedSet;
+window.isPostCached = isPostCached;
+window.cachePostOffline = cachePostOffline;
+window._offlineDownloadIcon = _offlineDownloadIcon;
+window._offlineCachedIcon = _offlineCachedIcon;
+window.getSavedPosts = getSavedPosts;
+window.savePosts = savePosts;
+window.isPostSaved = isPostSaved;
+window.toggleSavePost = toggleSavePost;
+window._showBookmarkFly = _showBookmarkFly;
+window.markPostRead = markPostRead;
+window.renderSavedPosts = renderSavedPosts;
+window.toggleSavePostByLink = toggleSavePostByLink;
+window.openSavedPaper = openSavedPaper;
+window.allPapers = allPapers;
+window.allCategories = allCategories;
+window.citationMap = citationMap;
+window.currentSort = currentSort;
+window.PAGE_SIZE = PAGE_SIZE;
+window.visibleCount = visibleCount;
+window.hiddenSourceFilters = hiddenSourceFilters;
+window.feedViewMode = feedViewMode;
+window._viewModes = _viewModes;
+window._viewModeIcons = _viewModeIcons;
+window.toggleViewMode = toggleViewMode;
+window.toggleSourceBubble = toggleSourceBubble;
+window.unsubscribeSource = unsubscribeSource;
+window.renderSourceBubbles = renderSourceBubbles;
+window._fitArxivSelect = _fitArxivSelect;
+window.setSortMode = setSortMode;
+window.fetchHNFeed = fetchHNFeed;
+window.fetchPolymarketFeed = fetchPolymarketFeed;
+window.FEED_SOURCE_DEFAULTS = FEED_SOURCE_DEFAULTS;
+window.hasOnboarded = hasOnboarded;
+window.onboardSelected = onboardSelected;
+window.onboardNotifSelected = onboardNotifSelected;
+window._hcPanX = _hcPanX;
+window._hcDragging = _hcDragging;
+window._hcDidDrag = _hcDidDrag;
+window._hcCircleEls = _hcCircleEls;
+window._hcPositions = _hcPositions;
+window._hcRafId = _hcRafId;
+window._hcMouseX = _hcMouseX;
+window._hcListenersAttached = _hcListenersAttached;
+window._hcActiveCategory = _hcActiveCategory;
+window._hcHoveredIdx = _hcHoveredIdx;
+window._hcZoom = _hcZoom;
+window._renderHcCategoryTabs = _renderHcCategoryTabs;
+window._hcSelectCategory = _hcSelectCategory;
+window.renderOnboardGrid = renderOnboardGrid;
+window.toggleOnboardSource = toggleOnboardSource;
+window._toggleOnboardCategory = _toggleOnboardCategory;
+window._updateOnboardCardStates = _updateOnboardCardStates;
+window.showOnboarding = showOnboarding;
+window.completeOnboarding = completeOnboarding;
+window.getFeedSources = getFeedSources;
+window.getCustomFeeds = getCustomFeeds;
+window.renderCustomFeedsList = renderCustomFeedsList;
+window.addCustomFeed = addCustomFeed;
+window.removeCustomFeed = removeCustomFeed;
+window.toggleCustomFeed = toggleCustomFeed;
+window.renderAlgorithmView = renderAlgorithmView;
+window.fetchGenericRSS = fetchGenericRSS;
+window.allSourcesOff = allSourcesOff;
+window._feedAbort = _feedAbort;
+window.loadAllFeeds = loadAllFeeds;
+window.extractArxivId = extractArxivId;
+window.parseFeed = parseFeed;
+window.fetchCitationsFor = fetchCitationsFor;
+window.renderTrends = renderTrends;
+window.extractAuthors = extractAuthors;
+window.populateCategories = populateCategories;
+window.lastFilteredPapers = lastFilteredPapers;
+window.parseSearchQuery = parseSearchQuery;
+window.getFilteredPapers = getFilteredPapers;
+window._renderPaperCompactRow = _renderPaperCompactRow;
+window._renderPaperCard = _renderPaperCard;
+window._renderPapersRafId = _renderPapersRafId;
+window.renderPapers = renderPapers;
+window._buildRenderCtx = _buildRenderCtx;
+window._renderFeedEmptyState = _renderFeedEmptyState;
+window._renderPaperVerboseCard = _renderPaperVerboseCard;
+window._renderPaperTwitterCard = _renderPaperTwitterCard;
+window._renderPapersNow = _renderPapersNow;
+window._tweetCommentCounts = _tweetCommentCounts;
+window._tweetCommentsOpen = _tweetCommentsOpen;
+window._fetchTweetCommentCounts = _fetchTweetCommentCounts;
+window._toggleTweetComments = _toggleTweetComments;
+window._renderTweetComments = _renderTweetComments;
+window._postTweetComment = _postTweetComment;
+window._postTweetReply = _postTweetReply;
+window._deleteTweetComment = _deleteTweetComment;
+window._showTweetReply = _showTweetReply;
+window._hideTweetReply = _hideTweetReply;
+window._getRepostedLinks = _getRepostedLinks;
+window._isReposted = _isReposted;
+window._markReposted = _markReposted;
+window._unmarkReposted = _unmarkReposted;
+window._tweetRepost = _tweetRepost;
+window._cardActionRow = _cardActionRow;
+window._cardCommentContainer = _cardCommentContainer;
+window.scrollTicking = scrollTicking;

@@ -1,6 +1,9 @@
-// ─── Feed Settings ──────────────────────────────────────
+import Settings from '../core/core-settings.js';
 
-function _feedTabBtn(key, label) {
+// ─── Feed Settings ──────────────────────────────────────
+if (window.AetherUI) AetherUI.globals();
+
+export function _feedTabBtn(key, label) {
   var active = _settingsFeedTab === key;
   var b = new View('button');
   b.el.textContent = label;
@@ -10,7 +13,7 @@ function _feedTabBtn(key, label) {
   return b;
 }
 
-function _renderFeedSettings() {
+export function _renderFeedSettings() {
   var tabs = HStack(
     _feedTabBtn('insights', 'Insights'),
     _feedTabBtn('algorithm', 'Algorithm')
@@ -21,14 +24,14 @@ function _renderFeedSettings() {
   return VStack(tabs, content);
 }
 
-function _renderFeedInsightsTab() {
+export function _renderFeedInsightsTab() {
   return _settingSection('Paper Insights', [
     _settingToggleLS('Allow heuristics', 'Use regex/keyword matching for repos, hardware, and insight fallback',
       'insightsAllowHeuristics', { defaultOn: true, trueValue: 'true', falseValue: 'false' })
   ], { desc: 'Extracts key insights when viewing a paper. Uses local LLM (qwen2.5:3b).' });
 }
 
-function _renderFeedAlgorithmTab() {
+export function _renderFeedAlgorithmTab() {
   var profile = typeof getInterestProfile === 'function' ? getInterestProfile() : null;
   var readCount = typeof getReadPosts === 'function' ? getReadPosts().length : 0;
   var savedCount = typeof getSavedPosts === 'function' ? Object.keys(getSavedPosts()).length : 0;
@@ -147,3 +150,8 @@ function _renderFeedAlgorithmTab() {
     resetFooter
   );
 }
+
+window._feedTabBtn = _feedTabBtn;
+window._renderFeedSettings = _renderFeedSettings;
+window._renderFeedInsightsTab = _renderFeedInsightsTab;
+window._renderFeedAlgorithmTab = _renderFeedAlgorithmTab;

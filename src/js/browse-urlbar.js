@@ -1,12 +1,14 @@
 // browse-urlbar.js — URL bar, instant answers, history, ad blocker
+import Settings from '/js/core/core-settings.js';
+if (window.AetherUI) AetherUI.globals();
 
 // ── URL Shortening ──
 
-function _browseUrlDomain(url) {
+export function _browseUrlDomain(url) {
   try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
 }
 
-function _browseShortUrl(url) {
+export function _browseShortUrl(url) {
   const domain = _browseUrlDomain(url);
   const tab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
     ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
@@ -16,7 +18,7 @@ function _browseShortUrl(url) {
   return domain;
 }
 
-function _browseAutoSizeUrlInput(input) {
+export function _browseAutoSizeUrlInput(input) {
   if (!input || input.id !== 'pill-browse-url-input') return;
   const pill = document.getElementById('sidebar-nav');
   if (!pill || !pill.classList.contains('island-mode')) return;
@@ -28,7 +30,7 @@ function _browseAutoSizeUrlInput(input) {
   input.style.width = Math.min(Math.max(w, 80), 320) + 'px';
 }
 
-function _browseSetUrlDisplay(input, url) {
+export function _browseSetUrlDisplay(input, url) {
   if (!input) return;
   input.dataset.fullUrl = url || '';
   if (document.activeElement === input || input.matches(':hover')) {
@@ -41,13 +43,13 @@ function _browseSetUrlDisplay(input, url) {
   _browseAutoSizeUrlInput(input);
 }
 
-function _browseUrlOnFocus(input) {
+export function _browseUrlOnFocus(input) {
   const full = input.dataset.fullUrl;
   if (full) input.value = full;
   _browseAutoSizeUrlInput(input);
 }
 
-function _browseUrlOnBlur(input) {
+export function _browseUrlOnBlur(input) {
   _browseUrlClearAutocomplete();
   const full = input.dataset.fullUrl || input.value;
   input.dataset.fullUrl = full;
@@ -57,14 +59,14 @@ function _browseUrlOnBlur(input) {
   _browseAutoSizeUrlInput(input);
 }
 
-function _browseUrlOnMouseEnter(input) {
+export function _browseUrlOnMouseEnter(input) {
   if (document.activeElement === input) return;
   const full = input.dataset.fullUrl;
   if (full) input.value = full;
   _browseAutoSizeUrlInput(input);
 }
 
-function _browseUrlOnMouseLeave(input) {
+export function _browseUrlOnMouseLeave(input) {
   if (document.activeElement === input) return;
   const full = input.dataset.fullUrl || input.value;
   if (Settings.get('urlShorten') !== 'false' && full && !full.startsWith('netrun://')) {
@@ -75,7 +77,7 @@ function _browseUrlOnMouseLeave(input) {
 
 // ── Adaptive URL Bar Color ──
 
-function _browseParseColor(str) {
+export function _browseParseColor(str) {
   if (!str) return null;
   str = str.trim().toLowerCase();
   // Hex
@@ -93,7 +95,7 @@ function _browseParseColor(str) {
   return null;
 }
 
-function _browseApplyAdaptiveColor(tab) {
+export function _browseApplyAdaptiveColor(tab) {
   if (Settings.get('adaptiveUrlBar') === 'off') {
     _browseResetAdaptiveColor();
     return;
@@ -106,13 +108,13 @@ function _browseApplyAdaptiveColor(tab) {
   document.documentElement.style.setProperty('--nr-bg-body', `rgb(${color.r},${color.g},${color.b})`);
 }
 
-function _browseResetAdaptiveColor() {
+export function _browseResetAdaptiveColor() {
   document.documentElement.style.removeProperty('--nr-bg-body');
 }
 
 // ── Browse URL Bar History Dropdown ──
 
-const _URL_BAR_SECTIONS = [
+export const _URL_BAR_SECTIONS = [
   { key: 'bangs',      label: 'Bangs' },
   { key: 'definition', label: 'Definition' },
   { key: 'instant',    label: 'Instant Answers' },
@@ -125,7 +127,7 @@ const _URL_BAR_SECTIONS = [
   { key: 'lucky',      label: 'Feeling Lucky' },
 ];
 
-function _getUrlBarSections() {
+export function _getUrlBarSections() {
   let saved = null;
   try { saved = Settings.getJSON('urlBarSections', null); } catch {}
   if (!Array.isArray(saved)) return _URL_BAR_SECTIONS.map(s => ({ key: s.key, label: s.label, enabled: true }));
@@ -144,30 +146,30 @@ function _getUrlBarSections() {
   return result;
 }
 
-function _saveUrlBarSections(sections) {
+export function _saveUrlBarSections(sections) {
   Settings.setJSON('urlBarSections', sections.map(s => ({ key: s.key, enabled: s.enabled })));
 }
 
-let _browseUrlHistIdx = -1;
-let _browseUrlOriginalInput = '';
-let _suggestDebounce = null;
-let _suggestAbort = null;
-const _suggestCache = {};
-let _currentSuggestions = [];
-const _defCache = {};
-let _defDebounce = null;
-let _currentDef = null; // cached definition entry for current word
-let _instantAnswer = null; // { type, html } for non-definition instant answers
-let _instantDebounce = null;
-const _instantCache = {};
+export let _browseUrlHistIdx = -1;
+export let _browseUrlOriginalInput = '';
+export let _suggestDebounce = null;
+export let _suggestAbort = null;
+export const _suggestCache = {};
+export let _currentSuggestions = [];
+export const _defCache = {};
+export let _defDebounce = null;
+export let _currentDef = null; // cached definition entry for current word
+export let _instantAnswer = null; // { type, html } for non-definition instant answers
+export let _instantDebounce = null;
+export const _instantCache = {};
 
 // ── Inline Autocomplete (Chrome-style selection) ──
 
-let _browseUrlAutocompleteSuggestion = ''; // full domain suggestion currently shown
-let _browseUrlTypedLength = 0; // length of the user's actual typed text
-let _browseUrlAcSuppressed = false; // suppress re-autocomplete after delete
+export let _browseUrlAutocompleteSuggestion = ''; // full domain suggestion currently shown
+export let _browseUrlTypedLength = 0; // length of the user's actual typed text
+export let _browseUrlAcSuppressed = false; // suppress re-autocomplete after delete
 
-function _browseUrlGetAutocomplete(filter) {
+export function _browseUrlGetAutocomplete(filter) {
   if (!filter || filter.includes(' ') || filter.startsWith('/')) return '';
   const lf = filter.toLowerCase();
   const browseHist = _getBrowseHistory();
@@ -203,7 +205,7 @@ function _browseUrlGetAutocomplete(filter) {
   return best;
 }
 
-function _browseUrlApplyAutocomplete(input, suggestion) {
+export function _browseUrlApplyAutocomplete(input, suggestion) {
   if (!input) return;
   const typed = input.value;
   if (!suggestion || suggestion.toLowerCase() === typed.toLowerCase()) {
@@ -217,13 +219,13 @@ function _browseUrlApplyAutocomplete(input, suggestion) {
   input.setSelectionRange(typed.length, suggestion.length);
 }
 
-function _browseUrlClearAutocomplete() {
+export function _browseUrlClearAutocomplete() {
   _browseUrlAutocompleteSuggestion = '';
   _browseUrlTypedLength = 0;
 }
 
 // Returns the active omnibox input & dropdown elements (NTP search or URL bar)
-function _getOmniInput() {
+export function _getOmniInput() {
   // NTP check first: if the NTP is visible, use its search input + dropdown
   const ntpEl = document.getElementById('browse-content')?.querySelector('.browse-ntp');
   if (ntpEl && ntpEl.style.display !== 'none') {
@@ -247,7 +249,7 @@ function _getOmniInput() {
   return { input: document.getElementById('browse-url-input'), dd: document.getElementById('browse-url-history-dd'), ntp: false };
 }
 
-function _browseUrlKeydown(e) {
+export function _browseUrlKeydown(e) {
   const { input, dd, ntp, island } = _getOmniInput();
   const visible = island
     ? !!(document.getElementById('pill-url-wrap') && document.getElementById('pill-url-wrap').classList.contains('pill-dropdown-open'))
@@ -336,7 +338,7 @@ function _browseUrlKeydown(e) {
   }
 }
 
-function _browseUrlHighlight(items) {
+export function _browseUrlHighlight(items) {
   items.forEach((el, i) => {
     if (i === _browseUrlHistIdx) {
       el.style.background = 'color-mix(in srgb, var(--nr-accent) 18%, transparent)';
@@ -351,10 +353,10 @@ function _browseUrlHighlight(items) {
   }
 }
 
-let _feelingLuckyQuery = '';
-let _feelingLuckyLoading = false;
+export let _feelingLuckyQuery = '';
+export let _feelingLuckyLoading = false;
 
-function _browseUrlFeelingLucky() {
+export function _browseUrlFeelingLucky() {
   const { input, dd } = _getOmniInput();
   _feelingLuckyLoading = true;
   _feelingLuckyQuery = '';
@@ -383,12 +385,12 @@ function _browseUrlFeelingLucky() {
   }).catch(() => { _feelingLuckyLoading = false; _browseUrlRenderLuckyRow(dd); });
 }
 
-function _browseUrlRenderLuckyRow(dd) {
+export function _browseUrlRenderLuckyRow(dd) {
   // Re-render the full dropdown so styles (pointer-events, redo btn) update
   _browseUrlShowHistory();
 }
 
-function _browseUrlShowHistory() {
+export function _browseUrlShowHistory() {
   const { input, dd, ntp } = _getOmniInput();
   if (!input || !dd) return;
   // When autocomplete was active and user types, the selection gets replaced.
@@ -487,7 +489,7 @@ function _browseUrlShowHistory() {
   }
 }
 
-function _browseUrlRenderHistoryCommand(dd, input) {
+export function _browseUrlRenderHistoryCommand(dd, input) {
   const hist = _getBrowseHistory().slice(0, 20);
   _browseUrlHistIdx = -1;
   _browseUrlOriginalInput = '/history';
@@ -543,7 +545,7 @@ function _browseUrlRenderHistoryCommand(dd, input) {
   dd.classList.remove('hidden');
 }
 
-const _BANG_LABELS = {
+export const _BANG_LABELS = {
   g: 'Google', ddg: 'DuckDuckGo', b: 'Bing', yt: 'YouTube', w: 'Wikipedia',
   r: 'Reddit', gh: 'GitHub', so: 'Stack Overflow', npm: 'npm', mdn: 'MDN',
   tw: 'X / Twitter', twitch: 'Twitch', am: 'Amazon', maps: 'Google Maps',
@@ -552,7 +554,7 @@ const _BANG_LABELS = {
   nix: 'Nix Packages',
 };
 
-function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBrowse) {
+export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBrowse) {
   showBrowse = showBrowse || [];
   const suggestions = filter ? _currentSuggestions.filter(s => s.toLowerCase() !== filter) : [];
   const hasDef = _currentDef && /^[a-zA-Z]{2,}$/.test(filter);
@@ -805,7 +807,7 @@ function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBro
   }
 }
 
-function _fetchSearchSuggestions(query) {
+export function _fetchSearchSuggestions(query) {
   // Check cache
   if (_suggestCache[query]) {
     _currentSuggestions = _suggestCache[query];
@@ -833,7 +835,7 @@ function _fetchSearchSuggestions(query) {
   }, 300);
 }
 
-function _fetchWordDefinition(word) {
+export function _fetchWordDefinition(word) {
   const key = word.toLowerCase();
   if (_defCache[key]) {
     _currentDef = _defCache[key];
@@ -863,7 +865,7 @@ function _fetchWordDefinition(word) {
 
 // ── Instant Answers engine ──
 
-function _computeInstantAnswer(query) {
+export function _computeInstantAnswer(query) {
   if (!query) { _instantAnswer = null; return; }
 
   // 1. Math expressions — detect and evaluate synchronously
@@ -920,7 +922,7 @@ function _computeInstantAnswer(query) {
 }
 
 // ── Math ──
-function _tryMathAnswer(q) {
+export function _tryMathAnswer(q) {
   // Only match math-like patterns
   if (!/[\d]/.test(q)) return null;
   if (/[a-zA-Z]{3,}/.test(q) && !/^(sqrt|cbrt|abs|log|ln|sin|cos|tan|pi|e|ceil|floor|round|pow|min|max)/i.test(q.replace(/[^a-zA-Z]/g, ''))) return null;
@@ -954,7 +956,7 @@ function _tryMathAnswer(q) {
 }
 
 // ── Color ──
-function _tryColorAnswer(q) {
+export function _tryColorAnswer(q) {
   let color = null, label = q;
   const hexMatch = q.match(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
   if (hexMatch) {
@@ -982,7 +984,7 @@ function _tryColorAnswer(q) {
 }
 
 // ── Unit Conversion ──
-function _tryConversionAnswer(q) {
+export function _tryConversionAnswer(q) {
   const m = q.match(/^([\d.,]+)\s*([a-zA-Z°℃℉]+)\s+(?:to|in|as|=)\s+([a-zA-Z°℃℉]+)$/i);
   if (!m) return null;
   const val = parseFloat(m[1].replace(/,/g, ''));
@@ -1020,7 +1022,7 @@ function _tryConversionAnswer(q) {
 }
 
 // ── Timezone ──
-const _tzCityMap = {
+export const _tzCityMap = {
   'tokyo': 'Asia/Tokyo', 'london': 'Europe/London', 'paris': 'Europe/Paris',
   'new york': 'America/New_York', 'nyc': 'America/New_York', 'ny': 'America/New_York',
   'los angeles': 'America/Los_Angeles', 'la': 'America/Los_Angeles',
@@ -1052,7 +1054,7 @@ const _tzCityMap = {
   'auckland': 'Pacific/Auckland',
 };
 
-function _tryTimezoneAnswer(q) {
+export function _tryTimezoneAnswer(q) {
   const m = q.match(/^(?:time\s+in|what\s+time\s+(?:is\s+it\s+)?in)\s+(.+)$/i);
   if (!m) return null;
   const city = m[1].trim().toLowerCase();
@@ -1072,7 +1074,7 @@ function _tryTimezoneAnswer(q) {
 }
 
 // ── Weather (async) ──
-async function _fetchWeatherAnswer(city) {
+export async function _fetchWeatherAnswer(city) {
   // External API - keep raw fetch
   const resp = await fetch('https://wttr.in/' + encodeURIComponent(city) + '?format=j1', { signal: AbortSignal.timeout(4000) });
   if (!resp.ok) return null;
@@ -1097,7 +1099,7 @@ async function _fetchWeatherAnswer(city) {
   </div>` };
 }
 
-function _weatherEmoji(desc) {
+export function _weatherEmoji(desc) {
   const d = (desc || '').toLowerCase();
   if (d.includes('sunny') || d.includes('clear')) return '☀️';
   if (d.includes('partly cloudy')) return '⛅';
@@ -1111,13 +1113,13 @@ function _weatherEmoji(desc) {
 }
 
 // ── Sports ──
-const _sportsLeagues = {
+export const _sportsLeagues = {
   'nba': 'basketball', 'nfl': 'football', 'mlb': 'baseball', 'nhl': 'hockey',
   'premier league': 'soccer', 'epl': 'soccer', 'la liga': 'soccer',
   'bundesliga': 'soccer', 'serie a': 'soccer', 'ligue 1': 'soccer',
   'champions league': 'soccer', 'mls': 'soccer', 'ucl': 'soccer',
 };
-const _sportsTeams = {
+export const _sportsTeams = {
   'lakers': 'nba', 'celtics': 'nba', 'warriors': 'nba', 'bulls': 'nba', 'nets': 'nba',
   'knicks': 'nba', 'heat': 'nba', 'bucks': 'nba', 'suns': 'nba', 'nuggets': 'nba',
   'mavericks': 'nba', 'mavs': 'nba', 'clippers': 'nba', 'rockets': 'nba',
@@ -1135,7 +1137,7 @@ const _sportsTeams = {
   'juventus': 'serie a', 'inter milan': 'serie a', 'ac milan': 'serie a',
 };
 
-function _matchSportsQuery(q) {
+export function _matchSportsQuery(q) {
   const lower = q.toLowerCase().trim();
   if (_sportsLeagues[lower]) return { type: 'league', key: lower };
   // Check for "X score" or "X game"
@@ -1146,7 +1148,7 @@ function _matchSportsQuery(q) {
   return null;
 }
 
-async function _fetchSportsAnswer(match) {
+export async function _fetchSportsAnswer(match) {
   // Use ESPN's public API for scores
   const leagueMap = {
     'nba': 'basketball/nba', 'nfl': 'football/nfl', 'mlb': 'baseball/mlb', 'nhl': 'hockey/nhl',
@@ -1210,7 +1212,7 @@ async function _fetchSportsAnswer(match) {
 }
 
 // ── Stocks ──
-async function _fetchStockAnswer(ticker) {
+export async function _fetchStockAnswer(ticker) {
   const data = await apiGet('/api/stock-quote?symbol=' + encodeURIComponent(ticker));
   if (!data.price && data.price !== 0) return null;
   const price = data.price;
@@ -1235,19 +1237,19 @@ async function _fetchStockAnswer(ticker) {
   </div>` };
 }
 
-let _browseUrlHideTimeout = null;
+export let _browseUrlHideTimeout = null;
 
-function _browseUrlScheduleHide() {
+export function _browseUrlScheduleHide() {
   clearTimeout(_browseUrlHideTimeout);
   _browseUrlHideTimeout = setTimeout(_browseUrlHideHistory, 150);
 }
 
-function _browseUrlCancelHide() {
+export function _browseUrlCancelHide() {
   clearTimeout(_browseUrlHideTimeout);
   _browseUrlHideTimeout = null;
 }
 
-function _browseUrlHideHistory() {
+export function _browseUrlHideHistory() {
   _browseUrlClearAutocomplete();
   _browseUrlHideTimeout = null;
   const dd = document.getElementById('browse-url-history-dd');
@@ -1276,14 +1278,14 @@ document.addEventListener('mousedown', (e) => {
 
 // ── Web Search History ──
 
-function _getWebSearchHistory() {
+export function _getWebSearchHistory() {
   try {
     const raw = Settings.getJSON('webSearchHistory', []);
     return raw.map(h => typeof h === 'string' ? { q: h, ts: 0 } : h);
   } catch { return []; }
 }
 
-function _saveWebSearch(query) {
+export function _saveWebSearch(query) {
   const q = (query || '').trim();
   if (!q) return;
   let hist = _getWebSearchHistory().filter(h => h.q !== q);
@@ -1292,17 +1294,17 @@ function _saveWebSearch(query) {
   Settings.setJSON('webSearchHistory', hist);
 }
 
-function _removeWebSearch(index) {
+export function _removeWebSearch(index) {
   const hist = _getWebSearchHistory();
   hist.splice(index, 1);
   Settings.setJSON('webSearchHistory', hist);
 }
 
-function _clearWebSearchHistory() {
+export function _clearWebSearchHistory() {
   Settings.setJSON('webSearchHistory', []);
 }
 
-function openSearchHistoryPage() {
+export function openSearchHistoryPage() {
   // Open as a blank-style tab in browse view
   if (typeof openBrowse === 'function') openBrowse();
 
@@ -1348,7 +1350,7 @@ function openSearchHistoryPage() {
   _renderWebSearchHistoryPage(el);
 }
 
-function openHelpPage() {
+export function openHelpPage() {
   if (typeof openBrowse === 'function') openBrowse();
 
   // Reuse existing help tab
@@ -1387,7 +1389,7 @@ function openHelpPage() {
   _renderHelpPage(el);
 }
 
-function _renderHelpPage(el) {
+export function _renderHelpPage(el) {
   if (!el) return;
   const s = 'style';
   const section = `${s}="margin-bottom:24px;"`;
@@ -1489,9 +1491,9 @@ function _renderHelpPage(el) {
   el.innerHTML = html;
 }
 
-const _historyPageTab = 'browse'; // 'browse' or 'search'
+export const _historyPageTab = 'browse'; // 'browse' or 'search'
 
-function _renderWebSearchHistoryPage(el) {
+export function _renderWebSearchHistoryPage(el) {
   if (!el) return;
   const searchHist = _getWebSearchHistory();
   const browseHist = _getBrowseHistory();
@@ -1533,7 +1535,7 @@ function _renderWebSearchHistoryPage(el) {
   el.innerHTML = html;
 }
 
-function _filterWebSearchHistory() {
+export function _filterWebSearchHistory() {
   const filter = (document.getElementById('history-page-filter')?.value || '').trim().toLowerCase();
   const list = document.getElementById('history-page-list');
   if (!list) return;
@@ -1548,7 +1550,7 @@ function _filterWebSearchHistory() {
   }
 }
 
-function _renderWebSearchHistoryList(hist) {
+export function _renderWebSearchHistoryList(hist) {
   if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--nr-text-secondary);font-size:0.85rem;">No searches found</div>';
 
   // Group by date
@@ -1598,7 +1600,7 @@ function _renderWebSearchHistoryList(hist) {
   return html;
 }
 
-function _renderBrowseHistoryList(hist) {
+export function _renderBrowseHistoryList(hist) {
   if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--nr-text-secondary);font-size:0.85rem;">No browsing history</div>';
 
   const groups = [];
@@ -1654,11 +1656,11 @@ function _renderBrowseHistoryList(hist) {
 
 // ── Browsing History ──
 
-function _getBrowseHistory() {
+export function _getBrowseHistory() {
   try { return Settings.getJSON('browseHistory', []); } catch { return []; }
 }
 
-function _saveBrowseVisit(url, title) {
+export function _saveBrowseVisit(url, title) {
   if (!url || url === 'about:blank') return;
   let hist = _getBrowseHistory();
   if (hist.length && hist[0].url === url) {
@@ -1671,19 +1673,19 @@ function _saveBrowseVisit(url, title) {
   Settings.setJSON('browseHistory', hist);
 }
 
-function _removeBrowseVisit(index) {
+export function _removeBrowseVisit(index) {
   const hist = _getBrowseHistory();
   hist.splice(index, 1);
   Settings.setJSON('browseHistory', hist);
 }
 
-function _clearBrowseHistory() {
+export function _clearBrowseHistory() {
   Settings.setJSON('browseHistory', []);
 }
 
 // ── Ad Blocker toggle & badge ──
 
-function toggleAdBlock() {
+export function toggleAdBlock() {
   const on = Settings.get('adBlockEnabled') === 'true';
   const newState = !on;
   Settings.set('adBlockEnabled', newState ? 'true' : 'false');
@@ -1705,7 +1707,7 @@ function toggleAdBlock() {
   }
 }
 
-function _browseUpdateAdBlockBtn() {
+export function _browseUpdateAdBlockBtn() {
   const btn = document.getElementById('browse-adblock-btn');
   if (!btn) return;
   const on = Settings.get('adBlockEnabled') === 'true';
@@ -1714,7 +1716,7 @@ function _browseUpdateAdBlockBtn() {
   btn.classList.toggle('text-dimmer', !on);
 }
 
-function _browseUpdateAdBlockBadge(url) {
+export function _browseUpdateAdBlockBadge(url) {
   const badge = document.getElementById('browse-adblock-badge');
   if (!badge) return;
   if (Settings.get('adBlockEnabled') !== 'true') {
@@ -1764,23 +1766,23 @@ function _browseUpdateAdBlockBadge(url) {
 
 // ── Site Permissions ──
 
-const _SITE_PERM_KEYS = ['camera', 'microphone', 'location', 'notifications', 'popups'];
-const _SITE_PERM_LABELS = { camera: 'Camera', microphone: 'Microphone', location: 'Location', notifications: 'Notifications', popups: 'Pop-ups' };
-const _SITE_PERM_PROMPTS = {
+export const _SITE_PERM_KEYS = ['camera', 'microphone', 'location', 'notifications', 'popups'];
+export const _SITE_PERM_LABELS = { camera: 'Camera', microphone: 'Microphone', location: 'Location', notifications: 'Notifications', popups: 'Pop-ups' };
+export const _SITE_PERM_PROMPTS = {
   camera: 'Use your camera',
   microphone: 'Use your microphone',
   location: 'Know your location',
   notifications: 'Send you notifications',
   popups: 'Open pop-up windows'
 };
-const _SITE_PERM_ICONS = {
+export const _SITE_PERM_ICONS = {
   camera: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14M4 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   microphone: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke-linecap="round"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
   location: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
   notifications: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
   popups: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'
 };
-const _SITE_PERM_ICONS_LG = {
+export const _SITE_PERM_ICONS_LG = {
   camera: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14M4 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   microphone: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke-linecap="round"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
   location: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
@@ -1788,14 +1790,14 @@ const _SITE_PERM_ICONS_LG = {
   popups: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'
 };
 
-function _getSitePermissions(domain) {
+export function _getSitePermissions(domain) {
   try {
     const all = Settings.getJSON('sitePermissions', {});
     return all[domain] || {};
   } catch { return {}; }
 }
 
-function _setSitePermission(domain, perm, value) {
+export function _setSitePermission(domain, perm, value) {
   try {
     const all = Settings.getJSON('sitePermissions', {});
     if (!all[domain]) all[domain] = {};
@@ -1809,11 +1811,11 @@ function _setSitePermission(domain, perm, value) {
   } catch {}
 }
 
-function _getAllSitePermissions() {
+export function _getAllSitePermissions() {
   try { return Settings.getJSON('sitePermissions', {}); } catch { return {}; }
 }
 
-function _clearSitePermissions(domain) {
+export function _clearSitePermissions(domain) {
   try {
     const all = Settings.getJSON('sitePermissions', {});
     delete all[domain];
@@ -1821,7 +1823,7 @@ function _clearSitePermissions(domain) {
   } catch {}
 }
 
-function _getCurrentBrowseDomain() {
+export function _getCurrentBrowseDomain() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || !tab.url || tab.blank) return '';
   try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; }
@@ -1831,7 +1833,7 @@ function _getCurrentBrowseDomain() {
 // Shows a browser-style dialog when user tries to allow a permission.
 // Nothing is granted until the user explicitly confirms in this dialog.
 
-function _showPermissionPrompt(domain, permKey) {
+export function _showPermissionPrompt(domain, permKey) {
   // Remove any existing prompt
   const existing = document.getElementById('site-permission-prompt');
   if (existing) existing.remove();
@@ -1918,16 +1920,16 @@ function _showPermissionPrompt(domain, permKey) {
 }
 
 // Session-only permissions (not persisted to localStorage, cleared on tab close/navigate)
-const _sessionPermissions = {};
+export const _sessionPermissions = {};
 
 // Get effective permissions: localStorage merged with session overrides
-function _getEffectivePermissions(domain) {
+export function _getEffectivePermissions(domain) {
   const stored = _getSitePermissions(domain);
   const session = _sessionPermissions[domain] || {};
   return { ...stored, ...session };
 }
 
-function _renderSitePermissionsDropdown(container) {
+export function _renderSitePermissionsDropdown(container) {
   const dd = container || document.getElementById('browse-menu-perms-panel');
   if (!dd) return;
   const domain = _getCurrentBrowseDomain();
@@ -2038,3 +2040,98 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
   });
 }
 
+window._browseUrlDomain = _browseUrlDomain;
+window._browseShortUrl = _browseShortUrl;
+window._browseAutoSizeUrlInput = _browseAutoSizeUrlInput;
+window._browseSetUrlDisplay = _browseSetUrlDisplay;
+window._browseUrlOnFocus = _browseUrlOnFocus;
+window._browseUrlOnBlur = _browseUrlOnBlur;
+window._browseUrlOnMouseEnter = _browseUrlOnMouseEnter;
+window._browseUrlOnMouseLeave = _browseUrlOnMouseLeave;
+window._browseParseColor = _browseParseColor;
+window._browseApplyAdaptiveColor = _browseApplyAdaptiveColor;
+window._browseResetAdaptiveColor = _browseResetAdaptiveColor;
+window._URL_BAR_SECTIONS = _URL_BAR_SECTIONS;
+window._getUrlBarSections = _getUrlBarSections;
+window._saveUrlBarSections = _saveUrlBarSections;
+window._browseUrlHistIdx = _browseUrlHistIdx;
+window._browseUrlOriginalInput = _browseUrlOriginalInput;
+window._suggestDebounce = _suggestDebounce;
+window._suggestAbort = _suggestAbort;
+window._suggestCache = _suggestCache;
+window._currentSuggestions = _currentSuggestions;
+window._defCache = _defCache;
+window._defDebounce = _defDebounce;
+window._currentDef = _currentDef;
+window._instantAnswer = _instantAnswer;
+window._instantDebounce = _instantDebounce;
+window._instantCache = _instantCache;
+window._browseUrlAutocompleteSuggestion = _browseUrlAutocompleteSuggestion;
+window._browseUrlTypedLength = _browseUrlTypedLength;
+window._browseUrlAcSuppressed = _browseUrlAcSuppressed;
+window._browseUrlGetAutocomplete = _browseUrlGetAutocomplete;
+window._browseUrlApplyAutocomplete = _browseUrlApplyAutocomplete;
+window._browseUrlClearAutocomplete = _browseUrlClearAutocomplete;
+window._getOmniInput = _getOmniInput;
+window._browseUrlKeydown = _browseUrlKeydown;
+window._browseUrlHighlight = _browseUrlHighlight;
+window._feelingLuckyQuery = _feelingLuckyQuery;
+window._feelingLuckyLoading = _feelingLuckyLoading;
+window._browseUrlFeelingLucky = _browseUrlFeelingLucky;
+window._browseUrlRenderLuckyRow = _browseUrlRenderLuckyRow;
+window._browseUrlShowHistory = _browseUrlShowHistory;
+window._browseUrlRenderHistoryCommand = _browseUrlRenderHistoryCommand;
+window._BANG_LABELS = _BANG_LABELS;
+window._browseUrlRenderDropdown = _browseUrlRenderDropdown;
+window._fetchSearchSuggestions = _fetchSearchSuggestions;
+window._fetchWordDefinition = _fetchWordDefinition;
+window._computeInstantAnswer = _computeInstantAnswer;
+window._tryMathAnswer = _tryMathAnswer;
+window._tryColorAnswer = _tryColorAnswer;
+window._tryConversionAnswer = _tryConversionAnswer;
+window._tzCityMap = _tzCityMap;
+window._tryTimezoneAnswer = _tryTimezoneAnswer;
+window._fetchWeatherAnswer = _fetchWeatherAnswer;
+window._weatherEmoji = _weatherEmoji;
+window._sportsLeagues = _sportsLeagues;
+window._sportsTeams = _sportsTeams;
+window._matchSportsQuery = _matchSportsQuery;
+window._fetchSportsAnswer = _fetchSportsAnswer;
+window._fetchStockAnswer = _fetchStockAnswer;
+window._browseUrlHideTimeout = _browseUrlHideTimeout;
+window._browseUrlScheduleHide = _browseUrlScheduleHide;
+window._browseUrlCancelHide = _browseUrlCancelHide;
+window._browseUrlHideHistory = _browseUrlHideHistory;
+window._getWebSearchHistory = _getWebSearchHistory;
+window._saveWebSearch = _saveWebSearch;
+window._removeWebSearch = _removeWebSearch;
+window._clearWebSearchHistory = _clearWebSearchHistory;
+window.openSearchHistoryPage = openSearchHistoryPage;
+window.openHelpPage = openHelpPage;
+window._renderHelpPage = _renderHelpPage;
+window._historyPageTab = _historyPageTab;
+window._renderWebSearchHistoryPage = _renderWebSearchHistoryPage;
+window._filterWebSearchHistory = _filterWebSearchHistory;
+window._renderWebSearchHistoryList = _renderWebSearchHistoryList;
+window._renderBrowseHistoryList = _renderBrowseHistoryList;
+window._getBrowseHistory = _getBrowseHistory;
+window._saveBrowseVisit = _saveBrowseVisit;
+window._removeBrowseVisit = _removeBrowseVisit;
+window._clearBrowseHistory = _clearBrowseHistory;
+window.toggleAdBlock = toggleAdBlock;
+window._browseUpdateAdBlockBtn = _browseUpdateAdBlockBtn;
+window._browseUpdateAdBlockBadge = _browseUpdateAdBlockBadge;
+window._SITE_PERM_KEYS = _SITE_PERM_KEYS;
+window._SITE_PERM_LABELS = _SITE_PERM_LABELS;
+window._SITE_PERM_PROMPTS = _SITE_PERM_PROMPTS;
+window._SITE_PERM_ICONS = _SITE_PERM_ICONS;
+window._SITE_PERM_ICONS_LG = _SITE_PERM_ICONS_LG;
+window._getSitePermissions = _getSitePermissions;
+window._setSitePermission = _setSitePermission;
+window._getAllSitePermissions = _getAllSitePermissions;
+window._clearSitePermissions = _clearSitePermissions;
+window._getCurrentBrowseDomain = _getCurrentBrowseDomain;
+window._showPermissionPrompt = _showPermissionPrompt;
+window._sessionPermissions = _sessionPermissions;
+window._getEffectivePermissions = _getEffectivePermissions;
+window._renderSitePermissionsDropdown = _renderSitePermissionsDropdown;

@@ -1,22 +1,24 @@
+import Settings from '../core/core-settings.js';
+
 // Map each theme to its underlying color scheme (dark or light)
-const THEME_COLOR_SCHEME = {
+export const THEME_COLOR_SCHEME = {
   dark: 'dark',
   light: 'light',
   daylight: 'light',
   clear: 'dark',
 };
 
-function _systemColorScheme() {
+export function _systemColorScheme() {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 // Resolve 'auto' to the actual theme name based on system preference
-function _resolveAutoTheme() {
+export function _resolveAutoTheme() {
   return _systemColorScheme() === 'dark' ? 'dark' : 'light';
 }
 
 // Apply the resolved theme to the DOM (shared by setTheme and the system listener)
-function _applyResolvedTheme(resolved) {
+export function _applyResolvedTheme(resolved) {
   stopDaylightTheme();
   if (resolved === 'light') {
     document.documentElement.setAttribute('data-theme', 'light');
@@ -36,7 +38,7 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
   }
 });
 
-function setTheme(theme) {
+export function setTheme(theme) {
   Settings.set('theme', theme);
   const resolved = theme === 'auto' ? _resolveAutoTheme() : theme;
   _applyResolvedTheme(resolved);
@@ -51,7 +53,7 @@ function setTheme(theme) {
 }
 
 
-async function toggleProfilePrivacy(on) {
+export async function toggleProfilePrivacy(on) {
   try {
     await apiPut('/api/users/me/privacy', { profile_private: on });
     if (_authUserInfo) {
@@ -60,7 +62,7 @@ async function toggleProfilePrivacy(on) {
   } catch (err) { /* ignore */ }
 }
 
-function resetAdBlockRules() {
+export function resetAdBlockRules() {
   const el = document.getElementById('adblock-rules-info');
   if (!window.electronAPI || !window.electronAPI.adblockUpdate) {
     if (el) el.textContent = 'Filter list updates require Electron.';
@@ -79,7 +81,7 @@ function resetAdBlockRules() {
     }).catch(() => { if (el) el.textContent = 'Error updating filter lists.'; });
 }
 
-function setEditorTheme(theme) {
+export function setEditorTheme(theme) {
   Settings.set('editorTheme', theme);
   if (theme === 'auto') {
     document.documentElement.removeAttribute('data-editor-theme');
@@ -92,7 +94,7 @@ function setEditorTheme(theme) {
   });
 }
 
-function setBrowseTabLayout(layout) {
+export function setBrowseTabLayout(layout) {
   Settings.set('browseTabLayout', layout);
   // Apply immediately if browse view is open
   const browseView = document.getElementById('browse-view');
@@ -107,8 +109,19 @@ function setBrowseTabLayout(layout) {
   renderSettingsView();
 }
 
-function setIconSize(size) {
+export function setIconSize(size) {
   Settings.set('iconSize', size);
   document.documentElement.setAttribute('data-icon-size', size);
   renderSettingsView();
 }
+
+window.THEME_COLOR_SCHEME = THEME_COLOR_SCHEME;
+window._systemColorScheme = _systemColorScheme;
+window._resolveAutoTheme = _resolveAutoTheme;
+window._applyResolvedTheme = _applyResolvedTheme;
+window.setTheme = setTheme;
+window.toggleProfilePrivacy = toggleProfilePrivacy;
+window.resetAdBlockRules = resetAdBlockRules;
+window.setEditorTheme = setEditorTheme;
+window.setBrowseTabLayout = setBrowseTabLayout;
+window.setIconSize = setIconSize;

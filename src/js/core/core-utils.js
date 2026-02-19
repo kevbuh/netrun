@@ -1,8 +1,10 @@
 // core-utils.js — Utilities, ratings
 // Extracted from core.js
 
+import Settings from '/js/core/core-settings.js';
+
 // ── Utilities ──
-function formatDate(d) {
+export function formatDate(d) {
   if (!d) return '';
   const now = new Date();
   const diffMs = now - d;
@@ -14,19 +16,19 @@ function formatDate(d) {
   return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
 }
 
-function escapeHtml(str) {
+export function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
 }
 
-function decodeHtml(str) {
+export function decodeHtml(str) {
   const el = document.createElement('textarea');
   el.innerHTML = str;
   return el.value;
 }
 
-function fmtNum(n) {
+export function fmtNum(n) {
   if (!n) return '0';
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
   if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
@@ -35,7 +37,7 @@ function fmtNum(n) {
 
 // Shared KaTeX macros — \mathcal shortcuts (\gA–\gZ) and \mathbb shortcuts (\sA–\sZ)
 // from the standard ICLR/NeurIPS math_commands.tex template
-const KATEX_MACROS = (() => {
+export const KATEX_MACROS = (() => {
   const m = {};
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   for (const L of letters) {
@@ -55,7 +57,7 @@ function _katexOpts(display) {
   return { displayMode: display, throwOnError: false, macros: KATEX_MACROS };
 }
 
-function renderTitle(rawTitle) {
+export function renderTitle(rawTitle) {
   const decoded = decodeHtml(rawTitle);
   let html = escapeHtml(decoded);
   if (typeof katex !== 'undefined') {
@@ -70,7 +72,7 @@ function renderTitle(rawTitle) {
 }
 
 // ── Paper ratings (1-5 stars) ──
-function getPaperRatings() {
+export function getPaperRatings() {
   try { return Settings.getJSON('paperRatings', {}); } catch { return {}; }
 }
 function _normalizeRatingKey(link) {
@@ -89,11 +91,11 @@ function _normalizeRatingKey(link) {
   } catch (e) { /* fire-and-forget */ }
   return k;
 }
-function getPaperRating(link) {
+export function getPaperRating(link) {
   const ratings = getPaperRatings();
   return ratings[_normalizeRatingKey(link)] || ratings[link] || 0;
 }
-function setPaperRating(link, rating) {
+export function setPaperRating(link, rating) {
   const r = getPaperRatings();
   const key = _normalizeRatingKey(link);
   // Clean up old non-normalized key if different
@@ -106,7 +108,7 @@ function setPaperRating(link, rating) {
   }
 }
 
-function renderStarRating(link, opts) {
+export function renderStarRating(link, opts) {
   const nLink = _normalizeRatingKey(link);
   const rating = getPaperRating(nLink);
   const size = opts?.size || 'sm';
@@ -125,7 +127,7 @@ function renderStarRating(link, opts) {
   return html;
 }
 
-function ratePaper(link, rating) {
+export function ratePaper(link, rating) {
   const current = getPaperRating(link);
   // Click same star again → clear rating
   setPaperRating(link, current === rating ? 0 : rating);
@@ -135,22 +137,22 @@ function ratePaper(link, rating) {
   });
 }
 
-function escapeAttr(str) {
+export function escapeAttr(str) {
   return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function truncate(str, max) {
+export function truncate(str, max) {
   if (!str || str.length <= max) return str || '';
   return str.slice(0, max).replace(/\s+\S*$/, '') + '…';
 }
 
-function stripHtml(html) {
+export function stripHtml(html) {
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
   return tmp.textContent || tmp.innerText || '';
 }
 
-function renderLatexInEl(el) {
+export function renderLatexInEl(el) {
   if (!el) return;
   if (typeof katex === 'undefined') return;
   function decodeTex(t) { return t.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&quot;/g,'"'); }
@@ -176,7 +178,7 @@ function renderLatexInEl(el) {
   el.innerHTML = html;
 }
 
-function renderLatexIn(elementId) {
+export function renderLatexIn(elementId) {
   const el = document.getElementById(elementId);
   if (!el) return;
   if (typeof katex === 'undefined') {
@@ -266,3 +268,23 @@ window.addEventListener('keydown', e => {
 });
 
 // ── Sidebar icon visibility & order ──
+
+// Window assignments for backward compatibility
+window._normalizeRatingKey = _normalizeRatingKey;
+window.formatDate = formatDate;
+window.escapeHtml = escapeHtml;
+window.decodeHtml = decodeHtml;
+window.fmtNum = fmtNum;
+window.KATEX_MACROS = KATEX_MACROS;
+window._katexOpts = _katexOpts;
+window.renderTitle = renderTitle;
+window.getPaperRatings = getPaperRatings;
+window.getPaperRating = getPaperRating;
+window.setPaperRating = setPaperRating;
+window.renderStarRating = renderStarRating;
+window.ratePaper = ratePaper;
+window.escapeAttr = escapeAttr;
+window.truncate = truncate;
+window.stripHtml = stripHtml;
+window.renderLatexInEl = renderLatexInEl;
+window.renderLatexIn = renderLatexIn;

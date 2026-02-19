@@ -1,7 +1,9 @@
 // panel-chat.js — Chat system, context attachments, and screenshots
 // Model context sizes are defined in src/core/agents/context.ts
+import Settings from '/js/core/core-settings.js';
+if (window.AetherUI) AetherUI.globals();
 
-function _saveChatMemory() {
+export function _saveChatMemory() {
   if (_popupChatMessages.length < 2) return;
   // Skip search-only interactions (all user messages start with web search prefix)
   const userMsgs = _popupChatMessages.filter(m => m.role === 'user');
@@ -23,7 +25,7 @@ function _saveChatMemory() {
 }
 
 /** Handle a single agent event from IPC streaming */
-function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiText, setInThinkTag) {
+export function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiText, setInThinkTag) {
   if (!_popupChatMessages[aiIdx]) return; // guard: message was cleared
   const labels = { 'web-search': 'Searching web…', 'paper-search': 'Searching papers…', 'extract-text': 'Fetching page…', 'save-to-reading-list': 'Bookmarking…', navigate: 'Navigating…', 'create-calendar-event': 'Adding to calendar…', 'open-tab': 'Opening tab…', 'browser-read-page': 'Reading page…', 'browser-click': 'Clicking…', 'browser-type': 'Typing…', 'browser-scroll': 'Scrolling…', 'browser-navigate': 'Navigating…', 'browser-screenshot': 'Taking screenshot…', 'browser-query-selector': 'Querying page…', 'browser-wait-for': 'Waiting for element…', 'browser-get-url': 'Getting URL…', 'browser-get-tabs': 'Listing tabs…', 'browser-switch-tab': 'Switching tab…', 'browser-back': 'Going back…', 'browser-forward': 'Going forward…', 'browser-press-key': 'Pressing key…', 'browser-get-storage': 'Reading storage…' };
 
@@ -148,7 +150,7 @@ function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiText, se
 }
 
 /** Handle an agent action (bookmark, navigate, browser automation, etc.) */
-function _handleAgentAction(act) {
+export function _handleAgentAction(act) {
   if (act.type === 'bookmark' && act.url) {
     const paper = { link: act.url, title: act.title || act.url };
     if (typeof toggleSavePost === 'function') {
@@ -240,7 +242,7 @@ function _handleAgentAction(act) {
   }
 }
 
-function _sendPopupChatMessage(popup, capturedText) {
+export function _sendPopupChatMessage(popup, capturedText) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (!input) return;
   const q = input.value.trim();
@@ -482,12 +484,12 @@ function _sendPopupChatMessage(popup, capturedText) {
   })();
 }
 
-function _renderPopupChatLive(final) {
+export function _renderPopupChatLive(final) {
   const p = document.getElementById('doc-chat-ask-float');
   if (p) _renderPopupChat(p, final);
 }
 
-function _maybeDismissToIsland(popup) {
+export function _maybeDismissToIsland(popup) {
   if (_popupChatAbort) {
     _aetherBackgroundStreaming = true;
     islandUpdate('aether', {
@@ -499,7 +501,7 @@ function _maybeDismissToIsland(popup) {
   }
 }
 
-function _reopenAetherPanel() {
+export function _reopenAetherPanel() {
   _aetherBackgroundStreaming = false;
   islandRemove('aether');
 
@@ -532,11 +534,11 @@ function _reopenAetherPanel() {
   }
 }
 
-function _updateContextBar(popup) {
+export function _updateContextBar(popup) {
   // Removed — context bar no longer shown
 }
 
-function _renderLatexInElement(element) {
+export function _renderLatexInElement(element) {
   // Process LaTeX in text nodes, handling both inline ($...$) and display ($$...$$) math
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
   const nodesToProcess = [];
@@ -588,7 +590,7 @@ function _renderLatexInElement(element) {
   });
 }
 
-function _renderCtxPills(sources, msg) {
+export function _renderCtxPills(sources, msg) {
   if (!sources || !sources.length) return '';
   return '<div class="doc-msg-context-sources">' + sources.map(s => {
     const label = typeof s === 'string' ? s : s.label;
@@ -607,7 +609,7 @@ function _renderCtxPills(sources, msg) {
   }).join('') + '</div>';
 }
 
-function _renderPopupChat(popup, final) {
+export function _renderPopupChat(popup, final) {
   const container = popup.querySelector('.doc-popup-chat-messages');
   if (!container) return;
   container.innerHTML = _popupChatMessages.map((m, i) => {
@@ -852,11 +854,11 @@ function _renderPopupChat(popup, final) {
 }
 
 
-function _updateContextUsage(popup) {
+export function _updateContextUsage(popup) {
   // Removed — context usage no longer shown
 }
 
-function _updateChatStats(popup, final) {
+export function _updateChatStats(popup, final) {
   const statsEl = popup.querySelector('.doc-chat-stats');
   if (!statsEl) return;
   _updateContextUsage(popup);
@@ -886,14 +888,14 @@ function _updateChatStats(popup, final) {
   statsEl.textContent = parts.join(' \u00B7 ');
 }
 
-function _savePopupChatToHighlight(popup) {
+export function _savePopupChatToHighlight(popup) {
   _popupChatMessages = [];
 }
 
 // Position a popup so one of its four corners is at (cx, cy), picking the best
 // corner that keeps it within bounds. preferLeft = bottom-right corner at cursor.
 
-function _screenshotRestoreIframes() {
+export function _screenshotRestoreIframes() {
   document.querySelectorAll('iframe, webview').forEach(f => {
     if ('peTrack' in f.dataset) {
       f.style.pointerEvents = f.dataset.peTrack;
@@ -903,7 +905,7 @@ function _screenshotRestoreIframes() {
 }
 
 
-async function _browserCaptureRect(rect) {
+export async function _browserCaptureRect(rect) {
   const { x, y, width, height } = rect;
   const cx = x + width / 2, cy = y + height / 2;
   const el = document.elementFromPoint(cx, cy);
@@ -949,7 +951,7 @@ async function _browserCaptureRect(rect) {
 }
 
 
-function _addTabContextToPanel(popup, tabInfo) {
+export function _addTabContextToPanel(popup, tabInfo) {
   if (_pendingTabContexts.some(t => t.tabId === tabInfo.tabId)) return;
   _pendingTabContexts.push({ tabId: tabInfo.tabId, title: tabInfo.title, url: tabInfo.url, content: tabInfo.content || '' });
 
@@ -983,7 +985,7 @@ function _addTabContextToPanel(popup, tabInfo) {
   _updateContextBar(popup);
 }
 
-function _showTabContextMenu(e, tabEl) {
+export function _showTabContextMenu(e, tabEl) {
   const tid = tabEl.dataset.tabId || (() => { const m = (tabEl.getAttribute('onclick') || '').match(/browseSelectTab\((\d+)\)/); return m ? m[1] : null; })();
   if (!tid) return;
   const tabId = parseInt(tid);
@@ -1076,7 +1078,7 @@ function _showTabContextMenu(e, tabEl) {
   _showPanel({ anchor: { tab: tabEl }, contextMenu: { items } });
 }
 
-function _addScreenshotToPanel(popup, base64) {
+export function _addScreenshotToPanel(popup, base64) {
   _pendingScreenshots.push(base64);
 
   const strip = popup.querySelector('.doc-screenshot-attachments');
@@ -1105,5 +1107,26 @@ function _addScreenshotToPanel(popup, base64) {
   if (input) input.focus();
   _updateContextBar(popup);
 }
+
+// ── Window assignments for global access ──
+window._saveChatMemory = _saveChatMemory;
+window._handleAgentEvent = _handleAgentEvent;
+window._handleAgentAction = _handleAgentAction;
+window._sendPopupChatMessage = _sendPopupChatMessage;
+window._renderPopupChatLive = _renderPopupChatLive;
+window._maybeDismissToIsland = _maybeDismissToIsland;
+window._reopenAetherPanel = _reopenAetherPanel;
+window._updateContextBar = _updateContextBar;
+window._renderLatexInElement = _renderLatexInElement;
+window._renderCtxPills = _renderCtxPills;
+window._renderPopupChat = _renderPopupChat;
+window._updateContextUsage = _updateContextUsage;
+window._updateChatStats = _updateChatStats;
+window._savePopupChatToHighlight = _savePopupChatToHighlight;
+window._screenshotRestoreIframes = _screenshotRestoreIframes;
+window._browserCaptureRect = _browserCaptureRect;
+window._addTabContextToPanel = _addTabContextToPanel;
+window._showTabContextMenu = _showTabContextMenu;
+window._addScreenshotToPanel = _addScreenshotToPanel;
 
 // Web search from aether panel (Shift+Enter)

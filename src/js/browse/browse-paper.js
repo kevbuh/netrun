@@ -4,7 +4,7 @@ if (window.AetherUI) AetherUI.globals();
 
 // ── Paper site detection ──
 
-const _paperSitePatterns = [
+export const _paperSitePatterns = [
   { host: 'arxiv.org', path: /^\/(abs|pdf|html)\// },
   { host: 'openreview.net', path: /^\/(forum|pdf)/ },
   { host: 'proceedings.neurips.cc', path: /\/paper/ },
@@ -16,7 +16,7 @@ const _paperSitePatterns = [
   { host: 'semanticscholar.org', path: /\/paper\// },
 ];
 
-function _isPaperUrl(url) {
+export function _isPaperUrl(url) {
   try {
     const u = new URL(url);
     const host = u.hostname.replace(/^www\./, '');
@@ -29,7 +29,7 @@ function _isPaperUrl(url) {
   return false;
 }
 
-function _extractArxivId(url) {
+export function _extractArxivId(url) {
   try {
     const u = new URL(url);
     const m = u.pathname.match(/\/(abs|pdf|html)\/([\d.]+)/);
@@ -40,14 +40,14 @@ function _extractArxivId(url) {
 
 // ── Semantic Scholar API ──
 
-const _s2Cache = new Map(); // key → { data, ts }
-const _S2_CACHE_TTL = 600000; // 10 minutes
-const _S2_BASE = 'https://api.semanticscholar.org/graph/v1';
-const _s2RequestQueue = [];
-let _s2Processing = false;
-const _S2_RATE_DELAY = 350;
+export const _s2Cache = new Map(); // key → { data, ts }
+export const _S2_CACHE_TTL = 600000; // 10 minutes
+export const _S2_BASE = 'https://api.semanticscholar.org/graph/v1';
+export const _s2RequestQueue = [];
+export let _s2Processing = false;
+export const _S2_RATE_DELAY = 350;
 
-async function _s2Fetch(urlPath) {
+export async function _s2Fetch(urlPath) {
   const cached = _s2Cache.get(urlPath);
   if (cached && Date.now() - cached.ts < _S2_CACHE_TTL) return cached.data;
 
@@ -57,7 +57,7 @@ async function _s2Fetch(urlPath) {
   });
 }
 
-async function _s2ProcessQueue() {
+export async function _s2ProcessQueue() {
   if (_s2Processing || !_s2RequestQueue.length) return;
   _s2Processing = true;
   while (_s2RequestQueue.length) {
@@ -81,33 +81,33 @@ async function _s2ProcessQueue() {
   _s2Processing = false;
 }
 
-async function _s2LookupByArxivId(arxivId) {
+export async function _s2LookupByArxivId(arxivId) {
   const fields = 'title,authors,citationCount,year,venue,references.title,references.authors,references.year,references.venue,references.citationCount';
   return _s2Fetch('/paper/ARXIV:' + arxivId + '?fields=' + fields);
 }
 
-async function _s2SearchPaper(title) {
+export async function _s2SearchPaper(title) {
   const q = encodeURIComponent(title.slice(0, 200));
   const fields = 'title,authors,citationCount,year,venue';
   const data = await _s2Fetch('/paper/search?query=' + q + '&limit=1&fields=' + fields);
   return data && data.data && data.data[0] ? data.data[0] : null;
 }
 
-async function _s2GetAuthor(authorId) {
+export async function _s2GetAuthor(authorId) {
   return _s2Fetch('/author/' + authorId + '?fields=name,citationCount,hIndex');
 }
 
 // ── Per-tab paper state ──
 
-const _paperState = new Map(); // tabId → { url, meta, refs, s2Data, authorDetails }
+export const _paperState = new Map(); // tabId → { url, meta, refs, s2Data, authorDetails }
 
-function _getPaperState(tabId) {
+export function _getPaperState(tabId) {
   return _paperState.get(tabId) || null;
 }
 
 // ── Content script injection ──
 
-function _paperInjectContentScript(frame, url) {
+export function _paperInjectContentScript(frame, url) {
   if (!_isPaperUrl(url)) return;
 
   const script = `(function() {
@@ -250,7 +250,7 @@ function _paperInjectContentScript(frame, url) {
 // ── Handle paper metadata from content script ──
 // Stores state and merges paper data into the existing insight pill.
 
-async function _paperHandleMeta(tab, data) {
+export async function _paperHandleMeta(tab, data) {
   if (!data || !data.meta) return;
   const tabId = tab.id;
   const url = tab.url || '';
@@ -294,7 +294,7 @@ async function _paperHandleMeta(tab, data) {
 // Merge paper data into the current insight pill without replacing it.
 // Uses islandUpdate which Object.assign-merges, so existing annotation
 // data (items, insight, label, etc.) is preserved.
-function _paperMergeIntoPill(tabId, state) {
+export function _paperMergeIntoPill(tabId, state) {
   if (typeof _browseActiveTab !== 'undefined' && tabId !== _browseActiveTab) return;
   if (typeof islandUpdate !== 'function') return;
 
@@ -306,15 +306,14 @@ function _paperMergeIntoPill(tabId, state) {
 
 // ── Reference tooltip ──
 
-let _refTooltipEl = null;
-let _refTooltipHideTimer = null;
+export let _refTooltipEl = null;
+export let _refTooltipHideTimer = null;
 
-function _paperShowRefTooltip(data, frame) {
+export function _paperShowRefTooltip(data, frame) {
   if (_refTooltipHideTimer) { clearTimeout(_refTooltipHideTimer); _refTooltipHideTimer = null; }
   if (!_refTooltipEl) {
-    _refTooltipEl = document.createElement('div');
-    _refTooltipEl.id = 'aether-ref-tooltip';
-    _refTooltipEl.className = 'nr-ref-tooltip';
+    var tooltipView = new View('div').attr('id', 'aether-ref-tooltip').className('nr-ref-tooltip');
+    _refTooltipEl = tooltipView.el;
     document.body.appendChild(_refTooltipEl);
   }
 
@@ -347,7 +346,7 @@ function _paperShowRefTooltip(data, frame) {
   _paperLookupRef(data, frame);
 }
 
-async function _paperLookupRef(data, frame) {
+export async function _paperLookupRef(data, frame) {
   if (!data.title) return;
   const result = await _s2SearchPaper(data.title);
   if (!_refTooltipEl || _refTooltipEl.style.display === 'none') return;
@@ -390,7 +389,7 @@ async function _paperLookupRef(data, frame) {
   }
 }
 
-function _paperHideRefTooltip() {
+export function _paperHideRefTooltip() {
   if (_refTooltipHideTimer) clearTimeout(_refTooltipHideTimer);
   _refTooltipHideTimer = setTimeout(() => {
     if (_refTooltipEl) _refTooltipEl.style.display = 'none';
@@ -399,13 +398,13 @@ function _paperHideRefTooltip() {
 
 // ── Cleanup on tab close / navigation ──
 
-function _paperCleanup(tabId) {
+export function _paperCleanup(tabId) {
   _paperState.delete(tabId);
 }
 
 // ── Hook into page load ──
 
-function _paperOnPageLoad(tab, frame) {
+export function _paperOnPageLoad(tab, frame) {
   const url = tab.url || '';
   if (!_isPaperUrl(url)) {
     _paperCleanup(tab.id);
@@ -413,3 +412,30 @@ function _paperOnPageLoad(tab, frame) {
   }
   _paperInjectContentScript(frame, url);
 }
+
+window._paperSitePatterns = _paperSitePatterns;
+window._isPaperUrl = _isPaperUrl;
+window._extractArxivId = _extractArxivId;
+window._s2Cache = _s2Cache;
+window._S2_CACHE_TTL = _S2_CACHE_TTL;
+window._S2_BASE = _S2_BASE;
+window._s2RequestQueue = _s2RequestQueue;
+window._s2Processing = _s2Processing;
+window._S2_RATE_DELAY = _S2_RATE_DELAY;
+window._s2Fetch = _s2Fetch;
+window._s2ProcessQueue = _s2ProcessQueue;
+window._s2LookupByArxivId = _s2LookupByArxivId;
+window._s2SearchPaper = _s2SearchPaper;
+window._s2GetAuthor = _s2GetAuthor;
+window._paperState = _paperState;
+window._getPaperState = _getPaperState;
+window._paperInjectContentScript = _paperInjectContentScript;
+window._paperHandleMeta = _paperHandleMeta;
+window._paperMergeIntoPill = _paperMergeIntoPill;
+window._refTooltipEl = _refTooltipEl;
+window._refTooltipHideTimer = _refTooltipHideTimer;
+window._paperShowRefTooltip = _paperShowRefTooltip;
+window._paperLookupRef = _paperLookupRef;
+window._paperHideRefTooltip = _paperHideRefTooltip;
+window._paperCleanup = _paperCleanup;
+window._paperOnPageLoad = _paperOnPageLoad;

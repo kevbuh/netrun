@@ -1,9 +1,11 @@
+import Settings from '../core/core-settings.js';
+
 if (window.AetherUI) AetherUI.globals();
 
 // ─── Shared Help Data ──────────────────────────────────────
 // Used by both _renderHelpSettings() and _renderHelpPage() (in browse-urlbar.js)
 
-const _HELP_DATA = {
+export const _HELP_DATA = {
   instantAnswers: [
     ['Definition', 'pug, ephemeral'],
     ['Math', 'sqrt(144), 2^10, 15% of 230'],
@@ -95,7 +97,7 @@ const _HELP_DATA = {
 
 // ─── AetherUI Settings Helpers ──────────────────────────────
 
-function _settingRow(label, desc, control) {
+export function _settingRow(label, desc, control) {
   var leftChildren = [];
   if (label) leftChildren.push(Text(label).className('nr-settings-row-label'));
   if (desc) leftChildren.push(Text(desc).className('nr-settings-row-desc'));
@@ -106,7 +108,7 @@ function _settingRow(label, desc, control) {
   return row;
 }
 
-function _settingToggle(label, desc, checked, onChange) {
+export function _settingToggle(label, desc, checked, onChange) {
   var toggle = Toggle(null);
   var input = toggle.el.querySelector('input[type="checkbox"]');
   if (input) input.checked = !!checked;
@@ -116,7 +118,7 @@ function _settingToggle(label, desc, checked, onChange) {
   return _settingRow(label, desc, toggle);
 }
 
-function _settingToggleLS(label, desc, lsKey, opts) {
+export function _settingToggleLS(label, desc, lsKey, opts) {
   opts = opts || {};
   var defaultOn = opts.defaultOn !== undefined ? opts.defaultOn : true;
   var checked = defaultOn
@@ -133,7 +135,7 @@ function _settingToggleLS(label, desc, lsKey, opts) {
   });
 }
 
-function _settingBtnGroup(label, options, currentValue, onSelect) {
+export function _settingBtnGroup(label, options, currentValue, onSelect) {
   var btns = options.map(function(opt) {
     var value = typeof opt === 'object' ? opt.value : opt;
     var text = typeof opt === 'object' ? opt.label : (value.charAt(0).toUpperCase() + value.slice(1));
@@ -153,7 +155,7 @@ function _settingBtnGroup(label, options, currentValue, onSelect) {
   return row;
 }
 
-function _settingPillGroup(label, options, currentValue, onSelect) {
+export function _settingPillGroup(label, options, currentValue, onSelect) {
   var btns = options.map(function(opt) {
     var value = typeof opt === 'object' ? opt.value : opt;
     var text = typeof opt === 'object' ? opt.label : value;
@@ -168,7 +170,7 @@ function _settingPillGroup(label, options, currentValue, onSelect) {
   return HStack.apply(null, btns).spacing(0.5);
 }
 
-function _settingSlider(label, desc, value, opts, onInput, onChange) {
+export function _settingSlider(label, desc, value, opts, onInput, onChange) {
   opts = opts || {};
   var valSpan = Text(opts.format ? opts.format(value) : String(value))
     .className('text-muted text-[0.78rem] w-10 text-right font-mono');
@@ -194,7 +196,7 @@ function _settingSlider(label, desc, value, opts, onInput, onChange) {
   return row;
 }
 
-function _settingSection(title, children, opts) {
+export function _settingSection(title, children, opts) {
   opts = opts || {};
   var items = [];
   if (title) {
@@ -216,7 +218,7 @@ function _settingSection(title, children, opts) {
   return section;
 }
 
-function _settingHeadingRow(title, desc, control) {
+export function _settingHeadingRow(title, desc, control) {
   var left = VStack(
     Text(title).className('text-white_ text-sm font-semibold'),
     desc ? Text(desc).className('text-dim text-[0.8rem] mt-0.5') : null
@@ -224,7 +226,7 @@ function _settingHeadingRow(title, desc, control) {
   return HStack(left, Spacer(), control).className('flex items-center justify-between mb-3');
 }
 
-function _settingCard(title, children) {
+export function _settingCard(title, children) {
   var items = [];
   if (title) items.push(Text(title).className('nr-settings-group-header'));
   var childArr = [].concat(children).filter(Boolean);
@@ -234,7 +236,7 @@ function _settingCard(title, children) {
   return wrapper;
 }
 
-function _settingGroupContent(children) {
+export function _settingGroupContent(children) {
   var block = new View('div');
   block.el.className = 'nr-settings-group-content';
   var childArr = [].concat(children).filter(Boolean);
@@ -245,3 +247,15 @@ function _settingGroupContent(children) {
   }
   return block;
 }
+
+window._HELP_DATA = _HELP_DATA;
+window._settingRow = _settingRow;
+window._settingToggle = _settingToggle;
+window._settingToggleLS = _settingToggleLS;
+window._settingBtnGroup = _settingBtnGroup;
+window._settingPillGroup = _settingPillGroup;
+window._settingSlider = _settingSlider;
+window._settingSection = _settingSection;
+window._settingHeadingRow = _settingHeadingRow;
+window._settingCard = _settingCard;
+window._settingGroupContent = _settingGroupContent;

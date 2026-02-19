@@ -1,5 +1,7 @@
 // core-nav.js — Navigation history, side panel
 // Extracted from core.js
+import Settings from '/js/core/core-settings.js';
+
 if (window.AetherUI) AetherUI.globals();
 
 // ── Navigation history stack (survives Cmd+Shift+R via localStorage) ──
@@ -9,7 +11,7 @@ function _navSave() {
   Settings.setJSON('_navForward', _navForward);
 }
 
-function _navPush(hash) {
+export function _navPush(hash) {
   if (_navNavigating) return;
   if (!hash || hash === '#') return;
   // Don't push duplicates
@@ -22,7 +24,7 @@ function _navPush(hash) {
   _navSave();
 }
 
-function navBack() {
+export function navBack() {
   if (_navHistory.length <= 1) return false;
   _navNavigating = true;
   const current = _navHistory.pop();
@@ -43,11 +45,11 @@ let _panelWidth = parseInt(Settings.get('universalPanelWidth') || '280', 10);
 let _panelScrollPositions = {};
 const _panelRenderedViews = {};
 
-function registerPanelTabs(viewKey, config) {
+export function registerPanelTabs(viewKey, config) {
   _panelRegistry[viewKey] = config;
 }
 
-function showPanelForView(viewKey) {
+export function showPanelForView(viewKey) {
   const reg = _panelRegistry[viewKey];
   if (!reg || !reg.tabs || !reg.tabs.length) { hidePanel(); return; }
   const viewChanged = _panelActiveView !== viewKey;
@@ -100,7 +102,7 @@ function showPanelForView(viewKey) {
   }
 }
 
-function hidePanel() {
+export function hidePanel() {
   const panel = document.getElementById('universal-panel');
   if (panel) panel.style.display = 'none';
   _removePanelMargin();
@@ -110,7 +112,7 @@ function hidePanel() {
   _panelActiveView = null;
 }
 
-function togglePanel() {
+export function togglePanel() {
   _panelVisible = !_panelVisible;
   Settings.set('universalPanelVisible', _panelVisible ? 'true' : 'false');
   if (_panelVisible && _panelActiveView) {
@@ -122,7 +124,7 @@ function togglePanel() {
   }
 }
 
-function switchPanelTab(tabId) {
+export function switchPanelTab(tabId) {
   const reg = _panelRegistry[_panelActiveView];
   if (!reg) return;
   const tab = reg.tabs.find(t => t.id === tabId);
@@ -161,7 +163,7 @@ function switchPanelTab(tabId) {
   }
 }
 
-function _panelCheckTabOverflow() {
+export function _panelCheckTabOverflow() {
   const tabBar = document.getElementById('universal-panel-tabs');
   if (!tabBar) return;
   tabBar.classList.remove('icons-only');
@@ -171,7 +173,7 @@ function _panelCheckTabOverflow() {
   }
 }
 
-function _applyPanelMargin() {
+export function _applyPanelMargin() {
   // Set margin-right on the active view element
   // home-main
   const homeMain = document.getElementById('home-main');
@@ -185,7 +187,7 @@ function _applyPanelMargin() {
   }
 }
 
-function _removePanelMargin() {
+export function _removePanelMargin() {
   document.querySelectorAll('.view, #home-main').forEach(el => {
     el.style.marginRight = '';
   });
@@ -194,7 +196,7 @@ function _removePanelMargin() {
   if (browseContent) browseContent.style.marginRight = '';
 }
 
-function _invalidatePanelRender(viewKey) {
+export function _invalidatePanelRender(viewKey) {
   delete _panelRenderedViews[viewKey];
   _panelScrollPositions = {};
 }
@@ -248,5 +250,18 @@ document.addEventListener('keydown', (e) => {
     else togglePanel();
   }
 });
+
+// ── Window assignments for backward compatibility ──
+window._navPush = _navPush;
+window.navBack = navBack;
+window.registerPanelTabs = registerPanelTabs;
+window.showPanelForView = showPanelForView;
+window.hidePanel = hidePanel;
+window.togglePanel = togglePanel;
+window.switchPanelTab = switchPanelTab;
+window._panelCheckTabOverflow = _panelCheckTabOverflow;
+window._applyPanelMargin = _applyPanelMargin;
+window._removePanelMargin = _removePanelMargin;
+window._invalidatePanelRender = _invalidatePanelRender;
 
 // ── Route table — exact hash → action ──

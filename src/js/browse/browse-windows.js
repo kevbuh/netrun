@@ -1,8 +1,9 @@
 // browse-windows.js — Window management
 // Depends on: browse-state.js
+import Settings from '/js/core/core-settings.js';
 
 // Window management
-function browseCreateWindow(name) {
+export function browseCreateWindow(name) {
   const id = _browseNextWindowId++;
   if (!name) {
     const used = new Set(_browseWindows.map(w => w.name).filter(n => /^Window \d+$/.test(n)).map(n => parseInt(n.split(' ')[1])));
@@ -17,7 +18,7 @@ function browseCreateWindow(name) {
   return win;
 }
 
-function browseSelectWindow(id) {
+export function browseSelectWindow(id) {
   const win = _browseWindows.find(w => w.id === id);
   if (!win) return;
 
@@ -39,7 +40,7 @@ function browseSelectWindow(id) {
   _browseCollapseEmptyWindows();
 }
 
-function browseCloseWindow(id) {
+export function browseCloseWindow(id) {
   const idx = _browseWindows.findIndex(w => w.id === id);
   if (idx === -1) return;
 
@@ -61,7 +62,7 @@ function browseCloseWindow(id) {
 }
 
 // Auto-close non-active windows that only contain blank/new-tab pages
-function _browseCollapseEmptyWindows() {
+export function _browseCollapseEmptyWindows() {
   if (_browseWindows.length <= 1) return;
   const toClose = [];
   for (const w of _browseWindows) {
@@ -76,7 +77,7 @@ function _browseCollapseEmptyWindows() {
 }
 
 // Helper: create window without auto-creating a tab (for session restore)
-function _createBrowseWindow(name) {
+export function _createBrowseWindow(name) {
   const id = _browseNextWindowId++;
   const win = { id, name: name || `Window ${id}`, tabs: [], activeTab: null };
   _browseWindows.push(win);
@@ -85,7 +86,7 @@ function _createBrowseWindow(name) {
 
 // Helper: create a tab in a specific window (for session restore)
 // Tabs are created deferred (lazy) — frame is only built when the tab is selected.
-function _browseCreateTabInWindow(windowId, url) {
+export function _browseCreateTabInWindow(windowId, url) {
   const win = _browseWindows.find(w => w.id === windowId);
   if (!win) return null;
 
@@ -110,13 +111,13 @@ function _browseCreateTabInWindow(windowId, url) {
 }
 
 // Helper: destroy a tab's DOM elements (for session replace)
-function _destroyTab(tab) {
+export function _destroyTab(tab) {
   if (_ccTabId === tab.id) stopCaptions();
   if (tab.el) tab.el.remove();
   _browseAudioTabs.delete(tab.id);
 }
 
-function switchWindowUp() {
+export function switchWindowUp() {
   const idx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
   if (idx > 0) {
     _animateWindowSwitch('up', () => {
@@ -125,7 +126,7 @@ function switchWindowUp() {
   }
 }
 
-function switchWindowDown() {
+export function switchWindowDown() {
   const idx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
   if (idx < _browseWindows.length - 1) {
     _animateWindowSwitch('down', () => {
@@ -134,7 +135,7 @@ function switchWindowDown() {
   }
 }
 
-function _animateWindowSwitch(direction, callback) {
+export function _animateWindowSwitch(direction, callback) {
   const content = document.getElementById('browse-content');
   if (!content) { callback(); return; }
   const dist = direction === 'up' ? 30 : -30;
@@ -142,12 +143,12 @@ function _animateWindowSwitch(direction, callback) {
 }
 
 
-function _setBrowseReturnView(view) {
+export function _setBrowseReturnView(view) {
   if (view) Settings.set('_browseReturnView', view);
   else Settings.remove('_browseReturnView');
 }
 
-function _browseGoBack() {
+export function _browseGoBack() {
   // Try nav history first — it knows the full path
   if (typeof navBack === 'function' && navBack()) {
     _setBrowseReturnView(null);
@@ -159,7 +160,7 @@ function _browseGoBack() {
   if (fn) fn(); else goHome();
 }
 
-function openBrowse(url) {
+export function openBrowse(url) {
   const view = document.getElementById('browse-view');
   const alreadyVisible = view && view.style.display === 'flex';
 
@@ -223,7 +224,7 @@ function openBrowse(url) {
   if (retBtn) retBtn.style.display = _browseReturnView ? '' : 'none';
 }
 
-function browseNewTab(url) {
+export function browseNewTab(url) {
   // Intercept netrun:// URLs
   const trimUrl = (url || '').trim().toLowerCase();
   if (trimUrl === 'netrun://history' || trimUrl === 'netrun://history/') {
@@ -275,7 +276,7 @@ function browseNewTab(url) {
   }
 }
 
-function browseNewPaperTab(url, paper) {
+export function browseNewPaperTab(url, paper) {
   const win = _getCurrentWindow();
   if (!win) return false;
   const id = _browseNextTabId++;
@@ -284,7 +285,7 @@ function browseNewPaperTab(url, paper) {
   return true;
 }
 
-function openLocalPdf(file) {
+export function openLocalPdf(file) {
   let localPath = null;
   try { if (typeof electronAPI !== 'undefined' && electronAPI.getPathForFile) localPath = electronAPI.getPathForFile(file); } catch {}
   const url = localPath ? 'file://' + localPath : URL.createObjectURL(file);
@@ -304,7 +305,7 @@ function openLocalPdf(file) {
   }
 }
 
-async function openLocalPdfDialog() {
+export async function openLocalPdfDialog() {
   if (typeof electronAPI === 'undefined' || !electronAPI.openFileDialog) return;
   const paths = await electronAPI.openFileDialog();
   for (const filePath of paths) {
@@ -315,3 +316,21 @@ async function openLocalPdfDialog() {
     browseNewPaperTab(url, paper);
   }
 }
+
+window.browseCreateWindow = browseCreateWindow;
+window.browseSelectWindow = browseSelectWindow;
+window.browseCloseWindow = browseCloseWindow;
+window._browseCollapseEmptyWindows = _browseCollapseEmptyWindows;
+window._createBrowseWindow = _createBrowseWindow;
+window._browseCreateTabInWindow = _browseCreateTabInWindow;
+window._destroyTab = _destroyTab;
+window.switchWindowUp = switchWindowUp;
+window.switchWindowDown = switchWindowDown;
+window._animateWindowSwitch = _animateWindowSwitch;
+window._setBrowseReturnView = _setBrowseReturnView;
+window._browseGoBack = _browseGoBack;
+window.openBrowse = openBrowse;
+window.browseNewTab = browseNewTab;
+window.browseNewPaperTab = browseNewPaperTab;
+window.openLocalPdf = openLocalPdf;
+window.openLocalPdfDialog = openLocalPdfDialog;

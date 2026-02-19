@@ -1,4 +1,6 @@
-function applyStoredAppearance() {
+import Settings from '../core/core-settings.js';
+
+export function applyStoredAppearance() {
   const theme = Settings.get('theme') || 'clear';
   const resolved = theme === 'auto' ? _resolveAutoTheme() : theme;
   if (resolved !== 'dark') document.documentElement.setAttribute('data-theme', resolved);
@@ -16,3 +18,5 @@ function applyStoredAppearance() {
 }
 
 applyStoredAppearance();
+
+window.applyStoredAppearance = applyStoredAppearance;

@@ -1,15 +1,17 @@
 // panel-commands.js — Aether slash commands and preview system
+import Settings from '/js/core/core-settings.js';
+if (window.AetherUI) AetherUI.globals();
 
-function _aetherHideCursorOverlay() {
+export function _aetherHideCursorOverlay() {
   document.body.classList.add('aether-hide-cursor');
 }
-function _aetherShowCursor() {
+export function _aetherShowCursor() {
   document.body.classList.remove('aether-hide-cursor');
   // Force browser to recalculate cursor via synthetic mouse move (Electron only)
   if (window.electronAPI?.nudgeCursor) window.electronAPI.nudgeCursor();
 }
 
-function _aetherRestoreFocus() {
+export function _aetherRestoreFocus() {
   if (!_aetherPrevFocus) return;
   const { el, selStart, selEnd } = _aetherPrevFocus;
   _aetherPrevFocus = null;
@@ -20,7 +22,7 @@ function _aetherRestoreFocus() {
   }
 }
 
-function _isAetherEligible(text) {
+export function _isAetherEligible(text) {
   if (!text || text.length > 80) return false;
   const words = text.trim().split(/\s+/);
   if (words.length < 1 || words.length > 5) return false;
@@ -29,7 +31,7 @@ function _isAetherEligible(text) {
   return true;
 }
 
-async function _fetchWikipediaPreview(text, containerDiv) {
+export async function _fetchWikipediaPreview(text, containerDiv) {
   const title = text.trim().replace(/\s+/g, '_');
   try {
     const resp = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
@@ -64,7 +66,7 @@ async function _fetchWikipediaPreview(text, containerDiv) {
   }
 }
 
-function _isAuthorEligible(text) {
+export function _isAuthorEligible(text) {
   if (!text || text.length > 50) return false;
   const words = text.trim().split(/\s+/);
   if (words.length < 2 || words.length > 4) return false;
@@ -75,14 +77,14 @@ function _isAuthorEligible(text) {
   return true;
 }
 
-function _findKnownAuthor(text) {
+export function _findKnownAuthor(text) {
   // Check if this author name matches one already loaded in the sidebar Authors tab
   if (!window._insightAuthors?.length) return null;
   const q = text.trim().toLowerCase();
   return window._insightAuthors.find(a => a.name && a.name.toLowerCase() === q) || null;
 }
 
-function _renderAuthorPreviewHtml(data, containerDiv) {
+export function _renderAuthorPreviewHtml(data, containerDiv) {
   let html = '<div class="doc-author-result">';
   html += `<div class="doc-author-name">${escapeHtml(data.name)}</div>`;
   const affil = data.affiliations?.length ? data.affiliations[0] : data.affiliation;
@@ -138,7 +140,7 @@ function _renderAuthorPreviewHtml(data, containerDiv) {
   _repositionSelectionPopup();
 }
 
-async function _fetchAuthorPreview(text, containerDiv) {
+export async function _fetchAuthorPreview(text, containerDiv) {
   // First check if this author is already known from the sidebar
   const known = _findKnownAuthor(text);
   if (known && known.authorId) {
@@ -157,7 +159,7 @@ async function _fetchAuthorPreview(text, containerDiv) {
 }
 
 
-async function _doAetherWebSearch(popup) {
+export async function _doAetherWebSearch(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (!input) return;
   const q = input.value.trim();
@@ -197,7 +199,7 @@ async function _doAetherWebSearch(popup) {
   _repositionSelectionPopup();
 }
 
-const _aetherCommands = [
+export const _aetherCommands = [
   { name: 'bookmark', desc: 'Save page to reading list', fn: () => { if (typeof browseSaveToReadingList === 'function') browseSaveToReadingList(); } },
   { name: 'close', desc: 'Close current tab', fn: () => { if (typeof browseCloseTab === 'function' && typeof _browseActiveTab !== 'undefined') browseCloseTab(_browseActiveTab); } },
   { name: 'reload', desc: 'Reload current page', fn: () => { if (typeof browseReload === 'function') browseReload(); } },
@@ -230,12 +232,12 @@ const _aetherCommands = [
 // State variables declared in panel-state.js:
 // _aetherCmdIdx, _aetherTabIdx, _aetherTabList, _aetherTabSwitchMode
 
-function _aetherFilterCommands(query) {
+export function _aetherFilterCommands(query) {
   const q = query.toLowerCase();
   return _aetherCommands.filter(c => c.name.startsWith(q) || c.desc.toLowerCase().includes(q));
 }
 
-function _aetherRenderCmdDropdown(popup, query) {
+export function _aetherRenderCmdDropdown(popup, query) {
   let dropdown = popup.querySelector('.aether-cmd-dropdown');
   const matches = _aetherFilterCommands(query);
   if (!matches.length) {
@@ -292,13 +294,13 @@ function _aetherRenderCmdDropdown(popup, query) {
   _repositionSelectionPopup();
 }
 
-function _aetherHideCmdDropdown(popup) {
+export function _aetherHideCmdDropdown(popup) {
   const dropdown = popup.querySelector('.aether-cmd-dropdown');
   if (dropdown) dropdown.remove();
 }
 
 
-function _aetherHideTabDropdown(popup) {
+export function _aetherHideTabDropdown(popup) {
   const dropdown = popup.querySelector('.aether-tab-dropdown');
   if (dropdown) dropdown.remove();
   _aetherTabList = [];
@@ -308,14 +310,14 @@ function _aetherHideTabDropdown(popup) {
 
 // State variables declared in panel-state.js: _aetherHistoryIdx, _aetherHistoryList
 
-function _aetherHideHistoryDropdown(popup) {
+export function _aetherHideHistoryDropdown(popup) {
   const dropdown = popup.querySelector('.aether-history-dropdown');
   if (dropdown) dropdown.remove();
   _aetherHistoryList = [];
   _aetherHistoryIdx = -1;
 }
 
-function _doAetherHistory(popup) {
+export function _doAetherHistory(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) { input.value = '/history '; input.style.height = 'auto'; }
   _aetherHideCmdDropdown(popup);
@@ -324,7 +326,7 @@ function _doAetherHistory(popup) {
   _aetherRenderHistoryDropdown(popup, '');
 }
 
-function _aetherRenderHistoryDropdown(popup, query) {
+export function _aetherRenderHistoryDropdown(popup, query) {
   const hist = typeof _getBrowseHistory === 'function' ? _getBrowseHistory() : [];
   const q = (query || '').toLowerCase();
   _aetherHistoryList = q
@@ -426,7 +428,7 @@ function _aetherRenderHistoryDropdown(popup, query) {
   _repositionSelectionPopup();
 }
 
-function _aetherSelectHistory(popup) {
+export function _aetherSelectHistory(popup) {
   if (_aetherHistoryIdx < 0) {
     // No arrow selection — open full history page
     _aetherHideHistoryDropdown(popup);
@@ -445,7 +447,7 @@ function _aetherSelectHistory(popup) {
 }
 
 
-async function _doAetherCapture(popup) {
+export async function _doAetherCapture(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) { input.value = ''; }
   _aetherHideCmdDropdown(popup);
@@ -502,7 +504,7 @@ async function _doAetherCapture(popup) {
 // ── /model command ──
 // State variables declared in panel-state.js: _aetherModelIdx, _aetherModelList
 
-async function _doAetherModel(popup) {
+export async function _doAetherModel(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
@@ -532,7 +534,7 @@ async function _doAetherModel(popup) {
   _aetherRenderModelDropdown(popup);
 }
 
-function _aetherRenderModelDropdown(popup) {
+export function _aetherRenderModelDropdown(popup) {
   let dropdown = popup.querySelector('.aether-model-dropdown');
   if (!dropdown) {
     var ddView = new View('div').className('aether-note-dropdown aether-model-dropdown');
@@ -583,14 +585,14 @@ function _aetherRenderModelDropdown(popup) {
   _repositionSelectionPopup();
 }
 
-function _aetherHideModelDropdown(popup) {
+export function _aetherHideModelDropdown(popup) {
   const dd = popup.querySelector('.aether-model-dropdown');
   if (dd) dd.remove();
   _aetherModelList = [];
   _aetherModelIdx = 0;
 }
 
-function _aetherSelectModel(popup) {
+export function _aetherSelectModel(popup) {
   const model = _aetherModelList[_aetherModelIdx];
   if (model) {
     Settings.set('chatModel', model);
@@ -605,7 +607,7 @@ function _aetherSelectModel(popup) {
 // ── /agent command — switch AI agent ──
 // State variables declared in panel-state.js: _aetherAgentIdx, _aetherAgentList
 
-async function _doAetherAgent(popup) {
+export async function _doAetherAgent(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
@@ -634,7 +636,7 @@ async function _doAetherAgent(popup) {
   _aetherRenderAgentDropdown(popup);
 }
 
-function _aetherRenderAgentDropdown(popup) {
+export function _aetherRenderAgentDropdown(popup) {
   let dropdown = popup.querySelector('.aether-agent-dropdown');
   if (!dropdown) {
     var ddView = new View('div').className('aether-note-dropdown aether-agent-dropdown');
@@ -685,14 +687,14 @@ function _aetherRenderAgentDropdown(popup) {
   _repositionSelectionPopup();
 }
 
-function _aetherHideAgentDropdown(popup) {
+export function _aetherHideAgentDropdown(popup) {
   const dd = popup.querySelector('.aether-agent-dropdown');
   if (dd) dd.remove();
   _aetherAgentList = [];
   _aetherAgentIdx = 0;
 }
 
-function _aetherSelectAgent(popup) {
+export function _aetherSelectAgent(popup) {
   const agent = _aetherAgentList[_aetherAgentIdx];
   if (agent) {
     Settings.set('chatAgent', agent.id);
@@ -705,7 +707,7 @@ function _aetherSelectAgent(popup) {
 }
 
 // ── /search command — open web search in new tab ──
-function _doAetherSearchNewTab(popup, query) {
+export function _doAetherSearchNewTab(popup, query) {
   const url = 'https://www.google.com/search?q=' + encodeURIComponent(query);
   if (typeof browseNewTab === 'function') browseNewTab(url);
   else window.open(url, '_blank');
@@ -714,7 +716,7 @@ function _doAetherSearchNewTab(popup, query) {
 }
 
 // ── /links command — list all links on current page ──
-async function _doAetherLinks(popup) {
+export async function _doAetherLinks(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
@@ -770,7 +772,7 @@ async function _doAetherLinks(popup) {
 // ── /tab command — add a browser tab to chat context ──
 // State variable declared in panel-state.js: _aetherTabAutoAdding
 
-async function _doAetherTab(popup) {
+export async function _doAetherTab(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
@@ -817,7 +819,7 @@ async function _doAetherTab(popup) {
   if (input) input.focus();
 }
 
-function _renderTabDropdown(popup) {
+export function _renderTabDropdown(popup) {
   let dropdown = popup.querySelector('.aether-tab-dropdown');
   if (!_aetherTabList.length) {
     if (dropdown) dropdown.remove();
@@ -877,7 +879,7 @@ function _renderTabDropdown(popup) {
   _repositionSelectionPopup();
 }
 
-async function _aetherSelectTab(popup) {
+export async function _aetherSelectTab(popup) {
   const tab = _aetherTabList[_aetherTabIdx];
   if (!tab) return;
 
@@ -908,7 +910,7 @@ async function _aetherSelectTab(popup) {
 }
 
 // ── /tabs command — switch to an open tab ──
-function _doAetherTabs(popup) {
+export function _doAetherTabs(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
@@ -943,7 +945,7 @@ function _doAetherTabs(popup) {
   if (input) input.focus();
 }
 
-function _aetherSwitchToTab(popup) {
+export function _aetherSwitchToTab(popup) {
   const tab = _aetherTabList[_aetherTabIdx];
   if (!tab) return;
   _aetherHideTabDropdown(popup);
@@ -970,7 +972,7 @@ function _aetherSwitchToTab(popup) {
 }
 
 // ── /help command — show all commands & features ──
-function _doAetherHelp(popup) {
+export function _doAetherHelp(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
@@ -1090,7 +1092,7 @@ Type in the browser URL bar:
 }
 
 // ── /define command — dictionary lookup ──
-async function _doAetherDefine(popup, word) {
+export async function _doAetherDefine(popup, word) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
@@ -1145,7 +1147,7 @@ async function _doAetherDefine(popup, word) {
   _repositionSelectionPopup();
 }
 
-function _aetherExecCommand(popup, text) {
+export function _aetherExecCommand(popup, text) {
   const raw = text.slice(1).trim();
   // Check for commands with arguments: "/paper transformer attention"
   const spaceIdx = raw.indexOf(' ');
@@ -1188,7 +1190,7 @@ function _aetherExecCommand(popup, text) {
 }
 
 // Paper search from aether panel (/paper query)
-async function _doAetherPaperSearch(popup, query) {
+export async function _doAetherPaperSearch(popup, query) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
 
@@ -1245,7 +1247,7 @@ async function _doAetherPaperSearch(popup, query) {
 }
 
 
-async function _doAetherUserSearch(popup, query) {
+export async function _doAetherUserSearch(popup, query) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) { input.value = ''; input.style.height = 'auto'; }
   _aetherHideCmdDropdown(popup);
@@ -1279,3 +1281,45 @@ async function _doAetherUserSearch(popup, query) {
   if (input) input.focus();
   _repositionSelectionPopup();
 }
+
+// ── Window assignments for global access ──
+window._aetherHideCursorOverlay = _aetherHideCursorOverlay;
+window._aetherShowCursor = _aetherShowCursor;
+window._aetherRestoreFocus = _aetherRestoreFocus;
+window._isAetherEligible = _isAetherEligible;
+window._fetchWikipediaPreview = _fetchWikipediaPreview;
+window._isAuthorEligible = _isAuthorEligible;
+window._findKnownAuthor = _findKnownAuthor;
+window._renderAuthorPreviewHtml = _renderAuthorPreviewHtml;
+window._fetchAuthorPreview = _fetchAuthorPreview;
+window._doAetherWebSearch = _doAetherWebSearch;
+window._aetherCommands = _aetherCommands;
+window._aetherFilterCommands = _aetherFilterCommands;
+window._aetherRenderCmdDropdown = _aetherRenderCmdDropdown;
+window._aetherHideCmdDropdown = _aetherHideCmdDropdown;
+window._aetherHideTabDropdown = _aetherHideTabDropdown;
+window._aetherHideHistoryDropdown = _aetherHideHistoryDropdown;
+window._doAetherHistory = _doAetherHistory;
+window._aetherRenderHistoryDropdown = _aetherRenderHistoryDropdown;
+window._aetherSelectHistory = _aetherSelectHistory;
+window._doAetherCapture = _doAetherCapture;
+window._doAetherModel = _doAetherModel;
+window._aetherRenderModelDropdown = _aetherRenderModelDropdown;
+window._aetherHideModelDropdown = _aetherHideModelDropdown;
+window._aetherSelectModel = _aetherSelectModel;
+window._doAetherAgent = _doAetherAgent;
+window._aetherRenderAgentDropdown = _aetherRenderAgentDropdown;
+window._aetherHideAgentDropdown = _aetherHideAgentDropdown;
+window._aetherSelectAgent = _aetherSelectAgent;
+window._doAetherSearchNewTab = _doAetherSearchNewTab;
+window._doAetherLinks = _doAetherLinks;
+window._doAetherTab = _doAetherTab;
+window._renderTabDropdown = _renderTabDropdown;
+window._aetherSelectTab = _aetherSelectTab;
+window._doAetherTabs = _doAetherTabs;
+window._aetherSwitchToTab = _aetherSwitchToTab;
+window._doAetherHelp = _doAetherHelp;
+window._doAetherDefine = _doAetherDefine;
+window._aetherExecCommand = _aetherExecCommand;
+window._doAetherPaperSearch = _doAetherPaperSearch;
+window._doAetherUserSearch = _doAetherUserSearch;

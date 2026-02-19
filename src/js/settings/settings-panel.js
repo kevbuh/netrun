@@ -1,6 +1,8 @@
+import Settings from '../core/core-settings.js';
+
 // ─── Panel Settings (utilities — render merged into AI section) ──
 
-function _loadSettingsModels() {
+export function _loadSettingsModels() {
   apiGet('/api/models').then(data => {
     const models = data.models || [];
     document.querySelectorAll('.settings-model-select').forEach(sel => {
@@ -24,3 +26,5 @@ function _loadSettingsModels() {
     });
   });
 }
+
+window._loadSettingsModels = _loadSettingsModels;

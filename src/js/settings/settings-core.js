@@ -1,3 +1,6 @@
+import Settings from '../core/core-settings.js';
+
+if (window.AetherUI) AetherUI.globals();
 // Migrate old section keys
 (function() {
   var stored = Settings.get('settingsSection');
@@ -8,9 +11,9 @@
   }
 })();
 
-let _settingsSection = Settings.get('settingsSection') || 'profile';
+export let _settingsSection = Settings.get('settingsSection') || 'profile';
 
-const _SETTINGS_SECTIONS = [
+export const _SETTINGS_SECTIONS = [
   { type: 'label', text: 'General' },
   { key: 'profile', label: 'Profile', icon: icon('profile', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
   { key: 'appearance', label: 'Appearance', icon: icon('appearance', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
@@ -23,20 +26,20 @@ const _SETTINGS_SECTIONS = [
   { key: 'help', label: 'Help', icon: icon('help', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
 ];
 
-let _settingsFeedTab = 'insights';
+export let _settingsFeedTab = 'insights';
 
-function _setSettingsSection(section) {
+export function _setSettingsSection(section) {
   _settingsSection = section;
   Settings.set('settingsSection', section);
   renderSettingsView();
 }
 
-function _setSettingsFeedTab(tab) {
+export function _setSettingsFeedTab(tab) {
   _settingsFeedTab = tab;
   renderSettingsView();
 }
 
-async function openSettings() {
+export async function openSettings() {
   hideAllViews();
   const view = await ensureView('settings-view');
   view.classList.add('active');
@@ -46,7 +49,7 @@ async function openSettings() {
   renderSettingsView();
 }
 
-function renderSettingsView() {
+export function renderSettingsView() {
   // Render sidebar
   const sidebar = document.getElementById('settings-sidebar');
   if (sidebar) {
@@ -128,3 +131,11 @@ function renderSettingsView() {
     _loadContextFiles();
   }
 }
+
+window._settingsSection = _settingsSection;
+window._SETTINGS_SECTIONS = _SETTINGS_SECTIONS;
+window._settingsFeedTab = _settingsFeedTab;
+window._setSettingsSection = _setSettingsSection;
+window._setSettingsFeedTab = _setSettingsFeedTab;
+window.openSettings = openSettings;
+window.renderSettingsView = renderSettingsView;

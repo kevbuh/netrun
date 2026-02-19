@@ -4,7 +4,7 @@ if (window.AetherUI) AetherUI.globals();
 
 // ── Dynamic Island pill bar — browse mode ──
 
-function _islandSyncTabs() {
+export function _islandSyncTabs() {
   const bv = document.getElementById('browse-view');
   if (!bv || bv.style.display !== 'flex') { islandRemove('tabs'); return; }
   const win = _getCurrentWindow();
@@ -30,12 +30,12 @@ function _islandSyncTabs() {
   });
 }
 
-function _getActiveTabBar() {
+export function _getActiveTabBar() {
   if (_pillBrowseMode) return document.getElementById('pill-browse-tabs');
   return document.getElementById('browse-tabs');
 }
 
-function _setPillBrowseMode(enabled) {
+export function _setPillBrowseMode(enabled) {
   _pillBrowseMode = enabled;
   const pill = document.getElementById('sidebar-nav');
   const tabRow = document.getElementById('browse-tab-row');
@@ -64,7 +64,7 @@ function _setPillBrowseMode(enabled) {
   }
 }
 
-function _pillSyncTabs() {
+export function _pillSyncTabs() {
   const pillTabs = document.getElementById('pill-browse-tabs');
   if (!pillTabs) return;
   const win = _getCurrentWindow();
@@ -148,9 +148,9 @@ function _pillSyncTabs() {
   });
 }
 
-let _pillMenuLeaveTimer = null;
+export let _pillMenuLeaveTimer = null;
 
-function _togglePillMenu() {
+export function _togglePillMenu() {
   const pill = document.getElementById('sidebar-nav');
   if (!pill) return;
   const opening = !pill.classList.contains('menu-expanded');
@@ -163,7 +163,7 @@ function _togglePillMenu() {
   }
 }
 
-function _populatePillMenuMoreItems() {
+export function _populatePillMenuMoreItems() {
   const container = document.getElementById('pill-menu-more-items');
   const pill = document.getElementById('sidebar-nav');
   if (!container || !pill || !pill.classList.contains('browse-mode')) return;
@@ -276,7 +276,7 @@ function _populatePillMenuMoreItems() {
   AetherUI.mount(VStack(items), container);
 }
 
-function _openPillMenuHover() {
+export function _openPillMenuHover() {
   if (_pillMenuLeaveTimer) { clearTimeout(_pillMenuLeaveTimer); _pillMenuLeaveTimer = null; }
   const pill = document.getElementById('sidebar-nav');
   if (!pill || pill.classList.contains('menu-expanded')) return;
@@ -284,17 +284,17 @@ function _openPillMenuHover() {
   _populatePillMenuMoreItems();
 }
 
-function _closePillMenuHover() {
+export function _closePillMenuHover() {
   _pillMenuLeaveTimer = setTimeout(() => {
     _closePillMenu();
   }, 200);
 }
 
-function _cancelPillMenuClose() {
+export function _cancelPillMenuClose() {
   if (_pillMenuLeaveTimer) { clearTimeout(_pillMenuLeaveTimer); _pillMenuLeaveTimer = null; }
 }
 
-function _pillMenuOutsideClick(e) {
+export function _pillMenuOutsideClick(e) {
   const pill = document.getElementById('sidebar-nav');
   if (!pill || !pill.classList.contains('menu-expanded')) {
     document.removeEventListener('mousedown', _pillMenuOutsideClick);
@@ -305,10 +305,21 @@ function _pillMenuOutsideClick(e) {
   document.removeEventListener('mousedown', _pillMenuOutsideClick);
 }
 
-function _closePillMenu() {
+export function _closePillMenu() {
   const pill = document.getElementById('sidebar-nav');
   if (pill) pill.classList.remove('menu-expanded');
   document.removeEventListener('mousedown', _pillMenuOutsideClick);
 }
 
-
+window._islandSyncTabs = _islandSyncTabs;
+window._getActiveTabBar = _getActiveTabBar;
+window._setPillBrowseMode = _setPillBrowseMode;
+window._pillSyncTabs = _pillSyncTabs;
+window._pillMenuLeaveTimer = _pillMenuLeaveTimer;
+window._togglePillMenu = _togglePillMenu;
+window._populatePillMenuMoreItems = _populatePillMenuMoreItems;
+window._openPillMenuHover = _openPillMenuHover;
+window._closePillMenuHover = _closePillMenuHover;
+window._cancelPillMenuClose = _cancelPillMenuClose;
+window._pillMenuOutsideClick = _pillMenuOutsideClick;
+window._closePillMenu = _closePillMenu;

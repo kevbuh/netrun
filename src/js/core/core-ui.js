@@ -1,5 +1,6 @@
 // core-ui.js — Link preview, pill stack, etc.
 // Extracted from core.js
+if (window.AetherUI) AetherUI.globals();
 
 // ── Ell logo (curvy ℓ) inline SVG for new-tab favicons ──
 
@@ -63,11 +64,11 @@ document.addEventListener('mouseout', function(e) {
 
 // ── Pill stack manager (bottom-right notification pills) ──
 
-function pillStackAdd(id) {
+export function pillStackAdd(id) {
   if (_pillStack.indexOf(id) < 0) _pillStack.push(id);
   requestAnimationFrame(_pillStackReflow);
 }
-function pillStackRemove(id) {
+export function pillStackRemove(id) {
   const i = _pillStack.indexOf(id);
   if (i >= 0) _pillStack.splice(i, 1);
   _pillStackReflow();
@@ -183,22 +184,22 @@ window.addEventListener('resize', function() {
   else setTimeout(_initPulse, 0);
 })();
 
-function _setIslandActivity(id, data) {
+export function _setIslandActivity(id, data) {
   const acts = _islandActivities.value;
   _islandActivities.value = { ...acts, [id]: Object.assign({}, acts[id] || {}, data, { _ts: Date.now() }) };
 }
-function _clearIslandActivity(id) {
+export function _clearIslandActivity(id) {
   const acts = { ..._islandActivities.value };
   delete acts[id];
   _islandActivities.value = acts;
 }
 
-function islandUpdate(id, data) {
+export function islandUpdate(id, data) {
   _setIslandActivity(id, data);
   _islandRender();
 }
 
-function islandRemove(id) {
+export function islandRemove(id) {
   let el = document.querySelector('.pill-island[data-island-id="'+id+'"]');
   if (!el) {
     const anchor = document.getElementById('pill-island-tabs-anchor');
@@ -223,7 +224,7 @@ function islandRemove(id) {
 }
 
 // Global achievement helper — persistent island pill, click to dismiss
-function showAchievement(name, description) {
+export function showAchievement(name, description) {
   islandUpdate('achievement', {
     type: 'achievement',
     label: name || 'Unlocked!',
@@ -233,5 +234,17 @@ function showAchievement(name, description) {
   });
 }
 
+
+// ── Backward compatibility: expose on window ──
+window._showLinkPreview = _showLinkPreview;
+window._hideLinkPreview = _hideLinkPreview;
+window.pillStackAdd = pillStackAdd;
+window.pillStackRemove = pillStackRemove;
+window._setIslandActivity = _setIslandActivity;
+window._clearIslandActivity = _clearIslandActivity;
+window.islandUpdate = islandUpdate;
+window.islandRemove = islandRemove;
+window.showAchievement = showAchievement;
+window._loadCustomAnnotationCategories = _loadCustomAnnotationCategories;
 
 // ── Unified Audio Pill ──

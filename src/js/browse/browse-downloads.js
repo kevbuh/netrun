@@ -1,9 +1,10 @@
 // browse-downloads.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+import Settings from '/js/core/core-settings.js';
 if (window.AetherUI) AetherUI.globals();
 
 // ── Doom Scroll Prevention ──
-const _DOOM_SCROLL_DEFAULTS = [
+export const _DOOM_SCROLL_DEFAULTS = [
   { domain: 'twitter.com', mode: 'nudge', minutes: 5 },
   { domain: 'x.com', mode: 'nudge', minutes: 5 },
   { domain: 'reddit.com', mode: 'nudge', minutes: 5 },
@@ -12,7 +13,7 @@ const _DOOM_SCROLL_DEFAULTS = [
   { domain: 'facebook.com', mode: 'nudge', minutes: 10 },
 ];
 
-function _getDoomScrollSites() {
+export function _getDoomScrollSites() {
   try {
     const saved = Settings.get('doomScrollSites');
     if (saved) return JSON.parse(saved);
@@ -20,11 +21,11 @@ function _getDoomScrollSites() {
   return _DOOM_SCROLL_DEFAULTS.slice();
 }
 
-function _saveDoomScrollSites(list) {
+export function _saveDoomScrollSites(list) {
   Settings.setJSON('doomScrollSites', list);
 }
 
-function _doomScrollMatch(url) {
+export function _doomScrollMatch(url) {
   if (Settings.get('doomScrollEnabled') === 'false') return null;
   let hostname;
   try { hostname = new URL(url).hostname.toLowerCase(); } catch { return null; }
@@ -38,10 +39,10 @@ function _doomScrollMatch(url) {
 
 // ── Focus Timer (pill-bar timer for doom scroll sites) ──
 // Per-domain start times survive tab switches and SPA navigations
-const _focusTimerStarts = {}; // { domain: timestamp }
-let _focusTimerInterval = null;
-let _focusTimerDomain = '';
-let _focusTimerWarnMinutes = 0;
+export const _focusTimerStarts = {}; // { domain: timestamp }
+export let _focusTimerInterval = null;
+export let _focusTimerDomain = '';
+export let _focusTimerWarnMinutes = 0;
 
 // Restore persisted start times from sessionStorage (survives reload)
 try {
@@ -49,23 +50,23 @@ try {
   Object.assign(_focusTimerStarts, saved);
 } catch {}
 
-function _persistFocusTimerStarts() {
+export function _persistFocusTimerStarts() {
   try { sessionStorage.setItem('focusTimerStarts', JSON.stringify(_focusTimerStarts)); } catch {}
 }
 
-function _formatFocusTime(ms) {
+export function _formatFocusTime(ms) {
   const totalSec = Math.floor(ms / 1000);
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
   return m + ':' + (s < 10 ? '0' : '') + s;
 }
 
-function _focusTimerElapsed() {
+export function _focusTimerElapsed() {
   const start = _focusTimerStarts[_focusTimerDomain];
   return start ? Date.now() - start : 0;
 }
 
-function _startFocusTimer(domain, warnMinutes) {
+export function _startFocusTimer(domain, warnMinutes) {
   // Preserve existing start time for this domain (don't reset on SPA nav or tab switch)
   if (!_focusTimerStarts[domain]) {
     _focusTimerStarts[domain] = Date.now();
@@ -79,14 +80,14 @@ function _startFocusTimer(domain, warnMinutes) {
   _updateFocusTimerPill();
 }
 
-function _hideFocusTimerPill() {
+export function _hideFocusTimerPill() {
   if (_focusTimerInterval) { clearInterval(_focusTimerInterval); _focusTimerInterval = null; }
   _focusTimerDomain = '';
   const el = document.getElementById('pill-focus-timer');
   if (el) { el.classList.remove('active', 'warn'); el.textContent = ''; }
 }
 
-function _updateFocusTimerPill() {
+export function _updateFocusTimerPill() {
   const el = document.getElementById('pill-focus-timer');
   if (!el || !_focusTimerDomain) return;
   const elapsed = _focusTimerElapsed();
@@ -99,7 +100,7 @@ function _updateFocusTimerPill() {
   }
 }
 
-function _checkFocusTimer(url) {
+export function _checkFocusTimer(url) {
   const match = _doomScrollMatch(url);
   if (match && match.mode === 'nudge') {
     _startFocusTimer(match.domain, match.minutes);
@@ -110,13 +111,13 @@ function _checkFocusTimer(url) {
 
 
 // ── Download Manager ──
-const DOWNLOAD_RETENTION_MS = 60 * 60 * 1000; // 1 hour
+export const DOWNLOAD_RETENTION_MS = 60 * 60 * 1000; // 1 hour
 
-let _browseDownloads = []; // { id, filename, url, state: 'progressing'|'completed'|'cancelled', receivedBytes, totalBytes, startTime }
-let _browseDownloadIdCounter = 0;
-let _browseDownloadsLastSeenCount = 0;
+export let _browseDownloads = []; // { id, filename, url, state: 'progressing'|'completed'|'cancelled', receivedBytes, totalBytes, startTime }
+export let _browseDownloadIdCounter = 0;
+export let _browseDownloadsLastSeenCount = 0;
 
-function _loadBrowseDownloads() {
+export function _loadBrowseDownloads() {
   try {
     const saved = Settings.getJSON('browseDownloads', []);
     const oneHourAgo = Date.now() - DOWNLOAD_RETENTION_MS;
@@ -134,7 +135,7 @@ function _loadBrowseDownloads() {
   }
 }
 
-function _saveBrowseDownloads() {
+export function _saveBrowseDownloads() {
   try {
     const oneHourAgo = Date.now() - DOWNLOAD_RETENTION_MS;
     const toSave = _browseDownloads.filter(d => d.startTime > oneHourAgo);
@@ -152,7 +153,7 @@ setTimeout(() => {
   _browseRenderDownloads();
 }, 100);
 
-function _browseUpdateDownloadBadge() {
+export function _browseUpdateDownloadBadge() {
   const btn = document.getElementById('browse-downloads-btn');
   const badge = document.getElementById('browse-download-badge');
   const ring = document.getElementById('browse-download-progress-ring');
@@ -212,7 +213,7 @@ function _browseUpdateDownloadBadge() {
   }
 }
 
-function _browseRenderDownloads() {
+export function _browseRenderDownloads() {
   const dropdown = document.getElementById('browse-downloads-dropdown');
   if (!dropdown) return;
 
@@ -282,21 +283,21 @@ function _browseRenderDownloads() {
   dropdown.onclick = function(e) { e.stopPropagation(); };
 }
 
-function _formatBytes(bytes) {
+export function _formatBytes(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
   if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
 }
 
-function _closeBrowseDownloadsDropdown() {
+export function _closeBrowseDownloadsDropdown() {
   const dropdown = document.getElementById('browse-downloads-dropdown');
   if (dropdown) dropdown.style.display = 'none';
   document.removeEventListener('click', _closeBrowseDownloadsOnClick);
   window.removeEventListener('blur', _closeBrowseDownloadsOnBlur);
 }
 
-function toggleBrowseDownloads(event) {
+export function toggleBrowseDownloads(event) {
   if (event) event.stopPropagation();
 
   const dropdown = document.getElementById('browse-downloads-dropdown');
@@ -323,18 +324,18 @@ function toggleBrowseDownloads(event) {
   }
 }
 
-function _closeBrowseDownloadsOnClick(e) {
+export function _closeBrowseDownloadsOnClick(e) {
   const btn = document.getElementById('browse-downloads-btn');
   if (btn && !btn.contains(e.target)) {
     _closeBrowseDownloadsDropdown();
   }
 }
 
-function _closeBrowseDownloadsOnBlur() {
+export function _closeBrowseDownloadsOnBlur() {
   _closeBrowseDownloadsDropdown();
 }
 
-function clearBrowseDownloads() {
+export function clearBrowseDownloads() {
   _browseDownloads = [];
   _browseDownloadsLastSeenCount = 0;
   _browseUpdateDownloadBadge();
@@ -342,7 +343,7 @@ function clearBrowseDownloads() {
   _saveBrowseDownloads();
 }
 
-function removeBrowseDownload(id) {
+export function removeBrowseDownload(id) {
   _browseDownloads = _browseDownloads.filter(d => d.id !== id);
   // Adjust seen count if we're below it
   if (_browseDownloads.length < _browseDownloadsLastSeenCount) {
@@ -353,14 +354,14 @@ function removeBrowseDownload(id) {
   _saveBrowseDownloads();
 }
 
-function openDownloadFile(id) {
+export function openDownloadFile(id) {
   const dl = _browseDownloads.find(d => d.id === id);
   if (dl && dl.state === 'completed' && dl.savePath && window.electronAPI) {
     window.electronAPI.openPath(dl.savePath);
   }
 }
 
-function showDownloadInFolder(id) {
+export function showDownloadInFolder(id) {
   const dl = _browseDownloads.find(d => d.id === id);
   if (!dl) return;
   if (dl.savePath && window.electronAPI) {
@@ -371,9 +372,9 @@ function showDownloadInFolder(id) {
 }
 
 // Initialize download event listeners from Electron main process
-let _downloadsInitialized = false;
+export let _downloadsInitialized = false;
 
-function _initBrowseDownloads() {
+export function _initBrowseDownloads() {
   if (!window.electronAPI) return;
   if (_downloadsInitialized) return;
   _downloadsInitialized = true;
@@ -433,7 +434,7 @@ if (document.readyState === 'loading') {
   _initBrowseDownloads();
 }
 
-function _browseHandleNavigation(tab, frame) {
+export function _browseHandleNavigation(tab, frame) {
   frame.addEventListener('did-navigate', (e) => {
     // Restore original file:// URL when navigating through the local-file proxy
     const navUrl = (e.url.includes('/api/local-file?path=') && frame.dataset.originalUrl)
@@ -653,7 +654,7 @@ function _browseHandleNavigation(tab, frame) {
 }
 
 // Chromium net error codes -> user-friendly error info
-var _browseErrorMap = {
+export var _browseErrorMap = {
   // DNS
   '-105': { id: 'NAME_NOT_RESOLVED',   title: 'This site can\u2019t be reached', desc: 'DNS address could not be found for <strong>%DOMAIN%</strong>.', icon: 'dns',    suggestions: ['Check the URL for typos', 'Check your internet connection', 'Try disabling your VPN or proxy'] },
   '-118': { id: 'CONNECTION_TIMED_OUT', title: 'This site can\u2019t be reached', desc: '<strong>%DOMAIN%</strong> took too long to respond.', icon: 'timeout', suggestions: ['Check your internet connection', 'Check any firewall or proxy settings', 'Try again later'] },
@@ -689,7 +690,7 @@ var _browseErrorMap = {
   '504':  { id: 'HTTP_504_TIMEOUT',    title: 'Gateway timeout', desc: '<strong>%DOMAIN%</strong> took too long to respond.', icon: 'timeout', suggestions: ['The site may be experiencing heavy traffic', 'Try again in a few minutes'] },
 };
 
-function _browseShowErrorPage(tab, frame, failedUrl, errorDesc, errorCode) {
+export function _browseShowErrorPage(tab, frame, failedUrl, errorDesc, errorCode) {
   const isDark = document.documentElement.classList.contains('dark') || Settings.get('theme') === 'dark';
   const cs = getComputedStyle(document.documentElement);
   const v = function(n, fb) { return cs.getPropertyValue(n).trim() || fb; };
@@ -822,7 +823,7 @@ function _browseShowErrorPage(tab, frame, failedUrl, errorDesc, errorCode) {
   _browseRenderTabs();
 }
 
-var _ytAdBlockCSS =
+export var _ytAdBlockCSS =
   '#player-ads,' +
   '.ytp-ad-module,' +
   '.ytp-ad-overlay-container,' +
@@ -846,7 +847,7 @@ var _ytAdBlockCSS =
   '.ytp-ad-text,.ytp-ad-preview-container,.ytp-ad-badge,.ytp-ad-visit-advertiser-button{display:none!important}';
 
 // Inject YouTube ad-block CSS + early mute (before JS runs, hides from first paint)
-function _browseInjectYouTubeCSS(frame, url) {
+export function _browseInjectYouTubeCSS(frame, url) {
   if (!url || !url.includes('youtube.com')) return;
   if (Settings.get('adBlockEnabled') !== 'true') return;
   frame.insertCSS(_ytAdBlockCSS).catch(function(){});
@@ -872,7 +873,7 @@ function _browseInjectYouTubeCSS(frame, url) {
   })();`).catch(function(){});
 }
 
-function _browseInjectYouTubeAdBlock(frame, url) {
+export function _browseInjectYouTubeAdBlock(frame, url) {
   if (!url || !url.includes('youtube.com')) return;
   if (Settings.get('adBlockEnabled') !== 'true') return;
   frame.executeJavaScript(`(function(){
@@ -938,7 +939,7 @@ function _browseInjectYouTubeAdBlock(frame, url) {
   })();`).catch(function(){});
 }
 
-function _browseInjectContentScripts(tab, frame) {
+export function _browseInjectContentScripts(tab, frame) {
   // Context menu — always show aether panel (with context items for links/images)
   // Debounce: the injected script also fires __AETHER_CONTEXT__ for the same right-click
   let _ctxMenuHandledAt = 0;
@@ -1398,7 +1399,7 @@ function _browseInjectContentScripts(tab, frame) {
   });
 }
 
-function _browseUpdateRssPill(tab) {
+export function _browseUpdateRssPill(tab) {
   if (tab.id !== _browseActiveTab || !tab.rssFeeds || !tab.rssFeeds.length) {
     const cur = _islandActivities && _islandActivities['rss'];
     if (!cur || !cur.subscribed) islandRemove('rss');
@@ -1451,9 +1452,9 @@ function _browseUpdateRssPill(tab) {
 }
 
 // Temporary bypass list for "allow once" on blocked sites (cleared on app restart)
-const _doomScrollBypass = new Set();
+export const _doomScrollBypass = new Set();
 
-function _browseShowBlockedPage(tab, frame, url, domain) {
+export function _browseShowBlockedPage(tab, frame, url, domain) {
   const isDark = document.documentElement.classList.contains('dark') || Settings.get('theme') === 'dark';
   const bg = isDark ? '#0a0a0a' : '#f5f5f5';
   const card = isDark ? '#151515' : '#fff';
@@ -1502,7 +1503,7 @@ function _browseShowBlockedPage(tab, frame, url, domain) {
   _browseRenderTabs();
 }
 
-function _injectDoomScrollNudge(tab, el, config) {
+export function _injectDoomScrollNudge(tab, el, config) {
   const domain = config.domain;
   // Compute delay from persisted start time so nudge survives reload/SPA nav
   const startTime = _focusTimerStarts[domain] || Date.now();
@@ -1559,7 +1560,7 @@ function _injectDoomScrollNudge(tab, el, config) {
   })();`).catch(() => {});
 }
 
-function _browseBindFrame(tab) {
+export function _browseBindFrame(tab) {
   if (tab.contentType === 'reader') return;
   const el = tab.el;
   if (!el || !_browseIsElectron) return;
@@ -1730,3 +1731,50 @@ function _browseBindFrame(tab) {
     });
   }
 }
+
+window._DOOM_SCROLL_DEFAULTS = _DOOM_SCROLL_DEFAULTS;
+window._getDoomScrollSites = _getDoomScrollSites;
+window._saveDoomScrollSites = _saveDoomScrollSites;
+window._doomScrollMatch = _doomScrollMatch;
+window._focusTimerStarts = _focusTimerStarts;
+window._focusTimerInterval = _focusTimerInterval;
+window._focusTimerDomain = _focusTimerDomain;
+window._focusTimerWarnMinutes = _focusTimerWarnMinutes;
+window._persistFocusTimerStarts = _persistFocusTimerStarts;
+window._formatFocusTime = _formatFocusTime;
+window._focusTimerElapsed = _focusTimerElapsed;
+window._startFocusTimer = _startFocusTimer;
+window._hideFocusTimerPill = _hideFocusTimerPill;
+window._updateFocusTimerPill = _updateFocusTimerPill;
+window._checkFocusTimer = _checkFocusTimer;
+window.DOWNLOAD_RETENTION_MS = DOWNLOAD_RETENTION_MS;
+window._browseDownloads = _browseDownloads;
+window._browseDownloadIdCounter = _browseDownloadIdCounter;
+window._browseDownloadsLastSeenCount = _browseDownloadsLastSeenCount;
+window._loadBrowseDownloads = _loadBrowseDownloads;
+window._saveBrowseDownloads = _saveBrowseDownloads;
+window._browseUpdateDownloadBadge = _browseUpdateDownloadBadge;
+window._browseRenderDownloads = _browseRenderDownloads;
+window._formatBytes = _formatBytes;
+window._closeBrowseDownloadsDropdown = _closeBrowseDownloadsDropdown;
+window.toggleBrowseDownloads = toggleBrowseDownloads;
+window._closeBrowseDownloadsOnClick = _closeBrowseDownloadsOnClick;
+window._closeBrowseDownloadsOnBlur = _closeBrowseDownloadsOnBlur;
+window.clearBrowseDownloads = clearBrowseDownloads;
+window.removeBrowseDownload = removeBrowseDownload;
+window.openDownloadFile = openDownloadFile;
+window.showDownloadInFolder = showDownloadInFolder;
+window._downloadsInitialized = _downloadsInitialized;
+window._initBrowseDownloads = _initBrowseDownloads;
+window._browseHandleNavigation = _browseHandleNavigation;
+window._browseErrorMap = _browseErrorMap;
+window._browseShowErrorPage = _browseShowErrorPage;
+window._ytAdBlockCSS = _ytAdBlockCSS;
+window._browseInjectYouTubeCSS = _browseInjectYouTubeCSS;
+window._browseInjectYouTubeAdBlock = _browseInjectYouTubeAdBlock;
+window._browseInjectContentScripts = _browseInjectContentScripts;
+window._browseUpdateRssPill = _browseUpdateRssPill;
+window._doomScrollBypass = _doomScrollBypass;
+window._browseShowBlockedPage = _browseShowBlockedPage;
+window._injectDoomScrollNudge = _injectDoomScrollNudge;
+window._browseBindFrame = _browseBindFrame;

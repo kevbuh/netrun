@@ -4,13 +4,13 @@ if (window.AetherUI) AetherUI.globals();
 
 // ── NTP File Upload ──
 
-function handleNtpFileInput(input) {
+export function handleNtpFileInput(input) {
   if (!input.files) return;
   for (const file of input.files) handleNtpFileUpload(file);
   input.value = '';
 }
 
-async function handleNtpFileUpload(file) {
+export async function handleNtpFileUpload(file) {
   let localPath = null;
   try { if (typeof electronAPI !== 'undefined' && electronAPI.getPathForFile) localPath = electronAPI.getPathForFile(file); } catch {}
   const entry = { name: file.name, content: '', file, localPath };
@@ -40,7 +40,7 @@ async function handleNtpFileUpload(file) {
   }
 }
 
-function _renderNtpFileChips() {
+export function _renderNtpFileChips() {
   const container = document.getElementById('ntp-file-chips');
   if (!container) return;
   if (!_ntpUploadedFiles.length) { container.innerHTML = ''; return; }
@@ -68,13 +68,13 @@ function _renderNtpFileChips() {
   AetherUI.mount(HStack(chips), container);
 }
 
-function removeNtpFile(idx) {
+export function removeNtpFile(idx) {
   const f = _ntpUploadedFiles[idx];
   _ntpUploadedFiles.splice(idx, 1);
   _renderNtpFileChips();
 }
 
-function openNtpFile(idx) {
+export function openNtpFile(idx) {
   const f = _ntpUploadedFiles[idx];
   if (!f) return;
   if (f.localPath) {
@@ -90,7 +90,7 @@ function openNtpFile(idx) {
   }
 }
 
-function openBrowseWithPaper(url, paper) {
+export function openBrowseWithPaper(url, paper) {
   const view = document.getElementById('browse-view');
   const isAlreadyOpen = view && view.style.display !== 'none' && view.style.display !== '';
 
@@ -130,7 +130,7 @@ function openBrowseWithPaper(url, paper) {
 }
 
 
-function _browseProxyUrl(url) {
+export function _browseProxyUrl(url) {
   // Never proxy data: URLs
   if (url && url.startsWith('data:')) return url;
   // Serve file:// URLs through the local server
@@ -144,9 +144,9 @@ function _browseProxyUrl(url) {
 
 // Baseline: every iframe blocks camera, mic, geolocation by default.
 // Only _browseSetFrameAllow can selectively open them per user choice.
-const _IFRAME_BLOCKED_POLICY = "camera 'none'; microphone 'none'; geolocation 'none'";
+export const _IFRAME_BLOCKED_POLICY = "camera 'none'; microphone 'none'; geolocation 'none'";
 
-function _browseCreateFrame(id, url) {
+export function _browseCreateFrame(id, url) {
   const el = document.createElement(_browseIsElectron ? 'webview' : 'iframe');
   el.id = 'browse-frame-' + id;
   el.dataset.originalUrl = url;
@@ -173,7 +173,7 @@ function _browseCreateFrame(id, url) {
   return el;
 }
 
-function _browseSetFrameAllow(el, url) {
+export function _browseSetFrameAllow(el, url) {
   if (!url) return;
   let domain = '';
   try { domain = new URL(url).hostname.replace('www.', ''); } catch { return; }
@@ -200,7 +200,7 @@ function _browseSetFrameAllow(el, url) {
   el.sandbox = sandboxFlags;
 }
 
-function _browseApplyPermissions() {
+export function _browseApplyPermissions() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || !tab.url || tab.blank) return;
   if (_browseIsElectron) return;
@@ -214,3 +214,15 @@ function _browseApplyPermissions() {
   container.appendChild(tab.el);
   _browseBindFrame(tab);
 }
+
+window.handleNtpFileInput = handleNtpFileInput;
+window.handleNtpFileUpload = handleNtpFileUpload;
+window._renderNtpFileChips = _renderNtpFileChips;
+window.removeNtpFile = removeNtpFile;
+window.openNtpFile = openNtpFile;
+window.openBrowseWithPaper = openBrowseWithPaper;
+window._browseProxyUrl = _browseProxyUrl;
+window._IFRAME_BLOCKED_POLICY = _IFRAME_BLOCKED_POLICY;
+window._browseCreateFrame = _browseCreateFrame;
+window._browseSetFrameAllow = _browseSetFrameAllow;
+window._browseApplyPermissions = _browseApplyPermissions;

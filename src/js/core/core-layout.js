@@ -1,12 +1,14 @@
 // core-layout.js — Bounds, spinners, sidebar nav
 // Extracted from core.js
 
+import Settings from '/js/core/core-settings.js';
+
 // ── Content safe bounds for popups ──
 // Returns {top, left, right, bottom} — the usable area where popups may appear,
 // avoiding the tab row, URL bar, and macOS traffic lights.
-function _invalidateBoundsCache() { _boundsCache = null; }
+export function _invalidateBoundsCache() { _boundsCache = null; }
 window.addEventListener('resize', _invalidateBoundsCache);
-function _popupSafeBounds() {
+export function _popupSafeBounds() {
   if (_boundsCache) return _boundsCache;
   const tabRow = document.getElementById('browse-tab-row');
   const bar = document.getElementById('browse-bar');
@@ -30,8 +32,8 @@ function _popupSafeBounds() {
 }
 
 // ── Cmd/Ctrl+click → open in new browse tab ──
-function _isNewTabClick(e) { return e && (e.metaKey || e.ctrlKey); }
-function _openInNewTab(url) {
+export function _isNewTabClick(e) { return e && (e.metaKey || e.ctrlKey); }
+export function _openInNewTab(url) {
   const isElectron = window.electronAPI && window.electronAPI.isElectron;
   if (isElectron && typeof openBrowse === 'function') {
     // Open as a new tab in the app's browse tab system
@@ -112,7 +114,7 @@ if (window.electronAPI && window.electronAPI.isElectron) {
 }
 
 // ── Download app banner (web only) ──
-function showDownloadBanner() {
+export function showDownloadBanner() {
   const isElectron = window.electronAPI && window.electronAPI.isElectron;
   const dismissed = Settings.get('downloadBannerDismissed') === 'true';
   if (!isElectron && !dismissed) {
@@ -121,7 +123,7 @@ function showDownloadBanner() {
   }
 }
 
-function dismissDownloadBanner() {
+export function dismissDownloadBanner() {
   Settings.set('downloadBannerDismissed', 'true');
   const banner = document.getElementById('download-app-banner');
   if (banner) {
@@ -154,16 +156,16 @@ if (document.readyState === 'loading') {
 
 // ── Spinner system ──
 
-function getSelectedSpinner() {
+export function getSelectedSpinner() {
   return Settings.get('spinner') || 'squareCorners';
 }
 
-function setSelectedSpinner(name) {
+export function setSelectedSpinner(name) {
   Settings.set('spinner', name);
   restartSpinners();
 }
 
-function loadSpinners() {
+export function loadSpinners() {
   return apiGet('/spinners.json').then(data => {
     _spinnerData = data;
     _spinnerNames = Object.keys(data);
@@ -172,7 +174,7 @@ function loadSpinners() {
   });
 }
 
-function restartSpinners() {
+export function restartSpinners() {
   if (_spinnerInterval) { clearInterval(_spinnerInterval); _spinnerInterval = null; }
   if (!_spinnerData) return;
   const name = getSelectedSpinner();
@@ -206,7 +208,7 @@ _spinnerMO.observe(document.documentElement, { childList: true, subtree: true })
 
 loadSpinners();
 
-function debounce(fn, ms) {
+export function debounce(fn, ms) {
   let timeout;
   return function(...args) {
     clearTimeout(timeout);
@@ -218,7 +220,7 @@ function debounce(fn, ms) {
 
 // Research view tab state
 
-function setSidebarActive(id) {
+export function setSidebarActive(id) {
   if (id && _sidebarToView[id]) { Settings.set('_lastActiveView', _sidebarToView[id]); }
   document.querySelectorAll('.sidebar-icon').forEach(b => {
     b.classList.remove('active');
@@ -228,7 +230,7 @@ function setSidebarActive(id) {
   if (desktopEl) desktopEl.classList.add('active');
 }
 
-function setSidebarLoading(id) {
+export function setSidebarLoading(id) {
   Motion.retrigger(document.getElementById(id), 'sb-loading', 350);
 }
 
@@ -365,7 +367,7 @@ if (document.readyState === 'loading') {
 
 // Lazy load images using IntersectionObserver
 
-function initLazyImageLoading() {
+export function initLazyImageLoading() {
   if (!('IntersectionObserver' in window)) {
     // Fallback: load all images immediately on older browsers
     return;
@@ -387,7 +389,7 @@ function initLazyImageLoading() {
   });
 }
 
-function observeLazyImages() {
+export function observeLazyImages() {
   if (!_lazyImageObserver) return;
 
   document.querySelectorAll('img[data-src]').forEach(img => {
@@ -405,5 +407,22 @@ if (document.readyState === 'loading') {
   initLazyImageLoading();
   observeLazyImages();
 }
+
+// ── Backward compatibility: expose on window ──
+window._invalidateBoundsCache = _invalidateBoundsCache;
+window._popupSafeBounds = _popupSafeBounds;
+window._isNewTabClick = _isNewTabClick;
+window._openInNewTab = _openInNewTab;
+window.showDownloadBanner = showDownloadBanner;
+window.dismissDownloadBanner = dismissDownloadBanner;
+window.getSelectedSpinner = getSelectedSpinner;
+window.setSelectedSpinner = setSelectedSpinner;
+window.loadSpinners = loadSpinners;
+window.restartSpinners = restartSpinners;
+window.debounce = debounce;
+window.setSidebarActive = setSidebarActive;
+window.setSidebarLoading = setSidebarLoading;
+window.initLazyImageLoading = initLazyImageLoading;
+window.observeLazyImages = observeLazyImages;
 
 // ── View management ──

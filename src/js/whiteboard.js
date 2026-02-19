@@ -1,30 +1,32 @@
+import Settings from '/js/core/core-settings.js';
+
 // ── Whiteboard ──
 if (window.AetherUI) AetherUI.globals();
-let _wbStrokes = [];
-let _wbRedoStack = [];
-const _wbDrawing = false;
-const _wbCurrent = null;
-const _wbCtx = null;
-const _wbCanvas = null;
-const _wbMode = 'draw'; // 'draw' | 'eraser' | 'stroke-eraser'
-const _wbInited = false;
-const _wbResizeObs = null;
-let _wbCurrentId = null; // id of active whiteboard
-let _wbBoards = []; // [{id, name, createdAt}]
+export let _wbStrokes = [];
+export let _wbRedoStack = [];
+export const _wbDrawing = false;
+export const _wbCurrent = null;
+export const _wbCtx = null;
+export const _wbCanvas = null;
+export const _wbMode = 'draw'; // 'draw' | 'eraser' | 'stroke-eraser'
+export const _wbInited = false;
+export const _wbResizeObs = null;
+export let _wbCurrentId = null; // id of active whiteboard
+export let _wbBoards = []; // [{id, name, createdAt}]
 
-function _loadWbBoards() {
+export function _loadWbBoards() {
   try {
     _wbBoards = Settings.getJSON('whiteboardBoards', []);
   } catch { _wbBoards = []; }
 }
 
-function _saveWbBoards() {
+export function _saveWbBoards() {
   try { Settings.setJSON('whiteboardBoards', _wbBoards); } catch {}
 }
 
-function _wbStrokesKey(id) { return 'wb_strokes_' + id; }
+export function _wbStrokesKey(id) { return 'wb_strokes_' + id; }
 
-function wbNew(silent) {
+export function wbNew(silent) {
   _loadWbBoards();
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const board = { id, name: 'Untitled', createdAt: Date.now() };
@@ -34,7 +36,7 @@ function wbNew(silent) {
   if (!silent) _renderWbList();
 }
 
-function wbOpen(id) {
+export function wbOpen(id) {
   // Save current board first
   if (_wbCurrentId && _wbCurrentId !== id) _saveWbStrokes();
   _wbCurrentId = id;
@@ -51,7 +53,7 @@ function wbOpen(id) {
   if (titleEl && board) titleEl.textContent = board.name;
 }
 
-function wbDelete(id) {
+export function wbDelete(id) {
   _loadWbBoards();
   _wbBoards = _wbBoards.filter(b => b.id !== id);
   _saveWbBoards();
@@ -63,7 +65,7 @@ function wbDelete(id) {
   _renderWbList();
 }
 
-function wbRename(id) {
+export function wbRename(id) {
   const board = _wbBoards.find(b => b.id === id);
   if (!board) return;
   const el = document.getElementById('wb-name-' + id);
@@ -77,7 +79,7 @@ function wbRename(id) {
   });
 }
 
-function _wbStartEditable(el, onFinish) {
+export function _wbStartEditable(el, onFinish) {
   el.contentEditable = 'true';
   el.focus();
   const range = document.createRange();
@@ -95,7 +97,7 @@ function _wbStartEditable(el, onFinish) {
   el.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } };
 }
 
-function _renderWbList() {
+export function _renderWbList() {
   const list = document.getElementById('wb-list');
   if (!list) return;
   const closeSvg = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>';
@@ -127,7 +129,7 @@ function _renderWbList() {
 }
 
 
-function _sizeWbCanvas() {
+export function _sizeWbCanvas() {
   const area = document.getElementById('wb-canvas-area');
   if (!area) return;
   const toolbar = area.querySelector('.wb-toolbar');
@@ -136,7 +138,7 @@ function _sizeWbCanvas() {
   _wbCanvas.height = area.clientHeight - toolbarH;
 }
 
-function _getWbBgColor() {
+export function _getWbBgColor() {
   return getComputedStyle(document.documentElement).getPropertyValue('--bg-body').trim() || '#0a0a0a';
 }
 
@@ -145,7 +147,7 @@ function _getWbBgColor() {
 
 
 
-function _redrawWb() {
+export function _redrawWb() {
   const ctx = _wbCtx;
   if (!ctx) return;
   ctx.clearRect(0, 0, _wbCanvas.width, _wbCanvas.height);
@@ -169,9 +171,35 @@ function _redrawWb() {
 
 
 
-function _saveWbStrokes() {
+export function _saveWbStrokes() {
   if (!_wbCurrentId) return;
   try {
     Settings.setJSON(_wbStrokesKey(_wbCurrentId), _wbStrokes);
   } catch {}
 }
+
+// ── Window exports ──
+window._wbStrokes = _wbStrokes;
+window._wbRedoStack = _wbRedoStack;
+window._wbDrawing = _wbDrawing;
+window._wbCurrent = _wbCurrent;
+window._wbCtx = _wbCtx;
+window._wbCanvas = _wbCanvas;
+window._wbMode = _wbMode;
+window._wbInited = _wbInited;
+window._wbResizeObs = _wbResizeObs;
+window._wbCurrentId = _wbCurrentId;
+window._wbBoards = _wbBoards;
+window._loadWbBoards = _loadWbBoards;
+window._saveWbBoards = _saveWbBoards;
+window._wbStrokesKey = _wbStrokesKey;
+window.wbNew = wbNew;
+window.wbOpen = wbOpen;
+window.wbDelete = wbDelete;
+window.wbRename = wbRename;
+window._wbStartEditable = _wbStartEditable;
+window._renderWbList = _renderWbList;
+window._sizeWbCanvas = _sizeWbCanvas;
+window._getWbBgColor = _getWbBgColor;
+window._redrawWb = _redrawWb;
+window._saveWbStrokes = _saveWbStrokes;

@@ -1,6 +1,7 @@
 // ─── Help Settings ──────────────────────────────────────
+if (window.AetherUI) AetherUI.globals();
 
-function _renderHelpSettings() {
+export function _renderHelpSettings() {
   var h = '';
 
   // Search
@@ -62,3 +63,5 @@ function _renderHelpSettings() {
 
   return RawHTML(h);
 }
+
+window._renderHelpSettings = _renderHelpSettings;

@@ -1,6 +1,9 @@
-// ─── AI Settings (merged from Tools + Lookup Panel + Agent) ──
+import Settings from '../core/core-settings.js';
 
-function _renderAISettings() {
+// ─── AI Settings (merged from Tools + Lookup Panel + Agent) ──
+if (window.AetherUI) AetherUI.globals();
+
+export function _renderAISettings() {
   // ── Models group ──
   function _modelRow(label, desc, lsKey, fallback) {
     var currentVal = Settings.get(lsKey) || fallback;
@@ -97,3 +100,5 @@ function _renderAISettings() {
     howItWorks
   );
 }
+
+window._renderAISettings = _renderAISettings;

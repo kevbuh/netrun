@@ -4,7 +4,7 @@
 // ── View management ──
 
 // ── Feed catalog ──
-const FEED_CATALOG = [
+export const FEED_CATALOG = [
   // Research & Science
   { key: 'arxiv', name: 'arXiv', desc: 'Latest CS research papers', cat: 'Research & Science', special: 'arxiv', img: '/arxiv-logomark-small@2x.png', favicon: 'arxiv.org' },
   { key: 'nature', name: 'Nature', desc: 'Scientific research and discoveries', cat: 'Research & Science', url: 'https://www.nature.com/nature.rss', letter: 'N', bg: '#c00', fg: '#fff', favicon: 'nature.com' },
@@ -196,7 +196,7 @@ const FEED_CATALOG = [
   { key: 'android-developers', name: 'Android Developers', desc: 'Official Android development blog (Atom)', cat: 'Programming', url: 'https://android-developers.googleblog.com/feeds/posts/default', letter: 'A', bg: '#3ddc84', fg: '#000', favicon: 'developer.android.com' },
 ];
 
-function catalogLogo(entry, size) {
+export function catalogLogo(entry, size) {
   // For inline (card chips), prefer favicon
   if (size === 'inline' && entry.favicon) {
     return `<img class="h-3.5 w-3.5 rounded-sm inline-block" src="https://www.google.com/s2/favicons?domain=${entry.favicon}&sz=32" alt="${entry.name}" onerror="this.style.display='none'" />`;
@@ -216,9 +216,9 @@ function catalogLogo(entry, size) {
   return `<svg class="${cls}" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="${entry.bg}"${stroke} width="256" height="256" rx="24"/><text x="128" y="185" text-anchor="middle" fill="${entry.fg}" font-size="${fs}" font-weight="bold" font-family="${font}">${entry.letter}</text></svg>`;
 }
 
-const SOURCE_LOGO_INLINE = {};
-const SOURCE_NAMES = {};
-const FEED_CAT_MAP = {};
+export const SOURCE_LOGO_INLINE = {};
+export const SOURCE_NAMES = {};
+export const FEED_CAT_MAP = {};
 FEED_CATALOG.forEach(f => {
   SOURCE_LOGO_INLINE[f.key] = catalogLogo(f, 'inline');
   SOURCE_NAMES[f.key] = f.name;
@@ -234,7 +234,7 @@ function _isSubstackSource(source) {
   return feeds.some(f => f.name === name && /substack\.com/i.test(f.url));
 }
 
-function getSourceChip(source, arxivId) {
+export function getSourceChip(source, arxivId) {
   const isSubstack = _isSubstackSource(source);
   const logo = SOURCE_LOGO_INLINE[source]
     || (isSubstack ? SUBSTACK_LOGO_INLINE : '')
@@ -251,7 +251,7 @@ function getSourceChip(source, arxivId) {
 const _viewTemplateCache = {};   // { viewId: htmlString }
 const _mountedViews = new Set(); // currently injected view IDs
 
-const VIEW_REGISTRY = {
+export const VIEW_REGISTRY = {
   'dashboard-view':      { template: '/views/dashboard.html', tier: 2 },
   'research-view':       { template: '/views/research.html',  tier: 2 },
   'settings-view':       { template: '/views/settings.html',  tier: 2 },
@@ -263,7 +263,7 @@ const VIEW_REGISTRY = {
   'dev-stats-view':      { template: '/views/dev.html',      tier: 2 },
 };
 
-async function ensureView(viewId) {
+export async function ensureView(viewId) {
   const existing = document.getElementById(viewId);
   if (existing) return existing;
   const config = VIEW_REGISTRY[viewId];
@@ -288,14 +288,14 @@ async function ensureView(viewId) {
   return div;
 }
 
-function unmountView(viewId) {
+export function unmountView(viewId) {
   if (!_mountedViews.has(viewId)) return;
   const el = document.getElementById(viewId);
   if (el) el.remove();
   _mountedViews.delete(viewId);
 }
 
-function hideAllViews() {
+export function hideAllViews() {
   document.getElementById('home-main').style.display = 'none';
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.classList.add('hidden'); v.style.display = ''; });
   // Unmount Tier 2 views to free DOM
@@ -316,10 +316,7 @@ function hideAllViews() {
   if (typeof _browseResetAdaptiveColor === 'function') _browseResetAdaptiveColor();
   if (typeof _devFpsRaf !== 'undefined' && _devFpsRaf) { cancelAnimationFrame(_devFpsRaf); _devFpsRaf = null; }
   // Hide universal panel (next view's open function will re-show if it has registered tabs)
-  const _upanel = document.getElementById('universal-panel');
-  if (_upanel) _upanel.style.display = 'none';
-  _removePanelMargin();
-  _panelActiveView = null;
+  hidePanel();
 }
 
 // ── Niri-style Tiling Window Manager ──
@@ -357,7 +354,7 @@ const _wmWindows = _wmDefaultOrder.map(key => ({
   sidebarId: _wmViewMeta[key].sidebarId,
 }));
 
-function wmOpen(key) {
+export function wmOpen(key) {
   const meta = _wmViewMeta[key];
   if (!meta) return;
   const existIdx = _wmWindows.findIndex(w => w.key === key);
@@ -402,7 +399,7 @@ function _wmActivateWindow(index) {
   if (meta) meta.openFn();
 }
 
-function _wmToggleTiling() {
+export function _wmToggleTiling() {
 }
 
 /* ── Drag pill — horizontal drag to switch windows ── */
@@ -492,7 +489,7 @@ function _wmToggleTiling() {
 
 })();
 
-function goHome() {
+export function goHome() {
   const alreadyOnFeed = window.location.hash === '#feed';
   document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = ''; });
   // Unmount Tier 2 views when going home
@@ -511,7 +508,7 @@ function goHome() {
   loadAllFeeds();
 }
 
-async function openResearch() {
+export async function openResearch() {
   // Open browse and ensure a blank tab is active
   openBrowse();
   const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
@@ -528,11 +525,11 @@ async function openResearch() {
 }
 
 // Legacy functions for compatibility
-function openSearch() {
+export function openSearch() {
   openResearch();
 }
 
-async function openDashboard() {
+export async function openDashboard() {
   hideAllViews();
   const view = await ensureView('dashboard-view');
   view.classList.add('active');
@@ -542,7 +539,7 @@ async function openDashboard() {
   renderDashboard();
 }
 
-async function openDevStats() {
+export async function openDevStats() {
   hideAllViews();
   const view = await ensureView('dev-stats-view');
   view.classList.add('active');
@@ -551,5 +548,24 @@ async function openDevStats() {
   setSidebarActive('sb-dev');
   renderDevPanel();
 }
+
+// ── Window assignments for backward compatibility ──
+window.FEED_CATALOG = FEED_CATALOG;
+window.catalogLogo = catalogLogo;
+window.SOURCE_LOGO_INLINE = SOURCE_LOGO_INLINE;
+window.SOURCE_NAMES = SOURCE_NAMES;
+window.FEED_CAT_MAP = FEED_CAT_MAP;
+window.getSourceChip = getSourceChip;
+window.VIEW_REGISTRY = VIEW_REGISTRY;
+window.ensureView = ensureView;
+window.unmountView = unmountView;
+window.hideAllViews = hideAllViews;
+window.wmOpen = wmOpen;
+window.goHome = goHome;
+window.openResearch = openResearch;
+window.openSearch = openSearch;
+window.openDashboard = openDashboard;
+window.openDevStats = openDevStats;
+window._wmToggleTiling = _wmToggleTiling;
 
 // ── Navigation history stack (survives Cmd+Shift+R via localStorage) ──

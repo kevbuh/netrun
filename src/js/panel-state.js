@@ -8,14 +8,14 @@
 //   @const    — set once at init, never changes
 
 // ── Chat State ──  @runtime
-let _popupChatMessages = [];
-let _popupChatAbort = null;
-let _chatStreamStart = 0;
-let _aetherBackgroundStreaming = false;
-let _chatMemoryRetrieved = false;
+export let _popupChatMessages = [];
+export let _popupChatAbort = null;
+export let _chatStreamStart = 0;
+export let _aetherBackgroundStreaming = false;
+export let _chatMemoryRetrieved = false;
 
 // ── Aether Cursor/Focus State ──
-let _aetherTrackModeVal = false;
+export let _aetherTrackModeVal = false;
 Object.defineProperty(window, '_aetherTrackMode', {
   get() { return _aetherTrackModeVal; },
   set(v) {
@@ -39,43 +39,85 @@ Object.defineProperty(window, '_aetherTrackMode', {
   }
 });
 
-let _lastMouseX = 0;
-let _lastMouseY = 0;
-let _aetherPrevFocus = null; // { el, selStart, selEnd } — restore on Escape
-let _aetherDragging = false;
-let _aetherDragOffset = { x: 0, y: 0 };
-let _aetherDragPopup = null;
-let _aetherPinned = false;
+export let _lastMouseX = 0;
+export let _lastMouseY = 0;
+export let _aetherPrevFocus = null; // { el, selStart, selEnd } — restore on Escape
+export let _aetherDragging = false;
+export let _aetherDragOffset = { x: 0, y: 0 };
+export let _aetherDragPopup = null;
+export let _aetherPinned = false;
 
 // ── Context Attachments ──
-let _pendingScreenshots = [];
-let _pendingTabContexts = []; // {tabId, title, url, content} — browser tabs attached to chat
-let _pendingFileContexts = []; // {name, content} — uploaded files attached to chat
+export let _pendingScreenshots = [];
+export let _pendingTabContexts = []; // {tabId, title, url, content} — browser tabs attached to chat
+export let _pendingFileContexts = []; // {name, content} — uploaded files attached to chat
 
 // ── TTS State ──
-let _ttsAudio = null; // current Kokoro TTS audio element
-let _ttsAudioCtx = null;
-let _ttsAnalyser = null;
-let _ttsRafId = null;
-let _ttsQueue = []; // queued audio blobs for chunked playback
-let _ttsChunks = []; // text chunks pending TTS
-let _ttsChunkIdx = 0; // next chunk to fetch
-let _ttsStopped = false; // cancellation flag
-let _ttsPaused = false; // pause flag
-let _ttsPlayedDurations = []; // durations of already-finished chunks
-let _ttsRemainingDurations = []; // estimated durations of queued chunks
-let _ttsPlayingChunkIdx = -1; // index of the chunk currently being read aloud
-let _ttsTabId = null; // tab ID where TTS was started (persists across tab switches)
+export let _ttsAudio = null; // current Kokoro TTS audio element
+export let _ttsAudioCtx = null;
+export let _ttsAnalyser = null;
+export let _ttsRafId = null;
+export let _ttsQueue = []; // queued audio blobs for chunked playback
+export let _ttsChunks = []; // text chunks pending TTS
+export let _ttsChunkIdx = 0; // next chunk to fetch
+export let _ttsStopped = false; // cancellation flag
+export let _ttsPaused = false; // pause flag
+export let _ttsPlayedDurations = []; // durations of already-finished chunks
+export let _ttsRemainingDurations = []; // estimated durations of queued chunks
+export let _ttsPlayingChunkIdx = -1; // index of the chunk currently being read aloud
+export let _ttsTabId = null; // tab ID where TTS was started (persists across tab switches)
 
 // ── Command State (Aether slash commands) ──
-let _aetherCmdIdx = -1;
-let _aetherTabIdx = -1;
-let _aetherTabList = [];
-let _aetherTabSwitchMode = false; // true when cycling through tabs with /tabs
-let _aetherHistoryIdx = -1;
-let _aetherHistoryList = [];
-let _aetherModelIdx = -1;
-let _aetherModelList = [];
-let _aetherAgentIdx = -1;
-let _aetherAgentList = [];
-let _aetherTabAutoAdding = false;
+export let _aetherCmdIdx = -1;
+export let _aetherTabIdx = -1;
+export let _aetherTabList = [];
+export let _aetherTabSwitchMode = false; // true when cycling through tabs with /tabs
+export let _aetherHistoryIdx = -1;
+export let _aetherHistoryList = [];
+export let _aetherModelIdx = -1;
+export let _aetherModelList = [];
+export let _aetherAgentIdx = -1;
+export let _aetherAgentList = [];
+export let _aetherTabAutoAdding = false;
+
+// ── Window assignments for global access ──
+window._popupChatMessages = _popupChatMessages;
+window._popupChatAbort = _popupChatAbort;
+window._chatStreamStart = _chatStreamStart;
+window._aetherBackgroundStreaming = _aetherBackgroundStreaming;
+window._chatMemoryRetrieved = _chatMemoryRetrieved;
+window._aetherTrackModeVal = _aetherTrackModeVal;
+window._lastMouseX = _lastMouseX;
+window._lastMouseY = _lastMouseY;
+window._aetherPrevFocus = _aetherPrevFocus;
+window._aetherDragging = _aetherDragging;
+window._aetherDragOffset = _aetherDragOffset;
+window._aetherDragPopup = _aetherDragPopup;
+window._aetherPinned = _aetherPinned;
+window._pendingScreenshots = _pendingScreenshots;
+window._pendingTabContexts = _pendingTabContexts;
+window._pendingFileContexts = _pendingFileContexts;
+window._ttsAudio = _ttsAudio;
+window._ttsAudioCtx = _ttsAudioCtx;
+window._ttsAnalyser = _ttsAnalyser;
+window._ttsRafId = _ttsRafId;
+window._ttsQueue = _ttsQueue;
+window._ttsChunks = _ttsChunks;
+window._ttsChunkIdx = _ttsChunkIdx;
+window._ttsStopped = _ttsStopped;
+window._ttsPaused = _ttsPaused;
+window._ttsPlayedDurations = _ttsPlayedDurations;
+window._ttsRemainingDurations = _ttsRemainingDurations;
+window._ttsPlayingChunkIdx = _ttsPlayingChunkIdx;
+window._ttsTabId = _ttsTabId;
+window._aetherCmdIdx = _aetherCmdIdx;
+window._aetherTabIdx = _aetherTabIdx;
+window._aetherTabList = _aetherTabList;
+window._aetherTabSwitchMode = _aetherTabSwitchMode;
+window._aetherHistoryIdx = _aetherHistoryIdx;
+window._aetherHistoryList = _aetherHistoryList;
+window._aetherModelIdx = _aetherModelIdx;
+window._aetherModelList = _aetherModelList;
+window._aetherAgentIdx = _aetherAgentIdx;
+window._aetherAgentList = _aetherAgentList;
+window._aetherTabAutoAdding = _aetherTabAutoAdding;

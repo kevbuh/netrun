@@ -3,7 +3,7 @@
 
 // ── Audio Tracking ──
 
-function toggleTabMute(tabId) {
+export function toggleTabMute(tabId) {
   const audioInfo = _browseAudioTabs.get(tabId);
   if (!audioInfo) return;
 
@@ -22,7 +22,7 @@ function toggleTabMute(tabId) {
   }
 }
 
-function goToAudioTab() {
+export function goToAudioTab() {
   // Go to the first tab playing audio
   const entry = _browseAudioTabs.entries().next().value;
   if (!entry) return;
@@ -39,7 +39,7 @@ function goToAudioTab() {
   }
 }
 
-function _browseUpdateScrollPill(pct) {
+export function _browseUpdateScrollPill(pct) {
   const el = document.getElementById('pill-scroll-pct');
   if (!el) return;
   if (pct <= 0) {
@@ -51,7 +51,7 @@ function _browseUpdateScrollPill(pct) {
   }
 }
 
-function _browseUpdateTokenCount(count) {
+export function _browseUpdateTokenCount(count) {
   const el = document.getElementById('pill-token-count');
   if (!el) return;
   if (count <= 0) {
@@ -64,7 +64,7 @@ function _browseUpdateTokenCount(count) {
   }
 }
 
-function _updateAudioIndicator() {
+export function _updateAudioIndicator() {
   // Remove legacy floating indicator if it exists
   const legacy = document.getElementById('audio-indicator');
   if (legacy) legacy.remove();
@@ -116,3 +116,9 @@ function _updateAudioIndicator() {
     });
   }
 }
+
+window.toggleTabMute = toggleTabMute;
+window.goToAudioTab = goToAudioTab;
+window._browseUpdateScrollPill = _browseUpdateScrollPill;
+window._browseUpdateTokenCount = _browseUpdateTokenCount;
+window._updateAudioIndicator = _updateAudioIndicator;

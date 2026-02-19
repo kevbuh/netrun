@@ -1,7 +1,8 @@
 // panel-tts.js — Text-to-speech system with chunked playback and highlighting
+import Settings from '/js/core/core-settings.js';
 
 // ── TTS Waveform Visualization ──
-function _ttsStartWaveform(audio) {
+export function _ttsStartWaveform(audio) {
   if (!_ttsAudioCtx) _ttsAudioCtx = new AudioContext();
   const src = _ttsAudioCtx.createMediaElementSource(audio);
   _ttsAnalyser = _ttsAudioCtx.createAnalyser();
@@ -27,14 +28,14 @@ function _ttsStartWaveform(audio) {
   tick();
 }
 
-function _ttsStopWaveform() {
+export function _ttsStopWaveform() {
   if (_ttsRafId) { cancelAnimationFrame(_ttsRafId); _ttsRafId = null; }
   _ttsAnalyser = null;
   // Don't close AudioContext — reuse it (creating new ones is expensive)
 }
 
 // ── TTS Frame Helpers ──
-function _ttsGetFrame() {
+export function _ttsGetFrame() {
   if (typeof _getCurrentWindow !== 'function') return null;
   const win = _getCurrentWindow();
   if (!win) return null;
@@ -44,7 +45,7 @@ function _ttsGetFrame() {
   return tab && tab.el ? tab.el : null;
 }
 
-function _ttsExecInFrame(frame, script) {
+export function _ttsExecInFrame(frame, script) {
   if (!frame) return;
   if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
     frame.executeJavaScript(script).catch(function() {});
@@ -54,7 +55,7 @@ function _ttsExecInFrame(frame, script) {
 }
 
 // ── TTS Text Processing ──
-function _ttsSplitSentences(text) {
+export function _ttsSplitSentences(text) {
   // Normalize Unicode hyphens and rejoin line-break splits (e.g. "habili-tation" → "habilitation")
   text = text.replace(/[\u00AD\u2010\u2011\u2012\u2013\u2014\uFE63\uFF0D]/g, '-');
   text = text.replace(/(\w)-\s*\n\s*(\w)/g, function(_, a, b) { return a + b; });
@@ -89,7 +90,7 @@ function _ttsSplitSentences(text) {
   return result.length > 0 ? result : [text];
 }
 
-function _ttsHighlightChunk(chunkText) {
+export function _ttsHighlightChunk(chunkText) {
   if (Settings.get('ttsHighlight') === 'false') return;
   const frame = _ttsGetFrame();
   if (!frame || !chunkText) return;
@@ -226,7 +227,7 @@ function _ttsHighlightChunk(chunkText) {
   _ttsExecInFrame(frame, script);
 }
 
-function _ttsClearHighlights() {
+export function _ttsClearHighlights() {
   const frame = _ttsGetFrame();
   if (!frame) return;
   const script = `(function() {
@@ -241,7 +242,7 @@ function _ttsClearHighlights() {
 }
 
 // ── TTS UI Updates ──
-function _ttsUpdateBtnIcon() {
+export function _ttsUpdateBtnIcon() {
   const btn = document.getElementById('pill-readaloud-btn');
   if (!btn) return;
   const speaker = btn.querySelector('.tts-icon-speaker');
@@ -259,7 +260,7 @@ function _ttsUpdateBtnIcon() {
 }
 
 // ── TTS Playback Control ──
-function _ttsStopAll() {
+export function _ttsStopAll() {
   _ttsStopped = true;
   _ttsPaused = false;
   if (_ttsAudio) { _ttsAudio.pause(); _ttsAudio = null; }
@@ -278,7 +279,7 @@ function _ttsStopAll() {
   document.querySelectorAll('.doc-msg-speak-btn.doc-msg-speaking').forEach(function(b) { b.classList.remove('doc-msg-speaking'); });
 }
 
-function _ttsFormatTime(secs) {
+export function _ttsFormatTime(secs) {
   let s = Math.round(secs);
   if (s < 0) s = 0;
   const m = Math.floor(s / 60);
@@ -286,7 +287,7 @@ function _ttsFormatTime(secs) {
   return m + ':' + (r < 10 ? '0' : '') + r;
 }
 
-function _ttsTimeDetail() {
+export function _ttsTimeDetail() {
   if (!_ttsAudio && !_ttsPaused) return '';
   const audio = _ttsAudio;
   let currentRemaining = 0;
@@ -312,7 +313,7 @@ function _ttsTimeDetail() {
   return _ttsFormatTime(total) + ' left';
 }
 
-function _ttsChunkText(text) {
+export function _ttsChunkText(text) {
   // Normalize Unicode hyphens/dashes to ASCII hyphen before processing
   text = text.replace(/[\u00AD\u2010\u2011\u2012\u2013\u2014\uFE63\uFF0D]/g, '-');
   // Rejoin line-break hyphens common in PDFs (e.g. "regular-\nities" → "regularities")
@@ -355,13 +356,13 @@ function _ttsChunkText(text) {
   return merged;
 }
 
-async function _ttsFetchChunk(text) {
+export async function _ttsFetchChunk(text) {
   const data = await apiPost('/api/tts', { text });
   if (!data || !data.audioPath) throw new Error('No audio generated');
   return data.audioPath;
 }
 
-function _ttsPlayNext() {
+export function _ttsPlayNext() {
   if (_ttsStopped || _ttsQueue.length === 0) return;
   const url = _ttsQueue.shift();
   // Remove first queued duration since we're now playing it
@@ -437,7 +438,7 @@ function _ttsPlayNext() {
   audio.play();
 }
 
-async function _ttsFetchAndQueue() {
+export async function _ttsFetchAndQueue() {
   while (_ttsChunkIdx < _ttsChunks.length && !_ttsStopped) {
     const idx = _ttsChunkIdx++;
     const total = _ttsChunks.length;
@@ -456,3 +457,20 @@ async function _ttsFetchAndQueue() {
     }
   }
 }
+
+// ── Window assignments for global access ──
+window._ttsStartWaveform = _ttsStartWaveform;
+window._ttsStopWaveform = _ttsStopWaveform;
+window._ttsGetFrame = _ttsGetFrame;
+window._ttsExecInFrame = _ttsExecInFrame;
+window._ttsSplitSentences = _ttsSplitSentences;
+window._ttsHighlightChunk = _ttsHighlightChunk;
+window._ttsClearHighlights = _ttsClearHighlights;
+window._ttsUpdateBtnIcon = _ttsUpdateBtnIcon;
+window._ttsStopAll = _ttsStopAll;
+window._ttsFormatTime = _ttsFormatTime;
+window._ttsTimeDetail = _ttsTimeDetail;
+window._ttsChunkText = _ttsChunkText;
+window._ttsFetchChunk = _ttsFetchChunk;
+window._ttsPlayNext = _ttsPlayNext;
+window._ttsFetchAndQueue = _ttsFetchAndQueue;

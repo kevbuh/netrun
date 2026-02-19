@@ -1,11 +1,12 @@
 // browse-annotations.js — Unified Insight (ambient + annotations)
 // Depends on: browse-state.js
+import Settings from '/js/core/core-settings.js';
 if (window.AetherUI) AetherUI.globals();
 
 // ── Insight state ──
 
-const _annotationsEnabled = new Map(); // tabId → bool
-const _insightCache = new Map();       // url → { insight, annotations, related, ts }
+export const _annotationsEnabled = new Map(); // tabId → bool
+export const _insightCache = new Map();       // url → { insight, annotations, related, ts }
 
 // Restore insight cache from localStorage on load
 try {
@@ -16,7 +17,7 @@ try {
   }
 } catch {}
 
-function _persistInsightCache() {
+export function _persistInsightCache() {
   const obj = {};
   const now = Date.now();
   for (const [url, entry] of _insightCache) {
@@ -27,7 +28,7 @@ function _persistInsightCache() {
 
 // ── Trigger insight (manual — called when user clicks annotate pill) ──
 
-function _triggerInsight(tab) {
+export function _triggerInsight(tab) {
   if (!tab || tab.blank) return;
   const url = tab.url || '';
   if (!url || url.startsWith('about:') || url.startsWith('chrome:')) return;
@@ -42,7 +43,7 @@ function _triggerInsight(tab) {
   _triggerInsightExtract(tab);
 }
 
-async function _triggerInsightExtract(tab) {
+export async function _triggerInsightExtract(tab) {
   if (!window.electronAPI || !window.electronAPI.insightPageLoaded) return;
   if (!tab || !tab.el) return;
 
@@ -101,7 +102,7 @@ async function _triggerInsightExtract(tab) {
   } catch (e) { /* silent */ }
 }
 
-function _restoreInsightPill(tab) {
+export function _restoreInsightPill(tab) {
   if (!tab || !tab.url) return false;
   const cached = _insightCache.get(tab.url);
   if (!cached || Date.now() - cached.ts > 300000) return false;
@@ -138,7 +139,7 @@ function _restoreInsightPill(tab) {
 
 // ── Show "Annotate" offer pill for current tab ──
 
-function _showAnnotateOfferPill(tab) {
+export function _showAnnotateOfferPill(tab) {
   if (!tab || tab.blank) return;
   const url = tab.url || '';
   if (!url || url.startsWith('about:') || url.startsWith('chrome:')) return;
@@ -161,7 +162,7 @@ function _showAnnotateOfferPill(tab) {
 
 // ── Toggle insight (clear/restore) ──
 
-function toggleInsight() {
+export function toggleInsight() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || tab.blank) return;
   const enabled = !_annotationsEnabled.get(tab.id);
@@ -180,11 +181,11 @@ function toggleInsight() {
 }
 
 // Keep old name as alias for browse-pill.js compatibility
-function toggleAnnotations() { toggleInsight(); }
+export function toggleAnnotations() { toggleInsight(); }
 
 // ── Manual re-analyze ──
 
-async function _manualInsightAnalyze(tab) {
+export async function _manualInsightAnalyze(tab) {
   if (!tab || !tab.el) return;
   if (!window.electronAPI || !window.electronAPI.insightAnalyze) return;
 
@@ -242,7 +243,7 @@ async function _manualInsightAnalyze(tab) {
 
 // ── Insight result listener ──
 
-function _initInsightListener() {
+export function _initInsightListener() {
   if (!window.electronAPI || !window.electronAPI.onInsightResult) return;
 
   window.electronAPI.onInsightResult(function (_event, result) {
@@ -306,7 +307,7 @@ function _initInsightListener() {
 
 // ── Insight partial (streaming) listener ──
 
-function _initInsightPartialListener() {
+export function _initInsightPartialListener() {
   if (!window.electronAPI || !window.electronAPI.onInsightPartial) return;
 
   window.electronAPI.onInsightPartial(function (_event, partial) {
@@ -335,7 +336,7 @@ function _initInsightPartialListener() {
 }
 
 // Initialize when DOM is ready
-function _initInsightSystem() {
+export function _initInsightSystem() {
   _initInsightListener();
   _initInsightPartialListener();
   // Sync enabled state with backend
@@ -351,7 +352,7 @@ if (document.readyState === 'loading') {
 
 // ── Text extraction (unchanged) ──
 
-async function _waitForWebviewReady(frame, timeout) {
+export async function _waitForWebviewReady(frame, timeout) {
   if (!frame || frame.tagName !== 'WEBVIEW') return false;
   if (frame.isConnected && frame.getWebContentsId && frame.getWebContentsId()) return true;
   return new Promise(function(resolve) {
@@ -364,7 +365,7 @@ async function _waitForWebviewReady(frame, timeout) {
   });
 }
 
-async function _extractTextFromFrame(tab) {
+export async function _extractTextFromFrame(tab) {
   if (!tab || !tab.el) return '';
   const frame = tab.el;
   if (frame.tagName === 'WEBVIEW') {
@@ -402,7 +403,7 @@ async function _extractTextFromFrame(tab) {
 }
 
 
-async function _readPageAloud() {
+export async function _readPageAloud() {
   // Pause/resume if already playing
   if (_ttsAudio || _ttsPaused) {
     _ttsPauseResume();
@@ -438,9 +439,9 @@ async function _readPageAloud() {
   _ttsFetchAndQueue();
 }
 
-var _annTooltipPinned = false;
+export var _annTooltipPinned = false;
 
-function _showAnnotationTooltip(data, frame, pinned) {
+export function _showAnnotationTooltip(data, frame, pinned) {
   let tip = document.getElementById('aether-annotation-tooltip');
   if (_annTooltipPinned && !pinned) return; // don't overwrite pinned tooltip with hover
   if (!tip) {
@@ -519,7 +520,7 @@ function _showAnnotationTooltip(data, frame, pinned) {
   tip.style.top = top + 'px';
 }
 
-function _hideAnnotationTooltip(force) {
+export function _hideAnnotationTooltip(force) {
   if (_annTooltipPinned && !force) return;
   _annTooltipPinned = false;
   const tip = document.getElementById('aether-annotation-tooltip');
@@ -534,7 +535,7 @@ document.addEventListener('mousedown', function(ev) {
   _hideAnnotationTooltip(true);
 });
 
-function injectAnnotations(tab, annotations) {
+export function injectAnnotations(tab, annotations) {
   if (!tab || !tab.el || !annotations.length) return;
   const frame = tab.el;
 
@@ -721,7 +722,7 @@ function injectAnnotations(tab, annotations) {
   _execInFrame(frame, script);
 }
 
-function _execInFrame(frame, script) {
+export function _execInFrame(frame, script) {
   if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
     frame.executeJavaScript(script).catch(() => {});
   } else if (frame.tagName === 'IFRAME') {
@@ -736,7 +737,7 @@ function _execInFrame(frame, script) {
   }
 }
 
-function clearAnnotations(tab) {
+export function clearAnnotations(tab) {
   if (!tab || !tab.el) return;
   const hostTooltip = document.getElementById('aether-annotation-tooltip');
   if (hostTooltip) hostTooltip.remove();
@@ -755,7 +756,7 @@ function clearAnnotations(tab) {
   _execInFrame(frame, script);
 }
 
-function injectSingleAnnotation(tab, ann) {
+export function injectSingleAnnotation(tab, ann) {
   if (!tab || !tab.el) return;
   const frame = tab.el;
   const colorMap = {
@@ -809,7 +810,7 @@ function injectSingleAnnotation(tab, ann) {
   _execInFrame(frame, script);
 }
 
-function scrollToAnnotation(idx) {
+export function scrollToAnnotation(idx) {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || !tab.el) return;
   const frame = tab.el;
@@ -827,7 +828,7 @@ function scrollToAnnotation(idx) {
   _execInFrame(frame, script);
 }
 
-function _updateAnnotateButtonState() {
+export function _updateAnnotateButtonState() {
   const btn = document.getElementById('browse-annotate-btn');
   if (!btn) return;
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
@@ -835,3 +836,29 @@ function _updateAnnotateButtonState() {
   btn.classList.toggle('text-accent', !!enabled);
   btn.classList.toggle('text-dimmer', !enabled);
 }
+
+window._annotationsEnabled = _annotationsEnabled;
+window._insightCache = _insightCache;
+window._persistInsightCache = _persistInsightCache;
+window._triggerInsight = _triggerInsight;
+window._triggerInsightExtract = _triggerInsightExtract;
+window._restoreInsightPill = _restoreInsightPill;
+window._showAnnotateOfferPill = _showAnnotateOfferPill;
+window.toggleInsight = toggleInsight;
+window.toggleAnnotations = toggleAnnotations;
+window._manualInsightAnalyze = _manualInsightAnalyze;
+window._initInsightListener = _initInsightListener;
+window._initInsightPartialListener = _initInsightPartialListener;
+window._initInsightSystem = _initInsightSystem;
+window._waitForWebviewReady = _waitForWebviewReady;
+window._extractTextFromFrame = _extractTextFromFrame;
+window._readPageAloud = _readPageAloud;
+window._annTooltipPinned = _annTooltipPinned;
+window._showAnnotationTooltip = _showAnnotationTooltip;
+window._hideAnnotationTooltip = _hideAnnotationTooltip;
+window.injectAnnotations = injectAnnotations;
+window._execInFrame = _execInFrame;
+window.clearAnnotations = clearAnnotations;
+window.injectSingleAnnotation = injectSingleAnnotation;
+window.scrollToAnnotation = scrollToAnnotation;
+window._updateAnnotateButtonState = _updateAnnotateButtonState;

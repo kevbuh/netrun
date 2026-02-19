@@ -1,13 +1,16 @@
+import Settings from '/js/core/core-settings.js';
+
 // ── Terminal View (Multi-tab, Split Panes, Search, Themes) ──
+if (window.AetherUI) AetherUI.globals();
 
 // Global state
-const _terminals = [];
-let _activeTerminalId = null;
-let _terminalLayout = null;
-let _termSearchTimeout = null;
+export const _terminals = [];
+export let _activeTerminalId = null;
+export let _terminalLayout = null;
+export let _termSearchTimeout = null;
 
 // Terminal themes
-const TERMINAL_THEMES = {
+export const TERMINAL_THEMES = {
   dark: {
     background: '#0d0d0d',
     foreground: '#d4d4d4',
@@ -126,7 +129,7 @@ const TERMINAL_THEMES = {
 };
 
 // Settings
-let _termSettings = {
+export let _termSettings = {
   theme: 'dark',
   fontSize: 13,
   fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
@@ -135,14 +138,14 @@ let _termSettings = {
   cursorStyle: 'block',
 };
 
-function _nextTerminalId() {
+export function _nextTerminalId() {
   const used = new Set(_terminals.map(t => t.id));
   let n = 1;
   while (used.has(n)) n++;
   return n;
 }
 
-function createTerminal(name, skipLayoutUpdate = false) {
+export function createTerminal(name, skipLayoutUpdate = false) {
   const id = _nextTerminalId();
   const termName = name || `Terminal ${id}`;
 
@@ -200,7 +203,7 @@ function createTerminal(name, skipLayoutUpdate = false) {
   return termObj;
 }
 
-function destroyTerminal(id) {
+export function destroyTerminal(id) {
   const idx = _terminals.findIndex(t => t.id === id);
   if (idx === -1) return;
 
@@ -247,7 +250,7 @@ function destroyTerminal(id) {
   _saveTerminalState();
 }
 
-function _removeFromLayout(termId) {
+export function _removeFromLayout(termId) {
   if (!_terminalLayout) return;
 
   function remove(node, parent, key) {
@@ -280,7 +283,7 @@ function _removeFromLayout(termId) {
   remove(_terminalLayout, null, null);
 }
 
-function selectTerminal(id) {
+export function selectTerminal(id) {
   const t = _terminals.find(t => t.id === id);
   if (!t) return;
 
@@ -302,7 +305,7 @@ function selectTerminal(id) {
   _saveTerminalState();
 }
 
-function renameTerminal(id, name) {
+export function renameTerminal(id, name) {
   const t = _terminals.find(t => t.id === id);
   if (t) {
     t.name = name;
@@ -311,39 +314,31 @@ function renameTerminal(id, name) {
   }
 }
 
-function _renderTabs() {
+export function _renderTabs() {
   const tabsEl = document.getElementById('vault-terminal-tabs') || document.getElementById('terminal-tabs');
   if (!tabsEl) return;
 
   tabsEl.innerHTML = '';
   _terminals.forEach(function(t) {
-    var tab = document.createElement('div');
-    tab.className = 'term-tab' + (t.id === _activeTerminalId ? ' active' : '');
-    tab.dataset.termId = t.id;
-    tab.onclick = function() { selectTerminal(t.id); };
-    tab.innerHTML = '<svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>';
-    var title = document.createElement('span');
-    title.className = 'term-tab-title';
-    title.textContent = t.name;
-    title.ondblclick = function(e) { e.stopPropagation(); _startRenameTab(t.id); };
-    tab.appendChild(title);
-    var closeBtn = document.createElement('button');
-    closeBtn.className = 'term-tab-close';
-    closeBtn.textContent = '\u00d7';
-    closeBtn.title = 'Close';
-    closeBtn.onclick = function(e) { e.stopPropagation(); destroyTerminal(t.id); };
-    tab.appendChild(closeBtn);
-    tabsEl.appendChild(tab);
+    var tabSvg = '<svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>';
+    var tab = new View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
+    tab.attr('data-term-id', t.id);
+    tab.onTap(function() { selectTerminal(t.id); });
+    tab.el.appendChild(RawHTML(tabSvg).el);
+    var title = Text(t.name).className('term-tab-title');
+    title.on('dblclick', function(e) { e.stopPropagation(); _startRenameTab(t.id); });
+    tab.el.appendChild(title.el);
+    var closeBtn = Button('\u00d7').className('term-tab-close').attr('title', 'Close');
+    closeBtn.onTap(function(e) { e.stopPropagation(); destroyTerminal(t.id); });
+    tab.el.appendChild(closeBtn.el);
+    tabsEl.appendChild(tab.el);
   });
-  var newBtn = document.createElement('button');
-  newBtn.className = 'term-tab-new';
-  newBtn.textContent = '+';
-  newBtn.title = 'New Tab';
-  newBtn.onclick = function() { createTerminal(); };
-  tabsEl.appendChild(newBtn);
+  var newBtn = Button('+').className('term-tab-new').attr('title', 'New Tab');
+  newBtn.onTap(function() { createTerminal(); });
+  tabsEl.appendChild(newBtn.el);
 }
 
-function _startRenameTab(id) {
+export function _startRenameTab(id) {
   const t = _terminals.find(t => t.id === id);
   if (!t) return;
 
@@ -373,7 +368,7 @@ function _startRenameTab(id) {
   input.select();
 }
 
-function _renderLayout() {
+export function _renderLayout() {
   const container = document.getElementById('vault-terminal-panes') || document.getElementById('terminal-panes-container');
   if (!container) return;
 
@@ -430,45 +425,41 @@ function _renderLayout() {
     }
 
     if (node.type === 'split') {
-      var wrapper = document.createElement('div');
-      wrapper.className = 'term-split';
-      wrapper.style.cssText = 'display:flex;flex-direction:' + (node.direction === 'horizontal' ? 'column' : 'row') + ';width:100%;height:100%;';
+      var wrapper = new View('div').className('term-split');
+      wrapper.cssText('display:flex;flex-direction:' + (node.direction === 'horizontal' ? 'column' : 'row') + ';width:100%;height:100%;');
 
       var ratio = node.ratio || 0.5;
 
-      var pane1 = document.createElement('div');
-      pane1.className = 'term-split-pane';
-      pane1.style.cssText = node.direction === 'horizontal'
+      var pane1 = new View('div').className('term-split-pane');
+      pane1.cssText(node.direction === 'horizontal'
         ? 'height:' + (ratio * 100) + '%;width:100%;overflow:hidden;'
-        : 'width:' + (ratio * 100) + '%;height:100%;overflow:hidden;';
+        : 'width:' + (ratio * 100) + '%;height:100%;overflow:hidden;');
 
-      var handle = document.createElement('div');
-      handle.className = 'term-split-handle';
-      handle.style.cssText = node.direction === 'horizontal'
+      var handle = new View('div').className('term-split-handle');
+      handle.cssText(node.direction === 'horizontal'
         ? 'height:4px;width:100%;cursor:row-resize;background:var(--nr-border-dim);flex-shrink:0;'
-        : 'width:4px;height:100%;cursor:col-resize;background:var(--nr-border-dim);flex-shrink:0;';
-      _initSplitResize(handle, node, pane1);
+        : 'width:4px;height:100%;cursor:col-resize;background:var(--nr-border-dim);flex-shrink:0;');
+      _initSplitResize(handle.el, node, pane1.el);
 
-      var pane2 = document.createElement('div');
-      pane2.className = 'term-split-pane';
-      pane2.style.cssText = node.direction === 'horizontal'
+      var pane2 = new View('div').className('term-split-pane');
+      pane2.cssText(node.direction === 'horizontal'
         ? 'height:' + ((1 - ratio) * 100) + '%;width:100%;overflow:hidden;'
-        : 'width:' + ((1 - ratio) * 100) + '%;height:100%;overflow:hidden;';
+        : 'width:' + ((1 - ratio) * 100) + '%;height:100%;overflow:hidden;');
 
-      wrapper.appendChild(pane1);
-      wrapper.appendChild(handle);
-      wrapper.appendChild(pane2);
-      parentEl.appendChild(wrapper);
+      wrapper.el.appendChild(pane1.el);
+      wrapper.el.appendChild(handle.el);
+      wrapper.el.appendChild(pane2.el);
+      parentEl.appendChild(wrapper.el);
 
-      render(node.children[0], pane1);
-      render(node.children[1], pane2);
+      render(node.children[0], pane1.el);
+      render(node.children[1], pane2.el);
     }
   }
 
   render(_terminalLayout, container);
 }
 
-function _initSplitResize(handle, node, pane1) {
+export function _initSplitResize(handle, node, pane1) {
   let startPos = 0;
   let startRatio = node.ratio || 0.5;
 
@@ -505,7 +496,7 @@ function _initSplitResize(handle, node, pane1) {
   });
 }
 
-function splitTerminal(direction) {
+export function splitTerminal(direction) {
   if (!_activeTerminalId) return;
 
   const activeT = _terminals.find(t => t.id === _activeTerminalId);
@@ -551,7 +542,7 @@ function splitTerminal(direction) {
 }
 
 /** Send input data to terminal (IPC or WebSocket) */
-function _terminalSendInput(t, data) {
+export function _terminalSendInput(t, data) {
   if (typeof t.ws === 'string' && window.electronAPI && window.electronAPI.terminalInput) {
     window.electronAPI.terminalInput(t.ws, data);
   } else if (t.ws && t.ws.readyState === WebSocket.OPEN) {
@@ -560,7 +551,7 @@ function _terminalSendInput(t, data) {
 }
 
 /** Send resize to terminal (IPC or WebSocket) */
-function _terminalSendResize(t, cols, rows) {
+export function _terminalSendResize(t, cols, rows) {
   if (typeof t.ws === 'string' && window.electronAPI && window.electronAPI.terminalResize) {
     window.electronAPI.terminalResize(t.ws, cols, rows);
   } else if (t.ws && t.ws.readyState === WebSocket.OPEN) {
@@ -568,7 +559,7 @@ function _terminalSendResize(t, cols, rows) {
   }
 }
 
-function _connectTerminalWs(t, cwd) {
+export function _connectTerminalWs(t, cwd) {
   // Clean up previous session
   if (t.ws) {
     // t.ws is now the IPC session ID (string), not a WebSocket
@@ -587,7 +578,7 @@ function _connectTerminalWs(t, cwd) {
   }
 }
 
-async function _connectTerminalIpc(t, cwd) {
+export async function _connectTerminalIpc(t, cwd) {
   logger.debug(`terminal ${t.id} connecting via IPC, cwd=${cwd}`);
 
   try {
@@ -641,7 +632,7 @@ async function _connectTerminalIpc(t, cwd) {
   }
 }
 
-function _connectTerminalWsFallback(t, cwd) {
+export function _connectTerminalWsFallback(t, cwd) {
   const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${wsProto}//${location.host}/ws/terminal` + (cwd ? '?cwd=' + encodeURIComponent(cwd) : '');
   logger.debug(`terminal ${t.id} connecting to`, wsUrl);
@@ -681,34 +672,34 @@ function _connectTerminalWsFallback(t, cwd) {
 }
 
 // Tab navigation
-function nextTerminalTab() {
+export function nextTerminalTab() {
   if (_terminals.length < 2) return;
   const idx = _terminals.findIndex(t => t.id === _activeTerminalId);
   const nextIdx = (idx + 1) % _terminals.length;
   selectTerminal(_terminals[nextIdx].id);
 }
 
-function prevTerminalTab() {
+export function prevTerminalTab() {
   if (_terminals.length < 2) return;
   const idx = _terminals.findIndex(t => t.id === _activeTerminalId);
   const prevIdx = (idx - 1 + _terminals.length) % _terminals.length;
   selectTerminal(_terminals[prevIdx].id);
 }
 
-function selectTerminalByIndex(n) {
+export function selectTerminalByIndex(n) {
   if (n < 1 || n > _terminals.length) return;
   selectTerminal(_terminals[n - 1].id);
 }
 
 // Actions
-function clearTerminal() {
+export function clearTerminal() {
   const t = _terminals.find(t => t.id === _activeTerminalId);
   if (t && t.term) {
     t.term.clear();
   }
 }
 
-function copyTerminal() {
+export function copyTerminal() {
   const t = _terminals.find(t => t.id === _activeTerminalId);
   if (t && t.term) {
     const sel = t.term.getSelection();
@@ -718,7 +709,7 @@ function copyTerminal() {
   }
 }
 
-async function pasteTerminal() {
+export async function pasteTerminal() {
   const t = _terminals.find(t => t.id === _activeTerminalId);
   if (t && t.ws) {
     try {
@@ -729,7 +720,7 @@ async function pasteTerminal() {
 }
 
 // Search
-function _debounceTermSearch() {
+export function _debounceTermSearch() {
   clearTimeout(_termSearchTimeout);
   _termSearchTimeout = setTimeout(() => {
     const query = (document.getElementById('vault-term-search-input') || document.getElementById('term-search-input'))?.value || '';
@@ -737,7 +728,7 @@ function _debounceTermSearch() {
   }, 300);
 }
 
-function terminalSearch(query) {
+export function terminalSearch(query) {
   const t = _terminals.find(t => t.id === _activeTerminalId);
   if (!t || !t.searchAddon) return;
 
@@ -751,21 +742,21 @@ function terminalSearch(query) {
   t.searchAddon.findNext(query, { decorations: { matchOverviewRuler: true } });
 }
 
-function terminalSearchNext() {
+export function terminalSearchNext() {
   const t = _terminals.find(t => t.id === _activeTerminalId);
   if (!t || !t.searchAddon) return;
   const query = (document.getElementById('vault-term-search-input') || document.getElementById('term-search-input'))?.value || '';
   if (query) t.searchAddon.findNext(query);
 }
 
-function terminalSearchPrev() {
+export function terminalSearchPrev() {
   const t = _terminals.find(t => t.id === _activeTerminalId);
   if (!t || !t.searchAddon) return;
   const query = (document.getElementById('vault-term-search-input') || document.getElementById('term-search-input'))?.value || '';
   if (query) t.searchAddon.findPrevious(query);
 }
 
-function clearTerminalSearch() {
+export function clearTerminalSearch() {
   const input = document.getElementById('vault-term-search-input') || document.getElementById('term-search-input');
   if (input) {
     input.value = '';
@@ -780,14 +771,14 @@ function clearTerminalSearch() {
 }
 
 // Settings
-function toggleTerminalSettings() {
+export function toggleTerminalSettings() {
   const dropdown = document.getElementById('vault-term-settings-dropdown') || document.getElementById('term-settings-dropdown');
   if (dropdown) {
     dropdown.classList.toggle('hidden');
   }
 }
 
-function _applyTerminalSettingsUI() {
+export function _applyTerminalSettingsUI() {
   const themeSelect = document.getElementById('vault-term-theme-select') || document.getElementById('term-theme-select');
   const fontSlider = document.getElementById('vault-term-fontsize-slider') || document.getElementById('term-fontsize-slider');
   const fontValue = document.getElementById('vault-term-fontsize-value') || document.getElementById('term-fontsize-value');
@@ -797,7 +788,7 @@ function _applyTerminalSettingsUI() {
   if (fontValue) fontValue.textContent = _termSettings.fontSize;
 }
 
-function applyTerminalTheme(themeName) {
+export function applyTerminalTheme(themeName) {
   _termSettings.theme = themeName;
   const theme = TERMINAL_THEMES[themeName] || TERMINAL_THEMES.dark;
 
@@ -813,7 +804,7 @@ function applyTerminalTheme(themeName) {
   _saveTerminalState();
 }
 
-function applyTerminalFontSize(size) {
+export function applyTerminalFontSize(size) {
   _termSettings.fontSize = parseInt(size, 10);
   const fontValue = document.getElementById('term-fontsize-value');
   if (fontValue) fontValue.textContent = size;
@@ -827,7 +818,7 @@ function applyTerminalFontSize(size) {
 }
 
 // Persistence
-function _saveTerminalState() {
+export function _saveTerminalState() {
   const state = {
     settings: _termSettings,
     tabs: _terminals.map(t => ({ id: t.id, name: t.name })),
@@ -839,7 +830,7 @@ function _saveTerminalState() {
   } catch (_) {}
 }
 
-function _loadTerminalState() {
+export function _loadTerminalState() {
   try {
     const state = Settings.getJSON('terminalState', null);
     if (!state) return;
@@ -905,15 +896,15 @@ document.addEventListener('click', (e) => {
 });
 
 // Utility
-function _escapeHtml(str) {
+export function _escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 // ── Bottom Terminal Panel (Cmd+J) — shares terminals with the full terminal tab ──
 
-let _bottomTerminalVisible = false;
+export let _bottomTerminalVisible = false;
 
-function toggleBottomTerminal() {
+export function toggleBottomTerminal() {
   const panel = document.getElementById('bottom-terminal-panel');
   if (!panel) return;
 
@@ -929,7 +920,7 @@ function toggleBottomTerminal() {
   }
 }
 
-function _showBottomTerminal() {
+export function _showBottomTerminal() {
   _loadTerminalState();
 
   // Create first terminal if none exist
@@ -948,47 +939,39 @@ function _showBottomTerminal() {
   _renderBottomTerminalPane();
 }
 
-function _renderBottomTerminalTabs() {
+export function _renderBottomTerminalTabs() {
   const tabsEl = document.getElementById('bottom-terminal-tabs');
   if (!tabsEl) return;
 
   tabsEl.innerHTML = '';
   _terminals.forEach(function(t) {
-    var tab = document.createElement('div');
-    tab.className = 'term-tab' + (t.id === _activeTerminalId ? ' active' : '');
-    tab.dataset.termId = t.id;
-    tab.onclick = function() { _bottomSelectTerminal(t.id); };
-    tab.innerHTML = '<svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>';
-    var title = document.createElement('span');
-    title.className = 'term-tab-title';
-    title.textContent = t.name;
-    tab.appendChild(title);
+    var tabSvg = '<svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>';
+    var tab = new View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
+    tab.attr('data-term-id', t.id);
+    tab.onTap(function() { _bottomSelectTerminal(t.id); });
+    tab.el.appendChild(RawHTML(tabSvg).el);
+    var title = Text(t.name).className('term-tab-title');
+    tab.el.appendChild(title.el);
     if (_terminals.length > 1) {
-      var closeBtn = document.createElement('button');
-      closeBtn.className = 'term-tab-close';
-      closeBtn.textContent = '\u00d7';
-      closeBtn.title = 'Close';
-      closeBtn.onclick = function(e) { e.stopPropagation(); destroyTerminal(t.id); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); };
-      tab.appendChild(closeBtn);
+      var closeBtn = Button('\u00d7').className('term-tab-close').attr('title', 'Close');
+      closeBtn.onTap(function(e) { e.stopPropagation(); destroyTerminal(t.id); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); });
+      tab.el.appendChild(closeBtn.el);
     }
-    tabsEl.appendChild(tab);
+    tabsEl.appendChild(tab.el);
   });
-  var newBtn = document.createElement('button');
-  newBtn.className = 'term-tab-new';
-  newBtn.textContent = '+';
-  newBtn.title = 'New Tab';
-  newBtn.onclick = function() { createTerminal(); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); };
-  tabsEl.appendChild(newBtn);
+  var newBtn = Button('+').className('term-tab-new').attr('title', 'New Tab');
+  newBtn.onTap(function() { createTerminal(); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); });
+  tabsEl.appendChild(newBtn.el);
 }
 
-function _bottomSelectTerminal(id) {
+export function _bottomSelectTerminal(id) {
   _activeTerminalId = id;
   _renderBottomTerminalTabs();
   _renderBottomTerminalPane();
   _saveTerminalState();
 }
 
-function _renderBottomTerminalPane() {
+export function _renderBottomTerminalPane() {
   const container = document.getElementById('bottom-terminal-container');
   if (!container) return;
 
@@ -1024,7 +1007,7 @@ function _renderBottomTerminalPane() {
   }
 }
 
-function clearBottomTerminal() {
+export function clearBottomTerminal() {
   const t = _terminals.find(t => t.id === _activeTerminalId);
   if (t && t.term) t.term.clear();
 }
@@ -1078,3 +1061,52 @@ document.addEventListener('keydown', (e) => {
     toggleBottomTerminal();
   }
 });
+
+// ── Window exports ──
+window._terminals = _terminals;
+window._activeTerminalId = _activeTerminalId;
+window._terminalLayout = _terminalLayout;
+window._termSearchTimeout = _termSearchTimeout;
+window.TERMINAL_THEMES = TERMINAL_THEMES;
+window._termSettings = _termSettings;
+window._nextTerminalId = _nextTerminalId;
+window.createTerminal = createTerminal;
+window.destroyTerminal = destroyTerminal;
+window._removeFromLayout = _removeFromLayout;
+window.selectTerminal = selectTerminal;
+window.renameTerminal = renameTerminal;
+window._renderTabs = _renderTabs;
+window._startRenameTab = _startRenameTab;
+window._renderLayout = _renderLayout;
+window._initSplitResize = _initSplitResize;
+window.splitTerminal = splitTerminal;
+window._terminalSendInput = _terminalSendInput;
+window._terminalSendResize = _terminalSendResize;
+window._connectTerminalWs = _connectTerminalWs;
+window._connectTerminalIpc = _connectTerminalIpc;
+window._connectTerminalWsFallback = _connectTerminalWsFallback;
+window.nextTerminalTab = nextTerminalTab;
+window.prevTerminalTab = prevTerminalTab;
+window.selectTerminalByIndex = selectTerminalByIndex;
+window.clearTerminal = clearTerminal;
+window.copyTerminal = copyTerminal;
+window.pasteTerminal = pasteTerminal;
+window._debounceTermSearch = _debounceTermSearch;
+window.terminalSearch = terminalSearch;
+window.terminalSearchNext = terminalSearchNext;
+window.terminalSearchPrev = terminalSearchPrev;
+window.clearTerminalSearch = clearTerminalSearch;
+window.toggleTerminalSettings = toggleTerminalSettings;
+window._applyTerminalSettingsUI = _applyTerminalSettingsUI;
+window.applyTerminalTheme = applyTerminalTheme;
+window.applyTerminalFontSize = applyTerminalFontSize;
+window._saveTerminalState = _saveTerminalState;
+window._loadTerminalState = _loadTerminalState;
+window._escapeHtml = _escapeHtml;
+window._bottomTerminalVisible = _bottomTerminalVisible;
+window.toggleBottomTerminal = toggleBottomTerminal;
+window._showBottomTerminal = _showBottomTerminal;
+window._renderBottomTerminalTabs = _renderBottomTerminalTabs;
+window._bottomSelectTerminal = _bottomSelectTerminal;
+window._renderBottomTerminalPane = _renderBottomTerminalPane;
+window.clearBottomTerminal = clearBottomTerminal;

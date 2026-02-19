@@ -1,6 +1,6 @@
 // ── Search View ──
 
-function onSearchInput() {
+export function onSearchInput() {
   const input = document.getElementById('search-query');
   const query = (input?.value || '').trim();
   // If input cleared on new-tab page, hide dropdown but keep input focused
@@ -11,7 +11,7 @@ function onSearchInput() {
   if (typeof _browseUrlShowHistory === 'function') _browseUrlShowHistory();
 }
 
-function submitSearch() {
+export function submitSearch() {
   const query = (document.getElementById('search-query')?.value || '').trim();
   if (!query) return;
 
@@ -44,7 +44,7 @@ function submitSearch() {
 }
 
 // ── Relative time helper (used across modules) ──
-function _relativeTime(ts) {
+export function _relativeTime(ts) {
   if (!ts) return '';
   const diff = Date.now() - ts;
   if (diff < 60000) return 'just now';
@@ -57,3 +57,8 @@ function _relativeTime(ts) {
 // ── Browse tabs moved to browse-tabs.js ──
 
 // ── Browse URL bar moved to browse-urlbar.js ──
+
+// ── Window exports ──
+window.onSearchInput = onSearchInput;
+window.submitSearch = submitSearch;
+window._relativeTime = _relativeTime;

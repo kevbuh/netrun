@@ -4,36 +4,36 @@ if (window.AetherUI) AetherUI.globals();
 
 // ── Split Pane System ──
 
-function _browseGetSplitPanes() {
+export function _browseGetSplitPanes() {
   const win = _getCurrentWindow();
   return win ? (win.splitPanes || []) : [];
 }
 
-function _browseSetSplitPanes(panes) {
+export function _browseSetSplitPanes(panes) {
   const win = _getCurrentWindow();
   if (win) win.splitPanes = panes;
 }
 
-function _browseGetFocusedPane() {
+export function _browseGetFocusedPane() {
   const win = _getCurrentWindow();
   return win ? (win.focusedPane || null) : null;
 }
 
-function _browseSetFocusedPane(paneId) {
+export function _browseSetFocusedPane(paneId) {
   const win = _getCurrentWindow();
   if (win) win.focusedPane = paneId;
 }
 
-function _browsePaneForTab(tabId) {
+export function _browsePaneForTab(tabId) {
   const panes = _browseGetSplitPanes();
   return panes.find(p => p.tabId === tabId) || null;
 }
 
-function _browseIsSplitMode() {
+export function _browseIsSplitMode() {
   return _browseGetSplitPanes().length >= 2;
 }
 
-function browseSplitTab(tabId, position) {
+export function browseSplitTab(tabId, position) {
   const win = _getCurrentWindow();
   if (!win) return;
   const tab = win.tabs.find(t => t.id === tabId);
@@ -97,7 +97,7 @@ function browseSplitTab(tabId, position) {
   _browseSaveTabs();
 }
 
-function _browseEnsureTabFrame(tab) {
+export function _browseEnsureTabFrame(tab) {
   if (tab.el) return;
   const container = document.getElementById('browse-content');
   if (!container) return;
@@ -135,7 +135,7 @@ function _browseEnsureTabFrame(tab) {
   tab.deferred = false;
 }
 
-function browseUnsplitPane(paneId) {
+export function browseUnsplitPane(paneId) {
   const panes = _browseGetSplitPanes();
   const idx = panes.findIndex(p => p.id === paneId);
   if (idx === -1) return;
@@ -165,7 +165,7 @@ function browseUnsplitPane(paneId) {
   _browseSaveTabs();
 }
 
-function browseExitSplitMode() {
+export function browseExitSplitMode() {
   const container = document.getElementById('browse-content');
   if (!container) return;
 
@@ -214,7 +214,7 @@ function browseExitSplitMode() {
   _browseSaveTabs();
 }
 
-function _browseRebuildSplitLayout() {
+export function _browseRebuildSplitLayout() {
   const container = document.getElementById('browse-content');
   if (!container) return;
   const win = _getCurrentWindow();
@@ -295,7 +295,7 @@ function _browseRebuildSplitLayout() {
   }
 }
 
-function _browseFocusPane(paneId) {
+export function _browseFocusPane(paneId) {
   const panes = _browseGetSplitPanes();
   const pane = panes.find(p => p.id === paneId);
   if (!pane) return;
@@ -320,7 +320,7 @@ function _browseFocusPane(paneId) {
   _browseRenderTabs();
 }
 
-function _browseAttachDividerDrag(divider, leftPaneId, rightPaneId) {
+export function _browseAttachDividerDrag(divider, leftPaneId, rightPaneId) {
   divider.addEventListener('mousedown', (e) => {
     e.preventDefault();
     const container = document.getElementById('browse-content');
@@ -367,3 +367,17 @@ function _browseAttachDividerDrag(divider, leftPaneId, rightPaneId) {
     document.addEventListener('mouseup', onUp);
   });
 }
+
+window._browseGetSplitPanes = _browseGetSplitPanes;
+window._browseSetSplitPanes = _browseSetSplitPanes;
+window._browseGetFocusedPane = _browseGetFocusedPane;
+window._browseSetFocusedPane = _browseSetFocusedPane;
+window._browsePaneForTab = _browsePaneForTab;
+window._browseIsSplitMode = _browseIsSplitMode;
+window.browseSplitTab = browseSplitTab;
+window._browseEnsureTabFrame = _browseEnsureTabFrame;
+window.browseUnsplitPane = browseUnsplitPane;
+window.browseExitSplitMode = browseExitSplitMode;
+window._browseRebuildSplitLayout = _browseRebuildSplitLayout;
+window._browseFocusPane = _browseFocusPane;
+window._browseAttachDividerDrag = _browseAttachDividerDrag;

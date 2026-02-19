@@ -1,5 +1,6 @@
 // browse-features.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+import Settings from '/js/core/core-settings.js';
 if (window.AetherUI) AetherUI.globals();
 
 // ── Two-finger swipe navigation ──
@@ -7,11 +8,11 @@ if (window.AetherUI) AetherUI.globals();
 // deltaX and sends only __AETHER_SWIPE_COMMIT__ when threshold is crossed.
 // This file shows a single clean animation on commit — no jittery progress updates.
 
-let _swipeIndicator = null;
-let _swipeChevronPill = null;
-let _swipeBusy = false;
+export let _swipeIndicator = null;
+export let _swipeChevronPill = null;
+export let _swipeBusy = false;
 
-function _swipeCanGo(direction) {
+export function _swipeCanGo(direction) {
   try {
     const el = typeof _browseActiveEl === 'function' ? _browseActiveEl() : null;
     if (_browseIsElectron && el) {
@@ -25,7 +26,7 @@ function _swipeCanGo(direction) {
   } catch { return false; }
 }
 
-function _swipeEnsureIndicator() {
+export function _swipeEnsureIndicator() {
   if (_swipeIndicator) return;
   const el = document.createElement('div');
   el.style.cssText = 'position:absolute;top:0;width:40px;height:100%;z-index:99;pointer-events:none;' +
@@ -45,7 +46,7 @@ function _swipeEnsureIndicator() {
   _swipeChevronPill = pill;
 }
 
-function _swipeCommit(direction) {
+export function _swipeCommit(direction) {
   if (_swipeBusy) return;
   if (!_swipeCanGo(direction)) return;
   _swipeBusy = true;
@@ -96,10 +97,10 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
 
 // ── Find in page ──
 
-let _browseFindBarActive = false;
-let _browseFindRequestId = 0;
+export let _browseFindBarActive = false;
+export let _browseFindRequestId = 0;
 
-function _browseToggleFindBar() {
+export function _browseToggleFindBar() {
   if (_browseFindBarActive) {
     // If already open, focus and select the input
     const input = document.getElementById('browse-find-input');
@@ -215,7 +216,7 @@ function _browseToggleFindBar() {
   input.focus();
 }
 
-function _browseStopFind() {
+export function _browseStopFind() {
   const el = _browseActiveEl();
   if (!el) return;
   if (_browseIsElectron && el.stopFindInPage) {
@@ -223,7 +224,7 @@ function _browseStopFind() {
   }
 }
 
-function _browseCloseFindBar() {
+export function _browseCloseFindBar() {
   _browseFindBarActive = false;
   _browseStopFind();
   // Remove found-in-page listener
@@ -242,25 +243,25 @@ function _browseCloseFindBar() {
 // Trackpad pinch over the browse view → temporary magnification of
 // the active iframe, centered on cursor. Release → snaps back to 1×.
 
-let _magnifyZoom = 1;
-let _magnifyX = 0;
-let _magnifyY = 0;
-let _magnifyGestureStart = 1;
-let _magnifySnapTimer = null;
-let _magnifyEl = null;
+export let _magnifyZoom = 1;
+export let _magnifyX = 0;
+export let _magnifyY = 0;
+export let _magnifyGestureStart = 1;
+export let _magnifySnapTimer = null;
+export let _magnifyEl = null;
 
 document.addEventListener('mousemove', function(e) {
   _magnifyX = e.clientX;
   _magnifyY = e.clientY;
 }, { passive: true });
 
-function _magnifyTarget() {
+export function _magnifyTarget() {
   const bv = document.getElementById('browse-view');
   if (!bv || bv.style.display === 'none') return null;
   return _browseActiveEl();
 }
 
-function _magnifyApply() {
+export function _magnifyApply() {
   const el = _magnifyEl;
   if (!el) return;
   const container = document.getElementById('browse-content');
@@ -280,7 +281,7 @@ function _magnifyApply() {
   container.style.overflow = 'hidden';
 }
 
-function _magnifySnapBack() {
+export function _magnifySnapBack() {
   clearTimeout(_magnifySnapTimer);
   _magnifyZoom = 1;
   const el = _magnifyEl;
@@ -369,11 +370,11 @@ document.addEventListener('keydown', function(e) {
 // sidebar, etc.). When a cross-origin iframe has focus, browser security prevents
 // intercepting these shortcuts — this is the same limitation every web app faces.
 // No-op stubs kept so callers don't break.
-let _browseKeyHandler = null;
+export let _browseKeyHandler = null;
 
-let _browseTabBarFocused = false;
+export let _browseTabBarFocused = false;
 
-function _browseInstallKeyGuard() {
+export function _browseInstallKeyGuard() {
   if (_browseKeyHandler) return;
   _browseKeyHandler = (e) => {
     // Only handle if browse view is visible and not typing in an input
@@ -435,19 +436,19 @@ function _browseInstallKeyGuard() {
   });
 }
 
-function _focusBrowseTabBar() {
+export function _focusBrowseTabBar() {
   _browseTabBarFocused = true;
   const tabBar = _getActiveTabBar();
   if (tabBar) tabBar.classList.add('tab-bar-focused');
 }
 
-function _blurBrowseTabBar() {
+export function _blurBrowseTabBar() {
   _browseTabBarFocused = false;
   const tabBar = _getActiveTabBar();
   if (tabBar) tabBar.classList.remove('tab-bar-focused');
 }
 
-function _switchTabLeft() {
+export function _switchTabLeft() {
   const win = _getCurrentWindow();
   if (!win || win.tabs.length < 2) return;
   const idx = win.tabs.findIndex(t => t.id === win.activeTab);
@@ -458,7 +459,7 @@ function _switchTabLeft() {
   }
 }
 
-function _switchTabRight() {
+export function _switchTabRight() {
   const win = _getCurrentWindow();
   if (!win || win.tabs.length < 2) return;
   const idx = win.tabs.findIndex(t => t.id === win.activeTab);
@@ -469,14 +470,14 @@ function _switchTabRight() {
   }
 }
 
-function _animateTabSwitch(direction, callback) {
+export function _animateTabSwitch(direction, callback) {
   const content = document.getElementById('browse-content');
   if (!content) { callback(); return; }
   const dist = direction === 'left' ? 30 : -30;
   Motion.swap(content, 'x', callback, { distance: dist, outOpacity: 0.5 });
 }
 
-function _browseRemoveKeyGuard() {
+export function _browseRemoveKeyGuard() {
   if (_browseKeyHandler) {
     document.removeEventListener('keydown', _browseKeyHandler);
     _browseKeyHandler = null;
@@ -484,7 +485,7 @@ function _browseRemoveKeyGuard() {
 }
 
 // Transparent overlay to capture pinch gestures over iframes
-function _browseInstallPinchOverlay() {
+export function _browseInstallPinchOverlay() {
   const container = document.getElementById('browse-content');
   if (!container || container.querySelector('.browse-pinch-overlay')) return;
   const overlay = document.createElement('div');
@@ -564,7 +565,7 @@ function _browseInstallPinchOverlay() {
   }, { passive: false, capture: true });
 }
 
-function browseSaveToReadingList() {
+export function browseSaveToReadingList() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || tab.blank || !tab.url) return;
   const wasAdding = !getSavedPosts()[tab.url];
@@ -588,7 +589,7 @@ function browseSaveToReadingList() {
   }
 }
 
-function browseShare() {
+export function browseShare() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || tab.blank || !tab.url) return;
   if (navigator.share) {
@@ -606,7 +607,7 @@ function browseShare() {
   }
 }
 
-function _browseUpdateSaveBtn() {
+export function _browseUpdateSaveBtn() {
   const btn = document.getElementById('browse-save-btn');
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   const saved = tab && !tab.blank && tab.url && isPostSaved(tab.url);
@@ -620,7 +621,7 @@ function _browseUpdateSaveBtn() {
   _islandSyncBookmark();
 }
 
-function _islandSyncBookmark() {
+export function _islandSyncBookmark() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   const browseView = document.getElementById('browse-view');
   const browseOpen = browseView && browseView.style.display !== 'none';
@@ -631,3 +632,38 @@ function _islandSyncBookmark() {
     islandRemove('bookmark');
   }
 }
+
+window._swipeIndicator = _swipeIndicator;
+window._swipeChevronPill = _swipeChevronPill;
+window._swipeBusy = _swipeBusy;
+window._swipeCanGo = _swipeCanGo;
+window._swipeEnsureIndicator = _swipeEnsureIndicator;
+window._swipeCommit = _swipeCommit;
+window._browseFindBarActive = _browseFindBarActive;
+window._browseFindRequestId = _browseFindRequestId;
+window._browseToggleFindBar = _browseToggleFindBar;
+window._browseStopFind = _browseStopFind;
+window._browseCloseFindBar = _browseCloseFindBar;
+window._magnifyZoom = _magnifyZoom;
+window._magnifyX = _magnifyX;
+window._magnifyY = _magnifyY;
+window._magnifyGestureStart = _magnifyGestureStart;
+window._magnifySnapTimer = _magnifySnapTimer;
+window._magnifyEl = _magnifyEl;
+window._magnifyTarget = _magnifyTarget;
+window._magnifyApply = _magnifyApply;
+window._magnifySnapBack = _magnifySnapBack;
+window._browseKeyHandler = _browseKeyHandler;
+window._browseTabBarFocused = _browseTabBarFocused;
+window._browseInstallKeyGuard = _browseInstallKeyGuard;
+window._focusBrowseTabBar = _focusBrowseTabBar;
+window._blurBrowseTabBar = _blurBrowseTabBar;
+window._switchTabLeft = _switchTabLeft;
+window._switchTabRight = _switchTabRight;
+window._animateTabSwitch = _animateTabSwitch;
+window._browseRemoveKeyGuard = _browseRemoveKeyGuard;
+window._browseInstallPinchOverlay = _browseInstallPinchOverlay;
+window.browseSaveToReadingList = browseSaveToReadingList;
+window.browseShare = browseShare;
+window._browseUpdateSaveBtn = _browseUpdateSaveBtn;
+window._islandSyncBookmark = _islandSyncBookmark;

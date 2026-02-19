@@ -1,10 +1,11 @@
 // browse-menu.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+import Settings from '/js/core/core-settings.js';
 if (window.AetherUI) AetherUI.globals();
 
 // ── Browse More Menu (three dots) ──
 
-function toggleBrowseMoreMenu() {
+export function toggleBrowseMoreMenu() {
   const dd = document.getElementById('browse-more-menu');
   if (!dd) return;
   if (dd.style.display !== 'none') { dd.style.display = 'none'; return; }
@@ -132,7 +133,7 @@ function toggleBrowseMoreMenu() {
   }, 0);
 }
 
-function _togglePermissionsInMenu(e) {
+export function _togglePermissionsInMenu(e) {
   e.stopPropagation();
   const panel = document.getElementById('browse-menu-perms-panel');
   const arrow = document.getElementById('browse-menu-perms-arrow');
@@ -144,7 +145,7 @@ function _togglePermissionsInMenu(e) {
 }
 
 // Refresh bookmark button appearance in the overflow menu after toggling
-function _refreshOverflowBookmark(btn) {
+export function _refreshOverflowBookmark(btn) {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   const isSaved = tab && !tab.blank && tab.url && isPostSaved(tab.url);
   const svg = btn.querySelector('svg');
@@ -158,7 +159,7 @@ function _refreshOverflowBookmark(btn) {
 }
 
 // Long-press on overflow menu items to drag them back to the browse bar
-function _setupOverflowDrag(dd) {
+export function _setupOverflowDrag(dd) {
   let holdTimer = null;
   let dragGhost = null;
   let dragId = null;
@@ -250,7 +251,7 @@ function _setupOverflowDrag(dd) {
   obs.observe(dd, { attributes: true, attributeFilter: ['style'] });
 }
 
-function browsePrintPage() {
+export function browsePrintPage() {
   // Close the menu
   const dd = document.getElementById('browse-more-menu');
   if (dd) dd.style.display = 'none';
@@ -275,7 +276,7 @@ function browsePrintPage() {
   }
 }
 
-function browseShowAIView() {
+export function browseShowAIView() {
   var tab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
     ? _browseTabs.find(function(t) { return t.id === _browseActiveTab; }) : null;
   if (!tab || !tab.el) return;
@@ -350,3 +351,10 @@ function browseShowAIView() {
     document.addEventListener('keydown', onKey);
   }).catch(function(e) { console.warn('[AI View] Failed:', e); });
 }
+
+window.toggleBrowseMoreMenu = toggleBrowseMoreMenu;
+window._togglePermissionsInMenu = _togglePermissionsInMenu;
+window._refreshOverflowBookmark = _refreshOverflowBookmark;
+window._setupOverflowDrag = _setupOverflowDrag;
+window.browsePrintPage = browsePrintPage;
+window.browseShowAIView = browseShowAIView;

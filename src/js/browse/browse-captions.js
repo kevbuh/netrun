@@ -4,9 +4,9 @@ if (window.AetherUI) AetherUI.globals();
 
 // ── Closed Captions ──
 
-let _ccPillDismissed = false;
+export let _ccPillDismissed = false;
 
-function _updateCCButton() {
+export function _updateCCButton() {
   const hasAudio = _browseIsElectron && _browseAudioTabs.size > 0;
   const browseView = document.getElementById('browse-view');
   const isOnBrowse = browseView && browseView.style.display !== 'none';
@@ -34,7 +34,7 @@ function _updateCCButton() {
   }
 }
 
-async function toggleCaptions() {
+export async function toggleCaptions() {
   if (_ccActive) {
     stopCaptions();
     return;
@@ -88,7 +88,7 @@ async function toggleCaptions() {
   }
 }
 
-async function _ccStartAudioWorklet() {
+export async function _ccStartAudioWorklet() {
   if (!_ccActive || !_ccStream) return;
 
   // Create AudioContext at 16kHz — Chrome auto-resamples the input stream
@@ -141,7 +141,7 @@ async function _ccStartAudioWorklet() {
   // Don't connect to destination — we don't want to play back the audio
 }
 
-function stopCaptions() {
+export function stopCaptions() {
   if (!_ccActive && !_ccStream && !_ccSocket && !_ccWorkletNode) return;
   _ccActive = false;
 
@@ -178,7 +178,7 @@ function stopCaptions() {
   if (typeof _clearAudioUnified === 'function') _clearAudioUnified('cc');
 }
 
-function _showCaption(text) {
+export function _showCaption(text) {
   _ccCaptionLines.push(text);
   if (_ccCaptionLines.length > 3) _ccCaptionLines.shift();
 
@@ -208,7 +208,7 @@ function _showCaption(text) {
   }, 8000);
 }
 
-function _browseRenderTabView(t, activeTab) {
+export function _browseRenderTabView(t, activeTab) {
   const active = t.id === activeTab;
   const hasAudio = _browseAudioTabs.has(t.id);
   const audioInfo = _browseAudioTabs.get(t.id);
@@ -260,7 +260,7 @@ function _browseRenderTabView(t, activeTab) {
 }
 
 
-function _browseRenderSplitPillView(panes, tabs, activeTab) {
+export function _browseRenderSplitPillView(panes, tabs, activeTab) {
   const focusedPaneId = _browseGetFocusedPane();
   const children = [];
   panes.forEach((pane, i) => {
@@ -304,9 +304,19 @@ function _browseRenderSplitPillView(panes, tabs, activeTab) {
 }
 
 
-function _browseGetGroupColor(groupId) {
+export function _browseGetGroupColor(groupId) {
   const win = _getCurrentWindow();
   if (!win) return null;
   const group = (win.groups || []).find(g => g.id === groupId);
   return group ? (_BROWSE_GROUP_COLOR_MAP[group.color] || group.color) : null;
 }
+
+window._ccPillDismissed = _ccPillDismissed;
+window._updateCCButton = _updateCCButton;
+window.toggleCaptions = toggleCaptions;
+window._ccStartAudioWorklet = _ccStartAudioWorklet;
+window.stopCaptions = stopCaptions;
+window._showCaption = _showCaption;
+window._browseRenderTabView = _browseRenderTabView;
+window._browseRenderSplitPillView = _browseRenderSplitPillView;
+window._browseGetGroupColor = _browseGetGroupColor;

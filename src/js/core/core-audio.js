@@ -1,10 +1,12 @@
 // core-audio.js — Audio pill
 // Extracted from core.js
+import Settings from '/js/core/core-settings.js';
+
 if (window.AetherUI) AetherUI.globals();
 
 // ── Unified Audio Pill ──
 
-function _pillNoiseCycle() {
+export function _pillNoiseCycle() {
   const types = typeof NOISE_PRESETS !== 'undefined' ? Object.keys(NOISE_PRESETS) : [];
   if (!types.length) return;
   const cur = typeof _rainNoiseType !== 'undefined' ? _rainNoiseType : 'rain';
@@ -13,7 +15,7 @@ function _pillNoiseCycle() {
   setRainNoiseType(next);
 }
 
-function _ttsCycleSpeed() {
+export function _ttsCycleSpeed() {
   const cur = parseFloat(Settings.get('ttsSpeed')) || 1;
   let next = _ttsSpeeds[0];
   for (let i = 0; i < _ttsSpeeds.length; i++) {
@@ -29,17 +31,17 @@ function _ttsCycleSpeed() {
   if (slider) slider.value = next;
 }
 
-function _updateAudioUnified(source, data) {
+export function _updateAudioUnified(source, data) {
   _audioUnifiedState.value = { ..._audioUnifiedState.value, [source]: data };
   _renderAudioPill();
 }
 
-function _clearAudioUnified(source) {
+export function _clearAudioUnified(source) {
   _audioUnifiedState.value = { ..._audioUnifiedState.value, [source]: null };
   _renderAudioPill();
 }
 
-function _renderAudioPill() {
+export function _renderAudioPill() {
   const el = document.getElementById('pill-audio-unified');
   if (!el) return;
   const { tab, tts, cc, mic } = _audioUnifiedState.value;
@@ -140,7 +142,7 @@ function _renderAudioPill() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _renderAudioPill);
 else setTimeout(_renderAudioPill, 0);
 
-function _islandRenderPill(a) {
+export function _islandRenderPill(a) {
   if (a.type === 'feed-notif') {
     return icon('bell', { size: 14, stroke: 'var(--nr-accent)' }) + '<span style="color:var(--nr-accent)">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.done) {
@@ -247,7 +249,7 @@ function _islandRenderPill(a) {
 }
 
 // Build tray HTML for context/download/annotate/achievement/tabs pills
-function _islandBuildTray(a, isBrowse) {
+export function _islandBuildTray(a, isBrowse) {
   if (a.type === 'context' && a.items && a.items.length) {
     var trayHtml = '';
     if (isBrowse) {
@@ -434,7 +436,7 @@ function _islandBuildTray(a, isBrowse) {
 }
 
 // Attach click handlers and hover/tray behavior to pill
-function _islandAttachHandlers(pill, a, hasTray) {
+export function _islandAttachHandlers(pill, a, hasTray) {
   pill.onclick = function(e) {
     const dismissEl = e.target.closest('[data-island-dismiss]');
     if (dismissEl) {
@@ -577,7 +579,7 @@ function _islandAttachHandlers(pill, a, hasTray) {
 }
 
 // FLIP-animate neighboring pills when one enters/exits/compacts
-function _islandFlipNeighbors(cont) {
+export function _islandFlipNeighbors(cont) {
   if (!cont) return;
   const pills = cont.querySelectorAll('.pill-island:not(.island-exiting)');
   pills.forEach(function(p) {
@@ -592,14 +594,14 @@ function _islandFlipNeighbors(cont) {
 }
 
 // Snapshot pill positions for FLIP
-function _islandSnapshotRects(cont) {
+export function _islandSnapshotRects(cont) {
   if (!cont) return;
   cont.querySelectorAll('.pill-island').forEach(function(p) {
     p._flipRect = p.getBoundingClientRect();
   });
 }
 
-function _islandRender() {
+export function _islandRender() {
   const container = document.getElementById('pill-island');
   if (!container) return;
   const rightContainer = document.getElementById('pill-island-right');
@@ -969,8 +971,22 @@ window.addEventListener('resize', function() {
 });
 
 // ── Now Playing context pill (removed — not useful) ──
-function _updateNowPlayingContext() {
+export function _updateNowPlayingContext() {
   islandRemove('nowplaying');
 }
+
+// ── Window assignments for backward compatibility ──
+window._pillNoiseCycle = _pillNoiseCycle;
+window._ttsCycleSpeed = _ttsCycleSpeed;
+window._updateAudioUnified = _updateAudioUnified;
+window._clearAudioUnified = _clearAudioUnified;
+window._renderAudioPill = _renderAudioPill;
+window._islandRenderPill = _islandRenderPill;
+window._islandBuildTray = _islandBuildTray;
+window._islandAttachHandlers = _islandAttachHandlers;
+window._islandFlipNeighbors = _islandFlipNeighbors;
+window._islandSnapshotRects = _islandSnapshotRects;
+window._islandRender = _islandRender;
+window._updateNowPlayingContext = _updateNowPlayingContext;
 
 // ── Content safe bounds for popups ──

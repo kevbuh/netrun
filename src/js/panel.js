@@ -1,7 +1,8 @@
 // panel.js — Panel UI builders, positioning, and main entry point
 // State, TTS, Chat, and Commands extracted to separate modules
+import Settings from '/js/core/core-settings.js';
 
-function _positionAtCursor(cx, cy, w, h, preferLeft) {
+export function _positionAtCursor(cx, cy, w, h, preferLeft) {
   const bounds = _popupSafeBounds();
   // Try preferred placement first, then flip axes as needed
   let left, top;
@@ -22,7 +23,7 @@ function _positionAtCursor(cx, cy, w, h, preferLeft) {
   return { left, top };
 }
 
-function _repositionSelectionPopup() {
+export function _repositionSelectionPopup() {
   const popup = document.getElementById('doc-chat-ask-float');
   if (!popup) return;
   const rect = popup.getBoundingClientRect();
@@ -72,7 +73,7 @@ function _repositionSelectionPopup() {
 }
 
 // Text selection → floating popup; drag-to-screenshot when aether panel is open
-let _selPopupDragging = false;
+export let _selPopupDragging = false;
 
 document.addEventListener('mousedown', function(e) {
   if (e.button !== 0) return;
@@ -376,7 +377,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 // Right-click anywhere opens aether panel
-function _handleContextMenuChat(e) {
+export function _handleContextMenuChat(e) {
   if (Settings.get('clickAether') === 'off') return;
   // Don't intercept on login or onboarding screens
   const loginGate = document.getElementById('login-gate');
@@ -421,13 +422,13 @@ function _handleContextMenuChat(e) {
 document.addEventListener('contextmenu', _handleContextMenuChat);
 
 // Convert a rect from inside an iframe/webview to parent viewport coordinates
-function _iframeRectToParent(r, frame) {
+export function _iframeRectToParent(r, frame) {
   const f = frame.getBoundingClientRect();
   return { top: r.top + f.top, bottom: r.bottom + f.top, left: r.left + f.left, right: r.right + f.left, width: r.width, height: r.height };
 }
 
 // Inject context-menu, text-selection, and keyboard handlers into same-origin iframes
-function _injectIframeChatHandler(iframe) {
+export function _injectIframeChatHandler(iframe) {
   const tryInject = () => {
     try {
       const doc = iframe.contentDocument || iframe.contentWindow.document;
@@ -541,10 +542,10 @@ function _injectIframeChatHandler(iframe) {
 
 // ── Screenshot drag-to-capture ──
 // State for drag-to-screenshot (active when aether panel is open)
-let _screenshotDragStart = null; // {x, y} or null
-let _screenshotSelection = null; // DOM element
-let _screenshotDim = null; // DOM element
-let _screenshotCapturing = false; // true while capture is in progress
+export let _screenshotDragStart = null; // {x, y} or null
+export let _screenshotSelection = null; // DOM element
+export let _screenshotDim = null; // DOM element
+export let _screenshotCapturing = false; // true while capture is in progress
 
 
 // ── Unified Popup Panel ──
@@ -562,7 +563,7 @@ let _screenshotCapturing = false; // true while capture is in progress
 //   priorEditable: HTMLElement  — editable element that was focused before panel opened
 
 // Focus an element that may be inside an iframe — focuses the iframe first if needed
-function _focusCrossFrame(el) {
+export function _focusCrossFrame(el) {
   const ownerDoc = el.ownerDocument;
   if (ownerDoc && ownerDoc !== document) {
     const iframes = document.querySelectorAll('iframe, webview');
@@ -576,7 +577,7 @@ function _focusCrossFrame(el) {
 }
 
 // Paste text into an element, handling iframe ownership for execCommand
-function _pasteIntoElement(el, text) {
+export function _pasteIntoElement(el, text) {
   _focusCrossFrame(el);
   if (el.isContentEditable) {
     // execCommand must be called on the element's ownerDocument (matters for iframes)
@@ -592,7 +593,7 @@ function _pasteIntoElement(el, text) {
   }
 }
 
-function _flashCopyBtn(popup) {
+export function _flashCopyBtn(popup) {
   // Find the right copy button: selection copy or chat copy
   const btn = popup.querySelector('.doc-selection-copy-btn')
     || (popup._copyChatBtn && popup._copyChatBtn.style.display !== 'none' ? popup._copyChatBtn : null);
@@ -608,7 +609,7 @@ function _flashCopyBtn(popup) {
 }
 
 // ── Helper: inject profile menu items into the aether panel ──
-function _injectProfileItems(popup) {
+export function _injectProfileItems(popup) {
   if (popup.querySelector('.aether-profile-items')) return;
   const email = (typeof _authUserInfo !== 'undefined' && _authUserInfo?.email) || '';
   const username = (typeof _authUserInfo !== 'undefined' && (_authUserInfo?.username || _authUserInfo?.name)) || '';
@@ -659,7 +660,7 @@ function _injectProfileItems(popup) {
 }
 
 // ── Helper: build generic context menu items (tab, custom items) ──
-function _panelBuildContextItems(popup, config) {
+export function _panelBuildContextItems(popup, config) {
   const contextMenu = config.contextMenu || null;
   if (!(contextMenu && contextMenu.items)) return;
   const ctxDiv = document.createElement('div');
@@ -697,7 +698,7 @@ function _panelBuildContextItems(popup, config) {
 }
 
 // ── Helper: build link/image context menu + link preview ──
-function _panelBuildLinkContextMenu(popup, config) {
+export function _panelBuildLinkContextMenu(popup, config) {
   const contextMenu = config.contextMenu || null;
   if (!contextMenu) return;
 
@@ -839,7 +840,7 @@ function _panelBuildLinkContextMenu(popup, config) {
 }
 
 // ── Helper: build editable field actions (Cut/Copy/Paste for native + webview + prior editable) ──
-function _panelBuildEditableActions(popup, config, capturedText, hasContext) {
+export function _panelBuildEditableActions(popup, config, capturedText, hasContext) {
   const editableTarget = config.editableTarget || null;
   const webviewEditable = config.webviewEditable || null;
 
@@ -965,7 +966,7 @@ function _panelBuildEditableActions(popup, config, capturedText, hasContext) {
 }
 
 // ── Helper: build selection UI (Copy button + highlight dots) ──
-function _panelBuildSelectionUI(popup, config) {
+export function _panelBuildSelectionUI(popup, config) {
   const capturedText = config.selectionText || '';
   const selectionRange = config.selectionRange || null;
   const inTextLayer = !!config.inTextLayer;
@@ -1189,7 +1190,7 @@ function _panelBuildSelectionUI(popup, config) {
 }
 
 // ── Helper: build top actions bar (model label, clear, redo, copy, pin, sidebar, drag) ──
-function _panelBuildTopBar(popup) {
+export function _panelBuildTopBar(popup) {
   const topBar = document.createElement('div');
   topBar.className = 'doc-popup-chat-actions aether-top-actions';
   topBar.style.cursor = 'grab';
@@ -1277,7 +1278,7 @@ function _panelBuildTopBar(popup) {
 }
 
 // ── Helper: build chat input area (textarea, model selector, send button, mic, dropdowns) ──
-function _panelBuildChatInput(popup, config) {
+export function _panelBuildChatInput(popup, config) {
   const contextMenu = config.contextMenu || null;
   const capturedText = config.selectionText || '';
   const finalized = config.finalized !== false;
@@ -1667,7 +1668,7 @@ function _panelBuildChatInput(popup, config) {
 }
 
 // ── Helper: install Cmd+C copy key handler ──
-function _panelBuildCopyKeyHandler(popup) {
+export function _panelBuildCopyKeyHandler(popup) {
   function _onCopyKey(e) {
     if (!((e.metaKey || e.ctrlKey) && e.key === 'c')) return;
     if (!popup.isConnected) { document.removeEventListener('keydown', _onCopyKey, true); return; }
@@ -1686,7 +1687,7 @@ function _panelBuildCopyKeyHandler(popup) {
 }
 
 // ── Helper: position panel and auto-focus input ──
-function _panelPositionAndFocus(popup, config) {
+export function _panelPositionAndFocus(popup, config) {
   const anchor = config.anchor || {};
   const finalized = config.finalized !== false;
   const initialValue = config.initialValue || '';
@@ -1797,7 +1798,7 @@ function _panelPositionAndFocus(popup, config) {
   }
 }
 
-function _showPanel(config) {
+export function _showPanel(config) {
   if (!_authReady) return;
   config = config || {};
   const anchor = config.anchor || {};
@@ -1897,7 +1898,7 @@ function _showPanel(config) {
 }
 
 
-function openPaper(index, e) {
+export function openPaper(index, e) {
   const paper = lastFilteredPapers[index];
   if (!paper) return;
   if (_isNewTabClick(e)) { _openInNewTab(paper.link); return; }
@@ -1906,7 +1907,7 @@ function openPaper(index, e) {
   openBrowseWithPaper(paper.link, paper);
 }
 
-function openPaperByUrl(url, e) {
+export function openPaperByUrl(url, e) {
   if (_isNewTabClick(e)) { _openInNewTab(url); return; }
   _setBrowseReturnView(Settings.get('_lastActiveView') || 'feed');
   const paper = (typeof searchResultsCache !== 'undefined' && searchResultsCache || []).find(r => r && r.link === url)
@@ -1915,3 +1916,30 @@ function openPaperByUrl(url, e) {
     || { title: 'Paper', link: url, description: '', authors: '', categories: [], source: url.includes('arxiv.org') ? 'arxiv' : '' };
   openBrowseWithPaper(url, paper);
 }
+
+// ── Window assignments for global access ──
+window._positionAtCursor = _positionAtCursor;
+window._repositionSelectionPopup = _repositionSelectionPopup;
+window._selPopupDragging = _selPopupDragging;
+window._handleContextMenuChat = _handleContextMenuChat;
+window._iframeRectToParent = _iframeRectToParent;
+window._injectIframeChatHandler = _injectIframeChatHandler;
+window._screenshotDragStart = _screenshotDragStart;
+window._screenshotSelection = _screenshotSelection;
+window._screenshotDim = _screenshotDim;
+window._screenshotCapturing = _screenshotCapturing;
+window._focusCrossFrame = _focusCrossFrame;
+window._pasteIntoElement = _pasteIntoElement;
+window._flashCopyBtn = _flashCopyBtn;
+window._injectProfileItems = _injectProfileItems;
+window._panelBuildContextItems = _panelBuildContextItems;
+window._panelBuildLinkContextMenu = _panelBuildLinkContextMenu;
+window._panelBuildEditableActions = _panelBuildEditableActions;
+window._panelBuildSelectionUI = _panelBuildSelectionUI;
+window._panelBuildTopBar = _panelBuildTopBar;
+window._panelBuildChatInput = _panelBuildChatInput;
+window._panelBuildCopyKeyHandler = _panelBuildCopyKeyHandler;
+window._panelPositionAndFocus = _panelPositionAndFocus;
+window._showPanel = _showPanel;
+window.openPaper = openPaper;
+window.openPaperByUrl = openPaperByUrl;

@@ -1,10 +1,11 @@
 // browse-island.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+import Settings from '/js/core/core-settings.js';
 if (window.AetherUI) AetherUI.globals();
 
 // ── Island mode tab renderer ──
 
-function toggleBrowseTabLayout() {
+export function toggleBrowseTabLayout() {
   const newLayout = Settings.get('browseTabLayout') === 'island' ? 'horizontal' : 'island';
   Settings.set('browseTabLayout', newLayout);
   const browseView = document.getElementById('browse-view');
@@ -19,7 +20,7 @@ function toggleBrowseTabLayout() {
   }
 }
 
-function _applyBrowseTabLayout() {
+export function _applyBrowseTabLayout() {
   const tabRow = document.getElementById('browse-tab-row');
   const bar = document.getElementById('browse-bar');
   const pill = document.getElementById('sidebar-nav');
@@ -55,7 +56,7 @@ function _applyBrowseTabLayout() {
 }
 
 /* Sync the pill URL input with the active tab */
-function _pillSyncUrl() {
+export function _pillSyncUrl() {
   const input = document.getElementById('pill-browse-url-input');
   if (!input) return;
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
@@ -85,7 +86,7 @@ function _pillSyncUrl() {
   if (typeof _browseApplyAdaptiveColor === 'function') _browseApplyAdaptiveColor(tab);
 }
 
-function _updateIslandNavButtons() {
+export function _updateIslandNavButtons() {
   try {
     const tab = _browseTabs.find(t => t.id === _browseActiveTab);
     const hasBackHistory = tab && tab.backStack && tab.backStack.length > 0;
@@ -109,10 +110,10 @@ function _updateIslandNavButtons() {
 }
 
 /* ── History dropdown on hover ── */
-let _historyDropdownEl = null;
-let _historyDropdownHideTimer = 0;
+export let _historyDropdownEl = null;
+export let _historyDropdownHideTimer = 0;
 
-function _showHistoryDropdown(direction, buttonEl) {
+export function _showHistoryDropdown(direction, buttonEl) {
   clearTimeout(_historyDropdownHideTimer);
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab) return;
@@ -146,17 +147,17 @@ function _showHistoryDropdown(direction, buttonEl) {
   dd.style.left = Math.max(4, rect.left - 60) + 'px';
 }
 
-function _scheduleHideHistoryDropdown() {
+export function _scheduleHideHistoryDropdown() {
   clearTimeout(_historyDropdownHideTimer);
   _historyDropdownHideTimer = setTimeout(_hideHistoryDropdownNow, 200);
 }
 
-function _hideHistoryDropdownNow() {
+export function _hideHistoryDropdownNow() {
   clearTimeout(_historyDropdownHideTimer);
   if (_historyDropdownEl) { _historyDropdownEl.remove(); _historyDropdownEl = null; }
 }
 
-function _historyDropdownNavigate(direction, steps) {
+export function _historyDropdownNavigate(direction, steps) {
   for (let i = 0; i < steps; i++) {
     if (direction === 'back') browseBack();
     else browseForward();
@@ -164,7 +165,7 @@ function _historyDropdownNavigate(direction, steps) {
 }
 
 /* Keydown for pill URL input — delegates to shared dropdown navigation */
-function _pillUrlKeydown(e) {
+export function _pillUrlKeydown(e) {
   // Delegate to the shared keydown handler which handles arrow keys, Enter on dropdown items, Escape
   if (typeof _browseUrlKeydown === 'function') {
     _browseUrlKeydown(e);
@@ -176,7 +177,7 @@ function _pillUrlKeydown(e) {
 }
 
 /* Show tabs inside the pill-url-dropdown */
-function _showTabsInPillDropdown() {
+export function _showTabsInPillDropdown() {
   const dd = document.getElementById('pill-url-dropdown');
   const wrap = document.getElementById('pill-url-wrap');
   if (!dd || !wrap) return;
@@ -274,23 +275,23 @@ function _showTabsInPillDropdown() {
   window.addEventListener('blur', _pillTabsBlurHandler);
 }
 
-var _pillTabsOutsideHandler = null;
-var _pillTabsBlurHandler = null;
-var _pillTabsBlurTimer = null;
+export var _pillTabsOutsideHandler = null;
+export var _pillTabsBlurHandler = null;
+export var _pillTabsBlurTimer = null;
 
-function _pillTabsDropdownCleanup() {
+export function _pillTabsDropdownCleanup() {
   if (_pillTabsBlurTimer) { clearTimeout(_pillTabsBlurTimer); _pillTabsBlurTimer = null; }
   if (_pillTabsOutsideHandler) { document.removeEventListener('mousedown', _pillTabsOutsideHandler, true); _pillTabsOutsideHandler = null; }
   if (_pillTabsBlurHandler) { window.removeEventListener('blur', _pillTabsBlurHandler); _pillTabsBlurHandler = null; }
 }
 
 /* Pill mic button — record audio, live transcription in audio pill, final Whisper result */
-let _pillMicRecorder = null;
-let _pillMicRecognition = null;
-let _pillMicTranscript = '';
-let _pillMicLiveText = '';
+export let _pillMicRecorder = null;
+export let _pillMicRecognition = null;
+export let _pillMicTranscript = '';
+export let _pillMicLiveText = '';
 
-function _pillMicClick() {
+export function _pillMicClick() {
   // Toggle off if already recording
   if (_pillMicRecorder) {
     if (_pillMicRecognition) { try { _pillMicRecognition.stop(); } catch(e) {} }
@@ -370,7 +371,7 @@ function _pillMicClick() {
   }).catch(() => {});
 }
 
-function _browseRenderTabs() {
+export function _browseRenderTabs() {
   const isIsland = Settings.get('browseTabLayout') === 'island';
   const bar = isIsland ? null : document.getElementById('browse-tabs');
   const win = _getCurrentWindow();
@@ -478,7 +479,7 @@ function _browseRenderTabs() {
 
 // ── Split pill drag (reorder + unsplit) ──
 
-function _splitPillDragStart(e) {
+export function _splitPillDragStart(e) {
   if (e.button !== 0) return;
   if (e.target.closest('.browse-tab-close')) return;
   const pillEl = e.currentTarget;
@@ -613,7 +614,7 @@ function _splitPillDragStart(e) {
 
 // ── Tab pin / group helpers ──
 
-function _browseToggleGroupCollapse(groupId) {
+export function _browseToggleGroupCollapse(groupId) {
   const win = _getCurrentWindow();
   if (!win) return;
   const group = (win.groups || []).find(g => g.id === groupId);
@@ -623,7 +624,7 @@ function _browseToggleGroupCollapse(groupId) {
   _browseSaveTabs();
 }
 
-function browseTogglePin(tabId) {
+export function browseTogglePin(tabId) {
   const win = _getCurrentWindow();
   if (!win) return;
   const tab = win.tabs.find(t => t.id === tabId);
@@ -641,7 +642,7 @@ function browseTogglePin(tabId) {
   _browseSaveTabs();
 }
 
-function browseAddTabToNewGroup(tabId) {
+export function browseAddTabToNewGroup(tabId) {
   const win = _getCurrentWindow();
   if (!win) return;
   const tab = win.tabs.find(t => t.id === tabId);
@@ -660,7 +661,7 @@ function browseAddTabToNewGroup(tabId) {
   }, 50);
 }
 
-function browseAddTabToGroup(tabId, groupId) {
+export function browseAddTabToGroup(tabId, groupId) {
   const win = _getCurrentWindow();
   if (!win) return;
   const tab = win.tabs.find(t => t.id === tabId);
@@ -670,7 +671,7 @@ function browseAddTabToGroup(tabId, groupId) {
   _browseSaveTabs();
 }
 
-function browseRemoveTabFromGroup(tabId) {
+export function browseRemoveTabFromGroup(tabId) {
   const win = _getCurrentWindow();
   if (!win) return;
   const tab = win.tabs.find(t => t.id === tabId);
@@ -680,7 +681,7 @@ function browseRemoveTabFromGroup(tabId) {
   _browseSaveTabs();
 }
 
-function _browseUngroupAll(groupId) {
+export function _browseUngroupAll(groupId) {
   const win = _getCurrentWindow();
   if (!win) return;
   win.tabs.forEach(t => { if (t.groupId === groupId) delete t.groupId; });
@@ -689,7 +690,7 @@ function _browseUngroupAll(groupId) {
   _browseSaveTabs();
 }
 
-function _browseCloseGroup(groupId) {
+export function _browseCloseGroup(groupId) {
   const win = _getCurrentWindow();
   if (!win) return;
   const toClose = win.tabs.filter(t => t.groupId === groupId).map(t => t.id);
@@ -698,7 +699,7 @@ function _browseCloseGroup(groupId) {
   for (const id of toClose.reverse()) browseCloseTab(id);
 }
 
-function _browseChangeGroupColor(groupId, color) {
+export function _browseChangeGroupColor(groupId, color) {
   const win = _getCurrentWindow();
   if (!win) return;
   const group = (win.groups || []).find(g => g.id === groupId);
@@ -708,7 +709,7 @@ function _browseChangeGroupColor(groupId, color) {
   _browseSaveTabs();
 }
 
-function _browseStartRenameGroup(groupId, nameEl) {
+export function _browseStartRenameGroup(groupId, nameEl) {
   const win = _getCurrentWindow();
   if (!win) return;
   const group = (win.groups || []).find(g => g.id === groupId);
@@ -734,19 +735,19 @@ function _browseStartRenameGroup(groupId, nameEl) {
   });
 }
 
-function _browseDismissTabContextMenu() {
+export function _browseDismissTabContextMenu() {
   const m = document.querySelector('.browse-ctx-menu');
   if (m) m.remove();
 }
 
-function _browseCloseOtherTabs(keepId) {
+export function _browseCloseOtherTabs(keepId) {
   const win = _getCurrentWindow();
   if (!win) return;
   const toClose = win.tabs.filter(t => t.id !== keepId && !t.pinned).map(t => t.id);
   for (const id of toClose.reverse()) browseCloseTab(id);
 }
 
-function _browseShowGroupContextMenu(e, groupId) {
+export function _browseShowGroupContextMenu(e, groupId) {
   _browseDismissTabContextMenu();
   const win = _getCurrentWindow();
   if (!win) return;
@@ -809,16 +810,16 @@ function _browseShowGroupContextMenu(e, groupId) {
 
 // ── Tab hover tooltip ──
 
-const _tabHoverTimeout = null;
-const _tabHoverDismissTimeout = null;
+export const _tabHoverTimeout = null;
+export const _tabHoverDismissTimeout = null;
 
 
 // ── Tab drag-to-reorder ──
 
-let _tabDragState = null;
-const TAB_DRAG_THRESHOLD = 5;
+export let _tabDragState = null;
+export const TAB_DRAG_THRESHOLD = 5;
 
-function _tabDragStart(e) {
+export function _tabDragStart(e) {
   if (e.button !== 0) return;
   if (e.target.closest('.browse-tab-close, .browse-tab-audio')) return;
   const tabEl = e.currentTarget;
@@ -840,7 +841,7 @@ function _tabDragStart(e) {
   document.addEventListener('mouseup', _tabDragEnd);
 }
 
-function _tabDragMove(e) {
+export function _tabDragMove(e) {
   if (!_tabDragState) return;
   const dx = e.clientX - _tabDragState.startX;
   const dy = e.clientY - _tabDragState.startY;
@@ -884,7 +885,7 @@ function _tabDragMove(e) {
   }
 }
 
-function _tabDragUpdatePosition(clientPos) {
+export function _tabDragUpdatePosition(clientPos) {
   if (!_tabDragState || !_tabDragState.indicator) return;
   const bar = _getActiveTabBar();
   if (!bar) return;
@@ -958,7 +959,7 @@ function _tabDragUpdatePosition(clientPos) {
   }
 }
 
-function _tabDragEnd(e) {
+export function _tabDragEnd(e) {
   document.removeEventListener('mousemove', _tabDragMove);
   document.removeEventListener('mouseup', _tabDragEnd);
   if (!_tabDragState) return;
@@ -1022,7 +1023,7 @@ document.addEventListener('keydown', (e) => {
   if (input) input.focus();
 });
 
-function _browseTitleFromUrl(url) {
+export function _browseTitleFromUrl(url) {
   try {
     const u = new URL(url);
     if (u.hostname === 'www.google.com' && u.pathname === '/search') {
@@ -1034,14 +1035,14 @@ function _browseTitleFromUrl(url) {
   } catch { return url; }
 }
 
-function _browseFaviconUrl(url) {
+export function _browseFaviconUrl(url) {
   try {
     const u = new URL(url);
     return `https://www.google.com/s2/favicons?domain=${u.hostname}&sz=32`;
   } catch { return ''; }
 }
 
-function browseNavigate(input) {
+export function browseNavigate(input) {
   // Handle slash commands
   const cmd = (input || '').trim().toLowerCase();
   if (cmd === '/history' || cmd === 'netrun://history' || cmd === 'netrun://history/') {
@@ -1122,7 +1123,7 @@ function browseNavigate(input) {
   }
 }
 
-const _BANGS = {
+export const _BANGS = {
   g:        'https://www.google.com/search?q=%s',
   ddg:      'https://duckduckgo.com/?q=%s',
   b:        'https://www.bing.com/search?q=%s',
@@ -1148,7 +1149,7 @@ const _BANGS = {
   nix:      'https://search.nixos.org/packages?query=%s',
 };
 
-function _browseResolveUrl(input) {
+export function _browseResolveUrl(input) {
   input = (input || '').trim();
   if (!input) return 'https://www.google.com';
   // Collapse internal whitespace/newlines from multi-line pastes (e.g. URLs copied across line breaks)
@@ -1175,17 +1176,17 @@ function _browseResolveUrl(input) {
   return 'https://www.google.com/search?q=' + encodeURIComponent(input);
 }
 
-function _browseActiveEl() {
+export function _browseActiveEl() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   return tab ? tab.el : null;
 }
 
 // Direction flag read by did-navigate handler to distinguish back/forward from normal nav
-let _browseNavDirection = null;
+export let _browseNavDirection = null;
 
 // Hide/restore active webview so DOM popups can render on top (Electron GPU compositing fix)
 
-function browseBack() {
+export function browseBack() {
   const el = _browseActiveEl();
   if (_browseIsElectron && el && el.canGoBack && el.canGoBack()) { _browseNavDirection = 'back'; el.goBack(); return; }
   // Use our own history stack for non-Electron (cross-origin iframes block history.back())
@@ -1215,7 +1216,7 @@ function browseBack() {
   // The "Back to Feed" button (#browse-return-btn) handles app-level nav.
 }
 
-function browseForward() {
+export function browseForward() {
   const el = _browseActiveEl();
   if (!el) return;
   if (_browseIsElectron && el.canGoForward && el.canGoForward()) { _browseNavDirection = 'forward'; el.goForward(); return; }
@@ -1240,25 +1241,25 @@ function browseForward() {
   _updateIslandNavButtons();
 }
 
-function browseReload() {
+export function browseReload() {
   const el = _browseActiveEl();
   if (!el) return;
   if (_browseIsElectron && el.reload) { el.reload(); return; }
   if (!_browseIsElectron) { try { el.contentWindow.location.reload(); } catch(e) {} }
 }
 
-let _browseZoomLevel = 1.0;
-let _browseZoomPanX = 0;
-let _browseZoomPanY = 0;
-let _browseZoomHideTimer = null;
-function _browseShowZoomControls() {
+export let _browseZoomLevel = 1.0;
+export let _browseZoomPanX = 0;
+export let _browseZoomPanY = 0;
+export let _browseZoomHideTimer = null;
+export function _browseShowZoomControls() {
   const controls = document.getElementById('browse-zoom-controls');
   if (!controls) return;
   controls.style.display = 'flex';
   clearTimeout(_browseZoomHideTimer);
   _browseZoomHideTimer = setTimeout(() => { controls.style.display = 'none'; }, 1500);
 }
-function browseZoom(dir) {
+export function browseZoom(dir) {
   if (dir === 0) { _browseZoomLevel = 1.0; _browseZoomPanX = 0; _browseZoomPanY = 0; }
   else _browseZoomLevel = Math.min(5.0, Math.max(1.0, _browseZoomLevel + dir * 0.1));
   _browseApplyZoom();
@@ -1267,7 +1268,7 @@ function browseZoom(dir) {
   if (po) po.style.pointerEvents = _browseZoomLevel > 1 ? 'auto' : 'none';
 }
 // focalX/focalY are cursor coords relative to the browse-content container viewport
-function _browseApplyZoom(focalX, focalY) {
+export function _browseApplyZoom(focalX, focalY) {
   const el = _browseActiveEl();
   const container = document.getElementById('browse-content');
   if (el && container) {
@@ -1317,3 +1318,64 @@ function _browseApplyZoom(focalX, focalY) {
   if (label) label.textContent = Math.round(_browseZoomLevel * 100) + '%';
   _browseShowZoomControls();
 }
+
+window.toggleBrowseTabLayout = toggleBrowseTabLayout;
+window._applyBrowseTabLayout = _applyBrowseTabLayout;
+window._pillSyncUrl = _pillSyncUrl;
+window._updateIslandNavButtons = _updateIslandNavButtons;
+window._historyDropdownEl = _historyDropdownEl;
+window._historyDropdownHideTimer = _historyDropdownHideTimer;
+window._showHistoryDropdown = _showHistoryDropdown;
+window._scheduleHideHistoryDropdown = _scheduleHideHistoryDropdown;
+window._hideHistoryDropdownNow = _hideHistoryDropdownNow;
+window._historyDropdownNavigate = _historyDropdownNavigate;
+window._pillUrlKeydown = _pillUrlKeydown;
+window._showTabsInPillDropdown = _showTabsInPillDropdown;
+window._pillTabsOutsideHandler = _pillTabsOutsideHandler;
+window._pillTabsBlurHandler = _pillTabsBlurHandler;
+window._pillTabsBlurTimer = _pillTabsBlurTimer;
+window._pillTabsDropdownCleanup = _pillTabsDropdownCleanup;
+window._pillMicRecorder = _pillMicRecorder;
+window._pillMicRecognition = _pillMicRecognition;
+window._pillMicTranscript = _pillMicTranscript;
+window._pillMicLiveText = _pillMicLiveText;
+window._pillMicClick = _pillMicClick;
+window._browseRenderTabs = _browseRenderTabs;
+window._splitPillDragStart = _splitPillDragStart;
+window._browseToggleGroupCollapse = _browseToggleGroupCollapse;
+window.browseTogglePin = browseTogglePin;
+window.browseAddTabToNewGroup = browseAddTabToNewGroup;
+window.browseAddTabToGroup = browseAddTabToGroup;
+window.browseRemoveTabFromGroup = browseRemoveTabFromGroup;
+window._browseUngroupAll = _browseUngroupAll;
+window._browseCloseGroup = _browseCloseGroup;
+window._browseChangeGroupColor = _browseChangeGroupColor;
+window._browseStartRenameGroup = _browseStartRenameGroup;
+window._browseDismissTabContextMenu = _browseDismissTabContextMenu;
+window._browseCloseOtherTabs = _browseCloseOtherTabs;
+window._browseShowGroupContextMenu = _browseShowGroupContextMenu;
+window._tabHoverTimeout = _tabHoverTimeout;
+window._tabHoverDismissTimeout = _tabHoverDismissTimeout;
+window._tabDragState = _tabDragState;
+window.TAB_DRAG_THRESHOLD = TAB_DRAG_THRESHOLD;
+window._tabDragStart = _tabDragStart;
+window._tabDragMove = _tabDragMove;
+window._tabDragUpdatePosition = _tabDragUpdatePosition;
+window._tabDragEnd = _tabDragEnd;
+window._browseTitleFromUrl = _browseTitleFromUrl;
+window._browseFaviconUrl = _browseFaviconUrl;
+window.browseNavigate = browseNavigate;
+window._BANGS = _BANGS;
+window._browseResolveUrl = _browseResolveUrl;
+window._browseActiveEl = _browseActiveEl;
+window._browseNavDirection = _browseNavDirection;
+window.browseBack = browseBack;
+window.browseForward = browseForward;
+window.browseReload = browseReload;
+window._browseZoomLevel = _browseZoomLevel;
+window._browseZoomPanX = _browseZoomPanX;
+window._browseZoomPanY = _browseZoomPanY;
+window._browseZoomHideTimer = _browseZoomHideTimer;
+window._browseShowZoomControls = _browseShowZoomControls;
+window.browseZoom = browseZoom;
+window._browseApplyZoom = _browseApplyZoom;

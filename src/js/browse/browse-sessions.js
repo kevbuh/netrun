@@ -1,18 +1,19 @@
 // browse-sessions.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+import Settings from '/js/core/core-settings.js';
 if (window.AetherUI) AetherUI.globals();
 
 // ── Tab Sessions (save/restore named tab groups) ──
 
-function _getTabSessions() {
+export function _getTabSessions() {
   try { return Settings.getJSON(_getBrowseStorageKey('browseTabSessions'), []); } catch { return []; }
 }
 
-function _saveTabSessions(sessions) {
+export function _saveTabSessions(sessions) {
   Settings.setJSON(_getBrowseStorageKey('browseTabSessions'), sessions);
 }
 
-function toggleTabStateDropdown() {
+export function toggleTabStateDropdown() {
   const dd = document.getElementById('tab-state-dropdown');
   if (!dd) return;
   if (dd.style.display !== 'none') { dd.style.display = 'none'; return; }
@@ -33,7 +34,7 @@ function toggleTabStateDropdown() {
   }, 0);
 }
 
-function _renderTabStateDropdown() {
+export function _renderTabStateDropdown() {
   const dd = document.getElementById('tab-state-dropdown');
   if (!dd) return;
   const sessions = _getTabSessions();
@@ -101,7 +102,7 @@ function _renderTabStateDropdown() {
   AetherUI.mount(panel, dd);
 }
 
-function confirmSaveTabSession() {
+export function confirmSaveTabSession() {
   const input = document.getElementById('tab-session-name-input');
   if (!input) return;
   const name = input.value.trim();
@@ -123,7 +124,7 @@ function confirmSaveTabSession() {
   }, 0);
 }
 
-function loadTabSession(index) {
+export function loadTabSession(index) {
   const sessions = _getTabSessions();
   const session = sessions[index];
   if (!session) return;
@@ -148,7 +149,7 @@ function loadTabSession(index) {
   _browseRenderTabs();
 }
 
-function deleteTabSession(index) {
+export function deleteTabSession(index) {
   const sessions = _getTabSessions();
   sessions.splice(index, 1);
   _saveTabSessions(sessions);
@@ -157,7 +158,7 @@ function deleteTabSession(index) {
 }
 
 // Save all windows as a session (for tab overview)
-function saveAllWindowsAsSession(name) {
+export function saveAllWindowsAsSession(name) {
   const totalTabs = _browseWindows.reduce((n, w) => n + w.tabs.filter(t => !t.blank && t.url).length, 0);
   if (!totalTabs) return;
 
@@ -174,7 +175,7 @@ function saveAllWindowsAsSession(name) {
 }
 
 // Toggle sessions dropdown
-function _toggleSessionsDropdown() {
+export function _toggleSessionsDropdown() {
   const menu = document.querySelector('.browse-sessions-menu');
   const toggle = document.querySelector('.browse-sessions-toggle');
   if (!menu) return;
@@ -198,7 +199,7 @@ function _toggleSessionsDropdown() {
 }
 
 // Render sessions dropdown in toolbar
-function _renderToolbarSessions() {
+export function _renderToolbarSessions() {
   const container = document.getElementById('browse-toolbar-sessions');
   if (!container) return;
 
@@ -267,7 +268,7 @@ function _renderToolbarSessions() {
 }
 
 // Prompt to save session from overview - show inline input in sessions menu
-function _promptSaveSessionFromOverview() {
+export function _promptSaveSessionFromOverview() {
   const totalTabs = _browseWindows.reduce((n, w) => n + w.tabs.filter(t => !t.blank && t.url).length, 0);
   if (!totalTabs) return;
 
@@ -320,7 +321,7 @@ function _promptSaveSessionFromOverview() {
 
 // Save a single window as a session - show inline input
 // Load session from overview (replaces current windows)
-function _loadSessionFromOverview(index, addToExisting = false) {
+export function _loadSessionFromOverview(index, addToExisting = false) {
   const sessions = _getTabSessions();
   const session = sessions[index];
   if (!session) return;
@@ -365,3 +366,16 @@ function _loadSessionFromOverview(index, addToExisting = false) {
   _browseSaveTabs();
   _browseRenderTabs();
 }
+
+window._getTabSessions = _getTabSessions;
+window._saveTabSessions = _saveTabSessions;
+window.toggleTabStateDropdown = toggleTabStateDropdown;
+window._renderTabStateDropdown = _renderTabStateDropdown;
+window.confirmSaveTabSession = confirmSaveTabSession;
+window.loadTabSession = loadTabSession;
+window.deleteTabSession = deleteTabSession;
+window.saveAllWindowsAsSession = saveAllWindowsAsSession;
+window._toggleSessionsDropdown = _toggleSessionsDropdown;
+window._renderToolbarSessions = _renderToolbarSessions;
+window._promptSaveSessionFromOverview = _promptSaveSessionFromOverview;
+window._loadSessionFromOverview = _loadSessionFromOverview;

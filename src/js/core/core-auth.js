@@ -1,5 +1,8 @@
 // core-auth.js — Auth system, sync
 // Extracted from core.js
+
+import Settings from '/js/core/core-settings.js';
+
 if (window.AetherUI) AetherUI.globals();
 
 // ── User accounts & sync ──
@@ -41,10 +44,10 @@ if (Settings.get('adBlockEnabled') === null) {
 
 
 // ── localStorage helpers (reduce try/parse/default boilerplate) ──
-function getLS(key, fallback) {
+export function getLS(key, fallback) {
   return Settings.getJSON(key, fallback);
 }
-function setLS(key, val) { Settings.setJSON(key, val); }
+export function setLS(key, val) { Settings.setJSON(key, val); }
 
 // ── Auth fetch helper (reduces fetch+auth+error boilerplate) ──
 // ── Login gate (redirects to standalone login page) ──
@@ -67,7 +70,7 @@ function _onLoginSuccess() {
     setInterval(refreshInboxBadge, 60000);
   }
   // Load custom annotation categories
-  _loadCustomAnnotationCategories();
+  if (typeof _loadCustomAnnotationCategories === 'function') _loadCustomAnnotationCategories();
   // Calendar event notifications
   if (typeof startCalendarNotifications === 'function') startCalendarNotifications();
   // Route to the correct view now that auth is resolved
@@ -75,7 +78,7 @@ function _onLoginSuccess() {
   _updateNowPlayingContext();
 }
 
-async function authLogout() {
+export async function authLogout() {
   if (_authToken) {
     // Push latest settings before logging out
     await syncToServer(true).catch((e) => { /* fire-and-forget */ });
@@ -172,7 +175,7 @@ function _applySyncData(serverData) {
   }
 }
 
-async function syncToServer(force) {
+export async function syncToServer(force) {
   if (!_authToken) return;
   const keysToSync = force ? SYNC_KEYS : [..._syncDirtyKeys];
   if (!keysToSync.length) return; // nothing changed
@@ -187,7 +190,7 @@ async function syncToServer(force) {
   }
 }
 
-async function syncFromServer() {
+export async function syncFromServer() {
   if (!_authToken) return;
   try {
     // Pull only — send empty payload so server data always wins
@@ -234,7 +237,7 @@ async function _doDeleteAccount() {
 
 const _GUEST_STASH_PREFIX = '_guestStash_';
 
-function enterGuestMode() {
+export function enterGuestMode() {
   if (_guestMode) return;
   // Stash auth state
   sessionStorage.setItem(_GUEST_STASH_PREFIX + 'authToken', _authToken || '');
@@ -260,7 +263,7 @@ function enterGuestMode() {
   if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Guest mode active');
 }
 
-function exitGuestMode() {
+export function exitGuestMode() {
   if (!_guestMode) return;
   // Restore auth state
   _authToken = sessionStorage.getItem(_GUEST_STASH_PREFIX + 'authToken') || null;
@@ -304,6 +307,7 @@ function exitGuestMode() {
     // Verify session is still valid
     apiGet('/api/auth/me')
       .then(data => {
+        if (!data || !data.email) throw new Error('Invalid session');
         _authUser = (data.name || data.email || _authUser || '').split(' ')[0];
         _authUserInfo = { email: data.email, name: data.name, google_id: data.google_id, username: data.username || null, picture: data.picture || null };
         localStorage.setItem('authUser', _authUser);
@@ -332,4 +336,18 @@ function exitGuestMode() {
     window.location.href = '/login.html';
   }
 })();
+
+// Window assignments for backward compatibility
+window.getLS = getLS;
+window.setLS = setLS;
+window.authLogout = authLogout;
+window.syncToServer = syncToServer;
+window.syncFromServer = syncFromServer;
+window.enterGuestMode = enterGuestMode;
+window.exitGuestMode = exitGuestMode;
+window._doLogout = _doLogout;
+window._doDeleteAccount = _doDeleteAccount;
+window._onLoginSuccess = _onLoginSuccess;
+window._updateAccountUI = _updateAccountUI;
+window._showLoginGate = _showLoginGate;
 

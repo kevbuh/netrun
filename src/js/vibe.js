@@ -1,14 +1,14 @@
 // ── Lazygit-style Git Dashboard (embedded in Vault) ──
 if (window.AetherUI) AetherUI.globals();
 
-let _vibeActivePane = 0;
-let _vibeData = {};
-const _vibeCmdLog = [];
-const _vibeSelectedIdx = {};
+export let _vibeActivePane = 0;
+export let _vibeData = {};
+export const _vibeCmdLog = [];
+export const _vibeSelectedIdx = {};
 
 // ── Git data fetching ──
 
-async function _vibeGit(cmd, args) {
+export async function _vibeGit(cmd, args) {
   const start = Date.now();
   try {
     const data = await apiPost('/api/vibe/git', { cmd, ...(args || {}) });
@@ -21,7 +21,7 @@ async function _vibeGit(cmd, args) {
   }
 }
 
-function _vibeLogCmd(cmd, ms) {
+export function _vibeLogCmd(cmd, ms) {
   const ts = new Date().toLocaleTimeString();
   _vibeCmdLog.push({ ts, cmd, ms });
   if (_vibeCmdLog.length > 50) _vibeCmdLog.shift();
@@ -39,7 +39,7 @@ function _vibeLogCmd(cmd, ms) {
   AetherUI.mount(VStack(rows), el);
 }
 
-async function _vibeRefresh() {
+export async function _vibeRefresh() {
   const [status, files, branches, log, stash] = await Promise.all([
     _vibeGit('status'),
     _vibeGit('files'),
@@ -58,7 +58,7 @@ async function _vibeRefresh() {
 
 // ── Pane renderers ──
 
-function _vibeRenderStatus(data) {
+export function _vibeRenderStatus(data) {
   const el = document.getElementById('vibe-status-body');
   if (!el) return;
   if (data.error) { AetherUI.mount(new View('span').className('text-red-400')._bindText(escapeHtml(data.error)), el); return; }
@@ -71,7 +71,7 @@ function _vibeRenderStatus(data) {
   AetherUI.mount(VStack(rows), el);
 }
 
-function _vibeRenderFiles(data) {
+export function _vibeRenderFiles(data) {
   const el = document.getElementById('vibe-files-body');
   if (!el) return;
   if (data.error) { AetherUI.mount(new View('span').className('text-red-400')._bindText(escapeHtml(data.error)), el); return; }
@@ -84,7 +84,7 @@ function _vibeRenderFiles(data) {
   AetherUI.mount(VStack(rows), el);
 }
 
-function _vibeRenderBranches(data) {
+export function _vibeRenderBranches(data) {
   const el = document.getElementById('vibe-branches-body');
   if (!el) return;
   if (data.error) { AetherUI.mount(new View('span').className('text-red-400')._bindText(escapeHtml(data.error)), el); return; }
@@ -103,7 +103,7 @@ function _vibeRenderBranches(data) {
   AetherUI.mount(VStack(rows), el);
 }
 
-function _vibeRenderCommits(data) {
+export function _vibeRenderCommits(data) {
   const el = document.getElementById('vibe-commits-body');
   if (!el) return;
   if (data.error) { AetherUI.mount(new View('span').className('text-red-400')._bindText(escapeHtml(data.error)), el); return; }
@@ -123,7 +123,7 @@ function _vibeRenderCommits(data) {
   AetherUI.mount(VStack(rows), el);
 }
 
-function _vibeRenderStash(data) {
+export function _vibeRenderStash(data) {
   const el = document.getElementById('vibe-stash-body');
   if (!el) return;
   if (data.error) { AetherUI.mount(new View('span').className('text-red-400')._bindText(escapeHtml(data.error)), el); return; }
@@ -139,7 +139,7 @@ function _vibeRenderStash(data) {
 
 // ── Status helpers ──
 
-function _vibeColorStatus(line) {
+export function _vibeColorStatus(line) {
   const code = line.substring(0, 2);
   const path = line.substring(3);
   let color = 'text-primary';
@@ -150,7 +150,7 @@ function _vibeColorStatus(line) {
   return `<span class="${color}">${escapeHtml(code)}</span> ${escapeHtml(path)}`;
 }
 
-function _vibeFileStatusBadge(status) {
+export function _vibeFileStatusBadge(status) {
   if (!status || status.trim() === '') return '<span class="text-dimmer inline-block w-4 text-center">\u00B7</span>';
   const colors = { M: 'text-yellow-400', A: 'text-green-400', D: 'text-red-400', '?': 'text-green-400', R: 'text-blue-400', U: 'text-red-400' };
   const c = colors[status] || 'text-dimmer';
@@ -159,7 +159,7 @@ function _vibeFileStatusBadge(status) {
 
 // ── Selection handlers ──
 
-async function _vibeSelectFile(idx) {
+export async function _vibeSelectFile(idx) {
   _vibeSelectedIdx[1] = idx;
   _vibeActivePane = 1;
   _vibeUpdateActivePane();
@@ -178,7 +178,7 @@ async function _vibeSelectFile(idx) {
   }
 }
 
-async function _vibeSelectBranch(idx) {
+export async function _vibeSelectBranch(idx) {
   _vibeSelectedIdx[2] = idx;
   _vibeActivePane = 2;
   _vibeUpdateActivePane();
@@ -191,7 +191,7 @@ async function _vibeSelectBranch(idx) {
   _vibeShowDetail('Branch: ' + b.name, commits.map(c => `${c.hash} ${c.subject} (${c.author}, ${c.date})`).join('\n') || 'No commits');
 }
 
-async function _vibeSelectCommit(idx) {
+export async function _vibeSelectCommit(idx) {
   _vibeSelectedIdx[3] = idx;
   _vibeActivePane = 3;
   _vibeUpdateActivePane();
@@ -203,7 +203,7 @@ async function _vibeSelectCommit(idx) {
   _vibeShowDetail('Commit: ' + c.hash, data.output || data.error || 'No data');
 }
 
-async function _vibeSelectStash(idx) {
+export async function _vibeSelectStash(idx) {
   _vibeSelectedIdx[4] = idx;
   _vibeActivePane = 4;
   _vibeUpdateActivePane();
@@ -218,7 +218,7 @@ async function _vibeSelectStash(idx) {
 
 // ── Detail pane ──
 
-function _vibeShowDetail(title, content) {
+export function _vibeShowDetail(title, content) {
   const header = document.querySelector('#vibe-pane-detail .vibe-pane-header');
   if (header) {
     AetherUI.mount(HStack([
@@ -231,7 +231,7 @@ function _vibeShowDetail(title, content) {
   AetherUI.mount(RawHTML('<pre class="vibe-detail-pre">' + _vibeColorDiff(escapeHtml(content)) + '</pre>'), body);
 }
 
-function _vibeColorDiff(escaped) {
+export function _vibeColorDiff(escaped) {
   return escaped.split('\n').map(line => {
     if (line.startsWith('+') && !line.startsWith('+++')) return `<span class="text-green-400">${line}</span>`;
     if (line.startsWith('-') && !line.startsWith('---')) return `<span class="text-red-400">${line}</span>`;
@@ -245,19 +245,19 @@ function _vibeColorDiff(escaped) {
 
 // ── Active pane / selection ──
 
-function _vibeClickPane(idx) {
+export function _vibeClickPane(idx) {
   _vibeActivePane = idx;
   _vibeUpdateActivePane();
 }
 
-function _vibeUpdateActivePane() {
+export function _vibeUpdateActivePane() {
   document.querySelectorAll('.vibe-pane').forEach(p => p.classList.remove('vibe-pane-active'));
   const paneIds = ['vibe-pane-status', 'vibe-pane-files', 'vibe-pane-branches', 'vibe-pane-commits', 'vibe-pane-stash', 'vibe-pane-detail'];
   const activeEl = document.getElementById(paneIds[_vibeActivePane]);
   if (activeEl) activeEl.classList.add('vibe-pane-active');
 }
 
-function _vibeUpdateSelection(paneIdx) {
+export function _vibeUpdateSelection(paneIdx) {
   const rows = document.querySelectorAll(`.vibe-selectable[data-pane="${paneIdx}"]`);
   rows.forEach(r => r.classList.remove('vibe-row-selected'));
   const idx = _vibeSelectedIdx[paneIdx] || 0;
@@ -269,7 +269,7 @@ function _vibeUpdateSelection(paneIdx) {
 
 // ── Keyboard navigation (only when git mode is active in vault) ──
 
-function _vibeKeyHandler(e) {
+export function _vibeKeyHandler(e) {
   // Don't intercept if typing in an input or terminal
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
   if (e.target.closest('.xterm')) return;
@@ -324,7 +324,7 @@ function _vibeKeyHandler(e) {
   }
 }
 
-function _vibeMoveSelection(delta) {
+export function _vibeMoveSelection(delta) {
   const pane = _vibeActivePane;
   if (pane >= 5) return;
   const rows = document.querySelectorAll(`.vibe-selectable[data-pane="${pane}"]`);
@@ -335,7 +335,7 @@ function _vibeMoveSelection(delta) {
   _vibeUpdateSelection(pane);
 }
 
-function _vibeActivateSelection() {
+export function _vibeActivateSelection() {
   const pane = _vibeActivePane;
   const idx = _vibeSelectedIdx[pane] || 0;
   if (pane === 1) _vibeSelectFile(idx);
@@ -346,3 +346,31 @@ function _vibeActivateSelection() {
 
 // Auto-refresh git status when tab regains focus
 window.addEventListener('focus', () => {});
+
+// ── Window exports ──
+window._vibeActivePane = _vibeActivePane;
+window._vibeData = _vibeData;
+window._vibeCmdLog = _vibeCmdLog;
+window._vibeSelectedIdx = _vibeSelectedIdx;
+window._vibeGit = _vibeGit;
+window._vibeLogCmd = _vibeLogCmd;
+window._vibeRefresh = _vibeRefresh;
+window._vibeRenderStatus = _vibeRenderStatus;
+window._vibeRenderFiles = _vibeRenderFiles;
+window._vibeRenderBranches = _vibeRenderBranches;
+window._vibeRenderCommits = _vibeRenderCommits;
+window._vibeRenderStash = _vibeRenderStash;
+window._vibeColorStatus = _vibeColorStatus;
+window._vibeFileStatusBadge = _vibeFileStatusBadge;
+window._vibeSelectFile = _vibeSelectFile;
+window._vibeSelectBranch = _vibeSelectBranch;
+window._vibeSelectCommit = _vibeSelectCommit;
+window._vibeSelectStash = _vibeSelectStash;
+window._vibeShowDetail = _vibeShowDetail;
+window._vibeColorDiff = _vibeColorDiff;
+window._vibeClickPane = _vibeClickPane;
+window._vibeUpdateActivePane = _vibeUpdateActivePane;
+window._vibeUpdateSelection = _vibeUpdateSelection;
+window._vibeKeyHandler = _vibeKeyHandler;
+window._vibeMoveSelection = _vibeMoveSelection;
+window._vibeActivateSelection = _vibeActivateSelection;

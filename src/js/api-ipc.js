@@ -4,8 +4,10 @@
 // this intercepts API calls and routes them through IPC instead of HTTP.
 // Falls back to null (meaning "use HTTP") for unhandled routes.
 
+import Settings from '/js/core/core-settings.js';
+
 /** Unwrap a tool result {success, data, error} to match Flask response format */
-function _unwrapTool(result, dataKey) {
+export function _unwrapTool(result, dataKey) {
   if (!result || !result.success) return null; // fall back to HTTP
   if (dataKey && result.data && result.data[dataKey] !== undefined) return result.data[dataKey];
   return result.data;
@@ -17,7 +19,7 @@ function _unwrapTool(result, dataKey) {
  * @param {object} opts - fetch options { method, body, headers }
  * @returns {Promise<object|null>} Result data or null if this path isn't IPC-handled
  */
-async function ipcRoute(path, opts = {}) {
+export async function ipcRoute(path, opts = {}) {
   if (!window.electronAPI || !window.electronAPI.coreAvailable) return null;
 
   const method = (opts.method || 'GET').toUpperCase();
@@ -679,7 +681,7 @@ function _getAuthToken() {
 }
 
 /** Get the current user's google_id from localStorage session */
-function _getGoogleId() {
+export function _getGoogleId() {
   try {
     const userData = Settings.get('user');
     if (userData) {
@@ -695,3 +697,7 @@ function _getGoogleId() {
   } catch (e) {}
   return null;
 }
+
+window.ipcRoute = ipcRoute;
+window._unwrapTool = _unwrapTool;
+window._getGoogleId = _getGoogleId;

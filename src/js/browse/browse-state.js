@@ -6,23 +6,24 @@
 //   @signal   — AetherUI State() reactive signal; access via .value
 //   @runtime  — ephemeral in-memory state; plain var, not persisted
 //   @const    — set once at init, never changes
+import Settings from '/js/core/core-settings.js';
 
 // Window & tab state
-let _browseWindows = []; // { id, name, tabs: [], activeTab, groups: [] }
-let _browseActiveWindow = null;
-let _browseNextWindowId = 1;
-let _browseNextTabId = 1;
-let _browseNextGroupId = 1;
+export let _browseWindows = []; // { id, name, tabs: [], activeTab, groups: [] }
+export let _browseActiveWindow = null;
+export let _browseNextWindowId = 1;
+export let _browseNextTabId = 1;
+export let _browseNextGroupId = 1;
 
 // Group configuration
-const _BROWSE_GROUP_COLORS = ['grey','blue','red','yellow','green','pink','purple','cyan'];
-const _BROWSE_GROUP_COLOR_MAP = {
+export const _BROWSE_GROUP_COLORS = ['grey','blue','red','yellow','green','pink','purple','cyan'];
+export const _BROWSE_GROUP_COLOR_MAP = {
   grey:'#808080', blue:'#5b8def', red:'#e05656', yellow:'#d4a844',
   green:'#4caf50', pink:'#e06090', purple:'#9c6ade', cyan:'#3dc0c0'
 };
 
 // Platform detection
-const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron);
+export const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron);
 
 // Sync initial adblock state to Electron main process
 if (_browseIsElectron && window.electronAPI.adblockSetEnabled) {
@@ -30,41 +31,41 @@ if (_browseIsElectron && window.electronAPI.adblockSetEnabled) {
 }
 
 // Audio tracking: { tabId: { windowId, muted } }
-let _browseAudioTabs = new Map();
-let _pillBrowseMode = false;
+export let _browseAudioTabs = new Map();
+export let _pillBrowseMode = false;
 
 // Closed captions state
-let _ccStream = null;
-let _ccSocket = null;
-let _ccAudioCtx = null;
-let _ccWorkletNode = null;
-let _ccActive = false;
-let _ccTabId = null;
-let _ccCaptionLines = [];
-let _ccFadeTimer = null;
+export let _ccStream = null;
+export let _ccSocket = null;
+export let _ccAudioCtx = null;
+export let _ccWorkletNode = null;
+export let _ccActive = false;
+export let _ccTabId = null;
+export let _ccCaptionLines = [];
+export let _ccFadeTimer = null;
 
 // UI state — browseTabLayout is read directly from Settings.get('browseTabLayout')
 
 // NTP uploaded files: { name, content, file }
-let _ntpUploadedFiles = [];
+export let _ntpUploadedFiles = [];
 
 // Closed tabs for Cmd+Shift+T reopen
-const _BROWSE_CLOSED_TABS_MAX = 50;
-let _browseClosedTabs = Settings.getJSON('browseClosedTabs', []);
+export const _BROWSE_CLOSED_TABS_MAX = 50;
+export let _browseClosedTabs = Settings.getJSON('browseClosedTabs', []);
 
 // Password manager state
-let _pwAutofillOffered = new Set(); // tab ids that have been offered autofill
-let _pwSaveDismissed = new Map(); // 'origin|username' → true
-let _pwLastSubmit = null; // { origin, username, ts } dedup
-let _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
+export let _pwAutofillOffered = new Set(); // tab ids that have been offered autofill
+export let _pwSaveDismissed = new Map(); // 'origin|username' → true
+export let _pwLastSubmit = null; // { origin, username, ts } dedup
+export let _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
 
 // Split pane state
-let _browseNextPaneId = 1;
+export let _browseNextPaneId = 1;
 
 // Return view for "back" button — backed by Settings.get('_browseReturnView')
 
 // Convenience getters for current window's tabs (backward compatibility)
-function _getCurrentWindow() {
+export function _getCurrentWindow() {
   return _browseWindows.find(w => w.id === _browseActiveWindow);
 }
 
@@ -79,20 +80,20 @@ Object.defineProperty(window, '_browseActiveTab', {
 });
 
 // Storage key helper (user-specific)
-function _getBrowseStorageKey(baseKey) {
+export function _getBrowseStorageKey(baseKey) {
   const username = (typeof _authUserInfo !== 'undefined' && _authUserInfo?.username) || null;
   return username ? `${baseKey}_${username}` : baseKey;
 }
 
 // Persistence helpers
-let _browseSaveTabsTimer = 0;
+export let _browseSaveTabsTimer = 0;
 
-function _browseSaveTabs() {
+export function _browseSaveTabs() {
   clearTimeout(_browseSaveTabsTimer);
   _browseSaveTabsTimer = setTimeout(_browseSaveTabsNow, 100);
 }
 
-function _browseSaveTabsNow() {
+export function _browseSaveTabsNow() {
   const data = _browseWindows.map(w => ({
     id: w.id,
     name: w.name,
@@ -127,3 +128,34 @@ function _browseSaveTabsNow() {
   });
 }
 
+window._browseWindows = _browseWindows;
+window._browseActiveWindow = _browseActiveWindow;
+window._browseNextWindowId = _browseNextWindowId;
+window._browseNextTabId = _browseNextTabId;
+window._browseNextGroupId = _browseNextGroupId;
+window._BROWSE_GROUP_COLORS = _BROWSE_GROUP_COLORS;
+window._BROWSE_GROUP_COLOR_MAP = _BROWSE_GROUP_COLOR_MAP;
+window._browseIsElectron = _browseIsElectron;
+window._browseAudioTabs = _browseAudioTabs;
+window._pillBrowseMode = _pillBrowseMode;
+window._ccStream = _ccStream;
+window._ccSocket = _ccSocket;
+window._ccAudioCtx = _ccAudioCtx;
+window._ccWorkletNode = _ccWorkletNode;
+window._ccActive = _ccActive;
+window._ccTabId = _ccTabId;
+window._ccCaptionLines = _ccCaptionLines;
+window._ccFadeTimer = _ccFadeTimer;
+window._ntpUploadedFiles = _ntpUploadedFiles;
+window._BROWSE_CLOSED_TABS_MAX = _BROWSE_CLOSED_TABS_MAX;
+window._browseClosedTabs = _browseClosedTabs;
+window._pwAutofillOffered = _pwAutofillOffered;
+window._pwSaveDismissed = _pwSaveDismissed;
+window._pwLastSubmit = _pwLastSubmit;
+window._pwPendingPrompt = _pwPendingPrompt;
+window._browseNextPaneId = _browseNextPaneId;
+window._getCurrentWindow = _getCurrentWindow;
+window._getBrowseStorageKey = _getBrowseStorageKey;
+window._browseSaveTabsTimer = _browseSaveTabsTimer;
+window._browseSaveTabs = _browseSaveTabs;
+window._browseSaveTabsNow = _browseSaveTabsNow;

@@ -1,6 +1,9 @@
-// ─── Browser Settings ──────────────────────────────────────
+import Settings from '../core/core-settings.js';
 
-function _renderDoomScrollSites() {
+// ─── Browser Settings ──────────────────────────────────────
+if (window.AetherUI) AetherUI.globals();
+
+export function _renderDoomScrollSites() {
   var sites = typeof _getDoomScrollSites === 'function' ? _getDoomScrollSites() : [];
   var siteRows = sites.map(function(s, i) {
     var pillColor = s.mode === 'block' ? 'bg-red-500/15 text-red-400' : 'bg-yellow-500/15 text-yellow-400';
@@ -61,7 +64,7 @@ function _renderDoomScrollSites() {
   return VStack.apply(null, all);
 }
 
-function _addDoomScrollSite() {
+export function _addDoomScrollSite() {
   const domainInput = document.getElementById('doom-scroll-new-domain');
   const modeSelect = document.getElementById('doom-scroll-new-mode');
   const minutesInput = document.getElementById('doom-scroll-new-minutes');
@@ -77,21 +80,21 @@ function _addDoomScrollSite() {
   AetherUI.mount(_renderDoomScrollSites(), '#doom-scroll-sites-list');
 }
 
-function _removeDoomScrollSite(index) {
+export function _removeDoomScrollSite(index) {
   const sites = _getDoomScrollSites();
   sites.splice(index, 1);
   _saveDoomScrollSites(sites);
   AetherUI.mount(_renderDoomScrollSites(), '#doom-scroll-sites-list');
 }
 
-function _resetDoomScrollSites() {
+export function _resetDoomScrollSites() {
   Settings.remove('doomScrollSites');
   AetherUI.mount(_renderDoomScrollSites(), '#doom-scroll-sites-list');
 }
 
-const _expandedPermDomain = null;
+export const _expandedPermDomain = null;
 
-function _renderSettingsSitePermissions() {
+export function _renderSettingsSitePermissions() {
   if (typeof _getAllSitePermissions !== 'function') return Text('No site permissions set.').className('text-dimmer text-[0.75rem]');
   var all = _getAllSitePermissions();
   var domains = Object.keys(all);
@@ -143,11 +146,11 @@ function _renderSettingsSitePermissions() {
   return VStack.apply(null, domainCards);
 }
 
-function _remountSitePermissions() {
+export function _remountSitePermissions() {
   AetherUI.mount(_renderSettingsSitePermissions(), '#settings-site-permissions');
 }
 
-function _renderUrlBarSectionsSettings() {
+export function _renderUrlBarSectionsSettings() {
   if (typeof _getUrlBarSections !== 'function') return Text('URL bar sections not available.').className('text-dimmer text-[0.75rem]');
   var sections = _getUrlBarSections();
   var rows = sections.map(function(s) {
@@ -171,14 +174,14 @@ function _renderUrlBarSectionsSettings() {
   return list;
 }
 
-function _toggleUrlBarSection(key, enabled) {
+export function _toggleUrlBarSection(key, enabled) {
   const sections = _getUrlBarSections();
   const sec = sections.find(s => s.key === key);
   if (sec) sec.enabled = enabled;
   _saveUrlBarSections(sections);
 }
 
-function _urlBarSectionDragSetup() {
+export function _urlBarSectionDragSetup() {
   const list = document.getElementById('urlbar-section-list');
   if (!list) return;
   let dragEl = null;
@@ -244,9 +247,9 @@ function _urlBarSectionDragSetup() {
   list.addEventListener('pointercancel', endDrag);
 }
 
-const _expandedPwDomain = null;
+export const _expandedPwDomain = null;
 
-function _loadSettingsPasswords() {
+export function _loadSettingsPasswords() {
   const container = document.getElementById('settings-passwords');
   if (!container) return;
   if (!window.electronAPI || !window.electronAPI.pwList) {
@@ -260,7 +263,7 @@ function _loadSettingsPasswords() {
   });
 }
 
-function _renderPasswordsList(container, entries) {
+export function _renderPasswordsList(container, entries) {
   if (!entries.length) {
     AetherUI.mount(Text('No saved passwords.').className('text-dimmer text-[0.75rem]'), container);
     return;
@@ -305,14 +308,14 @@ function _renderPasswordsList(container, entries) {
   AetherUI.mount(VStack.apply(null, cards), container);
 }
 
-function _pwDeleteEntry(id) {
+export function _pwDeleteEntry(id) {
   if (!window.electronAPI || !window.electronAPI.pwDelete) return;
   window.electronAPI.pwDelete(id).then(() => {
     _loadSettingsPasswords();
   }).catch((e) => { console.warn('pwDelete:', e); });
 }
 
-function _renderBrowserSettings() {
+export function _renderBrowserSettings() {
   // Ad blocker
   var adBlockChildren = [
     RawHTML('<div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">' + (window.electronAPI ? 'Loading filter info...' : 'Filter list management requires Electron.') + '</div>')
@@ -422,3 +425,19 @@ function _renderBrowserSettings() {
     ])
   );
 }
+
+window._renderDoomScrollSites = _renderDoomScrollSites;
+window._addDoomScrollSite = _addDoomScrollSite;
+window._removeDoomScrollSite = _removeDoomScrollSite;
+window._resetDoomScrollSites = _resetDoomScrollSites;
+window._expandedPermDomain = _expandedPermDomain;
+window._renderSettingsSitePermissions = _renderSettingsSitePermissions;
+window._remountSitePermissions = _remountSitePermissions;
+window._renderUrlBarSectionsSettings = _renderUrlBarSectionsSettings;
+window._toggleUrlBarSection = _toggleUrlBarSection;
+window._urlBarSectionDragSetup = _urlBarSectionDragSetup;
+window._expandedPwDomain = _expandedPwDomain;
+window._loadSettingsPasswords = _loadSettingsPasswords;
+window._renderPasswordsList = _renderPasswordsList;
+window._pwDeleteEntry = _pwDeleteEntry;
+window._renderBrowserSettings = _renderBrowserSettings;
