@@ -531,7 +531,8 @@ export function _browseUpdateNewTabPage(tab) {
 
       var dotsBtn = Button('\u00b7\u00b7\u00b7').className('ntp-action-dots').attr('title', 'More options');
 
-      var submitBtn = Button(RawHTML(submitSvg)).className('ntp-action-submit').attr('title', 'Search').attr('type', 'submit');
+      var submitBtn = new View('button').className('nr-btn ntp-action-submit').attr('title', 'Search').attr('type', 'submit');
+      submitBtn.el.innerHTML = submitSvg;
 
       var actions = HStack(addBtn, dotsBtn, new View('div').cssText('flex:1'), submitBtn).className('ntp-search-actions');
 

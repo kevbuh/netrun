@@ -26,6 +26,7 @@
     .pill-island {
       display: flex;
       align-items: center;
+      justify-content: center;
       width: fit-content;
       max-width: 400px;
       height: 24px;
