@@ -1,11 +1,10 @@
 // chat-view.js — Chat as an in-place NTP morph (search box slides to bottom, messages above)
+// Uses ChatEngine for agent streaming and ChatRender for rich message rendering.
 import Settings from '/js/core/core-settings.js';
 
 var _chatViewThreadId = null;
 var _chatViewThread = null;
-var _chatViewMessages = [];
-var _chatViewStreaming = false;
-var _chatViewStreamContent = '';
+var _chatViewSession = null;      // ChatEngine session
 var _chatViewMsgList = null;       // the .chat-view-messages div inside the morphed NTP
 var _chatViewOrigPlaceholder = ''; // original input placeholder to restore on un-morph
 var _chatViewOrigHandlers = null;  // original input handlers to restore on un-morph
@@ -17,8 +16,8 @@ export function chatViewNewThread(initialMessage) {
 }
 
 async function _chatViewNewThread(initialMessage) {
-  const thread = await electronAPI.dbQuery('chat-thread-create', 'New Chat', '');
-  if (!thread?.id) return;
+  const session = await ChatEngine.createSession();
+  if (!session) return;
 
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab) return;
@@ -35,19 +34,20 @@ async function _chatViewNewThread(initialMessage) {
   // Set tab metadata
   tab.blank = false;
   tab._chatPage = true;
-  tab._chatThreadId = thread.id;
-  tab.url = 'chat://' + thread.id;
+  tab._chatThreadId = session.threadId;
+  tab.url = 'chat://' + session.threadId;
   tab.title = 'Chat';
   tab.favicon = '';
 
-  _chatViewThreadId = thread.id;
-  _chatViewThread = thread;
-  _chatViewMessages = [];
-  _chatViewStreaming = false;
-  _chatViewStreamContent = '';
+  _chatViewThreadId = session.threadId;
+  _chatViewThread = session.thread;
+  _chatViewSession = session;
 
   // Morph the NTP
   _chatViewMorphNTP(ntp);
+
+  // Register session update listener
+  _chatViewRegisterUpdates(session);
 
   // Update URL bar and tabs
   const urlInput = document.getElementById('browse-url-input');
@@ -58,6 +58,20 @@ async function _chatViewNewThread(initialMessage) {
   if (initialMessage) {
     setTimeout(() => _chatViewSend(initialMessage), 100);
   }
+}
+
+function _chatViewRegisterUpdates(session) {
+  session.onUpdate((type) => {
+    _chatViewRenderMessages(type === 'done' || type === 'message');
+    // Update tab title from thread
+    if (session.thread.title) {
+      const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+      if (tab && tab._chatThreadId === session.threadId) {
+        tab.title = session.thread.title;
+        _browseRenderTabs();
+      }
+    }
+  });
 }
 
 function _chatViewMorphNTP(ntp) {
@@ -93,7 +107,7 @@ function _chatViewMorphNTP(ntp) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         var text = input.value.trim();
-        if (text && !_chatViewStreaming) {
+        if (text && _chatViewSession && !_chatViewSession.streaming) {
           input.value = '';
           _chatViewSend(text);
         }
@@ -110,7 +124,7 @@ function _chatViewMorphNTP(ntp) {
     form.onsubmit = function(e) {
       e.preventDefault();
       var text = input ? input.value.trim() : '';
-      if (text && !_chatViewStreaming) {
+      if (text && _chatViewSession && !_chatViewSession.streaming) {
         input.value = '';
         _chatViewSend(text);
       }
@@ -153,11 +167,12 @@ function _chatViewCleanupMorph() {
     delete form._origOnsubmit;
   }
 
+  if (_chatViewSession) {
+    _chatViewSession.cancel();
+    _chatViewSession = null;
+  }
   _chatViewThreadId = null;
   _chatViewThread = null;
-  _chatViewMessages = [];
-  _chatViewStreaming = false;
-  _chatViewStreamContent = '';
 }
 
 // ── Un-morph: restore NTP to normal (full — for back button) ──
@@ -237,8 +252,6 @@ export function openChatPage(threadId) {
   tab.favicon = '';
 
   _chatViewThreadId = threadId;
-  _chatViewStreaming = false;
-  _chatViewStreamContent = '';
 
   // Morph the NTP
   _chatViewMorphNTP(ntp);
@@ -356,21 +369,27 @@ async function _chatViewDeleteThread(id, container) {
 // ── Chat conversation (load existing thread into morphed NTP) ──
 
 async function _chatViewOpenThread(threadId) {
+  // Clean up previous session
+  if (_chatViewSession) {
+    _chatViewSession.cancel();
+    _chatViewSession = null;
+  }
+
   _chatViewThreadId = threadId;
-  _chatViewStreaming = false;
-  _chatViewStreamContent = '';
 
-  const thread = await electronAPI.dbQuery('chat-thread-get', threadId);
-  if (!thread) return;
-  _chatViewThread = thread;
+  // Load session via engine (hydrates metadata for rich fields)
+  const session = await ChatEngine.loadSession(threadId);
+  if (!session) return;
+  _chatViewSession = session;
+  _chatViewThread = session.thread;
 
-  const messages = await electronAPI.dbQuery('chat-message-list', threadId);
-  _chatViewMessages = messages || [];
+  // Register update listener
+  _chatViewRegisterUpdates(session);
 
   // Update tab title and URL bar
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (tab) {
-    tab.title = thread.title || 'Chat';
+    tab.title = session.thread.title || 'Chat';
     tab.url = 'chat://' + threadId;
     tab._chatThreadId = threadId;
     _browseRenderTabs();
@@ -378,99 +397,91 @@ async function _chatViewOpenThread(threadId) {
     _browseSetUrlDisplay(urlInput, tab.url);
   }
 
-  // Render messages into the msg list
-  const list = _chatViewMsgList || document.getElementById('chat-view-msg-list');
-  if (list) {
-    list.innerHTML = '';
-    _chatViewMessages.forEach(msg => {
-      list.appendChild(_chatViewRenderMessage(msg));
-    });
-    requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
-  }
+  // Render messages
+  _chatViewRenderMessages(true);
 }
 
-function _chatViewRenderMessage(msg) {
-  const div = document.createElement('div');
-  div.className = 'chat-view-msg chat-view-msg-' + (msg.role || 'user');
-  const content = document.createElement('div');
-  content.className = 'chat-view-msg-content';
-  content.textContent = msg.content || '';
-  div.appendChild(content);
-  return div;
+// ── Render all messages using ChatRender ──
+
+function _chatViewRenderMessages(isFinal) {
+  const list = _chatViewMsgList || document.getElementById('chat-view-msg-list');
+  if (!list || !_chatViewSession) return;
+
+  const messages = _chatViewSession.messages;
+  const total = messages.length;
+
+  list.innerHTML = messages.map((m, i) => {
+    const html = ChatRender.renderMessageHTML(m, i, total, isFinal);
+    return `<div class="chat-view-msg chat-view-msg-${m.role || 'user'}"><div class="chat-view-msg-content">${html}</div></div>`;
+  }).join('');
+
+  // Attach handlers via ChatRender
+  ChatRender.attachMessageHandlers(list, {
+    onRedo() {
+      if (!_chatViewSession) return;
+      _chatViewSession.redo().then(text => {
+        if (text) {
+          const input = document.querySelector('.browse-ntp.chat-mode #search-query');
+          if (input) input.value = text;
+          _chatViewSend(text);
+        }
+      });
+    },
+    onEdit(msgIdx) {
+      if (!_chatViewSession) return;
+      _chatViewSession.editFrom(msgIdx).then(text => {
+        if (text != null) {
+          const input = document.querySelector('.browse-ntp.chat-mode #search-query');
+          if (input) { input.value = text; input.focus(); }
+          _chatViewRenderMessages(true);
+        }
+      });
+    },
+    onSpeak(btn) {
+      // Delegate to panel TTS if available
+      if (typeof _ttsStopAll === 'function' && (typeof _ttsAudio !== 'undefined' && _ttsAudio || (typeof _ttsChunks !== 'undefined' && _ttsChunks.length > 0))) {
+        const wasToggling = btn.classList.contains('doc-msg-speaking');
+        _ttsStopAll();
+        list.querySelectorAll('.doc-msg-speak-btn').forEach(b => b.classList.remove('doc-msg-speaking'));
+        if (wasToggling) return;
+      }
+      const msgEl = btn.closest('.doc-msg-ai');
+      if (!msgEl) return;
+      const text = msgEl.textContent.replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      btn.classList.add('doc-msg-speaking');
+      if (typeof apiPost === 'function') {
+        apiPost('/api/tts', { text }).then(data => {
+          if (!data || !data.audioPath) throw new Error('No audio generated');
+          const audio = new Audio('file://' + data.audioPath);
+          audio.playbackRate = parseFloat(Settings.get('ttsSpeed')) || 1;
+          audio.onended = () => { btn.classList.remove('doc-msg-speaking'); };
+          audio.onerror = () => { btn.classList.remove('doc-msg-speaking'); };
+          audio.play();
+        }).catch(() => { btn.classList.remove('doc-msg-speaking'); });
+      }
+    },
+  });
+
+  // Scroll to bottom
+  requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
 }
+
+// ── Send message via ChatEngine session ──
 
 async function _chatViewSend(text) {
-  if (!_chatViewThreadId || _chatViewStreaming) return;
+  if (!_chatViewSession || _chatViewSession.streaming) return;
 
-  // Add user message to DB and UI
-  const userMsg = await electronAPI.dbQuery('chat-message-add', _chatViewThreadId, 'user', text);
-  _chatViewMessages.push(userMsg);
-  const list = _chatViewMsgList || document.getElementById('chat-view-msg-list');
-  if (list) {
-    list.appendChild(_chatViewRenderMessage(userMsg));
-    list.scrollTop = list.scrollHeight;
-  }
+  // Render immediately to show the sending state
+  _chatViewRenderMessages(false);
 
-  // Auto-title on first message
-  if (_chatViewMessages.length === 1 && _chatViewThread) {
-    const title = text.slice(0, 60) + (text.length > 60 ? '...' : '');
-    await electronAPI.dbQuery('chat-thread-update', _chatViewThreadId, { title });
-    _chatViewThread.title = title;
+  await _chatViewSession.send(text);
+
+  // Update tab title after send
+  if (_chatViewSession.thread.title) {
     const tab = _browseTabs.find(t => t.id === _browseActiveTab);
-    if (tab) { tab.title = title; _browseRenderTabs(); }
+    if (tab) { tab.title = _chatViewSession.thread.title; _browseRenderTabs(); }
   }
-
-  // Create streaming placeholder
-  _chatViewStreaming = true;
-  _chatViewStreamContent = '';
-  const assistantDiv = document.createElement('div');
-  assistantDiv.className = 'chat-view-msg chat-view-msg-assistant';
-  const contentDiv = document.createElement('div');
-  contentDiv.className = 'chat-view-msg-content chat-view-msg-streaming';
-  contentDiv.textContent = '';
-  assistantDiv.appendChild(contentDiv);
-  if (list) {
-    list.appendChild(assistantDiv);
-    list.scrollTop = list.scrollHeight;
-  }
-
-  // Build messages for Ollama
-  const ollamaMessages = _chatViewMessages.map(m => ({ role: m.role, content: m.content }));
-  const model = Settings.get('chatModel') || 'qwen2.5:3b';
-
-  // Start streaming
-  const sessionId = 'cv-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-
-  const handler = (_ev, sid, evt) => {
-    if (sid !== sessionId) return;
-    if (evt.event === 'token') {
-      _chatViewStreamContent += evt.data;
-      contentDiv.textContent = _chatViewStreamContent;
-      if (list) list.scrollTop = list.scrollHeight;
-    } else if (evt.event === 'done') {
-      window.electronAPI.removeDocChatEventListener(handler);
-      contentDiv.classList.remove('chat-view-msg-streaming');
-      _chatViewStreaming = false;
-      electronAPI.dbQuery('chat-message-add', _chatViewThreadId, 'assistant', _chatViewStreamContent).then(saved => {
-        if (saved) _chatViewMessages.push(saved);
-      });
-    } else if (evt.event === 'error') {
-      window.electronAPI.removeDocChatEventListener(handler);
-      contentDiv.textContent = 'Error: ' + (evt.data || 'unknown');
-      contentDiv.classList.remove('chat-view-msg-streaming');
-      contentDiv.classList.add('chat-view-msg-error');
-      _chatViewStreaming = false;
-    }
-  };
-  window.electronAPI.onDocChatEvent(handler);
-
-  await electronAPI.dbQuery('doc-chat-start', {
-    sessionId,
-    context: '',
-    messages: ollamaMessages,
-    model,
-    think: false,
-  });
 }
 
 window.openChatPage = openChatPage;

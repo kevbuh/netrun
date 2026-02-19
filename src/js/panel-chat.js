@@ -246,7 +246,6 @@ export function _sendPopupChatMessage(popup, capturedText) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (!input) return;
   const q = input.value.trim();
-  // Allow sending if there's capturedText, screenshots, or a query
   if (!q && _pendingScreenshots.length === 0 && !capturedText) return;
   input.value = '';
 
@@ -265,214 +264,100 @@ export function _sendPopupChatMessage(popup, capturedText) {
   const strip = popup.querySelector('.doc-screenshot-attachments');
   if (strip) { strip.innerHTML = ''; strip.style.display = 'none'; }
 
-  // Build user message with context on first message
-  const userMsg = _popupChatMessages.length === 0 && capturedText
-    ? (q || 'What is this?') + '\n\n> ' + capturedText
-    : (q || 'What is this?');
-  const msgObj = { role: 'user', content: userMsg, _display: q || 'What is this?' };
-  if (images.length) msgObj.images = images;
-  _popupChatMessages.push(msgObj);
-  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true });
-
   // Show chat area, add has-chat class
   popup.classList.add('has-chat');
   const chatArea = popup.querySelector('.doc-popup-chat-area');
   if (chatArea) chatArea.classList.add('visible');
 
-  _renderPopupChatLive(false);
-  _repositionSelectionPopup();
-
   input.disabled = true;
   const sendBtn = popup.querySelector('.doc-ask-inline-send');
   if (sendBtn) sendBtn.disabled = true;
 
-  _popupChatAbort = new AbortController();
-
-  // Check if any message has images (vision mode)
-  const hasVision = _popupChatMessages.some(m => m.images && m.images.length > 0);
-
-  const filteredMsgs = _popupChatMessages.filter(m => !m._thinking && m.content).map(m => {
-    const msg = { role: m.role, content: m.content };
-    if (m.images && m.images.length) msg.images = m.images;
-    return msg;
-  });
-
   (async () => {
     try {
-      const body = { messages: filteredMsgs };
-      const chatModel = Settings.get('chatModel');
-      if (chatModel) body.model = chatModel;
-      const _aiModelName = hasVision ? (Settings.get('visionModel') || chatModel || 'default') : (chatModel || 'default');
-      islandUpdate('aether', { type: 'ai', label: _aiModelName, detail: 'Chatting \u00B7 ' + _aiModelName });
+      // Get or create session
+      let session = _panelSession;
+      if (!session) {
+        session = await ChatEngine.createSession();
+        if (!session) return;
+        _panelSession = session;
+        _panelThreadId = session.threadId;
+        // Register update listener for live rendering
+        session.onUpdate((type) => {
+          _popupChatMessages = session.messages;
+          if (type === 'stream') _renderPopupChatLive(false);
+          else if (type === 'done') _renderPopupChatLive(true);
+          else if (type === 'message') _renderPopupChatLive(true);
+        });
+      }
+
+      // Gather page info
+      let pageUrl = '', pageTitle = '';
+      const paper = typeof _currentPaperViewPaper !== 'undefined' ? _currentPaperViewPaper : null;
+      const browseTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
+        ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+      if (paper) {
+        pageUrl = paper.link || paper.url || '';
+        pageTitle = paper.title || '';
+      } else if (browseTab && browseTab.url) {
+        pageUrl = browseTab.url;
+        pageTitle = browseTab.title || '';
+      }
+
+      // Auto-inject semantic DOM from active browse tab for agent tools
+      let domTree = null;
       const toolsOn = Settings.get('chatTools') !== 'off';
-      // Include current page info for tool context
-      if (toolsOn) {
-        const paper = _currentPaperViewPaper;
-        const browseTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
+      if (toolsOn && (typeof agentGetSemanticDOM === 'function' || typeof agentGetAccessibleDOM === 'function')) {
+        const _agentTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
           ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-        if (paper) {
-          body.pageUrl = paper.link || paper.url || '';
-          body.pageTitle = paper.title || '';
-        } else if (browseTab && browseTab.url) {
-          body.pageUrl = browseTab.url;
-          body.pageTitle = browseTab.title || '';
-        }
-      }
-      // Track context sources for transparency indicator
-      const _ctxSources = [];
-      if (hasVision) {
-        _ctxSources.push({ label: 'vision' });
-        body.vision = true;
-        const vm = Settings.get('visionModel');
-        if (vm) body.model = vm;
-      } else {
-        if (toolsOn) body.tools = true;
-        body.think = Settings.get('chatThinking') === 'on';
-        // Build context from doc text + any attached tab contents
-        let ctx = _docText || '';
-        if (ctx) _ctxSources.push({ label: 'doc', content: _docText });
-        if (tabContexts.length) {
-          const tabCtx = tabContexts.map(t =>
-            `--- Tab: ${t.title} (${t.url}) ---\n${t.content}`
-          ).join('\n\n');
-          _ctxSources.push({ label: tabContexts.length + ' tab' + (tabContexts.length > 1 ? 's' : ''), content: tabCtx });
-          ctx = ctx ? ctx + '\n\n' + tabCtx : tabCtx;
-        }
-        if (fileContexts.length) {
-          const fileCtx = fileContexts.map(f =>
-            `--- File: ${f.name} ---\n${f.content}`
-          ).join('\n\n');
-          _ctxSources.push({ label: fileContexts.length + ' file' + (fileContexts.length > 1 ? 's' : ''), content: fileCtx });
-          ctx = ctx ? ctx + '\n\n' + fileCtx : fileCtx;
-        }
-        // Retrieve relevant past conversations on first exchange
-        if (!_chatMemoryRetrieved && _popupChatMessages.length <= 2) {
-          _chatMemoryRetrieved = true;
+        if (_agentTab && _agentTab.el) {
           try {
-            const userMsg = _popupChatMessages.find(m => m.role === 'user');
-            if (userMsg) {
-              const memData = await apiGet('/api/chat-memories?query=' + encodeURIComponent(userMsg.content));
-              if (memData) {
-                if (memData.memories && memData.memories.length) {
-                  const memCtx = memData.memories.map((m, i) => `${i + 1}. ${m.summary}` + (m.page_title ? ` (from: ${m.page_title})` : '')).join('\n');
-                  _ctxSources.push({ label: memData.memories.length + ' memor' + (memData.memories.length > 1 ? 'ies' : 'y'), content: memCtx });
-                  ctx = ctx ? ctx + '\n\n' + memCtx : memCtx;
-                }
-              }
+            domTree = typeof agentGetSemanticDOM === 'function'
+              ? await agentGetSemanticDOM(_agentTab)
+              : await agentGetAccessibleDOM(_agentTab);
+            if (domTree && domTree.error) {
+              console.warn('[agent] DOM extraction error:', domTree.error);
+              domTree = null;
             }
-          } catch (e) { /* memory retrieval is best-effort */ }
+          } catch (_e) { console.warn('[agent] DOM extraction failed:', _e); }
         }
-        // Auto-inject semantic DOM from active browse tab for agent tools
-        if (toolsOn && (typeof agentGetSemanticDOM === 'function' || typeof agentGetAccessibleDOM === 'function')) {
-          const _agentTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
-            ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-          if (_agentTab && _agentTab.el) {
-            try {
-              const domTree = typeof agentGetSemanticDOM === 'function'
-                ? await agentGetSemanticDOM(_agentTab)
-                : await agentGetAccessibleDOM(_agentTab);
-              if (domTree && domTree.elements) {
-                _ctxSources.push({ label: 'page DOM (' + (domTree.elementCount || '?') + ')', content: domTree.elements });
-                const domCtx = `\n\n--- BROWSER TAB DOM (${domTree.title}) [${domTree.url}] ---\n${domTree.elements}\n--- END DOM ---`;
-                ctx = ctx ? ctx + domCtx : domCtx;
-              } else if (domTree && domTree.error) {
-                console.warn('[agent] DOM extraction error:', domTree.error);
-              }
-            } catch (_e) { console.warn('[agent] DOM extraction failed:', _e); }
-          }
-        }
-        if (toolsOn) _ctxSources.push({ label: 'tools', content: null });
-        body.context = ctx;
       }
-      // Store context sources on the AI message for display
-      const aiMsg = _popupChatMessages[_popupChatMessages.length - 1];
-      if (aiMsg && _ctxSources.length) aiMsg._ctxSources = _ctxSources;
+
+      _popupChatAbort = session.abortController;
       _chatStreamStart = Date.now();
+      _popupChatMessages = session.messages;
+      _renderPopupChatLive(false);
+      _repositionSelectionPopup();
 
-      let aiText = '';
-      const aiIdx = _popupChatMessages.length - 1;
-
-      // ── IPC Agent path (no Flask needed) ──
-      if (window.electronAPI && window.electronAPI.coreAvailable) {
-        _popupChatMessages[aiIdx]._thinking = false;
-        const sessionId = 'chat-' + Date.now();
-        let _inThinkTag = false;
-
-        // Set up event listener for agent events
-        const eventHandler = (_ipcEvent, evtSessionId, agentEvent) => {
-          if (evtSessionId !== sessionId) return;
-          _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, (newAiText) => { aiText = newAiText; }, (v) => { _inThinkTag = v; });
-        };
-        window.electronAPI.onAgentEvent(eventHandler);
-
-        // Build messages for agent
-        const agentMessages = filteredMsgs.map(m => ({ role: m.role, content: m.content }));
-
-        try {
-          await window.electronAPI.agentStart({
-            sessionId,
-            agentId: Settings.get('chatAgent') || 'research-assistant',
-            messages: agentMessages,
-            context: {
-              googleId: _getGoogleId(),
-              pageUrl: body.pageUrl,
-              pageTitle: body.pageTitle,
-              documentText: body.context,
-              model: body.model,
-              tools: body.tools,
-            },
-          });
-
-          // Wait for stream to complete
-          await new Promise((resolve) => {
-            const checkDone = (_ipcEvent, evtSessionId, agentEvent) => {
-              if (evtSessionId !== sessionId) return;
-              if (agentEvent.type === 'done' || agentEvent.type === 'error') {
-                window.electronAPI.removeAgentEventListener(checkDone);
-                resolve();
-              }
-            };
-            window.electronAPI.onAgentEvent(checkDone);
-            // Also handle abort
-            if (_popupChatAbort) {
-              _popupChatAbort.signal.addEventListener('abort', () => {
-                window.electronAPI.agentCancel(sessionId);
-                resolve();
-              });
-            }
-          });
-        } finally {
-          window.electronAPI.removeAgentEventListener(eventHandler);
-        }
-      } else {
-        // IPC not available — should not happen in Electron
-        _popupChatMessages[aiIdx]._thinking = false;
-        _popupChatMessages[aiIdx].content = 'Error: IPC not available';
-        _renderPopupChatLive(true);
-      }
-      _popupChatMessages[aiIdx]._thinking = false;
-      if (aiText) _popupChatMessages[aiIdx].content = aiText;
-      _renderPopupChatLive(true);
+      await session.send(q, {
+        capturedText,
+        images,
+        tabContexts,
+        fileContexts,
+        documentText: _docText || '',
+        pageUrl,
+        pageTitle,
+        domTree: domTree?.elements ? domTree : null,
+      });
     } catch (e) {
       if (e.name !== 'AbortError') {
         _popupChatMessages.push({ role: 'assistant', content: 'Error: ' + e.message });
         _renderPopupChatLive(true);
       }
     }
+
     _popupChatAbort = null;
     if (_aetherBackgroundStreaming) {
-      // Stream finished while panel was dismissed — show "ready" in island
       islandUpdate('aether', {
         type: 'ai', label: 'Response ready \u2713',
         detail: 'Response ready \u2713',
         action: function() { _reopenAetherPanel(); }
       });
-      // Auto-dismiss after 8s
       setTimeout(function() { if (_aetherBackgroundStreaming) { _aetherBackgroundStreaming = false; islandRemove('aether'); } }, 8000);
     } else {
       islandRemove('aether');
     }
-    // Re-enable input via DOM lookup (panel may have been reopened)
+    // Re-enable input
     const _p = document.getElementById('doc-chat-ask-float');
     if (_p) {
       const _inp = _p.querySelector('.doc-ask-inline-input');
@@ -505,14 +390,16 @@ export function _reopenAetherPanel() {
   _aetherBackgroundStreaming = false;
   islandRemove('aether');
 
-  // Preserve messages, reopen panel via _showPanel (which resets them), then restore
+  // Preserve session, messages, and abort state across panel rebuild
+  const savedSession = _panelSession;
   const savedMsgs = _popupChatMessages.slice();
   const savedAbort = _popupChatAbort;
   _popupChatAbort = null; // prevent _showPanel from aborting the stream
 
   _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 }, trackCursor: false });
 
-  // Restore the stream and messages
+  // Restore the stream, messages, and session
+  _panelSession = savedSession;
   _popupChatMessages = savedMsgs;
   _popupChatAbort = savedAbort;
   _aetherPinned = true;
@@ -612,142 +499,30 @@ export function _renderCtxPills(sources, msg) {
 export function _renderPopupChat(popup, final) {
   const container = popup.querySelector('.doc-popup-chat-messages');
   if (!container) return;
-  container.innerHTML = _popupChatMessages.map((m, i) => {
-    if (m.role === 'user') {
-      const display = m._display || m.content;
-      let imgsHtml = '';
-      if (m.images && m.images.length) {
-        imgsHtml = '<div class="doc-msg-images">' + m.images.map(b64 =>
-          `<img src="data:image/png;base64,${b64}" />`
-        ).join('') + '</div>';
-      }
-      const searchIcon = m._isSearch ? '<span class="doc-search-badge">search</span>' : '';
-      const paperIcon = m._isPaperSearch ? '<span class="doc-search-badge doc-paper-badge">papers</span>' : '';
-      const userIcon = m._isUserSearch ? '<span class="doc-search-badge doc-user-badge">users</span>' : '';
-      const editBtn = `<button class="doc-msg-edit-btn" data-msg-idx="${i}" title="Edit and resend">${icon('edit', { size: 11 })}</button>`;
-      return `<div class="doc-msg-user" data-msg-idx="${i}">${imgsHtml}${searchIcon}${paperIcon}${userIcon}<span class="doc-msg-user-text">${escapeHtml(display)}</span>${editBtn}</div>`;
-    }
-    if (m._thinking) {
-      const label = m._thinkingLabel ? `<span class="doc-thinking-label">${escapeHtml(m._thinkingLabel)}</span>` : '';
-      const preview = m._thinkingText ? `<div class="doc-thinking-preview">${escapeHtml(m._thinkingText.length > 200 ? '…' + m._thinkingText.slice(-200) : m._thinkingText)}</div>` : '';
-      const ctxBlock = _renderCtxPills(m._ctxSources, m);
-      return `<div class="doc-msg-ai">${ctxBlock}<span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>${label}${preview}</div>`;
-    }
-    // Search results
-    if (m._searchResults && m._searchResults.length) {
-      const resultsHtml = m._searchResults.map(r =>
-        `<div class="doc-search-result" data-href="${escapeAttr(r.url)}">` +
-        `<div class="doc-search-result-title">${escapeHtml(r.title)}</div>` +
-        (r.snippet ? `<div class="doc-search-result-snippet">${escapeHtml(r.snippet)}</div>` : '') +
-        `<div class="doc-search-result-url">${escapeHtml(r.url.length > 60 ? r.url.slice(0, 57) + '...' : r.url)}</div>` +
-        `</div>`
-      ).join('');
-      return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
-    }
-    // Paper search results
-    if (m._paperResults && m._paperResults.length) {
-      const resultsHtml = m._paperResults.map(r =>
-        `<div class="doc-paper-result" data-href="${escapeAttr(r.link)}">` +
-        `<div class="doc-paper-result-title">${escapeHtml(r.title)}</div>` +
-        `<div class="doc-paper-result-meta">${escapeHtml(r.authors)}${r.year ? ' · ' + r.year : ''}</div>` +
-        (r.summary ? `<div class="doc-paper-result-summary">${escapeHtml(r.summary.length > 150 ? r.summary.slice(0, 147) + '...' : r.summary)}</div>` : '') +
-        `</div>`
-      ).join('');
-      return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
-    }
-    // User search results
-    if (m._userResults && m._userResults.length) {
-      const resultsHtml = m._userResults.map(u =>
-        `<div class="doc-user-result" data-username="${escapeAttr(u.username)}">` +
-        (u.picture ? `<img class="doc-user-result-avatar" src="${escapeAttr(u.picture)}" />` :
-          `<div class="doc-user-result-avatar doc-user-result-avatar-fallback">${escapeHtml(u.username.charAt(0).toUpperCase())}</div>`) +
-        `<span class="doc-user-result-name">${escapeHtml(u.username)}</span>` +
-        `</div>`
-      ).join('');
-      return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
-    }
-    const isLast = i === _popupChatMessages.length - 1;
-    const content = (final || !isLast) && typeof marked !== 'undefined'
-      ? marked.parse(m.content)
-      : escapeHtml(m.content);
-    const thinkingBlock = m._thinkingText ? `<details class="doc-thinking-block"><summary>Thought for a moment</summary><div class="doc-thinking-content">${escapeHtml(m._thinkingText)}</div></details>` : '';
-    const ctxBlock = _renderCtxPills(m._ctxSources, m);
-    const copyBtn = `<button class="doc-msg-copy-btn" title="Copy message">${icon('copy', { size: 12 })}</button>`;
-    const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud">${icon('speaker', { size: 12 })}</button>`;
-    const redoBtn = isLast ? `<button class="doc-msg-redo-btn" title="Redo last message">${icon('redo', { size: 12 })}</button>` : '';
-    return `<div class="doc-msg-ai">${ctxBlock}${thinkingBlock}${content}<div class="doc-msg-actions">${copyBtn}${speakBtn}${redoBtn}</div></div>`;
-  }).join('');
-  // Render LaTeX in AI messages
-  if (typeof katex !== 'undefined') {
-    container.querySelectorAll('.doc-msg-ai').forEach(msgEl => {
-      _renderLatexInElement(msgEl);
-    });
-  }
-  // Attach click handlers for search results
-  container.querySelectorAll('.doc-search-result[data-href]').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      const url = el.getAttribute('data-href');
-      window.location.hash = '#browse';
-      if (typeof browseNewTab === 'function') browseNewTab(url);
-      else window.open(url, '_blank');
-      const popup = document.getElementById('doc-chat-ask-float');
-      if (popup) { _aetherTrackMode = false; popup.remove(); }
-    });
-    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  });
-  // Attach click handlers for paper results
-  container.querySelectorAll('.doc-paper-result[data-href]').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      const url = el.getAttribute('data-href');
-      window.location.hash = '#browse';
-      if (typeof browseNewTab === 'function') browseNewTab(url);
-      else window.open(url, '_blank');
-      const popup = document.getElementById('doc-chat-ask-float');
-      if (popup) { _aetherTrackMode = false; popup.remove(); }
-    });
-    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  });
-  // Attach click handlers for user results
-  container.querySelectorAll('.doc-user-result[data-username]').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      const username = el.getAttribute('data-username');
-      window.location.hash = '#profile/' + encodeURIComponent(username);
-      // Dismiss the aether panel
-      const popup = document.getElementById('doc-chat-ask-float');
-      if (popup) { _aetherTrackMode = false; popup.remove(); }
-    });
-    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  });
-  // Attach click handlers for note results
-  container.querySelectorAll('.doc-note-result[data-note-id]').forEach(el => {
-    el.addEventListener('click', (ev) => {
-      ev.preventDefault(); ev.stopPropagation();
-      const noteId = el.getAttribute('data-note-id');
-      const popup = document.getElementById('doc-chat-ask-float');
-      if (popup) { _aetherTrackMode = false; popup.remove(); }
-    });
-    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  });
-  // Attach speak button handlers (Kokoro TTS)
-  container.querySelectorAll('.doc-msg-speak-btn').forEach(btn => {
-    btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
+  const total = _popupChatMessages.length;
+  container.innerHTML = _popupChatMessages.map((m, i) =>
+    ChatRender.renderMessageHTML(m, i, total, final)
+  ).join('');
+
+  // Attach all handlers via ChatRender
+  ChatRender.attachMessageHandlers(container, {
+    onNavigate() {
+      const p = document.getElementById('doc-chat-ask-float');
+      if (p) { _aetherTrackMode = false; p.remove(); }
+    },
+    onSpeak(btn) {
       if (_ttsAudio || _ttsChunks.length > 0) {
         const wasToggling = btn.classList.contains('doc-msg-speaking');
         _ttsStopAll();
         container.querySelectorAll('.doc-msg-speak-btn').forEach(b => b.classList.remove('doc-msg-speaking'));
-        if (wasToggling) return; // was toggling off
+        if (wasToggling) return;
       }
       const msgEl = btn.closest('.doc-msg-ai');
       if (!msgEl) return;
       const text = msgEl.textContent.replace(/\s+/g, ' ').trim();
       if (!text) return;
       btn.classList.add('doc-msg-speaking');
-      _updateAudioUnified('tts', { label: 'Generating…', detail: 'Generating speech audio' });
+      _updateAudioUnified('tts', { label: 'Generating\u2026', detail: 'Generating speech audio' });
       apiPost('/api/tts', { text }).then(data => {
         if (!data || !data.audioPath) throw new Error('No audio generated');
         const audio = new Audio('file://' + data.audioPath);
@@ -759,67 +534,57 @@ export function _renderPopupChat(popup, final) {
         audio.onerror = () => { btn.classList.remove('doc-msg-speaking'); _ttsAudio = null; _ttsStopWaveform(); _clearAudioUnified('tts'); };
         audio.play();
       }).catch(() => { btn.classList.remove('doc-msg-speaking'); _clearAudioUnified('tts'); });
-    });
-  });
-  // Attach copy button handlers
-  container.querySelectorAll('.doc-msg-copy-btn').forEach(btn => {
-    btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      const msgEl = btn.closest('.doc-msg-ai');
-      if (!msgEl) return;
-      const text = msgEl.textContent.replace(/Copy message|Read aloud|Redo last message/g, '').replace(/\s+/g, ' ').trim();
-      if (!text) return;
-      navigator.clipboard.writeText(text).then(() => {
-        btn.innerHTML = icon('check', { size: 12 });
-        setTimeout(() => {
-          btn.innerHTML = icon('copy', { size: 12 });
-        }, 1000);
-      }).catch(() => {});
-    });
-  });
-  // Attach redo button handlers
-  container.querySelectorAll('.doc-msg-redo-btn').forEach(btn => {
-    btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      // Find last user message
-      let lastUserIdx = -1;
-      for (let i = _popupChatMessages.length - 1; i >= 0; i--) {
-        if (_popupChatMessages[i].role === 'user') { lastUserIdx = i; break; }
+    },
+    onRedo() {
+      if (_panelSession) {
+        _panelSession.redo().then(text => {
+          if (text) {
+            const input = popup.querySelector('.doc-ask-inline-input');
+            if (input) input.value = text;
+            _popupChatMessages = _panelSession.messages;
+            if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+            _sendPopupChatMessage(popup, popup._capturedText || '');
+          }
+        });
+      } else {
+        // Legacy fallback
+        let lastUserIdx = -1;
+        for (let i = _popupChatMessages.length - 1; i >= 0; i--) {
+          if (_popupChatMessages[i].role === 'user') { lastUserIdx = i; break; }
+        }
+        if (lastUserIdx < 0) return;
+        const lastUserMsg = _popupChatMessages[lastUserIdx];
+        _popupChatMessages = _popupChatMessages.slice(0, lastUserIdx);
+        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+        const input = popup.querySelector('.doc-ask-inline-input');
+        if (input) input.value = lastUserMsg._display || lastUserMsg.content;
+        _sendPopupChatMessage(popup, popup._capturedText || '');
       }
-      if (lastUserIdx < 0) return;
-      // Remove the last user message and everything after it
-      const lastUserMsg = _popupChatMessages[lastUserIdx];
-      _popupChatMessages = _popupChatMessages.slice(0, lastUserIdx);
-      if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-      // Re-insert user message and re-send
-      const input = popup.querySelector('.doc-ask-inline-input');
-      if (input) input.value = lastUserMsg._display || lastUserMsg.content;
-      _sendPopupChatMessage(popup, popup._capturedText || '');
-    });
+    },
+    onEdit(msgIdx) {
+      if (_panelSession) {
+        _panelSession.editFrom(msgIdx).then(text => {
+          if (text != null) {
+            _popupChatMessages = _panelSession.messages;
+            const input = popup.querySelector('.doc-ask-inline-input');
+            if (input) { input.value = text; input.focus(); }
+            _renderPopupChat(popup, true);
+          }
+        });
+      } else {
+        if (msgIdx < 0 || msgIdx >= _popupChatMessages.length) return;
+        const msg = _popupChatMessages[msgIdx];
+        if (msg.role !== 'user') return;
+        const input = popup.querySelector('.doc-ask-inline-input');
+        if (!input) return;
+        input.value = msg.content;
+        input.focus();
+        _popupChatMessages.splice(msgIdx);
+        _renderPopupChat(popup, true);
+      }
+    },
   });
-  // Attach edit button handlers
-  container.querySelectorAll('.doc-msg-edit-btn').forEach(btn => {
-    btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      const msgIdx = parseInt(btn.getAttribute('data-msg-idx'));
-      if (isNaN(msgIdx) || msgIdx < 0 || msgIdx >= _popupChatMessages.length) return;
-      const msg = _popupChatMessages[msgIdx];
-      if (msg.role !== 'user') return;
 
-      // Put the message content back in the input
-      const input = popup.querySelector('.doc-ask-inline-input');
-      if (!input) return;
-      input.value = msg.content;
-      input.focus();
-
-      // Remove all messages from this point forward
-      _popupChatMessages.splice(msgIdx);
-      _renderPopupChat(popup, true);
-    });
-  });
   // Update send/stop button state
   const sendBtn = popup.querySelector('.doc-ask-inline-send');
   if (sendBtn) {
@@ -829,15 +594,15 @@ export function _renderPopupChat(popup, final) {
       sendBtn.disabled = false;
       sendBtn.classList.add('doc-ask-inline-stop');
     } else {
-      sendBtn.innerHTML = '↑';
+      sendBtn.innerHTML = '\u2191';
       sendBtn.title = 'Send';
       sendBtn.classList.remove('doc-ask-inline-stop');
     }
   }
 
-  // Scroll: for search results, scroll to the search query; otherwise scroll to bottom
+  // Scroll
   const lastMsg = _popupChatMessages[_popupChatMessages.length - 1];
-  if (lastMsg && ((lastMsg._searchResults && lastMsg._searchResults.length) || (lastMsg._paperResults && lastMsg._paperResults.length) || (lastMsg._userResults && lastMsg._userResults.length))) {
+  if (lastMsg && ((lastMsg._searchResults?.length) || (lastMsg._paperResults?.length) || (lastMsg._userResults?.length))) {
     const msgs = container.querySelectorAll('.doc-msg-user, .doc-msg-ai');
     const searchUserMsg = msgs.length >= 2 ? msgs[msgs.length - 2] : null;
     if (searchUserMsg) searchUserMsg.scrollIntoView({ block: 'start' });
@@ -847,10 +612,10 @@ export function _renderPopupChat(popup, final) {
   }
   _updateContextBar(popup);
   _updateChatStats(popup, final);
-  // Show/hide redo + copy buttons
   const hasAiMsg = _popupChatMessages.some(m => m.role === 'assistant' && !m._thinking && m.content);
   if (popup._redoBtn) popup._redoBtn.style.display = hasAiMsg ? '' : 'none';
   if (popup._copyChatBtn) popup._copyChatBtn.style.display = hasAiMsg ? '' : 'none';
+  if (popup._openInTabBtn) popup._openInTabBtn.style.display = (_panelThreadId && hasAiMsg) ? '' : 'none';
 }
 
 

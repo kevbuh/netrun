@@ -172,6 +172,244 @@
   border-color: var(--nr-red, #e53e3e);
 }
 
+/* ══════════════════════════════════════════════════
+   Rich rendering in chat-view (markdown, thinking, tools, ctx pills)
+   ══════════════════════════════════════════════════ */
+
+/* Allow rich HTML (markdown) inside assistant messages */
+.chat-view-msg-assistant .chat-view-msg-content {
+  white-space: normal;
+}
+
+/* Markdown content styling */
+.chat-view-msg-content .doc-msg-ai {
+  all: unset;
+  display: block;
+}
+
+.chat-view-msg-content .doc-msg-ai p {
+  margin: 0 0 0.5em;
+}
+
+.chat-view-msg-content .doc-msg-ai p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-view-msg-content .doc-msg-ai pre {
+  background: var(--nr-bg-raised);
+  border-radius: var(--nr-radius-sm);
+  padding: var(--nr-space-2) var(--nr-space-3);
+  overflow-x: auto;
+  font-size: 0.78rem;
+  margin: 0.4em 0;
+}
+
+.chat-view-msg-content .doc-msg-ai code {
+  background: var(--nr-bg-raised);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.chat-view-msg-content .doc-msg-ai pre code {
+  background: none;
+  padding: 0;
+}
+
+.chat-view-msg-content .doc-msg-ai ul,
+.chat-view-msg-content .doc-msg-ai ol {
+  margin: 0.3em 0;
+  padding-left: 1.5em;
+}
+
+.chat-view-msg-content .doc-msg-ai blockquote {
+  border-left: 3px solid var(--nr-border);
+  margin: 0.3em 0;
+  padding: 0.2em 0.6em;
+  color: var(--nr-text-secondary);
+}
+
+/* Thinking blocks */
+.chat-view-msg-content .doc-thinking-block {
+  margin-bottom: 0.5em;
+  font-size: 0.78rem;
+  color: var(--nr-text-tertiary);
+}
+
+.chat-view-msg-content .doc-thinking-block summary {
+  cursor: pointer;
+  font-style: italic;
+}
+
+.chat-view-msg-content .doc-thinking-content {
+  white-space: pre-wrap;
+  padding: var(--nr-space-2);
+  background: var(--nr-bg-raised);
+  border-radius: var(--nr-radius-sm);
+  margin-top: var(--nr-space-1);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Thinking spinner */
+.chat-view-msg-content .doc-chat-thinking {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.chat-view-msg-content .doc-chat-thinking .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--nr-text-tertiary);
+  animation: chat-view-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.chat-view-msg-content .doc-chat-thinking .dot:nth-child(2) { animation-delay: 0.2s; }
+.chat-view-msg-content .doc-chat-thinking .dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes chat-view-dot-pulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+.chat-view-msg-content .doc-thinking-label {
+  margin-left: 6px;
+  font-size: 0.78rem;
+  color: var(--nr-text-tertiary);
+  font-style: italic;
+}
+
+.chat-view-msg-content .doc-thinking-preview {
+  font-size: 0.75rem;
+  color: var(--nr-text-quaternary);
+  max-height: 60px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+/* Context pills */
+.chat-view-msg-content .doc-msg-context-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.chat-view-msg-content .doc-ctx-pill {
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: var(--nr-radius-sm);
+  background: var(--nr-bg-raised);
+  color: var(--nr-text-secondary);
+  border: 1px solid var(--nr-border-subtle);
+}
+
+.chat-view-msg-content .doc-ctx-details summary {
+  cursor: pointer;
+  display: inline;
+}
+
+.chat-view-msg-content .doc-ctx-raw {
+  font-size: 0.7rem;
+  max-height: 150px;
+  overflow: auto;
+  white-space: pre-wrap;
+  background: var(--nr-bg-raised);
+  padding: var(--nr-space-2);
+  border-radius: var(--nr-radius-sm);
+  margin-top: 4px;
+}
+
+/* Action buttons (copy, speak, redo) */
+.chat-view-msg-content .doc-msg-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.chat-view-msg:hover .doc-msg-actions {
+  opacity: 1;
+}
+
+.chat-view-msg-content .doc-msg-actions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--nr-radius-sm);
+  color: var(--nr-text-tertiary);
+  font-size: 0.75rem;
+}
+
+.chat-view-msg-content .doc-msg-actions button:hover {
+  color: var(--nr-text-primary);
+  background: var(--nr-bg-hover);
+}
+
+/* User message edit button */
+.chat-view-msg-content .doc-msg-edit-btn {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 1px 3px;
+  margin-left: 4px;
+  color: var(--nr-text-quaternary);
+  border-radius: var(--nr-radius-sm);
+}
+
+.chat-view-msg:hover .doc-msg-edit-btn {
+  display: inline;
+}
+
+.chat-view-msg-content .doc-msg-edit-btn:hover {
+  color: var(--nr-text-primary);
+}
+
+/* User message in chat-view wraps the ChatRender output */
+.chat-view-msg-user .chat-view-msg-content .doc-msg-user {
+  all: unset;
+  display: block;
+}
+
+/* Images in user messages */
+.chat-view-msg-content .doc-msg-images {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.chat-view-msg-content .doc-msg-images img {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: var(--nr-radius-sm);
+}
+
+/* Search results in chat view */
+.chat-view-msg-content .doc-msg-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-view-msg-content .doc-search-result,
+.chat-view-msg-content .doc-paper-result {
+  padding: var(--nr-space-2) var(--nr-space-3);
+  border-radius: var(--nr-radius-sm);
+  background: var(--nr-bg-raised);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.chat-view-msg-content .doc-search-result:hover,
+.chat-view-msg-content .doc-paper-result:hover {
+  background: var(--nr-bg-hover);
+}
+
 /* ── NTP Chat Row (dropdown) ── */
 .ntp-chat-row {
   background: color-mix(in srgb, var(--nr-accent) 20%, transparent);

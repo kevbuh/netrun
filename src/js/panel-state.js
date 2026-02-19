@@ -13,6 +13,8 @@ export let _popupChatAbort = null;
 export let _chatStreamStart = 0;
 export let _aetherBackgroundStreaming = false;
 export let _chatMemoryRetrieved = false;
+export let _panelThreadId = null; // thread ID for the current panel chat session
+export let _panelSession = null; // ChatEngine session for the current panel
 
 // ── Aether Cursor/Focus State ──
 export let _aetherTrackModeVal = false;
@@ -86,6 +88,8 @@ window._popupChatAbort = _popupChatAbort;
 window._chatStreamStart = _chatStreamStart;
 window._aetherBackgroundStreaming = _aetherBackgroundStreaming;
 window._chatMemoryRetrieved = _chatMemoryRetrieved;
+window._panelThreadId = _panelThreadId;
+window._panelSession = _panelSession;
 window._aetherTrackModeVal = _aetherTrackModeVal;
 window._lastMouseX = _lastMouseX;
 window._lastMouseY = _lastMouseY;

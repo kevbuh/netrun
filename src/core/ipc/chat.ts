@@ -179,6 +179,11 @@ export function registerChatIPC(): void {
     return chatDb.getMessages(threadId, limit ?? 200, offset ?? 0);
   });
 
+  ipcMain.handle('db:chat-message-update', (_event, id: string, updates: { content?: string; metadata?: string }) => {
+    chatDb.updateMessage(id, updates);
+    return { ok: true };
+  });
+
   ipcMain.handle('db:chat-message-delete', (_event, id: string) => {
     chatDb.deleteMessage(id);
     return { ok: true };

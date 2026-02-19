@@ -74,6 +74,15 @@ export function getMessages(threadId: string, limit = 200, offset = 0): ChatMess
   ).all(threadId, limit, offset) as ChatMessage[];
 }
 
+export function updateMessage(id: string, updates: { content?: string; metadata?: string }): void {
+  if (updates.content !== undefined) {
+    prepare('UPDATE chat_messages SET content = ? WHERE id = ?').run(updates.content, id);
+  }
+  if (updates.metadata !== undefined) {
+    prepare('UPDATE chat_messages SET metadata = ? WHERE id = ?').run(updates.metadata, id);
+  }
+}
+
 export function deleteMessage(id: string): void {
   prepare('DELETE FROM chat_messages WHERE id = ?').run(id);
 }

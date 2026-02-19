@@ -1255,6 +1255,24 @@ export function _panelBuildTopBar(popup) {
   topBar.appendChild(copyChatBtn);
   popup._copyChatBtn = copyChatBtn;
 
+  // "Open in tab" button — opens the panel conversation in a dedicated chat tab
+  const openInTabBtn = document.createElement('button');
+  openInTabBtn.className = 'aether-topbar-btn';
+  openInTabBtn.style.display = 'none';
+  openInTabBtn.textContent = 'Open in tab';
+  openInTabBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  openInTabBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    if (_panelThreadId && typeof openChatPage === 'function') {
+      openChatPage(_panelThreadId);
+      popup.remove();
+      _aetherTrackMode = false;
+      _aetherPinned = false;
+    }
+  });
+  topBar.appendChild(openInTabBtn);
+  popup._openInTabBtn = openInTabBtn;
+
   // Right-side icon group (aligns with mic + send below)
   const topRightGroup = document.createElement('span');
   topRightGroup.className = 'aether-topbar-right';
@@ -1864,6 +1882,9 @@ export function _showPanel(config) {
     _aetherDragPopup = null;
     _aetherBackgroundStreaming = false; islandRemove('aether');
     if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    // Reset engine session for new panel
+    _panelSession = null;
+    _panelThreadId = null;
   }
 
   // ── Build panel sections via helpers ──
