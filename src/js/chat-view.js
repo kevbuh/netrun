@@ -221,10 +221,12 @@ export function openChatPage(threadId) {
     if (!ntp) return;
   }
 
-  // Save current state for back navigation
-  if (!tab.backStack) tab.backStack = [];
-  tab.backStack.push(tab.url || 'ntp://');
-  tab.forwardStack = [];
+  // Only push to backStack if not already a chat tab (avoid duplicates on restore)
+  if (!tab._chatPage) {
+    if (!tab.backStack) tab.backStack = [];
+    tab.backStack.push(tab.url || 'ntp://');
+    tab.forwardStack = [];
+  }
 
   // Set tab metadata
   tab.blank = false;

@@ -346,13 +346,11 @@ export function browseSelectTab(id) {
   _browseUpdateScrollPill(-1);
   _browseUpdateTokenCount(0);
 
-  // Clean up chat morph if switching away from a chat tab
+  // Clean up chat morph DOM if switching away from a chat tab (keep tab flags for restore)
   const prevTab = win.tabs.find(t => t.id === win.activeTab);
   if (prevTab && prevTab._chatPage && prevTab.id !== id) {
     const ntpMorphed = document.getElementById('browse-content')?.querySelector('.browse-ntp.chat-mode');
     if (ntpMorphed && typeof chatViewCleanupMorph === 'function') chatViewCleanupMorph();
-    delete prevTab._chatPage;
-    delete prevTab._chatThreadId;
   }
 
   win.activeTab = id;
@@ -416,6 +414,11 @@ export function browseSelectTab(id) {
   _browseSaveTabs();
   _browseUpdateNewTabPage(tab);
   _updateAudioIndicator();
+
+  // Restore chat morph if switching back to a chat tab
+  if (tab && tab._chatPage && tab._chatThreadId) {
+    if (typeof openChatPage === 'function') openChatPage(tab._chatThreadId);
+  }
 
   // Paper tab handling
   if (tab && tab.paper) {
