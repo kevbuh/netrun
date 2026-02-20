@@ -1360,7 +1360,7 @@
     }
     /* Slash command autocomplete */
     .aether-cmd-dropdown {
-      border-top: 1px solid var(--nr-border-subtle);
+      border-top: 1px solid var(--aether-border);
       padding: 4px;
       max-height: 200px;
       overflow-y: auto;
@@ -1373,31 +1373,31 @@
       padding: 6px 10px;
       cursor: pointer;
       font-size: 0.78rem;
-      border-radius: var(--nr-radius-sm);
+      border-radius: 6px;
       transition: background 0.1s;
     }
     .aether-cmd-item:hover,
     .aether-cmd-item.selected {
-      background: var(--nr-bg-hover);
+      background: var(--aether-hover);
     }
     .aether-cmd-name {
       font-weight: 600;
       font-family: ui-monospace, monospace;
       font-size: 0.74rem;
-      color: var(--nr-text-primary);
+      color: var(--aether-text);
     }
     .aether-cmd-desc {
-      color: var(--nr-text-tertiary);
+      color: var(--aether-text-muted);
       font-size: 0.7rem;
     }
     .aether-cmd-item:hover .aether-cmd-desc,
     .aether-cmd-item.selected .aether-cmd-desc {
-      color: var(--nr-text-secondary);
+      color: var(--aether-text-secondary);
     }
 
     /* Generic note/model/agent dropdown (used by /model, /agent, /history) */
     .aether-note-dropdown {
-      border-top: 1px solid var(--nr-border-subtle);
+      border-top: 1px solid var(--aether-border);
       padding: 4px;
       max-height: 200px;
       overflow-y: auto;
@@ -1410,17 +1410,17 @@
       padding: 6px 10px;
       cursor: pointer;
       font-size: 0.78rem;
-      border-radius: var(--nr-radius-sm);
+      border-radius: 6px;
       transition: background 0.1s;
     }
     .aether-note-item:hover,
     .aether-note-item.selected {
-      background: var(--nr-bg-hover);
+      background: var(--aether-hover);
     }
     .aether-note-item-title {
       font-weight: 500;
       font-size: 0.78rem;
-      color: var(--nr-text-primary);
+      color: var(--aether-text);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -1428,7 +1428,7 @@
     }
     .aether-note-item-snippet {
       font-size: 0.7rem;
-      color: var(--nr-text-tertiary);
+      color: var(--aether-text-muted);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -1436,7 +1436,7 @@
     .aether-note-item-tags {
       margin-left: auto;
       font-size: 0.68rem;
-      color: var(--nr-text-quaternary);
+      color: var(--aether-text-dimmer);
       flex-shrink: 0;
     }
 

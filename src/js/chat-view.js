@@ -422,6 +422,8 @@ function _chatViewCleanupMorph() {
 
   const msgList = ntp.querySelector('.chat-view-messages');
   if (msgList) msgList.remove();
+  const rail = ntp.querySelector('.chat-tree-rail');
+  if (rail) rail.remove();
   _chatViewMsgList = null;
 
   const input = ntp.querySelector('#search-query');
@@ -752,9 +754,6 @@ function _chatViewRenderMessages(isFinal) {
   const messages = _chatViewSession.messages;
   const total = messages.length;
 
-  // Build tree widget HTML
-  const treeHtml = _chatViewBuildTreeWidget();
-
   // Build branch navigation indicators on messages
   let messagesHtml = messages.map((m, i) => {
     const html = ChatRender.renderMessageHTML(m, i, total, isFinal);
@@ -768,18 +767,10 @@ function _chatViewRenderMessages(isFinal) {
     messagesHtml += `<div class="chat-view-stats">${statsHtml}</div>`;
   }
 
-  list.innerHTML = treeHtml + messagesHtml;
+  list.innerHTML = messagesHtml;
 
-  // Attach tree node click handlers
-  list.querySelectorAll('.chat-tree-node').forEach(node => {
-    node.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const msgId = node.getAttribute('data-msg-id');
-      if (msgId && _chatViewSession) {
-        _chatViewSession.navigateTo(msgId).then(() => _chatViewRenderMessages(true));
-      }
-    });
-  });
+  // Render the tree rail alongside the message list
+  _chatViewRenderTreeRail(list);
 
   // Attach branch nav click handlers
   list.querySelectorAll('.chat-branch-btn').forEach(btn => {
@@ -787,7 +778,6 @@ function _chatViewRenderMessages(isFinal) {
       ev.stopPropagation();
       const msgId = btn.getAttribute('data-navigate-to');
       if (msgId && _chatViewSession) {
-        // Navigate to the leaf of this sibling branch
         _chatViewSession.navigateTo(msgId).then(() => _chatViewRenderMessages(true));
       }
     });
@@ -885,107 +875,101 @@ async function _chatViewSend(text) {
   }
 }
 
-// ── Tree visualization ──
+// ── Tree rail (vertical minimap on right side) ──
 
-function _chatViewBuildTreeWidget() {
-  if (!_chatViewSession) return '';
-  const allMessages = _chatViewSession.getTree();
-  if (!allMessages || allMessages.length < 2) return ''; // need at least 1 exchange
+function _chatViewRenderTreeRail(msgList) {
+  if (!_chatViewSession) return;
 
-  const activeIds = new Set(_chatViewSession.messages.map(m => m.id));
+  // Remove existing rail
+  const existingRail = msgList.parentElement?.querySelector('.chat-tree-rail');
+  if (existingRail) existingRail.remove();
 
-  // Build a map of parent→children
-  const childMap = {};
-  const rootMessages = [];
-  for (const m of allMessages) {
-    if (!m.parent_id) {
-      rootMessages.push(m);
-    } else {
-      if (!childMap[m.parent_id]) childMap[m.parent_id] = [];
-      childMap[m.parent_id].push(m);
+  const messages = _chatViewSession.messages.filter(m => m.id || m.content);
+  if (messages.length < 2) return;
+
+  // Calculate proportional heights based on content length
+  const minH = 4;
+  const maxH = 40;
+  const totalContent = messages.reduce((s, m) => s + Math.max((m.content || '').length, 20), 0);
+
+  // Build rail
+  const rail = document.createElement('div');
+  rail.className = 'chat-tree-rail';
+
+  const track = document.createElement('div');
+  track.className = 'chat-tree-rail-track';
+
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    const isUser = m.role === 'user';
+    const contentLen = Math.max((m.content || '').length, 20);
+    // Height proportional to content length
+    const h = Math.max(minH, Math.min(maxH, Math.round((contentLen / totalContent) * messages.length * 24)));
+
+    const bar = document.createElement('div');
+    bar.className = 'chat-tree-rail-bar' + (isUser ? ' user' : ' assistant');
+    bar.style.height = h + 'px';
+    bar.setAttribute('data-idx', String(i));
+
+    // Click scrolls to that message
+    bar.addEventListener('click', () => {
+      const allMsgEls = msgList.querySelectorAll('.chat-view-msg');
+      if (allMsgEls[i]) {
+        allMsgEls[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        allMsgEls[i].classList.add('chat-view-msg-flash');
+        setTimeout(() => allMsgEls[i].classList.remove('chat-view-msg-flash'), 800);
+      }
+    });
+
+    // Tooltip with snippet on hover (AI responses only)
+    if (!isUser && m.content) {
+      const tooltip = document.createElement('div');
+      tooltip.className = 'chat-tree-rail-tooltip';
+      const snippet = m.content.replace(/[#*_`>\[\]]/g, '').replace(/\s+/g, ' ').trim();
+      tooltip.textContent = snippet.length > 100 ? snippet.slice(0, 97) + '\u2026' : snippet;
+      bar.appendChild(tooltip);
     }
+
+    track.appendChild(bar);
   }
 
-  // Check if tree has any branches
-  let hasBranches = false;
-  for (const key in childMap) {
-    if (childMap[key].length > 1) { hasBranches = true; break; }
-  }
+  rail.appendChild(track);
+  msgList.parentElement.appendChild(rail);
 
-  // Render tree as SVG minimap
-  // We'll lay out nodes left-to-right, branching vertically
-  const nodes = [];
-  const edges = [];
-  let maxX = 0, maxY = 0;
-  const nodeSpacingX = 24;
-  const nodeSpacingY = 20;
-  const nodeRadius = 4;
+  // Sync scroll indicator: highlight the visible portion on the minimap
+  const viewport = document.createElement('div');
+  viewport.className = 'chat-tree-rail-viewport';
+  track.appendChild(viewport);
 
-  function layout(msgId, depth, lane) {
-    const x = depth * nodeSpacingX + 16;
-    const y = lane * nodeSpacingY + 12;
-    if (x > maxX) maxX = x;
-    if (y > maxY) maxY = y;
-    const isActive = activeIds.has(msgId);
-    const msg = allMessages.find(m => m.id === msgId);
-    const preview = msg ? (msg.role === 'user' ? (msg._display || msg.content || '').slice(0, 40) : 'AI').replace(/"/g, '&quot;') : '';
-    nodes.push({ id: msgId, x, y, isActive, role: msg?.role, preview });
-
-    const children = childMap[msgId] || [];
-    if (children.length === 0) return lane;
-
-    let currentLane = lane;
-    for (let i = 0; i < children.length; i++) {
-      if (i > 0) currentLane++;
-      const child = children[i];
-      const childX = (depth + 1) * nodeSpacingX + 16;
-      const childY = currentLane * nodeSpacingY + 12;
-      edges.push({ x1: x, y1: y, x2: childX, y2: childY, active: isActive && activeIds.has(child.id) });
-      currentLane = layout(child.id, depth + 1, currentLane);
+  function syncViewport() {
+    const scrollH = msgList.scrollHeight;
+    const clientH = msgList.clientHeight;
+    const trackH = track.offsetHeight;
+    if (scrollH <= clientH) {
+      viewport.style.display = 'none';
+      return;
     }
-    return currentLane;
+    viewport.style.display = 'block';
+    const ratio = clientH / scrollH;
+    const vpH = Math.max(12, Math.round(trackH * ratio));
+    const vpTop = Math.round((msgList.scrollTop / scrollH) * trackH);
+    viewport.style.height = vpH + 'px';
+    viewport.style.top = vpTop + 'px';
   }
 
-  let lane = 0;
-  for (const root of rootMessages) {
-    lane = layout(root.id, 0, lane);
-    lane++;
-  }
-
-  const svgW = maxX + 24;
-  const svgH = maxY + 12;
-
-  let svg = `<svg class="chat-tree-svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`;
-
-  // Edges
-  for (const e of edges) {
-    const cls = e.active ? 'chat-tree-edge active' : 'chat-tree-edge';
-    svg += `<line x1="${e.x1}" y1="${e.y1}" x2="${e.x2}" y2="${e.y2}" class="${cls}" />`;
-  }
-
-  // Nodes
-  for (const n of nodes) {
-    const cls = n.isActive ? 'chat-tree-node active' : 'chat-tree-node';
-    const roleClass = n.role === 'user' ? ' user' : ' assistant';
-    svg += `<circle cx="${n.x}" cy="${n.y}" r="${nodeRadius}" class="${cls}${roleClass}" data-msg-id="${n.id}"><title>${n.preview}</title></circle>`;
-  }
-
-  svg += '</svg>';
-
-  return `<div class="chat-tree-widget">${svg}</div>`;
+  msgList.addEventListener('scroll', syncViewport, { passive: true });
+  requestAnimationFrame(syncViewport);
 }
+
+// ── Branch nav (prev/next sibling on user messages) ──
 
 function _chatViewBranchNav(msg, msgIdx) {
   if (!_chatViewSession || !msg.id) return '';
+  if (msg.role !== 'user') return '';
 
-  // Check if this message has siblings (same parent_id, different message)
   const siblings = _chatViewSession.getSiblings(msg.id);
   if (!siblings.length) return '';
 
-  // Only show branch nav on user messages
-  if (msg.role !== 'user') return '';
-
-  // Find all siblings + self, sorted by created_at
   const allSiblings = [msg, ...siblings].sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
   const currentIdx = allSiblings.findIndex(s => s.id === msg.id);
   const total = allSiblings.length;
@@ -993,11 +977,9 @@ function _chatViewBranchNav(msg, msgIdx) {
   const prevId = currentIdx > 0 ? allSiblings[currentIdx - 1].id : null;
   const nextId = currentIdx < total - 1 ? allSiblings[currentIdx + 1].id : null;
 
-  // Find the leaf of a sibling branch to navigate to
   function findLeaf(msgId) {
     const children = _chatViewSession.getChildrenOf(msgId);
     if (!children.length) return msgId;
-    // Follow the first (or most recent) child path
     return findLeaf(children[children.length - 1].id);
   }
 
