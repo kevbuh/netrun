@@ -1,6 +1,25 @@
 // panel.js — Panel UI builders, positioning, and main entry point
 // State, TTS, Chat, and Commands extracted to separate modules
 import Settings from '/js/core/core-settings.js';
+import { apiGet, apiPost } from '/js/api.js';
+import { escapeHtml, escapeAttr } from '/js/core/core-utils.js';
+import { icon } from '/js/core/icons.js';
+import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
+import { _doLogout } from '/js/core/core-auth.js';
+import { _isNewTabClick, _openInNewTab, _popupSafeBounds } from '/js/core/core-layout.js';
+import { openUserProfile } from '/js/core/core-profile.js';
+import { _addScreenshotToPanel, _browserCaptureRect, _maybeDismissToIsland, _renderPopupChat, _saveChatMemory, _savePopupChatToHighlight, _screenshotRestoreIframes, _sendPopupChatMessage, _showTabContextMenu, _updateContextBar } from '/js/panel-chat.js';
+import { _aetherExecCommand, _aetherFilterCommands, _aetherHideAgentDropdown, _aetherHideCmdDropdown, _aetherHideCursorOverlay, _aetherHideHistoryDropdown, _aetherHideModelDropdown, _aetherHideTabDropdown, _aetherRenderAgentDropdown, _aetherRenderCmdDropdown, _aetherRenderHistoryDropdown, _aetherRenderModelDropdown, _aetherRestoreFocus, _aetherSelectAgent, _aetherSelectHistory, _aetherSelectModel, _aetherSelectTab, _aetherShowCursor, _aetherSwitchToTab, _doAetherAgent, _doAetherCapture, _doAetherHelp, _doAetherHistory, _doAetherLinks, _doAetherModel, _doAetherTab, _doAetherTabs, _doAetherWebSearch, _fetchAuthorPreview, _fetchWikipediaPreview, _isAetherEligible, _isAuthorEligible } from '/js/panel-commands.js';
+import { _browseToggleFindBar, _switchTabLeft, _switchTabRight } from '/js/browse/browse-features.js';
+import { _extractTextFromFrame, injectSingleAnnotation } from '/js/browse/browse-annotations.js';
+import { _setBrowseReturnView, browseNewTab, openBrowse } from '/js/browse/browse-windows.js';
+import { _tabHoverDismissTimeout, browseNavigate } from '/js/browse/browse-island.js';
+import { _ttsChunkText, _ttsFetchAndQueue, _ttsStopAll, _ttsUpdateBtnIcon } from '/js/panel-tts.js';
+import { allPapers, getSavedPosts, lastFilteredPapers, markPostAsRead } from '/js/feed.js';
+import { openBrowseWithPaper } from '/js/browse/browse-ntp.js';
+import { openChatPage } from '/js/chat-view.js';
+import { openHelpPage } from '/js/browse-urlbar.js';
+import { openSettings } from '/js/settings/settings-core.js';
 
 export function _positionAtCursor(cx, cy, w, h, preferLeft) {
   const bounds = _popupSafeBounds();
@@ -39,8 +58,8 @@ export function _repositionSelectionPopup() {
 
   // Aether panel: position relative to stored mouse position
   if (popup._isAetherPanel) {
-    const anchorX = popup._aetherAnchorX ?? _lastMouseX;
-    const anchorY = popup._aetherAnchorY ?? _lastMouseY;
+    const anchorX = popup._aetherAnchorX ?? window._lastMouseX;
+    const anchorY = popup._aetherAnchorY ?? window._lastMouseY;
     const pos = _positionAtCursor(anchorX, anchorY, rect.width, rect.height, false);
     popup.style.top = pos.top + 'px';
     popup.style.left = pos.left + 'px';
@@ -82,10 +101,10 @@ document.addEventListener('mousedown', function(e) {
     return;
   }
   // In track mode with captureScreen available: start screenshot drag
-  if (existing && _aetherTrackMode && (window.electronAPI?.captureScreen || typeof html2canvas !== 'undefined')) {
+  if (existing && window._aetherTrackMode && (window.electronAPI?.captureScreen || typeof html2canvas !== 'undefined')) {
     e.preventDefault(); // prevent text selection during drag
     e.stopImmediatePropagation(); // prevent other mousedown handlers from running
-    _aetherTrackModeVal = false; // bypass setter — keep iframes disabled during drag
+    window._aetherTrackModeVal = false; // bypass setter — keep iframes disabled during drag
     _screenshotCapturing = true; // protect panel from removal throughout entire drag+capture
     _screenshotDragStart = { x: e.clientX, y: e.clientY };
     // Create selection rect + dim overlay elements
@@ -98,9 +117,9 @@ document.addEventListener('mousedown', function(e) {
     return;
   }
   // If NOT in track mode and not pinned, remove existing panel
-  if (existing && !_aetherTrackMode && !_screenshotCapturing && !_aetherPinned) {
-    _aetherBackgroundStreaming = false; islandRemove('aether');
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+  if (existing && !window._aetherTrackMode && !_screenshotCapturing && !window._aetherPinned) {
+    window._aetherBackgroundStreaming = false; islandRemove('aether');
+    if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
     _savePopupChatToHighlight(existing);
     existing.remove();
   }
@@ -124,7 +143,7 @@ document.addEventListener('selectionchange', function() {
   const text = sel ? sel.toString().trim() : '';
   if (!text || text.length < 3 || sel.rangeCount === 0) return;
   // User is actively selecting text — stop tracking, show selection preview
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing && existing._isAetherPanel) existing.remove();
   const range = sel.getRangeAt(0);
@@ -177,7 +196,7 @@ document.addEventListener('mouseup', async function(e) {
 
   if (text && text.length >= 3 && sel.rangeCount > 0) {
     // Text was selected → finalize selection popup
-    _aetherTrackMode = false;
+    window._aetherTrackMode = false;
     const range = sel.getRangeAt(0);
     const ancestor = range.commonAncestorContainer;
     const inTextLayer = ancestor.closest ? !!ancestor.closest('.textLayer') : !!(ancestor.parentElement && ancestor.parentElement.closest('.textLayer'));
@@ -189,7 +208,7 @@ document.addEventListener('mouseup', async function(e) {
   if (_screenshotCapturing) return;
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing && existing.contains(e.target)) return; // click was inside the panel
-  if (existing) { existing.remove(); _aetherTrackMode = false; _aetherPinned = false; }
+  if (existing) { existing.remove(); window._aetherTrackMode = false; window._aetherPinned = false; }
 });
 
 // Any left-click dismisses the aether panel (capture phase to bypass stopPropagation)
@@ -201,10 +220,10 @@ document.addEventListener('mousedown', function(e) {
   // Clicks inside the panel should not dismiss it
   if (btn.contains(e.target)) return;
   // Pinned panels survive clicks — unless streaming, allow dismiss to island
-  if (_aetherPinned && !_popupChatAbort) return;
+  if (window._aetherPinned && !window._popupChatAbort) return;
   _maybeDismissToIsland(btn);
-  if (!_aetherBackgroundStreaming && _popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-  _aetherPinned = false;
+  if (!window._aetherBackgroundStreaming && window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
+  window._aetherPinned = false;
   _savePopupChatToHighlight(btn);
   btn.remove();
   _aetherShowCursor();
@@ -212,8 +231,8 @@ document.addEventListener('mousedown', function(e) {
 
 // Aether panel: tracks cursor + screenshot drag
 document.addEventListener('mousemove', function(e) {
-  _lastMouseX = e.clientX;
-  _lastMouseY = e.clientY;
+  window._lastMouseX = e.clientX;
+  window._lastMouseY = e.clientY;
 
   // Screenshot drag in progress
   if (_screenshotDragStart && _screenshotSelection && _screenshotDim) {
@@ -232,12 +251,12 @@ document.addEventListener('mousemove', function(e) {
   }
 
   // Drag-to-move the aether panel
-  if (_aetherDragging) {
-    const popup = _aetherDragPopup || document.getElementById('doc-chat-ask-float');
-    if (!popup) { _aetherDragging = false; _aetherDragPopup = null; return; }
+  if (window._aetherDragging) {
+    const popup = window._aetherDragPopup || document.getElementById('doc-chat-ask-float');
+    if (!popup) { window._aetherDragging = false; window._aetherDragPopup = null; return; }
     const bounds = _popupSafeBounds();
-    let left = e.clientX - _aetherDragOffset.x;
-    let top = e.clientY - _aetherDragOffset.y;
+    let left = e.clientX - window._aetherDragOffset.x;
+    let top = e.clientY - window._aetherDragOffset.y;
     if (left < bounds.left) left = bounds.left;
     if (top < bounds.top) top = bounds.top;
     if (left + popup.offsetWidth > bounds.right) left = bounds.right - popup.offsetWidth;
@@ -249,9 +268,9 @@ document.addEventListener('mousemove', function(e) {
     return;
   }
 
-  if (!_aetherTrackMode) return;
+  if (!window._aetherTrackMode) return;
   const popup = document.getElementById('doc-chat-ask-float');
-  if (!popup) { _aetherTrackMode = false; return; }
+  if (!popup) { window._aetherTrackMode = false; return; }
 
   // Snap to sidebar icon if hovering over one
   const hovered = e.target.closest && e.target.closest('.sidebar-icon');
@@ -288,10 +307,10 @@ document.addEventListener('mousemove', function(e) {
 
 // End drag-to-move
 document.addEventListener('mouseup', function(e) {
-  if (_aetherDragging) {
-    _aetherDragging = false;
-    const draggedPopup = _aetherDragPopup;
-    _aetherDragPopup = null;
+  if (window._aetherDragging) {
+    window._aetherDragging = false;
+    const draggedPopup = window._aetherDragPopup;
+    window._aetherDragPopup = null;
     const topBar = draggedPopup ? draggedPopup.querySelector('.aether-top-actions') : document.querySelector('.aether-top-actions');
     if (topBar) topBar.style.cursor = 'grab';
   }
@@ -312,12 +331,12 @@ document.addEventListener('keydown', function(e) {
     const popup = document.getElementById('doc-chat-ask-float');
     if (popup) {
       _maybeDismissToIsland(popup);
-      if (!_aetherBackgroundStreaming && _popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-      _aetherTrackMode = false;
-      _aetherPinned = false;
-      _pendingScreenshots = [];
-      _pendingTabContexts = [];
-      _pendingFileContexts = [];
+      if (!window._aetherBackgroundStreaming && window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
+      window._aetherTrackMode = false;
+      window._aetherPinned = false;
+      window._pendingScreenshots = [];
+      window._pendingTabContexts = [];
+      window._pendingFileContexts = [];
       popup.remove();
       _aetherShowCursor();
       _aetherRestoreFocus();
@@ -357,10 +376,10 @@ document.addEventListener('keydown', function(e) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
     e.preventDefault();
     const popup = document.getElementById('doc-chat-ask-float');
-    if (popup) { _maybeDismissToIsland(popup); if (!_aetherBackgroundStreaming && _popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; } popup.remove(); _aetherTrackMode = false; _aetherPinned = false; _aetherShowCursor(); _aetherRestoreFocus(); return; }
+    if (popup) { _maybeDismissToIsland(popup); if (!window._aetherBackgroundStreaming && window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; } popup.remove(); window._aetherTrackMode = false; window._aetherPinned = false; _aetherShowCursor(); _aetherRestoreFocus(); return; }
     const tag = document.activeElement?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
-    _showPanel({ anchor: { x: _lastMouseX, y: _lastMouseY } });
+    _showPanel({ anchor: { x: window._lastMouseX, y: window._lastMouseY } });
     return;
   }
   if (e.key !== '/') return;
@@ -394,7 +413,7 @@ export function _handleContextMenuChat(e) {
   const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
   if (isEditable) {
     e.preventDefault();
-    if (popup) { popup.remove(); _aetherTrackMode = false; }
+    if (popup) { popup.remove(); window._aetherTrackMode = false; }
     const sel = window.getSelection();
     const selectedText = sel && sel.toString().trim() || '';
     _showPanel({ anchor: { x: e.clientX, y: e.clientY }, editableTarget: e.target, selectionText: selectedText, finalized: true });
@@ -416,7 +435,7 @@ export function _handleContextMenuChat(e) {
   // Capture the previously focused editable element before panel steals focus
   const active = document.activeElement;
   const priorEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable) ? active : null;
-  if (popup) { popup.remove(); _aetherTrackMode = false; }
+  if (popup) { popup.remove(); window._aetherTrackMode = false; }
   _showPanel({ anchor: { x: e.clientX, y: e.clientY }, priorEditable, trackCursor: true });
 }
 document.addEventListener('contextmenu', _handleContextMenuChat);
@@ -449,7 +468,7 @@ export function _injectIframeChatHandler(iframe) {
         if (isEditable) {
           e.preventDefault();
           const popup = document.getElementById('doc-chat-ask-float');
-          if (popup) { popup.remove(); _aetherTrackMode = false; }
+          if (popup) { popup.remove(); window._aetherTrackMode = false; }
           const sel = doc.getSelection();
           const selectedText = sel && sel.toString().trim() || '';
           _showPanel({ anchor: { x: e.clientX + f.left, y: e.clientY + f.top }, editableTarget: e.target, selectionText: selectedText, finalized: true });
@@ -461,7 +480,7 @@ export function _injectIframeChatHandler(iframe) {
         const active = doc.activeElement;
         const priorEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable) ? active : null;
         const popup = document.getElementById('doc-chat-ask-float');
-        if (popup) { popup.remove(); _aetherTrackMode = false; }
+        if (popup) { popup.remove(); window._aetherTrackMode = false; }
         // Detect link/image targets for context menu
         const linkEl = e.target.closest('a[href]');
         const imgEl = e.target.tagName === 'IMG' ? e.target : e.target.closest('img');
@@ -479,9 +498,9 @@ export function _injectIframeChatHandler(iframe) {
         if (e.button !== 0) return;
         const existing = document.getElementById('doc-chat-ask-float');
         if (existing && existing.contains(e.target)) return;
-        if (existing && !_aetherTrackMode) {
-          _aetherBackgroundStreaming = false; islandRemove('aether');
-          if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+        if (existing && !window._aetherTrackMode) {
+          window._aetherBackgroundStreaming = false; islandRemove('aether');
+          if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
           _savePopupChatToHighlight(existing);
           existing.remove();
         }
@@ -492,7 +511,7 @@ export function _injectIframeChatHandler(iframe) {
         const sel = doc.getSelection();
         const text = sel ? sel.toString().trim() : '';
         if (!text || text.length < 3 || sel.rangeCount === 0) return;
-        _aetherTrackMode = false;
+        window._aetherTrackMode = false;
         const existing = document.getElementById('doc-chat-ask-float');
         if (existing && existing._isAetherPanel) existing.remove();
         _showPanel({ anchor: { selectionRect: _iframeRectToParent(sel.getRangeAt(0).getBoundingClientRect(), iframe) }, selectionText: text, finalized: false });
@@ -503,12 +522,12 @@ export function _injectIframeChatHandler(iframe) {
         const sel = doc.getSelection();
         const text = sel ? sel.toString().trim() : '';
         if (text && text.length >= 3 && sel.rangeCount > 0) {
-          _aetherTrackMode = false;
+          window._aetherTrackMode = false;
           _showPanel({ anchor: { selectionRect: _iframeRectToParent(sel.getRangeAt(0).getBoundingClientRect(), iframe) }, selectionText: text, finalized: true });
           return;
         }
         const existing = document.getElementById('doc-chat-ask-float');
-        if (existing) { existing.remove(); _aetherTrackMode = false; _aetherPinned = false; }
+        if (existing) { existing.remove(); window._aetherTrackMode = false; window._aetherPinned = false; }
       });
 
       // Cmd+click → open link in new tab
@@ -546,7 +565,6 @@ export let _screenshotDragStart = null; // {x, y} or null
 export let _screenshotSelection = null; // DOM element
 export let _screenshotDim = null; // DOM element
 export let _screenshotCapturing = false; // true while capture is in progress
-
 
 // ── Unified Popup Panel ──
 // _showPanel(config) replaces both _showAetherPanel and _buildSelectionPopup.
@@ -611,8 +629,8 @@ export function _flashCopyBtn(popup) {
 // ── Helper: inject profile menu items into the aether panel ──
 export function _injectProfileItems(popup) {
   if (popup.querySelector('.aether-profile-items')) return;
-  const email = (typeof _authUserInfo !== 'undefined' && _authUserInfo?.email) || '';
-  const username = (typeof _authUserInfo !== 'undefined' && (_authUserInfo?.username || _authUserInfo?.name)) || '';
+  const email = (typeof window._authUserInfo !== 'undefined' && window._authUserInfo?.email) || '';
+  const username = (typeof window._authUserInfo !== 'undefined' && (window._authUserInfo?.username || window._authUserInfo?.name)) || '';
   const ctxDiv = document.createElement('div');
   ctxDiv.className = 'doc-aether-context-items aether-profile-items';
 
@@ -646,7 +664,7 @@ export function _injectProfileItems(popup) {
     item.addEventListener('mousedown', (ev) => ev.stopPropagation());
     item.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
-      _aetherTrackMode = false;
+      window._aetherTrackMode = false;
       popup.remove();
       entry.fn();
     });
@@ -688,7 +706,7 @@ export function _panelBuildContextItems(popup, config) {
       item.addEventListener('click', (ev) => {
         ev.stopPropagation(); ev.preventDefault();
         entry.fn();
-        _aetherTrackMode = false;
+        window._aetherTrackMode = false;
         popup.remove();
       });
     }
@@ -751,7 +769,7 @@ export function _panelBuildLinkContextMenu(popup, config) {
       item.addEventListener('click', (ev) => {
         ev.stopPropagation(); ev.preventDefault();
         fn();
-        _aetherTrackMode = false;
+        window._aetherTrackMode = false;
         popup.remove();
       });
       ctxDiv.appendChild(item);
@@ -780,7 +798,7 @@ export function _panelBuildLinkContextMenu(popup, config) {
       addItem('Copy Image', () => {
         // Route through our image proxy so it's always same-origin
         const proxyUrl = imgUrl.startsWith('/api/') ? imgUrl : '/api/image-proxy?url=' + encodeURIComponent(imgUrl);
-        const img = new Image();
+        const img = new window.Image();
         img.onload = () => {
           const c = document.createElement('canvas');
           c.width = img.naturalWidth; c.height = img.naturalHeight;
@@ -808,14 +826,14 @@ export function _panelBuildLinkContextMenu(popup, config) {
       assistItem.addEventListener('mousedown', (ev) => ev.stopPropagation());
       assistItem.addEventListener('click', (ev) => {
         ev.stopPropagation(); ev.preventDefault();
-        _aetherTrackMode = false;
+        window._aetherTrackMode = false;
         // Remove context menu items but keep the panel
         const ctxItems = popup.querySelector('.doc-aether-context-items');
         if (ctxItems) ctxItems.remove();
         const preview = popup.querySelector('.doc-link-preview');
         if (preview) preview.remove();
         const proxyUrl = imgUrl.startsWith('/api/') ? imgUrl : '/api/image-proxy?url=' + encodeURIComponent(imgUrl);
-        const img = new Image();
+        const img = new window.Image();
         img.onload = () => {
           const c = document.createElement('canvas');
           c.width = img.naturalWidth; c.height = img.naturalHeight;
@@ -1002,7 +1020,7 @@ export function _panelBuildSelectionUI(popup, config) {
   readBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
     // If TTS is already active, toggle pause/stop
-    if (_ttsAudio || _ttsPaused || _ttsChunks.length > 0) {
+    if (window._ttsAudio || window._ttsPaused || window._ttsChunks.length > 0) {
       _ttsStopAll();
       readBtn.innerHTML = icon('speaker', { size: 14 });
       readBtn.title = 'Read aloud';
@@ -1011,17 +1029,17 @@ export function _panelBuildSelectionUI(popup, config) {
     if (!capturedText || capturedText.length < 2) return;
     readBtn.innerHTML = icon('pauseRect', { size: 14 });
     readBtn.title = 'Stop';
-    _ttsStopped = false;
-    _ttsPaused = false;
-    _ttsChunks = _ttsChunkText(capturedText);
-    _ttsChunkIdx = 0;
-    _ttsPlayedDurations = [];
-    _ttsRemainingDurations = [];
-    _ttsQueue = [];
+    window._ttsStopped = false;
+    window._ttsPaused = false;
+    window._ttsChunks = _ttsChunkText(capturedText);
+    window._ttsChunkIdx = 0;
+    window._ttsPlayedDurations = [];
+    window._ttsRemainingDurations = [];
+    window._ttsQueue = [];
     _ttsFetchAndQueue();
     // Reset button when TTS finishes naturally
     const checkDone = setInterval(() => {
-      if (!_ttsAudio && !_ttsPaused && _ttsChunks.length === 0) {
+      if (!window._ttsAudio && !window._ttsPaused && window._ttsChunks.length === 0) {
         clearInterval(checkDone);
         if (readBtn.isConnected) {
           readBtn.innerHTML = icon('speaker', { size: 14 });
@@ -1033,7 +1051,7 @@ export function _panelBuildSelectionUI(popup, config) {
   btnRow.appendChild(readBtn);
 
   // "Read from here" button — reads from selection to end of page
-  if (typeof _getCurrentWindow === 'function' && typeof _extractTextFromFrame === 'function') {
+  if (typeof window._getCurrentWindow === 'function' && typeof _extractTextFromFrame === 'function') {
     const fromHereBtn = document.createElement('button');
     fromHereBtn.className = 'doc-selection-copy-btn';
     fromHereBtn.innerHTML = icon('play', { size: 14 });
@@ -1042,7 +1060,7 @@ export function _panelBuildSelectionUI(popup, config) {
     fromHereBtn.addEventListener('click', async (ev) => {
       ev.stopPropagation(); ev.preventDefault();
       // If TTS is already active, stop it
-      if (_ttsAudio || _ttsPaused || _ttsChunks.length > 0) {
+      if (window._ttsAudio || window._ttsPaused || window._ttsChunks.length > 0) {
         _ttsStopAll();
         fromHereBtn.innerHTML = icon('play', { size: 14 });
         fromHereBtn.title = 'Read from this point to the end of the page';
@@ -1050,7 +1068,7 @@ export function _panelBuildSelectionUI(popup, config) {
         readBtn.title = 'Read aloud';
         return;
       }
-      const win = _getCurrentWindow();
+      const win = window._getCurrentWindow();
       if (!win) return;
       const tab = win.tabs.find(t => t.id === win.activeTab);
       if (!tab) return;
@@ -1067,18 +1085,18 @@ export function _panelBuildSelectionUI(popup, config) {
       const haystack = fullText.replace(/\s+/g, ' ');
       const idx = haystack.indexOf(needle);
       const textFromHere = idx >= 0 ? haystack.slice(idx) : needle + '\n' + haystack;
-      _ttsTabId = tab.id;
-      _ttsStopped = false;
-      _ttsPaused = false;
-      _ttsChunks = _ttsChunkText(textFromHere);
-      _ttsChunkIdx = 0;
-      _ttsPlayedDurations = [];
-      _ttsRemainingDurations = [];
-      _ttsQueue = [];
+      window._ttsTabId = tab.id;
+      window._ttsStopped = false;
+      window._ttsPaused = false;
+      window._ttsChunks = _ttsChunkText(textFromHere);
+      window._ttsChunkIdx = 0;
+      window._ttsPlayedDurations = [];
+      window._ttsRemainingDurations = [];
+      window._ttsQueue = [];
       _ttsUpdateBtnIcon();
       _ttsFetchAndQueue();
       const checkDone2 = setInterval(() => {
-        if (!_ttsAudio && !_ttsPaused && _ttsChunks.length === 0) {
+        if (!window._ttsAudio && !window._ttsPaused && window._ttsChunks.length === 0) {
           clearInterval(checkDone2);
           if (fromHereBtn.isConnected) {
             fromHereBtn.innerHTML = icon('play', { size: 14 });
@@ -1110,8 +1128,8 @@ export function _panelBuildSelectionUI(popup, config) {
       { key: 'AD', name: 'Ad', color: '#ff9800' },
     ];
     // Add custom categories
-    if (typeof _customAnnotationCategories !== 'undefined') {
-      for (const cc of _customAnnotationCategories) {
+    if (typeof window._customAnnotationCategories !== 'undefined') {
+      for (const cc of window._customAnnotationCategories) {
         types.push({ key: cc.key, name: cc.name, color: cc.color });
       }
     }
@@ -1155,10 +1173,10 @@ export function _panelBuildSelectionUI(popup, config) {
   clearBtnIcon.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
     _saveChatMemory();
-    _popupChatMessages = [];
-    _chatMemoryRetrieved = false;
-    _chatStreamStart = 0;
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    window._popupChatMessages = [];
+    window._chatMemoryRetrieved = false;
+    window._chatStreamStart = 0;
+    if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
     const cm = popup.querySelector('.doc-popup-chat-messages');
     if (cm) cm.innerHTML = '';
     const ca = popup.querySelector('.doc-popup-chat-area');
@@ -1195,7 +1213,7 @@ export function _panelBuildTopBar(popup) {
   topBar.className = 'doc-popup-chat-actions aether-top-actions';
   topBar.style.cursor = 'grab';
 
-  // Spacer (model label moved to button row)
+  // window.Spacer(model label moved to button row)
   const spacer = document.createElement('span');
   spacer.style.flex = '1';
   topBar.appendChild(spacer);
@@ -1215,14 +1233,14 @@ export function _panelBuildTopBar(popup) {
     ev.stopPropagation(); ev.preventDefault();
     // Find last user message
     let lastUserIdx = -1;
-    for (let i = _popupChatMessages.length - 1; i >= 0; i--) {
-      if (_popupChatMessages[i].role === 'user') { lastUserIdx = i; break; }
+    for (let i = window._popupChatMessages.length - 1; i >= 0; i--) {
+      if (window._popupChatMessages[i].role === 'user') { lastUserIdx = i; break; }
     }
     if (lastUserIdx < 0) return;
     // Remove the last user message and everything after it
-    const lastUserMsg = _popupChatMessages[lastUserIdx];
-    _popupChatMessages = _popupChatMessages.slice(0, lastUserIdx);
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    const lastUserMsg = window._popupChatMessages[lastUserIdx];
+    window._popupChatMessages = window._popupChatMessages.slice(0, lastUserIdx);
+    if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
     // Re-insert user message and re-send
     const input = popup.querySelector('.doc-ask-inline-input');
     if (input) input.value = lastUserMsg._display || lastUserMsg.content;
@@ -1241,9 +1259,9 @@ export function _panelBuildTopBar(popup) {
     ev.stopPropagation(); ev.preventDefault();
     // Find last assistant message
     let lastAi = '';
-    for (let i = _popupChatMessages.length - 1; i >= 0; i--) {
-      if (_popupChatMessages[i].role === 'assistant' && !_popupChatMessages[i]._thinking) {
-        lastAi = _popupChatMessages[i].content; break;
+    for (let i = window._popupChatMessages.length - 1; i >= 0; i--) {
+      if (window._popupChatMessages[i].role === 'assistant' && !window._popupChatMessages[i]._thinking) {
+        lastAi = window._popupChatMessages[i].content; break;
       }
     }
     if (!lastAi) return;
@@ -1263,11 +1281,11 @@ export function _panelBuildTopBar(popup) {
   openInTabBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   openInTabBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
-    if (_panelThreadId && typeof openChatPage === 'function') {
-      openChatPage(_panelThreadId);
+    if (window._panelThreadId && typeof openChatPage === 'function') {
+      openChatPage(window._panelThreadId);
       popup.remove();
-      _aetherTrackMode = false;
-      _aetherPinned = false;
+      window._aetherTrackMode = false;
+      window._aetherPinned = false;
     }
   });
   topBar.appendChild(openInTabBtn);
@@ -1284,12 +1302,12 @@ export function _panelBuildTopBar(popup) {
     if (ev.target.closest('button')) return;
     ev.stopPropagation();
     ev.preventDefault();
-    _aetherDragging = true;
-    _aetherDragPopup = popup;
-    _aetherTrackMode = false;
+    window._aetherDragging = true;
+    window._aetherDragPopup = popup;
+    window._aetherTrackMode = false;
     topBar.style.cursor = 'grabbing';
     const r = popup.getBoundingClientRect();
-    _aetherDragOffset = { x: ev.clientX - r.left, y: ev.clientY - r.top };
+    window._aetherDragOffset = { x: ev.clientX - r.left, y: ev.clientY - r.top };
   });
 
   popup.appendChild(topBar);
@@ -1391,7 +1409,7 @@ export function _panelBuildChatInput(popup, config) {
   sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   sendBtn.addEventListener('click', (ev) => {
     ev.stopPropagation(); ev.preventDefault();
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; _renderPopupChat(popup, true); return; }
+    if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; _renderPopupChat(popup, true); return; }
     _sendPopupChatMessage(popup, capturedText);
   });
   askInput.addEventListener('keydown', (ev) => {
@@ -1404,16 +1422,16 @@ export function _panelBuildChatInput(popup, config) {
     const modelDropdown = popup.querySelector('.aether-model-dropdown');
 
     // Arrow keys navigate model dropdown
-    if (modelDropdown && _aetherModelList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+    if (modelDropdown && window._aetherModelList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
       ev.preventDefault();
-      if (ev.key === 'ArrowDown') _aetherModelIdx = Math.min(_aetherModelIdx + 1, _aetherModelList.length - 1);
-      else _aetherModelIdx = Math.max(_aetherModelIdx - 1, 0);
+      if (ev.key === 'ArrowDown') window._aetherModelIdx = Math.min(window._aetherModelIdx + 1, window._aetherModelList.length - 1);
+      else window._aetherModelIdx = Math.max(window._aetherModelIdx - 1, 0);
       _aetherRenderModelDropdown(popup);
       const sel = modelDropdown.querySelector('.aether-note-item.selected');
       if (sel) sel.scrollIntoView({ block: 'nearest' });
       return;
     }
-    if (modelDropdown && _aetherModelList.length && ev.key === 'Enter') {
+    if (modelDropdown && window._aetherModelList.length && ev.key === 'Enter') {
       ev.preventDefault();
       _aetherSelectModel(popup);
       return;
@@ -1426,16 +1444,16 @@ export function _panelBuildChatInput(popup, config) {
 
     // Arrow keys navigate agent dropdown
     const agentDropdown = popup.querySelector('.aether-agent-dropdown');
-    if (agentDropdown && _aetherAgentList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+    if (agentDropdown && window._aetherAgentList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
       ev.preventDefault();
-      if (ev.key === 'ArrowDown') _aetherAgentIdx = Math.min(_aetherAgentIdx + 1, _aetherAgentList.length - 1);
-      else _aetherAgentIdx = Math.max(_aetherAgentIdx - 1, 0);
+      if (ev.key === 'ArrowDown') window._aetherAgentIdx = Math.min(window._aetherAgentIdx + 1, window._aetherAgentList.length - 1);
+      else window._aetherAgentIdx = Math.max(window._aetherAgentIdx - 1, 0);
       _aetherRenderAgentDropdown(popup);
       const sel = agentDropdown.querySelector('.aether-note-item.selected');
       if (sel) sel.scrollIntoView({ block: 'nearest' });
       return;
     }
-    if (agentDropdown && _aetherAgentList.length && ev.key === 'Enter') {
+    if (agentDropdown && window._aetherAgentList.length && ev.key === 'Enter') {
       ev.preventDefault();
       _aetherSelectAgent(popup);
       return;
@@ -1448,19 +1466,19 @@ export function _panelBuildChatInput(popup, config) {
 
     // Arrow keys navigate tab dropdown
     const tabDropdown = popup.querySelector('.aether-tab-dropdown');
-    if (tabDropdown && _aetherTabList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+    if (tabDropdown && window._aetherTabList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
       ev.preventDefault();
-      if (ev.key === 'ArrowDown') _aetherTabIdx = Math.min(_aetherTabIdx + 1, _aetherTabList.length - 1);
-      else _aetherTabIdx = Math.max(_aetherTabIdx - 1, 0);
+      if (ev.key === 'ArrowDown') window._aetherTabIdx = Math.min(window._aetherTabIdx + 1, window._aetherTabList.length - 1);
+      else window._aetherTabIdx = Math.max(window._aetherTabIdx - 1, 0);
       const items = tabDropdown.querySelectorAll('.aether-tab-item');
-      items.forEach((el, i) => el.classList.toggle('selected', i === _aetherTabIdx));
-      const sel = items[_aetherTabIdx];
+      items.forEach((el, i) => el.classList.toggle('selected', i === window._aetherTabIdx));
+      const sel = items[window._aetherTabIdx];
       if (sel) sel.scrollIntoView({ block: 'nearest' });
       return;
     }
-    if (tabDropdown && _aetherTabList.length && ev.key === 'Enter') {
+    if (tabDropdown && window._aetherTabList.length && ev.key === 'Enter') {
       ev.preventDefault();
-      if (_aetherTabSwitchMode) _aetherSwitchToTab(popup);
+      if (window._aetherTabSwitchMode) _aetherSwitchToTab(popup);
       else _aetherSelectTab(popup);
       return;
     }
@@ -1472,13 +1490,13 @@ export function _panelBuildChatInput(popup, config) {
 
     // Arrow keys navigate history dropdown
     const histDropdown = popup.querySelector('.aether-history-dropdown');
-    if (histDropdown && _aetherHistoryList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+    if (histDropdown && window._aetherHistoryList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
       ev.preventDefault();
-      if (ev.key === 'ArrowDown') _aetherHistoryIdx = Math.min(_aetherHistoryIdx + 1, _aetherHistoryList.length - 1);
-      else _aetherHistoryIdx = Math.max(_aetherHistoryIdx - 1, -1);
+      if (ev.key === 'ArrowDown') window._aetherHistoryIdx = Math.min(window._aetherHistoryIdx + 1, window._aetherHistoryList.length - 1);
+      else window._aetherHistoryIdx = Math.max(window._aetherHistoryIdx - 1, -1);
       const items = histDropdown.querySelectorAll('.aether-note-item');
-      items.forEach(el => el.classList.toggle('selected', parseInt(el.dataset.idx) === _aetherHistoryIdx));
-      const sel = histDropdown.querySelector(`.aether-note-item[data-idx="${_aetherHistoryIdx}"]`);
+      items.forEach(el => el.classList.toggle('selected', parseInt(el.dataset.idx) === window._aetherHistoryIdx));
+      const sel = histDropdown.querySelector(`.aether-note-item[data-idx="${window._aetherHistoryIdx}"]`);
       if (sel) sel.scrollIntoView({ block: 'nearest' });
       return;
     }
@@ -1497,8 +1515,8 @@ export function _panelBuildChatInput(popup, config) {
     if (isCmd && dropdown && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
       ev.preventDefault();
       const items = dropdown.querySelectorAll('.aether-cmd-item');
-      if (ev.key === 'ArrowDown') _aetherCmdIdx = Math.min(_aetherCmdIdx + 1, items.length - 1);
-      else _aetherCmdIdx = Math.max(_aetherCmdIdx - 1, 0);
+      if (ev.key === 'ArrowDown') window._aetherCmdIdx = Math.min(window._aetherCmdIdx + 1, items.length - 1);
+      else window._aetherCmdIdx = Math.max(window._aetherCmdIdx - 1, 0);
       _aetherRenderCmdDropdown(popup, val.slice(1).trim());
       const dd = popup.querySelector('.aether-cmd-dropdown');
       const sel = dd && dd.querySelector('.aether-cmd-item.selected');
@@ -1508,8 +1526,8 @@ export function _panelBuildChatInput(popup, config) {
     if (isCmd && dropdown && ev.key === 'Tab') {
       ev.preventDefault();
       const matches = _aetherFilterCommands(val.slice(1).trim());
-      if (matches[_aetherCmdIdx]) askInput.value = '/' + matches[_aetherCmdIdx].name;
-      _aetherRenderCmdDropdown(popup, matches[_aetherCmdIdx]?.name || '');
+      if (matches[window._aetherCmdIdx]) askInput.value = '/' + matches[window._aetherCmdIdx].name;
+      _aetherRenderCmdDropdown(popup, matches[window._aetherCmdIdx]?.name || '');
       return;
     }
 
@@ -1535,7 +1553,7 @@ export function _panelBuildChatInput(popup, config) {
       ev.preventDefault();
       if (isCmd && dropdown) {
         const matches = _aetherFilterCommands(val.slice(1).trim());
-        const cmd = matches[_aetherCmdIdx] || matches[0];
+        const cmd = matches[window._aetherCmdIdx] || matches[0];
         if (cmd) {
           if (cmd.hasArgs) {
             askInput.value = '/' + cmd.name + ' ';
@@ -1553,7 +1571,7 @@ export function _panelBuildChatInput(popup, config) {
           } else {
             _aetherHideCmdDropdown(popup);
             cmd.fn();
-            _aetherTrackMode = false;
+            window._aetherTrackMode = false;
             popup.remove();
           }
           return;
@@ -1571,13 +1589,13 @@ export function _panelBuildChatInput(popup, config) {
       if (modelDropdown) { _aetherHideModelDropdown(popup); return; }
       if (agentDropdown) { _aetherHideAgentDropdown(popup); return; }
       if (dropdown) { _aetherHideCmdDropdown(popup); return; }
-      _aetherTrackMode = false;
-      _aetherPinned = false;
+      window._aetherTrackMode = false;
+      window._aetherPinned = false;
       _maybeDismissToIsland(popup);
-      if (!_aetherBackgroundStreaming && _popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-      _pendingScreenshots = [];
-      _pendingTabContexts = [];
-      _pendingFileContexts = [];
+      if (!window._aetherBackgroundStreaming && window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
+      window._pendingScreenshots = [];
+      window._pendingTabContexts = [];
+      window._pendingFileContexts = [];
       _savePopupChatToHighlight(popup);
       popup.remove();
       _aetherShowCursor();
@@ -1591,11 +1609,11 @@ export function _panelBuildChatInput(popup, config) {
       const histMatch = val.match(/^\/history(\s+(.*))?$/i);
       if (histMatch && histMatch[1] !== undefined) {
         _aetherHideCmdDropdown(popup);
-        _aetherHistoryIdx = -1;
+        window._aetherHistoryIdx = -1;
         _aetherRenderHistoryDropdown(popup, (histMatch[2] || '').trim());
       } else {
         _aetherHideHistoryDropdown(popup);
-        _aetherCmdIdx = 0;
+        window._aetherCmdIdx = 0;
         _aetherRenderCmdDropdown(popup, val.slice(1).trim());
       }
     } else {
@@ -1822,7 +1840,7 @@ export function _panelPositionAndFocus(popup, config) {
     if (askInput) {
       askInput.value = initialValue;
       if (initialValue.startsWith('/')) {
-        _aetherCmdIdx = 0;
+        window._aetherCmdIdx = 0;
         _aetherRenderCmdDropdown(popup, initialValue.slice(1).trim());
       }
       // Reposition after dropdown renders
@@ -1851,14 +1869,14 @@ export function _showPanel(config) {
   // Save the currently focused element so Escape can restore it
   const ae = document.activeElement;
   if (ae && ae !== document.body && !ae.closest('#doc-chat-ask-float')) {
-    _aetherPrevFocus = { el: ae, selStart: ae.selectionStart, selEnd: ae.selectionEnd };
+    window._aetherPrevFocus = { el: ae, selStart: ae.selectionStart, selEnd: ae.selectionEnd };
   }
 
   // Remove any existing active panel
   const existing = document.getElementById('doc-chat-ask-float');
   if (existing) {
-    _aetherBackgroundStreaming = false; islandRemove('aether');
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    window._aetherBackgroundStreaming = false; islandRemove('aether');
+    if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
     if (!selectionText) _savePopupChatToHighlight(existing);
     existing.remove();
   }
@@ -1883,11 +1901,11 @@ export function _showPanel(config) {
   if (!finalized) popup.style.visibility = 'hidden';
 
   const hasContext = contextMenu && (contextMenu.linkUrl || contextMenu.imgUrl || contextMenu.items);
-  _aetherPinned = false;
+  window._aetherPinned = false;
   if (isCursorAnchor) {
-    _aetherTrackMode = config.trackCursor !== undefined ? config.trackCursor : false;
+    window._aetherTrackMode = config.trackCursor !== undefined ? config.trackCursor : false;
   } else {
-    _aetherTrackMode = false;
+    window._aetherTrackMode = false;
   }
 
   const capturedText = selectionText;
@@ -1896,18 +1914,18 @@ export function _showPanel(config) {
   // Reset shared state for new panel (unless preview)
   if (finalized) {
     _saveChatMemory();
-    _popupChatMessages = [];
-    _chatMemoryRetrieved = false;
-    _pendingScreenshots = [];
-    _pendingTabContexts = [];
-    _pendingFileContexts = [];
-    _aetherDragging = false;
-    _aetherDragPopup = null;
-    _aetherBackgroundStreaming = false; islandRemove('aether');
-    if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+    window._popupChatMessages = [];
+    window._chatMemoryRetrieved = false;
+    window._pendingScreenshots = [];
+    window._pendingTabContexts = [];
+    window._pendingFileContexts = [];
+    window._aetherDragging = false;
+    window._aetherDragPopup = null;
+    window._aetherBackgroundStreaming = false; islandRemove('aether');
+    if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
     // Reset engine session for new panel
-    _panelSession = null;
-    _panelThreadId = null;
+    window._panelSession = null;
+    window._panelThreadId = null;
   }
 
   // ── Build panel sections via helpers ──
@@ -1930,7 +1948,7 @@ export function _showPanel(config) {
   document.body.appendChild(popup);
 
   // Hide cursor while panel is open
-  if (isCursorAnchor && finalized && _aetherTrackMode) {
+  if (isCursorAnchor && finalized && window._aetherTrackMode) {
     _aetherHideCursorOverlay();
   }
 
@@ -1940,7 +1958,6 @@ export function _showPanel(config) {
 
   return popup;
 }
-
 
 export function openPaper(index, e) {
   const paper = lastFilteredPapers[index];
@@ -1961,29 +1978,3 @@ export function openPaperByUrl(url, e) {
   openBrowseWithPaper(url, paper);
 }
 
-// ── Window assignments for global access ──
-window._positionAtCursor = _positionAtCursor;
-window._repositionSelectionPopup = _repositionSelectionPopup;
-window._selPopupDragging = _selPopupDragging;
-window._handleContextMenuChat = _handleContextMenuChat;
-window._iframeRectToParent = _iframeRectToParent;
-window._injectIframeChatHandler = _injectIframeChatHandler;
-window._screenshotDragStart = _screenshotDragStart;
-window._screenshotSelection = _screenshotSelection;
-window._screenshotDim = _screenshotDim;
-window._screenshotCapturing = _screenshotCapturing;
-window._focusCrossFrame = _focusCrossFrame;
-window._pasteIntoElement = _pasteIntoElement;
-window._flashCopyBtn = _flashCopyBtn;
-window._injectProfileItems = _injectProfileItems;
-window._panelBuildContextItems = _panelBuildContextItems;
-window._panelBuildLinkContextMenu = _panelBuildLinkContextMenu;
-window._panelBuildEditableActions = _panelBuildEditableActions;
-window._panelBuildSelectionUI = _panelBuildSelectionUI;
-window._panelBuildTopBar = _panelBuildTopBar;
-window._panelBuildChatInput = _panelBuildChatInput;
-window._panelBuildCopyKeyHandler = _panelBuildCopyKeyHandler;
-window._panelPositionAndFocus = _panelPositionAndFocus;
-window._showPanel = _showPanel;
-window.openPaper = openPaper;
-window.openPaperByUrl = openPaperByUrl;

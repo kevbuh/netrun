@@ -1,6 +1,19 @@
 // panel-commands.js — Aether slash commands and preview system
 import Settings from '/js/core/core-settings.js';
-if (window.AetherUI) AetherUI.globals();
+import { apiPost, apiGet } from '/js/api.js';
+import { escapeHtml, truncate } from '/js/core/core-utils.js';
+import { showAchievement } from '/js/core/core-ui.js';
+import { _openInNewTab } from '/js/core/core-layout.js';
+import { _addScreenshotToPanel, _addTabContextToPanel, _browserCaptureRect, _renderPopupChat } from '/js/panel-chat.js';
+import { _browseFaviconUrl, browseBack, browseForward, browseNavigate, browseReload, browseZoom } from '/js/browse/browse-island.js';
+import { _browseToggleFindBar, browseSaveToReadingList, browseShare } from '/js/browse/browse-features.js';
+import { _getBrowseHistory, openSearchHistoryPage } from '/js/browse-urlbar.js';
+import { _relativeTime } from '/js/search.js';
+import { _repositionSelectionPopup } from '/js/panel.js';
+import { browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
+import { browseNewTab, browseSelectWindow, openBrowse, openLocalPdf } from '/js/browse/browse-windows.js';
+import { browsePrintPage } from '/js/browse/browse-menu.js';
+import { toggleTabMute } from '/js/browse/browse-audio.js';
 
 export function _aetherHideCursorOverlay() {
   document.body.classList.add('aether-hide-cursor');
@@ -12,9 +25,9 @@ export function _aetherShowCursor() {
 }
 
 export function _aetherRestoreFocus() {
-  if (!_aetherPrevFocus) return;
-  const { el, selStart, selEnd } = _aetherPrevFocus;
-  _aetherPrevFocus = null;
+  if (!window._aetherPrevFocus) return;
+  const { el, selStart, selEnd } = window._aetherPrevFocus;
+  window._aetherPrevFocus = null;
   if (!el || !document.body.contains(el)) return;
   el.focus();
   if (selStart != null && typeof el.setSelectionRange === 'function') {
@@ -158,7 +171,6 @@ export async function _fetchAuthorPreview(text, containerDiv) {
   }
 }
 
-
 export async function _doAetherWebSearch(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (!input) return;
@@ -167,32 +179,32 @@ export async function _doAetherWebSearch(popup) {
   input.value = '';
 
   // Pin panel if tracking
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
 
   // Show searching state in chat area
   popup.classList.add('has-chat');
   const chatArea = popup.querySelector('.doc-popup-chat-area');
   if (chatArea) chatArea.classList.add('visible');
 
-  _popupChatMessages.push({ role: 'user', content: q, _display: q, _isSearch: true });
-  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true, _isSearch: true });
+  window._popupChatMessages.push({ role: 'user', content: q, _display: q, _isSearch: true });
+  window._popupChatMessages.push({ role: 'assistant', content: '', _thinking: true, _isSearch: true });
   _renderPopupChat(popup, false);
   _repositionSelectionPopup();
 
   try {
     const data = await apiGet('/api/web-search?q=' + encodeURIComponent(q));
     const results = data.results || [];
-    const aiIdx = _popupChatMessages.length - 1;
-    _popupChatMessages[aiIdx]._thinking = false;
-    _popupChatMessages[aiIdx]._searchResults = results;
-    _popupChatMessages[aiIdx].content = results.length
+    const aiIdx = window._popupChatMessages.length - 1;
+    window._popupChatMessages[aiIdx]._thinking = false;
+    window._popupChatMessages[aiIdx]._searchResults = results;
+    window._popupChatMessages[aiIdx].content = results.length
       ? results.length + ' result' + (results.length !== 1 ? 's' : '')
       : 'No results found.';
     _renderPopupChat(popup, true);
   } catch (e) {
-    const aiIdx = _popupChatMessages.length - 1;
-    _popupChatMessages[aiIdx]._thinking = false;
-    _popupChatMessages[aiIdx].content = 'Search failed: ' + e.message;
+    const aiIdx = window._popupChatMessages.length - 1;
+    window._popupChatMessages[aiIdx]._thinking = false;
+    window._popupChatMessages[aiIdx].content = 'Search failed: ' + e.message;
     _renderPopupChat(popup, true);
   }
   if (input) input.focus();
@@ -230,7 +242,7 @@ export const _aetherCommands = [
 ];
 
 // State variables declared in panel-state.js:
-// _aetherCmdIdx, _aetherTabIdx, _aetherTabList, _aetherTabSwitchMode
+// window._aetherCmdIdx, window._aetherTabIdx, window._aetherTabList, window._aetherTabSwitchMode
 
 export function _aetherFilterCommands(query) {
   const q = query.toLowerCase();
@@ -245,21 +257,21 @@ export function _aetherRenderCmdDropdown(popup, query) {
     return;
   }
   if (!dropdown) {
-    const ddView = new View('div').className('aether-cmd-dropdown');
+    const ddView = new window.View('div').className('aether-cmd-dropdown');
     ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
     dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
     else popup.appendChild(dropdown);
   }
-  _aetherCmdIdx = Math.min(_aetherCmdIdx, matches.length - 1);
+  window._aetherCmdIdx = Math.min(window._aetherCmdIdx, matches.length - 1);
   dropdown.innerHTML = '';
   matches.forEach(function(c, i) {
-    const row = new View('div').className('aether-cmd-item' + (i === _aetherCmdIdx ? ' selected' : ''));
+    const row = new window.View('div').className('aether-cmd-item' + (i === window._aetherCmdIdx ? ' selected' : ''));
     row.el.dataset.idx = String(i);
-    const nameSpan = new View('span').className('aether-cmd-name');
+    const nameSpan = new window.View('span').className('aether-cmd-name');
     nameSpan.el.textContent = '/' + c.name;
-    const descSpan = new View('span').className('aether-cmd-desc');
+    const descSpan = new window.View('span').className('aether-cmd-desc');
     descSpan.el.textContent = c.desc;
     row.el.appendChild(nameSpan.el);
     row.el.appendChild(descSpan.el);
@@ -284,7 +296,7 @@ export function _aetherRenderCmdDropdown(popup, query) {
           else if (cmd.name === 'help') _doAetherHelp(popup);
         } else {
           cmd.fn();
-          _aetherTrackMode = false;
+          window._aetherTrackMode = false;
           popup.remove();
         }
       });
@@ -299,52 +311,51 @@ export function _aetherHideCmdDropdown(popup) {
   if (dropdown) dropdown.remove();
 }
 
-
 export function _aetherHideTabDropdown(popup) {
   const dropdown = popup.querySelector('.aether-tab-dropdown');
   if (dropdown) dropdown.remove();
-  _aetherTabList = [];
-  _aetherTabIdx = 0;
-  _aetherTabSwitchMode = false;
+  window._aetherTabList = [];
+  window._aetherTabIdx = 0;
+  window._aetherTabSwitchMode = false;
 }
 
-// State variables declared in panel-state.js: _aetherHistoryIdx, _aetherHistoryList
+// State variables declared in panel-state.js: window._aetherHistoryIdx, window._aetherHistoryList
 
 export function _aetherHideHistoryDropdown(popup) {
   const dropdown = popup.querySelector('.aether-history-dropdown');
   if (dropdown) dropdown.remove();
-  _aetherHistoryList = [];
-  _aetherHistoryIdx = -1;
+  window._aetherHistoryList = [];
+  window._aetherHistoryIdx = -1;
 }
 
 export function _doAetherHistory(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) { input.value = '/history '; input.style.height = 'auto'; }
   _aetherHideCmdDropdown(popup);
-  _aetherTrackMode = false;
-  _aetherHistoryIdx = -1;
+  window._aetherTrackMode = false;
+  window._aetherHistoryIdx = -1;
   _aetherRenderHistoryDropdown(popup, '');
 }
 
 export function _aetherRenderHistoryDropdown(popup, query) {
   const hist = typeof _getBrowseHistory === 'function' ? _getBrowseHistory() : [];
   const q = (query || '').toLowerCase();
-  _aetherHistoryList = q
+  window._aetherHistoryList = q
     ? hist.filter(h => (h.title || '').toLowerCase().includes(q) || (h.url || '').toLowerCase().includes(q)).slice(0, 15)
     : hist.slice(0, 15);
 
   let dropdown = popup.querySelector('.aether-history-dropdown');
 
-  if (!_aetherHistoryList.length) {
+  if (!window._aetherHistoryList.length) {
     if (!dropdown) {
-      var ddView = new View('div').className('aether-history-dropdown aether-note-dropdown');
+      var ddView = new window.View('div').className('aether-history-dropdown aether-note-dropdown');
       ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
       dropdown = ddView.el;
       const askWrap = popup.querySelector('.doc-ask-inline-wrap');
       if (askWrap) popup.insertBefore(dropdown, askWrap);
       else popup.appendChild(dropdown);
     }
-    const emptyMsg = new View('div');
+    const emptyMsg = new window.View('div');
     emptyMsg.cssText('padding:10px 12px;font-size:0.8rem;color:var(--nr-text-secondary);text-align:center');
     emptyMsg.el.textContent = 'No history found';
     dropdown.innerHTML = '';
@@ -354,18 +365,18 @@ export function _aetherRenderHistoryDropdown(popup, query) {
   }
 
   if (!dropdown) {
-    var ddView = new View('div').className('aether-history-dropdown aether-note-dropdown');
+    var ddView = new window.View('div').className('aether-history-dropdown aether-note-dropdown');
     ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
     dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
     else popup.appendChild(dropdown);
   }
-  if (_aetherHistoryIdx >= _aetherHistoryList.length) _aetherHistoryIdx = _aetherHistoryList.length - 1;
+  if (window._aetherHistoryIdx >= window._aetherHistoryList.length) window._aetherHistoryIdx = window._aetherHistoryList.length - 1;
 
   dropdown.innerHTML = '';
-  const fullSelected = _aetherHistoryIdx === -1;
-  const fullRow = new View('div').className('aether-note-item aether-history-full' + (fullSelected ? ' selected' : ''));
+  const fullSelected = window._aetherHistoryIdx === -1;
+  const fullRow = new window.View('div').className('aether-note-item aether-history-full' + (fullSelected ? ' selected' : ''));
   fullRow.el.dataset.idx = '-1';
   fullRow.cssText('padding:6px 10px;font-size:0.75rem;border-bottom:none');
   fullRow.el.textContent = 'See full history';
@@ -373,40 +384,40 @@ export function _aetherRenderHistoryDropdown(popup, query) {
     ev.stopPropagation(); ev.preventDefault();
     _aetherHideHistoryDropdown(popup);
     popup.remove();
-    _aetherTrackMode = false;
+    window._aetherTrackMode = false;
     if (typeof openSearchHistoryPage === 'function') openSearchHistoryPage();
   });
   dropdown.appendChild(fullRow.el);
 
-  _aetherHistoryList.forEach(function(h, i) {
+  window._aetherHistoryList.forEach(function(h, i) {
     let domain = '';
     try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
     const favicon = typeof _browseFaviconUrl === 'function' ? _browseFaviconUrl(h.url) : '';
     const time = typeof _relativeTime === 'function' ? _relativeTime(h.ts) : '';
 
-    const favImg = new View('img');
+    const favImg = new window.View('img');
     favImg.el.src = favicon;
     favImg.cssText('width:14px;height:14px;flex-shrink:0;border-radius:2px');
     favImg.el.onerror = function() { this.style.display = 'none'; };
 
-    const titleDiv = new View('div');
+    const titleDiv = new window.View('div');
     titleDiv.cssText('font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap');
     titleDiv.el.textContent = h.title || domain;
 
-    const domainDiv = new View('div');
+    const domainDiv = new window.View('div');
     domainDiv.cssText('font-size:0.68rem;color:var(--nr-text-quaternary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap');
     domainDiv.el.textContent = domain;
 
-    const infoDiv = new View('div');
+    const infoDiv = new window.View('div');
     infoDiv.cssText('flex:1;min-width:0;overflow:hidden');
     infoDiv.el.appendChild(titleDiv.el);
     infoDiv.el.appendChild(domainDiv.el);
 
-    const timeSpan = new View('span');
+    const timeSpan = new window.View('span');
     timeSpan.cssText('font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0');
     timeSpan.el.textContent = time;
 
-    const row = new View('div').className('aether-note-item' + (i === _aetherHistoryIdx ? ' selected' : ''));
+    const row = new window.View('div').className('aether-note-item' + (i === window._aetherHistoryIdx ? ' selected' : ''));
     row.el.dataset.idx = String(i);
     row.cssText('display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:none');
     row.el.appendChild(favImg.el);
@@ -419,7 +430,7 @@ export function _aetherRenderHistoryDropdown(popup, query) {
         if (!entry) return;
         _aetherHideHistoryDropdown(popup);
         popup.remove();
-        _aetherTrackMode = false;
+        window._aetherTrackMode = false;
         if (typeof browseNavigate === 'function') browseNavigate(entry.url);
       });
     })(h);
@@ -429,29 +440,28 @@ export function _aetherRenderHistoryDropdown(popup, query) {
 }
 
 export function _aetherSelectHistory(popup) {
-  if (_aetherHistoryIdx < 0) {
+  if (window._aetherHistoryIdx < 0) {
     // No arrow selection — open full history page
     _aetherHideHistoryDropdown(popup);
     popup.remove();
-    _aetherTrackMode = false;
+    window._aetherTrackMode = false;
     if (typeof openSearchHistoryPage === 'function') openSearchHistoryPage();
     return true;
   }
-  const entry = _aetherHistoryList[_aetherHistoryIdx];
+  const entry = window._aetherHistoryList[window._aetherHistoryIdx];
   if (!entry) return false;
   _aetherHideHistoryDropdown(popup);
   popup.remove();
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
   if (typeof browseNavigate === 'function') browseNavigate(entry.url);
   return true;
 }
-
 
 export async function _doAetherCapture(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) { input.value = ''; }
   _aetherHideCmdDropdown(popup);
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
 
   // Hide the popup temporarily so it's not in the screenshot
   popup.style.visibility = 'hidden';
@@ -485,7 +495,7 @@ export async function _doAetherCapture(popup) {
   popup.style.visibility = '';
 
   if (!screenshot) {
-    _popupChatMessages.push({ role: 'assistant', content: 'Screenshot capture failed. Make sure html2canvas is loaded.', _thinking: false });
+    window._popupChatMessages.push({ role: 'assistant', content: 'Screenshot capture failed. Make sure html2canvas is loaded.', _thinking: false });
     popup.classList.add('has-chat');
     const chatArea = popup.querySelector('.doc-popup-chat-area');
     if (chatArea) chatArea.classList.add('visible');
@@ -502,25 +512,25 @@ export async function _doAetherCapture(popup) {
 }
 
 // ── /model command ──
-// State variables declared in panel-state.js: _aetherModelIdx, _aetherModelList
+// State variables declared in panel-state.js: window._aetherModelIdx, window._aetherModelList
 
 export async function _doAetherModel(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
 
   // Fetch available models
-  _aetherModelList = [];
-  _aetherModelIdx = 0;
+  window._aetherModelList = [];
+  window._aetherModelIdx = 0;
   try {
     const data = await apiGet('/api/models');
-    _aetherModelList = data.models || [];
+    window._aetherModelList = data.models || [];
   } catch (e) {
-    _aetherModelList = [];
+    window._aetherModelList = [];
   }
 
-  if (!_aetherModelList.length) {
+  if (!window._aetherModelList.length) {
     // Show error inline
     if (input) { input.value = ''; input.placeholder = 'No models available'; input.focus(); }
     return;
@@ -528,8 +538,8 @@ export async function _doAetherModel(popup) {
 
   const currentModel = Settings.get('chatModel') || '';
   // Pre-select current model if found
-  const curIdx = _aetherModelList.indexOf(currentModel);
-  if (curIdx >= 0) _aetherModelIdx = curIdx;
+  const curIdx = window._aetherModelList.indexOf(currentModel);
+  if (curIdx >= 0) window._aetherModelIdx = curIdx;
 
   _aetherRenderModelDropdown(popup);
 }
@@ -537,7 +547,7 @@ export async function _doAetherModel(popup) {
 export function _aetherRenderModelDropdown(popup) {
   let dropdown = popup.querySelector('.aether-model-dropdown');
   if (!dropdown) {
-    const ddView = new View('div').className('aether-note-dropdown aether-model-dropdown');
+    const ddView = new window.View('div').className('aether-note-dropdown aether-model-dropdown');
     ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
     dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
@@ -546,17 +556,17 @@ export function _aetherRenderModelDropdown(popup) {
   }
   const currentModel = Settings.get('chatModel') || '';
   dropdown.innerHTML = '';
-  _aetherModelList.forEach(function(m, i) {
+  window._aetherModelList.forEach(function(m, i) {
     const active = m === currentModel;
-    const row = new View('div').className('aether-note-item' + (i === _aetherModelIdx ? ' selected' : ''));
+    const row = new window.View('div').className('aether-note-item' + (i === window._aetherModelIdx ? ' selected' : ''));
     row.el.dataset.idx = String(i);
 
-    const nameSpan = new View('span').className('aether-note-item-title');
+    const nameSpan = new window.View('span').className('aether-note-item-title');
     nameSpan.el.textContent = m;
     row.el.appendChild(nameSpan.el);
 
     if (active) {
-      const curSpan = new View('span').className('aether-note-item-tags');
+      const curSpan = new window.View('span').className('aether-note-item-tags');
       /* styled via .aether-note-item-tags CSS */
       curSpan.el.textContent = 'current';
       row.el.appendChild(curSpan.el);
@@ -566,7 +576,7 @@ export function _aetherRenderModelDropdown(popup) {
       row.el.addEventListener('click', function(ev) {
         ev.stopPropagation(); ev.preventDefault();
         if (model) {
-          _aetherModelIdx = idx;
+          window._aetherModelIdx = idx;
           Settings.set('chatModel', model);
           _aetherHideModelDropdown(popup);
           const label = popup.querySelector('.aether-model-label');
@@ -588,12 +598,12 @@ export function _aetherRenderModelDropdown(popup) {
 export function _aetherHideModelDropdown(popup) {
   const dd = popup.querySelector('.aether-model-dropdown');
   if (dd) dd.remove();
-  _aetherModelList = [];
-  _aetherModelIdx = 0;
+  window._aetherModelList = [];
+  window._aetherModelIdx = 0;
 }
 
 export function _aetherSelectModel(popup) {
-  const model = _aetherModelList[_aetherModelIdx];
+  const model = window._aetherModelList[window._aetherModelIdx];
   if (model) {
     Settings.set('chatModel', model);
     _aetherHideModelDropdown(popup);
@@ -605,33 +615,33 @@ export function _aetherSelectModel(popup) {
 }
 
 // ── /agent command — switch AI agent ──
-// State variables declared in panel-state.js: _aetherAgentIdx, _aetherAgentList
+// State variables declared in panel-state.js: window._aetherAgentIdx, window._aetherAgentList
 
 export async function _doAetherAgent(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
 
   // Fetch available agents
-  _aetherAgentList = [];
-  _aetherAgentIdx = 0;
+  window._aetherAgentList = [];
+  window._aetherAgentIdx = 0;
   try {
     if (window.electronAPI?.agentList) {
-      _aetherAgentList = await window.electronAPI.agentList();
+      window._aetherAgentList = await window.electronAPI.agentList();
     }
   } catch (e) {
-    _aetherAgentList = [];
+    window._aetherAgentList = [];
   }
 
-  if (!_aetherAgentList.length) {
+  if (!window._aetherAgentList.length) {
     if (input) { input.value = ''; input.placeholder = 'No agents available'; input.focus(); }
     return;
   }
 
   const currentAgent = Settings.get('chatAgent') || 'research-assistant';
-  const curIdx = _aetherAgentList.findIndex(a => a.id === currentAgent);
-  if (curIdx >= 0) _aetherAgentIdx = curIdx;
+  const curIdx = window._aetherAgentList.findIndex(a => a.id === currentAgent);
+  if (curIdx >= 0) window._aetherAgentIdx = curIdx;
 
   _aetherRenderAgentDropdown(popup);
 }
@@ -639,7 +649,7 @@ export async function _doAetherAgent(popup) {
 export function _aetherRenderAgentDropdown(popup) {
   let dropdown = popup.querySelector('.aether-agent-dropdown');
   if (!dropdown) {
-    const ddView = new View('div').className('aether-note-dropdown aether-agent-dropdown');
+    const ddView = new window.View('div').className('aether-note-dropdown aether-agent-dropdown');
     ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
     dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
@@ -648,21 +658,21 @@ export function _aetherRenderAgentDropdown(popup) {
   }
   const currentAgent = Settings.get('chatAgent') || 'research-assistant';
   dropdown.innerHTML = '';
-  _aetherAgentList.forEach(function(a, i) {
+  window._aetherAgentList.forEach(function(a, i) {
     const active = a.id === currentAgent;
-    const row = new View('div').className('aether-note-item' + (i === _aetherAgentIdx ? ' selected' : ''));
+    const row = new window.View('div').className('aether-note-item' + (i === window._aetherAgentIdx ? ' selected' : ''));
     row.el.dataset.idx = String(i);
 
-    const nameDiv = new View('div').className('aether-note-item-title');
+    const nameDiv = new window.View('div').className('aether-note-item-title');
     nameDiv.el.textContent = a.name;
     row.el.appendChild(nameDiv.el);
 
-    const descDiv = new View('div').className('aether-note-item-snippet');
+    const descDiv = new window.View('div').className('aether-note-item-snippet');
     descDiv.el.textContent = a.description;
     row.el.appendChild(descDiv.el);
 
     if (active) {
-      const curSpan = new View('span').className('aether-note-item-tags');
+      const curSpan = new window.View('span').className('aether-note-item-tags');
       /* styled via .aether-note-item-tags CSS */
       curSpan.el.textContent = 'current';
       row.el.appendChild(curSpan.el);
@@ -672,7 +682,7 @@ export function _aetherRenderAgentDropdown(popup) {
       row.el.addEventListener('click', function(ev) {
         ev.stopPropagation(); ev.preventDefault();
         if (agent) {
-          _aetherAgentIdx = idx;
+          window._aetherAgentIdx = idx;
           Settings.set('chatAgent', agent.id);
           _aetherHideAgentDropdown(popup);
           const chip = popup.querySelector('.aether-agent-chip-label');
@@ -690,12 +700,12 @@ export function _aetherRenderAgentDropdown(popup) {
 export function _aetherHideAgentDropdown(popup) {
   const dd = popup.querySelector('.aether-agent-dropdown');
   if (dd) dd.remove();
-  _aetherAgentList = [];
-  _aetherAgentIdx = 0;
+  window._aetherAgentList = [];
+  window._aetherAgentIdx = 0;
 }
 
 export function _aetherSelectAgent(popup) {
-  const agent = _aetherAgentList[_aetherAgentIdx];
+  const agent = window._aetherAgentList[window._aetherAgentIdx];
   if (agent) {
     Settings.set('chatAgent', agent.id);
     _aetherHideAgentDropdown(popup);
@@ -711,7 +721,7 @@ export function _doAetherSearchNewTab(popup, query) {
   const url = 'https://www.google.com/search?q=' + encodeURIComponent(query);
   if (typeof browseNewTab === 'function') browseNewTab(url);
   else window.open(url, '_blank');
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
   popup.remove();
 }
 
@@ -720,14 +730,14 @@ export async function _doAetherLinks(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
 
   popup.classList.add('has-chat');
   const chatArea = popup.querySelector('.doc-popup-chat-area');
   if (chatArea) chatArea.classList.add('visible');
 
-  _popupChatMessages.push({ role: 'user', content: 'Links on this page', _display: 'Links on this page', _isSearch: true });
-  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true });
+  window._popupChatMessages.push({ role: 'user', content: 'Links on this page', _display: 'Links on this page', _isSearch: true });
+  window._popupChatMessages.push({ role: 'assistant', content: '', _thinking: true });
   _renderPopupChat(popup, false);
   _repositionSelectionPopup();
 
@@ -739,9 +749,9 @@ export async function _doAetherLinks(popup) {
   if (tab && tab.url) pageUrl = tab.url;
 
   if (!pageUrl) {
-    const aiIdx = _popupChatMessages.length - 1;
-    _popupChatMessages[aiIdx]._thinking = false;
-    _popupChatMessages[aiIdx].content = 'No page open to extract links from.';
+    const aiIdx = window._popupChatMessages.length - 1;
+    window._popupChatMessages[aiIdx]._thinking = false;
+    window._popupChatMessages[aiIdx].content = 'No page open to extract links from.';
     _renderPopupChat(popup, true);
     if (input) input.focus();
     return;
@@ -750,19 +760,19 @@ export async function _doAetherLinks(popup) {
   try {
     const data = await apiPost('/api/extract-links', { url: pageUrl });
     const links = data.links || [];
-    const aiIdx = _popupChatMessages.length - 1;
-    _popupChatMessages[aiIdx]._thinking = false;
+    const aiIdx = window._popupChatMessages.length - 1;
+    window._popupChatMessages[aiIdx]._thinking = false;
     if (links.length) {
-      _popupChatMessages[aiIdx]._searchResults = links.map(l => ({ title: l.text, url: l.url, snippet: '' }));
-      _popupChatMessages[aiIdx].content = links.length + ' link' + (links.length !== 1 ? 's' : '') + ' found';
+      window._popupChatMessages[aiIdx]._searchResults = links.map(l => ({ title: l.text, url: l.url, snippet: '' }));
+      window._popupChatMessages[aiIdx].content = links.length + ' link' + (links.length !== 1 ? 's' : '') + ' found';
     } else {
-      _popupChatMessages[aiIdx].content = 'No links found on this page.';
+      window._popupChatMessages[aiIdx].content = 'No links found on this page.';
     }
     _renderPopupChat(popup, true);
   } catch (e) {
-    const aiIdx = _popupChatMessages.length - 1;
-    _popupChatMessages[aiIdx]._thinking = false;
-    _popupChatMessages[aiIdx].content = 'Failed to extract links: ' + e.message;
+    const aiIdx = window._popupChatMessages.length - 1;
+    window._popupChatMessages[aiIdx]._thinking = false;
+    window._popupChatMessages[aiIdx].content = 'Failed to extract links: ' + e.message;
     _renderPopupChat(popup, true);
   }
   if (input) input.focus();
@@ -770,18 +780,18 @@ export async function _doAetherLinks(popup) {
 }
 
 // ── /tab command — add a browser tab to chat context ──
-// State variable declared in panel-state.js: _aetherTabAutoAdding
+// State variable declared in panel-state.js: window._aetherTabAutoAdding
 
 export async function _doAetherTab(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
 
   // Get all open tabs from all windows
   const allTabs = [];
-  if (typeof _browseWindows !== 'undefined') {
-    for (const win of _browseWindows) {
+  if (typeof window._browseWindows !== 'undefined') {
+    for (const win of window._browseWindows) {
       for (const tab of (win.tabs || [])) {
         if (!tab.blank && tab.url) allTabs.push(tab);
       }
@@ -796,71 +806,71 @@ export async function _doAetherTab(popup) {
   // Auto-add current tab if on a webpage
   const activeTabId = typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : null;
   const currentTab = activeTabId != null ? allTabs.find(t => t.id === activeTabId) : null;
-  if (currentTab && !_pendingTabContexts.some(t => t.tabId === currentTab.id)) {
-    _aetherTabAutoAdding = true;
+  if (currentTab && !window._pendingTabContexts.some(t => t.tabId === currentTab.id)) {
+    window._aetherTabAutoAdding = true;
     try {
       const data = await apiPost('/api/extract-text', { url: currentTab.url });
       _addTabContextToPanel(popup, { tabId: currentTab.id, title: currentTab.title, url: currentTab.url, content: data.text || '' });
     } catch (e) { /* ignore */ }
-    _aetherTabAutoAdding = false;
+    window._aetherTabAutoAdding = false;
   }
 
   // Show remaining tabs (excluding already-added ones) in a dropdown
-  const addedIds = new Set(_pendingTabContexts.map(t => t.tabId));
+  const addedIds = new Set(window._pendingTabContexts.map(t => t.tabId));
   const otherTabs = allTabs.filter(t => !addedIds.has(t.id));
   if (!otherTabs.length) {
     if (input) input.focus();
     return;
   }
 
-  _aetherTabList = otherTabs;
-  _aetherTabIdx = 0;
+  window._aetherTabList = otherTabs;
+  window._aetherTabIdx = 0;
   _renderTabDropdown(popup);
   if (input) input.focus();
 }
 
 export function _renderTabDropdown(popup) {
   let dropdown = popup.querySelector('.aether-tab-dropdown');
-  if (!_aetherTabList.length) {
+  if (!window._aetherTabList.length) {
     if (dropdown) dropdown.remove();
     return;
   }
   if (!dropdown) {
-    const ddView = new View('div').className('aether-tab-dropdown');
+    const ddView = new window.View('div').className('aether-tab-dropdown');
     ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
     dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
     else popup.appendChild(dropdown);
   }
-  _aetherTabIdx = Math.min(_aetherTabIdx, _aetherTabList.length - 1);
-  const activeTabId = _aetherTabSwitchMode && typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : null;
+  window._aetherTabIdx = Math.min(window._aetherTabIdx, window._aetherTabList.length - 1);
+  const activeTabId = window._aetherTabSwitchMode && typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : null;
   dropdown.innerHTML = '';
-  _aetherTabList.forEach(function(tab, i) {
+  window._aetherTabList.forEach(function(tab, i) {
     const domain = (function() { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })();
     const favUrl = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=16';
 
-    const favImg = new View('img').className('aether-tab-item-favicon');
+    const favImg = new window.View('img').className('aether-tab-item-favicon');
     favImg.el.src = favUrl;
     favImg.el.onerror = function() { this.style.display = 'none'; };
 
-    const tabTitle = new View('div').className('aether-tab-item-title');
+    const tabTitle = new window.View('div').className('aether-tab-item-title');
     tabTitle.el.textContent = tab.title || 'Untitled';
 
-    const tabUrl = new View('div').className('aether-tab-item-url');
+    const tabUrl = new window.View('div').className('aether-tab-item-url');
     tabUrl.el.textContent = domain;
 
-    const infoDiv = new View('div').className('aether-tab-item-info');
+    const infoDiv = new window.View('div').className('aether-tab-item-info');
     infoDiv.el.appendChild(tabTitle.el);
     infoDiv.el.appendChild(tabUrl.el);
 
-    const row = new View('div').className('aether-tab-item' + (i === _aetherTabIdx ? ' selected' : ''));
+    const row = new window.View('div').className('aether-tab-item' + (i === window._aetherTabIdx ? ' selected' : ''));
     row.el.dataset.idx = String(i);
     row.el.appendChild(favImg.el);
     row.el.appendChild(infoDiv.el);
 
     if (activeTabId != null && tab.id === activeTabId) {
-      const curSpan = new View('span');
+      const curSpan = new window.View('span');
       curSpan.cssText('opacity:0.4;font-size:10px;margin-left:auto;flex-shrink:0');
       curSpan.el.textContent = 'current';
       row.el.appendChild(curSpan.el);
@@ -869,8 +879,8 @@ export function _renderTabDropdown(popup) {
     (function(idx) {
       row.el.addEventListener('click', function(ev) {
         ev.stopPropagation(); ev.preventDefault();
-        _aetherTabIdx = idx;
-        if (_aetherTabSwitchMode) _aetherSwitchToTab(popup);
+        window._aetherTabIdx = idx;
+        if (window._aetherTabSwitchMode) _aetherSwitchToTab(popup);
         else _aetherSelectTab(popup);
       });
     })(i);
@@ -880,12 +890,12 @@ export function _renderTabDropdown(popup) {
 }
 
 export async function _aetherSelectTab(popup) {
-  const tab = _aetherTabList[_aetherTabIdx];
+  const tab = window._aetherTabList[window._aetherTabIdx];
   if (!tab) return;
 
   const dropdown = popup.querySelector('.aether-tab-dropdown');
   const items = dropdown ? dropdown.querySelectorAll('.aether-tab-item') : [];
-  const el = items[_aetherTabIdx];
+  const el = items[window._aetherTabIdx];
   if (el) {
     el.style.opacity = '0.5';
     el.style.pointerEvents = 'none';
@@ -914,11 +924,11 @@ export function _doAetherTabs(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
 
   const allTabs = [];
-  if (typeof _browseWindows !== 'undefined') {
-    for (const win of _browseWindows) {
+  if (typeof window._browseWindows !== 'undefined') {
+    for (const win of window._browseWindows) {
       for (const tab of (win.tabs || [])) {
         if (!tab.blank && tab.url) allTabs.push(tab);
       }
@@ -930,15 +940,15 @@ export function _doAetherTabs(popup) {
     return;
   }
 
-  _aetherTabSwitchMode = true;
-  _aetherTabList = allTabs;
-  _aetherTabIdx = 0;
+  window._aetherTabSwitchMode = true;
+  window._aetherTabList = allTabs;
+  window._aetherTabIdx = 0;
 
   // Pre-select the currently active tab
   const activeTabId = typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : null;
   if (activeTabId != null) {
     const idx = allTabs.findIndex(t => t.id === activeTabId);
-    if (idx >= 0) _aetherTabIdx = idx;
+    if (idx >= 0) window._aetherTabIdx = idx;
   }
 
   _renderTabDropdown(popup);
@@ -946,17 +956,17 @@ export function _doAetherTabs(popup) {
 }
 
 export function _aetherSwitchToTab(popup) {
-  const tab = _aetherTabList[_aetherTabIdx];
+  const tab = window._aetherTabList[window._aetherTabIdx];
   if (!tab) return;
   _aetherHideTabDropdown(popup);
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
   popup.remove();
 
   // Find which window owns this tab and switch if needed
-  if (typeof _browseWindows !== 'undefined') {
-    for (const win of _browseWindows) {
+  if (typeof window._browseWindows !== 'undefined') {
+    for (const win of window._browseWindows) {
       if (win.tabs.some(t => t.id === tab.id)) {
-        if (win.id !== _browseActiveWindow && typeof browseSelectWindow === 'function') {
+        if (win.id !== window._browseActiveWindow && typeof browseSelectWindow === 'function') {
           browseSelectWindow(win.id);
         }
         break;
@@ -976,7 +986,7 @@ export function _doAetherHelp(popup) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
 
   // Toggle: remove existing help panel if already open
   const existing = document.getElementById('aether-help-panel');
@@ -1037,12 +1047,12 @@ Type in the browser URL bar:
 
   const popupRect = popup.getBoundingClientRect();
 
-  const panelView = new View('div').id('aether-help-panel').className('aether-help-preview-panel');
+  const panelView = new window.View('div').id('aether-help-panel').className('aether-help-preview-panel');
   panelView.on('mousedown', (ev) => ev.stopPropagation());
   const panel = panelView.build();
 
   // Title bar (reuse note editor styles)
-  const titleBarView = new View('div').className('aether-note-editor-title-bar');
+  const titleBarView = new window.View('div').className('aether-note-editor-title-bar');
   const titleBar = titleBarView.build();
 
   let hDragging = false, hDragOff = { x: 0, y: 0 };
@@ -1058,17 +1068,17 @@ Type in the browser URL bar:
   document.addEventListener('mousemove', hMove);
   document.addEventListener('mouseup', hUp);
 
-  const titleSpanView = new View('span').className('aether-note-editor-title')._bindText('Help');
+  const titleSpanView = new window.View('span').className('aether-note-editor-title')._bindText('Help');
   titleBar.appendChild(titleSpanView.build());
 
-  const closeBtnView = new View('button').className('aether-note-editor-close').attr('title', 'Close');
+  const closeBtnView = new window.View('button').className('aether-note-editor-close').attr('title', 'Close');
   closeBtnView.el.textContent = '\u00d7';
   closeBtnView.onTap((ev) => { ev.stopPropagation(); panel.remove(); document.removeEventListener('mousemove', hMove); document.removeEventListener('mouseup', hUp); });
   titleBar.appendChild(closeBtnView.build());
   panel.appendChild(titleBar);
 
   // Rendered markdown content
-  const contentView = new View('div').className('aether-help-preview-content nb-rendered-md');
+  const contentView = new window.View('div').className('aether-help-preview-content nb-rendered-md');
   contentView.el.innerHTML = typeof marked !== 'undefined' ? marked.parse(helpMd) : helpMd.replace(/\n/g, '<br>');
   panel.appendChild(contentView.build());
 
@@ -1096,23 +1106,23 @@ export async function _doAetherDefine(popup, word) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
   _aetherHideCmdDropdown(popup);
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
 
   popup.classList.add('has-chat');
   const chatArea = popup.querySelector('.doc-popup-chat-area');
   if (chatArea) chatArea.classList.add('visible');
 
-  _popupChatMessages.push({ role: 'user', content: word, _display: 'Define: ' + word });
-  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true });
+  window._popupChatMessages.push({ role: 'user', content: word, _display: 'Define: ' + word });
+  window._popupChatMessages.push({ role: 'assistant', content: '', _thinking: true });
   _renderPopupChat(popup, false);
   _repositionSelectionPopup();
 
   try {
     const resp = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(word.trim()));
-    const aiIdx = _popupChatMessages.length - 1;
-    _popupChatMessages[aiIdx]._thinking = false;
+    const aiIdx = window._popupChatMessages.length - 1;
+    window._popupChatMessages[aiIdx]._thinking = false;
     if (!resp.ok) {
-      _popupChatMessages[aiIdx].content = 'No definition found for "' + word.trim() + '".';
+      window._popupChatMessages[aiIdx].content = 'No definition found for "' + word.trim() + '".';
       _renderPopupChat(popup, true);
       if (input) input.focus();
       _repositionSelectionPopup();
@@ -1135,12 +1145,12 @@ export async function _doAetherDefine(popup, word) {
         md += '\n';
       }
     }
-    _popupChatMessages[aiIdx].content = md.trim() || 'No definitions available.';
+    window._popupChatMessages[aiIdx].content = md.trim() || 'No definitions available.';
     _renderPopupChat(popup, true);
   } catch (e) {
-    const aiIdx = _popupChatMessages.length - 1;
-    _popupChatMessages[aiIdx]._thinking = false;
-    _popupChatMessages[aiIdx].content = 'Failed to look up definition: ' + e.message;
+    const aiIdx = window._popupChatMessages.length - 1;
+    window._popupChatMessages[aiIdx]._thinking = false;
+    window._popupChatMessages[aiIdx].content = 'Failed to look up definition: ' + e.message;
     _renderPopupChat(popup, true);
   }
   if (input) input.focus();
@@ -1162,11 +1172,11 @@ export function _aetherExecCommand(popup, text) {
       if (cmdName === 'search') { _doAetherSearchNewTab(popup, args); return true; }
       if (cmdName === 'define') { _doAetherDefine(popup, args); return true; }
     }
-    if (cmd && cmd.fn) { cmd.fn(); _aetherTrackMode = false; popup.remove(); return true; }
+    if (cmd && cmd.fn) { cmd.fn(); window._aetherTrackMode = false; popup.remove(); return true; }
   }
   const query = raw.toLowerCase();
   const matches = _aetherFilterCommands(query);
-  const cmd = matches[_aetherCmdIdx] || matches[0];
+  const cmd = matches[window._aetherCmdIdx] || matches[0];
   if (cmd) {
     if (cmd.hasArgs) return false; // needs arguments, don't execute bare
     if (cmd._special) {
@@ -1182,7 +1192,7 @@ export function _aetherExecCommand(popup, text) {
       return true;
     }
     cmd.fn();
-    _aetherTrackMode = false;
+    window._aetherTrackMode = false;
     popup.remove();
     return true;
   }
@@ -1194,14 +1204,14 @@ export async function _doAetherPaperSearch(popup, query) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.value = '';
 
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
 
   popup.classList.add('has-chat');
   const chatArea = popup.querySelector('.doc-popup-chat-area');
   if (chatArea) chatArea.classList.add('visible');
 
-  _popupChatMessages.push({ role: 'user', content: query, _display: query, _isPaperSearch: true });
-  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true, _isPaperSearch: true });
+  window._popupChatMessages.push({ role: 'user', content: query, _display: query, _isPaperSearch: true });
+  window._popupChatMessages.push({ role: 'assistant', content: '', _thinking: true, _isPaperSearch: true });
   _renderPopupChat(popup, false);
   _repositionSelectionPopup();
 
@@ -1229,97 +1239,55 @@ export async function _doAetherPaperSearch(popup, query) {
       papers.push({ title, authors, summary, link, year });
     });
 
-    const aiIdx = _popupChatMessages.length - 1;
-    _popupChatMessages[aiIdx]._thinking = false;
-    _popupChatMessages[aiIdx]._paperResults = papers;
-    _popupChatMessages[aiIdx].content = papers.length
+    const aiIdx = window._popupChatMessages.length - 1;
+    window._popupChatMessages[aiIdx]._thinking = false;
+    window._popupChatMessages[aiIdx]._paperResults = papers;
+    window._popupChatMessages[aiIdx].content = papers.length
       ? papers.length + ' paper' + (papers.length !== 1 ? 's' : '') + ' found'
       : 'No papers found.';
     _renderPopupChat(popup, true);
   } catch (e) {
-    const aiIdx = _popupChatMessages.length - 1;
-    _popupChatMessages[aiIdx]._thinking = false;
-    _popupChatMessages[aiIdx].content = 'Search failed: ' + e.message;
+    const aiIdx = window._popupChatMessages.length - 1;
+    window._popupChatMessages[aiIdx]._thinking = false;
+    window._popupChatMessages[aiIdx].content = 'Search failed: ' + e.message;
     _renderPopupChat(popup, true);
   }
   if (input) input.focus();
   _repositionSelectionPopup();
 }
 
-
 export async function _doAetherUserSearch(popup, query) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) { input.value = ''; input.style.height = 'auto'; }
   _aetherHideCmdDropdown(popup);
-  _aetherTrackMode = false;
+  window._aetherTrackMode = false;
 
   popup.classList.add('has-chat');
   const chatArea = popup.querySelector('.doc-popup-chat-area');
   if (chatArea) chatArea.classList.add('visible');
 
-  _popupChatMessages.push({ role: 'user', content: query, _display: query, _isUserSearch: true });
-  _popupChatMessages.push({ role: 'assistant', content: '', _thinking: true, _isUserSearch: true });
+  window._popupChatMessages.push({ role: 'user', content: query, _display: query, _isUserSearch: true });
+  window._popupChatMessages.push({ role: 'assistant', content: '', _thinking: true, _isUserSearch: true });
   _renderPopupChat(popup, false);
   _repositionSelectionPopup();
 
   try {
     const users = await apiGet('/api/users?q=' + encodeURIComponent(query));
 
-    const aiIdx = _popupChatMessages.length - 1;
-    _popupChatMessages[aiIdx]._thinking = false;
-    _popupChatMessages[aiIdx]._userResults = users;
-    _popupChatMessages[aiIdx].content = users.length
+    const aiIdx = window._popupChatMessages.length - 1;
+    window._popupChatMessages[aiIdx]._thinking = false;
+    window._popupChatMessages[aiIdx]._userResults = users;
+    window._popupChatMessages[aiIdx].content = users.length
       ? users.length + ' user' + (users.length !== 1 ? 's' : '') + ' found'
       : 'No users found.';
     _renderPopupChat(popup, true);
   } catch (e) {
-    const aiIdx = _popupChatMessages.length - 1;
-    _popupChatMessages[aiIdx]._thinking = false;
-    _popupChatMessages[aiIdx].content = 'Search failed: ' + e.message;
+    const aiIdx = window._popupChatMessages.length - 1;
+    window._popupChatMessages[aiIdx]._thinking = false;
+    window._popupChatMessages[aiIdx].content = 'Search failed: ' + e.message;
     _renderPopupChat(popup, true);
   }
   if (input) input.focus();
   _repositionSelectionPopup();
 }
 
-// ── Window assignments for global access ──
-window._aetherHideCursorOverlay = _aetherHideCursorOverlay;
-window._aetherShowCursor = _aetherShowCursor;
-window._aetherRestoreFocus = _aetherRestoreFocus;
-window._isAetherEligible = _isAetherEligible;
-window._fetchWikipediaPreview = _fetchWikipediaPreview;
-window._isAuthorEligible = _isAuthorEligible;
-window._findKnownAuthor = _findKnownAuthor;
-window._renderAuthorPreviewHtml = _renderAuthorPreviewHtml;
-window._fetchAuthorPreview = _fetchAuthorPreview;
-window._doAetherWebSearch = _doAetherWebSearch;
-window._aetherCommands = _aetherCommands;
-window._aetherFilterCommands = _aetherFilterCommands;
-window._aetherRenderCmdDropdown = _aetherRenderCmdDropdown;
-window._aetherHideCmdDropdown = _aetherHideCmdDropdown;
-window._aetherHideTabDropdown = _aetherHideTabDropdown;
-window._aetherHideHistoryDropdown = _aetherHideHistoryDropdown;
-window._doAetherHistory = _doAetherHistory;
-window._aetherRenderHistoryDropdown = _aetherRenderHistoryDropdown;
-window._aetherSelectHistory = _aetherSelectHistory;
-window._doAetherCapture = _doAetherCapture;
-window._doAetherModel = _doAetherModel;
-window._aetherRenderModelDropdown = _aetherRenderModelDropdown;
-window._aetherHideModelDropdown = _aetherHideModelDropdown;
-window._aetherSelectModel = _aetherSelectModel;
-window._doAetherAgent = _doAetherAgent;
-window._aetherRenderAgentDropdown = _aetherRenderAgentDropdown;
-window._aetherHideAgentDropdown = _aetherHideAgentDropdown;
-window._aetherSelectAgent = _aetherSelectAgent;
-window._doAetherSearchNewTab = _doAetherSearchNewTab;
-window._doAetherLinks = _doAetherLinks;
-window._doAetherTab = _doAetherTab;
-window._renderTabDropdown = _renderTabDropdown;
-window._aetherSelectTab = _aetherSelectTab;
-window._doAetherTabs = _doAetherTabs;
-window._aetherSwitchToTab = _aetherSwitchToTab;
-window._doAetherHelp = _doAetherHelp;
-window._doAetherDefine = _doAetherDefine;
-window._aetherExecCommand = _aetherExecCommand;
-window._doAetherPaperSearch = _doAetherPaperSearch;
-window._doAetherUserSearch = _doAetherUserSearch;

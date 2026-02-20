@@ -13,12 +13,3 @@ export const _sidebarScrollPositions = {};
 
 export const _sidebarTerminal = null;
 
-// ── Window exports ──
-window._docText = _docText;
-window._docTextLoading = _docTextLoading;
-window._docChatAbort = _docChatAbort;
-window._docChatPaperUrl = _docChatPaperUrl;
-window._extractSpinnerInterval = _extractSpinnerInterval;
-window._sidebarScrollPositions = _sidebarScrollPositions;
-window._sidebarTerminal = _sidebarTerminal;
-

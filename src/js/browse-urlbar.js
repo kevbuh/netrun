@@ -1,6 +1,19 @@
 // browse-urlbar.js — URL bar, instant answers, history, ad blocker
 import Settings from '/js/core/core-settings.js';
-if (window.AetherUI) AetherUI.globals();
+import { apiPost, apiGet } from '/js/api.js';
+import { escapeHtml } from '/js/core/core-utils.js';
+import { icon } from '/js/core/icons.js';
+import { openUserProfile } from '/js/core/core-profile.js';
+import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
+import { _BANGS, _browseFaviconUrl, _browseRenderTabs, _browseTitleFromUrl, _pillSyncUrl, _pillUrlKeydown, browseBack, browseForward, browseNavigate, browseReload } from '/js/browse/browse-island.js';
+import { _HELP_DATA } from '/js/settings/settings-helpers.js';
+import { _aetherShowCursor } from '/js/panel-commands.js';
+import { _browseApplyPermissions, _browseProxyUrl } from '/js/browse/browse-ntp.js';
+import { _browseUpdateNewTabPage, browseCloseTab, browseReopenTab, browseSelectTab } from '/js/browse/browse-passwords.js';
+import { _relativeTime, submitSearch } from '/js/search.js';
+import { browseNewTab, browseSelectWindow, openBrowse, openLocalPdfDialog } from '/js/browse/browse-windows.js';
+import { browsePrintPage } from '/js/browse/browse-menu.js';
+import { chatViewNewThread, chatViewUnmorph, openChatPage } from '/js/chat-view.js';
 
 // ── URL Shortening ──
 
@@ -488,7 +501,7 @@ export function _browseUrlShowHistory() {
 
   // Don't show dropdown on blank new-tab pages with no input (URL bar only, NTP always shows)
   if (!filter && !ntp) {
-    const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
+    const win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
     const tab = win?.tabs?.find(t => t.id === win.activeTab);
     if (tab && tab.blank) {
       const _pw = document.getElementById('pill-url-wrap');
@@ -1126,7 +1139,7 @@ export function _tryMathAnswer(q) {
     if (String(result) === sanitized || String(result) === q.trim()) return null;
     const formatted = Number.isInteger(result) ? result.toLocaleString() : parseFloat(result.toPrecision(10)).toLocaleString(undefined, { maximumFractionDigits: 10 });
     return { type: 'math', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:10px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+      ${icon('hashtag', {size: 16, stroke: 'var(--nr-accent)'})}
       <div><span style="font-size:0.8rem;color:var(--nr-text-secondary);">${escapeHtml(q)} =</span> <span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(formatted)}</span></div>
     </div>` };
   } catch { return null; }
@@ -1193,7 +1206,7 @@ export function _tryConversionAnswer(q) {
   const result = fn(val);
   const formatted = parseFloat(result.toPrecision(6)).toLocaleString(undefined, { maximumFractionDigits: 6 });
   return { type: 'conversion', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:10px;">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+    ${icon('repost', {size: 16, stroke: 'var(--nr-accent)'})}
     <div><span style="font-size:0.8rem;color:var(--nr-text-secondary);">${escapeHtml(m[1])} ${escapeHtml(m[2])} =</span> <span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(formatted)} ${escapeHtml(m[3])}</span></div>
   </div>` };
 }
@@ -1243,7 +1256,7 @@ export function _tryTimezoneAnswer(q) {
     const date = now.toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' });
     const offset = new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' }).formatToParts(now).find(p => p.type === 'timeZoneName')?.value || '';
     return { type: 'timezone', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:10px;">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      ${icon('clock', {size: 16, stroke: 'var(--nr-accent)'})}
       <div><div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(time)}</span><span style="font-size:0.75rem;color:var(--nr-text-secondary);">${escapeHtml(date)}</span></div>
       <div style="font-size:0.72rem;color:var(--nr-text-secondary);">${escapeHtml(m[1].trim())} · ${escapeHtml(offset)}</div></div>
     </div>` };
@@ -1400,7 +1413,7 @@ export async function _fetchStockAnswer(ticker) {
   const arrow = isUp ? '▲' : '▼';
   const color = isUp ? '#22c55e' : '#ef4444';
   return { type: 'stock', html: `<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);display:flex;align-items:center;gap:10px;">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    ${icon('trendingUp', {size: 16, stroke: 'var(--nr-accent)'})}
     <div style="flex:1;">
       <div style="display:flex;align-items:baseline;gap:8px;">
         <span style="font-size:0.82rem;font-weight:700;color:var(--nr-text-primary);">${escapeHtml(ticker)}</span>
@@ -1486,10 +1499,10 @@ export function openSearchHistoryPage() {
   if (typeof openBrowse === 'function') openBrowse();
 
   // Reuse existing history tab if one exists
-  for (const w of _browseWindows) {
+  for (const w of window._browseWindows) {
     const existing = w.tabs.find(t => t._historyPage);
     if (existing) {
-      if (w.id !== _browseActiveWindow) browseSelectWindow(w.id);
+      if (w.id !== window._browseActiveWindow) browseSelectWindow(w.id);
       browseSelectTab(existing.id);
       // Re-render to pick up new history entries
       if (existing.el) _renderWebSearchHistoryPage(existing.el);
@@ -1511,7 +1524,7 @@ export function openSearchHistoryPage() {
   if (tab.el) tab.el.remove();
 
   const container = document.getElementById('browse-content');
-  const elView = new View('div').attr('id', 'browse-history-' + tab.id);
+  const elView = new window.View('div').attr('id', 'browse-history-' + tab.id);
   elView.cssText('width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;');
   container.appendChild(elView.el);
   tab.el = elView.el;
@@ -1531,10 +1544,10 @@ export function openHelpPage() {
   if (typeof openBrowse === 'function') openBrowse();
 
   // Reuse existing help tab
-  for (const w of _browseWindows) {
+  for (const w of window._browseWindows) {
     const existing = w.tabs.find(t => t._helpPage);
     if (existing) {
-      if (w.id !== _browseActiveWindow) browseSelectWindow(w.id);
+      if (w.id !== window._browseActiveWindow) browseSelectWindow(w.id);
       browseSelectTab(existing.id);
       return;
     }
@@ -1552,7 +1565,7 @@ export function openHelpPage() {
   if (tab.el) tab.el.remove();
 
   const container = document.getElementById('browse-content');
-  const elView = new View('div').attr('id', 'browse-help-' + tab.id);
+  const elView = new window.View('div').attr('id', 'browse-help-' + tab.id);
   elView.cssText('width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;');
   container.appendChild(elView.el);
   tab.el = elView.el;
@@ -1681,7 +1694,7 @@ export function _renderWebSearchHistoryPage(el) {
   // Header with tabs
   html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
   html += '<div style="display:flex;align-items:center;gap:10px;">';
-  html += '<svg style="width:20px;height:20px;color:var(--nr-text-quaternary);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>';
+  html += icon('clock', {size: 20, style: 'color:var(--nr-text-quaternary);'});
   html += '<span style="font-size:1.1rem;font-weight:600;color:var(--nr-text-primary);">History</span>';
   html += '</div>';
   const clearFn = isBrowse
@@ -1702,7 +1715,7 @@ export function _renderWebSearchHistoryPage(el) {
 
   // Filter
   html += '<div style="position:relative;margin-bottom:16px;">';
-  html += '<svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--nr-text-quaternary);pointer-events:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>';
+  html += icon('search', {size: 14, style: 'position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--nr-text-quaternary);pointer-events:none;'});
   html += '<input type="text" id="history-page-filter" placeholder="Filter history..." oninput="_filterWebSearchHistory()" style="width:100%;padding:7px 12px 7px 32px;border-radius:8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.82rem;outline:none;" />';
   html += '</div>';
 
@@ -1873,7 +1886,7 @@ export function toggleAdBlock() {
   // Reload current tab to apply/remove blocking
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (tab && tab.url && !tab.blank && tab.el) {
-    if (_browseIsElectron) {
+    if (window._browseIsElectron) {
       // Electron: just reload the webview — main process handles blocking
       if (tab.el.reload) tab.el.reload();
     } else {
@@ -1900,7 +1913,7 @@ export function _browseUpdateAdBlockBadge(url) {
     badge.style.display = 'none';
     return;
   }
-  if (_browseIsElectron && window.electronAPI && window.electronAPI.adblockGetCount) {
+  if (window._browseIsElectron && window.electronAPI && window.electronAPI.adblockGetCount) {
     const tab = _browseTabs.find(t => t.id === _browseActiveTab);
     if (tab && tab.el && typeof tab.el.getWebContentsId === 'function') {
       try {
@@ -1953,18 +1966,18 @@ export const _SITE_PERM_PROMPTS = {
   popups: 'Open pop-up windows'
 };
 export const _SITE_PERM_ICONS = {
-  camera: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14M4 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  microphone: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke-linecap="round"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
-  location: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
-  notifications: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
-  popups: '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'
+  camera: icon('videoCamera', {size: 14}),
+  microphone: icon('microphone', {size: 14}),
+  location: icon('location', {size: 14}),
+  notifications: icon('bell', {size: 14}),
+  popups: icon('popups', {size: 14})
 };
 export const _SITE_PERM_ICONS_LG = {
-  camera: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M15 10l4.553-2.276A1 1 0 0 1 21 8.618v6.764a1 1 0 0 1-1.447.894L15 14M4 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  microphone: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke-linecap="round"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>',
-  location: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
-  notifications: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
-  popups: '<svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>'
+  camera: icon('videoCamera', {size: 22, strokeWidth: '1.5'}),
+  microphone: icon('microphone', {size: 22, strokeWidth: '1.5'}),
+  location: icon('location', {size: 22, strokeWidth: '1.5'}),
+  notifications: icon('bell', {size: 22, strokeWidth: '1.5'}),
+  popups: icon('popups', {size: 22, strokeWidth: '1.5'})
 };
 
 export function _getSitePermissions(domain) {
@@ -2018,16 +2031,16 @@ export function _showPermissionPrompt(domain, permKey) {
   const label = _SITE_PERM_PROMPTS[permKey] || permKey;
   const icon = _SITE_PERM_ICONS_LG[permKey] || '';
 
-  const overlayView = new View('div').attr('id', 'site-permission-prompt');
+  const overlayView = new window.View('div').attr('id', 'site-permission-prompt');
   overlayView.cssText('position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-start;justify-content:center;padding-top:80px;background:rgba(0,0,0,0.45);');
   const overlay = overlayView.el;
 
   // Build select element for remember decision
-  const selectView = new View('select');
+  const selectView = new window.View('select');
   selectView.cssText('padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.75rem;cursor:pointer;');
-  const optSession = new View('option').attr('value', 'session');
+  const optSession = new window.View('option').attr('value', 'session');
   optSession.el.textContent = 'Until I close this site';
-  const optAlways = new View('option').attr('value', 'always');
+  const optAlways = new window.View('option').attr('value', 'always');
   optAlways.el.textContent = 'Always';
   optAlways.el.selected = true;
   selectView.el.appendChild(optSession.el);
@@ -2036,33 +2049,33 @@ export function _showPermissionPrompt(domain, permKey) {
   function _getRememberVal() { return selectView.el.value; }
   function _dismissPrompt() { overlay.remove(); }
 
-  const closeSvg = '<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+  const closeSvg = icon('close', {size: 18});
 
-  const card = VStack(
+  const card = window.VStack(
     // Header row
-    HStack(
-      VStack(
-        RawHTML('<div style="font-size:0.92rem;font-weight:600;color:var(--nr-text-primary);line-height:1.4;"><strong>' + escapeHtml(domain) + '</strong> wants to</div>'),
-        HStack(
-          RawHTML('<span style="color:var(--nr-text-quaternary);flex-shrink:0;">' + icon + '</span>'),
-          Text(label).cssText('font-size:0.84rem;color:var(--nr-text-primary);')
+    window.HStack(
+      window.VStack(
+        window.RawHTML('<div style="font-size:0.92rem;font-weight:600;color:var(--nr-text-primary);line-height:1.4;"><strong>' + escapeHtml(domain) + '</strong> wants to</div>'),
+        window.HStack(
+          window.RawHTML('<span style="color:var(--nr-text-quaternary);flex-shrink:0;">' + icon + '</span>'),
+          window.Text(label).cssText('font-size:0.84rem;color:var(--nr-text-primary);')
         ).cssText('display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--nr-bg-raised);')
       ).cssText('flex:1;'),
-      Button(RawHTML(closeSvg)).cssText('background:none;border:none;cursor:pointer;color:var(--nr-text-quaternary);padding:2px;flex-shrink:0;').attr('title', 'Dismiss').onTap(function() { _dismissPrompt(); })
+      window.Button(window.RawHTML(closeSvg)).cssText('background:none;border:none;cursor:pointer;color:var(--nr-text-quaternary);padding:2px;flex-shrink:0;').attr('title', 'Dismiss').onTap(function() { _dismissPrompt(); })
     ).cssText('padding:20px 20px 12px;display:flex;align-items:flex-start;gap:12px;'),
     // Remember + action buttons
-    VStack(
-      HStack(
-        Text('Remember my decision').cssText('font-size:0.75rem;color:var(--nr-text-secondary);')
+    window.VStack(
+      window.HStack(
+        window.Text('Remember my decision').cssText('font-size:0.75rem;color:var(--nr-text-secondary);')
       ).cssText('display:flex;align-items:center;gap:8px;margin-bottom:16px;'),
-      HStack(
-        Button('Block').cssText('padding:6px 20px;border-radius:8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.82rem;font-weight:500;cursor:pointer;').onTap(function() {
+      window.HStack(
+        window.Button('Block').cssText('padding:6px 20px;border-radius:8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.82rem;font-weight:500;cursor:pointer;').onTap(function() {
           if (_getRememberVal() === 'always') _setSitePermission(domain, permKey, 'block');
           _browseApplyPermissions();
           _dismissPrompt();
           _renderSitePermissionsDropdown();
         }),
-        Button('Allow').cssText('padding:6px 20px;border-radius:8px;border:1px solid var(--nr-accent);background:var(--nr-accent);color:#fff;font-size:0.82rem;font-weight:600;cursor:pointer;').onTap(function() {
+        window.Button('Allow').cssText('padding:6px 20px;border-radius:8px;border:1px solid var(--nr-accent);background:var(--nr-accent);color:#fff;font-size:0.82rem;font-weight:600;cursor:pointer;').onTap(function() {
           if (_getRememberVal() === 'always') {
             _setSitePermission(domain, permKey, 'allow');
           } else {
@@ -2076,13 +2089,13 @@ export function _showPermissionPrompt(domain, permKey) {
       ).cssText('display:flex;gap:8px;justify-content:flex-end;')
     ).cssText('padding:0 20px 16px;'),
     // Footer
-    Text('You can change your site permissions at any time from the more menu in the toolbar.').cssText('padding:8px 20px;border-top:1px solid var(--nr-border-subtle);font-size:0.68rem;color:var(--nr-text-quaternary);')
+    window.Text('You can change your site permissions at any time from the more menu in the toolbar.').cssText('padding:8px 20px;border-top:1px solid var(--nr-border-subtle);font-size:0.68rem;color:var(--nr-text-quaternary);')
   ).cssText('background:var(--nr-bg-overlay);border:1px solid var(--nr-border-default);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,0.4);width:380px;overflow:hidden;');
 
   // Insert select into the remember row
   const rememberRow = card.el.querySelector('.nr-hstack');
   // The remember row is the first HStack inside the second VStack child
-  const actionSection = card.el.children[1]; // second VStack (padding:0 20px 16px)
+  const actionSection = card.el.children[1]; // second window.VStack(padding:0 20px 16px)
   const rememberHStack = actionSection && actionSection.children[0];
   if (rememberHStack) rememberHStack.appendChild(selectView.el);
 
@@ -2177,7 +2190,7 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
     // new-tab works globally — always opens NTP regardless of current view
     if (command === 'new-tab') {
       if (browseHidden && typeof openBrowse === 'function') openBrowse();
-      const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
+      const win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
       const active = win && win.tabs && win.tabs.find(t => t.id === win.activeTab);
       if (active && active.blank) {
         const inp = document.querySelector('.browse-ntp #search-query');
@@ -2192,14 +2205,14 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
 
     // Dismiss aether panel on any browse command
     const _cmdPopup = document.getElementById('doc-chat-ask-float');
-    if (_cmdPopup) { _cmdPopup.remove(); _aetherTrackMode = false; _aetherShowCursor(); }
+    if (_cmdPopup) { _cmdPopup.remove(); window._aetherTrackMode = false; _aetherShowCursor(); }
 
     if (command === 'reload') {
       if (typeof browseReload === 'function') browseReload();
     } else if (command === 'force-reload') {
       if (typeof browseReload === 'function') browseReload();
     } else if (command === 'close-tab') {
-      const win = _getCurrentWindow();
+      const win = window._getCurrentWindow();
       if (win && win.activeTab) {
         // If the active tab is in chat-mode, unmorph back to NTP instead of closing
         const _activeTab = win.tabs.find(t => t.id === win.activeTab);
@@ -2223,99 +2236,82 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
   });
 }
 
-window._browseUrlDomain = _browseUrlDomain;
-window._browseShortUrl = _browseShortUrl;
-window._browseAutoSizeUrlInput = _browseAutoSizeUrlInput;
-window._browseSetUrlDisplay = _browseSetUrlDisplay;
-window._browseUrlOnFocus = _browseUrlOnFocus;
-window._browseUrlOnBlur = _browseUrlOnBlur;
-window._browseUrlOnMouseEnter = _browseUrlOnMouseEnter;
-window._browseUrlOnMouseLeave = _browseUrlOnMouseLeave;
-window._browseParseColor = _browseParseColor;
-window._browseApplyAdaptiveColor = _browseApplyAdaptiveColor;
-window._browseResetAdaptiveColor = _browseResetAdaptiveColor;
-window._URL_BAR_SECTIONS = _URL_BAR_SECTIONS;
-window._getUrlBarSections = _getUrlBarSections;
-window._saveUrlBarSections = _saveUrlBarSections;
-window._browseUrlHistIdx = _browseUrlHistIdx;
-window._browseUrlOriginalInput = _browseUrlOriginalInput;
-window._suggestDebounce = _suggestDebounce;
-window._suggestAbort = _suggestAbort;
-window._suggestCache = _suggestCache;
-window._currentSuggestions = _currentSuggestions;
-window._defCache = _defCache;
-window._defDebounce = _defDebounce;
-window._currentDef = _currentDef;
-window._currentChatThreads = _currentChatThreads;
-window._instantAnswer = _instantAnswer;
-window._instantDebounce = _instantDebounce;
-window._instantCache = _instantCache;
-window._browseUrlAutocompleteSuggestion = _browseUrlAutocompleteSuggestion;
-window._browseUrlTypedLength = _browseUrlTypedLength;
-window._browseUrlAcSuppressed = _browseUrlAcSuppressed;
-window._browseUrlGetAutocomplete = _browseUrlGetAutocomplete;
-window._browseUrlApplyAutocomplete = _browseUrlApplyAutocomplete;
-window._browseUrlClearAutocomplete = _browseUrlClearAutocomplete;
-window._getOmniInput = _getOmniInput;
-window._browseUrlKeydown = _browseUrlKeydown;
-window._browseUrlHighlight = _browseUrlHighlight;
-window._feelingLuckyQuery = _feelingLuckyQuery;
-window._feelingLuckyLoading = _feelingLuckyLoading;
-window._browseUrlFeelingLucky = _browseUrlFeelingLucky;
-window._browseUrlRenderLuckyRow = _browseUrlRenderLuckyRow;
-window._browseUrlShowHistory = _browseUrlShowHistory;
-window._browseUrlRenderHistoryCommand = _browseUrlRenderHistoryCommand;
-window._BANG_LABELS = _BANG_LABELS;
-window._browseUrlRenderDropdown = _browseUrlRenderDropdown;
-window._fetchSearchSuggestions = _fetchSearchSuggestions;
-window._fetchWordDefinition = _fetchWordDefinition;
-window._computeInstantAnswer = _computeInstantAnswer;
-window._tryMathAnswer = _tryMathAnswer;
-window._tryColorAnswer = _tryColorAnswer;
-window._tryConversionAnswer = _tryConversionAnswer;
-window._tzCityMap = _tzCityMap;
-window._tryTimezoneAnswer = _tryTimezoneAnswer;
-window._fetchWeatherAnswer = _fetchWeatherAnswer;
-window._weatherEmoji = _weatherEmoji;
-window._sportsLeagues = _sportsLeagues;
-window._sportsTeams = _sportsTeams;
-window._matchSportsQuery = _matchSportsQuery;
-window._fetchSportsAnswer = _fetchSportsAnswer;
-window._fetchStockAnswer = _fetchStockAnswer;
-window._browseUrlHideTimeout = _browseUrlHideTimeout;
-window._browseUrlScheduleHide = _browseUrlScheduleHide;
-window._browseUrlCancelHide = _browseUrlCancelHide;
-window._browseUrlHideHistory = _browseUrlHideHistory;
-window._getWebSearchHistory = _getWebSearchHistory;
-window._saveWebSearch = _saveWebSearch;
-window._removeWebSearch = _removeWebSearch;
-window._clearWebSearchHistory = _clearWebSearchHistory;
-window.openSearchHistoryPage = openSearchHistoryPage;
-window.openHelpPage = openHelpPage;
-window._renderHelpPage = _renderHelpPage;
-window._historyPageTab = _historyPageTab;
-window._renderWebSearchHistoryPage = _renderWebSearchHistoryPage;
-window._filterWebSearchHistory = _filterWebSearchHistory;
-window._renderWebSearchHistoryList = _renderWebSearchHistoryList;
-window._renderBrowseHistoryList = _renderBrowseHistoryList;
-window._getBrowseHistory = _getBrowseHistory;
-window._saveBrowseVisit = _saveBrowseVisit;
-window._removeBrowseVisit = _removeBrowseVisit;
-window._clearBrowseHistory = _clearBrowseHistory;
-window.toggleAdBlock = toggleAdBlock;
-window._browseUpdateAdBlockBtn = _browseUpdateAdBlockBtn;
-window._browseUpdateAdBlockBadge = _browseUpdateAdBlockBadge;
-window._SITE_PERM_KEYS = _SITE_PERM_KEYS;
-window._SITE_PERM_LABELS = _SITE_PERM_LABELS;
-window._SITE_PERM_PROMPTS = _SITE_PERM_PROMPTS;
-window._SITE_PERM_ICONS = _SITE_PERM_ICONS;
-window._SITE_PERM_ICONS_LG = _SITE_PERM_ICONS_LG;
-window._getSitePermissions = _getSitePermissions;
-window._setSitePermission = _setSitePermission;
-window._getAllSitePermissions = _getAllSitePermissions;
-window._clearSitePermissions = _clearSitePermissions;
-window._getCurrentBrowseDomain = _getCurrentBrowseDomain;
-window._showPermissionPrompt = _showPermissionPrompt;
-window._sessionPermissions = _sessionPermissions;
-window._getEffectivePermissions = _getEffectivePermissions;
-window._renderSitePermissionsDropdown = _renderSitePermissionsDropdown;
+// ── Action registry ──
+registerActions({
+  toggleAdBlock: () => toggleAdBlock(),
+  openSearchHistoryPage: () => openSearchHistoryPage(),
+});
+
+// ── Bind URL bar events via addEventListener (replaces inline handlers) ──
+function _initUrlBarEvents() {
+  // Main browse URL input
+  const browseInput = document.getElementById('browse-url-input');
+  if (browseInput) {
+    browseInput.addEventListener('keydown', (e) => _browseUrlKeydown(e));
+    browseInput.addEventListener('input', () => _browseUrlShowHistory());
+    browseInput.addEventListener('focus', function () {
+      _browseUrlOnFocus(this);
+      _browseUrlCancelHide();
+      this.select();
+      _browseUrlShowHistory();
+    });
+    browseInput.addEventListener('blur', function () {
+      _browseUrlOnBlur(this);
+      _browseUrlScheduleHide();
+    });
+    browseInput.addEventListener('mouseenter', function () { _browseUrlOnMouseEnter(this); });
+    browseInput.addEventListener('mouseleave', function () { _browseUrlOnMouseLeave(this); });
+  }
+
+  // Pill URL input
+  const pillInput = document.getElementById('pill-browse-url-input');
+  if (pillInput) {
+    pillInput.addEventListener('keydown', (e) => _pillUrlKeydown(e));
+    pillInput.addEventListener('input', () => _browseUrlShowHistory());
+    pillInput.addEventListener('focus', function () {
+      _browseUrlOnFocus(this);
+      this.select();
+      const v = this.value;
+      this.value = '';
+      _browseUrlShowHistory();
+      this.value = v;
+      this.select();
+    });
+    pillInput.addEventListener('blur', function () {
+      _browseUrlOnBlur(this);
+      _pillSyncUrl();
+      _browseUrlScheduleHide();
+    });
+  }
+
+  // Pill URL wrap hover
+  const pillWrap = document.getElementById('pill-url-wrap');
+  if (pillWrap) {
+    pillWrap.addEventListener('mouseenter', () => {
+      const inp = document.getElementById('pill-browse-url-input');
+      if (inp) _browseUrlOnMouseEnter(inp);
+    });
+    pillWrap.addEventListener('mouseleave', () => {
+      const inp = document.getElementById('pill-browse-url-input');
+      if (inp) _browseUrlOnMouseLeave(inp);
+    });
+  }
+
+  // Pill URL dropdown
+  const pillDropdown = document.getElementById('pill-url-dropdown');
+  if (pillDropdown) {
+    pillDropdown.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      _browseUrlCancelHide();
+    });
+  }
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _initUrlBarEvents);
+  } else {
+    _initUrlBarEvents();
+  }
+}
+

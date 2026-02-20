@@ -1,38 +1,37 @@
 // core-nav.js — Navigation history, side panel
 // Extracted from core.js
 import Settings from '/js/core/core-settings.js';
-
-if (window.AetherUI) AetherUI.globals();
+import { browseBack, browseForward } from '/js/browse/browse-island.js';
 
 // ── Navigation history stack (survives Cmd+Shift+R via localStorage) ──
 
 function _navSave() {
-  Settings.setJSON('_navHistory', _navHistory);
-  Settings.setJSON('_navForward', _navForward);
+  Settings.setJSON('window._navHistory', window._navHistory);
+  Settings.setJSON('window._navForward', window._navForward);
 }
 
 export function _navPush(hash) {
-  if (_navNavigating) return;
+  if (window._navNavigating) return;
   if (!hash || hash === '#') return;
   // Don't push duplicates
-  if (_navHistory.length && _navHistory[_navHistory.length - 1] === hash) return;
-  _navHistory.push(hash);
+  if (window._navHistory.length && window._navHistory[window._navHistory.length - 1] === hash) return;
+  window._navHistory.push(hash);
   // Cap at 50 entries
-  if (_navHistory.length > 50) _navHistory = _navHistory.slice(-50);
+  if (window._navHistory.length > 50) window._navHistory = window._navHistory.slice(-50);
   // Clear forward stack on new navigation
-  _navForward = [];
+  window._navForward = [];
   _navSave();
 }
 
 export function navBack() {
-  if (_navHistory.length <= 1) return false;
-  _navNavigating = true;
-  const current = _navHistory.pop();
-  _navForward.push(current);
-  const prev = _navHistory[_navHistory.length - 1];
+  if (window._navHistory.length <= 1) return false;
+  window._navNavigating = true;
+  const current = window._navHistory.pop();
+  window._navForward.push(current);
+  const prev = window._navHistory[window._navHistory.length - 1];
   _navSave();
   window.location.hash = prev;
-  _navNavigating = false;
+  window._navNavigating = false;
   return true;
 }
 
@@ -69,16 +68,16 @@ export function showPanelForView(viewKey) {
 
   // Render tab buttons
   const tabBtns = reg.tabs.map(function(t) {
-    const btn = new View('button')
+    const btn = new window.View('button')
       .className('universal-panel-tab-btn' + (_panelActiveTab === t.id ? ' active' : ''))
       .attr('data-tab-id', t.id)
       .attr('title', t.label)
       .onTap(function() { switchPanelTab(t.id); });
-    if (t.icon) btn._appendChildren([RawHTML(t.icon)]);
-    btn._appendChildren([new View('span').className('panel-tab-label')._bindText(t.label)]);
+    if (t.icon) btn._appendChildren([window.RawHTML(t.icon)]);
+    btn._appendChildren([new window.View('span').className('panel-tab-label')._bindText(t.label)]);
     return btn;
   });
-  AetherUI.mount(HStack(tabBtns), tabBar);
+  AetherUI.mount(window.HStack(tabBtns), tabBar);
 
   // For renderAll mode, render all panes once
   const container = document.getElementById('universal-panel-content');
@@ -250,18 +249,5 @@ document.addEventListener('keydown', (e) => {
     else togglePanel();
   }
 });
-
-// ── Window assignments for backward compatibility ──
-window._navPush = _navPush;
-window.navBack = navBack;
-window.registerPanelTabs = registerPanelTabs;
-window.showPanelForView = showPanelForView;
-window.hidePanel = hidePanel;
-window.togglePanel = togglePanel;
-window.switchPanelTab = switchPanelTab;
-window._panelCheckTabOverflow = _panelCheckTabOverflow;
-window._applyPanelMargin = _applyPanelMargin;
-window._removePanelMargin = _removePanelMargin;
-window._invalidatePanelRender = _invalidatePanelRender;
 
 // ── Route table — exact hash → action ──

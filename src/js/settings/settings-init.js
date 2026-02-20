@@ -1,4 +1,6 @@
 import Settings from '../core/core-settings.js';
+import { _resolveAutoTheme } from '/js/settings/settings-theme.js';
+import { applyAccentColor, startDaylightTheme } from '/js/settings/settings-colors.js';
 
 export function applyStoredAppearance() {
   const theme = Settings.get('theme') || 'clear';
@@ -19,4 +21,3 @@ export function applyStoredAppearance() {
 
 applyStoredAppearance();
 
-window.applyStoredAppearance = applyStoredAppearance;

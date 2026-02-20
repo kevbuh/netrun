@@ -1,5 +1,5 @@
 // ─── Help Settings ──────────────────────────────────────
-if (window.AetherUI) AetherUI.globals();
+import { _HELP_DATA } from '/js/settings/settings-helpers.js';
 
 export function _renderHelpSettings() {
   let h = '';
@@ -61,7 +61,6 @@ export function _renderHelpSettings() {
   });
   h += '</div></div>';
 
-  return RawHTML(h);
+  return window.RawHTML(h);
 }
 
-window._renderHelpSettings = _renderHelpSettings;

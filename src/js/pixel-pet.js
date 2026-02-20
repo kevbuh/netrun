@@ -1,4 +1,6 @@
 import Settings from '/js/core/core-settings.js';
+import { showAchievement } from '/js/core/core-ui.js';
+import { renderSettingsView } from '/js/settings/settings-core.js';
 
 // ── Pixel Pet System ──
 export const PET_FPS = 20;
@@ -961,49 +963,49 @@ export function stopPixelPet() {
   if (sbContainer) { sbContainer.style.display = 'none'; sbContainer.onmousedown = null; sbContainer.onclick = null; }
 }
 
-window.togglePixelPet = function(on) {
+export function togglePixelPet(on) {
   Settings.set('pixelPet', on ? 'on' : 'off');
   if (on) {
     startPixelPet();
     if (!Settings.get('ach_pixel_parent')) {
       Settings.set('ach_pixel_parent', '1');
       petCelebrate();
-      if (typeof showAchievement === 'function') showAchievement('Pixel Parent', 'Adopted your pixel pet');
+      showAchievement('Pixel Parent', 'Adopted your pixel pet');
     }
   } else stopPixelPet();
-};
+}
 
-window.setPixelPetType = function(type) {
+export function setPixelPetType(type) {
   Settings.set('pixelPetType', type);
-  if (typeof renderSettingsView === 'function') renderSettingsView();
-};
+  renderSettingsView();
+}
 
-window.setPixelPetMode = function(mode) {
+export function setPixelPetMode(mode) {
   Settings.set('pixelPetMode', mode);
   if (Settings.get('pixelPet') === 'on') {
     stopPixelPet();
     startPixelPet();
   }
-  if (typeof renderSettingsView === 'function') renderSettingsView();
-};
+  renderSettingsView();
+}
 
-window.petReact = function(reaction) {
+export function petReact(reaction) {
   if (Settings.get('pixelPet') !== 'on') return;
   if (reaction === 'happy') {
     if (petState !== 'happy') prevBaseState = ['idle','walk','sit'].includes(petState) ? petState : prevBaseState;
     petState = 'happy'; petTempTimer = PET_FPS * 2;
   }
-};
+}
 
 // Celebration state for achievements - longer, more excited animation
-window.petCelebrate = function() {
+export function petCelebrate() {
   if (Settings.get('pixelPet') !== 'on') return;
   if (!['celebrate','happy'].includes(petState)) {
     prevBaseState = ['idle','walk','sit'].includes(petState) ? petState : prevBaseState;
   }
   petState = 'celebrate';
   petTempTimer = PET_FPS * 4; // 4 seconds of celebration
-};
+}
 
 // Track activity
 export function onActivity() {
@@ -1025,7 +1027,7 @@ if (Settings.get('pixelPet') === 'on') {
 }
 
 // Expose thumbnail renderer for status picker
-window._renderPetThumb = function(type, size) {
+export function _renderPetThumb(type, size) {
   const pet = PET_TYPES[type];
   if (!pet) return null;
   const canvas = document.createElement('canvas');
@@ -1036,59 +1038,6 @@ window._renderPetThumb = function(type, size) {
   const px = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(x * scale, y * scale, scale, scale); };
   pet.draw(px, { blink: false, tired: false, sleeping: false, sitting: true, legFrame: 0 });
   return canvas;
-};
+}
 
-window._PET_TYPE_KEYS = Object.keys(PET_TYPES);
-
-// ── Window exports ──
-window.PET_FPS = PET_FPS;
-window.G = G;
-window.CPX = CPX;
-window.S = S;
-window.PET_TYPES = PET_TYPES;
-window.getPetType = getPetType;
-window.drawParticle = drawParticle;
-window.petState = petState;
-window.petX = petX;
-window.petTargetX = petTargetX;
-window.petDir = petDir;
-window.petFrame = petFrame;
-window.petEyeDir = petEyeDir;
-window.petStateTimer = petStateTimer;
-window._petLoop = _petLoop;
-window._lastActivity = _lastActivity;
-window._lastScrollY = _lastScrollY;
-window._mouseX = _mouseX;
-window._fleeTimer = _fleeTimer;
-window._dragging = _dragging;
-window._dragOffX = _dragOffX;
-window._dragPrevState = _dragPrevState;
-window.isTired = isTired;
-window.pickTarget = pickTarget;
-window.drawPetBed = drawPetBed;
-window.drawShadow = drawShadow;
-window.petTick = petTick;
-window.drawPetFree = drawPetFree;
-window.getPetMode = getPetMode;
-window.isSidebarMode = isSidebarMode;
-window.sidebarTick = sidebarTick;
-window.onDragStart = onDragStart;
-window._isOverSidebar = _isOverSidebar;
-window._showSidebarDropHint = _showSidebarDropHint;
-window.onDragMove = onDragMove;
-window.onDragEnd = onDragEnd;
-window._sbDragFloating = _sbDragFloating;
-window._sbDragReordering = _sbDragReordering;
-window._sbDragGhost = _sbDragGhost;
-window._sbDragStartY = _sbDragStartY;
-window.onSidebarDragStart = onSidebarDragStart;
-window._saveSidebarOrder = _saveSidebarOrder;
-window.onSidebarDragMove = onSidebarDragMove;
-window.onSidebarDragEnd = onSidebarDragEnd;
-window._lastClickTime = _lastClickTime;
-window._dragStartX = _dragStartX;
-window.onPetMouseDown = onPetMouseDown;
-window.onPetClick = onPetClick;
-window.startPixelPet = startPixelPet;
-window.stopPixelPet = stopPixelPet;
-window.onActivity = onActivity;
+export const _PET_TYPE_KEYS = Object.keys(PET_TYPES);

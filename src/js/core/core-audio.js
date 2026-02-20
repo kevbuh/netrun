@@ -1,8 +1,21 @@
 // core-audio.js — Audio pill
 // Extracted from core.js
 import Settings from '/js/core/core-settings.js';
-
-if (window.AetherUI) AetherUI.globals();
+import { apiPost } from '/js/api.js';
+import { escapeHtml } from '/js/core/core-utils.js';
+import { icon } from '/js/core/icons.js';
+import { islandRemove } from '/js/core/core-ui.js';
+import { NOISE_PRESETS, setRainNoiseType, startRain, stopRain } from '/js/core/core-sounds.js';
+import { _browseUrlHideHistory } from '/js/browse-urlbar.js';
+import { _paperState } from '/js/browse/browse-paper.js';
+import { _pillMicClick, _pillMicRecorder, _showTabsInPillDropdown } from '/js/browse/browse-island.js';
+import { _readPageAloud, scrollToAnnotation } from '/js/browse/browse-annotations.js';
+import { _ttsStopAll } from '/js/panel-tts.js';
+import { browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
+import { browseNewTab } from '/js/browse/browse-windows.js';
+import { clearBrowseDownloads, openDownloadFile, removeBrowseDownload } from '/js/browse/browse-downloads.js';
+import { goToAudioTab } from '/js/browse/browse-audio.js';
+import { toggleCaptions } from '/js/browse/browse-captions.js';
 
 // ── Unified Audio Pill ──
 
@@ -17,13 +30,13 @@ export function _pillNoiseCycle() {
 
 export function _ttsCycleSpeed() {
   const cur = parseFloat(Settings.get('ttsSpeed')) || 1;
-  let next = _ttsSpeeds[0];
-  for (let i = 0; i < _ttsSpeeds.length; i++) {
-    if (_ttsSpeeds[i] > cur + 0.01) { next = _ttsSpeeds[i]; break; }
-    if (i === _ttsSpeeds.length - 1) next = _ttsSpeeds[0];
+  let next = window._ttsSpeeds[0];
+  for (let i = 0; i < window._ttsSpeeds.length; i++) {
+    if (window._ttsSpeeds[i] > cur + 0.01) { next = window._ttsSpeeds[i]; break; }
+    if (i === window._ttsSpeeds.length - 1) next = window._ttsSpeeds[0];
   }
   Settings.set('ttsSpeed', next);
-  if (typeof _ttsAudio !== 'undefined' && _ttsAudio) _ttsAudio.playbackRate = next;
+  if (typeof window._ttsAudio !== 'undefined' && window._ttsAudio) window._ttsAudio.playbackRate = next;
   _renderAudioPill();
   const valEl = document.getElementById('tts-speed-val');
   if (valEl) valEl.textContent = next + 'x';
@@ -32,19 +45,19 @@ export function _ttsCycleSpeed() {
 }
 
 export function _updateAudioUnified(source, data) {
-  _audioUnifiedState.set(source, data);
+  window._audioUnifiedState.set(source, data);
   _renderAudioPill();
 }
 
 export function _clearAudioUnified(source) {
-  _audioUnifiedState.set(source, null);
+  window._audioUnifiedState.set(source, null);
   _renderAudioPill();
 }
 
 export function _renderAudioPill() {
   const el = document.getElementById('pill-audio-unified');
   if (!el) return;
-  const { tab, tts, cc, mic } = _audioUnifiedState.value;
+  const { tab, tts, cc, mic } = window._audioUnifiedState.value;
   const micRecording = typeof _pillMicRecorder !== 'undefined' && _pillMicRecorder;
   const rainActive = typeof _rainOn !== 'undefined' && _rainOn;
   const active = !!(tab || tts || cc || mic || micRecording || rainActive);
@@ -52,16 +65,16 @@ export function _renderAudioPill() {
   // Build pill indicator
   let indicator = el.querySelector('.audio-pill-indicator');
   if (!indicator) {
-    const indicatorView = new View('div').className('audio-pill-indicator');
+    const indicatorView = new window.View('div').className('audio-pill-indicator');
     indicator = indicatorView.build();
     el.appendChild(indicator);
   }
 
   const audioMode = micRecording ? 'mic' : active ? 'active' : 'idle';
-  AetherUI.mount(Switch(audioMode, {
-    mic: function() { return RawHTML(icon('microphone', { size: 14, stroke: '#ef4444' })); },
-    active: function() { return RawHTML(_islandAudioBars); },
-    idle: function() { return new View('span').className('audio-pill-dot'); },
+  AetherUI.mount(window.Switch(audioMode, {
+    mic: function() { return window.RawHTML(icon('microphone', { size: 14, stroke: '#ef4444' })); },
+    active: function() { return window.RawHTML(window._islandAudioBars); },
+    idle: function() { return new window.View('span').className('audio-pill-dot'); },
   }), indicator);
   indicator.classList.toggle('audio-pill-active', audioMode !== 'idle');
   indicator.classList.toggle('audio-pill-idle', audioMode === 'idle');
@@ -70,16 +83,16 @@ export function _renderAudioPill() {
   // Build dropdown
   let dropdown = el.querySelector('.audio-pill-dropdown');
   if (!dropdown) {
-    const dropdownView = new View('div').className('audio-pill-dropdown');
+    const dropdownView = new window.View('div').className('audio-pill-dropdown');
     dropdown = dropdownView.build();
     el.appendChild(dropdown);
   }
 
   function _audioBtn(iconName, label, action, opts) {
     opts = opts || {};
-    const btn = new View('button');
-    btn._appendChildren([RawHTML(icon(iconName, opts.iconOpts || { size: 14 }))]);
-    btn._appendChildren([Text(' ' + label)]);
+    const btn = new window.View('button');
+    btn._appendChildren([window.RawHTML(icon(iconName, opts.iconOpts || { size: 14 }))]);
+    btn._appendChildren([window.Text(' ' + label)]);
     if (opts.trailing) btn._appendChildren([opts.trailing]);
     if (opts.color) btn.styles({ color: opts.color });
     if (opts.disabled) btn.el.disabled = true;
@@ -91,8 +104,8 @@ export function _renderAudioPill() {
 
   // Tab audio source
   if (tab) {
-    const tabBtn = new View('button');
-    tabBtn._appendChildren([RawHTML(_islandAudioBars), Text(' ' + escapeHtml(tab.label || 'Tab Audio'))]);
+    const tabBtn = new window.View('button');
+    tabBtn._appendChildren([window.RawHTML(window._islandAudioBars), window.Text(' ' + escapeHtml(tab.label || 'Tab Audio'))]);
     tabBtn.onTap(function() { if (typeof goToAudioTab === 'function') goToAudioTab(); });
     items.push(tabBtn);
   }
@@ -100,7 +113,7 @@ export function _renderAudioPill() {
   // TTS status
   if (tts) {
     const spdText = (parseFloat(Settings.get('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x';
-    const spdSpan = new View('span').styles({marginLeft:'auto', fontSize:'0.7rem', opacity:'0.5'})._bindText(spdText);
+    const spdSpan = new window.View('span').styles({marginLeft:'auto', fontSize:'0.7rem', opacity:'0.5'})._bindText(spdText);
     items.push(_audioBtn(tts.paused ? 'play' : 'pause', tts.paused ? 'Resume TTS' : 'Pause TTS', function() { _ttsPauseResume(); _renderAudioPill(); }, { color: 'var(--nr-accent)', trailing: spdSpan }));
     items.push(_audioBtn('close', 'Stop TTS', function() { _ttsStopAll(); _renderAudioPill(); }));
   }
@@ -133,7 +146,7 @@ export function _renderAudioPill() {
   // Read aloud
   items.push(_audioBtn('speaker', 'Read aloud', function() { _readPageAloud(); }));
 
-  AetherUI.mount(VStack(items), dropdown);
+  AetherUI.mount(window.VStack(items), dropdown);
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _renderAudioPill);
 else setTimeout(_renderAudioPill, 0);
@@ -152,12 +165,12 @@ export function _islandRenderPill(a) {
   } else if (a.type === 'tts') {
     const ttsIconC = a.paused
       ? icon('play', { size: 14 })
-      : _islandWaveformBars;
+      : window._islandWaveformBars;
     const spd = parseFloat(Settings.get('ttsSpeed')) || 1;
     const spdBadge = '<span class="island-tts-speed" onclick="event.stopPropagation();_ttsCycleSpeed()" title="Click to change speed">' + spd.toFixed(1).replace(/\.0$/, '') + 'x</span>';
     return ttsIconC + '<span>' + escapeHtml(a.label || '') + '</span>' + spdBadge;
   } else if (a.type === 'audio') {
-    return _islandAudioBars + '<span>' + escapeHtml(a.label || '') + '</span>';
+    return window._islandAudioBars + '<span>' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'ai') {
     return '<span class="island-ai-dot nr-breathe"></span><span>' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'achievement') {
@@ -176,7 +189,7 @@ export function _islandRenderPill(a) {
       return icon('globe', opts);
     }
     const tabIcon = icon('browserTab', { size: 14, strokeWidth: '1.5' });
-    const ellIcon = _ELL_SVG;
+    const ellIcon = window._ELL_SVG;
     // Collect non-blank tabs sorted by lastVisited desc
     const nonBlank = [];
     for (let si = 0; si < tabItems.length; si++) {
@@ -287,9 +300,9 @@ export function _islandBuildTray(a, isBrowse) {
     const annColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
     const annLabels = { ALPHA: 'Alpha', CONTRADICTION: 'Contradiction', AD: 'Ad', CONNECTION: 'Connection' };
     // Extend with custom categories
-    if (typeof _customAnnotationCategories !== 'undefined') {
-      for (let ci = 0; ci < _customAnnotationCategories.length; ci++) {
-        const cc = _customAnnotationCategories[ci];
+    if (typeof window._customAnnotationCategories !== 'undefined') {
+      for (let ci = 0; ci < window._customAnnotationCategories.length; ci++) {
+        const cc = window._customAnnotationCategories[ci];
         annColors[cc.key] = cc.color;
         annLabels[cc.key] = cc.name;
       }
@@ -438,7 +451,7 @@ export function _islandAttachHandlers(pill, a, hasTray) {
     if (dismissEl) {
       e.stopPropagation();
       const dismissId = dismissEl.getAttribute('data-island-dismiss');
-      const act = _islandActivities.value[dismissId];
+      const act = window._islandActivities.value[dismissId];
       if (act && act.dismiss) act.dismiss();
       else islandRemove(dismissId);
       return;
@@ -485,7 +498,7 @@ export function _islandAttachHandlers(pill, a, hasTray) {
         const rBtn = rateGoodBtn || rateBadBtn;
         rBtn.style.opacity = '1';
         rBtn.style.color = rateGoodBtn ? '#4caf50' : '#ef5350';
-        AetherUI.mount(RawHTML(icon('check', { size: 12, strokeWidth: '2.5' })), rBtn);
+        AetherUI.mount(window.RawHTML(icon('check', { size: 12, strokeWidth: '2.5' })), rBtn);
       }
       return;
     }
@@ -602,7 +615,7 @@ export function _islandRender() {
   if (!container) return;
   const rightContainer = document.getElementById('pill-island-right');
 
-  let ids = Object.keys(_islandActivities.value);
+  let ids = Object.keys(window._islandActivities.value);
   if (!ids.length) {
     container.innerHTML = '';
     if (rightContainer) rightContainer.innerHTML = '';
@@ -617,9 +630,9 @@ export function _islandRender() {
   });
   const priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, bookmark: 2.55, insight: 2.5, 'feed-notif': 2, audio: 2, qf: 2, feed: 1, context: 0 };
   ids.sort(function(a, b) {
-    const pa = priority[_islandActivities.value[a].type] || 0;
-    const pb = priority[_islandActivities.value[b].type] || 0;
-    return pb - pa || _islandActivities.value[b]._ts - _islandActivities.value[a]._ts;
+    const pa = priority[window._islandActivities.value[a].type] || 0;
+    const pb = priority[window._islandActivities.value[b].type] || 0;
+    return pb - pa || window._islandActivities.value[b]._ts - window._islandActivities.value[a]._ts;
   });
   ids = pinnedLeft.concat(ids);
 
@@ -644,17 +657,17 @@ export function _islandRender() {
 
   const prevPill = null; // track insertion order
   ids.forEach(function(id) {
-    const a = _islandActivities.value[id];
+    const a = window._islandActivities.value[id];
     let pill = existingEls[id];
     const isNew = !pill;
     if (isNew) {
-      const gooBg = VStack(
-        new View('div').className('goo-shape goo-pill-shape'),
-        new View('div').className('goo-shape goo-tray-shape')
+      const gooBg = window.VStack(
+        new window.View('div').className('goo-shape goo-pill-shape'),
+        new window.View('div').className('goo-shape goo-tray-shape')
       ).className('pill-goo-bg');
-      const compactDiv = new View('div').className('pill-island-content');
-      const itemsTray = new View('div').className('island-ctx-tray');
-      const pillView = VStack(gooBg, compactDiv, itemsTray).className('pill-island');
+      const compactDiv = new window.View('div').className('pill-island-content');
+      const itemsTray = new window.View('div').className('island-ctx-tray');
+      const pillView = window.VStack(gooBg, compactDiv, itemsTray).className('pill-island');
       pillView.attr('data-island-id', id);
       pill = pillView.el;
     }
@@ -674,7 +687,7 @@ export function _islandRender() {
     }
     // Fill items tray for context / download pills
     if (tray) {
-      const isBrowse = ((_currentRouteHash || window.location.hash || '').match(/^#(browse|research|search)$/));
+      const isBrowse = ((window._currentRouteHash || window.location.hash || '').match(/^#(browse|research|search)$/));
       tray.innerHTML = _islandBuildTray(a, isBrowse);
     }
     const hasItems = !!(a.items && a.items.length);
@@ -767,11 +780,11 @@ export function _islandRender() {
 
     // Auto-dismiss on done — stagger so pills collapse one by one
     // Never auto-dismiss insight pill (it's always-on, user clicks to annotate)
-    if (a.done && !_islandDismissTimers[id] && a.type !== 'insight') {
+    if (a.done && !window._islandDismissTimers[id] && a.type !== 'insight') {
       const baseDelay = a.type === 'achievement' ? 5000 : a.type === 'feed-notif' ? 10000 : 2500;
-      const pendingCount = Object.keys(_islandDismissTimers).length;
+      const pendingCount = Object.keys(window._islandDismissTimers).length;
       const stagger = pendingCount * 500;
-      _islandDismissTimers[id] = setTimeout(function() {
+      window._islandDismissTimers[id] = setTimeout(function() {
         islandRemove(id);
       }, baseDelay + stagger);
     }
@@ -960,9 +973,9 @@ export function _islandRender() {
 
 // Re-check right-side pill clipping on resize
 window.addEventListener('resize', function() {
-  clearTimeout(_islandResizeTimer);
-  _islandResizeTimer = setTimeout(function() {
-    if (Object.keys(_islandActivities.value).length) _islandRender();
+  clearTimeout(window._islandResizeTimer);
+  window._islandResizeTimer = setTimeout(function() {
+    if (Object.keys(window._islandActivities.value).length) _islandRender();
   }, 100);
 });
 
@@ -970,19 +983,5 @@ window.addEventListener('resize', function() {
 export function _updateNowPlayingContext() {
   islandRemove('nowplaying');
 }
-
-// ── Window assignments for backward compatibility ──
-window._pillNoiseCycle = _pillNoiseCycle;
-window._ttsCycleSpeed = _ttsCycleSpeed;
-window._updateAudioUnified = _updateAudioUnified;
-window._clearAudioUnified = _clearAudioUnified;
-window._renderAudioPill = _renderAudioPill;
-window._islandRenderPill = _islandRenderPill;
-window._islandBuildTray = _islandBuildTray;
-window._islandAttachHandlers = _islandAttachHandlers;
-window._islandFlipNeighbors = _islandFlipNeighbors;
-window._islandSnapshotRects = _islandSnapshotRects;
-window._islandRender = _islandRender;
-window._updateNowPlayingContext = _updateNowPlayingContext;
 
 // ── Content safe bounds for popups ──

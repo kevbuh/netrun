@@ -8,11 +8,13 @@ import { AetherTokens } from '/aether/tokens.js';
 import { _AetherMotion } from '/aether/motion.js';
 import { _AetherMaterials } from '/aether/materials.js';
 import { _AetherAmbient } from '/aether/ambient.js';
+import { _AetherIcons } from '/aether/icons.js';
 
 var tokens = AetherTokens || {};
 var motion = _AetherMotion || {};
 var materials = _AetherMaterials || {};
 var ambient = _AetherAmbient || {};
+var icons = _AetherIcons || {};
 
 // Dot-path token lookup: Aether.token('space.4') → '16px'
 function token(path) {
@@ -35,8 +37,8 @@ var component = {
     if (opts.size) el.classList.add('nr-btn-' + opts.size);
     if (opts.icon) el.classList.add('nr-btn-icon');
     if (opts.className) el.className += ' ' + opts.className;
-    if (opts.icon && typeof window.icon === 'function') {
-      el.innerHTML = window.icon(opts.icon, { size: opts.iconSize || 14 });
+    if (opts.icon && icons.icon) {
+      el.innerHTML = icons.icon(opts.icon, { size: opts.iconSize || 14 });
       if (text) el.innerHTML += '<span>' + text + '</span>';
     } else {
       el.textContent = text;
@@ -83,6 +85,7 @@ var Aether = {
   pulse: motion.pulse || {},
   materials: materials,
   ambient: ambient,
+  icons: icons,
   component: component,
 };
 

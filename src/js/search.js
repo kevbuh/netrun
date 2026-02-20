@@ -1,5 +1,10 @@
 // ── Search View ──
 
+import { _browseUrlHideHistory, _browseUrlShowHistory } from '/js/browse-urlbar.js';
+import { _renderNtpFileChips } from '/js/browse/browse-ntp.js';
+import { _sendPopupChatMessage } from '/js/panel-chat.js';
+import { _showPanel } from '/js/panel.js';
+import { browseNavigate } from '/js/browse/browse-island.js';
 export function onSearchInput() {
   const input = document.getElementById('search-query');
   const query = (input?.value || '').trim();
@@ -16,15 +21,15 @@ export function submitSearch() {
   if (!query) return;
 
   // If files are uploaded on NTP, open Aether panel with file context
-  if (typeof _ntpUploadedFiles !== 'undefined' && _ntpUploadedFiles.length > 0) {
-    const fileEntries = _ntpUploadedFiles.map(f => ({ name: f.name, content: f.content || '' }));
-    _ntpUploadedFiles = [];
+  if (typeof window._ntpUploadedFiles !== 'undefined' && window._ntpUploadedFiles.length > 0) {
+    const fileEntries = window._ntpUploadedFiles.map(f => ({ name: f.name, content: f.content || '' }));
+    window._ntpUploadedFiles = [];
     _renderNtpFileChips();
     if (typeof _showPanel === 'function') {
       _showPanel({ anchor: { x: window.innerWidth / 2 - 200, y: 120 }, initialValue: query, finalized: true });
       // Set file contexts AFTER _showPanel (which clears them during reset)
-      if (typeof _pendingFileContexts !== 'undefined') {
-        for (const f of fileEntries) _pendingFileContexts.push(f);
+      if (typeof window._pendingFileContexts !== 'undefined') {
+        for (const f of fileEntries) window._pendingFileContexts.push(f);
       }
       // Auto-send the query
       setTimeout(() => {
@@ -58,7 +63,3 @@ export function _relativeTime(ts) {
 
 // ── Browse URL bar moved to browse-urlbar.js ──
 
-// ── Window exports ──
-window.onSearchInput = onSearchInput;
-window.submitSearch = submitSearch;
-window._relativeTime = _relativeTime;

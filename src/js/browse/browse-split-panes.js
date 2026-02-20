@@ -1,26 +1,31 @@
 // browse-split-panes.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
-if (window.AetherUI) AetherUI.globals();
+import { _browseBindFrame } from '/js/browse/browse-downloads.js';
+import { _browseCreateFrame } from '/js/browse/browse-ntp.js';
+import { _browseRenderTabs } from '/js/browse/browse-island.js';
+import { _browseSetUrlDisplay, _renderHelpPage, _renderWebSearchHistoryPage } from '/js/browse-urlbar.js';
+import { _browseUpdateSaveBtn } from '/js/browse/browse-features.js';
+import { browseSelectTab } from '/js/browse/browse-passwords.js';
 
 // ── Split Pane System ──
 
 export function _browseGetSplitPanes() {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   return win ? (win.splitPanes || []) : [];
 }
 
 export function _browseSetSplitPanes(panes) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (win) win.splitPanes = panes;
 }
 
 export function _browseGetFocusedPane() {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   return win ? (win.focusedPane || null) : null;
 }
 
 export function _browseSetFocusedPane(paneId) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (win) win.focusedPane = paneId;
 }
 
@@ -34,7 +39,7 @@ export function _browseIsSplitMode() {
 }
 
 export function browseSplitTab(tabId, position) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const tab = win.tabs.find(t => t.id === tabId);
   if (!tab) return;
@@ -56,29 +61,29 @@ export function browseSplitTab(tabId, position) {
       const otherTab = win.tabs.find(t => t.id !== tabId);
       if (!otherTab) {
         // Only one tab — create a new blank tab for the second pane
-        const newId = _browseNextTabId++;
+        const newId = window._browseNextTabId++;
         const newTab = { id: newId, url: '', title: 'New Tab', favicon: '', el: null, blank: true };
         win.tabs.push(newTab);
         panes = [
-          { id: _browseNextPaneId++, tabId: tabId, width: 50 },
-          { id: _browseNextPaneId++, tabId: newId, width: 50 }
+          { id: window._browseNextPaneId++, tabId: tabId, width: 50 },
+          { id: window._browseNextPaneId++, tabId: newId, width: 50 }
         ];
       } else {
         panes = [
-          { id: _browseNextPaneId++, tabId: tabId, width: 50 },
-          { id: _browseNextPaneId++, tabId: otherTab.id, width: 50 }
+          { id: window._browseNextPaneId++, tabId: tabId, width: 50 },
+          { id: window._browseNextPaneId++, tabId: otherTab.id, width: 50 }
         ];
         _browseEnsureTabFrame(otherTab);
       }
     } else {
       panes = [
-        { id: _browseNextPaneId++, tabId: activeTab, width: 50 },
-        { id: _browseNextPaneId++, tabId: tabId, width: 50 }
+        { id: window._browseNextPaneId++, tabId: activeTab, width: 50 },
+        { id: window._browseNextPaneId++, tabId: tabId, width: 50 }
       ];
     }
   } else if (panes.length < 3) {
     // Add a new pane, redistribute evenly
-    const newPane = { id: _browseNextPaneId++, tabId: tabId, width: 0 };
+    const newPane = { id: window._browseNextPaneId++, tabId: tabId, width: 0 };
     panes.push(newPane);
     const w = Math.floor(100 / panes.length);
     panes.forEach((p, i) => p.width = i === panes.length - 1 ? 100 - w * (panes.length - 1) : w);
@@ -94,7 +99,7 @@ export function browseSplitTab(tabId, position) {
   _browseEnsureTabFrame(tab);
   _browseRebuildSplitLayout();
   _browseRenderTabs();
-  _browseSaveTabs();
+  window._browseSaveTabs();
 }
 
 export function _browseEnsureTabFrame(tab) {
@@ -156,13 +161,13 @@ export function browseUnsplitPane(paneId) {
     // Focus another pane if the focused one was removed
     if (_browseGetFocusedPane() === paneId) {
       _browseSetFocusedPane(panes[0].id);
-      const win = _getCurrentWindow();
+      const win = window._getCurrentWindow();
       if (win) win.activeTab = panes[0].tabId;
     }
     _browseRebuildSplitLayout();
   }
   _browseRenderTabs();
-  _browseSaveTabs();
+  window._browseSaveTabs();
 }
 
 export function browseExitSplitMode() {
@@ -191,7 +196,7 @@ export function browseExitSplitMode() {
   _browseSetFocusedPane(null);
 
   // Show only the active tab
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (win) {
     win.tabs.forEach(t => {
       if (t.el) {
@@ -211,13 +216,13 @@ export function browseExitSplitMode() {
       }
     });
   }
-  _browseSaveTabs();
+  window._browseSaveTabs();
 }
 
 export function _browseRebuildSplitLayout() {
   const container = document.getElementById('browse-content');
   if (!container) return;
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const panes = _browseGetSplitPanes();
   if (panes.length < 2) return;
@@ -246,13 +251,13 @@ export function _browseRebuildSplitLayout() {
   // Build pane wrappers
   panes.forEach(function(pane, i) {
     const tab = win.tabs.find(function(t) { return t.id === pane.tabId; });
-    const wrapper = new View('div');
+    const wrapper = new window.View('div');
     wrapper.className('browse-split-pane' + (pane.id === focusedPaneId ? ' focused' : ''));
     wrapper.attr('data-pane', pane.id);
     wrapper.styles({ width: pane.width + '%', height: '100%', position: 'relative', overflow: 'hidden' });
 
     // Close button
-    const closeBtn = Button('\u00d7').className('browse-pane-close');
+    const closeBtn = window.Button('\u00d7').className('browse-pane-close');
     closeBtn.el.title = 'Close split pane';
     closeBtn.onTap(function(e) { e.stopPropagation(); browseUnsplitPane(pane.id); });
     wrapper.el.appendChild(closeBtn.el);
@@ -301,7 +306,7 @@ export function _browseFocusPane(paneId) {
   if (!pane) return;
 
   _browseSetFocusedPane(paneId);
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (win) win.activeTab = pane.tabId;
 
   // Update visual focus indicator
@@ -360,7 +365,7 @@ export function _browseAttachDividerDrag(divider, leftPaneId, rightPaneId) {
       divider.classList.remove('dragging');
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
-      _browseSaveTabs();
+      window._browseSaveTabs();
     };
 
     document.addEventListener('mousemove', onMove);
@@ -368,16 +373,3 @@ export function _browseAttachDividerDrag(divider, leftPaneId, rightPaneId) {
   });
 }
 
-window._browseGetSplitPanes = _browseGetSplitPanes;
-window._browseSetSplitPanes = _browseSetSplitPanes;
-window._browseGetFocusedPane = _browseGetFocusedPane;
-window._browseSetFocusedPane = _browseSetFocusedPane;
-window._browsePaneForTab = _browsePaneForTab;
-window._browseIsSplitMode = _browseIsSplitMode;
-window.browseSplitTab = browseSplitTab;
-window._browseEnsureTabFrame = _browseEnsureTabFrame;
-window.browseUnsplitPane = browseUnsplitPane;
-window.browseExitSplitMode = browseExitSplitMode;
-window._browseRebuildSplitLayout = _browseRebuildSplitLayout;
-window._browseFocusPane = _browseFocusPane;
-window._browseAttachDividerDrag = _browseAttachDividerDrag;

@@ -1,7 +1,16 @@
 import Settings from '../core/core-settings.js';
+import { icon } from '/js/core/icons.js';
+import { applySidebarVisibility, getSidebarOrder, applySidebarOrder } from '/js/core/core-sidebar.js';
+import { getLS, setLS } from '/js/core/core-auth.js';
+import { getSelectedSpinner } from '/js/core/core-layout.js';
+import { CLICK_SOUND_PRESETS, NOISE_PRESETS, setClickSoundType, setRainFreq, setRainNoiseType, setRainVolume, toggleClickSound } from '/js/core/core-sounds.js';
+import { _settingBtnGroup, _settingCard, _settingGroupContent, _settingRow, _settingToggle } from '/js/settings/settings-helpers.js';
+import { cycleSpinner, setAccentColor, setAetherColor } from '/js/settings/settings-colors.js';
+import { renderSettingsView } from '/js/settings/settings-core.js';
+import { setEditorTheme, setIconSize, setTheme } from '/js/settings/settings-theme.js';
+import { setPixelPetType, togglePixelPet } from '/js/pixel-pet.js';
 
 // ─── Appearance Settings ──────────────────────────────────────
-if (window.AetherUI) AetherUI.globals();
 
 export function toggleSidebarIcon(id, visible) {
   let hidden = [];
@@ -95,7 +104,7 @@ export function _renderAppearanceSettings() {
 
   // Accent color swatches
   const accentSwatches = accentColors.map(function(a) {
-    const swatch = new View('button');
+    const swatch = new window.View('button');
     swatch.className('w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110' +
       (currentAccent === a.color ? ' scale-110 ring-2 ring-offset-2' : ''));
     swatch.styles({ background: a.color });
@@ -112,17 +121,17 @@ export function _renderAppearanceSettings() {
   const aetherCur = aetherRaw.startsWith('#') ? 'midnight' : aetherRaw;
 
   // Spinner controls
-  const prevBtn = new View('button');
+  const prevBtn = new window.View('button');
   prevBtn.el.innerHTML = '&lsaquo;';
   prevBtn.className('w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]');
   prevBtn.onTap(function() { cycleSpinner(-1); });
-  const nextBtn = new View('button');
+  const nextBtn = new window.View('button');
   nextBtn.el.innerHTML = '&rsaquo;';
   nextBtn.className('w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]');
   nextBtn.onTap(function() { cycleSpinner(1); });
-  const spinnerCenter = VStack(
-    RawHTML('<div class="spinner-preview text-dim font-mono text-[1.2rem] h-6 flex items-center justify-center" id="spinner-preview"></div>'),
-    RawHTML('<div class="text-[0.68rem] text-dimmer" id="spinner-name">' + getSelectedSpinner() + '</div>')
+  const spinnerCenter = window.VStack(
+    window.RawHTML('<div class="spinner-preview text-dim font-mono text-[1.2rem] h-6 flex items-center justify-center" id="spinner-preview"></div>'),
+    window.RawHTML('<div class="text-[0.68rem] text-dimmer" id="spinner-name">' + getSelectedSpinner() + '</div>')
   ).className('flex flex-col items-center min-w-[100px]');
   // Pixel pet
   const petOn = Settings.get('pixelPet') === 'on';
@@ -131,14 +140,14 @@ export function _renderAppearanceSettings() {
   const petBtns = petOpts.map(function(pair) {
     const t = pair[0], label = pair[1];
     const sel = petOn && curPetType === t;
-    const b = new View('button');
+    const b = new window.View('button');
     b.el.textContent = label;
     b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
       (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
     b.onTap(function() { togglePixelPet(true); setPixelPetType(t); renderSettingsView(); });
     return b;
   });
-  const petNone = new View('button');
+  const petNone = new window.View('button');
   petNone.el.textContent = 'none';
   petNone.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
     (!petOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
@@ -148,7 +157,7 @@ export function _renderAppearanceSettings() {
   const noiseBtns = Object.entries(NOISE_PRESETS).map(function(pair) {
     const key = pair[0], p = pair[1];
     const sel = _rainNoiseType === key;
-    const b = new View('button');
+    const b = new window.View('button');
     b.el.textContent = p.label;
     b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
       (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
@@ -157,25 +166,25 @@ export function _renderAppearanceSettings() {
   });
   const noiseWrap = HStack.apply(null, noiseBtns).className('flex flex-wrap gap-1 mt-2');
 
-  const volSlider = new View('input');
+  const volSlider = new window.View('input');
   volSlider.el.type = 'range'; volSlider.el.min = '0'; volSlider.el.max = '100';
   volSlider.el.value = Math.round(_rainVolume * 100);
   volSlider.className('flex-1 h-1 accent-accent');
-  const volLabel = Text(Math.round(_rainVolume * 100) + '%').className('text-[0.7rem] text-dimmer font-mono w-10 text-right');
+  const volLabel = window.Text(Math.round(_rainVolume * 100) + '%').className('text-[0.7rem] text-dimmer font-mono w-10 text-right');
   volLabel.el.id = 'rain-volume-value';
   volSlider.el.addEventListener('input', function() { setRainVolume(this.value / 100); volLabel.el.textContent = this.value + '%'; });
-  const volRow = HStack(Text('Volume').className('text-[0.7rem] text-dimmer whitespace-nowrap'), volSlider, volLabel).spacing(2).className('mt-2');
+  const volRow = window.HStack(window.Text('Volume').className('text-[0.7rem] text-dimmer whitespace-nowrap'), volSlider, volLabel).spacing(2).className('mt-2');
 
-  const freqSlider = new View('input');
+  const freqSlider = new window.View('input');
   freqSlider.el.type = 'range'; freqSlider.el.min = '20'; freqSlider.el.max = '5000'; freqSlider.el.step = '10';
   freqSlider.el.value = _rainFreq || 1000;
   freqSlider.className('flex-1 h-1 accent-accent');
   freqSlider.el.id = 'rain-freq-slider';
   if (_rainFreq === 0) { freqSlider.el.disabled = true; freqSlider.styles({ opacity: '0.3' }); }
-  const freqLabel = Text(_rainFreq > 0 ? _rainFreq + ' Hz' : 'Auto').className('text-[0.7rem] text-dimmer font-mono w-14 text-right');
+  const freqLabel = window.Text(_rainFreq > 0 ? _rainFreq + ' Hz' : 'Auto').className('text-[0.7rem] text-dimmer font-mono w-14 text-right');
   freqLabel.el.id = 'rain-freq-label';
   freqSlider.el.addEventListener('input', function() { setRainFreq(this.value); freqLabel.el.textContent = this.value + ' Hz'; });
-  const freqAutoBtn = new View('button');
+  const freqAutoBtn = new window.View('button');
   freqAutoBtn.el.textContent = 'Auto';
   freqAutoBtn.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
     (_rainFreq === 0 ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
@@ -183,10 +192,10 @@ export function _renderAppearanceSettings() {
     if (_rainFreq === 0) { setRainFreq(1000); freqSlider.el.disabled = false; freqSlider.el.style.opacity = '1'; freqSlider.el.value = 1000; freqLabel.el.textContent = '1000 Hz'; }
     else { setRainFreq(0); freqSlider.el.disabled = true; freqSlider.el.style.opacity = '0.3'; freqLabel.el.textContent = 'Auto'; }
   });
-  const freqRow = HStack(Text('Tone').className('text-[0.7rem] text-dimmer whitespace-nowrap'), freqSlider, freqLabel, freqAutoBtn).spacing(2).className('mt-2');
+  const freqRow = window.HStack(window.Text('Tone').className('text-[0.7rem] text-dimmer whitespace-nowrap'), freqSlider, freqLabel, freqAutoBtn).spacing(2).className('mt-2');
 
-  const noiseSection = VStack(
-    Text('White Noise').className('text-primary text-sm'),
+  const noiseSection = window.VStack(
+    window.Text('White Noise').className('text-primary text-sm'),
     noiseWrap, volRow, freqRow
   ).className('mt-4');
 
@@ -194,14 +203,14 @@ export function _renderAppearanceSettings() {
   const soundBtns = Object.entries(CLICK_SOUND_PRESETS).map(function(pair) {
     const key = pair[0], p = pair[1];
     const sel = _clickSoundOn && (Settings.get('clickSoundType') || 'thud') === key;
-    const b = new View('button');
+    const b = new window.View('button');
     b.el.textContent = p.label;
     b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
       (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
     b.onTap(function() { toggleClickSound(true); setClickSoundType(key); renderSettingsView(); });
     return b;
   });
-  const soundNone = new View('button');
+  const soundNone = new window.View('button');
   soundNone.el.textContent = 'none';
   soundNone.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
     (!_clickSoundOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
@@ -213,7 +222,7 @@ export function _renderAppearanceSettings() {
 
   const ttsSpeed = parseFloat(Settings.get('ttsSpeed')) || 1;
   const speedOpts = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
-  const speedSel = new View('select');
+  const speedSel = new window.View('select');
   speedSel.className('px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer');
   speedSel.el.innerHTML = speedOpts.map(function(v) {
     return '<option value="' + v + '"' + (v === ttsSpeed ? ' selected' : '') + '>' + v + 'x</option>';
@@ -221,12 +230,12 @@ export function _renderAppearanceSettings() {
   speedSel.el.addEventListener('change', function() {
     const v = parseFloat(this.value);
     Settings.set('ttsSpeed', v);
-    if (typeof _ttsAudio !== 'undefined' && _ttsAudio) _ttsAudio.playbackRate = v;
+    if (typeof window._ttsAudio !== 'undefined' && window._ttsAudio) window._ttsAudio.playbackRate = v;
   });
   const ttsSpeedRow = _settingRow('Read Aloud Speed', null, speedSel);
 
   // Sidebar icons
-  const resetBtn = new View('button');
+  const resetBtn = new window.View('button');
   resetBtn.el.textContent = 'Reset';
   resetBtn.className('text-[0.72rem] text-dimmer hover:text-primary cursor-pointer');
   resetBtn.styles({ background: 'none', border: 'none' });
@@ -238,14 +247,14 @@ export function _renderAppearanceSettings() {
   const iconRows = order.map(function(id) {
     const label = labels[id] || id;
     const isVisible = !hidden.includes(id);
-    const toggle = Toggle(null);
+    const toggle = window.Toggle(null);
     const input = toggle.el.querySelector('input[type="checkbox"]');
     if (input) input.checked = isVisible;
     toggle.on('change', function(e) { if (e.target.type === 'checkbox') toggleSidebarIcon(id, e.target.checked); });
-    const row = HStack(
-      RawHTML('<span class="sb-drag-handle text-dimmest cursor-grab" style="touch-action:none">' + icon('dragHandle', { size: 14, class: 'w-3.5 h-3.5' }) + '</span>'),
-      Text(label).className('text-primary text-sm'),
-      Spacer(),
+    const row = window.HStack(
+      window.RawHTML('<span class="sb-drag-handle text-dimmest cursor-grab" style="touch-action:none">' + icon('dragHandle', { size: 14, class: 'w-3.5 h-3.5' }) + '</span>'),
+      window.Text(label).className('text-primary text-sm'),
+      window.Spacer(),
       toggle
     ).spacing(2).className('sb-icon-row flex items-center justify-between py-2');
     row.attr('data-id', id);
@@ -259,10 +268,10 @@ export function _renderAppearanceSettings() {
   iconList.el.addEventListener('pointerup', function(e) { _sbDragEnd(e); });
   iconList.el.addEventListener('pointercancel', function(e) { _sbDragEnd(e); });
 
-  const menuSection = VStack(
-    HStack(
-      Text('Menu Icons').className('text-white_ text-sm font-semibold'),
-      Spacer(), resetBtn
+  const menuSection = window.VStack(
+    window.HStack(
+      window.Text('Menu Icons').className('text-white_ text-sm font-semibold'),
+      window.Spacer(), resetBtn
     ).className('mb-3'),
     iconList
   ).className('mb-8');
@@ -271,7 +280,7 @@ export function _renderAppearanceSettings() {
   const accentRow = _settingRow('Accent Color', null, HStack.apply(null, accentSwatches).spacing(2));
 
   // Spinner row in group-row format
-  const spinnerGroupRow = _settingRow('Loading Spinner', null, HStack(prevBtn, spinnerCenter, nextBtn).spacing(2));
+  const spinnerGroupRow = _settingRow('Loading Spinner', null, window.HStack(prevBtn, spinnerCenter, nextBtn).spacing(2));
 
   // Pet row in group-row format
   const petGroupRow = _settingRow('Pixel Pet', null, HStack.apply(null, petBtns).spacing(0.5));
@@ -282,7 +291,7 @@ export function _renderAppearanceSettings() {
   // Sound row in group-row format
   const soundGroupRow = _settingRow('Button Sounds', null, HStack.apply(null, soundBtns).spacing(0.5));
 
-  return VStack(
+  return window.VStack(
     _settingCard('Visual', [
       _settingBtnGroup('Theme', ['auto','dark','light','daylight','clear'], currentTheme, function(v) { setTheme(v); }),
       _settingBtnGroup('Aether', [{value:'midnight',label:'Midnight'},{value:'aether',label:'Aether'},{value:'match',label:'Match'}], aetherCur, function(v) { setAetherColor(v); }),
@@ -311,13 +320,3 @@ export function _renderAppearanceSettings() {
   );
 }
 
-window.toggleSidebarIcon = toggleSidebarIcon;
-window.resetSidebarIcons = resetSidebarIcons;
-window._sbDragEl = _sbDragEl;
-window._sbDragGhost = _sbDragGhost;
-window._sbDragStartY = _sbDragStartY;
-window._sbDragStarted = _sbDragStarted;
-window._sbDragDown = _sbDragDown;
-window._sbDragMove = _sbDragMove;
-window._sbDragEnd = _sbDragEnd;
-window._renderAppearanceSettings = _renderAppearanceSettings;

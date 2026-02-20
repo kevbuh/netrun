@@ -1,5 +1,6 @@
 // ── Lazygit-style Git Dashboard (embedded in Vault) ──
-if (window.AetherUI) AetherUI.globals();
+import { apiPost } from '/js/api.js';
+import { escapeHtml } from '/js/core/core-utils.js';
 
 export let _vibeActivePane = 0;
 export let _vibeData = {};
@@ -28,15 +29,15 @@ export function _vibeLogCmd(cmd, ms) {
   const el = document.getElementById('vibe-cmdlog-body');
   if (!el) return;
   const rows = _vibeCmdLog.slice().reverse().map(function(c) {
-    return HStack([
-      new View('span').className('text-dimmer')._bindText(c.ts),
-      Text(' '),
-      new View('span').className('text-accent')._bindText('git ' + escapeHtml(c.cmd)),
-      Text(' '),
-      new View('span').className('text-dimmest')._bindText(c.ms + 'ms')
+    return window.HStack([
+      new window.View('span').className('text-dimmer')._bindText(c.ts),
+      window.Text(' '),
+      new window.View('span').className('text-accent')._bindText('git ' + escapeHtml(c.cmd)),
+      window.Text(' '),
+      new window.View('span').className('text-dimmest')._bindText(c.ms + 'ms')
     ]);
   });
-  AetherUI.mount(VStack(rows), el);
+  AetherUI.mount(window.VStack(rows), el);
 }
 
 export async function _vibeRefresh() {
@@ -62,20 +63,20 @@ export function _vibeRenderStatus(data) {
   const el = document.getElementById('vibe-status-body');
   if (!el) return;
   const lines = (data.output || '').split('\n').filter(Boolean);
-  AetherUI.mount(Show(!data.error,
+  AetherUI.mount(window.Show(!data.error,
     function() {
-      return Show(lines.length,
+      return window.Show(lines.length,
         function() {
           const rows = lines.map(function(l) {
-            if (l.startsWith('## ')) return new View('div').className('vibe-status-branch')._bindText(escapeHtml(l.slice(3)));
-            return RawHTML('<div class="vibe-row">' + _vibeColorStatus(l) + '</div>');
+            if (l.startsWith('## ')) return new window.View('div').className('vibe-status-branch')._bindText(escapeHtml(l.slice(3)));
+            return window.RawHTML('<div class="vibe-row">' + _vibeColorStatus(l) + '</div>');
           });
-          return VStack(rows);
+          return window.VStack(rows);
         },
-        function() { return new View('span').className('text-dimmer')._bindText('Clean working tree'); }
+        function() { return new window.View('span').className('text-dimmer')._bindText('Clean working tree'); }
       );
     },
-    function() { return new View('span').className('text-red-400')._bindText(escapeHtml(data.error)); }
+    function() { return new window.View('span').className('text-red-400')._bindText(escapeHtml(data.error)); }
   ), el);
 }
 
@@ -83,20 +84,20 @@ export function _vibeRenderFiles(data) {
   const el = document.getElementById('vibe-files-body');
   if (!el) return;
   const files = data.files || [];
-  AetherUI.mount(Show(!data.error,
+  AetherUI.mount(window.Show(!data.error,
     function() {
-      return Show(files.length,
+      return window.Show(files.length,
         function() {
           const rows = files.map(function(f, i) {
-            return RawHTML('<div class="vibe-row vibe-selectable" data-pane="1" data-idx="' + i + '">' + _vibeFileStatusBadge(f.status) + ' ' + escapeHtml(f.path) + '</div>')
+            return window.RawHTML('<div class="vibe-row vibe-selectable" data-pane="1" data-idx="' + i + '">' + _vibeFileStatusBadge(f.status) + ' ' + escapeHtml(f.path) + '</div>')
               .onTap(function() { _vibeSelectFile(i); });
           });
-          return VStack(rows);
+          return window.VStack(rows);
         },
-        function() { return new View('span').className('text-dimmer vibe-row')._bindText('No files'); }
+        function() { return new window.View('span').className('text-dimmer vibe-row')._bindText('No files'); }
       );
     },
-    function() { return new View('span').className('text-red-400')._bindText(escapeHtml(data.error)); }
+    function() { return new window.View('span').className('text-red-400')._bindText(escapeHtml(data.error)); }
   ), el);
 }
 
@@ -104,26 +105,26 @@ export function _vibeRenderBranches(data) {
   const el = document.getElementById('vibe-branches-body');
   if (!el) return;
   const branches = data.branches || [];
-  AetherUI.mount(Show(!data.error,
+  AetherUI.mount(window.Show(!data.error,
     function() {
-      return Show(branches.length,
+      return window.Show(branches.length,
         function() {
           const rows = branches.map(function(b, i) {
             const children = [];
-            if (b.current) children.push(new View('span').className('text-green-400')._bindText('* '));
-            else children.push(Text('  '));
-            children.push(new View('span').className('text-accent')._bindText('\u2387 '));
-            children.push(Text(escapeHtml(b.name) + ' '));
-            if (b.track) children.push(new View('span').className('text-dimmer')._bindText(escapeHtml(b.track)));
-            return HStack(children).className('vibe-row vibe-selectable').attr('data-pane', '2').attr('data-idx', String(i))
+            if (b.current) children.push(new window.View('span').className('text-green-400')._bindText('* '));
+            else children.push(window.Text('  '));
+            children.push(new window.View('span').className('text-accent')._bindText('\u2387 '));
+            children.push(window.Text(escapeHtml(b.name) + ' '));
+            if (b.track) children.push(new window.View('span').className('text-dimmer')._bindText(escapeHtml(b.track)));
+            return window.HStack(children).className('vibe-row vibe-selectable').attr('data-pane', '2').attr('data-idx', String(i))
               .onTap(function() { _vibeSelectBranch(i); });
           });
-          return VStack(rows);
+          return window.VStack(rows);
         },
-        function() { return new View('span').className('text-dimmer vibe-row')._bindText('No branches'); }
+        function() { return new window.View('span').className('text-dimmer vibe-row')._bindText('No branches'); }
       );
     },
-    function() { return new View('span').className('text-red-400')._bindText(escapeHtml(data.error)); }
+    function() { return new window.View('span').className('text-red-400')._bindText(escapeHtml(data.error)); }
   ), el);
 }
 
@@ -131,27 +132,27 @@ export function _vibeRenderCommits(data) {
   const el = document.getElementById('vibe-commits-body');
   if (!el) return;
   const commits = data.commits || [];
-  AetherUI.mount(Show(!data.error,
+  AetherUI.mount(window.Show(!data.error,
     function() {
-      return Show(commits.length,
+      return window.Show(commits.length,
         function() {
           const rows = commits.map(function(c, i) {
-            return HStack([
-              new View('span').className('text-yellow-400')._bindText('\u25C6'),
-              Text(' '),
-              new View('span').className('text-accent')._bindText(escapeHtml(c.hash)),
-              Text(' '),
-              new View('span').className('text-dimmer')._bindText(escapeHtml(c.author.substring(0, 2).toUpperCase())),
-              Text(' \u25CB ' + escapeHtml(c.subject))
+            return window.HStack([
+              new window.View('span').className('text-yellow-400')._bindText('\u25C6'),
+              window.Text(' '),
+              new window.View('span').className('text-accent')._bindText(escapeHtml(c.hash)),
+              window.Text(' '),
+              new window.View('span').className('text-dimmer')._bindText(escapeHtml(c.author.substring(0, 2).toUpperCase())),
+              window.Text(' \u25CB ' + escapeHtml(c.subject))
             ]).className('vibe-row vibe-selectable').attr('data-pane', '3').attr('data-idx', String(i))
               .onTap(function() { _vibeSelectCommit(i); });
           });
-          return VStack(rows);
+          return window.VStack(rows);
         },
-        function() { return new View('span').className('text-dimmer vibe-row')._bindText('No commits'); }
+        function() { return new window.View('span').className('text-dimmer vibe-row')._bindText('No commits'); }
       );
     },
-    function() { return new View('span').className('text-red-400')._bindText(escapeHtml(data.error)); }
+    function() { return new window.View('span').className('text-red-400')._bindText(escapeHtml(data.error)); }
   ), el);
 }
 
@@ -159,21 +160,21 @@ export function _vibeRenderStash(data) {
   const el = document.getElementById('vibe-stash-body');
   if (!el) return;
   const entries = data.entries || [];
-  AetherUI.mount(Show(!data.error,
+  AetherUI.mount(window.Show(!data.error,
     function() {
-      return Show(entries.length,
+      return window.Show(entries.length,
         function() {
           const rows = entries.map(function(s, i) {
-            return new View('div').className('vibe-row vibe-selectable').attr('data-pane', '4').attr('data-idx', String(i))
+            return new window.View('div').className('vibe-row vibe-selectable').attr('data-pane', '4').attr('data-idx', String(i))
               ._bindText(escapeHtml(s))
               .onTap(function() { _vibeSelectStash(i); });
           });
-          return VStack(rows);
+          return window.VStack(rows);
         },
-        function() { return new View('span').className('text-dimmer vibe-row')._bindText('No stash entries'); }
+        function() { return new window.View('span').className('text-dimmer vibe-row')._bindText('No stash entries'); }
       );
     },
-    function() { return new View('span').className('text-red-400')._bindText(escapeHtml(data.error)); }
+    function() { return new window.View('span').className('text-red-400')._bindText(escapeHtml(data.error)); }
   ), el);
 }
 
@@ -261,14 +262,14 @@ export async function _vibeSelectStash(idx) {
 export function _vibeShowDetail(title, content) {
   const header = document.querySelector('#vibe-pane-detail .vibe-pane-header');
   if (header) {
-    AetherUI.mount(HStack([
-      new View('span').className('vibe-pane-key')._bindText('0'),
-      Text(' ' + escapeHtml(title))
+    AetherUI.mount(window.HStack([
+      new window.View('span').className('vibe-pane-key')._bindText('0'),
+      window.Text(' ' + escapeHtml(title))
     ]), header);
   }
   const body = document.getElementById('vibe-detail-body');
   if (!body) return;
-  AetherUI.mount(RawHTML('<pre class="vibe-detail-pre">' + _vibeColorDiff(escapeHtml(content)) + '</pre>'), body);
+  AetherUI.mount(window.RawHTML('<pre class="vibe-detail-pre">' + _vibeColorDiff(escapeHtml(content)) + '</pre>'), body);
 }
 
 export function _vibeColorDiff(escaped) {
@@ -387,30 +388,3 @@ export function _vibeActivateSelection() {
 // Auto-refresh git status when tab regains focus
 window.addEventListener('focus', () => {});
 
-// ── Window exports ──
-window._vibeActivePane = _vibeActivePane;
-window._vibeData = _vibeData;
-window._vibeCmdLog = _vibeCmdLog;
-window._vibeSelectedIdx = _vibeSelectedIdx;
-window._vibeGit = _vibeGit;
-window._vibeLogCmd = _vibeLogCmd;
-window._vibeRefresh = _vibeRefresh;
-window._vibeRenderStatus = _vibeRenderStatus;
-window._vibeRenderFiles = _vibeRenderFiles;
-window._vibeRenderBranches = _vibeRenderBranches;
-window._vibeRenderCommits = _vibeRenderCommits;
-window._vibeRenderStash = _vibeRenderStash;
-window._vibeColorStatus = _vibeColorStatus;
-window._vibeFileStatusBadge = _vibeFileStatusBadge;
-window._vibeSelectFile = _vibeSelectFile;
-window._vibeSelectBranch = _vibeSelectBranch;
-window._vibeSelectCommit = _vibeSelectCommit;
-window._vibeSelectStash = _vibeSelectStash;
-window._vibeShowDetail = _vibeShowDetail;
-window._vibeColorDiff = _vibeColorDiff;
-window._vibeClickPane = _vibeClickPane;
-window._vibeUpdateActivePane = _vibeUpdateActivePane;
-window._vibeUpdateSelection = _vibeUpdateSelection;
-window._vibeKeyHandler = _vibeKeyHandler;
-window._vibeMoveSelection = _vibeMoveSelection;
-window._vibeActivateSelection = _vibeActivateSelection;

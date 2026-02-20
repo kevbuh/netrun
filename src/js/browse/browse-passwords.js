@@ -1,13 +1,33 @@
 // browse-passwords.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
-if (window.AetherUI) AetherUI.globals();
+import { apiGet } from '/js/api.js';
+import { escapeHtml } from '/js/core/core-utils.js';
+import { icon } from '/js/core/icons.js';
+import { showPanelForView, hidePanel, _invalidatePanelRender } from '/js/core/core-nav.js';
+import { islandRemove } from '/js/core/core-ui.js';
+import { _updateNowPlayingContext } from '/js/core/core-audio.js';
+import { openResearch, wmOpen } from '/js/core/core-views.js';
+import { _annotationsEnabled, _showAnnotateOfferPill, _updateAnnotateButtonState } from '/js/browse/browse-annotations.js';
+import { _browseApplyZoom, _browseRenderTabs, _browseZoomLevel, _browseZoomPanX, _browseZoomPanY, _pillMicClick, _pillSyncUrl, browseBack, browseForward, browseNavigate } from '/js/browse/browse-island.js';
+import { _browseBindFrame, _browseDownloadIdCounter, _browseDownloads, _browseRenderDownloads, _browseUpdateDownloadBadge, _checkFocusTimer, _saveBrowseDownloads } from '/js/browse/browse-downloads.js';
+import { _browseCloseFindBar, _browseFindBarActive, _browseUpdateSaveBtn } from '/js/browse/browse-features.js';
+import { _browseCreateFrame, handleNtpFileInput, handleNtpFileUpload } from '/js/browse/browse-ntp.js';
+import { _browseEnsureTabFrame, _browseFocusPane, _browseGetFocusedPane, _browseGetSplitPanes, _browseIsSplitMode, _browsePaneForTab, _browseRebuildSplitLayout, _browseSetSplitPanes, browseUnsplitPane } from '/js/browse/browse-split-panes.js';
+import { _browseSetUrlDisplay, _browseUrlCancelHide, _browseUrlKeydown, _browseUrlScheduleHide, _browseUrlShowHistory, _renderHelpPage, _renderWebSearchHistoryPage } from '/js/browse-urlbar.js';
+import { _browseUpdateScrollPill, _browseUpdateTokenCount, _updateAudioIndicator } from '/js/browse/browse-audio.js';
+import { _currentPaperViewPaper, setCurrentPaperViewPaper } from '/js/views.js';
+import { browseCloseWindow, browseNewPaperTab, browseNewTab } from '/js/browse/browse-windows.js';
+import { chatViewCleanupMorph, chatViewNewThread, openChatPage } from '/js/chat-view.js';
+import { isPostSaved } from '/js/feed.js';
+import { onSearchInput, submitSearch } from '/js/search.js';
+import { stopCaptions } from '/js/browse/browse-captions.js';
 
 // ── Password Manager ──
 
 export function _pwCheckAutofill(tab, frame) {
-  if (!_browseIsElectron || !window.electronAPI || !window.electronAPI.pwGet) return;
-  if (_pwAutofillOffered.has(tab.id)) return;
-  _pwAutofillOffered.add(tab.id);
+  if (!window._browseIsElectron || !window.electronAPI || !window.electronAPI.pwGet) return;
+  if (window._pwAutofillOffered.has(tab.id)) return;
+  window._pwAutofillOffered.add(tab.id);
   try {
     const origin = new URL(tab.url).origin;
     window.electronAPI.pwGet(origin).then(entries => {
@@ -61,7 +81,7 @@ export function _pwShowAutofillPicker(tab, frame, entries) {
   if (!container) return;
 
   const pillBtns = entries.map(function(e) {
-    const btn = new View('button');
+    const btn = new window.View('button');
     btn.el.textContent = e.username || 'No username';
     btn.cssText('padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.78rem;cursor:pointer;');
     btn.onTap(function() {
@@ -71,27 +91,27 @@ export function _pwShowAutofillPicker(tab, frame, entries) {
     return btn;
   });
 
-  const label = Text('Choose account:').font('callout').foreground('tertiary');
-  const dismissBtn = new View('button');
+  const label = window.Text('Choose account:').font('callout').foreground('tertiary');
+  const dismissBtn = new window.View('button');
   dismissBtn.el.textContent = 'Dismiss';
   dismissBtn.cssText('margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;');
   dismissBtn.onTap(function() { _pwHideSavePrompt(); });
 
-  const row = HStack([label].concat(pillBtns, [dismissBtn])).spacing(2).alignment('center');
+  const row = window.HStack([label].concat(pillBtns, [dismissBtn])).spacing(2).alignment('center');
   row.className('browse-pw-save-bar').id('browse-pw-bar');
   container.prepend(row.build());
 }
 
 export function _pwShowSavePrompt(tab, data) {
-  if (!_browseIsElectron || !window.electronAPI || !window.electronAPI.pwSave) return;
+  if (!window._browseIsElectron || !window.electronAPI || !window.electronAPI.pwSave) return;
   if (!data.password) return;
   // Dedup rapid submits
   const now = Date.now();
-  if (_pwLastSubmit && _pwLastSubmit.origin === data.origin && _pwLastSubmit.username === data.username && now - _pwLastSubmit.ts < 2000) return;
-  _pwLastSubmit = { origin: data.origin, username: data.username, ts: now };
+  if (window._pwLastSubmit && window._pwLastSubmit.origin === data.origin && window._pwLastSubmit.username === data.username && now - window._pwLastSubmit.ts < 2000) return;
+  window._pwLastSubmit = { origin: data.origin, username: data.username, ts: now };
   // Check if dismissed
   const key = data.origin + '|' + data.username;
-  if (_pwSaveDismissed.has(key)) return;
+  if (window._pwSaveDismissed.has(key)) return;
   _pwHideSavePrompt();
   const container = document.getElementById('browse-content');
   if (!container) return;
@@ -100,11 +120,11 @@ export function _pwShowSavePrompt(tab, data) {
   // Keep password in closure, not DOM
   const password = data.password;
 
-  const lockIcon = RawHTML('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--nr-accent);flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>');
+  const lockIcon = window.RawHTML(icon('lock', {size: 16, style: 'color:var(--nr-accent);flex-shrink:0;'}));
 
-  const promptText = RawHTML('<span style="font-size:0.8rem;color:var(--nr-text-primary);">Save password for <strong>' + escapeHtml(displayUser) + '</strong>?</span>');
+  const promptText = window.RawHTML('<span style="font-size:0.8rem;color:var(--nr-text-primary);">Save password for <strong>' + escapeHtml(displayUser) + '</strong>?</span>');
 
-  const saveBtn = new View('button');
+  const saveBtn = new window.View('button');
   saveBtn.el.textContent = 'Save';
   saveBtn.cssText('padding:3px 12px;border-radius:4px;border:none;background:var(--nr-accent);color:#fff;font-size:0.78rem;cursor:pointer;font-weight:500;');
   saveBtn.onTap(function() {
@@ -112,20 +132,20 @@ export function _pwShowSavePrompt(tab, data) {
     _pwHideSavePrompt(true);
   });
 
-  const neverBtn = new View('button');
+  const neverBtn = new window.View('button');
   neverBtn.el.textContent = 'Never';
   neverBtn.cssText('padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-secondary);font-size:0.78rem;cursor:pointer;');
   neverBtn.onTap(function() {
-    _pwSaveDismissed.set(key, true);
+    window._pwSaveDismissed.set(key, true);
     _pwHideSavePrompt(true);
   });
 
-  const closeBtn = new View('button');
+  const closeBtn = new window.View('button');
   closeBtn.el.textContent = '\u00d7';
   closeBtn.cssText('margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;');
   closeBtn.onTap(function() { _pwHideSavePrompt(true); });
 
-  const row = HStack([lockIcon, promptText, saveBtn, neverBtn, closeBtn]).spacing(2).alignment('center');
+  const row = window.HStack([lockIcon, promptText, saveBtn, neverBtn, closeBtn]).spacing(2).alignment('center');
   row.className('browse-pw-save-bar').id('browse-pw-bar');
   const bar = row.build();
   container.prepend(bar);
@@ -136,7 +156,7 @@ export function _pwShowSavePrompt(tab, data) {
 }
 
 export function _pwHideSavePrompt(clearPending) {
-  if (clearPending) _pwPendingPrompt = null;
+  if (clearPending) window._pwPendingPrompt = null;
   const bar = document.getElementById('browse-pw-bar');
   if (bar) {
     if (bar._pwDismissTimer) clearTimeout(bar._pwDismissTimer);
@@ -165,10 +185,10 @@ export function _showBrowseContextMenu(x, y, data) {
   const imgUrl = data.imgUrl || '';
 
   function _ctxItem(label, action) {
-    return new View('div').className('blm-item')._bindText(label)
+    return new window.View('div').className('blm-item')._bindText(label)
       .onTap(function() { action(); _hideBrowseContextMenu(); });
   }
-  function _ctxSep() { return new View('div').className('blm-sep'); }
+  function _ctxSep() { return new window.View('div').className('blm-sep'); }
 
   const items = [];
 
@@ -201,7 +221,7 @@ export function _showBrowseContextMenu(x, y, data) {
     }));
   }
 
-  const menuView = VStack(items).className('browse-link-menu')
+  const menuView = window.VStack(items).className('browse-link-menu')
     .styles({left: x + 'px', top: y + 'px'});
   const menu = menuView.build();
   document.body.appendChild(menu);
@@ -286,7 +306,7 @@ document.addEventListener('mousedown', (e) => {
 });
 
 export function browseSelectTab(id) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
 
   // Split mode branch: if tab is in a pane, focus it; else replace focused pane
@@ -314,11 +334,11 @@ export function browseSelectTab(id) {
     _browseUpdateNewTabPage(tab);
     const urlInput = document.getElementById('browse-url-input');
     _browseSetUrlDisplay(urlInput, tab ? (tab.url || '') : '');
-    _browseSaveTabs();
+    window._browseSaveTabs();
 
     // Handle paper tab in split mode
     if (tab && tab.paper) {
-      _currentPaperViewPaper = tab.paper;
+      setCurrentPaperViewPaper(tab.paper);
       if (tab.contentType === 'reader' && tab.el && !tab.el.children.length) {
         _tryRenderSavedContent(tab.el, tab.paper);
       }
@@ -340,7 +360,7 @@ export function browseSelectTab(id) {
   }
 
   // Stop captions when switching away from captured tab
-  if (_ccTabId && _ccTabId !== id) stopCaptions();
+  if (window._ccTabId && window._ccTabId !== id) stopCaptions();
 
   // Clear scroll pill and token count when switching tabs
   _browseUpdateScrollPill(-1);
@@ -411,7 +431,7 @@ export function browseSelectTab(id) {
   _browseSetUrlDisplay(urlInput, tab ? (tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : tab.url) : '');
   _browseRenderTabs();
   _browseUpdateSaveBtn();
-  _browseSaveTabs();
+  window._browseSaveTabs();
   _browseUpdateNewTabPage(tab);
   _updateAudioIndicator();
 
@@ -422,7 +442,7 @@ export function browseSelectTab(id) {
 
   // Paper tab handling
   if (tab && tab.paper) {
-    _currentPaperViewPaper = tab.paper;
+    setCurrentPaperViewPaper(tab.paper);
     if (tab.contentType === 'reader' && tab.el && !tab.el.children.length) {
       _tryRenderSavedContent(tab.el, tab.paper);
     }
@@ -440,7 +460,7 @@ export function browseSelectTab(id) {
     if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(tab.url);
     _browseUpdateBarForTab(tab);
   } else {
-    _currentPaperViewPaper = null;
+    setCurrentPaperViewPaper(null);
     _browseUpdateBarForTab(tab);
     hidePanel();
     // Update sidebar for the selected tab
@@ -454,7 +474,7 @@ export function browseSelectTab(id) {
   if (tab && !tab.blank && tab.url && typeof _showAnnotateOfferPill === 'function') {
     _showAnnotateOfferPill(tab);
   } else {
-    const act = typeof _islandActivities !== 'undefined' ? _islandActivities['insight'] : null;
+    const act = typeof window._islandActivities !== 'undefined' ? window._islandActivities['insight'] : null;
     if (act) islandRemove('insight');
   }
 }
@@ -466,19 +486,19 @@ export function _browseUpdateBarForTab(tab) {
     // Cite button
     if (!citeBtn) {
       const moreBtn = document.getElementById('browse-more-btn');
-      const citeBtnView = new View('button').id('browse-cite-btn')
+      const citeBtnView = new window.View('button').id('browse-cite-btn')
         .className('browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center')
         .attr('title', 'Cite');
       citeBtnView.onTap(function() { if (typeof showCitePopup === 'function') showCitePopup(); });
       citeBtn = citeBtnView.build();
-      AetherUI.mount(RawHTML('<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></svg>'), citeBtn);
+      AetherUI.mount(window.RawHTML(icon('at', {size: 16})), citeBtn);
       if (moreBtn) moreBtn.parentElement.insertBefore(citeBtn, moreBtn);
     }
     citeBtn.style.display = '';
     // Bookmark button
     if (!bookmarkBtn) {
       const moreBtn = document.getElementById('browse-more-btn');
-      const bookmarkBtnView = new View('button').id('browse-paper-bookmark-btn')
+      const bookmarkBtnView = new window.View('button').id('browse-paper-bookmark-btn')
         .className('browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none cursor-pointer hover:bg-hover flex items-center justify-center')
         .attr('title', 'Save');
       bookmarkBtnView.onTap(function() { if (typeof togglePaperViewBookmark === 'function') togglePaperViewBookmark(); });
@@ -488,7 +508,7 @@ export function _browseUpdateBarForTab(tab) {
     const isSaved = typeof isPostSaved === 'function' && isPostSaved(tab.paper.link);
     bookmarkBtn.className = 'browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none cursor-pointer hover:bg-hover flex items-center justify-center ' + (isSaved ? 'text-accent' : 'text-dimmer hover:text-primary');
     bookmarkBtn.title = isSaved ? 'Saved' : 'Save';
-    AetherUI.mount(RawHTML('<svg class="w-4 h-4" viewBox="0 0 24 24" fill="' + (isSaved ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>'), bookmarkBtn);
+    AetherUI.mount(window.RawHTML(icon('bookmark', {size: 16, fill: isSaved ? 'currentColor' : 'none', strokeWidth: '1.5'})), bookmarkBtn);
     bookmarkBtn.style.display = '';
   } else {
     if (citeBtn) citeBtn.style.display = 'none';
@@ -504,7 +524,7 @@ export function _browseUpdateNewTabPage(tab) {
   let ntp = container.querySelector('.browse-ntp');
   if (tab && tab.blank) {
     if (!ntp) {
-      const ntpView = new View('div').className('browse-ntp nr-living-gradient');
+      const ntpView = new window.View('div').className('browse-ntp nr-living-gradient');
       ntp = ntpView.el;
 
       // File input (low-level)
@@ -515,9 +535,9 @@ export function _browseUpdateNewTabPage(tab) {
       ntp.appendChild(fileInput);
 
       // SVGs
-      const submitSvg = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-5 5m5-5l5 5"/></svg>';
-      const plusSvg = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5"/></svg>';
-      const micSvg = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+      const submitSvg = icon('arrowUp', {strokeWidth: '2.5'});
+      const plusSvg = icon('plus', {});
+      const micSvg = icon('microphone', {});
 
       // Search input (low-level form element)
       const searchInput = document.createElement('input');
@@ -530,7 +550,7 @@ export function _browseUpdateNewTabPage(tab) {
       searchInput.onkeydown = function(ev) { _browseUrlKeydown(ev); };
 
       // + button (dropdown menu)
-      const addBtn = new View('button').className('ntp-add-btn').attr('type', 'button').attr('title', 'More options');
+      const addBtn = new window.View('button').className('ntp-add-btn').attr('type', 'button').attr('title', 'More options');
       addBtn.el.innerHTML = plusSvg;
       addBtn.on('mousedown', function(e) { e.preventDefault(); });
       addBtn.onTap(function() {
@@ -540,16 +560,16 @@ export function _browseUpdateNewTabPage(tab) {
         if (existing) { existing.remove(); return; }
 
         const icons = {
-          file: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 002.112 2.13"/></svg>',
-          chat: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>',
-          research: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v16.5c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9zm3.75 11.625a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>',
-          terminal: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3M3.75 3.75h16.5v16.5H3.75z"/></svg>',
+          file: icon('attachment', {strokeWidth: '1.5'}),
+          chat: icon('chatDots', {strokeWidth: '1.5'}),
+          research: icon('documentSearch', {strokeWidth: '1.5'}),
+          terminal: icon('terminal', {strokeWidth: '1.5'}),
         };
 
         function _menuRow(iconHtml, label, action) {
-          const iconView = RawHTML(iconHtml);
+          const iconView = window.RawHTML(iconHtml);
           iconView.el.style.cssText = 'width:20px;height:20px;flex-shrink:0;color:var(--nr-text-secondary);';
-          const row = HStack([iconView, Text(label)]).alignment('center').gap(3)
+          const row = window.HStack([iconView, window.Text(label)]).alignment('center').gap(3)
             .className('ntp-plus-menu-item');
           row.onTap(function() {
             const m = document.querySelector('.ntp-plus-menu');
@@ -561,7 +581,7 @@ export function _browseUpdateNewTabPage(tab) {
 
         const rows = [
           _menuRow(icons.file, 'Add files', function() { fileInput.click(); }),
-          new View('div').className('ntp-plus-menu-divider'),
+          new window.View('div').className('ntp-plus-menu-divider'),
           _menuRow(icons.chat, 'Chat', function() {
             const input = document.getElementById('search-query');
             const text = input ? input.value.trim() : '';
@@ -576,7 +596,7 @@ export function _browseUpdateNewTabPage(tab) {
           }),
         ];
 
-        const menuView = VStack(rows).className('ntp-plus-menu nr-menu').material('thin');
+        const menuView = window.VStack(rows).className('ntp-plus-menu nr-menu').material('thin');
         const menu = menuView.build();
         document.body.appendChild(menu);
 
@@ -598,17 +618,17 @@ export function _browseUpdateNewTabPage(tab) {
       });
 
       // Mic button
-      const micBtn = new View('button').className('ntp-mic-btn').attr('type', 'button').attr('title', 'Voice input');
+      const micBtn = new window.View('button').className('ntp-mic-btn').attr('type', 'button').attr('title', 'Voice input');
       micBtn.el.innerHTML = micSvg;
       micBtn.on('mousedown', function(e) { e.preventDefault(); });
       micBtn.onTap(function() { if (typeof _pillMicClick === 'function') _pillMicClick(); });
 
       // Submit button
-      const submitBtn = new View('button').className('ntp-action-submit').attr('title', 'Search').attr('type', 'submit');
+      const submitBtn = new window.View('button').className('ntp-action-submit').attr('title', 'Search').attr('type', 'submit');
       submitBtn.el.innerHTML = submitSvg;
 
       // Chat history button
-      const chatHistBtn = new View('button').className('ntp-chat-history-btn').attr('type', 'button').attr('title', 'All chats');
+      const chatHistBtn = new window.View('button').className('ntp-chat-history-btn').attr('type', 'button').attr('title', 'All chats');
       chatHistBtn.el.innerHTML = icon('chatHistory', { size: 18 });
       chatHistBtn.on('mousedown', function(e) { e.preventDefault(); });
       chatHistBtn.onTap(function() {
@@ -616,35 +636,35 @@ export function _browseUpdateNewTabPage(tab) {
       });
 
       // Single-row search bar: [+] [input] [chat-history] [mic] [send]
-      const searchRow = new View('div').className('ntp-search-row');
+      const searchRow = new window.View('div').className('ntp-search-row');
       searchRow.el.appendChild(addBtn.el);
       searchRow.el.appendChild(searchInput);
       searchRow.el.appendChild(chatHistBtn.el);
       searchRow.el.appendChild(micBtn.el);
       searchRow.el.appendChild(submitBtn.el);
 
-      const histDropdown = new View('div').attr('id', 'search-history-dropdown-view').className('ntp-dropdown');
+      const histDropdown = new window.View('div').attr('id', 'search-history-dropdown-view').className('ntp-dropdown');
       histDropdown.styles({ display: 'none' });
 
-      const fileChips = new View('div').attr('id', 'ntp-file-chips').className('ntp-file-chips-container');
+      const fileChips = new window.View('div').attr('id', 'ntp-file-chips').className('ntp-file-chips-container');
 
-      const searchBox = new View('div').className('ntp-search-box max-w-[680px] mx-auto');
+      const searchBox = new window.View('div').className('ntp-search-box max-w-[680px] mx-auto');
       searchBox.el.appendChild(searchRow.el);
 
-      const form = new View('form').attr('id', 'search-form');
+      const form = new window.View('form').attr('id', 'search-form');
       form.on('submit', function(e) { e.preventDefault(); submitSearch(); });
       form.el.appendChild(searchBox.el);
       form.el.appendChild(histDropdown.el);
       form.el.appendChild(fileChips.el);
 
-      const center = new View('div').className('browse-ntp-center');
+      const center = new window.View('div').className('browse-ntp-center');
       center.el.appendChild(form.el);
 
-      const inner = new View('div').className('browse-ntp-inner');
+      const inner = new window.View('div').className('browse-ntp-inner');
       inner.el.appendChild(center.el);
       ntp.appendChild(inner.el);
 
-      const versionEl = Text('netrun').className('browse-ntp-version');
+      const versionEl = window.Text('netrun').className('browse-ntp-version');
       versionEl.cssText('position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--nr-text-quaternary);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;');
       ntp.appendChild(versionEl.el);
       container.appendChild(ntp);
@@ -687,7 +707,7 @@ export function _browseUpdateNewTabPage(tab) {
 }
 
 export function browseCloseTab(id) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const idx = win.tabs.findIndex(t => t.id === id);
   if (idx === -1) return;
@@ -699,20 +719,20 @@ export function browseCloseTab(id) {
     if (pane) browseUnsplitPane(pane.id);
   }
 
-  _browseClosedTabs.push({ url: tab.url || '', title: tab.title, blank: !!tab.blank, paper: tab.paper || null, contentType: tab.contentType || null, arxivId: tab.arxivId || null });
-  if (_browseClosedTabs.length > _BROWSE_CLOSED_TABS_MAX) _browseClosedTabs.splice(0, _browseClosedTabs.length - _BROWSE_CLOSED_TABS_MAX);
-  Settings.setJSON('browseClosedTabs', _browseClosedTabs);
+  window._browseClosedTabs.push({ url: tab.url || '', title: tab.title, blank: !!tab.blank, paper: tab.paper || null, contentType: tab.contentType || null, arxivId: tab.arxivId || null });
+  if (window._browseClosedTabs.length > window._BROWSE_CLOSED_TABS_MAX) window._browseClosedTabs.splice(0, window._browseClosedTabs.length - window._BROWSE_CLOSED_TABS_MAX);
+  Settings.setJSON('browseClosedTabs', window._browseClosedTabs);
   // Stop captions if this is the captured tab
-  if (_ccTabId === id) stopCaptions();
-  _pwAutofillOffered.delete(id);
+  if (window._ccTabId === id) stopCaptions();
+  window._pwAutofillOffered.delete(id);
   _annotationsEnabled.delete(id);
   if (tab.el) tab.el.remove();
   // Clean up audio tracking
-  _browseAudioTabs.delete(id);
+  window._browseAudioTabs.delete(id);
   _updateAudioIndicator();
   win.tabs.splice(idx, 1);
   if (!win.tabs.length) {
-    if (_browseWindows.length > 1) {
+    if (window._browseWindows.length > 1) {
       browseCloseWindow(win.id);
       _browseAnimateBounce();
     } else {
@@ -727,13 +747,13 @@ export function browseCloseTab(id) {
   } else {
     _browseRenderTabs();
   }
-  _browseSaveTabs();
+  window._browseSaveTabs();
 }
 
 export function browseReopenTab() {
-  if (!_browseClosedTabs.length) return;
-  const closed = _browseClosedTabs.pop();
-  Settings.setJSON('browseClosedTabs', _browseClosedTabs);
+  if (!window._browseClosedTabs.length) return;
+  const closed = window._browseClosedTabs.pop();
+  Settings.setJSON('browseClosedTabs', window._browseClosedTabs);
   if (closed.paper && closed.contentType) {
     browseNewPaperTab(closed.url, closed.paper);
   } else {
@@ -750,21 +770,3 @@ export function _browseAnimateBounce() {
   ]);
 }
 
-window._pwCheckAutofill = _pwCheckAutofill;
-window._pwDoAutofill = _pwDoAutofill;
-window._pwShowAutofillPicker = _pwShowAutofillPicker;
-window._pwShowSavePrompt = _pwShowSavePrompt;
-window._pwHideSavePrompt = _pwHideSavePrompt;
-window._browseContextMenu = _browseContextMenu;
-window._browseContextData = _browseContextData;
-window._hideBrowseContextMenu = _hideBrowseContextMenu;
-window._showBrowseContextMenu = _showBrowseContextMenu;
-window._browseDownloadFile = _browseDownloadFile;
-window._browseSaveImage = _browseSaveImage;
-window._browseSaveLink = _browseSaveLink;
-window.browseSelectTab = browseSelectTab;
-window._browseUpdateBarForTab = _browseUpdateBarForTab;
-window._browseUpdateNewTabPage = _browseUpdateNewTabPage;
-window.browseCloseTab = browseCloseTab;
-window.browseReopenTab = browseReopenTab;
-window._browseAnimateBounce = _browseAnimateBounce;

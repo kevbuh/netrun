@@ -1,5 +1,8 @@
 // chat-render.js — Shared message rendering for panel-chat and chat-view
 // Renders rich messages: markdown, LaTeX, thinking blocks, context pills, tool confirmations, actions
+import { escapeHtml, escapeAttr, truncate } from '/js/core/core-utils.js';
+import { icon } from '/js/core/icons.js';
+import { browseNewTab } from '/js/browse/browse-windows.js';
 
 // ── Render a single message to HTML string ──
 
@@ -411,5 +414,4 @@ function renderChatStats(messages, streamStart) {
 // ── Public API ──
 
 const ChatRender = { renderMessageHTML, renderCtxPills, renderLatexInElement, attachMessageHandlers, renderChatStats };
-window.ChatRender = ChatRender;
 export default ChatRender;

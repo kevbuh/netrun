@@ -1,4 +1,5 @@
 // ── Calendar data + notifications (UI merged into dashboard heatmap) ──
+import { apiPost, apiDelete } from '/js/api.js';
 export let calendarEvents = [];
 export const _calendarNotifiedIds = new Set();
 
@@ -15,10 +16,4 @@ export async function deleteCalendarEvent(id) {
     calendarEvents = calendarEvents.filter(e => e.id !== id);
   } catch (e) { /* silently fail */ }
 }
-
-// ── Window exports ──
-window.calendarEvents = calendarEvents;
-window._calendarNotifiedIds = _calendarNotifiedIds;
-window.addCalendarEvent = addCalendarEvent;
-window.deleteCalendarEvent = deleteCalendarEvent;
 

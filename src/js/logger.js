@@ -36,5 +36,4 @@ window.disableDebugLogs = () => {
   console.log('Debug logging disabled. Reload to take effect.');
 };
 
-window.logger = logger;
 export { logger };

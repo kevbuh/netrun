@@ -1,7 +1,22 @@
 // browse-island.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
 import Settings from '/js/core/core-settings.js';
-if (window.AetherUI) AetherUI.globals();
+import { escapeAttr, escapeHtml } from '/js/core/core-utils.js';
+import { islandRemove } from '/js/core/core-ui.js';
+import { _clearAudioUnified, _renderAudioPill, _updateAudioUnified } from '/js/core/core-audio.js';
+import { _annotationsEnabled, _updateAnnotateButtonState } from '/js/browse/browse-annotations.js';
+import { _browseApplyAdaptiveColor, _browseSetUrlDisplay, _browseUpdateAdBlockBadge, _browseUpdateAdBlockBtn, _browseUrlHideHistory, _browseUrlKeydown, _saveBrowseVisit, _saveWebSearch, openHelpPage, openSearchHistoryPage } from '/js/browse-urlbar.js';
+import { _browseBindFrame } from '/js/browse/browse-downloads.js';
+import { _browseCreateFrame, _browseProxyUrl, _browseSetFrameAllow } from '/js/browse/browse-ntp.js';
+import { _browseFocusPane, _browseGetSplitPanes, browseUnsplitPane } from '/js/browse/browse-split-panes.js';
+import { _browseRenderSplitPillView, _browseRenderTabView } from '/js/browse/browse-captions.js';
+import { _browseUpdateNewTabPage, browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
+import { _browseUpdateSaveBtn, _focusBrowseTabBar, _islandSyncBookmark } from '/js/browse/browse-features.js';
+import { _getActiveTabBar, _islandSyncTabs, _pillSyncTabs, _setPillBrowseMode } from '/js/browse/browse-pill.js';
+import { _sendPopupChatMessage } from '/js/panel-chat.js';
+import { _showPanel } from '/js/panel.js';
+import { browseNewTab, openLocalPdf } from '/js/browse/browse-windows.js';
+import { chatViewCleanupMorph, chatViewUnmorph, openChatPage } from '/js/chat-view.js';
 
 // ── Island mode tab renderer ──
 
@@ -44,13 +59,13 @@ export function _applyBrowseTabLayout() {
   } else {
     // Restore everything
     if (bar) bar.style.display = '';
-    if (_pillBrowseMode) {
+    if (window._pillBrowseMode) {
       if (tabRow) tabRow.style.display = 'none';
     } else {
       if (pill) { pill.classList.remove('browse-mode', 'island-mode', 'ntp-active'); }
       if (tabRow) tabRow.style.display = '';
     }
-    if (_pillBrowseMode) _pillSyncTabs();
+    if (window._pillBrowseMode) _pillSyncTabs();
   }
   _browseRenderTabs();
 }
@@ -92,9 +107,9 @@ export function _updateIslandNavButtons() {
     const tab = _browseTabs.find(t => t.id === _browseActiveTab);
     const hasBackHistory = tab && tab.backStack && tab.backStack.length > 0;
     let hasElBack = false, hasElFwd = false;
-    try { hasElBack = _browseIsElectron && tab && tab.el && tab.el.canGoBack && tab.el.canGoBack(); } catch(e) {}
+    try { hasElBack = window._browseIsElectron && tab && tab.el && tab.el.canGoBack && tab.el.canGoBack(); } catch(e) {}
     const hasFwdHistory = tab && tab.forwardStack && tab.forwardStack.length > 0;
-    try { hasElFwd = _browseIsElectron && tab && tab.el && tab.el.canGoForward && tab.el.canGoForward(); } catch(e) {}
+    try { hasElFwd = window._browseIsElectron && tab && tab.el && tab.el.canGoForward && tab.el.canGoForward(); } catch(e) {}
     const showBack = hasBackHistory || hasElBack;
     const showFwd = hasFwdHistory || hasElFwd;
     // Pill bar buttons
@@ -125,16 +140,16 @@ export function _showHistoryDropdown(direction, buttonEl) {
   // Show most recent first
   const items = stack.slice().reverse().slice(0, 15);
   const rows = items.map(function(url, i) {
-    const favImg = Image(_browseFaviconUrl(url))
+    const favImg = window.Image(_browseFaviconUrl(url))
       .frame({ width: 14, height: 14 }).cornerRadius('xs')
       .styles({flexShrink:'0'})
       .on('error', function() { this.style.display = 'none'; });
-    const label = Text(_browseTitleFromUrl(url)).truncate();
-    return HStack([favImg, label]).className('browse-history-dropdown-item nr-menu-item')
+    const label = window.Text(_browseTitleFromUrl(url)).truncate();
+    return window.HStack([favImg, label]).className('browse-history-dropdown-item nr-menu-item')
       .onTap(function() { _historyDropdownNavigate(direction, i + 1); _hideHistoryDropdownNow(); });
   });
 
-  const ddView = VStack(rows).className('browse-history-dropdown nr-menu')
+  const ddView = window.VStack(rows).className('browse-history-dropdown nr-menu')
     .material('thin')
     .on('mouseenter', function() { clearTimeout(_historyDropdownHideTimer); })
     .on('mouseleave', function() { _scheduleHideHistoryDropdown(); });
@@ -183,7 +198,7 @@ export function _showTabsInPillDropdown() {
   const wrap = document.getElementById('pill-url-wrap');
   if (!dd || !wrap) return;
 
-  const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
+  const win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
   if (!win || !win.tabs || !win.tabs.length) return;
 
   const tabs = win.tabs;
@@ -195,7 +210,7 @@ export function _showTabsInPillDropdown() {
 
   function _ddRow(children, opts) {
     opts = opts || {};
-    const row = HStack(children).alignment('center');
+    const row = window.HStack(children).alignment('center');
     Object.assign(row.el.style, rowBase);
     if (opts.bg) row.el.style.background = opts.bg;
     row.onHover(
@@ -210,8 +225,8 @@ export function _showTabsInPillDropdown() {
   const views = [];
 
   // New tab row
-  const newTabIcon = RawHTML('<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>');
-  views.push(_ddRow([newTabIcon, Text('New tab')]).onTap(function() {
+  const newTabIcon = window.RawHTML('<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>');
+  views.push(_ddRow([newTabIcon, window.Text('New tab')]).onTap(function() {
     if (typeof browseNewTab === 'function') browseNewTab();
     _browseUrlHideHistory();
   }));
@@ -220,11 +235,11 @@ export function _showTabsInPillDropdown() {
     const isActive = t.id === activeTab;
     const title = (t.title || 'New Tab').length > 40 ? (t.title || 'New Tab').slice(0, 38) + '\u2026' : (t.title || 'New Tab');
     const favView = t.favicon
-      ? Image(t.favicon).frame({ width: 14, height: 14 }).cornerRadius('xs').styles({flexShrink:'0'})
+      ? window.Image(t.favicon).frame({ width: 14, height: 14 }).cornerRadius('xs').styles({flexShrink:'0'})
           .on('error', function() { this.style.display = 'none'; })
-      : RawHTML(globeSvg);
-    const titleView = Text(title).flex(1).styles({minWidth:'0'}).truncate();
-    var closeBtn = Text('\u00d7').foreground('quaternary').styles({fontSize:'1rem', lineHeight:'1', padding:'0 2px'}).opacity(0.5)
+      : window.RawHTML(globeSvg);
+    const titleView = window.Text(title).flex(1).styles({minWidth:'0'}).truncate();
+    var closeBtn = window.Text('\u00d7').foreground('quaternary').styles({fontSize:'1rem', lineHeight:'1', padding:'0 2px'}).opacity(0.5)
       .onHover(function() { closeBtn.el.style.opacity = '1'; }, function() { closeBtn.el.style.opacity = '0.5'; })
       .onTap(function(e) {
         e.stopPropagation();
@@ -242,12 +257,12 @@ export function _showTabsInPillDropdown() {
   if (pinnedItems.length) {
     pinnedItems.forEach(function(t) { views.push(renderTabView(t)); });
     if (unpinnedItems.length) {
-      views.push(new View('div').styles({height:'1px', background:'var(--aether-border, var(--nr-border-default))', margin:'2px 12px'}));
+      views.push(new window.View('div').styles({height:'1px', background:'var(--aether-border, var(--nr-border-default))', margin:'2px 12px'}));
     }
   }
   unpinnedItems.forEach(function(t) { views.push(renderTabView(t)); });
 
-  AetherUI.mount(VStack(views), dd);
+  AetherUI.mount(window.VStack(views), dd);
   dd.style.display = '';
   dd.classList.remove('hidden');
   wrap.classList.add('pill-dropdown-open');
@@ -375,7 +390,7 @@ export function _pillMicClick() {
 export function _browseRenderTabs() {
   const isIsland = Settings.get('browseTabLayout') === 'island';
   const bar = isIsland ? null : document.getElementById('browse-tabs');
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   const tabs = win ? win.tabs : [];
   const activeTab = win ? win.activeTab : null;
   const groups = win ? (win.groups || []) : [];
@@ -402,7 +417,7 @@ export function _browseRenderTabs() {
 
   pinned.forEach(t => views.push(_browseRenderTabView(t, activeTab)));
   if (pinned.length > 0 && unpinned.length > 0) {
-    views.push(new View('div').className('browse-tab-pin-separator'));
+    views.push(new window.View('div').className('browse-tab-pin-separator'));
   }
 
   // Sort unpinned: grouped tabs contiguous by group, ungrouped at end
@@ -428,11 +443,11 @@ export function _browseRenderTabs() {
     const group = groups.find(g => g.id === gid);
     const gTabs = byGroup.get(gid);
     if (!gTabs || !gTabs.length) continue;
-    const gc = _BROWSE_GROUP_COLOR_MAP[group.color] || group.color;
+    const gc = window._BROWSE_GROUP_COLOR_MAP[group.color] || group.color;
 
-    const chip = HStack([
-      Text(group.name).className('browse-tab-group-name'),
-      Text(String(gTabs.length)).className('browse-tab-group-count')
+    const chip = window.HStack([
+      window.Text(group.name).className('browse-tab-group-name'),
+      window.Text(String(gTabs.length)).className('browse-tab-group-count')
     ]).className('browse-tab-group-chip')
       .attr('data-group-id', gid)
       .onTap(function() { _browseToggleGroupCollapse(gid); })
@@ -464,7 +479,7 @@ export function _browseRenderTabs() {
     }
   }
 
-  AetherUI.mount(HStack(views), bar);
+  AetherUI.mount(window.HStack(views), bar);
 
   // Attach tab drag-to-reorder handlers
   bar.querySelectorAll('.browse-tab').forEach(tabEl => {
@@ -475,7 +490,7 @@ export function _browseRenderTabs() {
   });
 
   // Mirror tabs into the pill bar if in browse mode (horizontal only)
-  if (_pillBrowseMode) _pillSyncTabs();
+  if (window._pillBrowseMode) _pillSyncTabs();
 }
 
 // ── Split pill drag (reorder + unsplit) ──
@@ -592,7 +607,7 @@ export function _splitPillDragStart(e) {
     if (mode === 'unsplit' && innerPaneId != null) {
       browseUnsplitPane(innerPaneId);
     } else if (mode === 'reorder' && insertBeforeId !== null) {
-      const win = _getCurrentWindow();
+      const win = window._getCurrentWindow();
       if (!win) return;
       const panes = _browseGetSplitPanes();
       const splitTabIds = panes.map(p => p.tabId);
@@ -602,7 +617,7 @@ export function _splitPillDragStart(e) {
       const insertAt = toIdx !== -1 ? toIdx : win.tabs.length;
       win.tabs.splice(insertAt, 0, ...splitTabs);
       _browseRenderTabs();
-      _browseSaveTabs();
+      window._browseSaveTabs();
     } else if (!mode && innerTabEl) {
       // No drag — just a click, focus the pane
       if (innerPaneId != null) _browseFocusPane(innerPaneId);
@@ -616,17 +631,17 @@ export function _splitPillDragStart(e) {
 // ── Tab pin / group helpers ──
 
 export function _browseToggleGroupCollapse(groupId) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const group = (win.groups || []).find(g => g.id === groupId);
   if (!group) return;
   group.collapsed = !group.collapsed;
   _browseRenderTabs();
-  _browseSaveTabs();
+  window._browseSaveTabs();
 }
 
 export function browseTogglePin(tabId) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const tab = win.tabs.find(t => t.id === tabId);
   if (!tab) return;
@@ -640,21 +655,21 @@ export function browseTogglePin(tabId) {
   const unpinned = win.tabs.filter(t => !t.pinned);
   win.tabs = [...pinned, ...unpinned];
   _browseRenderTabs();
-  _browseSaveTabs();
+  window._browseSaveTabs();
 }
 
 export function browseAddTabToNewGroup(tabId) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const tab = win.tabs.find(t => t.id === tabId);
   if (!tab || tab.pinned) return;
   if (!win.groups) win.groups = [];
-  const gid = _browseNextGroupId++;
-  const color = _BROWSE_GROUP_COLORS[win.groups.length % _BROWSE_GROUP_COLORS.length];
+  const gid = window._browseNextGroupId++;
+  const color = window._BROWSE_GROUP_COLORS[win.groups.length % window._BROWSE_GROUP_COLORS.length];
   win.groups.push({ id: gid, name: 'New group', color, collapsed: false });
   tab.groupId = gid;
   _browseRenderTabs();
-  _browseSaveTabs();
+  window._browseSaveTabs();
   // Inline rename the new group chip
   setTimeout(() => {
     const chip = document.querySelector(`.browse-tab-group-chip[data-group-id="${gid}"] .browse-tab-group-name`);
@@ -663,36 +678,36 @@ export function browseAddTabToNewGroup(tabId) {
 }
 
 export function browseAddTabToGroup(tabId, groupId) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const tab = win.tabs.find(t => t.id === tabId);
   if (!tab || tab.pinned) return;
   tab.groupId = groupId;
   _browseRenderTabs();
-  _browseSaveTabs();
+  window._browseSaveTabs();
 }
 
 export function browseRemoveTabFromGroup(tabId) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const tab = win.tabs.find(t => t.id === tabId);
   if (!tab) return;
   delete tab.groupId;
   _browseRenderTabs();
-  _browseSaveTabs();
+  window._browseSaveTabs();
 }
 
 export function _browseUngroupAll(groupId) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   win.tabs.forEach(t => { if (t.groupId === groupId) delete t.groupId; });
   win.groups = (win.groups || []).filter(g => g.id !== groupId);
   _browseRenderTabs();
-  _browseSaveTabs();
+  window._browseSaveTabs();
 }
 
 export function _browseCloseGroup(groupId) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const toClose = win.tabs.filter(t => t.groupId === groupId).map(t => t.id);
   win.groups = (win.groups || []).filter(g => g.id !== groupId);
@@ -701,17 +716,17 @@ export function _browseCloseGroup(groupId) {
 }
 
 export function _browseChangeGroupColor(groupId, color) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const group = (win.groups || []).find(g => g.id === groupId);
   if (!group) return;
   group.color = color;
   _browseRenderTabs();
-  _browseSaveTabs();
+  window._browseSaveTabs();
 }
 
 export function _browseStartRenameGroup(groupId, nameEl) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const group = (win.groups || []).find(g => g.id === groupId);
   if (!group) return;
@@ -727,7 +742,7 @@ export function _browseStartRenameGroup(groupId, nameEl) {
     const val = input.value.trim() || 'New group';
     group.name = val;
     _browseRenderTabs();
-    _browseSaveTabs();
+    window._browseSaveTabs();
   };
   input.addEventListener('blur', finish);
   input.addEventListener('keydown', (e) => {
@@ -742,7 +757,7 @@ export function _browseDismissTabContextMenu() {
 }
 
 export function _browseCloseOtherTabs(keepId) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const toClose = win.tabs.filter(t => t.id !== keepId && !t.pinned).map(t => t.id);
   for (const id of toClose.reverse()) browseCloseTab(id);
@@ -750,15 +765,15 @@ export function _browseCloseOtherTabs(keepId) {
 
 export function _browseShowGroupContextMenu(e, groupId) {
   _browseDismissTabContextMenu();
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const group = (win.groups || []).find(g => g.id === groupId);
   if (!group) return;
 
   // Color dots
-  const dots = _BROWSE_GROUP_COLORS.map(function(c) {
-    const hex = _BROWSE_GROUP_COLOR_MAP[c];
-    const dot = new View('span').className('browse-ctx-color-dot' + (c === group.color ? ' browse-ctx-color-selected' : ''));
+  const dots = window._BROWSE_GROUP_COLORS.map(function(c) {
+    const hex = window._BROWSE_GROUP_COLOR_MAP[c];
+    const dot = new window.View('span').className('browse-ctx-color-dot' + (c === group.color ? ' browse-ctx-color-selected' : ''));
     dot.el.style.background = hex;
     dot.onTap(function(ev) {
       ev.stopPropagation();
@@ -770,7 +785,7 @@ export function _browseShowGroupContextMenu(e, groupId) {
 
   const menuItems = [
     // Rename
-    new View('div').className('browse-ctx-item')
+    new window.View('div').className('browse-ctx-item')
       ._bindText('Rename')
       .onTap(function(ev) {
         ev.stopPropagation();
@@ -781,20 +796,20 @@ export function _browseShowGroupContextMenu(e, groupId) {
         }, 50);
       }),
     // Color dots row
-    HStack(dots).className('browse-ctx-colors'),
+    window.HStack(dots).className('browse-ctx-colors'),
     // Separator
-    new View('div').className('browse-ctx-sep'),
+    new window.View('div').className('browse-ctx-sep'),
     // Ungroup all
-    new View('div').className('browse-ctx-item')
+    new window.View('div').className('browse-ctx-item')
       ._bindText('Ungroup all')
       .onTap(function() { _browseDismissTabContextMenu(); _browseUngroupAll(groupId); }),
     // Close group
-    new View('div').className('browse-ctx-item')
+    new window.View('div').className('browse-ctx-item')
       ._bindText('Close group')
       .onTap(function() { _browseDismissTabContextMenu(); _browseCloseGroup(groupId); })
   ];
 
-  const menuView = VStack(menuItems).className('browse-ctx-menu nr-menu').material('thick')
+  const menuView = window.VStack(menuItems).className('browse-ctx-menu nr-menu').material('thick')
     .position('fixed').styles({left: e.clientX + 'px', top: e.clientY + 'px'}).zIndex('max');
 
   const menu = menuView.build();
@@ -813,7 +828,6 @@ export function _browseShowGroupContextMenu(e, groupId) {
 
 export const _tabHoverTimeout = null;
 export const _tabHoverDismissTimeout = null;
-
 
 // ── Tab drag-to-reorder ──
 
@@ -891,7 +905,7 @@ export function _tabDragUpdatePosition(clientPos) {
   const bar = _getActiveTabBar();
   if (!bar) return;
   const isVert = _tabDragState.isIsland;
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   const dragTab = win ? win.tabs.find(t => t.id === _tabDragState.tabId) : null;
   const isDragPinned = dragTab && dragTab.pinned;
 
@@ -976,7 +990,7 @@ export function _tabDragEnd(e) {
   if (_origOnclick) tabEl.setAttribute('onclick', _origOnclick);
 
   if (hasMoved) {
-    const win = _getCurrentWindow();
+    const win = window._getCurrentWindow();
     if (!win) return;
     const fromIdx = win.tabs.findIndex(t => t.id === tabId);
     if (fromIdx === -1) return;
@@ -1002,7 +1016,7 @@ export function _tabDragEnd(e) {
       }
     }
     _browseRenderTabs();
-    _browseSaveTabs();
+    window._browseSaveTabs();
   } else {
     // No drag movement — treat as a normal click to select tab
     _focusBrowseTabBar();
@@ -1129,7 +1143,7 @@ export function browseNavigate(input) {
   _browseSetUrlDisplay(urlInput, url);
   _browseRenderTabs();
   _browseUpdateSaveBtn();
-  _browseSaveTabs();
+  window._browseSaveTabs();
   _browseUpdateAdBlockBtn();
   _browseUpdateNewTabPage(tab);
   _updateIslandNavButtons();
@@ -1229,7 +1243,7 @@ export function browseBack() {
     return;
   }
   const el = _browseActiveEl();
-  if (_browseIsElectron && el && el.canGoBack && el.canGoBack()) { _browseNavDirection = 'back'; el.goBack(); return; }
+  if (window._browseIsElectron && el && el.canGoBack && el.canGoBack()) { _browseNavDirection = 'back'; el.goBack(); return; }
   // Use our own history stack for non-Electron (cross-origin iframes block history.back())
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (tab && tab.backStack && tab.backStack.length) {
@@ -1249,7 +1263,7 @@ export function browseBack() {
     _browseSetUrlDisplay(urlInput, prevUrl);
     _browseRenderTabs();
     _browseUpdateSaveBtn();
-    _browseSaveTabs();
+    window._browseSaveTabs();
     _updateIslandNavButtons();
     return;
   }
@@ -1260,7 +1274,7 @@ export function browseBack() {
 export function browseForward() {
   const el = _browseActiveEl();
   if (!el) return;
-  if (_browseIsElectron && el.canGoForward && el.canGoForward()) { _browseNavDirection = 'forward'; el.goForward(); return; }
+  if (window._browseIsElectron && el.canGoForward && el.canGoForward()) { _browseNavDirection = 'forward'; el.goForward(); return; }
   // Use our own history stack for non-Electron
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || !tab.forwardStack || !tab.forwardStack.length) return;
@@ -1278,15 +1292,15 @@ export function browseForward() {
   _browseSetUrlDisplay(urlInput, nextUrl);
   _browseRenderTabs();
   _browseUpdateSaveBtn();
-  _browseSaveTabs();
+  window._browseSaveTabs();
   _updateIslandNavButtons();
 }
 
 export function browseReload() {
   const el = _browseActiveEl();
   if (!el) return;
-  if (_browseIsElectron && el.reload) { el.reload(); return; }
-  if (!_browseIsElectron) { try { el.contentWindow.location.reload(); } catch(e) {} }
+  if (window._browseIsElectron && el.reload) { el.reload(); return; }
+  if (!window._browseIsElectron) { try { el.contentWindow.location.reload(); } catch(e) {} }
 }
 
 export let _browseZoomLevel = 1.0;
@@ -1313,7 +1327,7 @@ export function _browseApplyZoom(focalX, focalY) {
   const el = _browseActiveEl();
   const container = document.getElementById('browse-content');
   if (el && container) {
-    if (_browseIsElectron && el.setZoomFactor) {
+    if (window._browseIsElectron && el.setZoomFactor) {
       el.setZoomFactor(_browseZoomLevel);
     } else {
       const oldZoom = parseFloat(el.dataset.zoom || '1');
@@ -1360,63 +1374,14 @@ export function _browseApplyZoom(focalX, focalY) {
   _browseShowZoomControls();
 }
 
-window.toggleBrowseTabLayout = toggleBrowseTabLayout;
-window._applyBrowseTabLayout = _applyBrowseTabLayout;
-window._pillSyncUrl = _pillSyncUrl;
-window._updateIslandNavButtons = _updateIslandNavButtons;
-window._historyDropdownEl = _historyDropdownEl;
-window._historyDropdownHideTimer = _historyDropdownHideTimer;
-window._showHistoryDropdown = _showHistoryDropdown;
-window._scheduleHideHistoryDropdown = _scheduleHideHistoryDropdown;
-window._hideHistoryDropdownNow = _hideHistoryDropdownNow;
-window._historyDropdownNavigate = _historyDropdownNavigate;
-window._pillUrlKeydown = _pillUrlKeydown;
-window._showTabsInPillDropdown = _showTabsInPillDropdown;
-window._pillTabsOutsideHandler = _pillTabsOutsideHandler;
-window._pillTabsBlurHandler = _pillTabsBlurHandler;
-window._pillTabsBlurTimer = _pillTabsBlurTimer;
-window._pillTabsDropdownCleanup = _pillTabsDropdownCleanup;
-window._pillMicRecorder = _pillMicRecorder;
-window._pillMicRecognition = _pillMicRecognition;
-window._pillMicTranscript = _pillMicTranscript;
-window._pillMicLiveText = _pillMicLiveText;
-window._pillMicClick = _pillMicClick;
-window._browseRenderTabs = _browseRenderTabs;
-window._splitPillDragStart = _splitPillDragStart;
-window._browseToggleGroupCollapse = _browseToggleGroupCollapse;
-window.browseTogglePin = browseTogglePin;
-window.browseAddTabToNewGroup = browseAddTabToNewGroup;
-window.browseAddTabToGroup = browseAddTabToGroup;
-window.browseRemoveTabFromGroup = browseRemoveTabFromGroup;
-window._browseUngroupAll = _browseUngroupAll;
-window._browseCloseGroup = _browseCloseGroup;
-window._browseChangeGroupColor = _browseChangeGroupColor;
-window._browseStartRenameGroup = _browseStartRenameGroup;
-window._browseDismissTabContextMenu = _browseDismissTabContextMenu;
-window._browseCloseOtherTabs = _browseCloseOtherTabs;
-window._browseShowGroupContextMenu = _browseShowGroupContextMenu;
-window._tabHoverTimeout = _tabHoverTimeout;
-window._tabHoverDismissTimeout = _tabHoverDismissTimeout;
-window._tabDragState = _tabDragState;
-window.TAB_DRAG_THRESHOLD = TAB_DRAG_THRESHOLD;
-window._tabDragStart = _tabDragStart;
-window._tabDragMove = _tabDragMove;
-window._tabDragUpdatePosition = _tabDragUpdatePosition;
-window._tabDragEnd = _tabDragEnd;
-window._browseTitleFromUrl = _browseTitleFromUrl;
-window._browseFaviconUrl = _browseFaviconUrl;
-window.browseNavigate = browseNavigate;
-window._BANGS = _BANGS;
-window._browseResolveUrl = _browseResolveUrl;
-window._browseActiveEl = _browseActiveEl;
-window._browseNavDirection = _browseNavDirection;
-window.browseBack = browseBack;
-window.browseForward = browseForward;
-window.browseReload = browseReload;
-window._browseZoomLevel = _browseZoomLevel;
-window._browseZoomPanX = _browseZoomPanX;
-window._browseZoomPanY = _browseZoomPanY;
-window._browseZoomHideTimer = _browseZoomHideTimer;
-window._browseShowZoomControls = _browseShowZoomControls;
-window.browseZoom = browseZoom;
-window._browseApplyZoom = _browseApplyZoom;
+// ── Action registry ──
+registerActions({
+  toggleBrowseTabLayout: () => toggleBrowseTabLayout(),
+  browseBack: () => browseBack(),
+  browseForward: () => browseForward(),
+  browseReload: () => browseReload(),
+  browseZoom: (_e, arg) => browseZoom(Number(arg)),
+  showHistoryDropdown: (_e, arg, el) => _showHistoryDropdown(arg, el),
+  scheduleHideHistoryDropdown: () => _scheduleHideHistoryDropdown(),
+});
+

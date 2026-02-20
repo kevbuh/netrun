@@ -1,7 +1,22 @@
 // browse-downloads.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
 import Settings from '/js/core/core-settings.js';
-if (window.AetherUI) AetherUI.globals();
+import { apiPost } from '/js/api.js';
+import { escapeHtml } from '/js/core/core-utils.js';
+import { icon } from '/js/core/icons.js';
+import { islandUpdate, islandRemove, _showLinkPreview, _hideLinkPreview } from '/js/core/core-ui.js';
+import { FEED_CATALOG } from '/js/core/core-views.js';
+import { _annotationsEnabled, _hideAnnotationTooltip, _showAnnotateOfferPill, _showAnnotationTooltip, _updateAnnotateButtonState } from '/js/browse/browse-annotations.js';
+import { _browseApplyAdaptiveColor, _browseSetUrlDisplay, _browseUpdateAdBlockBadge, _browseUrlDomain, _saveBrowseVisit } from '/js/browse-urlbar.js';
+import { _browseCollapseEmptyWindows, browseNewTab } from '/js/browse/browse-windows.js';
+import { _browseFaviconUrl, _browseNavDirection, _browseRenderTabs, _browseTitleFromUrl, _updateIslandNavButtons } from '/js/browse/browse-island.js';
+import { _browseToggleFindBar, _browseUpdateSaveBtn, _swipeCommit, _switchTabLeft, _switchTabRight } from '/js/browse/browse-features.js';
+import { _browseUpdateScrollPill, _browseUpdateTokenCount, _updateAudioIndicator } from '/js/browse/browse-audio.js';
+import { _ccPillDismissed, stopCaptions } from '/js/browse/browse-captions.js';
+import { _hideBrowseContextMenu, _pwCheckAutofill, _pwHideSavePrompt, _pwShowSavePrompt, _showBrowseContextMenu, browseCloseTab } from '/js/browse/browse-passwords.js';
+import { _iframeRectToParent, _positionAtCursor, _showPanel } from '/js/panel.js';
+import { _paperHandleMeta, _paperHideRefTooltip, _paperOnPageLoad, _paperShowRefTooltip } from '/js/browse/browse-paper.js';
+import { allPapers, loadAllFeeds } from '/js/feed.js';
 
 // ── Doom Scroll Prevention ──
 export const _DOOM_SCROLL_DEFAULTS = [
@@ -108,7 +123,6 @@ export function _checkFocusTimer(url) {
     _hideFocusTimerPill();
   }
 }
-
 
 // ── Download Manager ──
 export const DOWNLOAD_RETENTION_MS = 60 * 60 * 1000; // 1 hour
@@ -219,28 +233,28 @@ export function _browseRenderDownloads() {
 
   if (_browseDownloads.length === 0) {
     AetherUI.mount(
-      new View('div').className('browse-downloads-empty')._bindText('No downloads'),
+      new window.View('div').className('browse-downloads-empty')._bindText('No downloads'),
       dropdown
     );
     return;
   }
 
-  const completedSvg = '<svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
-  const fileSvg = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
-  const folderSvg = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>';
-  const closeSvg = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  const completedSvg = icon('fileCheckmark', {size: 16});
+  const fileSvg = icon('filePlain', {size: 16});
+  const folderSvg = icon('folder', {size: 14});
+  const closeSvg = icon('close', {size: 14});
 
-  const clearBtn = new View('button').className('browse-downloads-clear')._bindText('Clear all')
+  const clearBtn = new window.View('button').className('browse-downloads-clear')._bindText('Clear all')
     .onTap(function(e) { e.stopPropagation(); clearBrowseDownloads(); });
-  const header = HStack([
-    new View('span').className('browse-downloads-title')._bindText('Downloads'),
+  const header = window.HStack([
+    new window.View('span').className('browse-downloads-title')._bindText('Downloads'),
     clearBtn
   ]).className('browse-downloads-header');
 
   const items = [header];
   for (let i = 0; i < _browseDownloads.length; i++) {
     (function(dl) {
-      const icon = RawHTML(dl.state === 'completed' ? completedSvg : fileSvg).className('browse-download-item-icon');
+      const icon = window.RawHTML(dl.state === 'completed' ? completedSvg : fileSvg).className('browse-download-item-icon');
 
       const pct = dl.totalBytes > 0 ? Math.round((dl.receivedBytes / dl.totalBytes) * 100) : 0;
       const size = dl.totalBytes > 0 ? _formatBytes(dl.totalBytes) : '';
@@ -249,37 +263,37 @@ export function _browseRenderDownloads() {
         : pct + '% \u00b7 ' + _formatBytes(dl.receivedBytes) + (dl.totalBytes > 0 ? ' / ' + size : '');
 
       const infoChildren = [
-        new View('div').className('browse-download-item-name')._bindText(escapeHtml(dl.filename)),
-        new View('div').className('browse-download-item-status')._bindText(status)
+        new window.View('div').className('browse-download-item-name')._bindText(escapeHtml(dl.filename)),
+        new window.View('div').className('browse-download-item-status')._bindText(status)
       ];
       if (dl.state === 'progressing') {
-        const bar = new View('div').className('browse-download-item-progress-bar').styles({ width: pct + '%' });
-        infoChildren.push(new View('div').className('browse-download-item-progress')._appendChildren([bar]));
+        const bar = new window.View('div').className('browse-download-item-progress-bar').styles({ width: pct + '%' });
+        infoChildren.push(new window.View('div').className('browse-download-item-progress')._appendChildren([bar]));
       }
-      const info = VStack(infoChildren).className('browse-download-item-info');
+      const info = window.VStack(infoChildren).className('browse-download-item-info');
 
       const actionChildren = [];
       if (dl.state === 'completed') {
         actionChildren.push(
-          new View('button').className('nr-btn nr-btn-ghost nr-btn-sm').attr('title', 'Show in folder')
+          new window.View('button').className('nr-btn nr-btn-ghost nr-btn-sm').attr('title', 'Show in folder')
             .onTap(function(e) { e.stopPropagation(); showDownloadInFolder(dl.id); })
-            ._appendChildren([RawHTML(folderSvg)])
+            ._appendChildren([window.RawHTML(folderSvg)])
         );
       }
       actionChildren.push(
-        new View('button').className('nr-btn nr-btn-ghost nr-btn-sm').attr('title', 'Remove')
+        new window.View('button').className('nr-btn nr-btn-ghost nr-btn-sm').attr('title', 'Remove')
           .onTap(function(e) { e.stopPropagation(); removeBrowseDownload(dl.id); })
-          ._appendChildren([RawHTML(closeSvg)])
+          ._appendChildren([window.RawHTML(closeSvg)])
       );
-      const actions = HStack(actionChildren).className('browse-download-item-actions');
+      const actions = window.HStack(actionChildren).className('browse-download-item-actions');
 
-      const row = HStack([icon, info, actions]).className('browse-download-item')
+      const row = window.HStack([icon, info, actions]).className('browse-download-item')
         .onTap(function() { openDownloadFile(dl.id); });
       items.push(row);
     })(_browseDownloads[i]);
   }
 
-  AetherUI.mount(VStack(items), dropdown);
+  AetherUI.mount(window.VStack(items), dropdown);
   dropdown.onclick = function(e) { e.stopPropagation(); };
 }
 
@@ -468,10 +482,10 @@ export function _browseHandleNavigation(tab, frame) {
     tab.title = _browseTitleFromUrl(navUrl);
     tab.favicon = _browseFaviconUrl(navUrl);
     tab.blank = false;
-    _pwAutofillOffered.delete(tab.id);
+    window._pwAutofillOffered.delete(tab.id);
     // Re-show save prompt after navigation if credentials were just captured
-    if (_pwPendingPrompt && _pwPendingPrompt.tab.id === tab.id && Date.now() - _pwPendingPrompt.ts < 15000) {
-      const pending = _pwPendingPrompt;
+    if (window._pwPendingPrompt && window._pwPendingPrompt.tab.id === tab.id && Date.now() - window._pwPendingPrompt.ts < 15000) {
+      const pending = window._pwPendingPrompt;
       _pwHideSavePrompt();
       setTimeout(() => _pwShowSavePrompt(pending.tab, pending.data), 100);
     } else {
@@ -479,7 +493,7 @@ export function _browseHandleNavigation(tab, frame) {
     }
     _saveBrowseVisit(navUrl, tab.title);
     _browseRenderTabs();
-    _browseSaveTabs();
+    window._browseSaveTabs();
     _browseCollapseEmptyWindows();
     if (_browseActiveTab === tab.id) {
       const urlInput = document.getElementById('browse-url-input');
@@ -541,7 +555,7 @@ export function _browseHandleNavigation(tab, frame) {
     }
     tab.favicon = _browseFaviconUrl(e.url);
     _browseRenderTabs();
-    _browseSaveTabs();
+    window._browseSaveTabs();
     if (_browseActiveTab === tab.id) {
       const urlInput = document.getElementById('browse-url-input');
       _browseSetUrlDisplay(urlInput, e.url);
@@ -560,7 +574,7 @@ export function _browseHandleNavigation(tab, frame) {
     // Update the most recent browse history entry with the real title
     if (tab.url) _saveBrowseVisit(tab.url, tab.title);
     _browseRenderTabs();
-    _browseSaveTabs();
+    window._browseSaveTabs();
     // Refresh shortened URL display with new title
     if (_browseActiveTab === tab.id) {
       const urlInput = document.getElementById('browse-url-input');
@@ -579,17 +593,17 @@ export function _browseHandleNavigation(tab, frame) {
   // Audio tracking
   frame.addEventListener('media-started-playing', () => {
     // Find which window this tab belongs to
-    const winId = _browseWindows.find(w => w.tabs.some(t => t.id === tab.id))?.id;
+    const winId = window._browseWindows.find(w => w.tabs.some(t => t.id === tab.id))?.id;
     if (winId) {
-      _browseAudioTabs.set(tab.id, { windowId: winId, muted: false });
+      window._browseAudioTabs.set(tab.id, { windowId: winId, muted: false });
       _browseRenderTabs();
       _updateAudioIndicator();
     }
   });
   frame.addEventListener('media-paused', () => {
-    _browseAudioTabs.delete(tab.id);
+    window._browseAudioTabs.delete(tab.id);
     _ccPillDismissed = false;
-    if (_ccTabId === tab.id) stopCaptions();
+    if (window._ccTabId === tab.id) stopCaptions();
     _browseRenderTabs();
     _updateAudioIndicator();
   });
@@ -603,7 +617,7 @@ export function _browseHandleNavigation(tab, frame) {
   });
 
   // Detect HTTP error pages (404, 500, etc.) after load finishes
-  if (_browseIsElectron) {
+  if (window._browseIsElectron) {
     frame.addEventListener('did-finish-load', () => {
       try {
         frame.executeJavaScript(
@@ -813,7 +827,7 @@ export function _browseShowErrorPage(tab, frame, failedUrl, errorDesc, errorCode
     '</details>' +
   '</div></body></html>';
 
-  if (_browseIsElectron) {
+  if (window._browseIsElectron) {
     try { frame.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html)); } catch {}
   } else {
     frame.srcdoc = html;
@@ -948,7 +962,7 @@ export function _browseInjectContentScripts(tab, frame) {
     _ctxMenuHandledAt = Date.now();
     if (typeof _showPanel !== 'function') return;
     const popup = document.getElementById('doc-chat-ask-float');
-    if (popup) { popup.remove(); _aetherTrackMode = false; }
+    if (popup) { popup.remove(); window._aetherTrackMode = false; }
     const ctxData = (ev.linkURL || ev.srcURL) ? {
       linkUrl: ev.linkURL || '', linkText: ev.linkText || '',
       imgUrl: ev.srcURL || '', mediaType: ev.mediaType || ''
@@ -1244,19 +1258,19 @@ export function _browseInjectContentScripts(tab, frame) {
     } else if (e.message === '__AETHER_DISMISS_CHAT__') {
       const popup = document.getElementById('doc-chat-ask-float');
       if (popup) {
-        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
-        _aetherTrackMode = false;
+        if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
+        window._aetherTrackMode = false;
         popup.remove();
       }
     } else if (e.message && e.message.startsWith('__AETHER_MOUSE__')) {
-      if (!_aetherTrackMode) return;
+      if (!window._aetherTrackMode) return;
       const parts = e.message.slice('__AETHER_MOUSE__'.length).split(',');
       const x = parseInt(parts[0]) - window.screenX;
       const y = parseInt(parts[1]) - window.screenY;
-      _lastMouseX = x;
-      _lastMouseY = y;
+      window._lastMouseX = x;
+      window._lastMouseY = y;
       const popup = document.getElementById('doc-chat-ask-float');
-      if (!popup) { _aetherTrackMode = false; return; }
+      if (!popup) { window._aetherTrackMode = false; return; }
       const pos = _positionAtCursor(x, y, popup.offsetWidth, popup.offsetHeight, false);
       popup.style.left = pos.left + 'px';
       popup.style.top = pos.top + 'px';
@@ -1271,7 +1285,7 @@ export function _browseInjectContentScripts(tab, frame) {
         const y = data.y - window.screenY;
         if (typeof _showPanel === 'function') {
           const popup = document.getElementById('doc-chat-ask-float');
-          if (popup) { popup.remove(); _aetherTrackMode = false; }
+          if (popup) { popup.remove(); window._aetherTrackMode = false; }
           _showPanel({ anchor: { x, y }, contextMenu: data });
         }
       } catch (err) {}
@@ -1282,7 +1296,7 @@ export function _browseInjectContentScripts(tab, frame) {
         const y = data.y - window.screenY;
         if (typeof _showPanel === 'function') {
           const popup = document.getElementById('doc-chat-ask-float');
-          if (popup) { popup.remove(); _aetherTrackMode = false; }
+          if (popup) { popup.remove(); window._aetherTrackMode = false; }
           _showPanel({ anchor: { x, y }, trackCursor: true });
         }
       } catch (err) {}
@@ -1293,7 +1307,7 @@ export function _browseInjectContentScripts(tab, frame) {
         const y = data.y - window.screenY;
         if (typeof _showPanel === 'function') {
           const popup = document.getElementById('doc-chat-ask-float');
-          if (popup) { popup.remove(); _aetherTrackMode = false; }
+          if (popup) { popup.remove(); window._aetherTrackMode = false; }
           _showPanel({ anchor: { x, y }, trackCursor: false, webviewEditable: { webview: frame, editFlags: { canCut: true, canCopy: true, canPaste: true, canSelectAll: true } } });
         }
       } catch (err) {}
@@ -1309,7 +1323,7 @@ export function _browseInjectContentScripts(tab, frame) {
         const prefix = isFinal ? '__AETHER_SEL_FINAL__' : '__AETHER_SEL_PREVIEW__';
         const data = JSON.parse(e.message.slice(prefix.length));
         const selectionRect = _iframeRectToParent(data, frame);
-        _aetherTrackMode = false;
+        window._aetherTrackMode = false;
         if (!isFinal) {
           const existing = document.getElementById('doc-chat-ask-float');
           if (existing && existing._isAetherPanel) existing.remove();
@@ -1318,7 +1332,7 @@ export function _browseInjectContentScripts(tab, frame) {
       } catch (err) {}
     } else if (e.message === '__AETHER_SEL_CLEAR__') {
       const existing = document.getElementById('doc-chat-ask-float');
-      if (existing) { existing.remove(); _aetherTrackMode = false; }
+      if (existing) { existing.remove(); window._aetherTrackMode = false; }
     } else if (e.message && e.message.startsWith('__AETHER_LINK__')) {
       // Legacy support
       try {
@@ -1380,7 +1394,7 @@ export function _browseInjectContentScripts(tab, frame) {
     } else if (e.message && e.message.startsWith('__AETHER_PW_SUBMIT__')) {
       try {
         const data = JSON.parse(e.message.slice('__AETHER_PW_SUBMIT__'.length));
-        _pwPendingPrompt = { tab, data, ts: Date.now() };
+        window._pwPendingPrompt = { tab, data, ts: Date.now() };
         _pwShowSavePrompt(tab, data);
       } catch (err) {}
     } else if (e.message && e.message.startsWith('__AETHER_PAPER_META__')) {
@@ -1401,7 +1415,7 @@ export function _browseInjectContentScripts(tab, frame) {
 
 export function _browseUpdateRssPill(tab) {
   if (tab.id !== _browseActiveTab || !tab.rssFeeds || !tab.rssFeeds.length) {
-    const cur = _islandActivities && _islandActivities['rss'];
+    const cur = window._islandActivities && window._islandActivities['rss'];
     if (!cur || !cur.subscribed) islandRemove('rss');
     return;
   }
@@ -1563,7 +1577,7 @@ export function _injectDoomScrollNudge(tab, el, config) {
 export function _browseBindFrame(tab) {
   if (tab.contentType === 'reader') return;
   const el = tab.el;
-  if (!el || !_browseIsElectron) return;
+  if (!el || !window._browseIsElectron) return;
 
   _browseHandleNavigation(tab, el);
   _browseInjectContentScripts(tab, el);
@@ -1732,49 +1746,8 @@ export function _browseBindFrame(tab) {
   }
 }
 
-window._DOOM_SCROLL_DEFAULTS = _DOOM_SCROLL_DEFAULTS;
-window._getDoomScrollSites = _getDoomScrollSites;
-window._saveDoomScrollSites = _saveDoomScrollSites;
-window._doomScrollMatch = _doomScrollMatch;
-window._focusTimerStarts = _focusTimerStarts;
-window._focusTimerInterval = _focusTimerInterval;
-window._focusTimerDomain = _focusTimerDomain;
-window._focusTimerWarnMinutes = _focusTimerWarnMinutes;
-window._persistFocusTimerStarts = _persistFocusTimerStarts;
-window._formatFocusTime = _formatFocusTime;
-window._focusTimerElapsed = _focusTimerElapsed;
-window._startFocusTimer = _startFocusTimer;
-window._hideFocusTimerPill = _hideFocusTimerPill;
-window._updateFocusTimerPill = _updateFocusTimerPill;
-window._checkFocusTimer = _checkFocusTimer;
-window.DOWNLOAD_RETENTION_MS = DOWNLOAD_RETENTION_MS;
-window._browseDownloads = _browseDownloads;
-window._browseDownloadIdCounter = _browseDownloadIdCounter;
-window._browseDownloadsLastSeenCount = _browseDownloadsLastSeenCount;
-window._loadBrowseDownloads = _loadBrowseDownloads;
-window._saveBrowseDownloads = _saveBrowseDownloads;
-window._browseUpdateDownloadBadge = _browseUpdateDownloadBadge;
-window._browseRenderDownloads = _browseRenderDownloads;
-window._formatBytes = _formatBytes;
-window._closeBrowseDownloadsDropdown = _closeBrowseDownloadsDropdown;
-window.toggleBrowseDownloads = toggleBrowseDownloads;
-window._closeBrowseDownloadsOnClick = _closeBrowseDownloadsOnClick;
-window._closeBrowseDownloadsOnBlur = _closeBrowseDownloadsOnBlur;
-window.clearBrowseDownloads = clearBrowseDownloads;
-window.removeBrowseDownload = removeBrowseDownload;
-window.openDownloadFile = openDownloadFile;
-window.showDownloadInFolder = showDownloadInFolder;
-window._downloadsInitialized = _downloadsInitialized;
-window._initBrowseDownloads = _initBrowseDownloads;
-window._browseHandleNavigation = _browseHandleNavigation;
-window._browseErrorMap = _browseErrorMap;
-window._browseShowErrorPage = _browseShowErrorPage;
-window._ytAdBlockCSS = _ytAdBlockCSS;
-window._browseInjectYouTubeCSS = _browseInjectYouTubeCSS;
-window._browseInjectYouTubeAdBlock = _browseInjectYouTubeAdBlock;
-window._browseInjectContentScripts = _browseInjectContentScripts;
-window._browseUpdateRssPill = _browseUpdateRssPill;
-window._doomScrollBypass = _doomScrollBypass;
-window._browseShowBlockedPage = _browseShowBlockedPage;
-window._injectDoomScrollNudge = _injectDoomScrollNudge;
-window._browseBindFrame = _browseBindFrame;
+// ── Action registry ──
+registerActions({
+  toggleBrowseDownloads: (e) => toggleBrowseDownloads(e),
+});
+

@@ -2,6 +2,7 @@
 // Stub _showLoginGate so api.js:10 doesn't error on 401
 window._showLoginGate = function() {};
 function _showLoginGate() {}
+import { apiPost, apiGet } from '/js/api.js';
 
 let GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com';
 fetch('/api/client-config').then(r => {
@@ -77,7 +78,7 @@ async function _handleGoogleCredential(response) {
   const token = localStorage.getItem('authToken');
   if (token) {
     // Verify session is still valid
-    _authToken = token;
+    window._authToken = token;
     apiGet('/api/auth/me')
       .then(data => {
         if (data && data.email) {
@@ -107,6 +108,6 @@ function _clearAndShowLogin() {
   }
   localStorage.removeItem('authUser');
   localStorage.removeItem('authUserInfo');
-  _authToken = null;
+  window._authToken = null;
   _renderGoogleButton();
 }

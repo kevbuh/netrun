@@ -1,4 +1,6 @@
 import Settings from '../core/core-settings.js';
+import { getSelectedSpinner, setSelectedSpinner } from '/js/core/core-layout.js';
+import { renderSettingsView } from '/js/settings/settings-core.js';
 
 /* ── Daylight Theme Engine ── */
 export var _daylightInterval = null;
@@ -438,12 +440,12 @@ export function setAccentColor(color) {
 export let _spinnerPreviewInterval = null;
 
 export function cycleSpinner(dir) {
-  if (!_spinnerData || !_spinnerNames.length) return;
+  if (!window._spinnerData || !window._spinnerNames.length) return;
   const current = getSelectedSpinner();
-  let idx = _spinnerNames.indexOf(current);
+  let idx = window._spinnerNames.indexOf(current);
   if (idx === -1) idx = 0;
-  idx = (idx + dir + _spinnerNames.length) % _spinnerNames.length;
-  const name = _spinnerNames[idx];
+  idx = (idx + dir + window._spinnerNames.length) % window._spinnerNames.length;
+  const name = window._spinnerNames[idx];
   setSelectedSpinner(name);
   updateSpinnerPreview(name);
 }
@@ -451,9 +453,9 @@ export function cycleSpinner(dir) {
 export function updateSpinnerPreview(name) {
   const el = document.getElementById('spinner-preview');
   const nameEl = document.getElementById('spinner-name');
-  if (!el || !_spinnerData) return;
+  if (!el || !window._spinnerData) return;
   if (nameEl) nameEl.textContent = name;
-  const spinner = _spinnerData[name];
+  const spinner = window._spinnerData[name];
   if (!spinner) return;
   if (_spinnerPreviewInterval) clearInterval(_spinnerPreviewInterval);
   let i = 0;
@@ -478,18 +480,3 @@ export function setAetherColor(mode) {
   renderSettingsView();
 }
 
-window._daylightInterval = _daylightInterval;
-window._daylightSpeedMultiplier = _daylightSpeedMultiplier;
-window._oklchToHex = _oklchToHex;
-window._lerpOklch = _lerpOklch;
-window._daylightKeyframes = _daylightKeyframes;
-window._getDaylightHour = _getDaylightHour;
-window._applyDaylightColors = _applyDaylightColors;
-window.startDaylightTheme = startDaylightTheme;
-window.stopDaylightTheme = stopDaylightTheme;
-window.setAccentColor = setAccentColor;
-window._spinnerPreviewInterval = _spinnerPreviewInterval;
-window.cycleSpinner = cycleSpinner;
-window.updateSpinnerPreview = updateSpinnerPreview;
-window.applyAccentColor = applyAccentColor;
-window.setAetherColor = setAetherColor;

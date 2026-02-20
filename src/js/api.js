@@ -7,7 +7,7 @@ import { ipcRoute } from '/js/api-ipc.js';
 export async function api(path, opts = {}) {
   const resp = await fetch(path, {
     ...opts,
-    headers: { ..._authHeaders(), ...opts.headers },
+    headers: { ...window._authHeaders(), ...opts.headers },
   });
   if (resp.status === 401) { if (typeof _showLoginGate === 'function') _showLoginGate(); else window.location.href = '/login.html'; throw new Error('Unauthorized'); }
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -30,9 +30,3 @@ export async function apiDelete(path) {
   return ipcRoute(path, { method: 'DELETE' });
 }
 
-// ── Backward compatibility: expose on window ──
-window.api = api;
-window.apiGet = apiGet;
-window.apiPost = apiPost;
-window.apiPut = apiPut;
-window.apiDelete = apiDelete;

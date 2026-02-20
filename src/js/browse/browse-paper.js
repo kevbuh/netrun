@@ -1,6 +1,7 @@
 // browse-paper.js — Academic paper detection, metadata, and reference tooltips
 // Depends on: browse-state.js, browse-downloads.js, core-ui.js
-if (window.AetherUI) AetherUI.globals();
+import { escapeHtml } from '/js/core/core-utils.js';
+import { islandUpdate } from '/js/core/core-ui.js';
 
 // ── Paper site detection ──
 
@@ -312,7 +313,7 @@ export let _refTooltipHideTimer = null;
 export function _paperShowRefTooltip(data, frame) {
   if (_refTooltipHideTimer) { clearTimeout(_refTooltipHideTimer); _refTooltipHideTimer = null; }
   if (!_refTooltipEl) {
-    const tooltipView = new View('div').attr('id', 'aether-ref-tooltip').className('nr-ref-tooltip');
+    const tooltipView = new window.View('div').attr('id', 'aether-ref-tooltip').className('nr-ref-tooltip');
     _refTooltipEl = tooltipView.el;
     document.body.appendChild(_refTooltipEl);
   }
@@ -321,15 +322,15 @@ export function _paperShowRefTooltip(data, frame) {
   const refNum = data.refNum;
 
   const tipChildren = [
-    new View('div').className('nr-ref-tooltip-num')._bindText('[' + refNum + ']')
+    new window.View('div').className('nr-ref-tooltip-num')._bindText('[' + refNum + ']')
   ];
   if (data.title) {
-    tipChildren.push(new View('div').className('nr-ref-tooltip-title')._bindText(escapeHtml(data.title)));
+    tipChildren.push(new window.View('div').className('nr-ref-tooltip-title')._bindText(escapeHtml(data.title)));
   } else if (data.text) {
-    tipChildren.push(new View('div').className('nr-ref-tooltip-text')._bindText(escapeHtml(data.text.slice(0, 200))));
+    tipChildren.push(new window.View('div').className('nr-ref-tooltip-text')._bindText(escapeHtml(data.text.slice(0, 200))));
   }
-  tipChildren.push(new View('div').className('nr-ref-tooltip-loading')._bindText('Looking up\u2026'));
-  AetherUI.mount(VStack(tipChildren), tip);
+  tipChildren.push(new window.View('div').className('nr-ref-tooltip-loading')._bindText('Looking up\u2026'));
+  AetherUI.mount(window.VStack(tipChildren), tip);
   tip.style.display = 'block';
 
   const fRect = frame.getBoundingClientRect();
@@ -359,14 +360,14 @@ export async function _paperLookupRef(data, frame) {
     const authors = (result.authors || []).slice(0, 3).map(a => a.name);
     if (result.authors && result.authors.length > 3) authors.push('et al.');
     if (authors.length) {
-      extraEls.push(new View('div').className('nr-ref-tooltip-authors')._bindText(escapeHtml(authors.join(', '))));
+      extraEls.push(new window.View('div').className('nr-ref-tooltip-authors')._bindText(escapeHtml(authors.join(', '))));
     }
     const details = [];
     if (result.year) details.push(result.year);
     if (result.venue) details.push(result.venue);
     if (result.citationCount != null) details.push(result.citationCount + ' citations');
     if (details.length) {
-      extraEls.push(new View('div').className('nr-ref-tooltip-details')._bindText(escapeHtml(details.join(' \u00b7 '))));
+      extraEls.push(new window.View('div').className('nr-ref-tooltip-details')._bindText(escapeHtml(details.join(' \u00b7 '))));
     }
 
     const titleEl = _refTooltipEl.querySelector('.nr-ref-tooltip-title, .nr-ref-tooltip-text');
@@ -413,29 +414,3 @@ export function _paperOnPageLoad(tab, frame) {
   _paperInjectContentScript(frame, url);
 }
 
-window._paperSitePatterns = _paperSitePatterns;
-window._isPaperUrl = _isPaperUrl;
-window._extractArxivId = _extractArxivId;
-window._s2Cache = _s2Cache;
-window._S2_CACHE_TTL = _S2_CACHE_TTL;
-window._S2_BASE = _S2_BASE;
-window._s2RequestQueue = _s2RequestQueue;
-window._s2Processing = _s2Processing;
-window._S2_RATE_DELAY = _S2_RATE_DELAY;
-window._s2Fetch = _s2Fetch;
-window._s2ProcessQueue = _s2ProcessQueue;
-window._s2LookupByArxivId = _s2LookupByArxivId;
-window._s2SearchPaper = _s2SearchPaper;
-window._s2GetAuthor = _s2GetAuthor;
-window._paperState = _paperState;
-window._getPaperState = _getPaperState;
-window._paperInjectContentScript = _paperInjectContentScript;
-window._paperHandleMeta = _paperHandleMeta;
-window._paperMergeIntoPill = _paperMergeIntoPill;
-window._refTooltipEl = _refTooltipEl;
-window._refTooltipHideTimer = _refTooltipHideTimer;
-window._paperShowRefTooltip = _paperShowRefTooltip;
-window._paperLookupRef = _paperLookupRef;
-window._paperHideRefTooltip = _paperHideRefTooltip;
-window._paperCleanup = _paperCleanup;
-window._paperOnPageLoad = _paperOnPageLoad;

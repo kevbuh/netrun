@@ -1,6 +1,19 @@
 import Settings from '../core/core-settings.js';
+import { apiGet } from '/js/api.js';
+import { escapeHtml } from '/js/core/core-utils.js';
+import { icon } from '/js/core/icons.js';
+import { getSelectedSpinner, setSidebarActive } from '/js/core/core-layout.js';
+import { ensureView, hideAllViews } from '/js/core/core-views.js';
+import { _loadContextFiles, _renderContextSettings } from '/js/settings/settings-context.js';
+import { _loadSettingsModels } from '/js/settings/settings-panel.js';
+import { _loadSettingsPasswords, _renderBrowserSettings, _urlBarSectionDragSetup } from '/js/settings/settings-browser.js';
+import { _renderAISettings } from '/js/settings/settings-agent.js';
+import { _renderAccountSettings } from '/js/settings/settings-profile.js';
+import { _renderAppearanceSettings } from '/js/settings/settings-appearance.js';
+import { _renderFeedSettings } from '/js/settings/settings-feed.js';
+import { _renderHelpSettings } from '/js/settings/settings-help.js';
+import { updateSpinnerPreview } from '/js/settings/settings-colors.js';
 
-if (window.AetherUI) AetherUI.globals();
 // Migrate old section keys
 (function() {
   const stored = Settings.get('settingsSection');
@@ -53,11 +66,11 @@ export function renderSettingsView() {
   const sidebar = document.getElementById('settings-sidebar');
   if (sidebar) {
     const sbViews = [
-      RawHTML('<div style="padding:0 12px 12px;"><span class="text-[1.1rem] font-semibold text-primary">Settings</span></div>')
+      window.RawHTML('<div style="padding:0 12px 12px;"><span class="text-[1.1rem] font-semibold text-primary">Settings</span></div>')
     ];
     _SETTINGS_SECTIONS.forEach(function(s) {
       if (s.type === 'label') {
-        sbViews.push(RawHTML('<div class="nr-settings-sidebar-label">' + escapeHtml(s.text) + '</div>'));
+        sbViews.push(window.RawHTML('<div class="nr-settings-sidebar-label">' + escapeHtml(s.text) + '</div>'));
         return;
       }
       const active = _settingsSection === s.key;
@@ -68,17 +81,17 @@ export function renderSettingsView() {
       btn.el.addEventListener('click', function() { _setSettingsSection(s.key); });
       sbViews.push(btn);
     });
-    sbViews.push(RawHTML('<div style="margin-top:auto;padding:12px 16px;"><div id="settings-version" style="color:var(--nr-text-quaternary);font-size:0.65rem;"></div></div>'));
-    AetherUI.mount(VStack(sbViews), sidebar);
+    sbViews.push(window.RawHTML('<div style="margin-top:auto;padding:12px 16px;"><div id="settings-version" style="color:var(--nr-text-quaternary);font-size:0.65rem;"></div></div>'));
+    AetherUI.mount(window.VStack(sbViews), sidebar);
   }
 
   // Render content pane
   const pane = document.getElementById('settings-content-pane');
   if (pane) {
     const titles = { profile: 'Profile', appearance: 'Appearance', browser: 'Browser', ai: 'AI', feed: 'Feed', context: 'Context', help: 'Help' };
-    const titleView = RawHTML('<h2 class="text-[1.2rem] font-semibold text-primary mb-5">' + (titles[_settingsSection] || 'Settings') + '</h2>');
-    const sectionView = Switch(_settingsSection, {
-      profile: function() { return VStack([_renderAccountSettings()]); },
+    const titleView = window.RawHTML('<h2 class="text-[1.2rem] font-semibold text-primary mb-5">' + (titles[_settingsSection] || 'Settings') + '</h2>');
+    const sectionView = window.Switch(_settingsSection, {
+      profile: function() { return window.VStack([_renderAccountSettings()]); },
       appearance: function() { return _renderAppearanceSettings(); },
       browser: function() { return _renderBrowserSettings(); },
       ai: function() { return _renderAISettings(); },
@@ -87,7 +100,7 @@ export function renderSettingsView() {
       help: function() { return _renderHelpSettings(); },
     });
 
-    AetherUI.mount(VStack([titleView, sectionView]), pane);
+    AetherUI.mount(window.VStack([titleView, sectionView]), pane);
   }
 
   // Load version
@@ -121,10 +134,8 @@ export function renderSettingsView() {
   }
 }
 
-window._settingsSection = _settingsSection;
-window._SETTINGS_SECTIONS = _SETTINGS_SECTIONS;
-window._settingsFeedTab = _settingsFeedTab;
-window._setSettingsSection = _setSettingsSection;
-window._setSettingsFeedTab = _setSettingsFeedTab;
-window.openSettings = openSettings;
-window.renderSettingsView = renderSettingsView;
+// ── Action registry ──
+registerActions({
+  openSettings: () => openSettings(),
+});
+

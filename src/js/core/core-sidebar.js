@@ -42,12 +42,6 @@ function applySidebarOrder() {
   });
 }
 
-// Backward compat window assignments
-window.applySidebarVisibility = applySidebarVisibility;
-window.getSidebarOrder = getSidebarOrder;
-window.applySidebarOrder = applySidebarOrder;
-window.SIDEBAR_ICON_IDS = SIDEBAR_ICON_IDS;
-
 // ── Sidebar drag-to-reorder ──
 (function() {
   const nav = document.getElementById('sidebar-nav');
@@ -152,6 +146,21 @@ window.SIDEBAR_ICON_IDS = SIDEBAR_ICON_IDS;
   nav.addEventListener('pointercancel', endDrag);
 })();
 
+// ── Browse bar overflow helpers (module-scope for export) ──
+function getBarOverflowIds() {
+  try { return Settings.getJSON('browseBarOverflow', []); } catch { return []; }
+}
+
+function removeFromBarOverflow(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = '';
+  const ids = getBarOverflowIds().filter(i => i !== id);
+  Settings.setJSON('browseBarOverflow', ids);
+  _saveBrowseBarOrder();
+}
+
+let _saveBrowseBarOrder = () => {};
+
 // ── Browse bar drag-to-reorder ──
 (function() {
   const bar = document.getElementById('browse-bar');
@@ -165,24 +174,12 @@ window.SIDEBAR_ICON_IDS = SIDEBAR_ICON_IDS;
     return document.getElementById('browse-url-input');
   }
 
-  function getOverflowIds() {
-    try { return Settings.getJSON('browseBarOverflow', []); } catch { return []; }
-  }
-
   function addToBarOverflow(id) {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
-    const ids = getOverflowIds();
+    const ids = getBarOverflowIds();
     if (!ids.includes(id)) ids.push(id);
     Settings.setJSON('browseBarOverflow', ids);
-  }
-
-  function removeFromBarOverflow(id) {
-    const el = document.getElementById(id);
-    if (el) el.style.display = '';
-    const ids = getOverflowIds().filter(i => i !== id);
-    Settings.setJSON('browseBarOverflow', ids);
-    saveBrowseBarOrder();
   }
 
   const DEFAULT_OVERFLOW = ['browse-search-history-btn'];
@@ -215,7 +212,7 @@ window.SIDEBAR_ICON_IDS = SIDEBAR_ICON_IDS;
     const saved = Settings.get('browseBarOrder');
     if (!saved) {
       // Still hide overflow buttons even with no saved order
-      const overflow = getOverflowIds();
+      const overflow = getBarOverflowIds();
       overflow.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
       return;
     }
@@ -250,7 +247,7 @@ window.SIDEBAR_ICON_IDS = SIDEBAR_ICON_IDS;
       if (sidebarEl) { ref.after(sidebarEl); }
     } catch (e) { /* fire-and-forget */ }
     // Hide any buttons in overflow
-    const overflow = getOverflowIds();
+    const overflow = getBarOverflowIds();
     overflow.forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
@@ -261,6 +258,7 @@ window.SIDEBAR_ICON_IDS = SIDEBAR_ICON_IDS;
     const ids = getDraggables().map(b => b.id);
     Settings.setJSON('browseBarOrder', ids);
   }
+  _saveBrowseBarOrder = saveBrowseBarOrder;
 
   restoreBrowseBarOrder();
 
@@ -359,12 +357,8 @@ window.SIDEBAR_ICON_IDS = SIDEBAR_ICON_IDS;
   bar.addEventListener('pointerup', endDrag);
   bar.addEventListener('pointercancel', endDrag);
 
-  // Expose functions globally so they can be called after sync / from menus
-  window.restoreBrowseBarOrder = restoreBrowseBarOrder;
-  window.removeFromBarOverflow = removeFromBarOverflow;
-  window.getBarOverflowIds = getOverflowIds;
 })();
 
 // ── Button click sound (Web Audio API) ──
 
-export { applySidebarVisibility, getSidebarOrder, applySidebarOrder, SIDEBAR_ICON_IDS };
+export { applySidebarVisibility, getSidebarOrder, applySidebarOrder, SIDEBAR_ICON_IDS, getBarOverflowIds, removeFromBarOverflow };

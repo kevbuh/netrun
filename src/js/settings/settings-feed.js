@@ -1,10 +1,13 @@
 import Settings from '../core/core-settings.js';
+import { escapeHtml } from '/js/core/core-utils.js';
+import { _settingSection, _settingToggleLS } from '/js/settings/settings-helpers.js';
+import { _settingsFeedTab, renderSettingsView } from '/js/settings/settings-core.js';
+import { getHiddenPosts, getReadPosts, getSavedPosts, renderPapers } from '/js/feed.js';
 
 // ─── Feed Settings ──────────────────────────────────────
-if (window.AetherUI) AetherUI.globals();
 
 export function _renderFeedSettings() {
-  return TabView(_settingsFeedTab, [
+  return window.TabView(_settingsFeedTab, [
     { label: 'Insights', content: _renderFeedInsightsTab },
     { label: 'Algorithm', content: _renderFeedAlgorithmTab }
   ]).underlined().padding(0);
@@ -38,8 +41,8 @@ export function _renderFeedAlgorithmTab() {
   const catsHtml = topCats.length ? topCats.map(function(c) { return '<span class="bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20">' + escapeHtml(c) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>';
 
   function _algoSlider(label, value, max, lsKey, idSuffix, format) {
-    const valSpan = Text(format(value)).className('text-dim text-[0.68rem] tabular-nums w-8 text-right');
-    const slider = new View('input');
+    const valSpan = window.Text(format(value)).className('text-dim text-[0.68rem] tabular-nums w-8 text-right');
+    const slider = new window.View('input');
     slider.el.type = 'range'; slider.el.min = '0'; slider.el.max = String(max);
     slider.el.value = Math.round(value * 100);
     slider.className('flex-1 accent-[var(--nr-accent)]');
@@ -49,12 +52,12 @@ export function _renderFeedAlgorithmTab() {
       if (typeof renderPapers === 'function') renderPapers();
       renderSettingsView();
     });
-    return HStack(
-      Text(label).className('text-dim text-[0.72rem] w-16 shrink-0'), slider, valSpan
+    return window.HStack(
+      window.Text(label).className('text-dim text-[0.72rem] w-16 shrink-0'), slider, valSpan
     ).spacing(2);
   }
 
-  const explanatoryContent = RawHTML(
+  const explanatoryContent = window.RawHTML(
     '<h3 class="text-white_ text-sm font-semibold mb-1">How the Algorithm Works</h3>' +
     '<p class="text-dim text-[0.78rem] mb-5">Your feed is ranked using a personalized composite score that combines LLM relevance scoring, source affinity from your reading habits, and recency.</p>' +
     '<div class="mb-5"><span class="text-muted text-[0.78rem] font-medium mb-2 block">1. LLM Relevance Score</span>' +
@@ -78,7 +81,7 @@ export function _renderFeedAlgorithmTab() {
     '<div class="text-dimmer text-[0.65rem] mt-1">Sources with &lt;3 posts default to 0.5</div></div></div>'
   );
 
-  const compositeContent = RawHTML(
+  const compositeContent = window.RawHTML(
     '<div class="mb-5 pt-4 border-t border-border-subtle"><span class="text-muted text-[0.78rem] font-medium mb-2 block">4. Composite Score</span>' +
     '<p class="text-dim text-[0.75rem] leading-relaxed mb-3">When you use "For You" sort, each post is ranked by a composite score:</p>' +
     '<div class="bg-input border border-border-input rounded-lg p-3 text-[0.78rem] font-mono mb-3">' +
@@ -94,14 +97,14 @@ export function _renderFeedAlgorithmTab() {
     '<div class="text-dimmer text-[0.68rem] mb-2">Current weights</div>'
   );
 
-  const weightSliders = VStack(
+  const weightSliders = window.VStack(
     _algoSlider('Base', wBase, 100, 'fyWeightBase', 'base', function(v) { return v.toFixed(2); }),
     _algoSlider('Affinity', wAff, 100, 'fyWeightAffinity', 'aff', function(v) { return v.toFixed(2); }),
     _algoSlider('Recency', wRec, 200, 'fyWeightRecency', 'rec', function(v) { return v.toFixed(2); })
   ).spacing(2);
 
-  const divValSpan = Text(String(maxRun)).className('text-dim text-[0.68rem] tabular-nums w-4 text-right');
-  const divSlider = new View('input');
+  const divValSpan = window.Text(String(maxRun)).className('text-dim text-[0.68rem] tabular-nums w-4 text-right');
+  const divSlider = new window.View('input');
   divSlider.el.type = 'range'; divSlider.el.min = '1'; divSlider.el.max = '10';
   divSlider.el.value = maxRun;
   divSlider.className('flex-1 accent-[var(--nr-accent)]');
@@ -110,24 +113,24 @@ export function _renderFeedAlgorithmTab() {
     Settings.set('maxPerCategoryRun', this.value);
     if (typeof renderPapers === 'function') renderPapers();
   });
-  const diversitySection = VStack(
-    Text('5. Category Diversity').className('text-muted text-[0.78rem] font-medium mb-2'),
-    Text('After scoring, posts are reordered to prevent any single category from dominating. If more than ' + maxRun + ' consecutive posts come from the same category, a post from a different category is pulled forward.').className('text-dim text-[0.75rem] leading-relaxed mb-3'),
-    HStack(Text('Max same-category run').className('text-dim text-[0.72rem] shrink-0'), divSlider, divValSpan).spacing(2)
+  const diversitySection = window.VStack(
+    window.Text('5. Category Diversity').className('text-muted text-[0.78rem] font-medium mb-2'),
+    window.Text('After scoring, posts are reordered to prevent any single category from dominating. If more than ' + maxRun + ' consecutive posts come from the same category, a post from a different category is pulled forward.').className('text-dim text-[0.75rem] leading-relaxed mb-3'),
+    window.HStack(window.Text('Max same-category run').className('text-dim text-[0.72rem] shrink-0'), divSlider, divValSpan).spacing(2)
   ).className('mb-5 pt-4 border-t border-border-subtle');
 
-  const personalizationContainer = new View('div');
+  const personalizationContainer = new window.View('div');
   personalizationContainer.el.id = 'personalization-panel-container';
   personalizationContainer.className('mb-5 pt-4 border-t border-border-subtle');
 
-  const resetBtn = new View('button');
+  const resetBtn = new window.View('button');
   resetBtn.el.textContent = 'Reset all personalization';
   resetBtn.className('text-red-400/80 text-[0.75rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
   resetBtn.onTap(function() { resetPersonalization(); renderSettingsView(); });
-  const resetFooter = HStack(resetBtn, Text('Clears your interest profile, resets all weights to defaults').className('text-dimmer text-[0.68rem]'))
+  const resetFooter = window.HStack(resetBtn, window.Text('Clears your interest profile, resets all weights to defaults').className('text-dimmer text-[0.68rem]'))
     .spacing(2).className('pt-4 border-t border-border-subtle');
 
-  return VStack(
+  return window.VStack(
     explanatoryContent,
     compositeContent,
     weightSliders,
@@ -137,6 +140,3 @@ export function _renderFeedAlgorithmTab() {
   );
 }
 
-window._renderFeedSettings = _renderFeedSettings;
-window._renderFeedInsightsTab = _renderFeedInsightsTab;
-window._renderFeedAlgorithmTab = _renderFeedAlgorithmTab;

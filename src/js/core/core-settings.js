@@ -237,8 +237,8 @@ const Settings = (function() {
 
   // Navigation state (@local — runtime routing, never synced)
   define('_lastActiveView',     { default: 'feed',    sync: false }); // @local
-  define('_navHistory',         { default: '[]',      sync: false }); // @local
-  define('_navForward',         { default: '[]',      sync: false }); // @local
+  define('window._navHistory',         { default: '[]',      sync: false }); // @local
+  define('window._navForward',         { default: '[]',      sync: false }); // @local
   define('_browseReturnView',   { default: null,      sync: false }); // @local
   define('lastHash',            { default: null,      sync: false }); // @local
   define('universalPanelVisible',{ default: 'true',   sync: false }); // @local

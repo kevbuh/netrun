@@ -2,20 +2,24 @@
 // Extracted from core.js
 
 import Settings from '/js/core/core-settings.js';
-
-if (window.AetherUI) AetherUI.globals();
+import { apiPost, apiGet } from '/js/api.js';
+import { routeFromHash } from '/js/core/core-routing.js';
+import { _loadCustomAnnotationCategories } from '/js/core/core-ui.js';
+import { _updateNowPlayingContext } from '/js/core/core-audio.js';
+import { applyStoredAppearance } from '/js/settings/settings-init.js';
+import { renderSettingsView } from '/js/settings/settings-core.js';
 
 // ── User accounts & sync ──
 
 // Clean up broken token (object was stored as "[object Object]" due to prior bug)
-if (_authToken === '[object Object]') {
-  _authToken = null;
+if (window._authToken === '[object Object]') {
+  window._authToken = null;
   localStorage.removeItem('authToken');
 }
 // Hydrate token from secure storage (macOS Keychain) if available
-if (!_authToken && window.electronAPI?.getAuthToken) {
+if (!window._authToken && window.electronAPI?.getAuthToken) {
   window.electronAPI.getAuthToken().then(t => {
-    if (t && t !== '[object Object]' && !_authToken) { _authToken = t; localStorage.setItem('authToken', t); }
+    if (t && t !== '[object Object]' && !window._authToken) { window._authToken = t; localStorage.setItem('authToken', t); }
   });
 }
 let _authUser = localStorage.getItem('authUser') || null;  // email or name
@@ -50,7 +54,6 @@ SYNC_KEYS.forEach(k => _syncKeysSet.add(k));
 if (Settings.get('adBlockEnabled') === null) {
   Settings.set('adBlockEnabled', 'true');
 }
-
 
 // ── localStorage helpers (reduce try/parse/default boilerplate) ──
 export function getLS(key, fallback) {
@@ -88,14 +91,14 @@ function _onLoginSuccess() {
 }
 
 export async function authLogout() {
-  if (_authToken) {
+  if (window._authToken) {
     // Push latest settings before logging out
     await syncToServer(true).catch((e) => { /* fire-and-forget */ });
     apiPost('/api/auth/logout', {}).catch((e) => { /* fire-and-forget */ });
   }
-  _authToken = null;
+  window._authToken = null;
   _authUser = null;
-  _authUserInfo = null;
+  window._authUserInfo = null;
   _authReady = false;
   // Clear all user-specific data from localStorage
   for (const key of SYNC_KEYS) Settings.remove(key);
@@ -117,8 +120,8 @@ function _updateAccountUI() {
     }
     return;
   }
-  const avatarMode = _guestMode ? 'guest'
-    : (_authUserInfo && (_authUserInfo.username || _authUserInfo.name)) ? 'user'
+  const avatarMode = window._guestMode ? 'guest'
+    : (window._authUserInfo && (window._authUserInfo.username || window._authUserInfo.name)) ? 'user'
     : 'none';
 
   if (avatarMode === 'none') {
@@ -132,18 +135,18 @@ function _updateAccountUI() {
 
   if (typeof AetherUI === 'undefined') return;
 
-  AetherUI.mount(Switch(avatarMode, {
+  AetherUI.mount(window.Switch(avatarMode, {
     guest: function() {
-      return RawHTML('<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:nr-breathe 3s ease-in-out infinite"><path d="M14 18a2 2 0 0 0-4 0"/><path d="m19 11-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11"/><path d="M2 11h20"/><circle cx="17" cy="18" r="3"/><circle cx="7" cy="18" r="3"/></svg>');
+      return window.RawHTML('<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:nr-breathe 3s ease-in-out infinite"><path d="M14 18a2 2 0 0 0-4 0"/><path d="m19 11-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11"/><path d="M2 11h20"/><circle cx="17" cy="18" r="3"/><circle cx="7" cy="18" r="3"/></svg>');
     },
     user: function() {
-      return Show(_authUserInfo && _authUserInfo.picture, function() {
-        return Image(_authUserInfo.picture)
+      return window.Show(window._authUserInfo && window._authUserInfo.picture, function() {
+        return window.Image(window._authUserInfo.picture)
           .styles({width:'22px', height:'22px', objectFit:'cover', borderRadius:'50%', display:'block'})
           .attr('referrerpolicy', 'no-referrer');
       }, function() {
-        const letter = (_authUserInfo.username || _authUserInfo.name || '?')[0].toUpperCase();
-        return new View('span')
+        const letter = (window._authUserInfo.username || window._authUserInfo.name || '?')[0].toUpperCase();
+        return new window.View('span')
           .styles({width:'22px', height:'22px', borderRadius:'50%', background:'var(--nr-accent)',
             display:'flex', alignItems:'center', justifyContent:'center',
             fontSize:'11px', fontWeight:'600', color:'#fff'})
@@ -152,7 +155,6 @@ function _updateAccountUI() {
     },
   }), avatarSpan);
 }
-
 
 // ── Sync ──
 
@@ -183,7 +185,7 @@ function _applySyncData(serverData) {
 }
 
 export async function syncToServer(force) {
-  if (!_authToken) return;
+  if (!window._authToken) return;
   const keysToSync = force ? SYNC_KEYS : [..._syncDirtyKeys];
   if (!keysToSync.length) return; // nothing changed
   _syncDirtyKeys.clear();
@@ -198,7 +200,7 @@ export async function syncToServer(force) {
 }
 
 export async function syncFromServer() {
-  if (!_authToken) return;
+  if (!window._authToken) return;
   try {
     // Pull only — send empty payload so server data always wins
     const result = await apiPost('/api/sync', { data: {} });
@@ -219,19 +221,19 @@ function _stopSyncInterval() {
 
 // ── UI action handlers ──
 
-function _doLogout() {
+export function _doLogout() {
   authLogout();
 }
 
-async function _doDeleteAccount() {
+export async function _doDeleteAccount() {
   if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
   if (!confirm('All your data will be permanently deleted. Continue?')) return;
   try {
     await apiPost('/api/auth/delete-account', {});
   } catch (e) { /* proceed with local cleanup regardless */ }
-  _authToken = null;
+  window._authToken = null;
   _authUser = null;
-  _authUserInfo = null;
+  window._authUserInfo = null;
   _authReady = false;
   localStorage.clear();
   window.electronAPI?.deleteAuthToken?.();
@@ -245,41 +247,41 @@ async function _doDeleteAccount() {
 const _GUEST_STASH_PREFIX = '_guestStash_';
 
 export function enterGuestMode() {
-  if (_guestMode) return;
+  if (window._guestMode) return;
   // Stash auth state
-  sessionStorage.setItem(_GUEST_STASH_PREFIX + 'authToken', _authToken || '');
+  sessionStorage.setItem(_GUEST_STASH_PREFIX + 'authToken', window._authToken || '');
   sessionStorage.setItem(_GUEST_STASH_PREFIX + 'authUser', _authUser || '');
-  sessionStorage.setItem(_GUEST_STASH_PREFIX + 'authUserInfo', JSON.stringify(_authUserInfo));
+  sessionStorage.setItem(_GUEST_STASH_PREFIX + 'authUserInfo', JSON.stringify(window._authUserInfo));
   // Stash all sync keys
   for (let i = 0; i < SYNC_KEYS.length; i++) {
     const val = Settings.get(SYNC_KEYS[i]);
     if (val !== null) sessionStorage.setItem(_GUEST_STASH_PREFIX + SYNC_KEYS[i], val);
   }
   // Clear auth state
-  _authToken = null;
+  window._authToken = null;
   _authUser = null;
-  _authUserInfo = null;
+  window._authUserInfo = null;
   _stopSyncInterval();
   // Stash Google session cookies so the guest isn't signed into Google in the browser
   if (window.electronAPI?.stashGoogleCookies) window.electronAPI.stashGoogleCookies();
   // Set guest mode flag
-  _guestMode = true;
-  sessionStorage.setItem('_guestMode', 'true');
+  window._guestMode = true;
+  sessionStorage.setItem('window._guestMode', 'true');
   _updateAccountUI();
   if (typeof renderSettingsView === 'function') renderSettingsView();
   if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Guest mode active');
 }
 
 export function exitGuestMode() {
-  if (!_guestMode) return;
+  if (!window._guestMode) return;
   // Restore auth state
-  _authToken = sessionStorage.getItem(_GUEST_STASH_PREFIX + 'authToken') || null;
+  window._authToken = sessionStorage.getItem(_GUEST_STASH_PREFIX + 'authToken') || null;
   _authUser = sessionStorage.getItem(_GUEST_STASH_PREFIX + 'authUser') || null;
   const uiRaw = sessionStorage.getItem(_GUEST_STASH_PREFIX + 'authUserInfo');
-  _authUserInfo = uiRaw ? JSON.parse(uiRaw) : null;
-  if (_authToken) localStorage.setItem('authToken', _authToken);
+  window._authUserInfo = uiRaw ? JSON.parse(uiRaw) : null;
+  if (window._authToken) localStorage.setItem('authToken', window._authToken);
   if (_authUser) localStorage.setItem('authUser', _authUser);
-  if (_authUserInfo) localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
+  if (window._authUserInfo) localStorage.setItem('authUserInfo', JSON.stringify(window._authUserInfo));
   // Restore sync keys
   for (let i = 0; i < SYNC_KEYS.length; i++) {
     const val = sessionStorage.getItem(_GUEST_STASH_PREFIX + SYNC_KEYS[i]);
@@ -292,8 +294,8 @@ export function exitGuestMode() {
     if (keys[k].indexOf(_GUEST_STASH_PREFIX) === 0) sessionStorage.removeItem(keys[k]);
   }
   // Clear guest flag
-  _guestMode = false;
-  sessionStorage.removeItem('_guestMode');
+  window._guestMode = false;
+  sessionStorage.removeItem('window._guestMode');
   // Restore Google cookies
   if (window.electronAPI?.restoreGoogleCookies) window.electronAPI.restoreGoogleCookies();
   _onLoginSuccess();
@@ -305,20 +307,20 @@ export function exitGuestMode() {
 (function _initAuth() {
   Settings.init();
   _updateAccountUI();
-  if (_guestMode) {
+  if (window._guestMode) {
     _authReady = true;
     routeFromHash();
     return;
   }
-  if (_authToken) {
+  if (window._authToken) {
     // Verify session is still valid
     apiGet('/api/auth/me')
       .then(data => {
         if (!data || !data.email) throw new Error('Invalid session');
         _authUser = (data.name || data.email || _authUser || '').split(' ')[0];
-        _authUserInfo = { email: data.email, name: data.name, google_id: data.google_id, username: data.username || null, picture: data.picture || null };
+        window._authUserInfo = { email: data.email, name: data.name, google_id: data.google_id, username: data.username || null, picture: data.picture || null };
         localStorage.setItem('authUser', _authUser);
-        localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
+        localStorage.setItem('authUserInfo', JSON.stringify(window._authUserInfo));
         if (!data.username) {
           // No username set — redirect to onboarding
           window.location.href = '/onboarding.html';
@@ -330,15 +332,15 @@ export function exitGuestMode() {
       .catch(err => {
         console.warn('[auth] Session verify failed:', err);
         // If we have cached auth info locally, proceed offline rather than forcing re-login
-        if (_authUserInfo && _authUserInfo.google_id && _authUserInfo.username) {
+        if (window._authUserInfo && window._authUserInfo.google_id && window._authUserInfo.username) {
           console.log('[auth] Using cached auth info');
-          _authUser = (_authUserInfo.name || _authUserInfo.email || _authUser || '').split(' ')[0];
+          _authUser = (window._authUserInfo.name || window._authUserInfo.email || _authUser || '').split(' ')[0];
           _onLoginSuccess();
           return;
         }
-        _authToken = null;
+        window._authToken = null;
         _authUser = null;
-        _authUserInfo = null;
+        window._authUserInfo = null;
         localStorage.removeItem('authToken');
         window.electronAPI?.deleteAuthToken?.();
         localStorage.removeItem('authUser');
@@ -351,15 +353,15 @@ export function exitGuestMode() {
     if (window.electronAPI?.getAuthToken) {
       window.electronAPI.getAuthToken().then(t => {
         if (t) {
-          _authToken = t;
+          window._authToken = t;
           localStorage.setItem('authToken', t);
           // Re-run auth check with hydrated token
           _initAuth();
-        } else if (_authUserInfo && _authUserInfo.google_id && _authUserInfo.username) {
+        } else if (window._authUserInfo && window._authUserInfo.google_id && window._authUserInfo.username) {
           // Have cached auth info but no token — proceed offline
           console.log('[auth] No token but have cached auth info, proceeding');
-          _authToken = 'cached';
-          _authUser = (_authUserInfo.name || _authUserInfo.email || '').split(' ')[0];
+          window._authToken = 'cached';
+          _authUser = (window._authUserInfo.name || window._authUserInfo.email || '').split(' ')[0];
           _onLoginSuccess();
         } else {
           window.location.href = '/login.html';
@@ -373,17 +375,6 @@ export function exitGuestMode() {
   }
 })();
 
-// Window assignments for backward compatibility
-window.getLS = getLS;
-window.setLS = setLS;
-window.authLogout = authLogout;
-window.syncToServer = syncToServer;
-window.syncFromServer = syncFromServer;
-window.enterGuestMode = enterGuestMode;
-window.exitGuestMode = exitGuestMode;
-window._doLogout = _doLogout;
-window._doDeleteAccount = _doDeleteAccount;
-window._onLoginSuccess = _onLoginSuccess;
-window._updateAccountUI = _updateAccountUI;
+// _showLoginGate must stay on window — api.js uses typeof guard, login page defines its own
 window._showLoginGate = _showLoginGate;
 

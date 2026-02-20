@@ -185,7 +185,7 @@
         <span class="text-sm font-medium">Get a better experience with the desktop app</span>
         <a href="https://github.com/yourusername/netrun/releases" target="_blank" class="text-sm font-bold underline hover:no-underline ml-2">Download</a>
       </div>
-      <button onclick="dismissDownloadBanner()" class="text-white/80 hover:text-white text-xl font-light leading-none px-2 transition-colors" title="Dismiss">×</button>
+      <button data-action-click="dismissDownloadBanner" class="text-white/80 hover:text-white text-xl font-light leading-none px-2 transition-colors" title="Dismiss">×</button>
     </div>
   </div>
 
@@ -198,7 +198,7 @@
         <svg style="height:2.2rem;display:inline-block;margin-bottom:0.5rem;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 11a2 2 0 1 1-4 0 4 4 0 0 1 8 0 6 6 0 0 1-12 0 8 8 0 0 1 16 0 10 10 0 1 1-20 0 11.93 11.93 0 0 1 2.42-7.22 2 2 0 1 1 3.16 2.44"/></svg>
         <h1 class="text-white_ text-[1.4rem] font-semibold mb-1">What do you want to read?</h1>
         <p class="text-muted text-[0.85rem] mb-3">Pick your sources. You can change these anytime in settings.</p>
-        <button id="onboard-start-btn" disabled onclick="completeOnboarding()" class="px-6 py-2 rounded-lg border-none bg-accent text-white text-[0.85rem] font-medium cursor-pointer hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed">Start reading</button>
+        <button id="onboard-start-btn" disabled data-action-click="completeOnboarding" class="px-6 py-2 rounded-lg border-none bg-accent text-white text-[0.85rem] font-medium cursor-pointer hover:bg-accent-hover transition-colors disabled:opacity-30 disabled:cursor-not-allowed">Start reading</button>
         <div id="hc-category-tabs" class="hc-tabs mt-3"></div>
       </div>
       <!-- Feed source list -->
@@ -211,8 +211,8 @@
           <div class="text-[0.68rem] text-dim uppercase tracking-wider mb-1.5 pl-1">Custom RSS Feeds</div>
           <div id="custom-feeds-list" class="flex flex-col gap-2 mb-2"></div>
           <div class="flex gap-2">
-            <input type="text" id="custom-feed-url" placeholder="https://example.com/feed.xml" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" onkeydown="if(event.key==='Enter'){event.preventDefault();addCustomFeed()}">
-            <button onclick="addCustomFeed()" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover">Add</button>
+            <input type="text" id="custom-feed-url" placeholder="https://example.com/feed.xml" class="flex-1 bg-input border border-border-input rounded-md px-3 py-1.5 text-primary text-sm outline-none focus:border-accent" data-action-keydown="addCustomFeedOnEnter">
+            <button data-action-click="addCustomFeed" class="bg-accent text-white text-sm px-3 py-1.5 rounded-md border-none cursor-pointer hover:bg-accent-hover">Add</button>
           </div>
         </div>
       </div>
@@ -226,11 +226,11 @@
           <span id="refresh-countdown" class="tabular-nums text-dim ml-auto"></span>
         </div>
         <div id="trends-panel" style="display:none" class="pb-3 flex items-center gap-2 overflow-x-auto scrollbar-hide">
-          <button class="sort-btn active shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" id="sort-foryou" onclick="setSortMode(currentSort === 'foryou' ? 'latest' : 'foryou')" title="For You"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg></button>
-          <button class="sort-btn shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" id="sort-citations" onclick="setSortMode(currentSort === 'citations' ? 'latest' : 'citations')" title="Most Cited"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/></svg></button>
-          <button class="sort-btn shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" id="view-mode-btn" onclick="toggleViewMode()" title="Toggle view"><svg id="view-mode-icon" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
+          <button class="sort-btn active shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" id="sort-foryou" data-action-click="toggleSortForyou" title="For You"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg></button>
+          <button class="sort-btn shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" id="sort-citations" data-action-click="toggleSortCitations" title="Most Cited"><svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2L9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61z"/></svg></button>
+          <button class="sort-btn shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" id="view-mode-btn" data-action-click="toggleViewMode" title="Toggle view"><svg id="view-mode-icon" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg></button>
           <select id="category" class="hidden"><option value="">All</option></select>
-          <button class="sort-btn shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" onclick="showOnboarding()" title="Feed sources"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor"/></svg></button>
+          <button class="sort-btn shrink-0 w-8 h-8 rounded-lg border border-border-input bg-card text-muted cursor-pointer transition-all duration-150 hover:border-accent hover:text-primary flex items-center justify-center" data-action-click="showOnboarding" title="Feed sources"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1" fill="currentColor"/></svg></button>
           <span class="w-px h-5 bg-border-dim mx-0.5 shrink-0"></span>
           <div id="source-bubbles" class="flex gap-1.5 shrink-0"></div>
         </div>
@@ -247,74 +247,74 @@
   <div id="browse-view" class="hidden view" style="height:100%;display:none;">
     <div id="browse-more-menu" style="display:none;position:absolute"></div>
     <div id="browse-tab-row" class="flex items-center gap-1 py-1 bg-sidebar">
-      <button class="browse-tab-layout-toggle shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="toggleBrowseTabLayout()" title="Switch to vertical tabs">
+      <button class="browse-tab-layout-toggle shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="toggleBrowseTabLayout" title="Switch to vertical tabs">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M4 3h16v18H4V3z"/></svg>
       </button>
       <div id="browse-tabs" class="flex items-end flex-1 overflow-x-auto"></div>
       <div id="browse-toolbar-sessions" class="browse-sessions-dropdown nr-menu browse-panel-btn shrink-0"></div>
-      <button id="browse-toolbar-newwin" class="browse-toolbar-btn browse-panel-btn shrink-0 w-7 h-7" onclick="browseCreateWindow()" title="New Window">
+      <button id="browse-toolbar-newwin" class="browse-toolbar-btn browse-panel-btn shrink-0 w-7 h-7" data-action-click="browseCreateWindow" title="New Window">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       </button>
-      <button class="browse-tab-new shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="browseNewTab()" title="New tab">
+      <button class="browse-tab-new shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="browseNewTab" title="New tab">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       </button>
     </div>
     <div id="browse-bar" class="flex items-center gap-1 pl-2 pr-2 py-1 border-b border-border-sidebar bg-sidebar">
-      <button id="browse-return-btn" class="shrink-0 h-7 rounded-md bg-transparent border-none text-accent cursor-pointer hover:bg-hover flex items-center gap-0.5 px-1.5" onclick="_browseGoBack()" title="Back to feed" style="display:none">
+      <button id="browse-return-btn" class="shrink-0 h-7 rounded-md bg-transparent border-none text-accent cursor-pointer hover:bg-hover flex items-center gap-0.5 px-1.5" data-action-click="_browseGoBack" title="Back to feed" style="display:none">
         <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
         <span class="text-[0.7rem]">Back</span>
       </button>
-      <button id="browse-bar-back" class="shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="browseBack()" title="Back" onmouseenter="_showHistoryDropdown('back',this)" onmouseleave="_scheduleHideHistoryDropdown()">
+      <button id="browse-bar-back" class="shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="browseBack" data-action-mouseenter="showHistoryDropdown" data-action-mouseleave="scheduleHideHistoryDropdown" data-action-arg="back" title="Back">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
       </button>
-      <button id="browse-bar-fwd" class="shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="browseForward()" title="Forward" onmouseenter="_showHistoryDropdown('forward',this)" onmouseleave="_scheduleHideHistoryDropdown()">
+      <button id="browse-bar-fwd" class="shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="browseForward" data-action-mouseenter="showHistoryDropdown" data-action-mouseleave="scheduleHideHistoryDropdown" data-action-arg="forward" title="Forward">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
       </button>
-      <button class="shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="browseReload()" title="Reload">
+      <button class="shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="browseReload" title="Reload">
         <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
       </button>
       <span id="browse-zoom-controls" class="flex items-center gap-1" style="display:none">
-        <button class="shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="browseZoom(-1)" title="Zoom out">
+        <button class="shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="browseZoom" data-action-arg="-1" title="Zoom out">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
-        <span id="browse-zoom-level" class="text-[0.68rem] text-dimmer w-8 text-center shrink-0 select-none cursor-pointer" onclick="browseZoom(0)" title="Reset zoom">100%</span>
-        <button class="shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="browseZoom(1)" title="Zoom in">
+        <span id="browse-zoom-level" class="text-[0.68rem] text-dimmer w-8 text-center shrink-0 select-none cursor-pointer" data-action-click="browseZoom" data-action-arg="0" title="Reset zoom">100%</span>
+        <button class="shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="browseZoom" data-action-arg="1" title="Zoom in">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
       </span>
-      <input id="browse-url-input" type="text" class="flex-1 bg-hover border border-transparent rounded-lg px-2.5 py-1 text-[0.8rem] text-primary outline-none focus:bg-card focus:border-border-card" placeholder="Search or enter URL…" onkeydown="_browseUrlKeydown(event)" oninput="_browseUrlShowHistory()" onfocus="_browseUrlOnFocus(this);_browseUrlCancelHide();this.select();_browseUrlShowHistory()" onblur="_browseUrlOnBlur(this);_browseUrlScheduleHide()" onmouseenter="_browseUrlOnMouseEnter(this)" onmouseleave="_browseUrlOnMouseLeave(this)">
+      <input id="browse-url-input" type="text" class="flex-1 bg-hover border border-transparent rounded-lg px-2.5 py-1 text-[0.8rem] text-primary outline-none focus:bg-card focus:border-border-card" placeholder="Search or enter URL…">
       <div id="browse-url-history-dd" style="display:none;position:fixed;border-radius:0 0 8px 8px;border:1px solid var(--nr-border-default);border-top:none;background:var(--nr-bg-overlay);box-shadow:0 4px 16px var(--nr-shadow-popup);z-index:10000;max-height:320px;overflow-y:auto;"></div>
-      <button id="browse-adblock-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none cursor-pointer hover:bg-hover flex items-center justify-center relative" onclick="toggleAdBlock()" title="Ad Blocker">
+      <button id="browse-adblock-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none cursor-pointer hover:bg-hover flex items-center justify-center relative" data-action-click="toggleAdBlock" title="Ad Blocker">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>
         <span id="browse-adblock-badge" class="absolute -top-0.5 -right-0.5 text-[0.55rem] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none" style="display:none;background:var(--nr-accent);color:#fff;"></span>
       </button>
       <div id="browse-downloads-btn" class="browse-bar-draggable relative shrink-0" style="display:none">
-        <button class="shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center relative" onclick="toggleBrowseDownloads(event)" title="Downloads">
+        <button class="shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center relative" data-action-click="toggleBrowseDownloads" title="Downloads">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
           <span id="browse-download-progress-ring" class="browse-download-ring" style="display:none"></span>
           <span id="browse-download-badge" class="absolute -top-0.5 -right-0.5 text-[0.55rem] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none" style="display:none;background:var(--nr-accent);color:#fff;"></span>
         </button>
         <div id="browse-downloads-dropdown" class="browse-downloads-dropdown nr-menu" style="display:none"></div>
       </div>
-      <button id="browse-save-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="browseSaveToReadingList()" title="Save to Reading List">
+      <button id="browse-save-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="browseSaveToReadingList" title="Save to Reading List">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
       </button>
-      <button id="browse-share-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="browseShare()" title="Share">
+      <button id="browse-share-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="browseShare" title="Share">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg>
       </button>
-      <button id="browse-annotate-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="toggleAnnotations()" title="Annotate Page">
+      <button id="browse-annotate-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="toggleAnnotations" title="Annotate Page">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 9h8M8 13h6" stroke-linecap="round"/></svg>
       </button>
-      <button id="browse-search-history-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="openSearchHistoryPage()" title="Search History">
+      <button id="browse-search-history-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="openSearchHistoryPage" title="Search History">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
       </button>
-      <button id="browse-cc-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="toggleCaptions()" title="Closed Captions" style="display:none">
+      <button id="browse-cc-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="toggleCaptions" title="Closed Captions" style="display:none">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2" stroke-linecap="round" stroke-linejoin="round"/><text x="12" y="15" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor" stroke="none">CC</text></svg>
       </button>
-      <button id="browse-more-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="toggleBrowseMoreMenu()" title="More">
+      <button id="browse-more-btn" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="toggleBrowseMoreMenu" title="More">
         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
       </button>
-      <button id="browse-sidebar-toggle" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" onclick="toggleBrowseSidebar()" title="Toggle sidebar">
+      <button id="browse-sidebar-toggle" class="browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center" data-action-click="toggleBrowseSidebar" title="Toggle sidebar">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>
@@ -331,11 +331,19 @@
   <div id="view-mount"></div>
 
   <script type="module" src="/js/core/core-settings.js"></script>
+  <script type="module" src="/js/core/core-actions.js"></script>
   <script type="module" src="/js/logger.js"></script>
-  <!-- AetherUI State — must load before core-state.js to make State() available -->
+  <!-- AetherUI — declarative view framework (must load before core modules that use View, VStack, etc.) -->
   <script type="module" src="/aether/ui/state.js"></script>
+  <script type="module" src="/aether/ui/view.js"></script>
+  <script type="module" src="/aether/ui/primitives.js"></script>
+  <script type="module" src="/aether/ui/controls.js"></script>
+  <script type="module" src="/aether/ui/containers.js"></script>
+  <script type="module" src="/aether/ui/overlay.js"></script>
+  <script type="module" src="/aether/ui/component.js"></script>
+  <script type="module" src="/aether/ui/aether-ui.js"></script>
   <!-- Core modules (split from core.js) -->
-  <script type="module" src="/js/core/icons.js"></script>
+  <script type="module" src="/aether/icons.js"></script>
   <script type="module" src="/js/core/core-state.js"></script>
   <script type="module" src="/js/core/core-context-intake.js"></script>
   <script type="module" src="/js/api-ipc.js"></script>
@@ -358,14 +366,6 @@
   <script type="module" src="/aether/ambient.js"></script>
   <script type="module" src="/aether/aether.js"></script>
   <script type="module" src="/aether/cursor.js"></script>
-  <!-- AetherUI — declarative view framework (state.js loaded earlier) -->
-  <script type="module" src="/aether/ui/view.js"></script>
-  <script type="module" src="/aether/ui/primitives.js"></script>
-  <script type="module" src="/aether/ui/controls.js"></script>
-  <script type="module" src="/aether/ui/containers.js"></script>
-  <script type="module" src="/aether/ui/overlay.js"></script>
-  <script type="module" src="/aether/ui/component.js"></script>
-  <script type="module" src="/aether/ui/aether-ui.js"></script>
   <script type="module" src="/js/pixel-pet.js"></script>
   <script type="module" src="/js/feed.js"></script>
   <script type="module" src="/js/settings/settings-colors.js"></script>
@@ -433,10 +433,10 @@
     <div id="bottom-terminal-header" class="bottom-terminal-header">
       <div id="bottom-terminal-tabs" class="flex items-center gap-1 overflow-x-auto scrollbar-hide shrink-0"></div>
       <div class="flex items-center gap-1 ml-auto shrink-0">
-        <button class="term-tb-btn" onclick="clearBottomTerminal()" title="Clear">
+        <button class="term-tb-btn" data-action-click="clearBottomTerminal" title="Clear">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75 14.25 12m0 0 2.25 2.25M14.25 12l2.25-2.25M14.25 12 12 14.25m-2.58 4.92-6.374-6.375a1.125 1.125 0 0 1 0-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33Z"/></svg>
         </button>
-        <button class="term-tb-btn" onclick="toggleBottomTerminal()" title="Close (Cmd+J)">
+        <button class="term-tb-btn" data-action-click="toggleBottomTerminal" title="Close (Cmd+J)">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
@@ -449,36 +449,36 @@
 
   <!-- Top Pill Bar (outside bezel so it's not trapped by transform) -->
   <nav id="sidebar-nav" class="pill-bar">
-    <button id="pill-menu-btn" class="sidebar-icon" onclick="typeof _togglePillMenu==='function'&&_togglePillMenu()" onmouseenter="typeof _openPillMenuHover==='function'&&_openPillMenuHover()" onmouseleave="typeof _closePillMenuHover==='function'&&_closePillMenuHover()" title="Menu">
+    <button id="pill-menu-btn" class="sidebar-icon" data-action-click="_togglePillMenu" data-action-mouseenter="_openPillMenuHover" data-action-mouseleave="_closePillMenuHover" title="Menu">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="transform:rotate(90deg)"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
     </button>
-    <button id="pill-browse-back" class="sidebar-icon pill-island-nav" onclick="browseBack()" title="Back" onmouseenter="_showHistoryDropdown('back',this)" onmouseleave="_scheduleHideHistoryDropdown()">
+    <button id="pill-browse-back" class="sidebar-icon pill-island-nav" data-action-click="browseBack" data-action-mouseenter="showHistoryDropdown" data-action-mouseleave="scheduleHideHistoryDropdown" data-action-arg="back" title="Back">
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
     </button>
-    <button id="pill-browse-fwd" class="sidebar-icon pill-island-nav" onclick="browseForward()" title="Forward" onmouseenter="_showHistoryDropdown('forward',this)" onmouseleave="_scheduleHideHistoryDropdown()">
+    <button id="pill-browse-fwd" class="sidebar-icon pill-island-nav" data-action-click="browseForward" data-action-mouseenter="showHistoryDropdown" data-action-mouseleave="scheduleHideHistoryDropdown" data-action-arg="forward" title="Forward">
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
     </button>
     <div id="pill-browse-url"></div>
     <div id="pill-island" class="pill-island-container"></div>
-    <div id="pill-nav-icons" onmouseenter="typeof _cancelPillMenuClose==='function'&&_cancelPillMenuClose()" onmouseleave="typeof _closePillMenuHover==='function'&&_closePillMenuHover()">
-      <button class="sidebar-icon active" id="sb-dashboard" onclick="typeof wmOpen==='function'&&wmOpen('dashboard')" title="Home">
+    <div id="pill-nav-icons" data-action-mouseenter="_cancelPillMenuClose" data-action-mouseleave="_closePillMenuHover">
+      <button class="sidebar-icon active" id="sb-dashboard" data-action-click="wmOpen" data-action-arg="dashboard" title="Home">
         <span id="sb-dashboard-avatar"></span>
         <svg id="sb-dashboard-icon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
       </button>
-      <button class="sidebar-icon" id="sb-home" onclick="typeof wmOpen==='function'&&wmOpen('feed')" title="Feed">
+      <button class="sidebar-icon" id="sb-home" data-action-click="wmOpen" data-action-arg="feed" title="Feed">
         <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><circle cx="6.18" cy="17.82" r="2.18"/><path d="M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"/></svg>
       </button>
-      <button class="sidebar-icon" id="sb-browse" onclick="typeof wmOpen==='function'&&wmOpen('browse')" title="Browse">
+      <button class="sidebar-icon" id="sb-browse" data-action-click="wmOpen" data-action-arg="browse" title="Browse">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"/></svg>
       </button>
-      <button class="sidebar-icon" id="sb-neuralook" onclick="typeof wmOpen==='function'&&wmOpen('neuralook')" title="Neuralook">
+      <button class="sidebar-icon" id="sb-neuralook" data-action-click="wmOpen" data-action-arg="neuralook" title="Neuralook">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
       </button>
 
-      <button class="sidebar-icon" id="sb-dev" onclick="typeof wmOpen==='function'&&wmOpen('dev')" title="Dev Stats">
+      <button class="sidebar-icon" id="sb-dev" data-action-click="wmOpen" data-action-arg="dev" title="Dev Stats">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5"/></svg>
       </button>
-      <button class="sidebar-icon" id="sb-settings" onclick="openSettings()" title="Settings">
+      <button class="sidebar-icon" id="sb-settings" data-action-click="openSettings" title="Settings">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 0 1 1.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.559.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.894.149c-.424.07-.764.383-.929.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 0 1-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.398.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 0 1-.12-1.45l.527-.737c.25-.35.272-.806.108-1.204-.165-.397-.506-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.526-.738a1.125 1.125 0 0 1 .12-1.45l.773-.773a1.125 1.125 0 0 1 1.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
       </button>
       <div id="pixel-pet-sidebar" style="display:none" class="sidebar-icon">
@@ -487,28 +487,28 @@
       <div id="pill-menu-more-items"></div>
     </div>
     <div id="pill-browse-tabs"></div>
-    <div id="pill-url-wrap" onmouseenter="_browseUrlOnMouseEnter(document.getElementById('pill-browse-url-input'))" onmouseleave="_browseUrlOnMouseLeave(document.getElementById('pill-browse-url-input'))">
+    <div id="pill-url-wrap">
       <div id="pill-island-tabs-anchor"></div>
-      <input id="pill-browse-url-input" type="text" placeholder="Search or enter URL…" onkeydown="_pillUrlKeydown(event)" onfocus="_browseUrlOnFocus(this);this.select();var _v=this.value;this.value='';_browseUrlShowHistory();this.value=_v;this.select()" onblur="_browseUrlOnBlur(this);_pillSyncUrl();_browseUrlScheduleHide()" oninput="_browseUrlShowHistory()">
-      <button id="pill-browse-reload" class="sidebar-icon pill-island-nav" onclick="browseReload()" title="Refresh">
+      <input id="pill-browse-url-input" type="text" placeholder="Search or enter URL…">
+      <button id="pill-browse-reload" class="sidebar-icon pill-island-nav" data-action-click="browseReload" title="Refresh">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"/></svg>
       </button>
-      <button id="pill-close-tab-btn" class="pill-close-tab-btn" onclick="event.stopPropagation();var t=typeof _browseTabs!=='undefined'&&typeof _browseActiveTab!=='undefined'?_browseTabs.find(function(x){return x.id===_browseActiveTab}):null;if(t)browseCloseTab(t.id);" title="Close tab">
+      <button id="pill-close-tab-btn" class="pill-close-tab-btn" data-action-click="closeActiveTab" title="Close tab">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
       <div class="pill-url-divider"></div>
-      <button id="pill-newtab-btn" class="sidebar-icon" onclick="browseNewTab()" title="New tab">
+      <button id="pill-newtab-btn" class="sidebar-icon" data-action-click="browseNewTab" title="New tab">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
       </button>
-      <div id="pill-url-dropdown" onmousedown="event.preventDefault();_browseUrlCancelHide()"></div>
+      <div id="pill-url-dropdown"></div>
     </div>
     <div id="pill-island-right" class="pill-island-container"></div>
     <div id="pill-audio-unified"><span id="pill-scroll-pct"></span><span id="pill-token-count"></span><span id="pill-focus-timer"></span></div>
     <div id="pill-live-pulse"></div>
-    <button id="pill-browse-more" class="sidebar-icon" onclick="toggleBrowseMoreMenu()" title="More options">
+    <button id="pill-browse-more" class="sidebar-icon" data-action-click="toggleBrowseMoreMenu" title="More options">
       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
     </button>
-    <button id="pill-browse-hamburger" class="sidebar-icon" onclick="typeof _togglePillMenu==='function'&&_togglePillMenu()" onmouseenter="typeof _openPillMenuHover==='function'&&_openPillMenuHover()" onmouseleave="typeof _closePillMenuHover==='function'&&_closePillMenuHover()" title="Menu">
+    <button id="pill-browse-hamburger" class="sidebar-icon" data-action-click="_togglePillMenu" data-action-mouseenter="_openPillMenuHover" data-action-mouseleave="_closePillMenuHover" title="Menu">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
     </button>
   </nav>

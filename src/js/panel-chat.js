@@ -1,14 +1,32 @@
 // panel-chat.js — Chat system, context attachments, and screenshots
 // Model context sizes are defined in src/core/agents/context.ts
 import Settings from '/js/core/core-settings.js';
-if (window.AetherUI) AetherUI.globals();
+import { apiPost } from '/js/api.js';
+import { formatDate, escapeHtml, stripHtml, truncate, _normalizeRatingKey, getPaperRatings, getPaperRating, renderTitle, renderStarRating, escapeAttr } from '/js/core/core-utils.js';
+import { icon } from '/js/core/icons.js';
+import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
+import { _clearAudioUnified, _updateAudioUnified } from '/js/core/core-audio.js';
+import ChatEngine from '/js/chat-engine.js';
+import ChatRender from '/js/chat-render.js';
+import { _aetherShowCursor } from '/js/panel-commands.js';
+import { _browseCloseOtherTabs, browseAddTabToGroup, browseAddTabToNewGroup, browseNavigate, browseReload, browseRemoveTabFromGroup, browseTogglePin } from '/js/browse/browse-island.js';
+import { _currentPaperViewPaper } from '/js/views.js';
+import { _docText } from '/js/chat-threads.js';
+import { _repositionSelectionPopup, _showPanel } from '/js/panel.js';
+import { _ttsStartWaveform, _ttsStopAll, _ttsStopWaveform } from '/js/panel-tts.js';
+import { agentBack, agentClick, agentForward, agentGetAccessibleDOM, agentGetSemanticDOM, agentGetStorage, agentGetTabs, agentGetUrl, agentPressKey, agentQuerySelector, agentScroll, agentSwitchTab, agentType, agentWaitFor } from '/js/browse/browse-agent.js';
+import { browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
+import { browseNewTab } from '/js/browse/browse-windows.js';
+import { browseSplitTab } from '/js/browse/browse-split-panes.js';
+import { toggleSavePost } from '/js/feed.js';
+import { toggleTabMute } from '/js/browse/browse-audio.js';
 
 export function _saveChatMemory() {
-  if (_popupChatMessages.length < 2) return;
+  if (window._popupChatMessages.length < 2) return;
   // Skip search-only interactions (all user messages start with web search prefix)
-  const userMsgs = _popupChatMessages.filter(m => m.role === 'user');
+  const userMsgs = window._popupChatMessages.filter(m => m.role === 'user');
   if (!userMsgs.length) return;
-  const msgs = _popupChatMessages.filter(m => !m._thinking).map(m => ({ role: m.role, content: m.content || '' }));
+  const msgs = window._popupChatMessages.filter(m => !m._thinking).map(m => ({ role: m.role, content: m.content || '' }));
   const paper = typeof _currentPaperViewPaper !== 'undefined' ? _currentPaperViewPaper : null;
   const browseTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
     ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
@@ -26,14 +44,14 @@ export function _saveChatMemory() {
 
 /** Handle a single agent event from IPC streaming */
 export function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiText, setInThinkTag) {
-  if (!_popupChatMessages[aiIdx]) return; // guard: message was cleared
+  if (!window._popupChatMessages[aiIdx]) return; // guard: message was cleared
   const labels = { 'web-search': 'Searching web…', 'paper-search': 'Searching papers…', 'extract-text': 'Fetching page…', 'save-to-reading-list': 'Bookmarking…', navigate: 'Navigating…', 'create-calendar-event': 'Adding to calendar…', 'open-tab': 'Opening tab…', 'browser-read-page': 'Reading page…', 'browser-click': 'Clicking…', 'browser-type': 'Typing…', 'browser-scroll': 'Scrolling…', 'browser-navigate': 'Navigating…', 'browser-screenshot': 'Taking screenshot…', 'browser-query-selector': 'Querying page…', 'browser-wait-for': 'Waiting for element…', 'browser-get-url': 'Getting URL…', 'browser-get-tabs': 'Listing tabs…', 'browser-switch-tab': 'Switching tab…', 'browser-back': 'Going back…', 'browser-forward': 'Going forward…', 'browser-press-key': 'Pressing key…', 'browser-get-storage': 'Reading storage…' };
 
   if (agentEvent.type === 'thinking') {
-    if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
-    _popupChatMessages[aiIdx]._thinkingText += (agentEvent.content || agentEvent.text || agentEvent.token || '');
-    _popupChatMessages[aiIdx]._thinking = true;
-    _popupChatMessages[aiIdx]._thinkingLabel = 'Thinking…';
+    if (!window._popupChatMessages[aiIdx]._thinkingText) window._popupChatMessages[aiIdx]._thinkingText = '';
+    window._popupChatMessages[aiIdx]._thinkingText += (agentEvent.content || agentEvent.text || agentEvent.token || '');
+    window._popupChatMessages[aiIdx]._thinking = true;
+    window._popupChatMessages[aiIdx]._thinkingLabel = 'Thinking…';
     _renderPopupChatLive(false);
   } else if (agentEvent.type === 'token') {
     const token = agentEvent.content || agentEvent.text || agentEvent.token || '';
@@ -42,15 +60,15 @@ export function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiT
     if (_inThinkTag) {
       const endIdx = _visibleToken.indexOf('</think>');
       if (endIdx !== -1) {
-        if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
-        _popupChatMessages[aiIdx]._thinkingText += _visibleToken.slice(0, endIdx);
+        if (!window._popupChatMessages[aiIdx]._thinkingText) window._popupChatMessages[aiIdx]._thinkingText = '';
+        window._popupChatMessages[aiIdx]._thinkingText += _visibleToken.slice(0, endIdx);
         _visibleToken = _visibleToken.slice(endIdx + 8);
         setInThinkTag(false);
       } else {
-        if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
-        _popupChatMessages[aiIdx]._thinkingText += _visibleToken;
-        _popupChatMessages[aiIdx]._thinking = true;
-        _popupChatMessages[aiIdx]._thinkingLabel = 'Thinking…';
+        if (!window._popupChatMessages[aiIdx]._thinkingText) window._popupChatMessages[aiIdx]._thinkingText = '';
+        window._popupChatMessages[aiIdx]._thinkingText += _visibleToken;
+        window._popupChatMessages[aiIdx]._thinking = true;
+        window._popupChatMessages[aiIdx]._thinkingLabel = 'Thinking…';
         _renderPopupChatLive(false);
         return;
       }
@@ -62,20 +80,20 @@ export function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiT
       setInThinkTag(true);
       const endIdx2 = after.indexOf('</think>');
       if (endIdx2 !== -1) {
-        if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
-        _popupChatMessages[aiIdx]._thinkingText += after.slice(0, endIdx2);
+        if (!window._popupChatMessages[aiIdx]._thinkingText) window._popupChatMessages[aiIdx]._thinkingText = '';
+        window._popupChatMessages[aiIdx]._thinkingText += after.slice(0, endIdx2);
         _visibleToken = before + after.slice(endIdx2 + 8);
         setInThinkTag(false);
       } else {
-        if (!_popupChatMessages[aiIdx]._thinkingText) _popupChatMessages[aiIdx]._thinkingText = '';
-        _popupChatMessages[aiIdx]._thinkingText += after;
+        if (!window._popupChatMessages[aiIdx]._thinkingText) window._popupChatMessages[aiIdx]._thinkingText = '';
+        window._popupChatMessages[aiIdx]._thinkingText += after;
         _visibleToken = before;
       }
     }
     if (_visibleToken) {
-      _popupChatMessages[aiIdx]._thinking = false;
+      window._popupChatMessages[aiIdx]._thinking = false;
       setAiText(aiText + _visibleToken);
-      _popupChatMessages[aiIdx].content = aiText + _visibleToken;
+      window._popupChatMessages[aiIdx].content = aiText + _visibleToken;
       _renderPopupChatLive(false);
     }
   } else if (agentEvent.type === 'tool_result') {
@@ -124,27 +142,27 @@ export function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiT
       default: break;
     }
     if (confirmation) {
-      _popupChatMessages[aiIdx].content = confirmation;
-      _popupChatMessages[aiIdx]._thinking = false;
+      window._popupChatMessages[aiIdx].content = confirmation;
+      window._popupChatMessages[aiIdx]._thinking = false;
       _renderPopupChatLive(false);
     }
   } else if (agentEvent.type === 'tool_call') {
-    if (!_popupChatMessages[aiIdx]._toolsCalled) _popupChatMessages[aiIdx]._toolsCalled = [];
+    if (!window._popupChatMessages[aiIdx]._toolsCalled) window._popupChatMessages[aiIdx]._toolsCalled = [];
     const tc = agentEvent;
     const _tcLabel = tc.name + (tc.args ? '(' + Object.values(tc.args).map(v => JSON.stringify(v)).join(', ') + ')' : '()');
-    _popupChatMessages[aiIdx]._toolsCalled.push(_tcLabel);
+    window._popupChatMessages[aiIdx]._toolsCalled.push(_tcLabel);
     setAiText(''); // Reset accumulated text so tool_result can set confirmation
-    _popupChatMessages[aiIdx].content = '';
-    _popupChatMessages[aiIdx]._thinking = true;
-    _popupChatMessages[aiIdx]._thinkingLabel = labels[tc.name] || 'Using tool…';
+    window._popupChatMessages[aiIdx].content = '';
+    window._popupChatMessages[aiIdx]._thinking = true;
+    window._popupChatMessages[aiIdx]._thinkingLabel = labels[tc.name] || 'Using tool…';
     _renderPopupChatLive(false);
   } else if (agentEvent.type === 'action') {
     _handleAgentAction(agentEvent.action || agentEvent);
   } else if (agentEvent.type === 'usage') {
-    _popupChatMessages[aiIdx]._usage = agentEvent.usage || agentEvent;
+    window._popupChatMessages[aiIdx]._usage = agentEvent.usage || agentEvent;
   } else if (agentEvent.type === 'error') {
-    _popupChatMessages[aiIdx].content = aiText || ('Error: ' + (agentEvent.error || 'Unknown error'));
-    _popupChatMessages[aiIdx]._thinking = false;
+    window._popupChatMessages[aiIdx].content = aiText || ('Error: ' + (agentEvent.error || 'Unknown error'));
+    window._popupChatMessages[aiIdx]._thinking = false;
     _renderPopupChatLive(false);
   }
 }
@@ -246,21 +264,21 @@ export function _sendPopupChatMessage(popup, capturedText) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (!input) return;
   const q = input.value.trim();
-  if (!q && _pendingScreenshots.length === 0 && !capturedText) return;
+  if (!q && window._pendingScreenshots.length === 0 && !capturedText) return;
   input.value = '';
 
   // Pin the panel in place and restore the cursor
-  _aetherTrackMode = false;
-  _aetherPinned = true;
+  window._aetherTrackMode = false;
+  window._aetherPinned = true;
   _aetherShowCursor();
 
   // Grab pending screenshots and contexts, clear strip
-  const images = _pendingScreenshots.slice();
-  _pendingScreenshots = [];
-  const tabContexts = _pendingTabContexts.slice();
-  _pendingTabContexts = [];
-  const fileContexts = _pendingFileContexts.slice();
-  _pendingFileContexts = [];
+  const images = window._pendingScreenshots.slice();
+  window._pendingScreenshots = [];
+  const tabContexts = window._pendingTabContexts.slice();
+  window._pendingTabContexts = [];
+  const fileContexts = window._pendingFileContexts.slice();
+  window._pendingFileContexts = [];
   const strip = popup.querySelector('.doc-screenshot-attachments');
   if (strip) { strip.innerHTML = ''; strip.style.display = 'none'; }
 
@@ -276,15 +294,15 @@ export function _sendPopupChatMessage(popup, capturedText) {
   (async () => {
     try {
       // Get or create session
-      let session = _panelSession;
+      let session = window._panelSession;
       if (!session) {
         session = await ChatEngine.createSession();
         if (!session) return;
-        _panelSession = session;
-        _panelThreadId = session.threadId;
+        window._panelSession = session;
+        window._panelThreadId = session.threadId;
         // Register update listener for live rendering
         session.onUpdate((type) => {
-          _popupChatMessages = session.messages;
+          window._popupChatMessages = session.messages;
           if (type === 'stream') _renderPopupChatLive(false);
           else if (type === 'done') _renderPopupChatLive(true);
           else if (type === 'message') _renderPopupChatLive(true);
@@ -323,9 +341,9 @@ export function _sendPopupChatMessage(popup, capturedText) {
         }
       }
 
-      _popupChatAbort = session.abortController;
-      _chatStreamStart = Date.now();
-      _popupChatMessages = session.messages;
+      window._popupChatAbort = session.abortController;
+      window._chatStreamStart = Date.now();
+      window._popupChatMessages = session.messages;
       _renderPopupChatLive(false);
       _repositionSelectionPopup();
 
@@ -341,19 +359,19 @@ export function _sendPopupChatMessage(popup, capturedText) {
       });
     } catch (e) {
       if (e.name !== 'AbortError') {
-        _popupChatMessages.push({ role: 'assistant', content: 'Error: ' + e.message });
+        window._popupChatMessages.push({ role: 'assistant', content: 'Error: ' + e.message });
         _renderPopupChatLive(true);
       }
     }
 
-    _popupChatAbort = null;
-    if (_aetherBackgroundStreaming) {
+    window._popupChatAbort = null;
+    if (window._aetherBackgroundStreaming) {
       islandUpdate('aether', {
         type: 'ai', label: 'Response ready \u2713',
         detail: 'Response ready \u2713',
         action: function() { _reopenAetherPanel(); }
       });
-      setTimeout(function() { if (_aetherBackgroundStreaming) { _aetherBackgroundStreaming = false; islandRemove('aether'); } }, 8000);
+      setTimeout(function() { if (window._aetherBackgroundStreaming) { window._aetherBackgroundStreaming = false; islandRemove('aether'); } }, 8000);
     } else {
       islandRemove('aether');
     }
@@ -375,8 +393,8 @@ export function _renderPopupChatLive(final) {
 }
 
 export function _maybeDismissToIsland(popup) {
-  if (_popupChatAbort) {
-    _aetherBackgroundStreaming = true;
+  if (window._popupChatAbort) {
+    window._aetherBackgroundStreaming = true;
     islandUpdate('aether', {
       type: 'ai', label: 'Generating response\u2026',
       detail: 'Generating response\u2026',
@@ -387,30 +405,30 @@ export function _maybeDismissToIsland(popup) {
 }
 
 export function _reopenAetherPanel() {
-  _aetherBackgroundStreaming = false;
+  window._aetherBackgroundStreaming = false;
   islandRemove('aether');
 
   // Preserve session, messages, and abort state across panel rebuild
-  const savedSession = _panelSession;
-  const savedMsgs = _popupChatMessages.slice();
-  const savedAbort = _popupChatAbort;
-  _popupChatAbort = null; // prevent _showPanel from aborting the stream
+  const savedSession = window._panelSession;
+  const savedMsgs = window._popupChatMessages.slice();
+  const savedAbort = window._popupChatAbort;
+  window._popupChatAbort = null; // prevent _showPanel from aborting the stream
 
   _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 }, trackCursor: false });
 
   // Restore the stream, messages, and session
-  _panelSession = savedSession;
-  _popupChatMessages = savedMsgs;
-  _popupChatAbort = savedAbort;
-  _aetherPinned = true;
-  _aetherTrackMode = false;
+  window._panelSession = savedSession;
+  window._popupChatMessages = savedMsgs;
+  window._popupChatAbort = savedAbort;
+  window._aetherPinned = true;
+  window._aetherTrackMode = false;
 
   const popup = document.getElementById('doc-chat-ask-float');
   if (popup) {
     popup.classList.add('has-chat');
     const chatArea = popup.querySelector('.doc-popup-chat-area');
     if (chatArea) chatArea.classList.add('visible');
-    const isStreaming = !!_popupChatAbort;
+    const isStreaming = !!window._popupChatAbort;
     _renderPopupChat(popup, !isStreaming);
     if (isStreaming) {
       const input = popup.querySelector('.doc-ask-inline-input');
@@ -499,8 +517,8 @@ export function _renderCtxPills(sources, msg) {
 export function _renderPopupChat(popup, final) {
   const container = popup.querySelector('.doc-popup-chat-messages');
   if (!container) return;
-  const total = _popupChatMessages.length;
-  container.innerHTML = _popupChatMessages.map((m, i) =>
+  const total = window._popupChatMessages.length;
+  container.innerHTML = window._popupChatMessages.map((m, i) =>
     ChatRender.renderMessageHTML(m, i, total, final)
   ).join('');
 
@@ -508,10 +526,10 @@ export function _renderPopupChat(popup, final) {
   ChatRender.attachMessageHandlers(container, {
     onNavigate() {
       const p = document.getElementById('doc-chat-ask-float');
-      if (p) { _aetherTrackMode = false; p.remove(); }
+      if (p) { window._aetherTrackMode = false; p.remove(); }
     },
     onSpeak(btn) {
-      if (_ttsAudio || _ttsChunks.length > 0) {
+      if (window._ttsAudio || window._ttsChunks.length > 0) {
         const wasToggling = btn.classList.contains('doc-msg-speaking');
         _ttsStopAll();
         container.querySelectorAll('.doc-msg-speak-btn').forEach(b => b.classList.remove('doc-msg-speaking'));
@@ -527,59 +545,59 @@ export function _renderPopupChat(popup, final) {
         if (!data || !data.audioPath) throw new Error('No audio generated');
         const audio = new Audio('file://' + data.audioPath);
         audio.playbackRate = parseFloat(Settings.get('ttsSpeed')) || 1;
-        _ttsAudio = audio;
+        window._ttsAudio = audio;
         _updateAudioUnified('tts', { label: 'Speaking', detail: 'Playing speech audio' });
         _ttsStartWaveform(audio);
-        audio.onended = () => { btn.classList.remove('doc-msg-speaking'); _ttsAudio = null; _ttsStopWaveform(); _clearAudioUnified('tts'); };
-        audio.onerror = () => { btn.classList.remove('doc-msg-speaking'); _ttsAudio = null; _ttsStopWaveform(); _clearAudioUnified('tts'); };
+        audio.onended = () => { btn.classList.remove('doc-msg-speaking'); window._ttsAudio = null; _ttsStopWaveform(); _clearAudioUnified('tts'); };
+        audio.onerror = () => { btn.classList.remove('doc-msg-speaking'); window._ttsAudio = null; _ttsStopWaveform(); _clearAudioUnified('tts'); };
         audio.play();
       }).catch(() => { btn.classList.remove('doc-msg-speaking'); _clearAudioUnified('tts'); });
     },
     onRedo() {
-      if (_panelSession) {
-        _panelSession.redo().then(text => {
+      if (window._panelSession) {
+        window._panelSession.redo().then(text => {
           if (text) {
             const input = popup.querySelector('.doc-ask-inline-input');
             if (input) input.value = text;
-            _popupChatMessages = _panelSession.messages;
-            if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+            window._popupChatMessages = window._panelSession.messages;
+            if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
             _sendPopupChatMessage(popup, popup._capturedText || '');
           }
         });
       } else {
         // Legacy fallback
         let lastUserIdx = -1;
-        for (let i = _popupChatMessages.length - 1; i >= 0; i--) {
-          if (_popupChatMessages[i].role === 'user') { lastUserIdx = i; break; }
+        for (let i = window._popupChatMessages.length - 1; i >= 0; i--) {
+          if (window._popupChatMessages[i].role === 'user') { lastUserIdx = i; break; }
         }
         if (lastUserIdx < 0) return;
-        const lastUserMsg = _popupChatMessages[lastUserIdx];
-        _popupChatMessages = _popupChatMessages.slice(0, lastUserIdx);
-        if (_popupChatAbort) { _popupChatAbort.abort(); _popupChatAbort = null; }
+        const lastUserMsg = window._popupChatMessages[lastUserIdx];
+        window._popupChatMessages = window._popupChatMessages.slice(0, lastUserIdx);
+        if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
         const input = popup.querySelector('.doc-ask-inline-input');
         if (input) input.value = lastUserMsg._display || lastUserMsg.content;
         _sendPopupChatMessage(popup, popup._capturedText || '');
       }
     },
     onEdit(msgIdx) {
-      if (_panelSession) {
-        _panelSession.editFrom(msgIdx).then(text => {
+      if (window._panelSession) {
+        window._panelSession.editFrom(msgIdx).then(text => {
           if (text != null) {
-            _popupChatMessages = _panelSession.messages;
+            window._popupChatMessages = window._panelSession.messages;
             const input = popup.querySelector('.doc-ask-inline-input');
             if (input) { input.value = text; input.focus(); }
             _renderPopupChat(popup, true);
           }
         });
       } else {
-        if (msgIdx < 0 || msgIdx >= _popupChatMessages.length) return;
-        const msg = _popupChatMessages[msgIdx];
+        if (msgIdx < 0 || msgIdx >= window._popupChatMessages.length) return;
+        const msg = window._popupChatMessages[msgIdx];
         if (msg.role !== 'user') return;
         const input = popup.querySelector('.doc-ask-inline-input');
         if (!input) return;
         input.value = msg.content;
         input.focus();
-        _popupChatMessages.splice(msgIdx);
+        window._popupChatMessages.splice(msgIdx);
         _renderPopupChat(popup, true);
       }
     },
@@ -588,7 +606,7 @@ export function _renderPopupChat(popup, final) {
   // Update send/stop button state
   const sendBtn = popup.querySelector('.doc-ask-inline-send');
   if (sendBtn) {
-    if (_popupChatAbort && !final) {
+    if (window._popupChatAbort && !final) {
       sendBtn.innerHTML = icon('stopCircle', { size: 14 });
       sendBtn.title = 'Stop';
       sendBtn.disabled = false;
@@ -601,7 +619,7 @@ export function _renderPopupChat(popup, final) {
   }
 
   // Scroll
-  const lastMsg = _popupChatMessages[_popupChatMessages.length - 1];
+  const lastMsg = window._popupChatMessages[window._popupChatMessages.length - 1];
   if (lastMsg && ((lastMsg._searchResults?.length) || (lastMsg._paperResults?.length) || (lastMsg._userResults?.length))) {
     const msgs = container.querySelectorAll('.doc-msg-user, .doc-msg-ai');
     const searchUserMsg = msgs.length >= 2 ? msgs[msgs.length - 2] : null;
@@ -612,12 +630,11 @@ export function _renderPopupChat(popup, final) {
   }
   _updateContextBar(popup);
   _updateChatStats(popup, final);
-  const hasAiMsg = _popupChatMessages.some(m => m.role === 'assistant' && !m._thinking && m.content);
+  const hasAiMsg = window._popupChatMessages.some(m => m.role === 'assistant' && !m._thinking && m.content);
   if (popup._redoBtn) popup._redoBtn.style.display = hasAiMsg ? '' : 'none';
   if (popup._copyChatBtn) popup._copyChatBtn.style.display = hasAiMsg ? '' : 'none';
-  if (popup._openInTabBtn) popup._openInTabBtn.style.display = (_panelThreadId && hasAiMsg) ? '' : 'none';
+  if (popup._openInTabBtn) popup._openInTabBtn.style.display = (window._panelThreadId && hasAiMsg) ? '' : 'none';
 }
-
 
 export function _updateContextUsage(popup) {
   // Removed — context usage no longer shown
@@ -627,8 +644,8 @@ export function _updateChatStats(popup, final) {
   const statsEl = popup.querySelector('.doc-chat-stats');
   if (!statsEl) return;
   _updateContextUsage(popup);
-  if (_popupChatMessages.length === 0) { statsEl.textContent = ''; return; }
-  const lastAi = [..._popupChatMessages].reverse().find(m => m.role === 'assistant' && !m._thinking);
+  if (window._popupChatMessages.length === 0) { statsEl.textContent = ''; return; }
+  const lastAi = [...window._popupChatMessages].reverse().find(m => m.role === 'assistant' && !m._thinking);
   if (!lastAi) { statsEl.textContent = ''; return; }
   const parts = [];
   // Token count: use actual usage if available, else estimate from streamed text
@@ -644,8 +661,8 @@ export function _updateChatStats(popup, final) {
   if (lastAi._usage && lastAi._usage.duration_ms) {
     const ms = lastAi._usage.duration_ms;
     parts.push(ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms');
-  } else if (_chatStreamStart) {
-    const elapsed = Date.now() - _chatStreamStart;
+  } else if (window._chatStreamStart) {
+    const elapsed = Date.now() - window._chatStreamStart;
     parts.push(elapsed >= 1000 ? (elapsed / 1000).toFixed(1) + 's' : elapsed + 'ms');
   }
   // Model name
@@ -654,7 +671,7 @@ export function _updateChatStats(popup, final) {
 }
 
 export function _savePopupChatToHighlight(popup) {
-  _popupChatMessages = [];
+  window._popupChatMessages = [];
 }
 
 // Position a popup so one of its four corners is at (cx, cy), picking the best
@@ -668,7 +685,6 @@ export function _screenshotRestoreIframes() {
     }
   });
 }
-
 
 export async function _browserCaptureRect(rect) {
   const { x, y, width, height } = rect;
@@ -715,32 +731,31 @@ export async function _browserCaptureRect(rect) {
   }
 }
 
-
 export function _addTabContextToPanel(popup, tabInfo) {
-  if (_pendingTabContexts.some(t => t.tabId === tabInfo.tabId)) return;
-  _pendingTabContexts.push({ tabId: tabInfo.tabId, title: tabInfo.title, url: tabInfo.url, content: tabInfo.content || '' });
+  if (window._pendingTabContexts.some(t => t.tabId === tabInfo.tabId)) return;
+  window._pendingTabContexts.push({ tabId: tabInfo.tabId, title: tabInfo.title, url: tabInfo.url, content: tabInfo.content || '' });
 
   const strip = popup.querySelector('.doc-screenshot-attachments');
   if (!strip) return;
   strip.style.display = 'flex';
 
-  const chipView = new View('div').className('doc-tab-context-chip');
+  const chipView = new window.View('div').className('doc-tab-context-chip');
   chipView.attr('data-tab-id', tabInfo.tabId);
   const chip = chipView.el;
   const domain = (() => { try { return new URL(tabInfo.url).hostname.replace('www.', ''); } catch { return ''; } })();
   const favUrl = tabInfo.url ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=16' : '';
   const favHtml = favUrl ? '<img src="' + favUrl + '" class="w-3 h-3 flex-shrink-0 rounded-sm" onerror="this.style.display=\'none\'">' :
     icon('browserTab', { size: 12, class: 'w-3 h-3 flex-shrink-0' });
-  chip.appendChild(RawHTML(favHtml).el);
-  chip.appendChild(Text(tabInfo.title || domain || 'Tab').className('truncate').el);
+  chip.appendChild(window.RawHTML(favHtml).el);
+  chip.appendChild(window.Text(tabInfo.title || domain || 'Tab').className('truncate').el);
 
-  const removeBtn = Button('\u00d7').className('doc-note-context-remove');
+  const removeBtn = window.Button('\u00d7').className('doc-note-context-remove');
   removeBtn.on('mousedown', function(ev) { ev.stopPropagation(); });
   removeBtn.onTap(function(ev) {
     ev.stopPropagation();
-    _pendingTabContexts = _pendingTabContexts.filter(t => t.tabId !== tabInfo.tabId);
+    window._pendingTabContexts = window._pendingTabContexts.filter(t => t.tabId !== tabInfo.tabId);
     chip.remove();
-    if (_pendingTabContexts.length === 0 && _pendingScreenshots.length === 0) strip.style.display = 'none';
+    if (window._pendingTabContexts.length === 0 && window._pendingScreenshots.length === 0) strip.style.display = 'none';
   });
   chip.appendChild(removeBtn.el);
   strip.appendChild(chip);
@@ -754,7 +769,7 @@ export function _showTabContextMenu(e, tabEl) {
   const tid = tabEl.dataset.tabId || (() => { const m = (tabEl.getAttribute('onclick') || '').match(/browseSelectTab\((\d+)\)/); return m ? m[1] : null; })();
   if (!tid) return;
   const tabId = parseInt(tid);
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const tab = win.tabs.find(t => t.id === tabId);
   if (!tab) return;
@@ -807,7 +822,7 @@ export function _showTabContextMenu(e, tabEl) {
     items.push({ label: 'Add to new group', fn() { browseAddTabToNewGroup(tabId); } });
     for (const g of groups) {
       if (g.id === tab.groupId) continue;
-      const gc = typeof _BROWSE_GROUP_COLOR_MAP !== 'undefined' ? (_BROWSE_GROUP_COLOR_MAP[g.color] || g.color) : g.color;
+      const gc = typeof window._BROWSE_GROUP_COLOR_MAP !== 'undefined' ? (window._BROWSE_GROUP_COLOR_MAP[g.color] || g.color) : g.color;
       items.push({ label: g.name, colorDot: gc, fn() { browseAddTabToGroup(tabId, g.id); } });
     }
     if (inGroup) {
@@ -825,8 +840,8 @@ export function _showTabContextMenu(e, tabEl) {
   items.push({ label: 'Duplicate tab', fn() { browseNewTab(tab.url); } });
 
   // Mute/Unmute (only if tab has audio)
-  if (_browseAudioTabs.has(tabId)) {
-    const audioInfo = _browseAudioTabs.get(tabId);
+  if (window._browseAudioTabs.has(tabId)) {
+    const audioInfo = window._browseAudioTabs.get(tabId);
     const isMuted = audioInfo && audioInfo.muted;
     items.push({ label: isMuted ? 'Unmute tab' : 'Mute tab', fn() { toggleTabMute(tabId); } });
   }
@@ -844,26 +859,26 @@ export function _showTabContextMenu(e, tabEl) {
 }
 
 export function _addScreenshotToPanel(popup, base64) {
-  _pendingScreenshots.push(base64);
+  window._pendingScreenshots.push(base64);
 
   const strip = popup.querySelector('.doc-screenshot-attachments');
   if (!strip) return;
   strip.style.display = 'flex';
 
-  const thumbView = new View('div').className('doc-screenshot-thumb');
+  const thumbView = new window.View('div').className('doc-screenshot-thumb');
   const thumb = thumbView.el;
-  const imgView = new View('img');
+  const imgView = new window.View('img');
   imgView.el.src = 'data:image/png;base64,' + base64;
   thumb.appendChild(imgView.el);
 
-  const removeBtn = Button('\u00d7').className('doc-screenshot-thumb-remove');
+  const removeBtn = window.Button('\u00d7').className('doc-screenshot-thumb-remove');
   removeBtn.on('mousedown', function(ev) { ev.stopPropagation(); });
   removeBtn.onTap(function(ev) {
     ev.stopPropagation();
-    const idx = _pendingScreenshots.indexOf(base64);
-    if (idx !== -1) _pendingScreenshots.splice(idx, 1);
+    const idx = window._pendingScreenshots.indexOf(base64);
+    if (idx !== -1) window._pendingScreenshots.splice(idx, 1);
     thumb.remove();
-    if (_pendingScreenshots.length === 0) strip.style.display = 'none';
+    if (window._pendingScreenshots.length === 0) strip.style.display = 'none';
   });
   thumb.appendChild(removeBtn.el);
   strip.appendChild(thumb);
@@ -872,26 +887,5 @@ export function _addScreenshotToPanel(popup, base64) {
   if (input) input.focus();
   _updateContextBar(popup);
 }
-
-// ── Window assignments for global access ──
-window._saveChatMemory = _saveChatMemory;
-window._handleAgentEvent = _handleAgentEvent;
-window._handleAgentAction = _handleAgentAction;
-window._sendPopupChatMessage = _sendPopupChatMessage;
-window._renderPopupChatLive = _renderPopupChatLive;
-window._maybeDismissToIsland = _maybeDismissToIsland;
-window._reopenAetherPanel = _reopenAetherPanel;
-window._updateContextBar = _updateContextBar;
-window._renderLatexInElement = _renderLatexInElement;
-window._renderCtxPills = _renderCtxPills;
-window._renderPopupChat = _renderPopupChat;
-window._updateContextUsage = _updateContextUsage;
-window._updateChatStats = _updateChatStats;
-window._savePopupChatToHighlight = _savePopupChatToHighlight;
-window._screenshotRestoreIframes = _screenshotRestoreIframes;
-window._browserCaptureRect = _browserCaptureRect;
-window._addTabContextToPanel = _addTabContextToPanel;
-window._showTabContextMenu = _showTabContextMenu;
-window._addScreenshotToPanel = _addScreenshotToPanel;
 
 // Web search from aether panel (Shift+Enter)

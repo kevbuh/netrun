@@ -1,7 +1,11 @@
 import Settings from '/js/core/core-settings.js';
+import { api, apiPost, apiGet } from '/js/api.js';
+import { icon } from '/js/core/icons.js';
+import { islandUpdate, islandRemove, showAchievement, pillStackAdd, pillStackRemove } from '/js/core/core-ui.js';
+import { setSidebarActive } from '/js/core/core-layout.js';
+import { ensureView, hideAllViews } from '/js/core/core-views.js';
 
-// ── Neuralook — Eye Tracking View (CNN Gaze Estimation) ──
-if (window.AetherUI) AetherUI.globals();
+// ── Neuralook — Eye Tracking window.View(CNN Gaze Estimation) ──
 
 export let _nlCalibrating = false;
 export let _nlTracking = false;
@@ -911,7 +915,7 @@ export let _nlTrainPill = null;
 export function _nlShowTrainPill() {
   if (window.location.hash === '#neuralook') return;
   _nlDismissTrainPill();
-  const pillView = new View('div').attr('id', 'nl-train-pill');
+  const pillView = new window.View('div').attr('id', 'nl-train-pill');
   pillView.styles({
     position: 'fixed', right: '20px', zIndex: '99999',
     background: 'var(--nr-bg-surface, #23232a)', border: '1px solid var(--nr-border-default, #2a2a2f)',
@@ -926,18 +930,18 @@ export function _nlShowTrainPill() {
   else { pill.style.backdropFilter = 'blur(12px)'; pill.style.WebkitBackdropFilter = 'blur(12px)'; }
 
   const spinnerSvg = '<svg width="18" height="18" viewBox="0 0 18 18" style="animation:nl-pill-spin 1s linear infinite"><circle cx="9" cy="9" r="7" fill="none" stroke="var(--nr-accent,#b4451a)" stroke-width="2" stroke-dasharray="30 14" stroke-linecap="round"/></svg>';
-  const iconDiv = new View('div').attr('id', 'nl-pill-icon').cssText('width:18px;height:18px;flex-shrink:0;');
-  iconDiv.el.appendChild(RawHTML(spinnerSvg).el);
+  const iconDiv = new window.View('div').attr('id', 'nl-pill-icon').cssText('width:18px;height:18px;flex-shrink:0;');
+  iconDiv.el.appendChild(window.RawHTML(spinnerSvg).el);
 
-  const textDiv = VStack(
-    Text('Training ' + _nlModelLabel()).attr('id', 'nl-pill-title').cssText('font-weight:600;font-size:0.8rem;'),
-    Text('Starting... \u00b7 v' + (_nlModelVersion + 1)).attr('id', 'nl-pill-detail').cssText('font-size:0.7rem;color:var(--text-secondary,#888);')
+  const textDiv = window.VStack(
+    window.Text('Training ' + _nlModelLabel()).attr('id', 'nl-pill-title').cssText('font-weight:600;font-size:0.8rem;'),
+    window.Text('Starting... \u00b7 v' + (_nlModelVersion + 1)).attr('id', 'nl-pill-detail').cssText('font-size:0.7rem;color:var(--text-secondary,#888);')
   ).attr('id', 'nl-pill-text').cssText('flex:1;line-height:1.4;');
 
   const stopSvg = '<svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="#f87171"/></svg>';
-  const stopBtn = new View('div').attr('id', 'nl-pill-stop');
+  const stopBtn = new window.View('div').attr('id', 'nl-pill-stop');
   stopBtn.cssText('width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;border:1px solid var(--border,#333);transition:border-color 0.2s;');
-  stopBtn.el.appendChild(RawHTML(stopSvg).el);
+  stopBtn.el.appendChild(window.RawHTML(stopSvg).el);
   stopBtn.on('click', function(ev) { ev.stopPropagation(); _nlStopTraining(); });
   stopBtn.on('mouseover', function() { stopBtn.el.style.borderColor = '#f87171'; });
   stopBtn.on('mouseout', function() { stopBtn.el.style.borderColor = 'var(--border,#333)'; });
@@ -1120,7 +1124,7 @@ export function _nlToggleCamera() {
       const vid = box.querySelector('video');
       if (vid) vid.remove();
       if (!document.getElementById('nl-camera-placeholder')) {
-        const ph = Text('Camera off').className('text-dimmer text-[0.75rem]').attr('id', 'nl-camera-placeholder');
+        const ph = window.Text('Camera off').className('text-dimmer text-[0.75rem]').attr('id', 'nl-camera-placeholder');
         box.appendChild(ph.el);
       }
     }
@@ -1232,7 +1236,7 @@ export function _nlShowCalibrationOverlay() {
   if (existing) existing.remove();
 
   // Blank background so calibration dots are clearly visible
-  const overlayView = new View('div').attr('id', 'nl-calibration-overlay');
+  const overlayView = new window.View('div').attr('id', 'nl-calibration-overlay');
   overlayView.styles({
     position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
     background: 'var(--nr-bg-body, #0a0a0a)', zIndex: '99999',
@@ -1240,13 +1244,13 @@ export function _nlShowCalibrationOverlay() {
   });
   const overlay = overlayView.el;
 
-  const instrView = new View('div').attr('id', 'nl-cal-instr');
+  const instrView = new window.View('div').attr('id', 'nl-cal-instr');
   instrView.cssText('position:absolute;top:30px;left:50%;transform:translateX(-50%);font-size:0.9rem;text-align:center;z-index:100000;pointer-events:none;background:rgba(0,0,0,0.7);color:#fff;padding:8px 16px;border-radius:8px;');
   overlay.appendChild(instrView.el);
 
   // Camera preview in bottom-right corner
   if (_nlVideoEl && _nlVideoEl.srcObject) {
-    const camBoxView = new View('div');
+    const camBoxView = new window.View('div');
     camBoxView.styles({
       position: 'absolute', bottom: '50px', right: '24px', width: '180px', height: '135px',
       borderRadius: '10px', overflow: 'hidden', zIndex: '100000',
@@ -1264,12 +1268,12 @@ export function _nlShowCalibrationOverlay() {
   }
 
   // Progress bar
-  const progBarView = new View('div').attr('id', 'nl-cal-progbar');
+  const progBarView = new window.View('div').attr('id', 'nl-cal-progbar');
   progBarView.styles({
     position: 'absolute', bottom: '24px', left: '10%', width: '80%', height: '4px',
     background: 'rgba(255,255,255,0.2)', borderRadius: '2px', zIndex: '100000'
   });
-  const progFillView = new View('div').attr('id', 'nl-cal-progfill');
+  const progFillView = new window.View('div').attr('id', 'nl-cal-progfill');
   progFillView.styles({
     width: '0%', height: '100%', background: 'var(--nr-accent, #b4451a)',
     borderRadius: '2px', transition: 'width 0.3s'
@@ -1307,7 +1311,7 @@ export function _nlShowNextCalibrationDot() {
   if (progFill) progFill.style.width = Math.round((_nlCurrentPoint / _NL_CAL_POSITIONS.length) * 100) + '%';
 
   // Dot with outline for visibility on any background
-  const dotView = new View('div').attr('id', 'nl-cal-dot');
+  const dotView = new window.View('div').attr('id', 'nl-cal-dot');
   dotView.styles({
     position: 'absolute', left: xPct + '%', top: yPct + '%',
     width: '20px', height: '20px', borderRadius: '50%',
@@ -1320,7 +1324,7 @@ export function _nlShowNextCalibrationDot() {
   const dot = dotView.el;
 
   // Shrinking ring
-  const ringView = new View('div').attr('id', 'nl-cal-ring');
+  const ringView = new window.View('div').attr('id', 'nl-cal-ring');
   Object.assign(ringView.el.style, {
     position: 'absolute', left: xPct + '%', top: yPct + '%',
     width: '44px', height: '44px', borderRadius: '50%',
@@ -1591,7 +1595,7 @@ export function _nlFetchImplicitCount() {
 
 export function _nlShowClickFeedback(x, y, accepted, detail) {
   const color = accepted ? '#4ade80' : '#f87171';
-  const elView = new View('div');
+  const elView = new window.View('div');
   elView.styles({
     position: 'fixed', left: (x + 12) + 'px', top: (y - 8) + 'px', zIndex: '99999',
     pointerEvents: 'none', fontSize: '0.65rem', fontFamily: 'inherit', fontWeight: '600',
@@ -1607,7 +1611,7 @@ export function _nlShowClickFeedback(x, y, accepted, detail) {
 export function _nlShowModelUpdatedPill(version, valErrorPx) {
   const existing = document.getElementById('nl-model-updated-pill');
   if (existing) { pillStackRemove('nl-model-updated-pill'); existing.remove(); }
-  const pillView = new View('div').attr('id', 'nl-model-updated-pill');
+  const pillView = new window.View('div').attr('id', 'nl-model-updated-pill');
   pillView.styles({
     position: 'fixed', right: '20px', zIndex: '99999',
     background: 'var(--nr-bg-surface, #23232a)', border: '1px solid #60a5fa',
@@ -1623,10 +1627,10 @@ export function _nlShowModelUpdatedPill(version, valErrorPx) {
   else { pill.style.backdropFilter = 'blur(12px)'; pill.style.WebkitBackdropFilter = 'blur(12px)'; }
 
   const updatedSvg = '<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="#60a5fa"/><path d="M9 5v4l3 2" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  pill.appendChild(RawHTML(updatedSvg).el);
-  const textDiv = VStack(
-    Text('Tracking model updated to v' + version).cssText('font-weight:600;font-size:0.8rem;'),
-    Text('Val error: ' + valErrorPx + 'px').cssText('font-size:0.7rem;color:var(--text-secondary,#888);')
+  pill.appendChild(window.RawHTML(updatedSvg).el);
+  const textDiv = window.VStack(
+    window.Text('Tracking model updated to v' + version).cssText('font-weight:600;font-size:0.8rem;'),
+    window.Text('Val error: ' + valErrorPx + 'px').cssText('font-size:0.7rem;color:var(--text-secondary,#888);')
   ).cssText('line-height:1.4;');
   pill.appendChild(textDiv.el);
   pillView.onTap(function() { if (typeof openNeuralook === 'function') openNeuralook(); pillStackRemove('nl-model-updated-pill'); pill.remove(); });
@@ -1748,7 +1752,6 @@ export function _nlUpdateAdaptiveRadius(valErrorPx) {
   _nlAdaptiveRadius = Math.max(350, Math.min(600, Math.round(valErrorPx * 4)));
 }
 
-
 export function _nlSaveRefinementHistory() {
   try {
     if (_nlRefinementHistory.length > 100) _nlRefinementHistory = _nlRefinementHistory.slice(-100);
@@ -1840,7 +1843,7 @@ export function _nlCreateDot() {
   const savedColor = document.getElementById('nl-dot-color')?.value || '#ef4444';
   const savedSize = document.getElementById('nl-dot-size')?.value || '20';
   const sz = parseInt(savedSize, 10);
-  const dotView = new View('div').attr('id', 'nl-gaze-dot');
+  const dotView = new window.View('div').attr('id', 'nl-gaze-dot');
   dotView.styles({
     position: 'fixed', width: sz + 'px', height: sz + 'px', borderRadius: '50%',
     background: savedColor, opacity: '0.7', pointerEvents: 'none', zIndex: '99998',
@@ -2207,149 +2210,3 @@ export function _nlRefreshDashboard() {
   _nlRefreshBanner();
 }
 
-// ── Window exports ──
-window._nlCalibrating = _nlCalibrating;
-window._nlTracking = _nlTracking;
-window._nlGazeDot = _nlGazeDot;
-window._nlReady = _nlReady;
-window._nlGazeX = _nlGazeX;
-window._nlGazeY = _nlGazeY;
-window._nlCurrentPoint = _nlCurrentPoint;
-window._nlCameraOn = _nlCameraOn;
-window._nlFaceLandmarker = _nlFaceLandmarker;
-window._nlVideoEl = _nlVideoEl;
-window._nlMpCdnLoaded = _nlMpCdnLoaded;
-window._nlMpModelLoading = _nlMpModelLoading;
-window._nlMpModelReady = _nlMpModelReady;
-window._nlTrackingRAF = _nlTrackingRAF;
-window._nlCalibData = _nlCalibData;
-window._nlModelTrained = _nlModelTrained;
-window._nlTrainError = _nlTrainError;
-window._nlValError = _nlValError;
-window._nlInferPending = _nlInferPending;
-window._nlCalibSaved = _nlCalibSaved;
-window._nlEyeCropCanvas = _nlEyeCropCanvas;
-window._nlTraining = _nlTraining;
-window._nlTrainPhase = _nlTrainPhase;
-window._nlTrainProgress = _nlTrainProgress;
-window._nlTrainResult = _nlTrainResult;
-window._nlTrainLossHistory = _nlTrainLossHistory;
-window._nlTrainLogs = _nlTrainLogs;
-window._nlTrainStartTime = _nlTrainStartTime;
-window._nlShowTrainView = _nlShowTrainView;
-window._nlTrainAbort = _nlTrainAbort;
-window._nlImplicitBuffer = _nlImplicitBuffer;
-window._nlLastCapture = _nlLastCapture;
-window._nlLastPrediction = _nlLastPrediction;
-window._nlImplicitCount = _nlImplicitCount;
-window._nlImplicitLastFlush = _nlImplicitLastFlush;
-window._nlAutoRefineEnabled = _nlAutoRefineEnabled;
-window._nlLastAutoRefineTime = _nlLastAutoRefineTime;
-window._nlAutoRefineInProgress = _nlAutoRefineInProgress;
-window._nlRefinementHistory = _nlRefinementHistory;
-window._nlBaselineValError = _nlBaselineValError;
-window._nlAdaptiveRadius = _nlAdaptiveRadius;
-window._nlTimedFlushInterval = _nlTimedFlushInterval;
-window._nlModelVersion = _nlModelVersion;
-window._nlCheckGazeMasterAchievement = _nlCheckGazeMasterAchievement;
-window._nlModelType = _nlModelType;
-window._nlModelState = _nlModelState;
-window._nlModelLabel = _nlModelLabel;
-window._nlSetModelType = _nlSetModelType;
-window._nlGazeBuffer = _nlGazeBuffer;
-window._NL_BUFFER_SIZE = _NL_BUFFER_SIZE;
-window._nlPredictionCount = _nlPredictionCount;
-window._nlPredictionsThisSec = _nlPredictionsThisSec;
-window._nlPredictionRate = _nlPredictionRate;
-window._nlStatsInterval = _nlStatsInterval;
-window._nlRateInterval = _nlRateInterval;
-window._NL_GRAPH_LEN = _NL_GRAPH_LEN;
-window._nlHistGazeX = _nlHistGazeX;
-window._nlHistGazeY = _nlHistGazeY;
-window._nlHistJitter = _nlHistJitter;
-window._nlHistRate = _nlHistRate;
-window._nlSessionStartTime = _nlSessionStartTime;
-window._nlSessionPredictions = _nlSessionPredictions;
-window._NL_HEATMAP_COLS = _NL_HEATMAP_COLS;
-window._NL_HEATMAP_ROWS = _NL_HEATMAP_ROWS;
-window._nlHeatmapGrid = _nlHeatmapGrid;
-window._nlHeatmapMax = _nlHeatmapMax;
-window._NL_FIXATION_RADIUS = _NL_FIXATION_RADIUS;
-window._NL_FIXATION_MIN_MS = _NL_FIXATION_MIN_MS;
-window._nlFixationCount = _nlFixationCount;
-window._nlFixationDurations = _nlFixationDurations;
-window._nlSaccadeCount = _nlSaccadeCount;
-window._nlCurrentFixation = _nlCurrentFixation;
-window._NL_CAL_POSITIONS = _NL_CAL_POSITIONS;
-window._NL_STARE_MS = _NL_STARE_MS;
-window._NL_SETTLE_MS = _NL_SETTLE_MS;
-window._NL_EYE_W = _NL_EYE_W;
-window._NL_EYE_H = _NL_EYE_H;
-window._nlUpdatePillIndicator = _nlUpdatePillIndicator;
-window.openNeuralook = openNeuralook;
-window.renderNeuralookView = renderNeuralookView;
-window._nlRenderTrainDetailView = _nlRenderTrainDetailView;
-window._nlEyeCropRAF = _nlEyeCropRAF;
-window._nlStartEyeCropPreview = _nlStartEyeCropPreview;
-window._nlDrawEyeCrops = _nlDrawEyeCrops;
-window._nlAppendTrainLog = _nlAppendTrainLog;
-window._nlRefreshTrainView = _nlRefreshTrainView;
-window._nlRefreshTrainDetails = _nlRefreshTrainDetails;
-window._nlDrawTrainLossGraph = _nlDrawTrainLossGraph;
-window._nlInitMediapipe = _nlInitMediapipe;
-window._nlGetEyeCropCanvas = _nlGetEyeCropCanvas;
-window._nlCaptureEyeCrops = _nlCaptureEyeCrops;
-window._nlTrainOnServerSSE = _nlTrainOnServerSSE;
-window._nlTrainPill = _nlTrainPill;
-window._nlShowTrainPill = _nlShowTrainPill;
-window._nlTrainETA = _nlTrainETA;
-window._nlStopTraining = _nlStopTraining;
-window._nlUpdateTrainPill = _nlUpdateTrainPill;
-window._nlFinishTrainPill = _nlFinishTrainPill;
-window._nlErrorTrainPill = _nlErrorTrainPill;
-window._nlDismissTrainPill = _nlDismissTrainPill;
-window._nlPredictOnServer = _nlPredictOnServer;
-window._nlEnsureVideo = _nlEnsureVideo;
-window._nlStopVideo = _nlStopVideo;
-window._nlAttachCameraPreview = _nlAttachCameraPreview;
-window._nlToggleCamera = _nlToggleCamera;
-window._nlShowError = _nlShowError;
-window._nlStartCalibration = _nlStartCalibration;
-window._nlFullscreenChange = _nlFullscreenChange;
-window._nlShowCalibrationOverlay = _nlShowCalibrationOverlay;
-window._nlShowNextCalibrationDot = _nlShowNextCalibrationDot;
-window._nlOnCalibrationComplete = _nlOnCalibrationComplete;
-window._nlFinishCalibration = _nlFinishCalibration;
-window._nlApplyGazePrediction = _nlApplyGazePrediction;
-window._nlTrackingLoop = _nlTrackingLoop;
-window._nlToggleTracking = _nlToggleTracking;
-window._nlStartTracking = _nlStartTracking;
-window._nlStopTracking = _nlStopTracking;
-window._nlHandleImplicitClick = _nlHandleImplicitClick;
-window._nlFlushImplicitSamples = _nlFlushImplicitSamples;
-window._nlFetchImplicitCount = _nlFetchImplicitCount;
-window._nlShowClickFeedback = _nlShowClickFeedback;
-window._nlShowModelUpdatedPill = _nlShowModelUpdatedPill;
-window._nlCheckAutoRefine = _nlCheckAutoRefine;
-window._nlStartAutoRefine = _nlStartAutoRefine;
-window._nlUpdateAdaptiveRadius = _nlUpdateAdaptiveRadius;
-window._nlSaveRefinementHistory = _nlSaveRefinementHistory;
-window._nlLoadRefinementHistory = _nlLoadRefinementHistory;
-window._nlRefineModel = _nlRefineModel;
-window._nlCreateDot = _nlCreateDot;
-window._nlRemoveDot = _nlRemoveDot;
-window._nlMoveDot = _nlMoveDot;
-window._nlStartStatsInterval = _nlStartStatsInterval;
-window._nlStopStatsInterval = _nlStopStatsInterval;
-window._nlComputeJitter = _nlComputeJitter;
-window._nlRefreshBanner = _nlRefreshBanner;
-window._nlRefreshStats = _nlRefreshStats;
-window._nlDrawGraph = _nlDrawGraph;
-window._nlResetSessionStats = _nlResetSessionStats;
-window._nlPushHistorySample = _nlPushHistorySample;
-window._nlUpdateHeatmap = _nlUpdateHeatmap;
-window._nlHeatColor = _nlHeatColor;
-window._nlDrawHeatmap = _nlDrawHeatmap;
-window._nlDetectFixation = _nlDetectFixation;
-window._nlRenderDashboardColumn = _nlRenderDashboardColumn;
-window._nlRefreshDashboard = _nlRefreshDashboard;

@@ -1,4 +1,6 @@
 import Settings from '../core/core-settings.js';
+import { apiGet } from '/js/api.js';
+import { escapeHtml, escapeAttr } from '/js/core/core-utils.js';
 
 // ─── Panel Settings (utilities — render merged into AI section) ──
 
@@ -27,4 +29,3 @@ export function _loadSettingsModels() {
   });
 }
 
-window._loadSettingsModels = _loadSettingsModels;

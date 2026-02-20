@@ -1,6 +1,12 @@
 // core-routing.js — Route table
 // Extracted from core.js
 import Settings from '/js/core/core-settings.js';
+import { _navPush } from '/js/core/core-nav.js';
+import { _updateNowPlayingContext } from '/js/core/core-audio.js';
+import { openUserProfile } from '/js/core/core-profile.js';
+import { openResearch, wmOpen } from '/js/core/core-views.js';
+import { _settingsFeedTab, _settingsSection } from '/js/settings/settings-core.js';
+import { openAllSaved } from '/js/dashboard.js';
 
 // ── Route table — exact hash → action ──
 const _ROUTE_TABLE = {
@@ -29,9 +35,9 @@ const _ROUTE_PREFIX_HANDLERS = [
 
 export function routeFromHash() {
   const hash = window.location.hash;
-  const _oldHash = _currentRouteHash || '';
-  _currentRouteHash = hash;
-  _prevRouteHash = _oldHash;
+  const _oldHash = window._currentRouteHash || '';
+  window._currentRouteHash = hash;
+  window._prevRouteHash = _oldHash;
   _navPush(hash);
 
   // Exact match
@@ -84,8 +90,5 @@ if (document.readyState === 'loading') {
     _updateNowPlayingContext();
   }, 0);
 }
-
-// ── Window assignments for backward compatibility ──
-window.routeFromHash = routeFromHash;
 
 // ── User Profile ──

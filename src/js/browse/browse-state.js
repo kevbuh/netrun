@@ -3,17 +3,37 @@
 //
 // State variable conventions:
 //   @settings — backed by Settings.get/set; no local var needed
-//   @signal   — AetherUI State() reactive signal; access via .value
+//   @signal   — AetherUI window.State() reactive signal; access via .value
 //   @runtime  — ephemeral in-memory state; plain var, not persisted
 //   @const    — set once at init, never changes
 import Settings from '/js/core/core-settings.js';
 
+// ── Helper: bridge a local var to window via getter/setter ──
+function _bridge(name, get, set) {
+  Object.defineProperty(window, name, { get, set, configurable: true, enumerable: true });
+}
+
 // Window & tab state
 export const _browseWindows = []; // { id, name, tabs: [], activeTab, groups: [] }
-export const _browseActiveWindow = null;
-export const _browseNextWindowId = 1;
-export const _browseNextTabId = 1;
-export const _browseNextGroupId = 1;
+let _browseActiveWindow = null;
+let _browseNextWindowId = 1;
+let _browseNextTabId = 1;
+let _browseNextGroupId = 1;
+
+export function getBrowseActiveWindow() { return _browseActiveWindow; }
+export function setBrowseActiveWindow(v) { _browseActiveWindow = v; }
+export function getBrowseNextWindowId() { return _browseNextWindowId; }
+export function setBrowseNextWindowId(v) { _browseNextWindowId = v; }
+export function getBrowseNextTabId() { return _browseNextTabId; }
+export function setBrowseNextTabId(v) { _browseNextTabId = v; }
+export function getBrowseNextGroupId() { return _browseNextGroupId; }
+export function setBrowseNextGroupId(v) { _browseNextGroupId = v; }
+
+window._browseWindows = _browseWindows;
+_bridge('_browseActiveWindow', () => _browseActiveWindow, v => { _browseActiveWindow = v; });
+_bridge('_browseNextWindowId', () => _browseNextWindowId, v => { _browseNextWindowId = v; });
+_bridge('_browseNextTabId', () => _browseNextTabId, v => { _browseNextTabId = v; });
+_bridge('_browseNextGroupId', () => _browseNextGroupId, v => { _browseNextGroupId = v; });
 
 // Group configuration
 export const _BROWSE_GROUP_COLORS = ['grey','blue','red','yellow','green','pink','purple','cyan'];
@@ -21,9 +41,12 @@ export const _BROWSE_GROUP_COLOR_MAP = {
   grey:'#808080', blue:'#5b8def', red:'#e05656', yellow:'#d4a844',
   green:'#4caf50', pink:'#e06090', purple:'#9c6ade', cyan:'#3dc0c0'
 };
+window._BROWSE_GROUP_COLORS = _BROWSE_GROUP_COLORS;
+window._BROWSE_GROUP_COLOR_MAP = _BROWSE_GROUP_COLOR_MAP;
 
 // Platform detection
 export const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron);
+window._browseIsElectron = _browseIsElectron;
 
 // Sync initial adblock state to Electron main process
 if (_browseIsElectron && window.electronAPI.adblockSetEnabled) {
@@ -32,43 +55,84 @@ if (_browseIsElectron && window.electronAPI.adblockSetEnabled) {
 
 // Audio tracking: { tabId: { windowId, muted } }
 export const _browseAudioTabs = new Map();
-export const _pillBrowseMode = false;
+let _pillBrowseMode = false;
+export function getPillBrowseMode() { return _pillBrowseMode; }
+export function setPillBrowseMode(v) { _pillBrowseMode = v; }
+window._browseAudioTabs = _browseAudioTabs;
+_bridge('_pillBrowseMode', () => _pillBrowseMode, v => { _pillBrowseMode = v; });
 
 // Closed captions state
-export const _ccStream = null;
-export const _ccSocket = null;
-export const _ccAudioCtx = null;
-export const _ccWorkletNode = null;
-export const _ccActive = false;
-export const _ccTabId = null;
+let _ccStream = null;
+let _ccSocket = null;
+let _ccAudioCtx = null;
+let _ccWorkletNode = null;
+let _ccActive = false;
+let _ccTabId = null;
 export const _ccCaptionLines = [];
-export const _ccFadeTimer = null;
+let _ccFadeTimer = null;
+
+export function getCcStream() { return _ccStream; }
+export function setCcStream(v) { _ccStream = v; }
+export function getCcSocket() { return _ccSocket; }
+export function setCcSocket(v) { _ccSocket = v; }
+export function getCcAudioCtx() { return _ccAudioCtx; }
+export function setCcAudioCtx(v) { _ccAudioCtx = v; }
+export function getCcWorkletNode() { return _ccWorkletNode; }
+export function setCcWorkletNode(v) { _ccWorkletNode = v; }
+export function getCcActive() { return _ccActive; }
+export function setCcActive(v) { _ccActive = v; }
+export function getCcTabId() { return _ccTabId; }
+export function setCcTabId(v) { _ccTabId = v; }
+export function getCcFadeTimer() { return _ccFadeTimer; }
+export function setCcFadeTimer(v) { _ccFadeTimer = v; }
+
+_bridge('_ccStream', () => _ccStream, v => { _ccStream = v; });
+_bridge('_ccSocket', () => _ccSocket, v => { _ccSocket = v; });
+_bridge('_ccAudioCtx', () => _ccAudioCtx, v => { _ccAudioCtx = v; });
+_bridge('_ccWorkletNode', () => _ccWorkletNode, v => { _ccWorkletNode = v; });
+_bridge('_ccActive', () => _ccActive, v => { _ccActive = v; });
+_bridge('_ccTabId', () => _ccTabId, v => { _ccTabId = v; });
+window._ccCaptionLines = _ccCaptionLines;
+_bridge('_ccFadeTimer', () => _ccFadeTimer, v => { _ccFadeTimer = v; });
 
 // UI state — browseTabLayout is read directly from Settings.get('browseTabLayout')
 
 // NTP uploaded files: { name, content, file }
 export const _ntpUploadedFiles = [];
+window._ntpUploadedFiles = _ntpUploadedFiles;
 
 // Closed tabs for Cmd+Shift+T reopen
 export const _BROWSE_CLOSED_TABS_MAX = 50;
 export const _browseClosedTabs = Settings.getJSON('browseClosedTabs', []);
+window._BROWSE_CLOSED_TABS_MAX = _BROWSE_CLOSED_TABS_MAX;
+window._browseClosedTabs = _browseClosedTabs;
 
 // Password manager state
 export const _pwAutofillOffered = new Set(); // tab ids that have been offered autofill
 export const _pwSaveDismissed = new Map(); // 'origin|username' → true
-export const _pwLastSubmit = null; // { origin, username, ts } dedup
-export const _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
+let _pwLastSubmit = null; // { origin, username, ts } dedup
+let _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
+export function getPwLastSubmit() { return _pwLastSubmit; }
+export function setPwLastSubmit(v) { _pwLastSubmit = v; }
+export function getPwPendingPrompt() { return _pwPendingPrompt; }
+export function setPwPendingPrompt(v) { _pwPendingPrompt = v; }
+window._pwAutofillOffered = _pwAutofillOffered;
+window._pwSaveDismissed = _pwSaveDismissed;
+_bridge('_pwLastSubmit', () => _pwLastSubmit, v => { _pwLastSubmit = v; });
+_bridge('_pwPendingPrompt', () => _pwPendingPrompt, v => { _pwPendingPrompt = v; });
 
 // Split pane state
-export const _browseNextPaneId = 1;
+let _browseNextPaneId = 1;
+export function getBrowseNextPaneId() { return _browseNextPaneId; }
+export function setBrowseNextPaneId(v) { _browseNextPaneId = v; }
+_bridge('_browseNextPaneId', () => _browseNextPaneId, v => { _browseNextPaneId = v; });
 
 // Return view for "back" button — backed by Settings.get('_browseReturnView')
 
 // Convenience getters for current window's tabs (backward compatibility)
-// NOTE: read window._browseActiveWindow because other modules assign to it via bare name
-// (which updates the window property, not this module's local let)
+// NOTE: read _browseActiveWindow via the local var (getter/setter bridge keeps it in sync)
 export function _getCurrentWindow() {
-  return _browseWindows.find(w => w.id === window._browseActiveWindow);
+  return _browseWindows.find(w => w.id === _browseActiveWindow);
 }
 
 Object.defineProperty(window, '_browseTabs', {
@@ -123,42 +187,16 @@ export function _browseSaveTabsNow() {
   }));
   Settings.setJSON(_getBrowseStorageKey('browseWindows'), {
     windows: data,
-    activeWindow: window._browseActiveWindow,
-    nextWindowId: window._browseNextWindowId,
-    nextTabId: window._browseNextTabId,
-    nextGroupId: window._browseNextGroupId,
-    nextPaneId: window._browseNextPaneId
+    activeWindow: _browseActiveWindow,
+    nextWindowId: _browseNextWindowId,
+    nextTabId: _browseNextTabId,
+    nextGroupId: _browseNextGroupId,
+    nextPaneId: _browseNextPaneId
   });
 }
 
-window._browseWindows = _browseWindows;
-window._browseActiveWindow = _browseActiveWindow;
-window._browseNextWindowId = _browseNextWindowId;
-window._browseNextTabId = _browseNextTabId;
-window._browseNextGroupId = _browseNextGroupId;
-window._BROWSE_GROUP_COLORS = _BROWSE_GROUP_COLORS;
-window._BROWSE_GROUP_COLOR_MAP = _BROWSE_GROUP_COLOR_MAP;
-window._browseIsElectron = _browseIsElectron;
-window._browseAudioTabs = _browseAudioTabs;
-window._pillBrowseMode = _pillBrowseMode;
-window._ccStream = _ccStream;
-window._ccSocket = _ccSocket;
-window._ccAudioCtx = _ccAudioCtx;
-window._ccWorkletNode = _ccWorkletNode;
-window._ccActive = _ccActive;
-window._ccTabId = _ccTabId;
-window._ccCaptionLines = _ccCaptionLines;
-window._ccFadeTimer = _ccFadeTimer;
-window._ntpUploadedFiles = _ntpUploadedFiles;
-window._BROWSE_CLOSED_TABS_MAX = _BROWSE_CLOSED_TABS_MAX;
-window._browseClosedTabs = _browseClosedTabs;
-window._pwAutofillOffered = _pwAutofillOffered;
-window._pwSaveDismissed = _pwSaveDismissed;
-window._pwLastSubmit = _pwLastSubmit;
-window._pwPendingPrompt = _pwPendingPrompt;
-window._browseNextPaneId = _browseNextPaneId;
 window._getCurrentWindow = _getCurrentWindow;
 window._getBrowseStorageKey = _getBrowseStorageKey;
-window._browseSaveTabsTimer = _browseSaveTabsTimer;
+_bridge('_browseSaveTabsTimer', () => _browseSaveTabsTimer, v => { _browseSaveTabsTimer = v; });
 window._browseSaveTabs = _browseSaveTabs;
 window._browseSaveTabsNow = _browseSaveTabsNow;

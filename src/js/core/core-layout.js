@@ -2,6 +2,8 @@
 // Extracted from core.js
 
 import Settings from '/js/core/core-settings.js';
+import { apiGet } from '/js/api.js';
+import { browseNewTab, openBrowse } from '/js/browse/browse-windows.js';
 
 // ── Content safe bounds for popups ──
 // Returns {top, left, right, bottom} — the usable area where popups may appear,
@@ -9,7 +11,7 @@ import Settings from '/js/core/core-settings.js';
 export function _invalidateBoundsCache() { _boundsCache = null; }
 window.addEventListener('resize', _invalidateBoundsCache);
 export function _popupSafeBounds() {
-  if (_boundsCache) return _boundsCache;
+  if (window._boundsCache) return window._boundsCache;
   const tabRow = document.getElementById('browse-tab-row');
   const bar = document.getElementById('browse-bar');
   const pillBar = document.getElementById('sidebar-nav');
@@ -27,8 +29,8 @@ export function _popupSafeBounds() {
     top = Math.max(top, 42);
     if (left < 80 && top <= 42) left = Math.max(left, 80);
   }
-  _boundsCache = { top, left, right: window.innerWidth, bottom: window.innerHeight };
-  return _boundsCache;
+  window._boundsCache = { top, left, right: window.innerWidth, bottom: window.innerHeight };
+  return window._boundsCache;
 }
 
 // ── Cmd/Ctrl+click → open in new browse tab ──
@@ -37,7 +39,7 @@ export function _openInNewTab(url) {
   const isElectron = window.electronAPI && window.electronAPI.isElectron;
   if (isElectron && typeof openBrowse === 'function') {
     // Open as a new tab in the app's browse tab system
-    if (typeof browseNewTab === 'function' && typeof _browseWindows !== 'undefined' && _browseWindows.length) {
+    if (typeof browseNewTab === 'function' && typeof window._browseWindows !== 'undefined' && window._browseWindows.length) {
       openBrowse(); // navigate to browse view without opening a URL
       browseNewTab(url); // always create a new tab
     } else {
@@ -167,18 +169,18 @@ export function setSelectedSpinner(name) {
 
 export function loadSpinners() {
   return apiGet('/spinners.json').then(data => {
-    _spinnerData = data;
-    _spinnerNames = Object.keys(data);
+    window._spinnerData = data;
+    window._spinnerNames = Object.keys(data);
     restartSpinners();
     return data;
   });
 }
 
 export function restartSpinners() {
-  if (_spinnerInterval) { clearInterval(_spinnerInterval); _spinnerInterval = null; }
-  if (!_spinnerData) return;
+  if (window._spinnerInterval) { clearInterval(window._spinnerInterval); window._spinnerInterval = null; }
+  if (!window._spinnerData) return;
   const name = getSelectedSpinner();
-  const spinner = _spinnerData[name];
+  const spinner = window._spinnerData[name];
   if (!spinner) return;
   const frames = spinner.frames;
   const interval = spinner.interval;
@@ -187,8 +189,8 @@ export function restartSpinners() {
     const els = document.querySelectorAll('.spinner');
     if (!els.length) {
       // No spinners in DOM — stop interval so MutationObserver can restart when new ones appear
-      clearInterval(_spinnerInterval);
-      _spinnerInterval = null;
+      clearInterval(window._spinnerInterval);
+      window._spinnerInterval = null;
       return;
     }
     els.forEach(el => { el.textContent = frames[i]; });
@@ -196,13 +198,13 @@ export function restartSpinners() {
   }
   tick();
   if (document.querySelectorAll('.spinner').length) {
-    _spinnerInterval = setInterval(tick, interval);
+    window._spinnerInterval = setInterval(tick, interval);
   }
 }
 
 const _spinnerMO = new MutationObserver(() => {
   const els = document.querySelectorAll('.spinner');
-  if (els.length && !_spinnerInterval && _spinnerData) restartSpinners();
+  if (els.length && !window._spinnerInterval && window._spinnerData) restartSpinners();
 });
 _spinnerMO.observe(document.documentElement, { childList: true, subtree: true });
 
@@ -221,7 +223,7 @@ export function debounce(fn, ms) {
 // Research view tab state
 
 export function setSidebarActive(id) {
-  if (id && _sidebarToView[id]) { Settings.set('_lastActiveView', _sidebarToView[id]); }
+  if (id && window._sidebarToView[id]) { Settings.set('_lastActiveView', window._sidebarToView[id]); }
   document.querySelectorAll('.sidebar-icon').forEach(b => {
     b.classList.remove('active');
     // Don't remove sb-loading here - let animation finish on its own
@@ -247,22 +249,22 @@ function _getSidebarItems() {
 }
 
 function _focusSidebar() {
-  _sidebarFocused = true;
+  window._sidebarFocused = true;
   const nav = document.getElementById('sidebar-nav');
   if (nav) nav.classList.add('sidebar-focused');
 
   // If no selection, select the currently active item
-  if (_sidebarSelectedIndex < 0) {
+  if (window._sidebarSelectedIndex < 0) {
     const items = _getSidebarItems();
     const activeIdx = items.findIndex(el => el.classList.contains('active'));
-    _sidebarSelectedIndex = activeIdx >= 0 ? activeIdx : 0;
+    window._sidebarSelectedIndex = activeIdx >= 0 ? activeIdx : 0;
   }
   _renderSidebarSelection();
 }
 
 function _blurSidebar() {
-  _sidebarFocused = false;
-  _sidebarSelectedIndex = -1;
+  window._sidebarFocused = false;
+  window._sidebarSelectedIndex = -1;
   const nav = document.getElementById('sidebar-nav');
   if (nav) nav.classList.remove('sidebar-focused');
   _getSidebarItems().forEach(el => el.classList.remove('sidebar-kbd-selected'));
@@ -272,8 +274,8 @@ function _renderSidebarSelection() {
   const items = _getSidebarItems();
   items.forEach(el => el.classList.remove('sidebar-kbd-selected'));
   // Scroll into view if needed
-  if (_sidebarSelectedIndex >= 0 && items[_sidebarSelectedIndex]) {
-    items[_sidebarSelectedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  if (window._sidebarSelectedIndex >= 0 && items[window._sidebarSelectedIndex]) {
+    items[window._sidebarSelectedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 }
 
@@ -281,22 +283,22 @@ function _sidebarNavigate(direction) {
   const items = _getSidebarItems();
   if (!items.length) return;
 
-  _sidebarSelectedIndex += direction;
-  if (_sidebarSelectedIndex < 0) _sidebarSelectedIndex = items.length - 1;
-  if (_sidebarSelectedIndex >= items.length) _sidebarSelectedIndex = 0;
+  window._sidebarSelectedIndex += direction;
+  if (window._sidebarSelectedIndex < 0) window._sidebarSelectedIndex = items.length - 1;
+  if (window._sidebarSelectedIndex >= items.length) window._sidebarSelectedIndex = 0;
   _renderSidebarSelection();
   // Immediately open the selected view
-  if (items[_sidebarSelectedIndex]) {
-    _sidebarNavClicking = true;
-    items[_sidebarSelectedIndex].click();
-    _sidebarNavClicking = false;
+  if (items[window._sidebarSelectedIndex]) {
+    window._sidebarNavClicking = true;
+    items[window._sidebarSelectedIndex].click();
+    window._sidebarNavClicking = false;
   }
 }
 
 function _sidebarActivateSelected() {
   const items = _getSidebarItems();
-  if (_sidebarSelectedIndex >= 0 && items[_sidebarSelectedIndex]) {
-    items[_sidebarSelectedIndex].click();
+  if (window._sidebarSelectedIndex >= 0 && items[window._sidebarSelectedIndex]) {
+    items[window._sidebarSelectedIndex].click();
   }
 }
 
@@ -307,13 +309,13 @@ function _sidebarActivateSelected() {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
 
     // Press [ to focus sidebar
-    if (e.key === '[' && !_sidebarFocused) {
+    if (e.key === '[' && !window._sidebarFocused) {
       e.preventDefault();
       _focusSidebar();
       return;
     }
 
-    if (!_sidebarFocused) return;
+    if (!window._sidebarFocused) return;
 
     if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
       e.preventDefault();
@@ -333,7 +335,7 @@ function _sidebarActivateSelected() {
 
   // Click outside sidebar blurs it
   document.addEventListener('mousedown', (e) => {
-    if (!_sidebarFocused) return;
+    if (!window._sidebarFocused) return;
     const nav = document.getElementById('sidebar-nav');
     if (nav && !nav.contains(e.target)) {
       _blurSidebar();
@@ -345,11 +347,11 @@ function _sidebarActivateSelected() {
 function _installSidebarClickFocus() {
   document.querySelectorAll('.sidebar-icon').forEach(el => {
     el.addEventListener('click', () => {
-      if (_sidebarNavClicking) return;
+      if (window._sidebarNavClicking) return;
       const items = _getSidebarItems();
       const idx = items.indexOf(el);
       if (idx >= 0) {
-        _sidebarSelectedIndex = idx;
+        window._sidebarSelectedIndex = idx;
         _focusSidebar();
       }
     });
@@ -373,7 +375,7 @@ export function initLazyImageLoading() {
     return;
   }
 
-  _lazyImageObserver = new IntersectionObserver((entries, observer) => {
+  window._lazyImageObserver = new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         const img = entry.target;
@@ -390,10 +392,10 @@ export function initLazyImageLoading() {
 }
 
 export function observeLazyImages() {
-  if (!_lazyImageObserver) return;
+  if (!window._lazyImageObserver) return;
 
   document.querySelectorAll('img[data-src]').forEach(img => {
-    _lazyImageObserver.observe(img);
+    window._lazyImageObserver.observe(img);
   });
 }
 
@@ -408,21 +410,10 @@ if (document.readyState === 'loading') {
   observeLazyImages();
 }
 
-// ── Backward compatibility: expose on window ──
-window._invalidateBoundsCache = _invalidateBoundsCache;
-window._popupSafeBounds = _popupSafeBounds;
-window._isNewTabClick = _isNewTabClick;
-window._openInNewTab = _openInNewTab;
-window.showDownloadBanner = showDownloadBanner;
-window.dismissDownloadBanner = dismissDownloadBanner;
-window.getSelectedSpinner = getSelectedSpinner;
-window.setSelectedSpinner = setSelectedSpinner;
-window.loadSpinners = loadSpinners;
-window.restartSpinners = restartSpinners;
-window.debounce = debounce;
-window.setSidebarActive = setSidebarActive;
-window.setSidebarLoading = setSidebarLoading;
-window.initLazyImageLoading = initLazyImageLoading;
-window.observeLazyImages = observeLazyImages;
+// ── Action registry ──
+registerActions({
+  dismissDownloadBanner: () => dismissDownloadBanner(),
+});
+
 
 // ── View management ──

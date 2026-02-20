@@ -1,6 +1,17 @@
 import Settings from '/js/core/core-settings.js';
-
-if (window.AetherUI) AetherUI.globals();
+import { ipcRoute } from '/js/api-ipc.js';
+import { apiPost, apiGet, apiDelete } from '/js/api.js';
+import { escapeHtml, escapeAttr } from '/js/core/core-utils.js';
+import { icon } from '/js/core/icons.js';
+import { islandUpdate, islandRemove, showAchievement } from '/js/core/core-ui.js';
+import { _updateNowPlayingContext } from '/js/core/core-audio.js';
+import { getLS, setLS } from '/js/core/core-auth.js';
+import { _isNewTabClick, _openInNewTab } from '/js/core/core-layout.js';
+import { FEED_CAT_MAP, FEED_CATALOG, getSourceChip, goHome, SOURCE_LOGO_INLINE, SOURCE_NAMES } from '/js/core/core-views.js';
+import { _relativeTime } from '/js/search.js';
+import { openBrowse, openLocalPdf } from '/js/browse/browse-windows.js';
+import { openPaper } from '/js/panel.js';
+import { petReact } from '/js/pixel-pet.js';
 
 // ── Auto-refresh timer ──
 export let _refreshTimer = null;
@@ -31,7 +42,7 @@ export function renderRefreshCountdown() {
   el.textContent = m + ':' + String(s).padStart(2, '0');
 }
 
-// ── Reading List (localStorage) ──
+// ── Reading window.List(localStorage) ──
 setTimeout(updateSavedBadge, 0);
 export function updateSavedBadge() {
   const saved = getSavedPosts();
@@ -134,7 +145,7 @@ export function markPostAsRead(link) {
 }
 
 export function _menuBtn(label, fn) {
-  const b = new View('button');
+  const b = new window.View('button');
   b.el.textContent = label;
   b.el.addEventListener('mousedown', function(e) { e.stopPropagation(); fn(); });
   return b;
@@ -149,9 +160,9 @@ export function openCardMenu(btn, ev, index) {
   const sourceKey = p.source;
   const sourceName = SOURCE_NAMES[p.source] || p.source;
 
-  const menuView = new View('div').attr('id', 'card-menu-portal').className('card-menu');
+  const menuView = new window.View('div').attr('id', 'card-menu-portal').className('card-menu');
   const menu = menuView.el;
-  const menuItems = VStack(
+  const menuItems = window.VStack(
     _menuBtn('Block post', function() { hidePost(p.link, p.title); closeCardMenu(); }),
     _menuBtn('Unsubscribe from ' + sourceName, function() { unsubscribeSource(sourceKey); closeCardMenu(); })
   );
@@ -230,19 +241,19 @@ export function renderBlockedWordsList() {
   if (!el) return;
   const words = getBlockedWords();
   if (!words.length) {
-    AetherUI.mount(Text('No blocked words yet.').className('text-dimmer text-[0.75rem]'), el);
+    AetherUI.mount(window.Text('No blocked words yet.').className('text-dimmer text-[0.75rem]'), el);
     return;
   }
   const chips = words.map(function(w) {
-    const btn = new View('button').className('text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-sm leading-none ml-0.5');
+    const btn = new window.View('button').className('text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-sm leading-none ml-0.5');
     btn.el.textContent = '\u00d7';
     btn.onTap(function() { removeBlockedWord(w); });
-    return HStack(
-      Text(w),
+    return window.HStack(
+      window.Text(w),
       btn
     ).spacing(1).className('inline-flex items-center bg-input border border-border-input rounded-full px-2.5 py-0.5 text-primary text-[0.78rem]');
   });
-  const wrap = new View('div');
+  const wrap = new window.View('div');
   wrap.el.className = 'flex flex-wrap gap-1.5';
   chips.forEach(function(c) { wrap.el.appendChild(c.build()); });
   AetherUI.mount(wrap, el);
@@ -261,7 +272,7 @@ export function isPostCached(link) {
 export async function cachePostOffline(link, paper, btnEl) {
   if (isPostCached(link)) return;
   if (btnEl) {
-    AetherUI.mount(Text('Caching\u2026').className('text-dimmer text-[0.7rem]'), btnEl);
+    AetherUI.mount(window.Text('Caching\u2026').className('text-dimmer text-[0.7rem]'), btnEl);
     btnEl.disabled = true;
   }
   try {
@@ -294,7 +305,6 @@ export function getSavedPosts() {
 }
 export function savePosts(data) { setLS('savedPosts', data); }
 export function isPostSaved(link) { return !!getSavedPosts()[link]; }
-
 
 export function toggleSavePost(paper, event) {
   if (event) event.stopPropagation();
@@ -456,13 +466,13 @@ export function renderSourceBubbles() {
         const label = o.value ? o.textContent : 'arXiv (' + count + ')';
         return '<option value="' + escapeHtml(o.value) + '"' + (o.value === currentCat ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
       }).join('');
-      const arxivBubble = RawHTML('<span class="inline-flex items-center rounded-full border ' + (dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15') + ' text-[0.78rem] transition-all duration-150 whitespace-nowrap select-none"><span class="inline-flex items-center pl-2.5 pointer-events-none">' + logo + '</span><select class="arxiv-cat-select bg-transparent border-none text-[0.78rem] ' + (dimmed ? 'text-dim' : 'text-primary') + ' cursor-pointer outline-none appearance-none py-1 pl-1 pr-5" onchange="document.getElementById(\'category\').value=this.value; renderPapers(); renderSourceBubbles(); _fitArxivSelect(this)">' + selectOpts + '</select></span>');
+      const arxivBubble = window.RawHTML('<span class="inline-flex items-center rounded-full border ' + (dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15') + ' text-[0.78rem] transition-all duration-150 whitespace-nowrap select-none"><span class="inline-flex items-center pl-2.5 pointer-events-none">' + logo + '</span><select class="arxiv-cat-select bg-transparent border-none text-[0.78rem] ' + (dimmed ? 'text-dim' : 'text-primary') + ' cursor-pointer outline-none appearance-none py-1 pl-1 pr-5" onchange="document.getElementById(\'category\').value=this.value; renderPapers(); renderSourceBubbles(); _fitArxivSelect(this)">' + selectOpts + '</select></span>');
       bubbleViews.push(arxivBubble);
     } else {
-      const bubble = HStack(
-        logo ? RawHTML(logo) : null,
-        Text(name).className(dimmed ? 'text-dim' : 'text-primary'),
-        Text(String(count)).className('text-[0.68rem] ' + (dimmed ? 'text-dimmer' : 'text-dim'))
+      const bubble = window.HStack(
+        logo ? window.RawHTML(logo) : null,
+        window.Text(name).className(dimmed ? 'text-dim' : 'text-primary'),
+        window.Text(String(count)).className('text-[0.68rem] ' + (dimmed ? 'text-dimmer' : 'text-dim'))
       ).spacing(1).className('inline-flex items-center px-2.5 py-1 rounded-full border ' + (dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15') + ' text-[0.78rem] cursor-pointer transition-all duration-150 whitespace-nowrap select-none')
         .onTap(function() { toggleSourceBubble(key); });
       bubbleViews.push(bubble);
@@ -552,7 +562,12 @@ export async function fetchPolymarketFeed() {
 }
 
 export const FEED_SOURCE_DEFAULTS = {};
-FEED_CATALOG.forEach(f => { FEED_SOURCE_DEFAULTS[f.key] = false; });
+let _feedDefaultsReady = false;
+function _ensureFeedDefaults() {
+  if (_feedDefaultsReady) return;
+  _feedDefaultsReady = true;
+  FEED_CATALOG.forEach(f => { FEED_SOURCE_DEFAULTS[f.key] = false; });
+}
 
 export function hasOnboarded() { return Settings.get('feedSources') !== null; }
 
@@ -578,17 +593,17 @@ export function _renderHcCategoryTabs() {
   const cats = [];
   FEED_CATALOG.forEach(function(f) { if (!cats.includes(f.cat)) cats.push(f.cat); });
   const tabs = [
-    new View('button').className('hc-tab' + (_hcActiveCategory === null ? ' active' : ''))
+    new window.View('button').className('hc-tab' + (_hcActiveCategory === null ? ' active' : ''))
       .onTap(function() { _hcSelectCategory(null); })
   ];
   tabs[0].el.textContent = 'All';
   cats.forEach(function(cat) {
-    const tab = new View('button').className('hc-tab' + (_hcActiveCategory === cat ? ' active' : ''));
+    const tab = new window.View('button').className('hc-tab' + (_hcActiveCategory === cat ? ' active' : ''));
     tab.el.textContent = cat;
     tab.onTap(function() { _hcSelectCategory(cat); });
     tabs.push(tab);
   });
-  const wrap = HStack(tabs).spacing(1);
+  const wrap = window.HStack(tabs).spacing(1);
   AetherUI.mount(wrap, container);
 }
 
@@ -616,13 +631,13 @@ export function renderOnboardGrid() {
   Object.keys(byCategory).forEach(function(cat) {
     const items = byCategory[cat];
     const allOn = items.every(function(f) { return onboardSelected.has(f.key); });
-    const toggleBtn = new View('button').className('text-[0.68rem] text-dimmer hover:text-primary cursor-pointer bg-transparent border-none transition-colors');
+    const toggleBtn = new window.View('button').className('text-[0.68rem] text-dimmer hover:text-primary cursor-pointer bg-transparent border-none transition-colors');
     toggleBtn.el.textContent = allOn ? 'Deselect all' : 'Select all';
     toggleBtn.onTap(function() { _toggleOnboardCategory(cat); });
 
-    const header = HStack(
-      Text(cat).className('text-[0.72rem] text-dim uppercase tracking-wider font-medium'),
-      new View('span').className('flex-1 h-px bg-border-subtle'),
+    const header = window.HStack(
+      window.Text(cat).className('text-[0.72rem] text-dim uppercase tracking-wider font-medium'),
+      new window.View('span').className('flex-1 h-px bg-border-subtle'),
       toggleBtn
     ).spacing(2).className('mb-1.5 px-1');
 
@@ -632,26 +647,24 @@ export function renderOnboardGrid() {
         ? '<img src="https://www.google.com/s2/favicons?domain=' + f.favicon + '&sz=32" class="w-5 h-5 rounded" onerror="this.outerHTML=\'<span class=\\\'inline-flex items-center justify-center w-5 h-5 rounded text-[0.6rem] font-bold\\\' style=\\\'background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '\\\'>' + (f.letter || f.name[0]) + '</span>\'">'
         : '<span class="inline-flex items-center justify-center w-5 h-5 rounded text-[0.6rem] font-bold" style="background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>';
       const checkHtml = sel ? icon('check', {size: 12, class: 'w-3 h-3 text-white', strokeWidth: '3'}) : '';
-      return HStack(
-        RawHTML(iconHtml),
-        VStack(
-          Text(f.name).className('text-[0.82rem] font-medium ' + (sel ? 'text-primary' : 'text-muted') + ' truncate'),
-          Text(f.desc).className('text-[0.7rem] text-dimmer truncate')
+      return window.HStack(
+        window.RawHTML(iconHtml),
+        window.VStack(
+          window.Text(f.name).className('text-[0.82rem] font-medium ' + (sel ? 'text-primary' : 'text-muted') + ' truncate'),
+          window.Text(f.desc).className('text-[0.7rem] text-dimmer truncate')
         ).className('flex-1 min-w-0'),
-        RawHTML('<div class="w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ' + (sel ? 'border-accent bg-accent' : 'border-border-input bg-transparent') + '">' + checkHtml + '</div>')
+        window.RawHTML('<div class="w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ' + (sel ? 'border-accent bg-accent' : 'border-border-input bg-transparent') + '">' + checkHtml + '</div>')
       ).spacing(2).className('onboard-source flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors hover:bg-hover' + (sel ? ' onboard-selected' : ''))
         .attr('data-source', f.key)
         .onTap(function() { toggleOnboardSource(f.key); });
     });
 
-    const section = VStack([header].concat(itemViews)).className('mb-4');
+    const section = window.VStack([header].concat(itemViews)).className('mb-4');
     sections.push(section);
   });
 
-  AetherUI.mount(VStack(sections), grid);
+  AetherUI.mount(window.VStack(sections), grid);
 }
-
-
 
 export function toggleOnboardSource(key) {
   if (onboardSelected.has(key)) {
@@ -727,6 +740,7 @@ export function completeOnboarding() {
 }
 
 export function getFeedSources() {
+  _ensureFeedDefaults();
   return { ...FEED_SOURCE_DEFAULTS, ...getLS('feedSources', {}) };
 }
 
@@ -738,19 +752,19 @@ export function renderCustomFeedsList() {
   const list = document.getElementById('custom-feeds-list');
   if (!list) return;
   const feeds = getCustomFeeds();
-  if (!feeds.length) { AetherUI.mount(Text('No custom feeds added.').className('text-dim text-[0.78rem]'), list); return; }
+  if (!feeds.length) { AetherUI.mount(window.Text('No custom feeds added.').className('text-dim text-[0.78rem]'), list); return; }
   const rows = feeds.map(function(f, i) {
-    const toggle = RawHTML('<span class="nr-switch"><input type="checkbox" ' + (f.enabled !== false ? 'checked' : '') + '><span class="slider"></span></span>');
+    const toggle = window.RawHTML('<span class="nr-switch"><input type="checkbox" ' + (f.enabled !== false ? 'checked' : '') + '><span class="slider"></span></span>');
     toggle.el.querySelector('input').addEventListener('change', function() { toggleCustomFeed(i, this.checked); });
-    const removeBtn = new View('button').className('text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-base leading-none').attr('title', 'Remove');
+    const removeBtn = new window.View('button').className('text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-base leading-none').attr('title', 'Remove');
     removeBtn.el.textContent = '\u00d7';
     removeBtn.onTap(function() { removeCustomFeed(i); });
-    return HStack(
-      Text(f.name || f.url).className('text-primary text-[0.78rem] truncate flex-1').attr('title', f.url),
-      HStack(toggle, removeBtn).spacing(2).className('shrink-0')
+    return window.HStack(
+      window.Text(f.name || f.url).className('text-primary text-[0.78rem] truncate flex-1').attr('title', f.url),
+      window.HStack(toggle, removeBtn).spacing(2).className('shrink-0')
     ).spacing(2).className('flex items-center justify-between bg-input rounded-md px-3 py-2');
   });
-  AetherUI.mount(VStack(rows).spacing(2), list);
+  AetherUI.mount(window.VStack(rows).spacing(2), list);
 }
 
 export async function addCustomFeed() {
@@ -798,8 +812,6 @@ export function toggleCustomFeed(index, enabled) {
   loadAllFeeds();
 }
 
-
-
 export function renderAlgorithmView() {
   const container = document.getElementById('algorithm-view-content');
   if (!container) return;
@@ -824,46 +836,45 @@ export function renderAlgorithmView() {
   const catsHtml = topCats.length ? topCats.map(function(c) { return '<span class="bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20">' + escapeHtml(c) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>';
 
   function _algoSlider(label, id, min, max, value, onInput, onChange) {
-    const slider = new View('input');
+    const slider = new window.View('input');
     slider.el.type = 'range'; slider.el.min = min; slider.el.max = max; slider.el.value = value;
     slider.el.className = 'flex-1 accent-[var(--nr-accent)]';
     slider.el.addEventListener('input', onInput);
     slider.el.addEventListener('change', onChange);
-    return HStack(
-      Text(label).className('text-dim text-[0.72rem] w-16 shrink-0'),
+    return window.HStack(
+      window.Text(label).className('text-dim text-[0.72rem] w-16 shrink-0'),
       slider,
-      Text(String(typeof value === 'number' && max <= 10 ? value : (value / 100).toFixed(2))).id(id).className('text-dim text-[0.68rem] tabular-nums w-8 text-right')
+      window.Text(String(typeof value === 'number' && max <= 10 ? value : (value / 100).toFixed(2))).id(id).className('text-dim text-[0.68rem] tabular-nums w-8 text-right')
     ).spacing(3);
   }
 
-
-  const resetBtn = new View('button').className('text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
+  const resetBtn = new window.View('button').className('text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
   resetBtn.el.textContent = 'Reset all personalization';
   resetBtn.onTap(function() { resetPersonalization(); renderAlgorithmView(); });
 
-  const view = VStack(
-    RawHTML('<h2 class="text-[1.3rem] font-semibold text-white_ mb-1">How the Algorithm Works</h2>'),
-    Text('Your feed is ranked using a personalized composite score that combines LLM relevance scoring, source affinity from your reading habits, and recency.').className('text-dim text-[0.8rem] mb-6'),
+  const view = window.VStack(
+    window.RawHTML('<h2 class="text-[1.3rem] font-semibold text-white_ mb-1">How the Algorithm Works</h2>'),
+    window.Text('Your feed is ranked using a personalized composite score that combines LLM relevance scoring, source affinity from your reading habits, and recency.').className('text-dim text-[0.8rem] mb-6'),
 
     // 1. LLM Relevance
-    VStack(
-      RawHTML('<h3 class="text-muted text-[0.85rem] font-medium mb-2">1. LLM Relevance Score</h3>'),
-      Text('Every post that passes the verdict filter (KEEP/SKIP) is scored 0\u2013100 by a local LLM (qwen3:8b). The scoring prompt asks the model to rate how interesting and relevant the post title is.').className('text-dim text-[0.78rem] leading-relaxed mb-2'),
-      Text('When you have an interest profile, your top topics and categories are appended to the scoring prompt, so the LLM boosts scores for content matching your interests while still scoring objectively.').className('text-dim text-[0.78rem] leading-relaxed')
+    window.VStack(
+      window.RawHTML('<h3 class="text-muted text-[0.85rem] font-medium mb-2">1. LLM Relevance Score</h3>'),
+      window.Text('Every post that passes the verdict filter (KEEP/SKIP) is scored 0\u2013100 by a local LLM (qwen3:8b). The scoring prompt asks the model to rate how interesting and relevant the post title is.').className('text-dim text-[0.78rem] leading-relaxed mb-2'),
+      window.Text('When you have an interest profile, your top topics and categories are appended to the scoring prompt, so the LLM boosts scores for content matching your interests while still scoring objectively.').className('text-dim text-[0.78rem] leading-relaxed')
     ).className('mb-6'),
 
     // 2. Interest Profile
-    RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">2. Interest Profile</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">Built automatically from your reading behavior. Recomputed every 5 minutes.</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.75rem] space-y-2 mb-3"><div class="flex justify-between"><span class="text-dim">Posts read</span><span class="text-primary font-mono">' + readCount + '</span></div><div class="flex justify-between"><span class="text-dim">Posts saved</span><span class="text-primary font-mono">' + savedCount + '</span></div><div class="flex justify-between"><span class="text-dim">Posts hidden</span><span class="text-primary font-mono">' + hiddenCount + '</span></div></div><div class="space-y-2 text-[0.75rem]"><div><span class="text-dimmer text-[0.68rem]">Signal weights for topic extraction:</span><div class="text-dim mt-1">Read = <span class="text-primary">1x</span> &middot; Saved = <span class="text-primary">3x</span> &middot; Rated = <span class="text-primary">rating value</span> &middot; Hidden = negative signal</div></div><div><span class="text-dimmer text-[0.68rem]">Your top topics:</span><div class="flex flex-wrap gap-1 mt-1">' + topicsHtml + '</div></div><div><span class="text-dimmer text-[0.68rem]">Your top categories:</span><div class="flex flex-wrap gap-1 mt-1">' + catsHtml + '</div></div></div></div>'),
+    window.RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">2. Interest Profile</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">Built automatically from your reading behavior. Recomputed every 5 minutes.</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.75rem] space-y-2 mb-3"><div class="flex justify-between"><span class="text-dim">Posts read</span><span class="text-primary font-mono">' + readCount + '</span></div><div class="flex justify-between"><span class="text-dim">Posts saved</span><span class="text-primary font-mono">' + savedCount + '</span></div><div class="flex justify-between"><span class="text-dim">Posts hidden</span><span class="text-primary font-mono">' + hiddenCount + '</span></div></div><div class="space-y-2 text-[0.75rem]"><div><span class="text-dimmer text-[0.68rem]">Signal weights for topic extraction:</span><div class="text-dim mt-1">Read = <span class="text-primary">1x</span> &middot; Saved = <span class="text-primary">3x</span> &middot; Rated = <span class="text-primary">rating value</span> &middot; Hidden = negative signal</div></div><div><span class="text-dimmer text-[0.68rem]">Your top topics:</span><div class="flex flex-wrap gap-1 mt-1">' + topicsHtml + '</div></div><div><span class="text-dimmer text-[0.68rem]">Your top categories:</span><div class="flex flex-wrap gap-1 mt-1">' + catsHtml + '</div></div></div></div>'),
 
     // 3. Source Affinity
-    RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">3. Source Affinity</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">Each feed source gets an affinity score (0.1\u20131.0) based on how often you engage with its posts. Sources you read, save, and rate highly get boosted. Sources you frequently hide get penalized.</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.72rem] font-mono mb-3"><div class="text-dim mb-1">engagement = (read + saved\u00d72 + rated\u00d73) / total</div><div class="text-dim mb-1">penalty = (hidden / total) \u00d7 0.5</div><div class="text-primary">affinity = clamp(engagement \u2212 penalty, 0.1, 1.0)</div><div class="text-dimmer text-[0.65rem] mt-1">Sources with &lt;3 posts default to 0.5</div></div></div>'),
+    window.RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">3. Source Affinity</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">Each feed source gets an affinity score (0.1\u20131.0) based on how often you engage with its posts. Sources you read, save, and rate highly get boosted. Sources you frequently hide get penalized.</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.72rem] font-mono mb-3"><div class="text-dim mb-1">engagement = (read + saved\u00d72 + rated\u00d73) / total</div><div class="text-dim mb-1">penalty = (hidden / total) \u00d7 0.5</div><div class="text-primary">affinity = clamp(engagement \u2212 penalty, 0.1, 1.0)</div><div class="text-dimmer text-[0.65rem] mt-1">Sources with &lt;3 posts default to 0.5</div></div></div>'),
 
     // 4. Composite Score
-    RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">4. Composite Score</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">When you use the &quot;For You&quot; sort, each post is ranked by a composite score combining all signals:</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.78rem] font-mono mb-3"><div class="text-accent">score = LLM \u00d7 (base + affinity \u00d7 aff_weight) + recency_boost \u00d7 rec_weight</div></div><div class="space-y-1.5 text-[0.75rem] text-dim mb-4"><div><span class="text-dimmer">LLM:</span> Quality score from local model (0\u2013100)</div><div><span class="text-dimmer">base:</span> Baseline multiplier \u2014 how much the LLM score matters on its own</div><div><span class="text-dimmer">affinity \u00d7 aff_weight:</span> Bonus for sources you engage with often</div><div><span class="text-dimmer">recency_boost:</span> max(0, 10 \u2212 age_hours \u00d7 0.5) \u2014 decays over 20h, max +10</div><div><span class="text-dimmer">rec_weight:</span> How much recency matters relative to quality</div></div><div class="bg-input border border-border-input rounded-lg p-3 mb-4"><div class="text-dimmer text-[0.68rem] mb-2">Example: LLM=' + exampleLlm + ', affinity=' + exampleAff + ', age=' + exampleAge + 'h</div><div class="text-[0.75rem] font-mono text-dim">' + exampleLlm + ' \u00d7 (' + wBase.toFixed(2) + ' + ' + exampleAff + ' \u00d7 ' + wAff.toFixed(2) + ') + ' + exampleRecency.toFixed(1) + ' = <span class="text-accent font-semibold">' + exampleScore + '</span></div></div></div>'),
+    window.RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">4. Composite Score</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">When you use the &quot;For You&quot; sort, each post is ranked by a composite score combining all signals:</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.78rem] font-mono mb-3"><div class="text-accent">score = LLM \u00d7 (base + affinity \u00d7 aff_weight) + recency_boost \u00d7 rec_weight</div></div><div class="space-y-1.5 text-[0.75rem] text-dim mb-4"><div><span class="text-dimmer">LLM:</span> Quality score from local model (0\u2013100)</div><div><span class="text-dimmer">base:</span> Baseline multiplier \u2014 how much the LLM score matters on its own</div><div><span class="text-dimmer">affinity \u00d7 aff_weight:</span> Bonus for sources you engage with often</div><div><span class="text-dimmer">recency_boost:</span> max(0, 10 \u2212 age_hours \u00d7 0.5) \u2014 decays over 20h, max +10</div><div><span class="text-dimmer">rec_weight:</span> How much recency matters relative to quality</div></div><div class="bg-input border border-border-input rounded-lg p-3 mb-4"><div class="text-dimmer text-[0.68rem] mb-2">Example: LLM=' + exampleLlm + ', affinity=' + exampleAff + ', age=' + exampleAge + 'h</div><div class="text-[0.75rem] font-mono text-dim">' + exampleLlm + ' \u00d7 (' + wBase.toFixed(2) + ' + ' + exampleAff + ' \u00d7 ' + wAff.toFixed(2) + ') + ' + exampleRecency.toFixed(1) + ' = <span class="text-accent font-semibold">' + exampleScore + '</span></div></div></div>'),
 
     // Weight sliders
-    VStack(
-      Text('Current weights').className('text-dimmer text-[0.68rem] mb-2'),
+    window.VStack(
+      window.Text('Current weights').className('text-dimmer text-[0.68rem] mb-2'),
       _algoSlider('Base', 'algo-base-val', 0, 100, Math.round(wBase * 100),
         function() { document.getElementById('algo-base-val').textContent = (this.value / 100).toFixed(2); },
         function() { Settings.set('fyWeightBase', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); }),
@@ -876,27 +887,27 @@ export function renderAlgorithmView() {
     ).spacing(2),
 
     // 5. Category Diversity
-    VStack(
-      RawHTML('<h3 class="text-muted text-[0.85rem] font-medium mb-2">5. Category Diversity</h3>'),
-      RawHTML('<p class="text-dim text-[0.78rem] leading-relaxed mb-3">After scoring, posts are reordered to prevent any single category from dominating a run. If more than <span class="text-primary">' + maxRun + '</span> consecutive posts come from the same category, a post from a different category is pulled forward.</p>'),
+    window.VStack(
+      window.RawHTML('<h3 class="text-muted text-[0.85rem] font-medium mb-2">5. Category Diversity</h3>'),
+      window.RawHTML('<p class="text-dim text-[0.78rem] leading-relaxed mb-3">After scoring, posts are reordered to prevent any single category from dominating a run. If more than <span class="text-primary">' + maxRun + '</span> consecutive posts come from the same category, a post from a different category is pulled forward.</p>'),
       (function() {
-        const s = new View('input');
+        const s = new window.View('input');
         s.el.type = 'range'; s.el.min = '1'; s.el.max = '10'; s.el.value = maxRun;
         s.el.className = 'flex-1 accent-[var(--nr-accent)]';
         s.el.addEventListener('input', function() { document.getElementById('algo-div-val').textContent = this.value; });
         s.el.addEventListener('change', function() { Settings.set('maxPerCategoryRun', this.value); renderPapers(); renderAlgorithmView(); });
-        return HStack(
-          Text('Max same-category run').className('text-dim text-[0.72rem] shrink-0'),
+        return window.HStack(
+          window.Text('Max same-category run').className('text-dim text-[0.72rem] shrink-0'),
           s,
-          Text(String(maxRun)).id('algo-div-val').className('text-dim text-[0.68rem] tabular-nums w-4 text-right')
+          window.Text(String(maxRun)).id('algo-div-val').className('text-dim text-[0.68rem] tabular-nums w-4 text-right')
         ).spacing(3);
       })()
     ).className('mb-6 pt-5 border-t border-border-subtle'),
 
     // Reset
-    HStack(
+    window.HStack(
       resetBtn,
-      Text('Clears your interest profile, resets all weights to defaults').className('text-dimmer text-[0.68rem]')
+      window.Text('Clears your interest profile, resets all weights to defaults').className('text-dimmer text-[0.68rem]')
     ).spacing(3).className('pt-5 border-t border-border-subtle')
   );
   AetherUI.mount(view, container);
@@ -961,7 +972,7 @@ export async function loadAllFeeds() {
   // Show spinner only if we have nothing to show yet
   const container = document.getElementById('papers');
   if (allPapers.length === 0) {
-    AetherUI.mount(RawHTML('<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>'), container);
+    AetherUI.mount(window.RawHTML('<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>'), container);
   }
 
   // Build list of enabled catalog source keys
@@ -1021,9 +1032,9 @@ export async function loadAllFeeds() {
     if (abort.signal.aborted) return;
     if (typeof islandRemove === 'function') islandRemove('feed');
     // Fallback: show error
-    AetherUI.mount(VStack(
-      Text('Failed to load feed: ' + e.message).foreground('red'),
-      Text('Try refreshing or check your connection.').className('mt-2 text-[0.85rem] text-muted')
+    AetherUI.mount(window.VStack(
+      window.Text('Failed to load feed: ' + e.message).foreground('red'),
+      window.Text('Try refreshing or check your connection.').className('mt-2 text-[0.85rem] text-muted')
     ).className('text-center py-20 text-red-400'), container);
   }
 }
@@ -1210,7 +1221,6 @@ export function parseSearchQuery(raw) {
   return { authorFilter, sourceFilter, sortOverride, textTokens, exactPhrases, titleTokens, titlePhrases };
 }
 
-
 export function getFilteredPapers(ctx) {
   if (!ctx) ctx = _buildRenderCtx();
   const rawSearch = (document.getElementById('search')?.value || '').toLowerCase();
@@ -1319,17 +1329,17 @@ export function _renderPaperCompactRow(p, i, ctx) {
   const sourceChip = getSourceChip(p.source, p.arxivId);
   const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
   const isRead = readSet.has(p.link);
-  const actionWrap = new View('span').className('ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity');
+  const actionWrap = new window.View('span').className('ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity');
   actionWrap.el.appendChild(_cardActionRow(p, i, ctx).build());
-  const row = HStack(
-    isNew && !isRead ? new View('span').className('inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0') : null,
-    RawHTML(sourceChip),
-    RawHTML('<span class="text-[0.82rem] ' + (isRead ? 'text-muted' : 'text-primary') + ' truncate">' + renderTitle(p.title) + '</span>'),
+  const row = window.HStack(
+    isNew && !isRead ? new window.View('span').className('inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0') : null,
+    window.RawHTML(sourceChip),
+    window.RawHTML('<span class="text-[0.82rem] ' + (isRead ? 'text-muted' : 'text-primary') + ' truncate">' + renderTitle(p.title) + '</span>'),
     actionWrap,
-    p.date ? Text(p.date).className('text-[0.68rem] text-dim shrink-0') : null
+    p.date ? window.Text(p.date).className('text-[0.68rem] text-dim shrink-0') : null
   ).spacing(2).className('py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors')
     .onTap(function(e) { openPaper(i, e); });
-  return VStack(row, _cardCommentContainer(p, i))
+  return window.VStack(row, _cardCommentContainer(p, i))
     .className('group' + (isRead ? ' opacity-50' : ''))
     .attr('data-link', p.link);
 }
@@ -1347,34 +1357,34 @@ export function _renderPaperCard(p, i, ctx) {
   const isRead = readSet.has(p.link);
   const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
   const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
-  const imgView = RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
+  const imgView = window.RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
 
   // Title row
   const titleHtml = (isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '') + renderTitle(p.title);
-  const titleEl = RawHTML(titleHtml);
+  const titleEl = window.RawHTML(titleHtml);
   titleEl.className('text-[0.92rem] font-semibold ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug min-w-0');
-  const titleRow = HStack(imgView, titleEl).spacing(2).className('items-center');
+  const titleRow = window.HStack(imgView, titleEl).spacing(2).className('items-center');
 
   // Body
   let body = null;
   if (snippet) {
-    body = Text(snippet).className('text-[0.78rem] text-muted leading-relaxed mt-1.5');
+    body = window.Text(snippet).className('text-[0.78rem] text-muted leading-relaxed mt-1.5');
   }
 
   // Meta row
-  const metaItems = [Text(sourceLabel).className('text-[0.75rem] text-dim')];
-  if (_hasExternalLink) metaItems.push(RawHTML('<span class="text-[0.68rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>'));
+  const metaItems = [window.Text(sourceLabel).className('text-[0.75rem] text-dim')];
+  if (_hasExternalLink) metaItems.push(window.RawHTML('<span class="text-[0.68rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>'));
   if (!(isHN && _hasExternalLink)) {
-    if (isHN) metaItems.push(Text(p.hnScore + ' pts').className('text-[0.68rem] text-dim'));
-    else if (isPoly) metaItems.push(Text(p.polyYesPct + '%').className('text-[0.68rem] font-semibold ' + (p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400')));
-    else if (p.citations !== undefined) metaItems.push(Text(p.citations + ' cited').className('text-[0.68rem] text-dim'));
+    if (isHN) metaItems.push(window.Text(p.hnScore + ' pts').className('text-[0.68rem] text-dim'));
+    else if (isPoly) metaItems.push(window.Text(p.polyYesPct + '%').className('text-[0.68rem] font-semibold ' + (p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400')));
+    else if (p.citations !== undefined) metaItems.push(window.Text(p.citations + ' cited').className('text-[0.68rem] text-dim'));
   }
-  if (userRating > 0) metaItems.push(RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
-  if (p.date) metaItems.push(Text(p.date).className('text-[0.68rem] text-dim'));
+  if (userRating > 0) metaItems.push(window.RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
+  if (p.date) metaItems.push(window.Text(p.date).className('text-[0.68rem] text-dim'));
   metaItems.push(_cardActionRow(p, i, ctx));
   const metaRow = HStack.apply(null, metaItems).spacing(2).className('flex-wrap mt-2');
 
-  const card = VStack(titleRow, body, metaRow, _cardCommentContainer(p, i));
+  const card = window.VStack(titleRow, body, metaRow, _cardCommentContainer(p, i));
   card.className('paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150' + (isRead ? ' opacity-50' : ''));
   card.attr('data-link', p.link);
   card.onTap(function(e) { openPaper(i, e); });
@@ -1403,8 +1413,8 @@ export function _buildRenderCtx() {
 }
 
 export function _renderFeedEmptyState(container) {
-  const children = [ Text('No papers match your filter').className('text-dim').styles({fontSize:'0.9rem'}) ];
-  const v = VStack(children).alignment('center').styles({justifyContent:'center', columnSpan:'all', padding:'5rem 0'}).spacing(4);
+  const children = [ window.Text('No papers match your filter').className('text-dim').styles({fontSize:'0.9rem'}) ];
+  const v = window.VStack(children).alignment('center').styles({justifyContent:'center', columnSpan:'all', padding:'5rem 0'}).spacing(4);
   AetherUI.mount(v, container);
 }
 
@@ -1422,43 +1432,43 @@ export function _renderPaperVerboseCard(p, i, ctx) {
   const isRead = readSet.has(p.link);
   const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
   const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
-  const imgView = RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
+  const imgView = window.RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
 
   // Title row
   const titleHtml = (isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '') + renderTitle(p.title);
-  const titleEl = RawHTML(titleHtml);
+  const titleEl = window.RawHTML(titleHtml);
   titleEl.className('text-[1rem] font-semibold ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug min-w-0');
-  const titleRow = HStack(imgView, titleEl).spacing(2).className('items-center');
+  const titleRow = window.HStack(imgView, titleEl).spacing(2).className('items-center');
 
   // Authors
-  const authorsView = p.authors ? Text(truncate(p.authors, 200)).className('text-[0.76rem] text-dimmer mt-1') : null;
+  const authorsView = p.authors ? window.Text(truncate(p.authors, 200)).className('text-[0.76rem] text-dimmer mt-1') : null;
 
   // Description
-  const descView = fullDesc ? Text(fullDesc).className('text-[0.82rem] text-muted leading-relaxed mt-2') : null;
+  const descView = fullDesc ? window.Text(fullDesc).className('text-[0.82rem] text-muted leading-relaxed mt-2') : null;
 
   // Categories
   let catsView = null;
   if (pCats.length) {
     const catItems = pCats.slice(0, 6).map(function(c) {
-      return Text(c).className('text-[0.65rem] px-1.5 py-0.5 rounded bg-hover text-dim');
+      return window.Text(c).className('text-[0.65rem] px-1.5 py-0.5 rounded bg-hover text-dim');
     });
     catsView = HStack.apply(null, catItems).spacing(0.5).className('flex-wrap mt-1.5');
   }
 
   // Meta row
-  const metaItems = [Text(sourceName).className('text-[0.72rem] text-dim')];
-  if (_hasExternalLink) metaItems.push(RawHTML('<span class="text-[0.72rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>'));
+  const metaItems = [window.Text(sourceName).className('text-[0.72rem] text-dim')];
+  if (_hasExternalLink) metaItems.push(window.RawHTML('<span class="text-[0.72rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>'));
   if (!(isHN && _hasExternalLink)) {
-    if (isHN) metaItems.push(Text(p.hnScore + ' pts').className('text-[0.72rem] text-dim'));
-    else if (isPoly) metaItems.push(Text(p.polyYesPct + '%').className('text-[0.72rem] font-semibold ' + (p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400')));
-    else if (p.citations !== undefined) metaItems.push(Text(p.citations + ' cited').className('text-[0.72rem] text-dim'));
+    if (isHN) metaItems.push(window.Text(p.hnScore + ' pts').className('text-[0.72rem] text-dim'));
+    else if (isPoly) metaItems.push(window.Text(p.polyYesPct + '%').className('text-[0.72rem] font-semibold ' + (p.polyYesPct >= 50 ? 'text-green-400' : 'text-red-400')));
+    else if (p.citations !== undefined) metaItems.push(window.Text(p.citations + ' cited').className('text-[0.72rem] text-dim'));
   }
-  if (userRating > 0) metaItems.push(RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
-  if (p.date) metaItems.push(Text(p.date).className('text-[0.72rem] text-dim'));
+  if (userRating > 0) metaItems.push(window.RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
+  if (p.date) metaItems.push(window.Text(p.date).className('text-[0.72rem] text-dim'));
   metaItems.push(_cardActionRow(p, i, ctx));
   const metaRow = HStack.apply(null, metaItems).spacing(2).className('flex-wrap mt-3');
 
-  const card = VStack(titleRow, authorsView, descView, catsView, metaRow, _cardCommentContainer(p, i));
+  const card = window.VStack(titleRow, authorsView, descView, catsView, metaRow, _cardCommentContainer(p, i));
   card.className('paper bg-card border border-border-card rounded-xl p-5 cursor-pointer transition-all duration-150' + (isRead ? ' opacity-50' : ''));
   card.attr('data-link', p.link);
   card.onTap(function(e) { openPaper(i, e); });
@@ -1479,7 +1489,7 @@ export function _renderPaperTwitterCard(p, i, ctx) {
   const isRead = readSet.has(p.link);
   const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
   const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
-  const avatarView = RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-10 h-10 rounded-full shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
+  const avatarView = window.RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-10 h-10 rounded-full shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
   const tAgo = p.pubDate && typeof _relativeTime === 'function' ? _relativeTime(p.pubDate) : (p.date || '');
   const hnPts = isHN ? p.hnScore || 0 : 0;
   const citations = p.citations !== undefined ? p.citations : null;
@@ -1489,39 +1499,39 @@ export function _renderPaperTwitterCard(p, i, ctx) {
 
   // Build action buttons using AetherUI
   const btnClass = 'group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors';
-  const commentBtn = RawHTML('<button class="' + btnClass + ' text-dimmer hover:text-blue-400">' + icon('chatBubble', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]" data-tweet-comment-count="' + escapeAttr(p.link) + '">' + commentCount + '</span></button>');
+  const commentBtn = window.RawHTML('<button class="' + btnClass + ' text-dimmer hover:text-blue-400">' + icon('chatBubble', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]" data-tweet-comment-count="' + escapeAttr(p.link) + '">' + commentCount + '</span></button>');
   commentBtn.el.firstChild.addEventListener('click', function(e) { e.stopPropagation(); _toggleTweetComments(p.link, i); });
-  const repostBtn = RawHTML('<button class="' + btnClass + ' ' + (reposted ? '' : 'text-dimmer hover:text-green-400') + '" style="' + (reposted ? 'color:rgb(74,222,128)' : '') + '">' + icon('repost', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]">' + statsNum + '</span></button>');
+  const repostBtn = window.RawHTML('<button class="' + btnClass + ' ' + (reposted ? '' : 'text-dimmer hover:text-green-400') + '" style="' + (reposted ? 'color:rgb(74,222,128)' : '') + '">' + icon('repost', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]">' + statsNum + '</span></button>');
   repostBtn.el.firstChild.addEventListener('click', function(e) { e.stopPropagation(); _tweetRepost(i, repostBtn.el.firstChild); });
-  const bmBtn = RawHTML('<button class="' + btnClass + '" style="color:' + (bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)') + '">' + icon('bookmark', {size: 16, class: 'w-4 h-4', fill: bmFill, stroke: bmStroke}) + '</button>');
+  const bmBtn = window.RawHTML('<button class="' + btnClass + '" style="color:' + (bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)') + '">' + icon('bookmark', {size: 16, class: 'w-4 h-4', fill: bmFill, stroke: bmStroke}) + '</button>');
   bmBtn.el.firstChild.addEventListener('click', function(e) { e.stopPropagation(); toggleSavePost(lastFilteredPapers[i], e); });
-  const menuBtn = RawHTML('<button class="' + btnClass + ' text-dimmer hover:text-primary">' + icon('moreVertical', {size: 16, class: 'w-4 h-4'}) + '</button>');
+  const menuBtn = window.RawHTML('<button class="' + btnClass + ' text-dimmer hover:text-primary">' + icon('moreVertical', {size: 16, class: 'w-4 h-4'}) + '</button>');
   menuBtn.el.firstChild.addEventListener('click', function(e) { openCardMenu(menuBtn.el.firstChild, e, i); });
-  const actionBar = HStack(commentBtn, repostBtn, bmBtn, menuBtn).className('justify-between mt-2.5 max-w-[400px]');
+  const actionBar = window.HStack(commentBtn, repostBtn, bmBtn, menuBtn).className('justify-between mt-2.5 max-w-[400px]');
 
   // Header line
   const headerItems = [];
-  if (isNew && !isRead) headerItems.push(RawHTML('<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>'));
-  headerItems.push(Text(sourceName).className('text-[0.88rem] font-bold ' + (isRead ? 'text-muted' : 'text-primary')));
-  headerItems.push(Text('@' + handle).className('text-[0.8rem] text-dimmer'));
-  headerItems.push(Text('\u00b7').className('text-dimmer'));
-  headerItems.push(Text(tAgo).className('text-[0.8rem] text-dimmer'));
+  if (isNew && !isRead) headerItems.push(window.RawHTML('<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>'));
+  headerItems.push(window.Text(sourceName).className('text-[0.88rem] font-bold ' + (isRead ? 'text-muted' : 'text-primary')));
+  headerItems.push(window.Text('@' + handle).className('text-[0.8rem] text-dimmer'));
+  headerItems.push(window.Text('\u00b7').className('text-dimmer'));
+  headerItems.push(window.Text(tAgo).className('text-[0.8rem] text-dimmer'));
   const headerRow = HStack.apply(null, headerItems).spacing(1).className('flex-wrap');
 
   // Title
-  const titleEl = RawHTML(renderTitle(p.title));
+  const titleEl = window.RawHTML(renderTitle(p.title));
   titleEl.className('text-[0.92rem] ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug mt-1 font-semibold');
 
   // Body content
   const bodyChildren = [headerRow, titleEl];
-  if (snippet) bodyChildren.push(Text(snippet).className('text-[0.84rem] text-muted leading-relaxed mt-1'));
+  if (snippet) bodyChildren.push(window.Text(snippet).className('text-[0.84rem] text-muted leading-relaxed mt-1'));
   bodyChildren.push(actionBar);
   bodyChildren.push(_cardCommentContainer(p, i));
 
   const content = VStack.apply(null, bodyChildren);
   content.className('min-w-0 flex-1');
 
-  const card = HStack(avatarView, content).spacing(3);
+  const card = window.HStack(avatarView, content).spacing(3);
   card.className('py-3 px-4 border-b border-border-card cursor-pointer transition-colors hover:bg-hover' + (isRead ? ' opacity-50' : ''));
   card.attr('data-link', p.link);
   card.onTap(function(e) { openPaper(i, e); });
@@ -1625,7 +1635,7 @@ export async function _toggleTweetComments(link, idx) {
   }
   _tweetCommentsOpen.add(link);
   container.style.display = 'block';
-  AetherUI.mount(Text('Loading...').className('text-dim text-[0.75rem] py-2'), container);
+  AetherUI.mount(window.Text('Loading...').className('text-dim text-[0.75rem] py-2'), container);
   try {
     const comments = await apiGet('/api/comments?paperLink=' + encodeURIComponent(link));
     _tweetCommentCounts[link] = comments.length;
@@ -1634,7 +1644,7 @@ export async function _toggleTweetComments(link, idx) {
     if (badge) badge.textContent = comments.length || '';
     _renderTweetComments(container, comments, link, idx);
   } catch {
-    AetherUI.mount(Text('Failed to load comments').className('text-red-400 text-[0.75rem] py-2'), container);
+    AetherUI.mount(window.Text('Failed to load comments').className('text-red-400 text-[0.75rem] py-2'), container);
   }
 }
 
@@ -1642,7 +1652,7 @@ export function _renderTweetComments(container, comments, link, idx) {
   const topLevel = comments.filter(function(c) { return !c.parentId; }).sort(function(a, b) { return a.timestamp - b.timestamp; });
   const byParent = {};
   comments.forEach(function(c) { if (c.parentId) (byParent[c.parentId] = byParent[c.parentId] || []).push(c); });
-  const currentUser = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || '';
+  const currentUser = (typeof window._authUserInfo !== 'undefined' && window._authUserInfo && window._authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || '';
 
   function renderThread(c, depth) {
     const replies = (byParent[c.id] || []).sort(function(a, b) { return a.timestamp - b.timestamp; });
@@ -1651,31 +1661,31 @@ export function _renderTweetComments(container, comments, link, idx) {
     const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
     const isOwn = c.author === currentUser;
 
-    const threadEl = new View('div');
+    const threadEl = new window.View('div');
     threadEl.cssText(ml + '; margin-bottom: 6px;');
 
-    const avatarDiv = new View('div');
+    const avatarDiv = new window.View('div');
     avatarDiv.cssText('width:20px;height:20px;min-width:20px;border-radius:50%;background:var(--nr-accent);color:#fff;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center');
     avatarDiv.el.textContent = initial;
 
-    const authorLink = new View('a');
+    const authorLink = new window.View('a');
     authorLink.el.href = '#profile/' + encodeURIComponent(c.author);
     authorLink.el.className = 'text-[0.72rem] font-medium text-primary hover:text-accent';
     authorLink.el.style.textDecoration = 'none';
     authorLink.el.textContent = c.author;
     authorLink.el.addEventListener('click', function(e) { e.stopPropagation(); });
 
-    const timeSpan = new View('span');
+    const timeSpan = new window.View('span');
     timeSpan.el.className = 'text-[0.65rem] text-dimmer';
     timeSpan.el.textContent = timeAgo;
 
-    const metaRow = new View('div');
+    const metaRow = new window.View('div');
     metaRow.el.className = 'flex items-center gap-1.5';
     metaRow.el.appendChild(authorLink.el);
     metaRow.el.appendChild(timeSpan.el);
 
     if (isOwn) {
-      const delBtnEl = new View('button');
+      const delBtnEl = new window.View('button');
       delBtnEl.el.className = 'cmt-del text-dimmest hover:text-red-400 text-[0.65rem] ml-auto bg-transparent border-none cursor-pointer';
       delBtnEl.el.dataset.cid = c.id;
       delBtnEl.el.textContent = 'x';
@@ -1683,54 +1693,54 @@ export function _renderTweetComments(container, comments, link, idx) {
       metaRow.el.appendChild(delBtnEl.el);
     }
 
-    const contentDiv = new View('div');
+    const contentDiv = new window.View('div');
     contentDiv.el.className = 'text-[0.78rem] text-primary mt-0.5 leading-relaxed';
     contentDiv.el.innerHTML = escapeHtml(c.content).replace(/\n/g, '<br>');
 
-    const showReplyBtn = new View('button');
+    const showReplyBtn = new window.View('button');
     showReplyBtn.el.className = 'cmt-show-reply text-[0.68rem] text-dim hover:text-accent mt-0.5 bg-transparent border-none cursor-pointer p-0';
     showReplyBtn.el.dataset.cid = c.id;
     showReplyBtn.el.textContent = 'Reply';
     showReplyBtn.el.addEventListener('click', function(e) { e.stopPropagation(); _showTweetReply(c.id); });
 
-    const replyTa = new View('textarea');
+    const replyTa = new window.View('textarea');
     replyTa.el.id = 'tweet-reply-ta-' + c.id;
     replyTa.el.className = 'w-full text-[0.75rem] bg-input border border-border-input rounded px-2 py-1 text-primary resize-none outline-none focus:border-accent';
     replyTa.el.rows = 2;
     replyTa.el.placeholder = 'Write a reply...';
     replyTa.el.addEventListener('click', function(e) { e.stopPropagation(); });
 
-    const replySubmit = new View('button');
+    const replySubmit = new window.View('button');
     replySubmit.el.className = 'cmt-reply-submit px-2 py-0.5 text-[0.68rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none';
     replySubmit.el.dataset.cid = c.id;
     replySubmit.el.textContent = 'Reply';
     replySubmit.el.addEventListener('click', function(e) { e.stopPropagation(); _postTweetReply(c.id, link, idx); });
 
-    const replyCancel = new View('button');
+    const replyCancel = new window.View('button');
     replyCancel.el.className = 'cmt-reply-cancel px-2 py-0.5 text-[0.68rem] rounded border border-border-input text-dim hover:text-primary cursor-pointer bg-transparent';
     replyCancel.el.dataset.cid = c.id;
     replyCancel.el.textContent = 'Cancel';
     replyCancel.el.addEventListener('click', function(e) { e.stopPropagation(); _hideTweetReply(c.id); });
 
-    const replyBtnRow = new View('div');
+    const replyBtnRow = new window.View('div');
     replyBtnRow.el.className = 'flex gap-1 mt-1';
     replyBtnRow.el.appendChild(replySubmit.el);
     replyBtnRow.el.appendChild(replyCancel.el);
 
-    const replyForm = new View('div');
+    const replyForm = new window.View('div');
     replyForm.el.id = 'tweet-reply-' + c.id;
     replyForm.el.className = 'hidden mt-1';
     replyForm.el.appendChild(replyTa.el);
     replyForm.el.appendChild(replyBtnRow.el);
 
-    const bodyDiv = new View('div');
+    const bodyDiv = new window.View('div');
     bodyDiv.el.className = 'flex-1 min-w-0';
     bodyDiv.el.appendChild(metaRow.el);
     bodyDiv.el.appendChild(contentDiv.el);
     bodyDiv.el.appendChild(showReplyBtn.el);
     bodyDiv.el.appendChild(replyForm.el);
 
-    const rowDiv = new View('div');
+    const rowDiv = new window.View('div');
     rowDiv.el.className = 'flex items-start gap-1.5';
     rowDiv.el.appendChild(avatarDiv.el);
     rowDiv.el.appendChild(bodyDiv.el);
@@ -1741,23 +1751,23 @@ export function _renderTweetComments(container, comments, link, idx) {
     return threadEl;
   }
 
-  const wrap = new View('div');
+  const wrap = new window.View('div');
   wrap.el.className = 'mt-2 pt-2 border-t border-border-card';
   if (topLevel.length) {
     topLevel.forEach(function(c) { wrap.el.appendChild(renderThread(c, 0).build()); });
   } else {
-    wrap.el.appendChild(Text('No comments yet').className('text-dim text-[0.75rem] py-1').build());
+    wrap.el.appendChild(window.Text('No comments yet').className('text-dim text-[0.75rem] py-1').build());
   }
 
-  const inputRow = new View('div');
+  const inputRow = new window.View('div');
   inputRow.el.className = 'flex gap-2 mt-2';
-  const commentTa = new View('textarea');
+  const commentTa = new window.View('textarea');
   commentTa.el.id = 'tweet-comment-input-' + idx;
   commentTa.el.className = 'flex-1 text-[0.75rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent';
   commentTa.el.rows = 1;
   commentTa.el.placeholder = 'Add a comment...';
   commentTa.el.addEventListener('click', function(e) { e.stopPropagation(); });
-  const postBtn = new View('button').className('px-3 py-1 text-[0.72rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none shrink-0');
+  const postBtn = new window.View('button').className('px-3 py-1 text-[0.72rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none shrink-0');
   postBtn.el.textContent = 'Post';
   postBtn.el.addEventListener('click', function(e) { e.stopPropagation(); _postTweetComment(link, idx); });
   inputRow.el.appendChild(commentTa.el);
@@ -1772,7 +1782,7 @@ export async function _postTweetComment(link, idx) {
   if (!ta) return;
   const content = ta.value.trim();
   if (!content) return;
-  const author = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || 'Anonymous';
+  const author = (typeof window._authUserInfo !== 'undefined' && window._authUserInfo && window._authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || 'Anonymous';
   try {
     await apiPost('/api/comments', { paperLink: link, author, content, parentId: null });
     ta.value = '';
@@ -1791,7 +1801,7 @@ export async function _postTweetReply(parentId, link, idx) {
   if (!ta) return;
   const content = ta.value.trim();
   if (!content) return;
-  const author = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || 'Anonymous';
+  const author = (typeof window._authUserInfo !== 'undefined' && window._authUserInfo && window._authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || 'Anonymous';
   try {
     await apiPost('/api/comments', { paperLink: link, author, content, parentId });
     const comments = await apiGet('/api/comments?paperLink=' + encodeURIComponent(link));
@@ -1869,7 +1879,7 @@ export function _tweetRepost(idx, btn) {
   btn.dataset.reposted = '1';
   _markReposted(p.link);
   // Save repost to server
-  const username = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || '';
+  const username = (typeof window._authUserInfo !== 'undefined' && window._authUserInfo && window._authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || '';
   apiPost('/api/reposts', { paperLink: p.link, paperTitle: p.title, username })
     .catch(e => console.error('Repost error:', e));
 }
@@ -1881,7 +1891,7 @@ export function _cardActionRow(p, i, ctx) {
   const bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
   const commentCount = _tweetCommentCounts[p.link] || '';
   const reposted = ctx ? ctx.repostedSet.has(p.link) : _isReposted(p.link);
-  const v = new View('div');
+  const v = new window.View('div');
   v.el.className = 'flex items-center gap-3 shrink-0 ml-auto';
   v.el.innerHTML =
     '<button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors" title="Comments">' + icon('chatBubble', {size: 14, class: 'w-3.5 h-3.5'}) + '<span class="text-[0.68rem]" data-tweet-comment-count="' + escapeAttr(p.link) + '">' + commentCount + '</span></button>' +
@@ -1897,7 +1907,7 @@ export function _cardActionRow(p, i, ctx) {
 }
 
 export function _cardCommentContainer(p, i) {
-  const v = new View('div').id('tweet-comments-' + i);
+  const v = new window.View('div').id('tweet-comments-' + i);
   v.styles({ display: _tweetCommentsOpen.has(p.link) ? 'block' : 'none' });
   return v;
 }
@@ -1945,133 +1955,14 @@ export let scrollTicking = false;
 
 // Feed loading is triggered by goHome() via routing
 
-// ── Window exports ──
-window._refreshTimer = _refreshTimer;
-window._refreshSecondsLeft = _refreshSecondsLeft;
-window._previousPostLinks = _previousPostLinks;
-window._renderedLinks = _renderedLinks;
-window.startRefreshTimer = startRefreshTimer;
-window.renderRefreshCountdown = renderRefreshCountdown;
-window.updateSavedBadge = updateSavedBadge;
-window._getSeenPostLinks = _getSeenPostLinks;
-window._setSeenPostLinks = _setSeenPostLinks;
-window._getFeedNotifications = _getFeedNotifications;
-window._setFeedNotifications = _setFeedNotifications;
-window._getFeedNotifSources = _getFeedNotifSources;
-window._detectNewPosts = _detectNewPosts;
-window.clearFeedNotification = clearFeedNotification;
-window.getHiddenPosts = getHiddenPosts;
-window.getReadPosts = getReadPosts;
-window.markPostAsRead = markPostAsRead;
-window._menuBtn = _menuBtn;
-window.openCardMenu = openCardMenu;
-window._cardMenuOutsideClick = _cardMenuOutsideClick;
-window.closeCardMenu = closeCardMenu;
-window.hidePost = hidePost;
-window.getBlockedWords = getBlockedWords;
-window.setBlockedWords = setBlockedWords;
-window.addBlockedWord = addBlockedWord;
-window.removeBlockedWord = removeBlockedWord;
-window.renderBlockedWordsList = renderBlockedWordsList;
-window.getOfflineCachedSet = getOfflineCachedSet;
-window.isPostCached = isPostCached;
-window.cachePostOffline = cachePostOffline;
-window._offlineDownloadIcon = _offlineDownloadIcon;
-window._offlineCachedIcon = _offlineCachedIcon;
-window.getSavedPosts = getSavedPosts;
-window.savePosts = savePosts;
-window.isPostSaved = isPostSaved;
-window.toggleSavePost = toggleSavePost;
-window._showBookmarkFly = _showBookmarkFly;
-window.markPostRead = markPostRead;
-window.renderSavedPosts = renderSavedPosts;
-window.toggleSavePostByLink = toggleSavePostByLink;
-window.openSavedPaper = openSavedPaper;
-window.allPapers = allPapers;
-window.allCategories = allCategories;
-window.citationMap = citationMap;
-window.currentSort = currentSort;
-window.PAGE_SIZE = PAGE_SIZE;
-window.visibleCount = visibleCount;
-window.hiddenSourceFilters = hiddenSourceFilters;
-window.feedViewMode = feedViewMode;
-window._viewModes = _viewModes;
-window._viewModeIcons = _viewModeIcons;
-window.toggleViewMode = toggleViewMode;
-window.toggleSourceBubble = toggleSourceBubble;
-window.unsubscribeSource = unsubscribeSource;
-window.renderSourceBubbles = renderSourceBubbles;
-window._fitArxivSelect = _fitArxivSelect;
-window.setSortMode = setSortMode;
-window.fetchHNFeed = fetchHNFeed;
-window.fetchPolymarketFeed = fetchPolymarketFeed;
-window.FEED_SOURCE_DEFAULTS = FEED_SOURCE_DEFAULTS;
-window.hasOnboarded = hasOnboarded;
-window.onboardSelected = onboardSelected;
-window.onboardNotifSelected = onboardNotifSelected;
-window._hcPanX = _hcPanX;
-window._hcDragging = _hcDragging;
-window._hcDidDrag = _hcDidDrag;
-window._hcCircleEls = _hcCircleEls;
-window._hcPositions = _hcPositions;
-window._hcRafId = _hcRafId;
-window._hcMouseX = _hcMouseX;
-window._hcListenersAttached = _hcListenersAttached;
-window._hcActiveCategory = _hcActiveCategory;
-window._hcHoveredIdx = _hcHoveredIdx;
-window._hcZoom = _hcZoom;
-window._renderHcCategoryTabs = _renderHcCategoryTabs;
-window._hcSelectCategory = _hcSelectCategory;
-window.renderOnboardGrid = renderOnboardGrid;
-window.toggleOnboardSource = toggleOnboardSource;
-window._toggleOnboardCategory = _toggleOnboardCategory;
-window._updateOnboardCardStates = _updateOnboardCardStates;
-window.showOnboarding = showOnboarding;
-window.completeOnboarding = completeOnboarding;
-window.getFeedSources = getFeedSources;
-window.getCustomFeeds = getCustomFeeds;
-window.renderCustomFeedsList = renderCustomFeedsList;
-window.addCustomFeed = addCustomFeed;
-window.removeCustomFeed = removeCustomFeed;
-window.toggleCustomFeed = toggleCustomFeed;
-window.renderAlgorithmView = renderAlgorithmView;
-window.fetchGenericRSS = fetchGenericRSS;
-window.allSourcesOff = allSourcesOff;
-window._feedAbort = _feedAbort;
-window.loadAllFeeds = loadAllFeeds;
-window.extractArxivId = extractArxivId;
-window.parseFeed = parseFeed;
-window.fetchCitationsFor = fetchCitationsFor;
-window.renderTrends = renderTrends;
-window.extractAuthors = extractAuthors;
-window.populateCategories = populateCategories;
-window.lastFilteredPapers = lastFilteredPapers;
-window.parseSearchQuery = parseSearchQuery;
-window.getFilteredPapers = getFilteredPapers;
-window._renderPaperCompactRow = _renderPaperCompactRow;
-window._renderPaperCard = _renderPaperCard;
-window._renderPapersRafId = _renderPapersRafId;
-window.renderPapers = renderPapers;
-window._buildRenderCtx = _buildRenderCtx;
-window._renderFeedEmptyState = _renderFeedEmptyState;
-window._renderPaperVerboseCard = _renderPaperVerboseCard;
-window._renderPaperTwitterCard = _renderPaperTwitterCard;
-window._renderPapersNow = _renderPapersNow;
-window._tweetCommentCounts = _tweetCommentCounts;
-window._tweetCommentsOpen = _tweetCommentsOpen;
-window._fetchTweetCommentCounts = _fetchTweetCommentCounts;
-window._toggleTweetComments = _toggleTweetComments;
-window._renderTweetComments = _renderTweetComments;
-window._postTweetComment = _postTweetComment;
-window._postTweetReply = _postTweetReply;
-window._deleteTweetComment = _deleteTweetComment;
-window._showTweetReply = _showTweetReply;
-window._hideTweetReply = _hideTweetReply;
-window._getRepostedLinks = _getRepostedLinks;
-window._isReposted = _isReposted;
-window._markReposted = _markReposted;
-window._unmarkReposted = _unmarkReposted;
-window._tweetRepost = _tweetRepost;
-window._cardActionRow = _cardActionRow;
-window._cardCommentContainer = _cardCommentContainer;
-window.scrollTicking = scrollTicking;
+// ── Action registry ──
+registerActions({
+  completeOnboarding: () => completeOnboarding(),
+  addCustomFeed: () => addCustomFeed(),
+  addCustomFeedOnEnter: (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomFeed(); } },
+  toggleSortForyou: () => setSortMode(currentSort === 'foryou' ? 'latest' : 'foryou'),
+  toggleSortCitations: () => setSortMode(currentSort === 'citations' ? 'latest' : 'citations'),
+  toggleViewMode: () => toggleViewMode(),
+  showOnboarding: () => showOnboarding(),
+});
+

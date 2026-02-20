@@ -1,20 +1,25 @@
 // core-ui.js — Link preview, pill stack, etc.
 // Extracted from core.js
-if (window.AetherUI) AetherUI.globals();
+import { apiGet } from '/js/api.js';
+import { escapeHtml, escapeAttr } from '/js/core/core-utils.js';
+import { _islandFlipNeighbors, _islandRender, _islandSnapshotRects } from '/js/core/core-audio.js';
+import { browseSelectTab } from '/js/browse/browse-passwords.js';
+import { lastFilteredPapers } from '/js/feed.js';
+import { openPaper } from '/js/panel.js';
 
 // ── Ell logo (curvy ℓ) inline SVG for new-tab favicons ──
 
 // ── Link hover preview (bottom-left status bar) ──
-function _showLinkPreview(url) {
-  if (!_linkPreviewEl) _linkPreviewEl = document.getElementById('link-hover-preview');
-  if (!_linkPreviewEl) return;
-  clearTimeout(_linkPreviewTimer);
-  _linkPreviewEl.textContent = url;
-  _linkPreviewEl.style.opacity = '1';
+export function _showLinkPreview(url) {
+  if (!window._linkPreviewEl) window._linkPreviewEl = document.getElementById('link-hover-preview');
+  if (!window._linkPreviewEl) return;
+  clearTimeout(window._linkPreviewTimer);
+  window._linkPreviewEl.textContent = url;
+  window._linkPreviewEl.style.opacity = '1';
 }
-function _hideLinkPreview() {
-  if (!_linkPreviewEl) return;
-  _linkPreviewTimer = setTimeout(function() { _linkPreviewEl.style.opacity = '0'; }, 80);
+export function _hideLinkPreview() {
+  if (!window._linkPreviewEl) return;
+  window._linkPreviewTimer = setTimeout(function() { window._linkPreviewEl.style.opacity = '0'; }, 80);
 }
 function _linkUrlFromElement(target) {
   if (!target || !target.closest) return null;
@@ -37,9 +42,9 @@ function _linkUrlFromElement(target) {
       }
       // Browse tabs: browseSelectTab(id)
       const tabM = oc.match(/browseSelectTab\((\d+)\)/);
-      if (tabM && typeof _browseWindows !== 'undefined') {
-        for (let wi = 0; wi < _browseWindows.length; wi++) {
-          const tabs = _browseWindows[wi].tabs;
+      if (tabM && typeof window._browseWindows !== 'undefined') {
+        for (let wi = 0; wi < window._browseWindows.length; wi++) {
+          const tabs = window._browseWindows[wi].tabs;
           for (let ti = 0; ti < tabs.length; ti++) {
             if (tabs[ti].id === +tabM[1] && tabs[ti].url) return tabs[ti].url;
           }
@@ -65,29 +70,29 @@ document.addEventListener('mouseout', function(e) {
 // ── Pill stack manager (bottom-right notification pills) ──
 
 export function pillStackAdd(id) {
-  if (_pillStack.indexOf(id) < 0) _pillStack.push(id);
+  if (window._pillStack.indexOf(id) < 0) window._pillStack.push(id);
   requestAnimationFrame(_pillStackReflow);
 }
 export function pillStackRemove(id) {
-  const i = _pillStack.indexOf(id);
-  if (i >= 0) _pillStack.splice(i, 1);
+  const i = window._pillStack.indexOf(id);
+  if (i >= 0) window._pillStack.splice(i, 1);
   _pillStackReflow();
 }
 function _pillStackReflow() {
-  let bottom = _PILL_BOTTOM;
-  for (let i = 0; i < _pillStack.length; i++) {
-    const el = document.getElementById(_pillStack[i]);
+  let bottom = window._PILL_BOTTOM;
+  for (let i = 0; i < window._pillStack.length; i++) {
+    const el = document.getElementById(window._pillStack[i]);
     if (!el || el.style.display === 'none') continue;
     el.style.bottom = bottom + 'px';
-    bottom += el.offsetHeight + _PILL_GAP;
+    bottom += el.offsetHeight + window._PILL_GAP;
   }
 }
 
 // ── Custom annotation categories (loaded from server) ──
 
-function _loadCustomAnnotationCategories() {
+export function _loadCustomAnnotationCategories() {
   apiGet('/api/annotation-categories')
-    .then(function(d) { _customAnnotationCategories = d.categories || []; })
+    .then(function(d) { window._customAnnotationCategories = d.categories || []; })
     .catch(function() {});
 }
 
@@ -121,7 +126,7 @@ window.addEventListener('resize', function() {
     const lastEvent = recent.length ? recent[recent.length - 1] : null;
     let dot = el.querySelector('.live-pulse-dot');
     if (!dot) {
-      const dotView = new View('span').className('live-pulse-dot island-pulse-dot island-pulse-dot-idle nr-breathe');
+      const dotView = new window.View('span').className('live-pulse-dot island-pulse-dot island-pulse-dot-idle nr-breathe');
       dot = dotView.el;
       el.appendChild(dot);
     }
@@ -149,7 +154,7 @@ window.addEventListener('resize', function() {
     // Build dropdown
     let dropdown = el.querySelector('.pulse-dropdown');
     if (!dropdown) {
-      const ddView = new View('div').className('pulse-dropdown');
+      const ddView = new window.View('div').className('pulse-dropdown');
       dropdown = ddView.el;
       el.appendChild(dropdown);
     }
@@ -185,12 +190,12 @@ window.addEventListener('resize', function() {
 })();
 
 export function _setIslandActivity(id, data) {
-  _islandActivities.update(id, function(old) {
+  window._islandActivities.update(id, function(old) {
     return Object.assign({}, old || {}, data, { _ts: Date.now() });
   });
 }
 export function _clearIslandActivity(id) {
-  _islandActivities.delete(id);
+  window._islandActivities.delete(id);
 }
 
 export function islandUpdate(id, data) {
@@ -204,7 +209,7 @@ export function islandRemove(id) {
     const anchor = document.getElementById('pill-island-tabs-anchor');
     if (anchor) el = anchor.querySelector('.pill-island[data-island-id="'+id+'"]');
   }
-  if (_islandDismissTimers[id]) { clearTimeout(_islandDismissTimers[id]); delete _islandDismissTimers[id]; }
+  if (window._islandDismissTimers[id]) { clearTimeout(window._islandDismissTimers[id]); delete window._islandDismissTimers[id]; }
   _clearIslandActivity(id);
   if (el && !el.classList.contains('island-exiting')) {
     const parentCont = el.parentNode;
@@ -232,18 +237,5 @@ export function showAchievement(name, description) {
     action: function() { islandRemove('achievement'); }
   });
 }
-
-
-// ── Backward compatibility: expose on window ──
-window._showLinkPreview = _showLinkPreview;
-window._hideLinkPreview = _hideLinkPreview;
-window.pillStackAdd = pillStackAdd;
-window.pillStackRemove = pillStackRemove;
-window._setIslandActivity = _setIslandActivity;
-window._clearIslandActivity = _clearIslandActivity;
-window.islandUpdate = islandUpdate;
-window.islandRemove = islandRemove;
-window.showAchievement = showAchievement;
-window._loadCustomAnnotationCategories = _loadCustomAnnotationCategories;
 
 // ── Unified Audio Pill ──

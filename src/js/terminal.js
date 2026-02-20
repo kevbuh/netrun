@@ -1,7 +1,7 @@
 import Settings from '/js/core/core-settings.js';
+import { icon } from '/js/core/icons.js';
 
-// ── Terminal View (Multi-tab, Split Panes, Search, Themes) ──
-if (window.AetherUI) AetherUI.globals();
+// ── Terminal window.View(Multi-tab, Split Panes, Search, Themes) ──
 
 // Global state
 export const _terminals = [];
@@ -320,20 +320,20 @@ export function _renderTabs() {
 
   tabsEl.innerHTML = '';
   _terminals.forEach(function(t) {
-    const tabSvg = '<svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>';
-    const tab = new View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
+    const tabSvg = icon('terminal', {size: 12, class: 'shrink-0 text-dimmer', strokeWidth: '1.5'});
+    const tab = new window.View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
     tab.attr('data-term-id', t.id);
     tab.onTap(function() { selectTerminal(t.id); });
-    tab.el.appendChild(RawHTML(tabSvg).el);
-    const title = Text(t.name).className('term-tab-title');
+    tab.el.appendChild(window.RawHTML(tabSvg).el);
+    const title = window.Text(t.name).className('term-tab-title');
     title.on('dblclick', function(e) { e.stopPropagation(); _startRenameTab(t.id); });
     tab.el.appendChild(title.el);
-    const closeBtn = Button('\u00d7').className('term-tab-close').attr('title', 'Close');
+    const closeBtn = window.Button('\u00d7').className('term-tab-close').attr('title', 'Close');
     closeBtn.onTap(function(e) { e.stopPropagation(); destroyTerminal(t.id); });
     tab.el.appendChild(closeBtn.el);
     tabsEl.appendChild(tab.el);
   });
-  const newBtn = Button('+').className('term-tab-new').attr('title', 'New Tab');
+  const newBtn = window.Button('+').className('term-tab-new').attr('title', 'New Tab');
   newBtn.onTap(function() { createTerminal(); });
   tabsEl.appendChild(newBtn.el);
 }
@@ -425,23 +425,23 @@ export function _renderLayout() {
     }
 
     if (node.type === 'split') {
-      const wrapper = new View('div').className('term-split');
+      const wrapper = new window.View('div').className('term-split');
       wrapper.cssText('display:flex;flex-direction:' + (node.direction === 'horizontal' ? 'column' : 'row') + ';width:100%;height:100%;');
 
       const ratio = node.ratio || 0.5;
 
-      const pane1 = new View('div').className('term-split-pane');
+      const pane1 = new window.View('div').className('term-split-pane');
       pane1.cssText(node.direction === 'horizontal'
         ? 'height:' + (ratio * 100) + '%;width:100%;overflow:hidden;'
         : 'width:' + (ratio * 100) + '%;height:100%;overflow:hidden;');
 
-      const handle = new View('div').className('term-split-handle');
+      const handle = new window.View('div').className('term-split-handle');
       handle.cssText(node.direction === 'horizontal'
         ? 'height:4px;width:100%;cursor:row-resize;background:var(--nr-border-dim);flex-shrink:0;'
         : 'width:4px;height:100%;cursor:col-resize;background:var(--nr-border-dim);flex-shrink:0;');
       _initSplitResize(handle.el, node, pane1.el);
 
-      const pane2 = new View('div').className('term-split-pane');
+      const pane2 = new window.View('div').className('term-split-pane');
       pane2.cssText(node.direction === 'horizontal'
         ? 'height:' + ((1 - ratio) * 100) + '%;width:100%;overflow:hidden;'
         : 'width:' + ((1 - ratio) * 100) + '%;height:100%;overflow:hidden;');
@@ -945,21 +945,21 @@ export function _renderBottomTerminalTabs() {
 
   tabsEl.innerHTML = '';
   _terminals.forEach(function(t) {
-    const tabSvg = '<svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>';
-    const tab = new View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
+    const tabSvg = icon('terminal', {size: 12, class: 'shrink-0 text-dimmer', strokeWidth: '1.5'});
+    const tab = new window.View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
     tab.attr('data-term-id', t.id);
     tab.onTap(function() { _bottomSelectTerminal(t.id); });
-    tab.el.appendChild(RawHTML(tabSvg).el);
-    const title = Text(t.name).className('term-tab-title');
+    tab.el.appendChild(window.RawHTML(tabSvg).el);
+    const title = window.Text(t.name).className('term-tab-title');
     tab.el.appendChild(title.el);
     if (_terminals.length > 1) {
-      const closeBtn = Button('\u00d7').className('term-tab-close').attr('title', 'Close');
+      const closeBtn = window.Button('\u00d7').className('term-tab-close').attr('title', 'Close');
       closeBtn.onTap(function(e) { e.stopPropagation(); destroyTerminal(t.id); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); });
       tab.el.appendChild(closeBtn.el);
     }
     tabsEl.appendChild(tab.el);
   });
-  const newBtn = Button('+').className('term-tab-new').attr('title', 'New Tab');
+  const newBtn = window.Button('+').className('term-tab-new').attr('title', 'New Tab');
   newBtn.onTap(function() { createTerminal(); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); });
   tabsEl.appendChild(newBtn.el);
 }
@@ -1062,51 +1062,9 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ── Window exports ──
-window._terminals = _terminals;
-window._activeTerminalId = _activeTerminalId;
-window._terminalLayout = _terminalLayout;
-window._termSearchTimeout = _termSearchTimeout;
-window.TERMINAL_THEMES = TERMINAL_THEMES;
-window._termSettings = _termSettings;
-window._nextTerminalId = _nextTerminalId;
-window.createTerminal = createTerminal;
-window.destroyTerminal = destroyTerminal;
-window._removeFromLayout = _removeFromLayout;
-window.selectTerminal = selectTerminal;
-window.renameTerminal = renameTerminal;
-window._renderTabs = _renderTabs;
-window._startRenameTab = _startRenameTab;
-window._renderLayout = _renderLayout;
-window._initSplitResize = _initSplitResize;
-window.splitTerminal = splitTerminal;
-window._terminalSendInput = _terminalSendInput;
-window._terminalSendResize = _terminalSendResize;
-window._connectTerminalWs = _connectTerminalWs;
-window._connectTerminalIpc = _connectTerminalIpc;
-window._connectTerminalWsFallback = _connectTerminalWsFallback;
-window.nextTerminalTab = nextTerminalTab;
-window.prevTerminalTab = prevTerminalTab;
-window.selectTerminalByIndex = selectTerminalByIndex;
-window.clearTerminal = clearTerminal;
-window.copyTerminal = copyTerminal;
-window.pasteTerminal = pasteTerminal;
-window._debounceTermSearch = _debounceTermSearch;
-window.terminalSearch = terminalSearch;
-window.terminalSearchNext = terminalSearchNext;
-window.terminalSearchPrev = terminalSearchPrev;
-window.clearTerminalSearch = clearTerminalSearch;
-window.toggleTerminalSettings = toggleTerminalSettings;
-window._applyTerminalSettingsUI = _applyTerminalSettingsUI;
-window.applyTerminalTheme = applyTerminalTheme;
-window.applyTerminalFontSize = applyTerminalFontSize;
-window._saveTerminalState = _saveTerminalState;
-window._loadTerminalState = _loadTerminalState;
-window._escapeHtml = _escapeHtml;
-window._bottomTerminalVisible = _bottomTerminalVisible;
-window.toggleBottomTerminal = toggleBottomTerminal;
-window._showBottomTerminal = _showBottomTerminal;
-window._renderBottomTerminalTabs = _renderBottomTerminalTabs;
-window._bottomSelectTerminal = _bottomSelectTerminal;
-window._renderBottomTerminalPane = _renderBottomTerminalPane;
-window.clearBottomTerminal = clearBottomTerminal;
+// ── Action registry ──
+registerActions({
+  clearBottomTerminal: () => clearBottomTerminal(),
+  toggleBottomTerminal: () => toggleBottomTerminal(),
+});
+

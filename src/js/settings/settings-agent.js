@@ -1,13 +1,14 @@
 import Settings from '../core/core-settings.js';
+import { escapeAttr, escapeHtml } from '/js/core/core-utils.js';
+import { _settingCard, _settingRow, _settingToggle, _settingToggleLS } from '/js/settings/settings-helpers.js';
 
 // ─── AI Settings (merged from Tools + Lookup Panel + Agent) ──
-if (window.AetherUI) AetherUI.globals();
 
 export function _renderAISettings() {
   // ── Models group ──
   function _modelRow(label, desc, lsKey, fallback) {
     const currentVal = Settings.get(lsKey) || fallback;
-    const sel = new View('select');
+    const sel = new window.View('select');
     sel.el.setAttribute('data-key', lsKey);
     sel.el.setAttribute('data-fallback', fallback);
     sel.className('settings-model-select px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer');
@@ -66,7 +67,7 @@ export function _renderAISettings() {
   ]);
 
   // ── Reference content ──
-  const systemPrompts = RawHTML(
+  const systemPrompts = window.RawHTML(
     '<div class="mb-8 pt-5 border-t border-border-subtle">' +
     '<h3 class="text-white_ text-sm font-semibold mb-3">System Prompts</h3>' +
     '<p class="text-dim text-[0.8rem] mb-3">The AI receives different system instructions depending on context. Dynamic values shown in <code class="text-accent">orange</code>.</p>' +
@@ -83,7 +84,7 @@ export function _renderAISettings() {
     '<pre class="text-dim text-[0.72rem] whitespace-pre-wrap leading-relaxed font-mono">You are a helpful visual analysis assistant. The user has taken a screenshot and wants to ask about it. Describe what you see and answer their questions based on the visual content provided.</pre></div></div></div>'
   );
 
-  const howItWorks = RawHTML(
+  const howItWorks = window.RawHTML(
     '<div class="mb-8 pt-5 border-t border-border-subtle">' +
     '<h3 class="text-white_ text-sm font-semibold mb-3">How It Works</h3>' +
     '<div class="space-y-2 text-[0.8rem] text-dim">' +
@@ -92,7 +93,7 @@ export function _renderAISettings() {
     '<p>The model automatically upgrades to <code class="text-muted">qwen3:8b</code> when tools are on, since smaller models don\'t reliably handle function calling. You can override this in the Models group above.</p></div></div>'
   );
 
-  return VStack(
+  return window.VStack(
     modelsGroup,
     behaviorGroup,
     insightGroup,
@@ -101,4 +102,3 @@ export function _renderAISettings() {
   );
 }
 
-window._renderAISettings = _renderAISettings;

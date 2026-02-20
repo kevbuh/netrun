@@ -1,19 +1,21 @@
 // panel-tts.js — Text-to-speech system with chunked playback and highlighting
 import Settings from '/js/core/core-settings.js';
+import { apiPost } from '/js/api.js';
+import { _clearAudioUnified, _updateAudioUnified } from '/js/core/core-audio.js';
 
 // ── TTS Waveform Visualization ──
 export function _ttsStartWaveform(audio) {
-  if (!_ttsAudioCtx) _ttsAudioCtx = new AudioContext();
-  const src = _ttsAudioCtx.createMediaElementSource(audio);
-  _ttsAnalyser = _ttsAudioCtx.createAnalyser();
-  _ttsAnalyser.fftSize = 64;
-  src.connect(_ttsAnalyser);
-  _ttsAnalyser.connect(_ttsAudioCtx.destination);
-  const buf = new Uint8Array(_ttsAnalyser.frequencyBinCount);
+  if (!window._ttsAudioCtx) window._ttsAudioCtx = new AudioContext();
+  const src = window._ttsAudioCtx.createMediaElementSource(audio);
+  window._ttsAnalyser = window._ttsAudioCtx.createAnalyser();
+  window._ttsAnalyser.fftSize = 64;
+  src.connect(window._ttsAnalyser);
+  window._ttsAnalyser.connect(window._ttsAudioCtx.destination);
+  const buf = new Uint8Array(window._ttsAnalyser.frequencyBinCount);
   function tick() {
-    _ttsRafId = requestAnimationFrame(tick);
-    if (!_ttsAnalyser) return;
-    _ttsAnalyser.getByteFrequencyData(buf);
+    window._ttsRafId = requestAnimationFrame(tick);
+    if (!window._ttsAnalyser) return;
+    window._ttsAnalyser.getByteFrequencyData(buf);
     const pill = document.querySelector('.pill-island[data-island-id="tts"]');
     if (!pill) return;
     const bars = pill.querySelectorAll('.island-waveform-bar');
@@ -29,18 +31,18 @@ export function _ttsStartWaveform(audio) {
 }
 
 export function _ttsStopWaveform() {
-  if (_ttsRafId) { cancelAnimationFrame(_ttsRafId); _ttsRafId = null; }
-  _ttsAnalyser = null;
+  if (window._ttsRafId) { cancelAnimationFrame(window._ttsRafId); window._ttsRafId = null; }
+  window._ttsAnalyser = null;
   // Don't close AudioContext — reuse it (creating new ones is expensive)
 }
 
 // ── TTS Frame Helpers ──
 export function _ttsGetFrame() {
-  if (typeof _getCurrentWindow !== 'function') return null;
-  const win = _getCurrentWindow();
+  if (typeof window._getCurrentWindow !== 'function') return null;
+  const win = window._getCurrentWindow();
   if (!win) return null;
   // Use the tab where TTS was started, not the currently active tab
-  const targetId = _ttsTabId != null ? _ttsTabId : win.activeTab;
+  const targetId = window._ttsTabId != null ? window._ttsTabId : win.activeTab;
   const tab = win.tabs.find(function(t) { return t.id === targetId; });
   return tab && tab.el ? tab.el : null;
 }
@@ -249,10 +251,10 @@ export function _ttsUpdateBtnIcon() {
   const pause = btn.querySelector('.tts-icon-pause');
   const play = btn.querySelector('.tts-icon-play');
   const stopBtn = document.getElementById('pill-readaloud-stop');
-  const isActive = _ttsAudio || _ttsPaused || _ttsChunks.length > 0;
+  const isActive = window._ttsAudio || window._ttsPaused || window._ttsChunks.length > 0;
   if (speaker) speaker.style.display = isActive ? 'none' : '';
-  if (pause) pause.style.display = (isActive && !_ttsPaused) ? '' : 'none';
-  if (play) play.style.display = (isActive && _ttsPaused) ? '' : 'none';
+  if (pause) pause.style.display = (isActive && !window._ttsPaused) ? '' : 'none';
+  if (play) play.style.display = (isActive && window._ttsPaused) ? '' : 'none';
   if (stopBtn) {
     if (isActive) stopBtn.classList.add('tts-has-audio');
     else stopBtn.classList.remove('tts-has-audio');
@@ -261,18 +263,18 @@ export function _ttsUpdateBtnIcon() {
 
 // ── TTS Playback Control ──
 export function _ttsStopAll() {
-  _ttsStopped = true;
-  _ttsPaused = false;
-  if (_ttsAudio) { _ttsAudio.pause(); _ttsAudio = null; }
+  window._ttsStopped = true;
+  window._ttsPaused = false;
+  if (window._ttsAudio) { window._ttsAudio.pause(); window._ttsAudio = null; }
   _ttsStopWaveform();
-  _ttsQueue.forEach(function(u) { URL.revokeObjectURL(u); });
-  _ttsQueue = [];
-  _ttsChunks = [];
-  _ttsChunkIdx = 0;
-  _ttsPlayingChunkIdx = -1;
-  _ttsTabId = null;
-  _ttsPlayedDurations = [];
-  _ttsRemainingDurations = [];
+  window._ttsQueue.forEach(function(u) { URL.revokeObjectURL(u); });
+  window._ttsQueue = [];
+  window._ttsChunks = [];
+  window._ttsChunkIdx = 0;
+  window._ttsPlayingChunkIdx = -1;
+  window._ttsTabId = null;
+  window._ttsPlayedDurations = [];
+  window._ttsRemainingDurations = [];
   _ttsClearHighlights();
   _clearAudioUnified('tts');
   _ttsUpdateBtnIcon();
@@ -288,27 +290,27 @@ export function _ttsFormatTime(secs) {
 }
 
 export function _ttsTimeDetail() {
-  if (!_ttsAudio && !_ttsPaused) return '';
-  const audio = _ttsAudio;
+  if (!window._ttsAudio && !window._ttsPaused) return '';
+  const audio = window._ttsAudio;
   let currentRemaining = 0;
   if (audio && audio.duration && isFinite(audio.duration)) {
     currentRemaining = audio.duration - audio.currentTime;
   }
   let queuedRemaining = 0;
-  for (let i = 0; i < _ttsRemainingDurations.length; i++) queuedRemaining += _ttsRemainingDurations[i];
+  for (let i = 0; i < window._ttsRemainingDurations.length; i++) queuedRemaining += window._ttsRemainingDurations[i];
   // Estimate unfetched chunks using avg duration of played chunks, or ~14 chars/sec fallback
   let avgSecsPerChar = 1 / 14;
-  if (_ttsPlayedDurations.length > 0) {
+  if (window._ttsPlayedDurations.length > 0) {
     let totalPlayed = 0;
     let totalChars = 0;
-    for (let k = 0; k < _ttsPlayedDurations.length; k++) {
-      totalPlayed += _ttsPlayedDurations[k];
-      if (_ttsChunks[k]) totalChars += _ttsChunks[k].length;
+    for (let k = 0; k < window._ttsPlayedDurations.length; k++) {
+      totalPlayed += window._ttsPlayedDurations[k];
+      if (window._ttsChunks[k]) totalChars += window._ttsChunks[k].length;
     }
     if (totalChars > 0) avgSecsPerChar = totalPlayed / totalChars;
   }
   let unfetched = 0;
-  for (let j = _ttsChunkIdx; j < _ttsChunks.length; j++) unfetched += _ttsChunks[j].length * avgSecsPerChar;
+  for (let j = window._ttsChunkIdx; j < window._ttsChunks.length; j++) unfetched += window._ttsChunks[j].length * avgSecsPerChar;
   const total = currentRemaining + queuedRemaining + unfetched;
   return _ttsFormatTime(total) + ' left';
 }
@@ -363,21 +365,21 @@ export async function _ttsFetchChunk(text) {
 }
 
 export function _ttsPlayNext() {
-  if (_ttsStopped || _ttsQueue.length === 0) return;
-  const url = _ttsQueue.shift();
+  if (window._ttsStopped || window._ttsQueue.length === 0) return;
+  const url = window._ttsQueue.shift();
   // Remove first queued duration since we're now playing it
-  if (_ttsRemainingDurations.length > 0) _ttsRemainingDurations.shift();
+  if (window._ttsRemainingDurations.length > 0) window._ttsRemainingDurations.shift();
   const audio = new Audio(url);
   audio.playbackRate = parseFloat(Settings.get('ttsSpeed')) || 1;
-  _ttsAudio = audio;
+  window._ttsAudio = audio;
   _ttsUpdateBtnIcon();
-  const total = _ttsChunks.length;
-  const playing = total - _ttsQueue.length - (_ttsChunkIdx < total ? (total - _ttsChunkIdx) : 0);
-  _ttsPlayingChunkIdx = playing - 1;
+  const total = window._ttsChunks.length;
+  const playing = total - window._ttsQueue.length - (window._ttsChunkIdx < total ? (total - window._ttsChunkIdx) : 0);
+  window._ttsPlayingChunkIdx = playing - 1;
   _updateAudioUnified('tts', { label: 'Reading ' + playing + '/' + total, detail: _ttsTimeDetail() || 'Reading page aloud' });
   _ttsStartWaveform(audio);
   // Sentence-level highlighting: split chunk into sentences, update on timeupdate
-  const chunkText = (_ttsPlayingChunkIdx >= 0 && _ttsPlayingChunkIdx < _ttsChunks.length) ? _ttsChunks[_ttsPlayingChunkIdx] : null;
+  const chunkText = (window._ttsPlayingChunkIdx >= 0 && window._ttsPlayingChunkIdx < window._ttsChunks.length) ? window._ttsChunks[window._ttsPlayingChunkIdx] : null;
   const sentences = chunkText ? _ttsSplitSentences(chunkText) : [];
   let lastSentIdx = -1;
   audio.addEventListener('timeupdate', function() {
@@ -409,21 +411,21 @@ export function _ttsPlayNext() {
     _updateAudioUnified('tts', { label: 'Reading ' + playing + '/' + total, detail: _ttsTimeDetail() });
   });
   audio.onended = function() {
-    if (audio.duration && isFinite(audio.duration)) _ttsPlayedDurations.push(audio.duration);
+    if (audio.duration && isFinite(audio.duration)) window._ttsPlayedDurations.push(audio.duration);
     URL.revokeObjectURL(url);
-    _ttsAudio = null;
+    window._ttsAudio = null;
     _ttsStopWaveform();
-    if (_ttsQueue.length > 0) {
+    if (window._ttsQueue.length > 0) {
       _ttsPlayNext();
-    } else if (_ttsChunkIdx >= _ttsChunks.length) {
+    } else if (window._ttsChunkIdx >= window._ttsChunks.length) {
       // All done
-      _ttsPlayingChunkIdx = -1;
-      _ttsTabId = null;
-      _ttsChunks = [];
-      _ttsChunkIdx = 0;
+      window._ttsPlayingChunkIdx = -1;
+      window._ttsTabId = null;
+      window._ttsChunks = [];
+      window._ttsChunkIdx = 0;
       _ttsClearHighlights();
-      _ttsPlayedDurations = [];
-      _ttsRemainingDurations = [];
+      window._ttsPlayedDurations = [];
+      window._ttsRemainingDurations = [];
       _clearAudioUnified('tts');
       _ttsUpdateBtnIcon();
     }
@@ -431,7 +433,7 @@ export function _ttsPlayNext() {
   };
   audio.onerror = function() {
     URL.revokeObjectURL(url);
-    _ttsAudio = null;
+    window._ttsAudio = null;
     _ttsStopWaveform();
     _ttsStopAll();
   };
@@ -439,38 +441,22 @@ export function _ttsPlayNext() {
 }
 
 export async function _ttsFetchAndQueue() {
-  while (_ttsChunkIdx < _ttsChunks.length && !_ttsStopped) {
-    const idx = _ttsChunkIdx++;
-    const total = _ttsChunks.length;
-    if (!_ttsAudio && !_ttsPaused) _updateAudioUnified('tts', { label: 'Generating ' + (idx + 1) + '/' + total, detail: 'Generating speech audio' });
+  while (window._ttsChunkIdx < window._ttsChunks.length && !window._ttsStopped) {
+    const idx = window._ttsChunkIdx++;
+    const total = window._ttsChunks.length;
+    if (!window._ttsAudio && !window._ttsPaused) _updateAudioUnified('tts', { label: 'Generating ' + (idx + 1) + '/' + total, detail: 'Generating speech audio' });
     try {
-      const audioPath = await _ttsFetchChunk(_ttsChunks[idx]);
-      if (_ttsStopped) return;
+      const audioPath = await _ttsFetchChunk(window._ttsChunks[idx]);
+      if (window._ttsStopped) return;
       const url = 'file://' + audioPath;
-      _ttsQueue.push(url);
-      _ttsRemainingDurations.push(5);
+      window._ttsQueue.push(url);
+      window._ttsRemainingDurations.push(5);
       // Start playing as soon as first chunk is ready
-      if (!_ttsAudio && !_ttsPaused) _ttsPlayNext();
+      if (!window._ttsAudio && !window._ttsPaused) _ttsPlayNext();
     } catch (e) {
-      if (!_ttsAudio) _ttsStopAll();
+      if (!window._ttsAudio) _ttsStopAll();
       return;
     }
   }
 }
 
-// ── Window assignments for global access ──
-window._ttsStartWaveform = _ttsStartWaveform;
-window._ttsStopWaveform = _ttsStopWaveform;
-window._ttsGetFrame = _ttsGetFrame;
-window._ttsExecInFrame = _ttsExecInFrame;
-window._ttsSplitSentences = _ttsSplitSentences;
-window._ttsHighlightChunk = _ttsHighlightChunk;
-window._ttsClearHighlights = _ttsClearHighlights;
-window._ttsUpdateBtnIcon = _ttsUpdateBtnIcon;
-window._ttsStopAll = _ttsStopAll;
-window._ttsFormatTime = _ttsFormatTime;
-window._ttsTimeDetail = _ttsTimeDetail;
-window._ttsChunkText = _ttsChunkText;
-window._ttsFetchChunk = _ttsFetchChunk;
-window._ttsPlayNext = _ttsPlayNext;
-window._ttsFetchAndQueue = _ttsFetchAndQueue;

@@ -1,16 +1,20 @@
 // browse-sessions.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
 import Settings from '/js/core/core-settings.js';
-if (window.AetherUI) AetherUI.globals();
+import { truncate } from '/js/core/core-utils.js';
+import { icon } from '/js/core/icons.js';
+import { _browseCreateTabInWindow, _createBrowseWindow, _destroyTab, browseNewTab } from '/js/browse/browse-windows.js';
+import { _browseRenderTabs } from '/js/browse/browse-island.js';
+import { browseSelectTab } from '/js/browse/browse-passwords.js';
 
 // ── Tab Sessions (save/restore named tab groups) ──
 
 export function _getTabSessions() {
-  try { return Settings.getJSON(_getBrowseStorageKey('browseTabSessions'), []); } catch { return []; }
+  try { return Settings.getJSON(window._getBrowseStorageKey('browseTabSessions'), []); } catch { return []; }
 }
 
 export function _saveTabSessions(sessions) {
-  Settings.setJSON(_getBrowseStorageKey('browseTabSessions'), sessions);
+  Settings.setJSON(window._getBrowseStorageKey('browseTabSessions'), sessions);
 }
 
 export function toggleTabStateDropdown() {
@@ -42,7 +46,7 @@ export function _renderTabStateDropdown() {
   const canSave = openTabs.length > 0;
 
   // Save row
-  const nameInput = new View('input');
+  const nameInput = new window.View('input');
   nameInput.el.type = 'text';
   nameInput.el.id = 'tab-session-name-input';
   nameInput.el.placeholder = 'Session name\u2026';
@@ -50,21 +54,21 @@ export function _renderTabStateDropdown() {
   nameInput.on('keydown', function(e) { if (e.key === 'Enter') confirmSaveTabSession(); });
   if (!canSave) nameInput.el.disabled = true;
 
-  const saveBtn = new View('button');
+  const saveBtn = new window.View('button');
   saveBtn.el.textContent = 'Save ' + openTabs.length + ' tab' + (openTabs.length !== 1 ? 's' : '');
   saveBtn.cssText('padding:5px 10px;border:none;background:' + (canSave ? 'var(--nr-accent)' : 'var(--nr-bg-raised)') + ';color:' + (canSave ? '#fff' : 'var(--nr-text-quaternary)') + ';font-size:0.78rem;border-radius:6px;cursor:' + (canSave ? 'pointer' : 'default') + ';white-space:nowrap;');
   if (!canSave) saveBtn.el.disabled = true;
   saveBtn.onTap(function() { confirmSaveTabSession(); });
 
-  const saveRow = HStack([nameInput, saveBtn]).spacing(1).alignment('center').id('tab-session-save-row');
-  const saveSection = new View('div');
+  const saveRow = window.HStack([nameInput, saveBtn]).spacing(1).alignment('center').id('tab-session-save-row');
+  const saveSection = new window.View('div');
   saveSection.cssText('padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);');
   saveSection.el.appendChild(saveRow.build());
 
   // Session list
   const listItems = [];
   if (!sessions.length) {
-    listItems.push(Text('No saved sessions').font('caption1').foreground('quaternary')
+    listItems.push(window.Text('No saved sessions').font('caption1').foreground('quaternary')
       .padding('12px').textAlign('center'));
   } else {
     sessions.forEach(function(s, i) {
@@ -73,27 +77,27 @@ export function _renderTabStateDropdown() {
       const date = new Date(s.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       const subtitle = winCount > 1 ? winCount + ' windows \u00b7 ' + count + ' tabs \u00b7 ' + date : count + ' tab' + (count !== 1 ? 's' : '') + ' \u00b7 ' + date;
 
-      const infoBtn = VStack([
-        Text(s.name).font('callout').foreground('primary').truncate(),
-        Text(subtitle).font('caption2').foreground('quaternary')
+      const infoBtn = window.VStack([
+        window.Text(s.name).font('callout').foreground('primary').truncate(),
+        window.Text(subtitle).font('caption2').foreground('quaternary')
       ]).spacing(0).flex(1).styles({minWidth:'0'}).textAlign('left')
         .styles({ border: 'none', background: 'none', padding: '0' }).cursor();
       infoBtn.onTap(function() { loadTabSession(i); });
 
-      var delBtn = Text('\u00d7').foreground('quaternary')
+      var delBtn = window.Text('\u00d7').foreground('quaternary')
         .styles({ border: 'none', background: 'none', padding: '2px', fontSize: '0.9rem', lineHeight: '1', flexShrink: '0' }).cursor()
         .onHover(function() { delBtn.el.style.color = 'var(--nr-text-primary)'; }, function() { delBtn.el.style.color = 'var(--nr-text-quaternary)'; })
         .onTap(function(e) { e.stopPropagation(); deleteTabSession(i); });
       delBtn.el.title = 'Delete session';
 
-      var row = HStack([infoBtn, delBtn]).spacing(2).alignment('center').className('tab-session-row')
+      var row = window.HStack([infoBtn, delBtn]).spacing(2).alignment('center').className('tab-session-row')
         .padding('6px', '12px').cursor().transition(['background'], '0.1s')
         .onHover(function() { row.el.style.background = 'var(--aether-hover)'; }, function() { row.el.style.background = 'none'; });
       listItems.push(row);
     });
   }
 
-  const panel = VStack([saveSection].concat(listItems))
+  const panel = window.VStack([saveSection].concat(listItems))
     .position('absolute').inset(null, 0, null, null).styles({top:'calc(100% + 4px)'})
     .styles({ minWidth: '260px', maxHeight: '360px', overflowY: 'auto' })
     .background('overlay').border('border-default').cornerRadius('md')
@@ -159,13 +163,13 @@ export function deleteTabSession(index) {
 
 // Save all windows as a session (for tab overview)
 export function saveAllWindowsAsSession(name) {
-  const totalTabs = _browseWindows.reduce((n, w) => n + w.tabs.filter(t => !t.blank && t.url).length, 0);
+  const totalTabs = window._browseWindows.reduce((n, w) => n + w.tabs.filter(t => !t.blank && t.url).length, 0);
   if (!totalTabs) return;
 
   const sessions = _getTabSessions();
   sessions.unshift({
     name,
-    windows: _browseWindows.map(w => ({
+    windows: window._browseWindows.map(w => ({
       name: w.name,
       tabs: w.tabs.filter(t => !t.blank && t.url).map(t => ({ url: t.url, title: t.title }))
     })).filter(w => w.tabs.length > 0),
@@ -204,31 +208,31 @@ export function _renderToolbarSessions() {
   if (!container) return;
 
   const sessions = _getTabSessions();
-  const totalTabs = _browseWindows.reduce(function(n, w) { return n + w.tabs.filter(function(t) { return !t.blank && t.url; }).length; }, 0);
+  const totalTabs = window._browseWindows.reduce(function(n, w) { return n + w.tabs.filter(function(t) { return !t.blank && t.url; }).length; }, 0);
   const canSave = totalTabs > 0;
 
   // Toggle button
-  const toggleBtn = RawHTML('<button class="browse-sessions-toggle" onclick="_toggleSessionsDropdown()">' +
-    '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>' +
-    '<svg class="w-3 h-3 chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>' +
+  const toggleBtn = window.RawHTML('<button class="browse-sessions-toggle" onclick="_toggleSessionsDropdown()">' +
+    icon('bookmark', {size: 16, strokeWidth: '1.5'}) +
+    icon('chevronDown', {size: 12}) +
     '</button>');
 
   // Save current button
-  const saveCurrentBtn = new View('button');
+  const saveCurrentBtn = new window.View('button');
   saveCurrentBtn.el.className = 'browse-save-session-btn';
-  saveCurrentBtn.el.appendChild(RawHTML('<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>').build());
+  saveCurrentBtn.el.appendChild(window.RawHTML(icon('plus', {size: 14})).build());
   saveCurrentBtn.el.appendChild(document.createTextNode(' Save current'));
   if (!canSave) saveCurrentBtn.el.disabled = true;
   saveCurrentBtn.onTap(function() { _promptSaveSessionFromOverview(); });
 
-  const header = new View('div');
+  const header = new window.View('div');
   header.el.className = 'browse-sessions-menu-header';
   header.el.appendChild(saveCurrentBtn.build());
 
   // Session list items
   const listChildren = [];
   if (sessions.length === 0) {
-    listChildren.push(new View('div').className('browse-sessions-empty')._bindText('No saved sessions'));
+    listChildren.push(new window.View('div').className('browse-sessions-empty')._bindText('No saved sessions'));
   } else {
     sessions.forEach(function(s, i) {
       const count = s.tabs ? s.tabs.length : (s.windows ? s.windows.reduce(function(n, w) { return n + w.tabs.length; }, 0) : 0);
@@ -236,40 +240,40 @@ export function _renderToolbarSessions() {
       const date = new Date(s.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       const subtitle = winCount > 1 ? winCount + ' win \u00b7 ' + count + ' tabs' : count + ' tab' + (count !== 1 ? 's' : '');
 
-      const infoBtn = new View('button');
+      const infoBtn = new window.View('button');
       infoBtn.el.className = 'browse-session-info';
       infoBtn.el.title = 'Replace current tabs';
-      infoBtn.el.appendChild(Text(s.name).className('browse-session-name').build());
-      infoBtn.el.appendChild(Text(subtitle + ' \u00b7 ' + date).className('browse-session-meta').build());
+      infoBtn.el.appendChild(window.Text(s.name).className('browse-session-name').build());
+      infoBtn.el.appendChild(window.Text(subtitle + ' \u00b7 ' + date).className('browse-session-meta').build());
       infoBtn.onTap(function() { _loadSessionFromOverview(i); });
 
-      const addBtn = new View('button');
+      const addBtn = new window.View('button');
       addBtn.el.className = 'browse-session-add';
       addBtn.el.title = 'Add to existing';
       addBtn.el.textContent = '+';
       addBtn.onTap(function() { _loadSessionFromOverview(i, true); });
 
-      const delBtn = new View('button');
+      const delBtn = new window.View('button');
       delBtn.el.className = 'browse-session-delete';
       delBtn.el.title = 'Delete';
       delBtn.el.textContent = '\u00d7';
       delBtn.onTap(function() { deleteTabSession(i); });
 
-      const item = HStack([infoBtn, addBtn, delBtn]).className('browse-session-item');
+      const item = window.HStack([infoBtn, addBtn, delBtn]).className('browse-session-item');
       listChildren.push(item);
     });
   }
 
-  const sessionsList = VStack(listChildren).className('browse-sessions-list');
-  const menuDiv = VStack([header, sessionsList]).className('browse-sessions-menu').styles({display:'none'});
-  const wrapper = VStack([toggleBtn, menuDiv]);
+  const sessionsList = window.VStack(listChildren).className('browse-sessions-list');
+  const menuDiv = window.VStack([header, sessionsList]).className('browse-sessions-menu').styles({display:'none'});
+  const wrapper = window.VStack([toggleBtn, menuDiv]);
 
   AetherUI.mount(wrapper, container);
 }
 
 // Prompt to save session from overview - show inline input in sessions menu
 export function _promptSaveSessionFromOverview() {
-  const totalTabs = _browseWindows.reduce((n, w) => n + w.tabs.filter(t => !t.blank && t.url).length, 0);
+  const totalTabs = window._browseWindows.reduce((n, w) => n + w.tabs.filter(t => !t.blank && t.url).length, 0);
   if (!totalTabs) return;
 
   const sessionsList = document.querySelector('.browse-sessions-list');
@@ -279,20 +283,20 @@ export function _promptSaveSessionFromOverview() {
   if (sessionsList.querySelector('.browse-session-input-row')) return;
 
   // Create input row at top
-  const inputView = new View('input');
+  const inputView = new window.View('input');
   inputView.el.type = 'text';
   inputView.el.placeholder = 'Session name...';
   inputView.el.autofocus = true;
 
-  const confirmBtnView = new View('button');
+  const confirmBtnView = new window.View('button');
   confirmBtnView.el.className = 'save-confirm';
   confirmBtnView.el.textContent = 'Save';
 
-  const cancelBtnView = new View('button');
+  const cancelBtnView = new window.View('button');
   cancelBtnView.el.className = 'save-cancel';
   cancelBtnView.el.textContent = '\u00d7';
 
-  const inputRow = HStack([inputView, confirmBtnView, cancelBtnView]).className('browse-session-input-row').build();
+  const inputRow = window.HStack([inputView, confirmBtnView, cancelBtnView]).className('browse-session-input-row').build();
   sessionsList.insertBefore(inputRow, sessionsList.firstChild);
 
   const input = inputRow.querySelector('input');
@@ -328,13 +332,13 @@ export function _loadSessionFromOverview(index, addToExisting = false) {
 
   if (!addToExisting) {
     // Close all existing windows/tabs first
-    while (_browseWindows.length > 0) {
-      const win = _browseWindows[0];
+    while (window._browseWindows.length > 0) {
+      const win = window._browseWindows[0];
       while (win.tabs.length > 0) {
         _destroyTab(win.tabs[0]);
         win.tabs.shift();
       }
-      _browseWindows.shift();
+      window._browseWindows.shift();
     }
   }
 
@@ -357,25 +361,13 @@ export function _loadSessionFromOverview(index, addToExisting = false) {
   }
 
   // Activate the first window
-  if (_browseWindows.length) {
-    _browseActiveWindow = _browseWindows[0].id;
-    const win = _browseWindows[0];
+  if (window._browseWindows.length) {
+    window._browseActiveWindow = window._browseWindows[0].id;
+    const win = window._browseWindows[0];
     if (win.activeTab) browseSelectTab(win.activeTab);
   }
 
-  _browseSaveTabs();
+  window._browseSaveTabs();
   _browseRenderTabs();
 }
 
-window._getTabSessions = _getTabSessions;
-window._saveTabSessions = _saveTabSessions;
-window.toggleTabStateDropdown = toggleTabStateDropdown;
-window._renderTabStateDropdown = _renderTabStateDropdown;
-window.confirmSaveTabSession = confirmSaveTabSession;
-window.loadTabSession = loadTabSession;
-window.deleteTabSession = deleteTabSession;
-window.saveAllWindowsAsSession = saveAllWindowsAsSession;
-window._toggleSessionsDropdown = _toggleSessionsDropdown;
-window._renderToolbarSessions = _renderToolbarSessions;
-window._promptSaveSessionFromOverview = _promptSaveSessionFromOverview;
-window._loadSessionFromOverview = _loadSessionFromOverview;

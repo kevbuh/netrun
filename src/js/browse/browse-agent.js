@@ -1,3 +1,5 @@
+import { browseBack, browseForward } from '/js/browse/browse-island.js';
+import { browseSelectTab } from '/js/browse/browse-passwords.js';
 /* browse-agent.js — Browser automation primitives for agentic control.
    Provides DOM extraction (accessible tree), click, type, scroll actions.
    Elements are tagged with data-agent-id attributes directly in the webview DOM. */
@@ -811,18 +813,3 @@ export async function agentGetStorage(tab, storageType, keyFilter) {
   }
 }
 
-window.agentGetAccessibleDOM = agentGetAccessibleDOM;
-window.agentGetSemanticDOM = agentGetSemanticDOM;
-window.agentClick = agentClick;
-window.agentType = agentType;
-window.agentScroll = agentScroll;
-window.agentScreenshot = agentScreenshot;
-window.agentQuerySelector = agentQuerySelector;
-window.agentWaitFor = agentWaitFor;
-window.agentGetUrl = agentGetUrl;
-window.agentGetTabs = agentGetTabs;
-window.agentSwitchTab = agentSwitchTab;
-window.agentBack = agentBack;
-window.agentForward = agentForward;
-window.agentPressKey = agentPressKey;
-window.agentGetStorage = agentGetStorage;

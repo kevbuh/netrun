@@ -2,6 +2,13 @@
 // Extracted from core.js
 
 import Settings from '/js/core/core-settings.js';
+import { showAchievement } from '/js/core/core-ui.js';
+import { _wmToggleTiling, goHome } from '/js/core/core-views.js';
+import { _aetherShowCursor } from '/js/panel-commands.js';
+import { browseCloseTab } from '/js/browse/browse-passwords.js';
+import { browseNewTab, openBrowse } from '/js/browse/browse-windows.js';
+import { browsePrintPage } from '/js/browse/browse-menu.js';
+import { openSearchHistoryPage } from '/js/browse-urlbar.js';
 
 // ── Utilities ──
 export function formatDate(d) {
@@ -75,7 +82,7 @@ export function renderTitle(rawTitle) {
 export function getPaperRatings() {
   try { return Settings.getJSON('paperRatings', {}); } catch { return {}; }
 }
-function _normalizeRatingKey(link) {
+export function _normalizeRatingKey(link) {
   // Normalize arXiv URLs: strip version, use https, use /abs/ form
   let k = link;
   try {
@@ -222,7 +229,7 @@ window.addEventListener('keydown', e => {
     e.preventDefault();
     // Dismiss aether panel if open
     const _popup = document.getElementById('doc-chat-ask-float');
-    if (_popup) { _popup.remove(); _aetherTrackMode = false; if (typeof _aetherShowCursor === 'function') _aetherShowCursor(); }
+    if (_popup) { _popup.remove(); window._aetherTrackMode = false; if (typeof _aetherShowCursor === 'function') _aetherShowCursor(); }
     const browseView = document.getElementById('browse-view');
     const isOpen = browseView && browseView.style.display !== 'none' && browseView.style.display !== '';
     if (!isOpen && typeof openBrowse === 'function') openBrowse();
@@ -230,7 +237,7 @@ window.addEventListener('keydown', e => {
       if (!isOpen) { setTimeout(browseNewTab, 50); }
       else {
         // If current tab is already NTP, just focus the search input
-        const win = typeof _getCurrentWindow === 'function' && _getCurrentWindow();
+        const win = typeof window._getCurrentWindow === 'function' && window._getCurrentWindow();
         const active = win && win.tabs && win.tabs.find(t => t.id === win.activeTab);
         if (active && active.blank) {
           const inp = browseView.querySelector('.browse-ntp #search-query');
@@ -269,22 +276,3 @@ window.addEventListener('keydown', e => {
 
 // ── Sidebar icon visibility & order ──
 
-// Window assignments for backward compatibility
-window._normalizeRatingKey = _normalizeRatingKey;
-window.formatDate = formatDate;
-window.escapeHtml = escapeHtml;
-window.decodeHtml = decodeHtml;
-window.fmtNum = fmtNum;
-window.KATEX_MACROS = KATEX_MACROS;
-window._katexOpts = _katexOpts;
-window.renderTitle = renderTitle;
-window.getPaperRatings = getPaperRatings;
-window.getPaperRating = getPaperRating;
-window.setPaperRating = setPaperRating;
-window.renderStarRating = renderStarRating;
-window.ratePaper = ratePaper;
-window.escapeAttr = escapeAttr;
-window.truncate = truncate;
-window.stripHtml = stripHtml;
-window.renderLatexInEl = renderLatexInEl;
-window.renderLatexIn = renderLatexIn;

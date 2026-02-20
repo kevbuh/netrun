@@ -10,5 +10,4 @@ function contextIngest(source, section, content, opts) {
   electronAPI.dbQuery('context-ingest', entry).catch(function(e) { logger.warn('[context] Ingest failed:', e); });
 }
 
-window.contextIngest = contextIngest;
 export { contextIngest };

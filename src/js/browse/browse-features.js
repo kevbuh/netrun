@@ -1,7 +1,14 @@
 // browse-features.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
 import Settings from '/js/core/core-settings.js';
-if (window.AetherUI) AetherUI.globals();
+import { icon } from '/js/core/icons.js';
+import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
+import { _browseActiveEl, _browseApplyZoom, _browseZoomLevel, _browseZoomPanX, _browseZoomPanY, browseBack, browseForward, browseZoom } from '/js/browse/browse-island.js';
+import { _getActiveTabBar } from '/js/browse/browse-pill.js';
+import { _showBookmarkFly, getSavedPosts, isPostSaved, savePosts, updateSavedBadge } from '/js/feed.js';
+import { browseSelectTab } from '/js/browse/browse-passwords.js';
+import { petReact } from '/js/pixel-pet.js';
+import { switchWindowDown, switchWindowUp } from '/js/browse/browse-windows.js';
 
 // ── Two-finger swipe navigation ──
 // Injected script in the webview (browse-downloads.js) accumulates horizontal
@@ -15,7 +22,7 @@ export let _swipeBusy = false;
 export function _swipeCanGo(direction) {
   try {
     const el = typeof _browseActiveEl === 'function' ? _browseActiveEl() : null;
-    if (_browseIsElectron && el) {
+    if (window._browseIsElectron && el) {
       if (direction === 'back' && el.canGoBack) return el.canGoBack();
       if (direction === 'forward' && el.canGoForward) return el.canGoForward();
     }
@@ -38,7 +45,7 @@ export function _swipeEnsureIndicator() {
     'backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);' +
     'box-shadow:0 2px 8px var(--nr-shadow-card);' +
     'transform:scale(0.6);transition:transform 0.2s ease-out;';
-  AetherUI.mount(RawHTML('<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--nr-text-inverse)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 3 5 8 10 13"/></svg>'), pill);
+  AetherUI.mount(window.RawHTML('<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--nr-text-inverse)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 3 5 8 10 13"/></svg>'), pill);
   el.appendChild(pill);
   const container = document.getElementById('browse-content');
   if (container) container.appendChild(el);
@@ -113,7 +120,7 @@ export function _browseToggleFindBar() {
   if (!browseView) return;
 
   // Create the find bar
-  const findInput = new View('input');
+  const findInput = new window.View('input');
   findInput.el.type = 'text';
   findInput.el.id = 'browse-find-input';
   findInput.className('browse-find-input');
@@ -121,29 +128,29 @@ export function _browseToggleFindBar() {
   findInput.el.autocomplete = 'off';
   findInput.el.spellcheck = false;
 
-  const countSpan = new View('span');
+  const countSpan = new window.View('span');
   countSpan.el.id = 'browse-find-count';
   countSpan.className('browse-find-count');
 
-  const prevBtn = new View('button');
+  const prevBtn = new window.View('button');
   prevBtn.className('browse-find-btn');
   prevBtn.el.id = 'browse-find-prev';
   prevBtn.el.title = 'Previous';
-  AetherUI.mount(RawHTML('<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m5 15 7-7 7 7"/></svg>'), prevBtn.el);
+  AetherUI.mount(window.RawHTML(icon('chevronUp', {size: 12, strokeWidth: '2.5'})), prevBtn.el);
 
-  const nextBtn = new View('button');
+  const nextBtn = new window.View('button');
   nextBtn.className('browse-find-btn');
   nextBtn.el.id = 'browse-find-next';
   nextBtn.el.title = 'Next';
-  AetherUI.mount(RawHTML('<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/></svg>'), nextBtn.el);
+  AetherUI.mount(window.RawHTML(icon('chevronDown', {size: 12, strokeWidth: '2.5'})), nextBtn.el);
 
-  const closeBtn = new View('button');
+  const closeBtn = new window.View('button');
   closeBtn.className('browse-find-btn');
   closeBtn.el.id = 'browse-find-close';
   closeBtn.el.title = 'Close';
   closeBtn.el.textContent = '\u00d7';
 
-  const barView = HStack([findInput, countSpan, prevBtn, nextBtn, closeBtn])
+  const barView = window.HStack([findInput, countSpan, prevBtn, nextBtn, closeBtn])
     .id('browse-find-bar').className('browse-find-bar');
   const bar = barView.build();
 
@@ -163,7 +170,7 @@ export function _browseToggleFindBar() {
     if (!q) { _browseStopFind(); countEl.textContent = ''; return; }
     const el = _browseActiveEl();
     if (!el) return;
-    if (_browseIsElectron && el.findInPage) {
+    if (window._browseIsElectron && el.findInPage) {
       _browseFindRequestId = el.findInPage(q, { forward, findNext: true });
     } else {
       // For same-origin iframes
@@ -176,7 +183,7 @@ export function _browseToggleFindBar() {
     if (!q) { _browseStopFind(); countEl.textContent = ''; return; }
     const el = _browseActiveEl();
     if (!el) return;
-    if (_browseIsElectron && el.findInPage) {
+    if (window._browseIsElectron && el.findInPage) {
       _browseFindRequestId = el.findInPage(q, { forward: true, findNext: false });
     } else {
       try { el.contentWindow.find(q); } catch (e) {}
@@ -197,7 +204,7 @@ export function _browseToggleFindBar() {
   document.getElementById('browse-find-close').addEventListener('click', _browseCloseFindBar);
 
   // Listen for found-in-page results (Electron webview)
-  if (_browseIsElectron) {
+  if (window._browseIsElectron) {
     const el = _browseActiveEl();
     if (el) {
       const handler = (e) => {
@@ -219,7 +226,7 @@ export function _browseToggleFindBar() {
 export function _browseStopFind() {
   const el = _browseActiveEl();
   if (!el) return;
-  if (_browseIsElectron && el.stopFindInPage) {
+  if (window._browseIsElectron && el.stopFindInPage) {
     el.stopFindInPage('clearSelection');
   }
 }
@@ -228,7 +235,7 @@ export function _browseCloseFindBar() {
   _browseFindBarActive = false;
   _browseStopFind();
   // Remove found-in-page listener
-  if (_browseIsElectron) {
+  if (window._browseIsElectron) {
     const el = _browseActiveEl();
     if (el && el._findHandler) {
       el.removeEventListener('found-in-page', el._findHandler);
@@ -389,7 +396,7 @@ export function _browseInstallKeyGuard() {
     // Only handle arrow keys if tab bar is focused
     if (!_browseTabBarFocused) return;
 
-    const win = _getCurrentWindow();
+    const win = window._getCurrentWindow();
     if (!win) return;
 
     // Arrow keys for navigation when tab bar is focused
@@ -404,10 +411,10 @@ export function _browseInstallKeyGuard() {
         _switchTabRight();
       }
     } else {
-      if (e.key === 'ArrowUp' && _browseWindows.length > 1) {
+      if (e.key === 'ArrowUp' && window._browseWindows.length > 1) {
         e.preventDefault();
         switchWindowUp();
-      } else if (e.key === 'ArrowDown' && _browseWindows.length > 1) {
+      } else if (e.key === 'ArrowDown' && window._browseWindows.length > 1) {
         e.preventDefault();
         switchWindowDown();
       } else if (e.key === 'ArrowLeft' && win.tabs.length > 1) {
@@ -449,7 +456,7 @@ export function _blurBrowseTabBar() {
 }
 
 export function _switchTabLeft() {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win || win.tabs.length < 2) return;
   const idx = win.tabs.findIndex(t => t.id === win.activeTab);
   if (idx > 0) {
@@ -460,7 +467,7 @@ export function _switchTabLeft() {
 }
 
 export function _switchTabRight() {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win || win.tabs.length < 2) return;
   const idx = win.tabs.findIndex(t => t.id === win.activeTab);
   if (idx < win.tabs.length - 1) {
@@ -599,7 +606,7 @@ export function browseShare() {
       const btn = document.querySelector('#browse-bar button[onclick="browseShare()"]');
       if (btn) {
         const origNodes = Array.from(btn.childNodes).map(function(n) { return n.cloneNode(true); });
-        AetherUI.mount(RawHTML('<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>'), btn);
+        AetherUI.mount(window.RawHTML(icon('check', {size: 20, strokeWidth: '1.5'})), btn);
         btn.classList.add('text-primary');
         setTimeout(function() { btn.textContent = ''; origNodes.forEach(function(n) { btn.appendChild(n); }); btn.classList.remove('text-primary'); }, 1500);
       }
@@ -633,37 +640,9 @@ export function _islandSyncBookmark() {
   }
 }
 
-window._swipeIndicator = _swipeIndicator;
-window._swipeChevronPill = _swipeChevronPill;
-window._swipeBusy = _swipeBusy;
-window._swipeCanGo = _swipeCanGo;
-window._swipeEnsureIndicator = _swipeEnsureIndicator;
-window._swipeCommit = _swipeCommit;
-window._browseFindBarActive = _browseFindBarActive;
-window._browseFindRequestId = _browseFindRequestId;
-window._browseToggleFindBar = _browseToggleFindBar;
-window._browseStopFind = _browseStopFind;
-window._browseCloseFindBar = _browseCloseFindBar;
-window._magnifyZoom = _magnifyZoom;
-window._magnifyX = _magnifyX;
-window._magnifyY = _magnifyY;
-window._magnifyGestureStart = _magnifyGestureStart;
-window._magnifySnapTimer = _magnifySnapTimer;
-window._magnifyEl = _magnifyEl;
-window._magnifyTarget = _magnifyTarget;
-window._magnifyApply = _magnifyApply;
-window._magnifySnapBack = _magnifySnapBack;
-window._browseKeyHandler = _browseKeyHandler;
-window._browseTabBarFocused = _browseTabBarFocused;
-window._browseInstallKeyGuard = _browseInstallKeyGuard;
-window._focusBrowseTabBar = _focusBrowseTabBar;
-window._blurBrowseTabBar = _blurBrowseTabBar;
-window._switchTabLeft = _switchTabLeft;
-window._switchTabRight = _switchTabRight;
-window._animateTabSwitch = _animateTabSwitch;
-window._browseRemoveKeyGuard = _browseRemoveKeyGuard;
-window._browseInstallPinchOverlay = _browseInstallPinchOverlay;
-window.browseSaveToReadingList = browseSaveToReadingList;
-window.browseShare = browseShare;
-window._browseUpdateSaveBtn = _browseUpdateSaveBtn;
-window._islandSyncBookmark = _islandSyncBookmark;
+// ── Action registry ──
+registerActions({
+  browseSaveToReadingList: () => browseSaveToReadingList(),
+  browseShare: () => browseShare(),
+});
+

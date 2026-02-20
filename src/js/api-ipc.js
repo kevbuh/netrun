@@ -688,7 +688,3 @@ export function _getGoogleId() {
   } catch (e) { logger.warn('[api-ipc] Google ID parse failed (authUserInfo):', e); }
   return null;
 }
-
-window.ipcRoute = ipcRoute;
-window._unwrapTool = _unwrapTool;
-window._getGoogleId = _getGoogleId;

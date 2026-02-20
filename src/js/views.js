@@ -1,4 +1,5 @@
 // ── arXiv category labels ──
+import { togglePanel } from '/js/core/core-nav.js';
 export const ARXIV_CAT_NAMES = {
   'cs.AI':'Artificial Intelligence','cs.AR':'Hardware Architecture','cs.CC':'Computational Complexity',
   'cs.CE':'Computational Engineering','cs.CG':'Computational Geometry','cs.CL':'Computation and Language',
@@ -27,7 +28,6 @@ export const ARXIV_CAT_NAMES = {
 // ── Topbar overflow (three-dots menu) ──
 export const _topbarOverflowRO = null;
 
-
 export function _closeTopbarOverflow() {
   const menu = document.getElementById('topbar-overflow-menu');
   if (menu) menu.style.display = 'none';
@@ -42,7 +42,8 @@ export function _topbarOverflowOutside(e) {
 // ── Paper Viewer (shared) ──
 export const paperViewOrigin = 'arxiv';
 
-export const _currentPaperViewPaper = null;
+export let _currentPaperViewPaper = null;
+export function setCurrentPaperViewPaper(v) { _currentPaperViewPaper = v; }
 export const _paperOriginExpId = null;
 export const _paperInsightsLoaded = false;
 export function toggleBrowseSidebar() {
@@ -55,16 +56,10 @@ export function toggleBrowseSidebar() {
 
 // ── Panel system moved to panel.js ──
 
-
 // ── Mobile Paper Sidebar ──
 
-// ── Window exports ──
-window.ARXIV_CAT_NAMES = ARXIV_CAT_NAMES;
-window._topbarOverflowRO = _topbarOverflowRO;
-window._closeTopbarOverflow = _closeTopbarOverflow;
-window._topbarOverflowOutside = _topbarOverflowOutside;
-window.paperViewOrigin = paperViewOrigin;
-window._currentPaperViewPaper = _currentPaperViewPaper;
-window._paperOriginExpId = _paperOriginExpId;
-window._paperInsightsLoaded = _paperInsightsLoaded;
-window.toggleBrowseSidebar = toggleBrowseSidebar;
+// ── Action registry ──
+registerActions({
+  toggleBrowseSidebar: () => toggleBrowseSidebar(),
+});
+

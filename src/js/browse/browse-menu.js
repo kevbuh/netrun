@@ -1,9 +1,18 @@
 // browse-menu.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
 import Settings from '/js/core/core-settings.js';
-if (window.AetherUI) AetherUI.globals();
+import { icon } from '/js/core/icons.js';
+import { getBarOverflowIds, removeFromBarOverflow } from '/js/core/core-sidebar.js';
+import { _annotationsEnabled, toggleAnnotations } from '/js/browse/browse-annotations.js';
+import { _browseActiveEl, browseBack, browseForward, browseReload, toggleBrowseTabLayout } from '/js/browse/browse-island.js';
+import { _renderSitePermissionsDropdown, openSearchHistoryPage, toggleAdBlock } from '/js/browse-urlbar.js';
+import { agentGetAccessibleDOM } from '/js/browse/browse-agent.js';
+import { browseNewTab } from '/js/browse/browse-windows.js';
+import { browseSaveToReadingList, browseShare } from '/js/browse/browse-features.js';
+import { isPostSaved } from '/js/feed.js';
+import { toggleBrowseSidebar } from '/js/views.js';
 
-// ── Browse More Menu (three dots) ──
+// ── Browse More window.Menu(three dots) ──
 
 export function toggleBrowseMoreMenu() {
   const dd = document.getElementById('browse-more-menu');
@@ -19,8 +28,8 @@ export function toggleBrowseMoreMenu() {
   // Helper for menu buttons
   function _mBtn(svgHtml, label, action, opts) {
     opts = opts || {};
-    const btn = new View('button');
-    const row = HStack([RawHTML(svgHtml), Text(label).flex(1)]).spacing(2).alignment('center');
+    const btn = new window.View('button');
+    const row = window.HStack([window.RawHTML(svgHtml), window.Text(label).flex(1)]).spacing(2).alignment('center');
     if (opts.trailing) row.el.appendChild(opts.trailing.build());
     btn.el.appendChild(row.build());
     btn.cssText('width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:' + (opts.disabled ? 'var(--aether-text-dimmest)' : (opts.color || 'var(--aether-text)')) + ';font-size:0.78rem;cursor:' + (opts.disabled ? 'default' : 'pointer') + ';display:flex;align-items:center;gap:8px;');
@@ -34,18 +43,18 @@ export function toggleBrowseMoreMenu() {
   const items = [];
 
   if (isIsland) {
-    items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>', 'Back', function() { browseBack(); _closeMenu(); }, { disabled: !hasTab }));
-    items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>', 'Forward', function() { browseForward(); _closeMenu(); }, { disabled: !hasTab }));
-    items.push(_mBtn('<svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>', 'Reload', function() { browseReload(); _closeMenu(); }, { disabled: !hasTab }));
+    items.push(_mBtn(icon('chevronLeft', {size: 16, strokeWidth: '1.5'}), 'Back', function() { browseBack(); _closeMenu(); }, { disabled: !hasTab }));
+    items.push(_mBtn(icon('chevronRight', {size: 16, strokeWidth: '1.5'}), 'Forward', function() { browseForward(); _closeMenu(); }, { disabled: !hasTab }));
+    items.push(_mBtn(icon('reloadFilled', {size: 16}), 'Reload', function() { browseReload(); _closeMenu(); }, { disabled: !hasTab }));
     const isSaved = hasTab && isPostSaved(tab.url);
-    items.push(_mBtn('<svg class="w-4 h-4" viewBox="0 0 24 24" fill="' + (isSaved ? 'var(--nr-accent)' : 'none') + '" stroke="' + (isSaved ? 'var(--nr-accent)' : 'currentColor') + '" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>', isSaved ? 'Saved' : 'Save to Reading List', function() { browseSaveToReadingList(); _refreshOverflowBookmark(this); }));
-    items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg>', 'Share', function() { browseShare(); _closeMenu(); }, { disabled: !hasTab }));
+    items.push(_mBtn(icon('bookmark', {size: 16, fill: isSaved ? 'var(--nr-accent)' : 'none', stroke: isSaved ? 'var(--nr-accent)' : 'currentColor'}), isSaved ? 'Saved' : 'Save to Reading List', function() { browseSaveToReadingList(); _refreshOverflowBookmark(this); }));
+    items.push(_mBtn(icon('share', {size: 16, strokeWidth: '1.5'}), 'Share', function() { browseShare(); _closeMenu(); }, { disabled: !hasTab }));
     const _adOn = Settings.get('adBlockEnabled') === 'true';
-    items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>', 'Ad Blocker', function() { toggleAdBlock(); _closeMenu(); }, { color: _adOn ? 'var(--nr-accent)' : undefined, trailing: Text(_adOn ? 'On' : 'Off').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') }));
+    items.push(_mBtn(icon('shield', {size: 16, strokeWidth: '1.5'}), 'Ad Blocker', function() { toggleAdBlock(); _closeMenu(); }, { color: _adOn ? 'var(--nr-accent)' : undefined, trailing: window.Text(_adOn ? 'On' : 'Off').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') }));
     const _annEnabled = tab && _annotationsEnabled.get(tab.id);
-    items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 9h8M8 13h6" stroke-linecap="round"/></svg>', _annEnabled ? 'Remove Annotations' : 'Annotate Page', function() { toggleAnnotations(); _closeMenu(); }, { disabled: !hasTab, color: _annEnabled ? 'var(--nr-accent)' : undefined }));
-    items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>', 'Search History', function() { openSearchHistoryPage(); _closeMenu(); }));
-    items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg>', 'Toggle Sidebar', function() { toggleBrowseSidebar(); _closeMenu(); }));
+    items.push(_mBtn(icon('annotate', {size: 16}), _annEnabled ? 'Remove Annotations' : 'Annotate Page', function() { toggleAnnotations(); _closeMenu(); }, { disabled: !hasTab, color: _annEnabled ? 'var(--nr-accent)' : undefined }));
+    items.push(_mBtn(icon('clock', {size: 16}), 'Search History', function() { openSearchHistoryPage(); _closeMenu(); }));
+    items.push(_mBtn(icon('sidebarToggle', {size: 16}), 'Toggle Sidebar', function() { toggleBrowseSidebar(); _closeMenu(); }));
   } else {
     const overflowIds = typeof getBarOverflowIds === 'function' ? getBarOverflowIds() : [];
     overflowIds.forEach(function(id) {
@@ -57,7 +66,7 @@ export function toggleBrowseMoreMenu() {
 
       if (id === 'browse-save-btn') {
         const isSav = tab && !tab.blank && tab.url && isPostSaved(tab.url);
-        icon = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="' + (isSav ? 'var(--nr-accent)' : 'none') + '" stroke="' + (isSav ? 'var(--nr-accent)' : 'currentColor') + '" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>';
+        icon = window.icon('bookmark', {size: 16, fill: isSav ? 'var(--nr-accent)' : 'none', stroke: isSav ? 'var(--nr-accent)' : 'currentColor'});
         items.push(_mBtn(icon, isSav ? 'Saved' : 'Save to Reading List', function() { browseSaveToReadingList(); _refreshOverflowBookmark(this); }, { dataOverflowId: id }));
       } else {
         const btn = _mBtn(icon, label, function() { _closeMenu(); try { el.click(); } catch(e) {} }, { dataOverflowId: id });
@@ -67,34 +76,35 @@ export function toggleBrowseMoreMenu() {
   }
 
   // Fixed items: divider, permissions, print, layout toggle, settings
-  items.push(new View('div').styles({borderTop:'1px solid var(--aether-border)'}).margin('2px', '0'));
+  items.push(new window.View('div').styles({borderTop:'1px solid var(--aether-border)'}).margin('2px', '0'));
 
   // Permissions
-  const permsBtn = _mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>', 'Site Permissions', function(e) { _togglePermissionsInMenu(e || window.event); }, { disabled: !hasTab });
+  const permsBtn = _mBtn(icon('lock', {size: 16, strokeWidth: '1.5'}), 'Site Permissions', function(e) { _togglePermissionsInMenu(e || window.event); }, { disabled: !hasTab });
   // Append arrow icon
   const arrowEl = document.createElement('span');
-  AetherUI.mount(RawHTML('<svg id="browse-menu-perms-arrow" class="w-3 h-3" style="margin-left:auto;color:var(--aether-text-dimmest);transition:transform .15s;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/></svg>'), arrowEl);
+  arrowEl.innerHTML = icon('chevronRightSmall', {size: 12, style: 'margin-left:auto;color:var(--aether-text-dimmest);transition:transform .15s;'});
+  arrowEl.firstChild.id = 'browse-menu-perms-arrow';
   permsBtn.el.appendChild(arrowEl);
   items.push(permsBtn);
 
   // Permissions panel placeholder
-  const permsPanel = new View('div').id('browse-menu-perms-panel').styles({display:'none', borderTop:'1px solid var(--aether-border)'});
+  const permsPanel = new window.View('div').id('browse-menu-perms-panel').styles({display:'none', borderTop:'1px solid var(--aether-border)'});
   items.push(permsPanel);
 
   // Print
-  items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m0 0a48.159 48.159 0 0 1 10.5 0m-10.5 0V6.007c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 10.186 0c1.1.128 1.907 1.077 1.907 2.185V7.034"/></svg>', 'Print page', function() { browsePrintPage(); _closeMenu(); }, { disabled: !hasTab }));
+  items.push(_mBtn(icon('print', {size: 16, strokeWidth: '1.5'}), 'Print page', function() { browsePrintPage(); _closeMenu(); }, { disabled: !hasTab }));
 
   // AI View — show DOM text as the AI would see it
-  items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>', 'AI View', function() { browseShowAIView(); _closeMenu(); }, { disabled: !hasTab }));
+  items.push(_mBtn(icon('eye', {size: 16, strokeWidth: '1.5'}), 'AI View', function() { browseShowAIView(); _closeMenu(); }, { disabled: !hasTab }));
 
   // Tab layout toggle
   items.push(_mBtn(Settings.get('browseTabLayout') === 'island'
-    ? '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 3h16v5H4V3zM4 3h16v18H4V3z"/></svg>'
-    : '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M4 3h16v18H4V3z"/></svg>',
+    ? icon('horizontalTabs', {size: 16})
+    : icon('islandTabs', {size: 16}),
     Settings.get('browseTabLayout') === 'island' ? 'Horizontal Tabs' : 'Island Mode', function() { toggleBrowseTabLayout(); _closeMenu(); }));
 
   // Settings
-  items.push(_mBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>', 'Settings', function() { location.hash = '#settings'; _closeMenu(); }));
+  items.push(_mBtn(icon('settings', {size: 16, strokeWidth: '1.5'}), 'Settings', function() { location.hash = '#settings'; _closeMenu(); }));
 
   // Position and mount
   const anchorBtn = (isIsland
@@ -102,7 +112,7 @@ export function toggleBrowseMoreMenu() {
     : document.getElementById('browse-more-btn')) || document.getElementById('browse-more-btn');
   const btnRect = anchorBtn.getBoundingClientRect();
 
-  const menuPanel = VStack(items)
+  const menuPanel = window.VStack(items)
     .position('fixed')
     .styles({ minWidth: '180px', background: 'var(--aether-dropdown-bg)', border: '1px solid var(--aether-border)', boxShadow: '0 8px 32px var(--aether-shadow)' })
     .cornerRadius('lg')
@@ -261,7 +271,7 @@ export function browsePrintPage() {
   const el = _browseActiveEl();
   if (!el) return;
 
-  if (_browseIsElectron && el.printToPDF) {
+  if (window._browseIsElectron && el.printToPDF) {
     const title = 'Print — ' + ((tab && tab.title) || 'Page');
     el.printToPDF({ printBackground: true }).then(buf => {
       const blob = new Blob([buf], { type: 'application/pdf' });
@@ -293,40 +303,40 @@ export function browseShowAIView() {
     const existing = document.getElementById('ai-view-overlay');
     if (existing) existing.remove();
 
-    const overlayView = new View('div').id('ai-view-overlay');
+    const overlayView = new window.View('div').id('ai-view-overlay');
     overlayView.cssText('position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;background:var(--nr-bg-primary, #111);padding-top:48px;');
 
     // Header bar
-    const titleEl = new View('span');
+    const titleEl = new window.View('span');
     titleEl.cssText('font-size:0.85rem;font-weight:600;color:var(--nr-text-primary, #fff);');
     titleEl.el.textContent = 'AI View';
 
-    const badgeEl = new View('span');
+    const badgeEl = new window.View('span');
     badgeEl.cssText('font-size:0.7rem;color:var(--nr-text-secondary, #888);margin-left:8px;font-variant-numeric:tabular-nums;');
     badgeEl.el.textContent = elCount + ' elements \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars';
 
-    const urlBadgeEl = new View('span');
+    const urlBadgeEl = new window.View('span');
     urlBadgeEl.cssText('font-size:0.65rem;color:var(--nr-text-secondary, #666);margin-left:8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;');
     urlBadgeEl.el.textContent = dom.title ? dom.title + ' \u2014 ' + dom.url : dom.url;
 
-    const closeBtnEl = new View('button');
+    const closeBtnEl = new window.View('button');
     closeBtnEl.cssText('background:none;border:none;color:var(--nr-text-secondary, #888);cursor:pointer;font-size:1.2rem;padding:4px 8px;');
     closeBtnEl.el.textContent = '\u00d7';
     closeBtnEl.onTap(function() { overlayView.el.remove(); });
 
-    const leftGroup = new View('div');
+    const leftGroup = new window.View('div');
     leftGroup.cssText('display:flex;align-items:center;');
     leftGroup.el.appendChild(titleEl.el);
     leftGroup.el.appendChild(badgeEl.el);
     leftGroup.el.appendChild(urlBadgeEl.el);
 
-    const headerEl = new View('div');
+    const headerEl = new window.View('div');
     headerEl.cssText('display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--nr-border-default, #333);flex-shrink:0;');
     headerEl.el.appendChild(leftGroup.el);
     headerEl.el.appendChild(closeBtnEl.el);
 
     // Content — syntax highlight element IDs and tags
-    const contentEl = new View('pre');
+    const contentEl = new window.View('pre');
     contentEl.cssText('flex:1;overflow:auto;padding:16px;margin:0;font-size:0.75rem;line-height:1.6;color:var(--nr-text-primary, #ddd);white-space:pre;font-family:var(--nr-font-mono, monospace);');
 
     // Wrap in the same delimiters the agent receives
@@ -352,9 +362,8 @@ export function browseShowAIView() {
   }).catch(function(e) { console.warn('[AI View] Failed:', e); });
 }
 
-window.toggleBrowseMoreMenu = toggleBrowseMoreMenu;
-window._togglePermissionsInMenu = _togglePermissionsInMenu;
-window._refreshOverflowBookmark = _refreshOverflowBookmark;
-window._setupOverflowDrag = _setupOverflowDrag;
-window.browsePrintPage = browsePrintPage;
-window.browseShowAIView = browseShowAIView;
+// ── Action registry ──
+registerActions({
+  toggleBrowseMoreMenu: () => toggleBrowseMoreMenu(),
+});
+

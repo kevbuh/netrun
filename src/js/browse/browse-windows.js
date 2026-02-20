@@ -1,33 +1,49 @@
 // browse-windows.js — Window management
 // Depends on: browse-state.js
 import Settings from '/js/core/core-settings.js';
+import { navBack, hidePanel } from '/js/core/core-nav.js';
+import { setSidebarActive } from '/js/core/core-layout.js';
+import { goHome, hideAllViews, openDashboard, openSearch } from '/js/core/core-views.js';
+import { _applyBrowseTabLayout, _browseFaviconUrl, _browseRenderTabs, _browseResolveUrl, _browseTitleFromUrl } from '/js/browse/browse-island.js';
+import { _browseApplyAdaptiveColor, _saveBrowseVisit, openHelpPage, openSearchHistoryPage } from '/js/browse-urlbar.js';
+import { _browseBindFrame } from '/js/browse/browse-downloads.js';
+import { _browseCreateFrame } from '/js/browse/browse-ntp.js';
+import { _browseInstallKeyGuard, _browseInstallPinchOverlay } from '/js/browse/browse-features.js';
+import { _browseRestoreTabs } from '/js/browse/browse-core.js';
+import { _browseUpdateNewTabPage, browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
+import { _setPillBrowseMode } from '/js/browse/browse-pill.js';
+import { _showAnnotateOfferPill } from '/js/browse/browse-annotations.js';
+import { openChatPage } from '/js/chat-view.js';
+import { openNeuralook } from '/js/neuralook.js';
+import { openSettings } from '/js/settings/settings-core.js';
+import { stopCaptions } from '/js/browse/browse-captions.js';
 
 // Window management
 export function browseCreateWindow(name) {
-  const id = _browseNextWindowId++;
+  const id = window._browseNextWindowId++;
   if (!name) {
-    const used = new Set(_browseWindows.map(w => w.name).filter(n => /^Window \d+$/.test(n)).map(n => parseInt(n.split(' ')[1])));
+    const used = new Set(window._browseWindows.map(w => w.name).filter(n => /^Window \d+$/.test(n)).map(n => parseInt(n.split(' ')[1])));
     let n = 1; while (used.has(n)) n++;
     name = `Window ${n}`;
   }
   const win = { id, name, tabs: [], activeTab: null, groups: [] };
-  _browseWindows.push(win);
+  window._browseWindows.push(win);
   browseSelectWindow(id);
   browseNewTab(); // Create initial tab
-  _browseSaveTabs();
+  window._browseSaveTabs();
   return win;
 }
 
 export function browseSelectWindow(id) {
-  const win = _browseWindows.find(w => w.id === id);
+  const win = window._browseWindows.find(w => w.id === id);
   if (!win) return;
 
   // Hide all tabs from other windows
-  _browseWindows.forEach(w => {
+  window._browseWindows.forEach(w => {
     w.tabs.forEach(t => { if (t.el) t.el.style.display = 'none'; });
   });
 
-  _browseActiveWindow = id;
+  window._browseActiveWindow = id;
   _browseRenderTabs();
 
   // Show active tab of this window
@@ -36,37 +52,37 @@ export function browseSelectWindow(id) {
     if (tab && tab.el) tab.el.style.display = '';
   }
   _browseUpdateNewTabPage(win.tabs.find(t => t.id === win.activeTab));
-  _browseSaveTabs();
+  window._browseSaveTabs();
   _browseCollapseEmptyWindows();
 }
 
 export function browseCloseWindow(id) {
-  const idx = _browseWindows.findIndex(w => w.id === id);
+  const idx = window._browseWindows.findIndex(w => w.id === id);
   if (idx === -1) return;
 
-  const win = _browseWindows[idx];
+  const win = window._browseWindows[idx];
   // Remove all tab elements
   win.tabs.forEach(t => { if (t.el) t.el.remove(); });
-  _browseWindows.splice(idx, 1);
-  _browseNextWindowId = _browseWindows.length ? Math.max(..._browseWindows.map(w => w.id)) + 1 : 1;
+  window._browseWindows.splice(idx, 1);
+  window._browseNextWindowId = window._browseWindows.length ? Math.max(...window._browseWindows.map(w => w.id)) + 1 : 1;
   // Renumber auto-named windows (Window 1, Window 2, ...) to close gaps
   let n = 1;
-  _browseWindows.forEach(w => { if (/^Window \d+$/.test(w.name)) w.name = `Window ${n++}`; });
+  window._browseWindows.forEach(w => { if (/^Window \d+$/.test(w.name)) w.name = `Window ${n++}`; });
 
-  if (_browseWindows.length === 0) {
+  if (window._browseWindows.length === 0) {
     browseCreateWindow();
-  } else if (_browseActiveWindow === id) {
-    browseSelectWindow(_browseWindows[Math.min(idx, _browseWindows.length - 1)].id);
+  } else if (window._browseActiveWindow === id) {
+    browseSelectWindow(window._browseWindows[Math.min(idx, window._browseWindows.length - 1)].id);
   }
-  _browseSaveTabs();
+  window._browseSaveTabs();
 }
 
 // Auto-close non-active windows that only contain blank/new-tab pages
 export function _browseCollapseEmptyWindows() {
-  if (_browseWindows.length <= 1) return;
+  if (window._browseWindows.length <= 1) return;
   const toClose = [];
-  for (const w of _browseWindows) {
-    if (w.id === _browseActiveWindow) continue;
+  for (const w of window._browseWindows) {
+    if (w.id === window._browseActiveWindow) continue;
     if (w.tabs.length === 0 || w.tabs.every(t => t.blank)) {
       toClose.push(w.id);
     }
@@ -78,19 +94,19 @@ export function _browseCollapseEmptyWindows() {
 
 // Helper: create window without auto-creating a tab (for session restore)
 export function _createBrowseWindow(name) {
-  const id = _browseNextWindowId++;
+  const id = window._browseNextWindowId++;
   const win = { id, name: name || `Window ${id}`, tabs: [], activeTab: null };
-  _browseWindows.push(win);
+  window._browseWindows.push(win);
   return win;
 }
 
 // Helper: create a tab in a specific window (for session restore)
 // Tabs are created deferred (lazy) — frame is only built when the tab is selected.
 export function _browseCreateTabInWindow(windowId, url) {
-  const win = _browseWindows.find(w => w.id === windowId);
+  const win = window._browseWindows.find(w => w.id === windowId);
   if (!win) return null;
 
-  const id = _browseNextTabId++;
+  const id = window._browseNextTabId++;
   const resolved = _browseResolveUrl(url);
 
   const tab = {
@@ -112,25 +128,25 @@ export function _browseCreateTabInWindow(windowId, url) {
 
 // Helper: destroy a tab's DOM elements (for session replace)
 export function _destroyTab(tab) {
-  if (_ccTabId === tab.id) stopCaptions();
+  if (window._ccTabId === tab.id) stopCaptions();
   if (tab.el) tab.el.remove();
-  _browseAudioTabs.delete(tab.id);
+  window._browseAudioTabs.delete(tab.id);
 }
 
 export function switchWindowUp() {
-  const idx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
+  const idx = window._browseWindows.findIndex(w => w.id === window._browseActiveWindow);
   if (idx > 0) {
     _animateWindowSwitch('up', () => {
-      browseSelectWindow(_browseWindows[idx - 1].id);
+      browseSelectWindow(window._browseWindows[idx - 1].id);
     });
   }
 }
 
 export function switchWindowDown() {
-  const idx = _browseWindows.findIndex(w => w.id === _browseActiveWindow);
-  if (idx < _browseWindows.length - 1) {
+  const idx = window._browseWindows.findIndex(w => w.id === window._browseActiveWindow);
+  if (idx < window._browseWindows.length - 1) {
     _animateWindowSwitch('down', () => {
-      browseSelectWindow(_browseWindows[idx + 1].id);
+      browseSelectWindow(window._browseWindows[idx + 1].id);
     });
   }
 }
@@ -141,7 +157,6 @@ export function _animateWindowSwitch(direction, callback) {
   const dist = direction === 'up' ? 30 : -30;
   Motion.swap(content, 'y', callback, { distance: dist });
 }
-
 
 export function _setBrowseReturnView(view) {
   if (view) Settings.set('_browseReturnView', view);
@@ -189,7 +204,7 @@ export function openBrowse(url) {
     if (activeTab) _browseApplyAdaptiveColor(activeTab);
   }
 
-  if (!_browseWindows.length) {
+  if (!window._browseWindows.length) {
     if (!_browseRestoreTabs()) {
       browseCreateWindow();
     }
@@ -198,19 +213,19 @@ export function openBrowse(url) {
     const resolved = _browseResolveUrl(url);
     // Search all windows for an existing tab with this URL
     let found = null;
-    for (const w of _browseWindows) {
+    for (const w of window._browseWindows) {
       const t = w.tabs.find(t => t.url === resolved);
       if (t) { found = { winId: w.id, tabId: t.id }; break; }
     }
     if (found) {
-      if (found.winId !== _browseActiveWindow) browseSelectWindow(found.winId);
+      if (found.winId !== window._browseActiveWindow) browseSelectWindow(found.winId);
       browseSelectTab(found.tabId);
     } else {
       browseNewTab(url);
     }
   } else {
     _browseRenderTabs();
-    const win = _getCurrentWindow();
+    const win = window._getCurrentWindow();
     const tab = win?.tabs.find(t => t.id === win.activeTab);
     if (tab && tab.url && !tab.blank) {
       if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(tab.url);
@@ -240,10 +255,10 @@ export function browseNewTab(url) {
     if (typeof openChatPage === 'function') openChatPage(threadId || null);
     return;
   }
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
 
-  const id = _browseNextTabId++;
+  const id = window._browseNextTabId++;
   const isBlank = !url;
   const resolved = isBlank ? '' : _browseResolveUrl(url);
 
@@ -272,7 +287,7 @@ export function browseNewTab(url) {
   if (!isBlank && resolved) _saveBrowseVisit(resolved, tab.title);
 
   browseSelectTab(id);
-  _browseSaveTabs();
+  window._browseSaveTabs();
   if (isBlank) {
     setTimeout(() => {
       const urlInput = document.getElementById('browse-url-input');
@@ -282,9 +297,9 @@ export function browseNewTab(url) {
 }
 
 export function browseNewPaperTab(url, paper) {
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return false;
-  const id = _browseNextTabId++;
+  const id = window._browseNextTabId++;
   // Open as regular browse tab (iframe)
   browseNewTab(url);
   return true;
@@ -302,7 +317,7 @@ export function openLocalPdf(file) {
     browseNewPaperTab(url, paper);
   } else {
     browseNewTab(url);
-    const win = _getCurrentWindow();
+    const win = window._getCurrentWindow();
     if (win) {
       const tab = win.tabs.find(t => t.url === url);
       if (tab) { tab.title = file.name; _browseRenderTabs(); }
@@ -322,20 +337,17 @@ export async function openLocalPdfDialog() {
   }
 }
 
-window.browseCreateWindow = browseCreateWindow;
-window.browseSelectWindow = browseSelectWindow;
-window.browseCloseWindow = browseCloseWindow;
-window._browseCollapseEmptyWindows = _browseCollapseEmptyWindows;
-window._createBrowseWindow = _createBrowseWindow;
-window._browseCreateTabInWindow = _browseCreateTabInWindow;
-window._destroyTab = _destroyTab;
-window.switchWindowUp = switchWindowUp;
-window.switchWindowDown = switchWindowDown;
-window._animateWindowSwitch = _animateWindowSwitch;
-window._setBrowseReturnView = _setBrowseReturnView;
-window._browseGoBack = _browseGoBack;
-window.openBrowse = openBrowse;
-window.browseNewTab = browseNewTab;
-window.browseNewPaperTab = browseNewPaperTab;
-window.openLocalPdf = openLocalPdf;
-window.openLocalPdfDialog = openLocalPdfDialog;
+// ── Action registry ──
+registerActions({
+  browseCreateWindow: () => browseCreateWindow(),
+  browseNewTab: () => browseNewTab(),
+  _browseGoBack: () => _browseGoBack(),
+  closeActiveTab: (e) => {
+    e.stopPropagation();
+    const tabs = typeof _browseTabs !== 'undefined' ? _browseTabs : [];
+    const active = typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : null;
+    const t = tabs.find(x => x.id === active);
+    if (t) browseCloseTab(t.id);
+  },
+});
+

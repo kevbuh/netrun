@@ -1,63 +1,62 @@
 import Settings from '../core/core-settings.js';
+import { apiGet, apiPost, apiDelete } from '/js/api.js';
 
 // ─── Context Settings ──────────────────────────────────────
-
-if (window.AetherUI) AetherUI.globals();
 
 export let _contextFiles = [];
 export let _contextDir = '';
 export let _selectedContextFile = null;
-const _contextHasFiles = State(false);
-const _contextEditorVisible = State(false);
+const _contextHasFiles = window.State(false);
+const _contextEditorVisible = window.State(false);
 
 export function _renderContextSettings() {
-  return VStack(
-    VStack(
-      Text('Loading context info...').className('text-dimmer text-[0.75rem]')
+  return window.VStack(
+    window.VStack(
+      window.Text('Loading context info...').className('text-dimmer text-[0.75rem]')
     ).id('context-info-bar').className('mb-4 p-3 rounded-lg border border-border-subtle bg-card/50'),
 
-    HStack(
-      Text('').className('text-muted text-[0.75rem]').id('context-count-label'),
-      Spacer(),
-      Button('+ New Task Context').className('text-[0.7rem] text-accent hover:text-accent/80 transition-colors bg-transparent border-none cursor-pointer')
+    window.HStack(
+      window.Text('').className('text-muted text-[0.75rem]').id('context-count-label'),
+      window.Spacer(),
+      window.Button('+ New Task Context').className('text-[0.7rem] text-accent hover:text-accent/80 transition-colors bg-transparent border-none cursor-pointer')
         .onTap(function() { _createTaskContext(); })
     ).className('flex items-center justify-between mb-3'),
 
-    new View('div').id('context-file-list').className('flex flex-col gap-2 mb-4'),
+    new window.View('div').id('context-file-list').className('flex flex-col gap-2 mb-4'),
 
-    Show(_contextHasFiles,
+    window.Show(_contextHasFiles,
       null,
       function() {
-        return VStack(
-          Text('No context files yet. The agent will create them automatically during conversations.').className('text-dimmer text-[0.8rem]')
+        return window.VStack(
+          window.Text('No context files yet. The agent will create them automatically during conversations.').className('text-dimmer text-[0.8rem]')
         ).className('text-center py-8');
       }
     ),
 
-    Show(_contextEditorVisible, function() {
-      return VStack(
-        HStack(
-          Text('').className('text-primary text-[0.85rem] font-medium').id('context-editor-title'),
-          Spacer(),
-          Text('').className('text-dimmer text-[0.7rem]').id('context-editor-chars')
+    window.Show(_contextEditorVisible, function() {
+      return window.VStack(
+        window.HStack(
+          window.Text('').className('text-primary text-[0.85rem] font-medium').id('context-editor-title'),
+          window.Spacer(),
+          window.Text('').className('text-dimmer text-[0.7rem]').id('context-editor-chars')
         ).className('flex items-center justify-between mb-2'),
 
         (function() {
-          const ta = new View('textarea');
+          const ta = new window.View('textarea');
           ta.el.id = 'context-editor-textarea';
           ta.el.className = 'w-full rounded-lg border border-border-subtle bg-card/50 text-primary text-[0.78rem] p-3 focus:outline-none focus:border-accent/50 transition-colors';
           ta.cssText('font-family:var(--nr-font-mono);height:40vh;resize:vertical;');
           return ta;
         })(),
 
-        HStack(
-          Button('Save').className('px-3 py-1.5 text-[0.75rem] rounded-md bg-accent text-white hover:bg-accent/80 transition-colors border-none cursor-pointer')
+        window.HStack(
+          window.Button('Save').className('px-3 py-1.5 text-[0.75rem] rounded-md bg-accent text-white hover:bg-accent/80 transition-colors border-none cursor-pointer')
             .onTap(function() { _saveContextFile(); }),
-          Button('Compact Now').id('context-compact-btn')
+          window.Button('Compact Now').id('context-compact-btn')
             .className('px-3 py-1.5 text-[0.75rem] rounded-md border border-border-subtle text-muted hover:text-primary hover:border-accent/50 transition-colors bg-transparent cursor-pointer')
             .onTap(function() { _compactContextFile(); }),
-          Spacer(),
-          Button('Delete').className('px-3 py-1.5 text-[0.75rem] rounded-md text-red-400 hover:text-red-300 border border-transparent hover:border-red-400/30 transition-colors bg-transparent cursor-pointer')
+          window.Spacer(),
+          window.Button('Delete').className('px-3 py-1.5 text-[0.75rem] rounded-md text-red-400 hover:text-red-300 border border-transparent hover:border-red-400/30 transition-colors bg-transparent cursor-pointer')
             .onTap(function() { _deleteContextFile(); })
         ).spacing(2).className('mt-3')
       );
@@ -75,15 +74,15 @@ export function _renderContextFileCard(f) {
   const compactedLabel = compactedTs && typeof timeAgo === 'function' ? timeAgo(compactedTs * 1000) : 'never';
   const selected = _selectedContextFile === name;
 
-  const card = VStack(
-    HStack(
-      Text(name).className('text-[0.8rem] ' + (selected ? 'text-accent' : 'text-primary') + ' font-medium'),
-      Spacer(),
-      Text(kb + ' KB').className('text-dimmer text-[0.7rem]')
+  const card = window.VStack(
+    window.HStack(
+      window.Text(name).className('text-[0.8rem] ' + (selected ? 'text-accent' : 'text-primary') + ' font-medium'),
+      window.Spacer(),
+      window.Text(kb + ' KB').className('text-dimmer text-[0.7rem]')
     ),
-    HStack(
-      Text('Updated ' + updatedAgo).className('text-dimmer text-[0.65rem]'),
-      Text('Compacted ' + compactedLabel).className('text-dimmer text-[0.65rem]')
+    window.HStack(
+      window.Text('Updated ' + updatedAgo).className('text-dimmer text-[0.65rem]'),
+      window.Text('Compacted ' + compactedLabel).className('text-dimmer text-[0.65rem]')
     ).spacing(3).className('mt-1')
   );
   card.el.tagName === 'DIV' && (card.el.role = 'button');
@@ -115,7 +114,7 @@ export function _loadContextFiles() {
       if (_contextFiles.length === 0) {
         list.innerHTML = '';
         if (countLabel) countLabel.textContent = '';
-        if (infoBar) AetherUI.mount(Text('No context files.').className('text-dimmer text-[0.75rem]'), infoBar);
+        if (infoBar) AetherUI.mount(window.Text('No context files.').className('text-dimmer text-[0.75rem]'), infoBar);
         return;
       }
       const totalChars = _contextFiles.reduce(function(sum, f) { return sum + (f.char_count || f.charCount || 0); }, 0);
@@ -123,10 +122,10 @@ export function _loadContextFiles() {
       if (countLabel) countLabel.textContent = _contextFiles.length + ' file' + (_contextFiles.length !== 1 ? 's' : '');
       if (infoBar) {
         const infoChildren = [
-          Text(_contextFiles.length + ' file' + (_contextFiles.length !== 1 ? 's' : '')).className('text-primary text-[0.8rem] font-medium'),
-          Text(totalKb + ' KB total').className('text-dimmer text-[0.7rem]')
+          window.Text(_contextFiles.length + ' file' + (_contextFiles.length !== 1 ? 's' : '')).className('text-primary text-[0.8rem] font-medium'),
+          window.Text(totalKb + ' KB total').className('text-dimmer text-[0.7rem]')
         ];
-        if (_contextDir) infoChildren.push(Text(_contextDir).className('text-dimmer text-[0.65rem]').fontMono());
+        if (_contextDir) infoChildren.push(window.Text(_contextDir).className('text-dimmer text-[0.65rem]').fontMono());
         AetherUI.mount(HStack.apply(null, infoChildren).spacing(3), infoBar);
       }
       _renderContextFileList();
@@ -225,15 +224,3 @@ export function _createTaskContext() {
     }).catch(function(e) { console.warn('createTaskContext:', e); });
 }
 
-window._contextFiles = _contextFiles;
-window._contextDir = _contextDir;
-window._selectedContextFile = _selectedContextFile;
-window._renderContextSettings = _renderContextSettings;
-window._renderContextFileCard = _renderContextFileCard;
-window._renderContextFileList = _renderContextFileList;
-window._loadContextFiles = _loadContextFiles;
-window._selectContextFile = _selectContextFile;
-window._saveContextFile = _saveContextFile;
-window._compactContextFile = _compactContextFile;
-window._deleteContextFile = _deleteContextFile;
-window._createTaskContext = _createTaskContext;

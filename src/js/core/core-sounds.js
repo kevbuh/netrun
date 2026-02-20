@@ -2,6 +2,7 @@
 // Extracted from core.js
 
 import Settings from '/js/core/core-settings.js';
+import { _renderAudioPill } from '/js/core/core-audio.js';
 
 // ── Button click sound (Web Audio API) ──
 let _clickSoundCtx = null;
@@ -269,18 +270,6 @@ if (Settings.get('rainOn') === '1') {
   }, { once: true });
 }
 
-// Backward compat window assignments
-window.toggleClickSound = toggleClickSound;
-window.setClickSoundType = setClickSoundType;
-window.playClickSound = playClickSound;
-window.CLICK_SOUND_PRESETS = CLICK_SOUND_PRESETS;
-window.toggleRain = toggleRain;
-window.startRain = startRain;
-window.stopRain = stopRain;
-window.setRainNoiseType = setRainNoiseType;
-window.setRainFreq = setRainFreq;
-window.setRainVolume = setRainVolume;
-window.NOISE_PRESETS = NOISE_PRESETS;
 
 export {
   toggleClickSound, setClickSoundType, playClickSound, CLICK_SOUND_PRESETS,

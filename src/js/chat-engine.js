@@ -2,6 +2,10 @@
 // Both panel-chat.js and chat-view.js use this for session management,
 // message sending via agentStart, and DB persistence.
 import Settings from '/js/core/core-settings.js';
+import { _getGoogleId } from '/js/api-ipc.js';
+import { apiGet } from '/js/api.js';
+import { islandUpdate } from '/js/core/core-ui.js';
+import { _handleAgentAction } from '/js/panel-chat.js';
 
 // ── Active sessions (keyed by threadId) ──
 const _sessions = new Map();
@@ -625,5 +629,4 @@ function _formatToolResult(agentEvent) {
 // ── Public API ──
 
 const ChatEngine = { createSession, loadSession, getSession };
-window.ChatEngine = ChatEngine;
 export default ChatEngine;

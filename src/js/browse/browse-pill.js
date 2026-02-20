@@ -1,13 +1,25 @@
 // browse-pill.js — Extracted from browse-tabs.js
+import { icon } from '/js/core/icons.js';
+import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
+import { _annotationsEnabled, toggleAnnotations } from '/js/browse/browse-annotations.js';
+import { _applyBrowseTabLayout, _browseShowGroupContextMenu, _browseToggleGroupCollapse, _splitPillDragStart, _tabDragStart, browseBack, browseForward, browseReload, toggleBrowseTabLayout } from '/js/browse/browse-island.js';
+import { _browseGetSplitPanes } from '/js/browse/browse-split-panes.js';
+import { _browseRenderSplitPillView, _browseRenderTabView } from '/js/browse/browse-captions.js';
+import { _menuBtn, isPostSaved } from '/js/feed.js';
+import { browseCloseWindow, browseCreateWindow, browseSelectWindow } from '/js/browse/browse-windows.js';
+import { browsePrintPage, browseShowAIView } from '/js/browse/browse-menu.js';
+import { browseSaveToReadingList, browseShare } from '/js/browse/browse-features.js';
+import { openSearchHistoryPage, toggleAdBlock } from '/js/browse-urlbar.js';
+import { toggleBrowseSidebar } from '/js/views.js';
+import { getPillBrowseMode, setPillBrowseMode } from '/js/browse/browse-state.js';
 // Depends on: browse-state.js
-if (window.AetherUI) AetherUI.globals();
 
 // ── Dynamic Island pill bar — browse mode ──
 
 export function _islandSyncTabs() {
   const bv = document.getElementById('browse-view');
   if (!bv || bv.style.display !== 'flex') { islandRemove('tabs'); return; }
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   const tabs = win ? win.tabs : [];
   const activeTab = win ? win.activeTab : null;
   const active = tabs.find(function(t) { return t.id === activeTab; });
@@ -23,20 +35,20 @@ export function _islandSyncTabs() {
         favicon: t.favicon, blank: !!t.blank, active: t.id === activeTab,
         pinned: t.pinned, groupId: t.groupId,
         lastVisited: t.lastVisited || 0,
-        hasAudio: _browseAudioTabs.has(t.id),
-        muted: _browseAudioTabs.get(t.id) && _browseAudioTabs.get(t.id).muted
+        hasAudio: window._browseAudioTabs.has(t.id),
+        muted: window._browseAudioTabs.get(t.id) && window._browseAudioTabs.get(t.id).muted
       };
     })
   });
 }
 
 export function _getActiveTabBar() {
-  if (_pillBrowseMode) return document.getElementById('pill-browse-tabs');
+  if (getPillBrowseMode()) return document.getElementById('pill-browse-tabs');
   return document.getElementById('browse-tabs');
 }
 
 export function _setPillBrowseMode(enabled) {
-  _pillBrowseMode = enabled;
+  setPillBrowseMode(enabled);
   const pill = document.getElementById('sidebar-nav');
   const tabRow = document.getElementById('browse-tab-row');
   if (enabled) {
@@ -67,7 +79,7 @@ export function _setPillBrowseMode(enabled) {
 export function _pillSyncTabs() {
   const pillTabs = document.getElementById('pill-browse-tabs');
   if (!pillTabs) return;
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) { pillTabs.innerHTML = ''; return; }
 
   const tabs = win.tabs;
@@ -82,7 +94,7 @@ export function _pillSyncTabs() {
 
   pinned.forEach(t => views.push(_browseRenderTabView(t, activeTab)));
   if (pinned.length > 0 && unpinned.length > 0) {
-    views.push(new View('div').className('browse-tab-pin-separator'));
+    views.push(new window.View('div').className('browse-tab-pin-separator'));
   }
 
   // Sort unpinned: grouped then ungrouped
@@ -107,11 +119,11 @@ export function _pillSyncTabs() {
     const group = groups.find(g => g.id === gid);
     const gTabs = byGroup.get(gid);
     if (!gTabs || !gTabs.length) continue;
-    const gc = _BROWSE_GROUP_COLOR_MAP[group.color] || group.color;
+    const gc = window._BROWSE_GROUP_COLOR_MAP[group.color] || group.color;
 
-    const chip = HStack([
-      Text(group.name).className('browse-tab-group-name'),
-      Text(String(gTabs.length)).className('browse-tab-group-count')
+    const chip = window.HStack([
+      window.Text(group.name).className('browse-tab-group-name'),
+      window.Text(String(gTabs.length)).className('browse-tab-group-count')
     ]).className('browse-tab-group-chip')
       .attr('data-group-id', gid)
       .onTap(function() { _browseToggleGroupCollapse(gid); })
@@ -137,7 +149,7 @@ export function _pillSyncTabs() {
     }
   }
 
-  AetherUI.mount(HStack(views), pillTabs);
+  AetherUI.mount(window.HStack(views), pillTabs);
 
   // Attach drag handlers
   pillTabs.querySelectorAll('.browse-tab').forEach(tabEl => {
@@ -175,10 +187,10 @@ export function _populatePillMenuMoreItems() {
   // Helper: menu button with SVG icon and label
   function _menuBtn(svgHtml, label, action, opts) {
     opts = opts || {};
-    const btn = new View('button');
-    const icon = RawHTML(svgHtml);
-    const textEl = Text(label).flex(1);
-    const row = opts.trailing ? HStack([icon, textEl, opts.trailing]) : HStack([icon, textEl]);
+    const btn = new window.View('button');
+    const icon = window.RawHTML(svgHtml);
+    const textEl = window.Text(label).flex(1);
+    const row = opts.trailing ? window.HStack([icon, textEl, opts.trailing]) : window.HStack([icon, textEl]);
     row.spacing(2).alignment('center');
     btn.el.appendChild(row.build());
     if (opts.disabled) btn.el.disabled = true;
@@ -188,92 +200,90 @@ export function _populatePillMenuMoreItems() {
   }
 
   function _menuDivider() {
-    return new View('div').styles({height:'1px', background:'var(--aether-border)'}).margin('2px', '0');
+    return new window.View('div').styles({height:'1px', background:'var(--aether-border)'}).margin('2px', '0');
   }
 
   const items = [];
 
   // Windows section
-  if (typeof _browseWindows !== 'undefined' && _browseWindows.length > 0) {
-    const header = Text('Windows').font('caption2').foreground('quaternary')
+  if (typeof window._browseWindows !== 'undefined' && window._browseWindows.length > 0) {
+    const header = window.Text('Windows').font('caption2').foreground('quaternary')
       .styles({padding:'4px 12px 2px', textTransform:'uppercase', letterSpacing:'0.05em'});
     items.push(header);
 
-    const winSvg = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 9h18" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    for (let i = 0; i < _browseWindows.length; i++) {
+    const winSvg = icon('window', {size: 16});
+    for (let i = 0; i < window._browseWindows.length; i++) {
       (function(w) {
-        const isActiveWin = w.id === _browseActiveWindow;
-        const countText = Text(String(w.tabs.length)).styles({marginLeft:'auto'}).font('caption2').foreground('quaternary');
+        const isActiveWin = w.id === window._browseActiveWindow;
+        const countText = window.Text(String(w.tabs.length)).styles({marginLeft:'auto'}).font('caption2').foreground('quaternary');
 
-        let trailing = HStack([countText]);
-        if (!isActiveWin && _browseWindows.length > 1) {
-          const closeSpan = Text('\u00d7').styles({marginLeft:'4px'}).opacity('0.4').cursor();
+        let trailing = window.HStack([countText]);
+        if (!isActiveWin && window._browseWindows.length > 1) {
+          const closeSpan = window.Text('\u00d7').styles({marginLeft:'4px'}).opacity('0.4').cursor();
           closeSpan.onTap(function(e) { e.stopPropagation(); browseCloseWindow(w.id); _populatePillMenuMoreItems(); });
-          trailing = HStack([countText, closeSpan]);
+          trailing = window.HStack([countText, closeSpan]);
         }
         items.push(_menuBtn(winSvg, w.name, function() { browseSelectWindow(w.id); _closePillMenu(); },
           { style: isActiveWin ? { color: 'var(--nr-accent)', fontWeight: '600' } : {}, trailing: trailing }));
-      })(_browseWindows[i]);
+      })(window._browseWindows[i]);
     }
-    const newWinSvg = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>';
+    const newWinSvg = icon('plus', {size: 16});
     items.push(_menuBtn(newWinSvg, 'New Window', function() { browseCreateWindow(); _closePillMenu(); }));
     items.push(_menuDivider());
   }
 
   // Nav buttons
-  items.push(_menuBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>', 'Back', function() { browseBack(); _closePillMenu(); }, { disabled: !hasTab }));
-  items.push(_menuBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>', 'Forward', function() { browseForward(); _closePillMenu(); }, { disabled: !hasTab }));
-  items.push(_menuBtn('<svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>', 'Reload', function() { browseReload(); _closePillMenu(); }, { disabled: !hasTab }));
+  items.push(_menuBtn(icon('chevronLeft', {size: 16, strokeWidth: '1.5'}), 'Back', function() { browseBack(); _closePillMenu(); }, { disabled: !hasTab }));
+  items.push(_menuBtn(icon('chevronRight', {size: 16, strokeWidth: '1.5'}), 'Forward', function() { browseForward(); _closePillMenu(); }, { disabled: !hasTab }));
+  items.push(_menuBtn(icon('reloadFilled', {size: 16}), 'Reload', function() { browseReload(); _closePillMenu(); }, { disabled: !hasTab }));
 
   items.push(_menuDivider());
 
   // Bookmark
   const isSaved = hasTab && typeof isPostSaved === 'function' && isPostSaved(tab.url);
-  items.push(_menuBtn('<svg class="w-4 h-4" viewBox="0 0 24 24" fill="' + (isSaved ? 'var(--nr-accent)' : 'none') + '" stroke="' + (isSaved ? 'var(--nr-accent)' : 'currentColor') + '" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>',
+  items.push(_menuBtn(icon('bookmark', {size: 16, fill: isSaved ? 'var(--nr-accent)' : 'none', stroke: isSaved ? 'var(--nr-accent)' : 'currentColor'}),
     isSaved ? 'Saved' : 'Save to Reading List', function() { browseSaveToReadingList(); _populatePillMenuMoreItems(); }));
 
   // Share
-  items.push(_menuBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15m0-3-3-3m0 0-3 3m3-3V15"/></svg>',
+  items.push(_menuBtn(icon('share', {size: 16, strokeWidth: '1.5'}),
     'Share', function() { browseShare(); _closePillMenu(); }, { disabled: !hasTab }));
 
   // Ad Blocker
   const adOn = Settings.get('adBlockEnabled') === 'true';
-  const adTrailing = Text(adOn ? 'On' : 'Off').font('caption2').styles({marginLeft:'auto'}).foreground('quaternary');
-  items.push(_menuBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>',
+  const adTrailing = window.Text(adOn ? 'On' : 'Off').font('caption2').styles({marginLeft:'auto'}).foreground('quaternary');
+  items.push(_menuBtn(icon('shield', {size: 16, strokeWidth: '1.5'}),
     'Ad Blocker', function() { toggleAdBlock(); _closePillMenu(); }, { style: adOn ? { color: 'var(--nr-accent)' } : {}, trailing: adTrailing }));
 
   // Annotate
   const annEnabled = tab && typeof _annotationsEnabled !== 'undefined' && _annotationsEnabled.get(tab.id);
-  items.push(_menuBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 9h8M8 13h6" stroke-linecap="round"/></svg>',
+  items.push(_menuBtn(icon('annotate', {size: 16}),
     annEnabled ? 'Remove Annotations' : 'Annotate Page', function() { toggleAnnotations(); _closePillMenu(); },
     { disabled: !hasTab, style: annEnabled ? { color: 'var(--nr-accent)' } : {} }));
 
   // Search History
-  items.push(_menuBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>',
+  items.push(_menuBtn(icon('clock', {size: 16}),
     'Search History', function() { openSearchHistoryPage(); _closePillMenu(); }));
 
   // Sidebar
-  items.push(_menuBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3V3z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 3v18" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  items.push(_menuBtn(icon('sidebarToggle', {size: 16}),
     'Toggle Sidebar', function() { toggleBrowseSidebar(); _closePillMenu(); }));
 
   items.push(_menuDivider());
 
   // Print
-  items.push(_menuBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m0 0a48.159 48.159 0 0 1 10.5 0m-10.5 0V6.007c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 10.186 0c1.1.128 1.907 1.077 1.907 2.185V7.034"/></svg>',
+  items.push(_menuBtn(icon('print', {size: 16, strokeWidth: '1.5'}),
     'Print Page', function() { browsePrintPage(); _closePillMenu(); }, { disabled: !hasTab }));
 
   // AI View
-  items.push(_menuBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>',
+  items.push(_menuBtn(icon('eye', {size: 16, strokeWidth: '1.5'}),
     'AI View', function() { browseShowAIView(); _closePillMenu(); }, { disabled: !hasTab }));
 
   // Tab layout toggle
   const isIsland = Settings.get('browseTabLayout') === 'island';
-  items.push(_menuBtn(isIsland
-    ? '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 3h16v5H4V3zM4 3h16v18H4V3z"/></svg>'
-    : '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M4 3h16v18H4V3z"/></svg>',
+  items.push(_menuBtn(isIsland ? icon('horizontalTabs', {size: 16}) : icon('islandTabs', {size: 16}),
     isIsland ? 'Horizontal Tabs' : 'Island Mode', function() { toggleBrowseTabLayout(); _closePillMenu(); }));
 
-  AetherUI.mount(VStack(items), container);
+  AetherUI.mount(window.VStack(items), container);
 }
 
 export function _openPillMenuHover() {
@@ -311,15 +321,11 @@ export function _closePillMenu() {
   document.removeEventListener('mousedown', _pillMenuOutsideClick);
 }
 
-window._islandSyncTabs = _islandSyncTabs;
-window._getActiveTabBar = _getActiveTabBar;
-window._setPillBrowseMode = _setPillBrowseMode;
-window._pillSyncTabs = _pillSyncTabs;
-window._pillMenuLeaveTimer = _pillMenuLeaveTimer;
-window._togglePillMenu = _togglePillMenu;
-window._populatePillMenuMoreItems = _populatePillMenuMoreItems;
-window._openPillMenuHover = _openPillMenuHover;
-window._closePillMenuHover = _closePillMenuHover;
-window._cancelPillMenuClose = _cancelPillMenuClose;
-window._pillMenuOutsideClick = _pillMenuOutsideClick;
-window._closePillMenu = _closePillMenu;
+// ── Action registry ──
+registerActions({
+  _togglePillMenu: () => _togglePillMenu(),
+  _openPillMenuHover: () => _openPillMenuHover(),
+  _closePillMenuHover: () => _closePillMenuHover(),
+  _cancelPillMenuClose: () => _cancelPillMenuClose(),
+});
+

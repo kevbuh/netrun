@@ -1,7 +1,11 @@
 // browse-annotations.js — Unified Insight (ambient + annotations)
 // Depends on: browse-state.js
 import Settings from '/js/core/core-settings.js';
-if (window.AetherUI) AetherUI.globals();
+import { apiPost } from '/js/api.js';
+import { icon } from '/js/core/icons.js';
+import { _updateAudioUnified } from '/js/core/core-audio.js';
+import { islandUpdate } from '/js/core/core-ui.js';
+import { _ttsChunkText, _ttsFetchAndQueue, _ttsStopAll, _ttsUpdateBtnIcon } from '/js/panel-tts.js';
 
 // ── Insight state ──
 
@@ -402,40 +406,39 @@ export async function _extractTextFromFrame(tab) {
   return '';
 }
 
-
 export async function _readPageAloud() {
   // Pause/resume if already playing
-  if (_ttsAudio || _ttsPaused) {
+  if (window._ttsAudio || window._ttsPaused) {
     _ttsPauseResume();
     return;
   }
   // Stop if queued but not playing (shouldn't normally happen)
-  if (_ttsChunks.length > 0) {
+  if (window._ttsChunks.length > 0) {
     _ttsStopAll();
     return;
   }
-  const win = _getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
   const tab = win.tabs.find(function(t) { return t.id === win.activeTab; });
   if (!tab) return;
   const btn = document.getElementById('pill-readaloud-btn');
   if (btn) btn.classList.add('pill-readaloud-active');
-  _ttsTabId = tab.id;
+  window._ttsTabId = tab.id;
   _updateAudioUnified('tts', { label: 'Extracting\u2026', detail: 'Extracting page text' });
   const text = await _extractTextFromFrame(tab);
   if (!text || text.length < 10) {
     _updateAudioUnified('tts', { label: 'No text', detail: 'No readable text found', done: true });
     if (btn) btn.classList.remove('pill-readaloud-active');
-    _ttsTabId = null;
+    window._ttsTabId = null;
     return;
   }
   // Chunk text and queue for playback
-  _ttsStopped = false;
-  _ttsPaused = false;
-  _ttsChunks = _ttsChunkText(text);
-  _ttsChunkIdx = 0;
+  window._ttsStopped = false;
+  window._ttsPaused = false;
+  window._ttsChunks = _ttsChunkText(text);
+  window._ttsChunkIdx = 0;
   _ttsUpdateBtnIcon();
-  _ttsQueue = [];
+  window._ttsQueue = [];
   _ttsFetchAndQueue();
 }
 
@@ -445,7 +448,7 @@ export function _showAnnotationTooltip(data, frame, pinned) {
   let tip = document.getElementById('aether-annotation-tooltip');
   if (_annTooltipPinned && !pinned) return; // don't overwrite pinned tooltip with hover
   if (!tip) {
-    const tipView = new View('div').id('aether-annotation-tooltip').className('doc-selection-popup aether-ann-tooltip')
+    const tipView = new window.View('div').id('aether-annotation-tooltip').className('doc-selection-popup aether-ann-tooltip')
       .styles({zIndex:'999999', pointerEvents:'auto'});
     tipView.on('mousedown', function(ev) { ev.stopPropagation(); });
     tip = tipView.build();
@@ -454,14 +457,14 @@ export function _showAnnotationTooltip(data, frame, pinned) {
   _annTooltipPinned = !!pinned;
   tip.style.position = 'fixed';
 
-  const thumbUpSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>';
-  const thumbDownSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>';
-  const checkSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  const thumbUpSvg = icon('thumbUp', {size: 11});
+  const thumbDownSvg = icon('thumbDown', {size: 11});
+  const checkSvg = icon('check', {size: 11, strokeWidth: '2.5'});
   const rateBtnStyle = { background: 'none', border: 'none', cursor: 'pointer', padding: '2px', opacity: '0.5', color: 'rgba(255,255,255,0.7)' };
 
   function _makeRateBtn(svgHtml, rating, title, hoverColor) {
-    const btn = new View('button').attr('title', title).styles(rateBtnStyle);
-    btn._appendChildren([RawHTML(svgHtml)]);
+    const btn = new window.View('button').attr('title', title).styles(rateBtnStyle);
+    btn._appendChildren([window.RawHTML(svgHtml)]);
     btn.onHover(
       function() { btn.el.style.opacity = '1'; btn.el.style.color = hoverColor; },
       function() { btn.el.style.opacity = '0.5'; btn.el.style.color = 'rgba(255,255,255,0.7)'; }
@@ -475,7 +478,7 @@ export function _showAnnotationTooltip(data, frame, pinned) {
         .then(function() {
           btn.el.style.opacity = '1';
           btn.el.style.color = rating === 'good' ? '#4caf50' : '#ef5350';
-          AetherUI.mount(RawHTML(checkSvg), btn.el);
+          AetherUI.mount(window.RawHTML(checkSvg), btn.el);
           btn.el.disabled = true;
           const sibling = btn.el.parentElement.querySelector('button:not([disabled])');
           if (sibling) sibling.style.display = 'none';
@@ -486,26 +489,26 @@ export function _showAnnotationTooltip(data, frame, pinned) {
     return btn;
   }
 
-  const rateRow = HStack([
+  const rateRow = window.HStack([
     _makeRateBtn(thumbUpSvg, 'good', 'Good', '#4caf50'),
     _makeRateBtn(thumbDownSvg, 'bad', 'Bad', '#ef5350')
   ]).position('absolute').styles({top:'6px', right:'6px', display:'flex', gap:'2px'});
 
-  const labelChildren = [Text(data.label || data.type)];
+  const labelChildren = [window.Text(data.label || data.type)];
   if (data.confidence != null) {
-    labelChildren.push(new View('span').className('aether-ann-confidence')._bindText(data.confidence + '%'));
+    labelChildren.push(new window.View('span').className('aether-ann-confidence')._bindText(data.confidence + '%'));
   }
-  const labelEl = HStack(labelChildren).className('aether-ann-label')
+  const labelEl = window.HStack(labelChildren).className('aether-ann-label')
     .styles({color: data.labelColor || '#4caf50', paddingRight: '36px'});
 
-  const explEl = new View('div').className('aether-ann-explanation')._bindText(data.explanation);
+  const explEl = new window.View('div').className('aether-ann-explanation')._bindText(data.explanation);
 
   const tipChildren = [rateRow, labelEl, explEl];
   if (data.conflictsWith) {
-    tipChildren.push(new View('div').className('aether-ann-conflict')._bindText('Conflicts with: ' + data.conflictsWith));
+    tipChildren.push(new window.View('div').className('aether-ann-conflict')._bindText('Conflicts with: ' + data.conflictsWith));
   }
 
-  AetherUI.mount(VStack(tipChildren), tip);
+  AetherUI.mount(window.VStack(tipChildren), tip);
   tip.style.opacity = '1';
   tip.style.pointerEvents = 'auto';
   const fRect = frame.getBoundingClientRect();
@@ -547,8 +550,8 @@ export function injectAnnotations(tab, annotations) {
     CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Connection', labelColor: '#2196f3' }
   };
   // Extend with custom annotation categories
-  if (typeof _customAnnotationCategories !== 'undefined') {
-    for (const cc of _customAnnotationCategories) {
+  if (typeof window._customAnnotationCategories !== 'undefined') {
+    for (const cc of window._customAnnotationCategories) {
       colorMap[cc.key] = { bg: cc.color + '40', border: cc.color, label: cc.name, labelColor: cc.color };
     }
   }
@@ -766,8 +769,8 @@ export function injectSingleAnnotation(tab, ann) {
     AD: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Ad', labelColor: '#ff9800' },
     CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Connection', labelColor: '#2196f3' }
   };
-  if (typeof _customAnnotationCategories !== 'undefined') {
-    for (const cc of _customAnnotationCategories) {
+  if (typeof window._customAnnotationCategories !== 'undefined') {
+    for (const cc of window._customAnnotationCategories) {
       colorMap[cc.key] = { bg: cc.color + '40', border: cc.color, label: cc.name, labelColor: cc.color };
     }
   }
@@ -837,28 +840,8 @@ export function _updateAnnotateButtonState() {
   btn.classList.toggle('text-dimmer', !enabled);
 }
 
-window._annotationsEnabled = _annotationsEnabled;
-window._insightCache = _insightCache;
-window._persistInsightCache = _persistInsightCache;
-window._triggerInsight = _triggerInsight;
-window._triggerInsightExtract = _triggerInsightExtract;
-window._restoreInsightPill = _restoreInsightPill;
-window._showAnnotateOfferPill = _showAnnotateOfferPill;
-window.toggleInsight = toggleInsight;
-window.toggleAnnotations = toggleAnnotations;
-window._manualInsightAnalyze = _manualInsightAnalyze;
-window._initInsightListener = _initInsightListener;
-window._initInsightPartialListener = _initInsightPartialListener;
-window._initInsightSystem = _initInsightSystem;
-window._waitForWebviewReady = _waitForWebviewReady;
-window._extractTextFromFrame = _extractTextFromFrame;
-window._readPageAloud = _readPageAloud;
-window._annTooltipPinned = _annTooltipPinned;
-window._showAnnotationTooltip = _showAnnotationTooltip;
-window._hideAnnotationTooltip = _hideAnnotationTooltip;
-window.injectAnnotations = injectAnnotations;
-window._execInFrame = _execInFrame;
-window.clearAnnotations = clearAnnotations;
-window.injectSingleAnnotation = injectSingleAnnotation;
-window.scrollToAnnotation = scrollToAnnotation;
-window._updateAnnotateButtonState = _updateAnnotateButtonState;
+// ── Action registry ──
+registerActions({
+  toggleAnnotations: () => toggleAnnotations(),
+});
+

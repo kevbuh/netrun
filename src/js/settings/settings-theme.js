@@ -1,4 +1,9 @@
 import Settings from '../core/core-settings.js';
+import { apiPut } from '/js/api.js';
+import { _applyBrowseTabLayout } from '/js/browse/browse-island.js';
+import { _setPillBrowseMode } from '/js/browse/browse-pill.js';
+import { renderSettingsView } from '/js/settings/settings-core.js';
+import { setAetherColor, startDaylightTheme, stopDaylightTheme } from '/js/settings/settings-colors.js';
 
 // Map each theme to its underlying color scheme (dark or light)
 export const THEME_COLOR_SCHEME = {
@@ -30,7 +35,6 @@ export function _applyResolvedTheme(resolved) {
   if (resolved === 'daylight') startDaylightTheme();
 }
 
-
 // Listen for system color scheme changes to update 'auto' theme in real time
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   if ((Settings.get('theme') || 'light') === 'auto') {
@@ -52,12 +56,11 @@ export function setTheme(theme) {
   });
 }
 
-
 export async function toggleProfilePrivacy(on) {
   try {
     await apiPut('/api/users/me/privacy', { profile_private: on });
-    if (_authUserInfo) {
-      _authUserInfo.profile_private = on;
+    if (window._authUserInfo) {
+      window._authUserInfo.profile_private = on;
     }
   } catch (err) { /* ignore */ }
 }
@@ -115,13 +118,3 @@ export function setIconSize(size) {
   renderSettingsView();
 }
 
-window.THEME_COLOR_SCHEME = THEME_COLOR_SCHEME;
-window._systemColorScheme = _systemColorScheme;
-window._resolveAutoTheme = _resolveAutoTheme;
-window._applyResolvedTheme = _applyResolvedTheme;
-window.setTheme = setTheme;
-window.toggleProfilePrivacy = toggleProfilePrivacy;
-window.resetAdBlockRules = resetAdBlockRules;
-window.setEditorTheme = setEditorTheme;
-window.setBrowseTabLayout = setBrowseTabLayout;
-window.setIconSize = setIconSize;

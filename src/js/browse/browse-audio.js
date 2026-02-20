@@ -1,20 +1,25 @@
 // browse-audio.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+import { _clearAudioUnified, _updateAudioUnified } from '/js/core/core-audio.js';
+import { _browseRenderTabs } from '/js/browse/browse-island.js';
+import { _updateCCButton } from '/js/browse/browse-captions.js';
+import { browseSelectTab } from '/js/browse/browse-passwords.js';
+import { browseSelectWindow, openBrowse } from '/js/browse/browse-windows.js';
 
 // ── Audio Tracking ──
 
 export function toggleTabMute(tabId) {
-  const audioInfo = _browseAudioTabs.get(tabId);
+  const audioInfo = window._browseAudioTabs.get(tabId);
   if (!audioInfo) return;
 
   // Find the tab element
-  for (const win of _browseWindows) {
+  for (const win of window._browseWindows) {
     const tab = win.tabs.find(t => t.id === tabId);
-    if (tab && tab.el && _browseIsElectron) {
+    if (tab && tab.el && window._browseIsElectron) {
       const newMuted = !audioInfo.muted;
       tab.el.setAudioMuted(newMuted);
       audioInfo.muted = newMuted;
-      _browseAudioTabs.set(tabId, audioInfo);
+      window._browseAudioTabs.set(tabId, audioInfo);
       _browseRenderTabs();
       _updateAudioIndicator();
       return;
@@ -24,11 +29,11 @@ export function toggleTabMute(tabId) {
 
 export function goToAudioTab() {
   // Go to the first tab playing audio
-  const entry = _browseAudioTabs.entries().next().value;
+  const entry = window._browseAudioTabs.entries().next().value;
   if (!entry) return;
 
   const [tabId, info] = entry;
-  if (info.windowId !== _browseActiveWindow) {
+  if (info.windowId !== window._browseActiveWindow) {
     browseSelectWindow(info.windowId);
   }
   browseSelectTab(tabId);
@@ -72,15 +77,15 @@ export function _updateAudioIndicator() {
   // CC button + pill — always update regardless of early returns
   _updateCCButton();
 
-  if (_browseAudioTabs.size === 0) {
+  if (window._browseAudioTabs.size === 0) {
     if (typeof _clearAudioUnified === 'function') _clearAudioUnified('tab');
     return;
   }
 
   // Get info about playing tabs
   const playingTabs = [];
-  for (const [tabId, info] of _browseAudioTabs) {
-    for (const win of _browseWindows) {
+  for (const [tabId, info] of window._browseAudioTabs) {
+    for (const win of window._browseWindows) {
       const tab = win.tabs.find(t => t.id === tabId);
       if (tab) {
         playingTabs.push({ tab, win, muted: info.muted, tabId });
@@ -99,7 +104,7 @@ export function _updateAudioIndicator() {
   const browseView = document.getElementById('browse-view');
   const isOnBrowseView = browseView && browseView.style.display !== 'none';
   const isCurrentTab = isOnBrowseView &&
-    firstTab.win.id === _browseActiveWindow &&
+    firstTab.win.id === window._browseActiveWindow &&
     firstTab.tab.id === firstTab.win.activeTab;
 
   if (isCurrentTab) {
@@ -117,8 +122,3 @@ export function _updateAudioIndicator() {
   }
 }
 
-window.toggleTabMute = toggleTabMute;
-window.goToAudioTab = goToAudioTab;
-window._browseUpdateScrollPill = _browseUpdateScrollPill;
-window._browseUpdateTokenCount = _browseUpdateTokenCount;
-window._updateAudioIndicator = _updateAudioIndicator;

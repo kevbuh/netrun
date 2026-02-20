@@ -2,17 +2,23 @@
 // Depends on: browse-state.js
 
 import Settings from '/js/core/core-settings.js';
+import { _browseBindFrame } from '/js/browse/browse-downloads.js';
+import { _browseCreateFrame } from '/js/browse/browse-ntp.js';
+import { _browseFaviconUrl, _browseTitleFromUrl } from '/js/browse/browse-island.js';
+import { _browseRebuildSplitLayout } from '/js/browse/browse-split-panes.js';
+import { browseSelectTab } from '/js/browse/browse-passwords.js';
+import { openChatPage } from '/js/chat-view.js';
 export function _browseRestoreTabs() {
   try {
     // Try new multi-window format first (user-specific key)
-    const raw = Settings.get(_getBrowseStorageKey('browseWindows'));
+    const raw = Settings.get(window._getBrowseStorageKey('browseWindows'));
     if (raw) {
       const { windows, activeWindow, nextWindowId, nextTabId, nextGroupId, nextPaneId } = JSON.parse(raw);
       if (!windows || !windows.length) return false;
-      _browseNextWindowId = nextWindowId || 1;
-      _browseNextTabId = nextTabId || 1;
-      _browseNextGroupId = nextGroupId || 1;
-      _browseNextPaneId = nextPaneId || 1;
+      window._browseNextWindowId = nextWindowId || 1;
+      window._browseNextTabId = nextTabId || 1;
+      window._browseNextGroupId = nextGroupId || 1;
+      window._browseNextPaneId = nextPaneId || 1;
       const container = document.getElementById('browse-content');
 
       for (const savedWin of windows) {
@@ -82,11 +88,11 @@ export function _browseRestoreTabs() {
           win.tabs.push(tab);
           if (el) _browseBindFrame(tab);
         }
-        _browseWindows.push(win);
+        window._browseWindows.push(win);
       }
-      if (!_browseWindows.length) return false;
-      _browseActiveWindow = _browseWindows.find(w => w.id === activeWindow) ? activeWindow : _browseWindows[0].id;
-      const win = _getCurrentWindow();
+      if (!window._browseWindows.length) return false;
+      window._browseActiveWindow = window._browseWindows.find(w => w.id === activeWindow) ? activeWindow : window._browseWindows[0].id;
+      const win = window._getCurrentWindow();
       if (win && win.tabs.length) {
         const target = win.tabs.find(t => t.id === win.activeTab) ? win.activeTab : win.tabs[0].id;
         browseSelectTab(target);
@@ -102,4 +108,3 @@ export function _browseRestoreTabs() {
   } catch (e) { console.error('[browse] restore tabs failed:', e); return false; }
 }
 
-window._browseRestoreTabs = _browseRestoreTabs;

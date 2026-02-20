@@ -1,6 +1,17 @@
 // chat-view.js — Chat as an in-place NTP morph (search box slides to bottom, messages above)
 // Uses ChatEngine for agent streaming and ChatRender for rich message rendering.
 import Settings from '/js/core/core-settings.js';
+import { apiPost } from '/js/api.js';
+import { escapeHtml } from '/js/core/core-utils.js';
+import { icon } from '/js/core/icons.js';
+import ChatEngine from '/js/chat-engine.js';
+import ChatRender from '/js/chat-render.js';
+import { _aetherCommands, _aetherFilterCommands, _aetherHideAgentDropdown, _aetherHideCmdDropdown, _aetherHideHistoryDropdown, _aetherHideModelDropdown, _aetherHideTabDropdown, _aetherRenderAgentDropdown, _aetherRenderCmdDropdown, _aetherRenderHistoryDropdown, _aetherRenderModelDropdown, _aetherSelectAgent, _aetherSelectHistory, _aetherSelectModel, _aetherSelectTab, _aetherSwitchToTab, _doAetherAgent, _doAetherCapture, _doAetherHelp, _doAetherHistory, _doAetherModel, _doAetherSearchNewTab, _doAetherTab, _doAetherTabs } from '/js/panel-commands.js';
+import { _browseRenderTabs, _updateIslandNavButtons, browseNavigate } from '/js/browse/browse-island.js';
+import { _browseSetUrlDisplay } from '/js/browse-urlbar.js';
+import { _browseUpdateNewTabPage } from '/js/browse/browse-passwords.js';
+import { _ttsStopAll } from '/js/panel-tts.js';
+import { openBrowse } from '/js/browse/browse-windows.js';
 
 let _chatViewThreadId = null;
 let _chatViewThread = null;
@@ -141,11 +152,11 @@ function _chatViewMorphNTP(ntp) {
         const histMatch = val.match(/^\/history(\s+(.*))?$/i);
         if (histMatch && histMatch[1] !== undefined) {
           _aetherHideCmdDropdown(_chatViewCmdPopup);
-          _aetherHistoryIdx = -1;
+          window._aetherHistoryIdx = -1;
           _aetherRenderHistoryDropdown(_chatViewCmdPopup, (histMatch[2] || '').trim());
         } else {
           _aetherHideHistoryDropdown(_chatViewCmdPopup);
-          _aetherCmdIdx = 0;
+          window._aetherCmdIdx = 0;
           _aetherRenderCmdDropdown(_chatViewCmdPopup, val.slice(1).trim());
         }
       } else {
@@ -168,16 +179,16 @@ function _chatViewMorphNTP(ntp) {
       const histDropdown = popup.querySelector('.aether-history-dropdown');
 
       // ── Model dropdown navigation ──
-      if (modelDropdown && _aetherModelList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+      if (modelDropdown && window._aetherModelList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
         ev.preventDefault();
-        if (ev.key === 'ArrowDown') _aetherModelIdx = Math.min(_aetherModelIdx + 1, _aetherModelList.length - 1);
-        else _aetherModelIdx = Math.max(_aetherModelIdx - 1, 0);
+        if (ev.key === 'ArrowDown') window._aetherModelIdx = Math.min(window._aetherModelIdx + 1, window._aetherModelList.length - 1);
+        else window._aetherModelIdx = Math.max(window._aetherModelIdx - 1, 0);
         _aetherRenderModelDropdown(popup);
         const sel = modelDropdown.querySelector('.aether-note-item.selected');
         if (sel) sel.scrollIntoView({ block: 'nearest' });
         return;
       }
-      if (modelDropdown && _aetherModelList.length && ev.key === 'Enter') {
+      if (modelDropdown && window._aetherModelList.length && ev.key === 'Enter') {
         ev.preventDefault();
         _aetherSelectModel(popup);
         return;
@@ -189,16 +200,16 @@ function _chatViewMorphNTP(ntp) {
       }
 
       // ── Agent dropdown navigation ──
-      if (agentDropdown && _aetherAgentList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+      if (agentDropdown && window._aetherAgentList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
         ev.preventDefault();
-        if (ev.key === 'ArrowDown') _aetherAgentIdx = Math.min(_aetherAgentIdx + 1, _aetherAgentList.length - 1);
-        else _aetherAgentIdx = Math.max(_aetherAgentIdx - 1, 0);
+        if (ev.key === 'ArrowDown') window._aetherAgentIdx = Math.min(window._aetherAgentIdx + 1, window._aetherAgentList.length - 1);
+        else window._aetherAgentIdx = Math.max(window._aetherAgentIdx - 1, 0);
         _aetherRenderAgentDropdown(popup);
         const sel2 = agentDropdown.querySelector('.aether-note-item.selected');
         if (sel2) sel2.scrollIntoView({ block: 'nearest' });
         return;
       }
-      if (agentDropdown && _aetherAgentList.length && ev.key === 'Enter') {
+      if (agentDropdown && window._aetherAgentList.length && ev.key === 'Enter') {
         ev.preventDefault();
         _aetherSelectAgent(popup);
         return;
@@ -210,19 +221,19 @@ function _chatViewMorphNTP(ntp) {
       }
 
       // ── Tab dropdown navigation ──
-      if (tabDropdown && _aetherTabList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+      if (tabDropdown && window._aetherTabList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
         ev.preventDefault();
-        if (ev.key === 'ArrowDown') _aetherTabIdx = Math.min(_aetherTabIdx + 1, _aetherTabList.length - 1);
-        else _aetherTabIdx = Math.max(_aetherTabIdx - 1, 0);
+        if (ev.key === 'ArrowDown') window._aetherTabIdx = Math.min(window._aetherTabIdx + 1, window._aetherTabList.length - 1);
+        else window._aetherTabIdx = Math.max(window._aetherTabIdx - 1, 0);
         const items = tabDropdown.querySelectorAll('.aether-tab-item');
-        items.forEach(function(el, i) { el.classList.toggle('selected', i === _aetherTabIdx); });
-        const selTab = items[_aetherTabIdx];
+        items.forEach(function(el, i) { el.classList.toggle('selected', i === window._aetherTabIdx); });
+        const selTab = items[window._aetherTabIdx];
         if (selTab) selTab.scrollIntoView({ block: 'nearest' });
         return;
       }
-      if (tabDropdown && _aetherTabList.length && ev.key === 'Enter') {
+      if (tabDropdown && window._aetherTabList.length && ev.key === 'Enter') {
         ev.preventDefault();
-        if (_aetherTabSwitchMode) _aetherSwitchToTab(popup);
+        if (window._aetherTabSwitchMode) _aetherSwitchToTab(popup);
         else _aetherSelectTab(popup);
         return;
       }
@@ -233,13 +244,13 @@ function _chatViewMorphNTP(ntp) {
       }
 
       // ── History dropdown navigation ──
-      if (histDropdown && _aetherHistoryList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+      if (histDropdown && window._aetherHistoryList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
         ev.preventDefault();
-        if (ev.key === 'ArrowDown') _aetherHistoryIdx = Math.min(_aetherHistoryIdx + 1, _aetherHistoryList.length - 1);
-        else _aetherHistoryIdx = Math.max(_aetherHistoryIdx - 1, -1);
+        if (ev.key === 'ArrowDown') window._aetherHistoryIdx = Math.min(window._aetherHistoryIdx + 1, window._aetherHistoryList.length - 1);
+        else window._aetherHistoryIdx = Math.max(window._aetherHistoryIdx - 1, -1);
         const hItems = histDropdown.querySelectorAll('.aether-note-item');
-        hItems.forEach(function(el) { el.classList.toggle('selected', parseInt(el.dataset.idx) === _aetherHistoryIdx); });
-        const selHist = histDropdown.querySelector('.aether-note-item[data-idx="' + _aetherHistoryIdx + '"]');
+        hItems.forEach(function(el) { el.classList.toggle('selected', parseInt(el.dataset.idx) === window._aetherHistoryIdx); });
+        const selHist = histDropdown.querySelector('.aether-note-item[data-idx="' + window._aetherHistoryIdx + '"]');
         if (selHist) selHist.scrollIntoView({ block: 'nearest' });
         return;
       }
@@ -258,8 +269,8 @@ function _chatViewMorphNTP(ntp) {
       if (isCmd && dropdown && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
         ev.preventDefault();
         const cmdItems = dropdown.querySelectorAll('.aether-cmd-item');
-        if (ev.key === 'ArrowDown') _aetherCmdIdx = Math.min(_aetherCmdIdx + 1, cmdItems.length - 1);
-        else _aetherCmdIdx = Math.max(_aetherCmdIdx - 1, 0);
+        if (ev.key === 'ArrowDown') window._aetherCmdIdx = Math.min(window._aetherCmdIdx + 1, cmdItems.length - 1);
+        else window._aetherCmdIdx = Math.max(window._aetherCmdIdx - 1, 0);
         _aetherRenderCmdDropdown(popup, val.slice(1).trim());
         const dd = popup.querySelector('.aether-cmd-dropdown');
         const selCmd = dd && dd.querySelector('.aether-cmd-item.selected');
@@ -269,8 +280,8 @@ function _chatViewMorphNTP(ntp) {
       if (isCmd && dropdown && ev.key === 'Tab') {
         ev.preventDefault();
         const matches = _aetherFilterCommands(val.slice(1).trim());
-        if (matches[_aetherCmdIdx]) input.value = '/' + matches[_aetherCmdIdx].name;
-        _aetherRenderCmdDropdown(popup, matches[_aetherCmdIdx]?.name || '');
+        if (matches[window._aetherCmdIdx]) input.value = '/' + matches[window._aetherCmdIdx].name;
+        _aetherRenderCmdDropdown(popup, matches[window._aetherCmdIdx]?.name || '');
         return;
       }
 
@@ -279,7 +290,7 @@ function _chatViewMorphNTP(ntp) {
         ev.preventDefault();
         if (isCmd && dropdown) {
           const cmdMatches = _aetherFilterCommands(val.slice(1).trim());
-          const cmd = cmdMatches[_aetherCmdIdx] || cmdMatches[0];
+          const cmd = cmdMatches[window._aetherCmdIdx] || cmdMatches[0];
           if (cmd) {
             if (cmd.hasArgs) {
               input.value = '/' + cmd.name + ' ';
@@ -393,7 +404,7 @@ function _chatViewExecFullCommand(popup, text) {
   // No space — try to match and execute
   const query = raw.toLowerCase();
   const matches = _aetherFilterCommands(query);
-  const matched = matches[_aetherCmdIdx] || matches[0];
+  const matched = matches[window._aetherCmdIdx] || matches[0];
   if (matched) {
     if (matched.hasArgs) return; // needs args
     if (matched._special) {
@@ -674,11 +685,11 @@ async function _chatViewRenderThreadList(container) {
         + 'onmouseenter="this.style.background=\'var(--nr-bg-raised)\';this.querySelector(\'.chat-del\').style.display=\'flex\';this.querySelector(\'.chat-time\').style.display=\'none\'" '
         + 'onmouseleave="this.style.background=\'none\';this.querySelector(\'.chat-del\').style.display=\'none\';this.querySelector(\'.chat-time\').style.display=\'\'" '
         + 'onclick="openChatPage(\'' + safeId + '\')">';
-      html += '<svg style="width:14px;height:14px;color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>';
+      html += icon('chatDots', {size: 14, style: 'color:var(--nr-text-quaternary);flex-shrink:0;'});
       html += '<span style="font-size:0.82rem;color:var(--nr-text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + title + '</span>';
       html += '<span class="chat-time" style="font-size:0.7rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">' + escapeHtml(time) + '</span>';
       html += '<button class="chat-del" onclick="event.stopPropagation();_chatListDelete(\'' + safeId + '\');" style="display:none;align-items:center;background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);flex-shrink:0;border-radius:4px;">'
-        + '<svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>'
+        + icon('close', {size: 14})
         + '</button>';
       html += '</div>';
     }
@@ -814,7 +825,7 @@ function _chatViewRenderMessages(isFinal) {
     },
     onSpeak(btn) {
       // Delegate to panel TTS if available
-      if (typeof _ttsStopAll === 'function' && (typeof _ttsAudio !== 'undefined' && _ttsAudio || (typeof _ttsChunks !== 'undefined' && _ttsChunks.length > 0))) {
+      if (typeof _ttsStopAll === 'function' && (typeof window._ttsAudio !== 'undefined' && window._ttsAudio || (typeof window._ttsChunks !== 'undefined' && window._ttsChunks.length > 0))) {
         const wasToggling = btn.classList.contains('doc-msg-speaking');
         _ttsStopAll();
         list.querySelectorAll('.doc-msg-speak-btn').forEach(b => b.classList.remove('doc-msg-speaking'));
@@ -849,13 +860,13 @@ async function _chatViewSend(text) {
 
   // Collect pending attachments
   const sendOpts = {};
-  if (typeof _pendingScreenshots !== 'undefined' && _pendingScreenshots.length) {
-    sendOpts.images = _pendingScreenshots.slice();
-    _pendingScreenshots.length = 0;
+  if (typeof window._pendingScreenshots !== 'undefined' && window._pendingScreenshots.length) {
+    sendOpts.images = window._pendingScreenshots.slice();
+    window._pendingScreenshots.length = 0;
   }
-  if (typeof _pendingTabContexts !== 'undefined' && _pendingTabContexts.length) {
-    sendOpts.tabContexts = _pendingTabContexts.slice();
-    _pendingTabContexts.length = 0;
+  if (typeof window._pendingTabContexts !== 'undefined' && window._pendingTabContexts.length) {
+    sendOpts.tabContexts = window._pendingTabContexts.slice();
+    window._pendingTabContexts.length = 0;
   }
   // Clear attachment strip UI
   if (_chatViewCmdPopup) {
@@ -997,9 +1008,3 @@ function _chatViewBranchNav(msg, msgIdx) {
   return `<div class="chat-branch-nav">${leftBtn}<span class="chat-branch-count">${currentIdx + 1}/${total}</span>${rightBtn}</div>`;
 }
 
-window.openChatPage = openChatPage;
-window.chatViewNewThread = chatViewNewThread;
-window.chatViewUnmorph = chatViewUnmorph;
-window.chatViewCleanupMorph = chatViewCleanupMorph;
-window._chatListDelete = _chatListDelete;
-window._chatListNewChat = _chatListNewChat;

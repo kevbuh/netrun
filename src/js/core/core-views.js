@@ -1,5 +1,18 @@
 // core-views.js — View management, feed catalog, window manager
 // Extracted from core.js
+import { api } from '/js/api.js';
+import { hidePanel } from '/js/core/core-nav.js';
+import { _invalidateBoundsCache, setSidebarActive, setSidebarLoading } from '/js/core/core-layout.js';
+import { _browseRemoveKeyGuard } from '/js/browse/browse-features.js';
+import { _browseResetAdaptiveColor } from '/js/browse-urlbar.js';
+import { _devFpsRaf, renderDashboard, renderDevPanel } from '/js/dashboard.js';
+import { _refreshTimer, getCustomFeeds, hiddenSourceFilters, loadAllFeeds, renderSourceBubbles } from '/js/feed.js';
+import { _setPillBrowseMode } from '/js/browse/browse-pill.js';
+import { _spinnerPreviewInterval } from '/js/settings/settings-colors.js';
+import { browseNewTab, openBrowse } from '/js/browse/browse-windows.js';
+import { browseSelectTab } from '/js/browse/browse-passwords.js';
+import { openNeuralook } from '/js/neuralook.js';
+import { openSettings } from '/js/settings/settings-core.js';
 
 // ── View management ──
 
@@ -237,9 +250,9 @@ function _isSubstackSource(source) {
 export function getSourceChip(source, arxivId) {
   const isSubstack = _isSubstackSource(source);
   const logo = SOURCE_LOGO_INLINE[source]
-    || (isSubstack ? SUBSTACK_LOGO_INLINE : '')
-    || (source?.startsWith('custom:') ? RSS_LOGO_INLINE : '')
-    || (arxivId ? ARXIV_LOGO_INLINE : '');
+    || (isSubstack ? window.SUBSTACK_LOGO_INLINE : '')
+    || (source?.startsWith('custom:') ? window.RSS_LOGO_INLINE : '')
+    || (arxivId ? window.ARXIV_LOGO_INLINE : '');
   if (!logo) return '';
   const name = SOURCE_NAMES[source]
     || (source?.startsWith('custom:') ? source.slice(7) : '')
@@ -324,7 +337,7 @@ export function hideAllViews() {
 // Capture a preview screenshot of the current view (below the pill bar)
 async function _wmCapturePreview() {
   if (!window.electronAPI?.captureScreen) return;
-  const key = _wmWindows[_wmFocusIndex]?.key;
+  const key = _wmWindows[window._wmFocusIndex]?.key;
   if (!key) return;
   try {
     const pill = document.getElementById('sidebar-nav');
@@ -332,7 +345,7 @@ async function _wmCapturePreview() {
     const base64 = await window.electronAPI.captureScreen({
       x: 0, y: top, width: window.innerWidth, height: window.innerHeight - top
     });
-    if (base64) _wmPreviews[key] = 'data:image/png;base64,' + base64;
+    if (base64) window._wmPreviews[key] = 'data:image/png;base64,' + base64;
   } catch (e) { /* ignore capture failures */ }
 }
 
@@ -348,7 +361,7 @@ const _wmViewMeta = {
 };
 
 // Pre-populate all views (pill bar order)
-const _wmWindows = _wmDefaultOrder.map(key => ({
+const _wmWindows = window._wmDefaultOrder.map(key => ({
   key,
   label: _wmViewMeta[key].label,
   sidebarId: _wmViewMeta[key].sidebarId,
@@ -358,9 +371,9 @@ export function wmOpen(key) {
   const meta = _wmViewMeta[key];
   if (!meta) return;
   const existIdx = _wmWindows.findIndex(w => w.key === key);
-  if (existIdx >= 0 && existIdx === _wmFocusIndex && _wmMode === 'fullscreen') {
+  if (existIdx >= 0 && existIdx === window._wmFocusIndex && window._wmMode === 'fullscreen') {
     // Skip if this is a re-entrant call from the hash router after a recent navigation
-    if (Date.now() - _wmLastNavTime < 500) return;
+    if (Date.now() - window._wmLastNavTime < 500) return;
     // Already on browse NTP — toggle the nowplaying context pill tray
     if (key === 'browse') {
       const activeTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
@@ -380,20 +393,20 @@ export function wmOpen(key) {
   }
   _wmCapturePreview();
   if (existIdx >= 0) {
-    _wmFocusIndex = existIdx;
+    window._wmFocusIndex = existIdx;
   } else {
     _wmWindows.push({ key, label: meta.label, sidebarId: meta.sidebarId });
-    _wmFocusIndex = _wmWindows.length - 1;
+    window._wmFocusIndex = _wmWindows.length - 1;
   }
-  _wmLastNavTime = Date.now();
+  window._wmLastNavTime = Date.now();
   _invalidateBoundsCache(); // view switch may show/hide tab bars
-  _wmActivateWindow(_wmFocusIndex);
+  _wmActivateWindow(window._wmFocusIndex);
 }
 
 function _wmActivateWindow(index) {
   if (index < 0 || index >= _wmWindows.length) return;
-  _wmFocusIndex = index;
-  _wmMode = 'fullscreen';
+  window._wmFocusIndex = index;
+  window._wmMode = 'fullscreen';
   const w = _wmWindows[index];
   const meta = _wmViewMeta[w.key];
   if (meta) meta.openFn();
@@ -511,7 +524,7 @@ export function goHome() {
 export async function openResearch() {
   // Open browse and ensure a blank tab is active
   openBrowse();
-  const win = typeof _getCurrentWindow === 'function' ? _getCurrentWindow() : null;
+  const win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
   if (win) {
     const blank = win.tabs.find(t => t.blank);
     if (blank) {
@@ -549,23 +562,10 @@ export async function openDevStats() {
   renderDevPanel();
 }
 
-// ── Window assignments for backward compatibility ──
-window.FEED_CATALOG = FEED_CATALOG;
-window.catalogLogo = catalogLogo;
-window.SOURCE_LOGO_INLINE = SOURCE_LOGO_INLINE;
-window.SOURCE_NAMES = SOURCE_NAMES;
-window.FEED_CAT_MAP = FEED_CAT_MAP;
-window.getSourceChip = getSourceChip;
-window.VIEW_REGISTRY = VIEW_REGISTRY;
-window.ensureView = ensureView;
-window.unmountView = unmountView;
-window.hideAllViews = hideAllViews;
-window.wmOpen = wmOpen;
-window.goHome = goHome;
-window.openResearch = openResearch;
-window.openSearch = openSearch;
-window.openDashboard = openDashboard;
-window.openDevStats = openDevStats;
-window._wmToggleTiling = _wmToggleTiling;
+// ── Action registry ──
+registerActions({
+  wmOpen: (_e, arg) => wmOpen(arg),
+});
+
 
 // ── Navigation history stack (survives Cmd+Shift+R via localStorage) ──

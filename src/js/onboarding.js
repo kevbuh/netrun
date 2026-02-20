@@ -2,6 +2,12 @@
 // Steps: 0=Welcome, 1=Username, 2=Accent Color, 3=Theme, 4=Tab Layout, 5=Feed Selection, 6=Chat Model, 7=Pixel Pet, 8=Neuralook, 9=Finale
 
 import Settings from '/js/core/core-settings.js';
+import { apiPost, apiGet } from '/js/api.js';
+import { escapeHtml, fmtNum } from '/js/core/core-utils.js';
+import { icon } from '/js/core/icons.js';
+import { FEED_CATALOG } from '/js/core/core-views.js';
+import { applyAccentColor, setAccentColor } from '/js/settings/settings-colors.js';
+import { setTheme } from '/js/settings/settings-theme.js';
 
 // Auth guard: no token → redirect to login
 (function() {
@@ -9,8 +15,6 @@ import Settings from '/js/core/core-settings.js';
     window.location.href = '/login.html';
   }
 })();
-
-if (window.AetherUI) AetherUI.globals();
 
 let _wizardStep = 0;
 const _wizardTotalSteps = 10;
@@ -85,9 +89,9 @@ function _wizardAnimateHeight(wizard, step) {
 function _wizardBackView(stepIndex) {
   if (stepIndex === 0) return null;
   const prevStep = stepIndex - 1;
-  const btn = new View('button').className('wizard-back');
+  const btn = new window.View('button').className('wizard-back');
   btn.el.title = 'Back';
-  btn.el.appendChild(RawHTML('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>').build());
+  btn.el.appendChild(window.RawHTML(icon('chevronLeft', {strokeWidth: '2'})).build());
   btn.onTap(function() { _renderWizardStep(prevStep, 'back'); });
   return btn;
 }
@@ -96,9 +100,9 @@ function _wizardDotsView(stepIndex) {
   const dots = [];
   for (let i = 0; i < _wizardTotalSteps; i++) {
     const cls = i === stepIndex ? 'active' : i < stepIndex ? 'completed' : '';
-    dots.push(new View('div').className('wizard-dot ' + cls));
+    dots.push(new window.View('div').className('wizard-dot ' + cls));
   }
-  return HStack(dots).className('wizard-dots');
+  return window.HStack(dots).className('wizard-dots');
 }
 
 function _renderWizardStep(stepIndex, direction) {
@@ -116,7 +120,7 @@ function _renderWizardStep(stepIndex, direction) {
   setTimeout(function() {
     _wizardStep = stepIndex;
 
-    const contentView = Switch(stepIndex, {
+    const contentView = window.Switch(stepIndex, {
       0: function() { return _wizardWelcomeView(); },
       1: function() { return _wizardUsernameView(); },
       2: function() { return _wizardAccentView(); },
@@ -129,7 +133,7 @@ function _renderWizardStep(stepIndex, direction) {
       9: function() { return _wizardFinaleView(); },
     });
 
-    const stepView = new View('div').className('wizard-step');
+    const stepView = new window.View('div').className('wizard-step');
     stepView.styles({ position: 'relative' });
     const step = stepView.el;
     const backView = _wizardBackView(stepIndex);
@@ -157,26 +161,26 @@ function _renderWizardStep(stepIndex, direction) {
 // ── Step 0: Welcome ──
 
 function _wizardWelcomeView() {
-  const name = (_authUserInfo && (_authUserInfo.name || '')) || _authUser || '';
+  const name = (window._authUserInfo && (window._authUserInfo.name || '')) || _authUser || '';
   const firstName = name.split(' ')[0] || 'there';
-  const pic = _authUserInfo && _authUserInfo.picture;
+  const pic = window._authUserInfo && window._authUserInfo.picture;
   let avatarView;
   if (pic) {
-    const img = new View('img').className('wizard-welcome-avatar');
+    const img = new window.View('img').className('wizard-welcome-avatar');
     img.el.src = pic;
     img.el.referrerPolicy = 'no-referrer';
     avatarView = img;
   } else {
-    avatarView = new View('div').className('wizard-welcome-letter');
+    avatarView = new window.View('div').className('wizard-welcome-letter');
     avatarView.el.textContent = firstName[0].toUpperCase();
   }
-  const continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Get started';
   continueBtn.onTap(function() { _renderWizardStep(1, 'forward'); });
-  return VStack(
+  return window.VStack(
     avatarView,
-    Text('Welcome, ' + firstName).styles({fontSize:'22px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'6px'}),
-    Text("Let's get your workspace set up. This only takes a moment.").styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'24px'}),
+    window.Text('Welcome, ' + firstName).styles({fontSize:'22px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'6px'}),
+    window.Text("Let's get your workspace set up. This only takes a moment.").styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'24px'}),
     continueBtn
   ).textAlign('center');
 }
@@ -184,21 +188,21 @@ function _wizardWelcomeView() {
 // ── Step 1: Username ──
 
 function _wizardUsernameView() {
-  const input = new View('input').id('wiz-username');
+  const input = new window.View('input').id('wiz-username');
   input.el.type = 'text';
   input.el.maxLength = 20;
   input.el.placeholder = 'username';
   input.cssText('width:100%;box-sizing:border-box;padding:10px 14px;font-size:15px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--nr-text-primary,#e0e0e0);outline:none;text-align:center;');
-  const submitBtn = new View('button').id('wiz-username-btn').className('nr-btn nr-btn-primary nr-btn-lg').styles({marginTop:'4px'});
+  const submitBtn = new window.View('button').id('wiz-username-btn').className('nr-btn nr-btn-primary nr-btn-lg').styles({marginTop:'4px'});
   submitBtn.el.textContent = 'Continue';
   submitBtn.el.disabled = true;
   submitBtn.onTap(function() { _wizardSubmitUsername(); });
-  return VStack(
-    Text('Choose a username').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
-    Text('This will be your public identity.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
+  return window.VStack(
+    window.Text('Choose a username').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    window.Text('This will be your public identity.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
     input,
-    Text('2-20 characters: letters, numbers, hyphens, underscores').id('wiz-username-hint').styles({fontSize:'11px', color:'var(--nr-text-secondary,#999)', marginTop:'6px'}),
-    new View('div').id('wiz-username-error').styles({fontSize:'12px', color:'#e74c3c', marginTop:'6px', minHeight:'18px'}),
+    window.Text('2-20 characters: letters, numbers, hyphens, underscores').id('wiz-username-hint').styles({fontSize:'11px', color:'var(--nr-text-secondary,#999)', marginTop:'6px'}),
+    new window.View('div').id('wiz-username-error').styles({fontSize:'12px', color:'#e74c3c', marginTop:'6px', minHeight:'18px'}),
     submitBtn
   ).textAlign('center');
 }
@@ -241,8 +245,8 @@ async function _wizardCommitAccount() {
   if (!_wizardPendingUsername) return;
   try {
     const data = await apiPost('/api/auth/username', { username: _wizardPendingUsername });
-    _authUserInfo.username = data.username;
-    localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
+    window._authUserInfo.username = data.username;
+    localStorage.setItem('authUserInfo', JSON.stringify(window._authUserInfo));
   } catch (e) {
     console.warn('[wizard] username commit failed:', e.message);
   }
@@ -255,21 +259,21 @@ function _wizardAccentView() {
   const current = Settings.get('accentColor') || '#b4451a';
   const currentName = (_wizardAccentColors.find(function(c) { return c.color === current; }) || { name: 'Orange' }).name;
   const swatches = _wizardAccentColors.map(function(a) {
-    const btn = new View('button').className('onboard-swatch' + (a.color === current ? ' selected' : ''));
+    const btn = new window.View('button').className('onboard-swatch' + (a.color === current ? ' selected' : ''));
     btn.styles({ background: a.color });
     btn.el.dataset.color = a.color;
     btn.el.dataset.name = a.name;
     btn.onTap(function() { _wizardPickAccent(a.color, btn.el); });
     return btn;
   });
-  const continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _wizardAccentContinue(); });
-  return VStack(
-    Text('Pick your color').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
-    Text('You can change this anytime in settings.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
-    HStack(swatches).className('flex flex-wrap justify-center gap-3 mb-3.5'),
-    Text(currentName).id('wiz-color-name').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'16px'}),
+  return window.VStack(
+    window.Text('Pick your color').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    window.Text('You can change this anytime in settings.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
+    window.HStack(swatches).className('flex flex-wrap justify-center gap-3 mb-3.5'),
+    window.Text(currentName).id('wiz-color-name').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'16px'}),
     continueBtn
   ).textAlign('center');
 }
@@ -313,22 +317,22 @@ function _wizardThemePreviewHTML(t) {
 function _wizardThemeView() {
   const current = Settings.get('theme') || 'clear';
   const options = _wizardThemes.map(function(t) {
-    const btn = new View('button').className('wizard-theme-option' + (t.id === current ? ' selected' : ''));
+    const btn = new window.View('button').className('wizard-theme-option' + (t.id === current ? ' selected' : ''));
     btn.el.dataset.theme = t.id;
-    btn.el.appendChild(RawHTML(_wizardThemePreviewHTML(t)).build());
-    const labelWrap = new View('div').flex(1).textAlign('left').styles({marginLeft:'12px'});
-    labelWrap.el.appendChild(RawHTML('<span class="wizard-theme-name">' + t.name + '</span><br/><span class="wizard-theme-desc">' + t.desc + '</span>').build());
+    btn.el.appendChild(window.RawHTML(_wizardThemePreviewHTML(t)).build());
+    const labelWrap = new window.View('div').flex(1).textAlign('left').styles({marginLeft:'12px'});
+    labelWrap.el.appendChild(window.RawHTML('<span class="wizard-theme-name">' + t.name + '</span><br/><span class="wizard-theme-desc">' + t.desc + '</span>').build());
     btn.el.appendChild(labelWrap.el);
     btn.onTap(function() { _wizardPickTheme(t.id, btn.el); });
     return btn;
   });
-  const continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _wizardThemeContinue(); });
-  return VStack(
-    Text('Choose a theme').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
-    Text('Sets the overall look and feel.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
-    VStack(options).spacing(2).styles({marginBottom:'20px'}),
+  return window.VStack(
+    window.Text('Choose a theme').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    window.Text('Sets the overall look and feel.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
+    window.VStack(options).spacing(2).styles({marginBottom:'20px'}),
     continueBtn
   ).textAlign('center');
 }
@@ -363,11 +367,11 @@ function _wizardThemeContinue() {
 function _wizardTabLayoutView() {
   const current = Settings.get('browseTabLayout') || 'island';
   function _layoutOption(layout, name, desc, previewHTML, selected) {
-    const btn = new View('button').className('wizard-tab-layout-option' + (selected ? ' selected' : ''));
+    const btn = new window.View('button').className('wizard-tab-layout-option' + (selected ? ' selected' : ''));
     btn.el.dataset.layout = layout;
-    btn.el.appendChild(RawHTML('<div class="wizard-tab-layout-preview">' + previewHTML + '</div>').build());
-    btn.el.appendChild(RawHTML('<span class="wizard-tab-layout-name">' + name + '</span>').build());
-    btn.el.appendChild(RawHTML('<span class="wizard-tab-layout-desc">' + desc + '</span>').build());
+    btn.el.appendChild(window.RawHTML('<div class="wizard-tab-layout-preview">' + previewHTML + '</div>').build());
+    btn.el.appendChild(window.RawHTML('<span class="wizard-tab-layout-name">' + name + '</span>').build());
+    btn.el.appendChild(window.RawHTML('<span class="wizard-tab-layout-desc">' + desc + '</span>').build());
     btn.onTap(function() { _wizardPickTabLayout(layout, btn.el); });
     return btn;
   }
@@ -386,13 +390,13 @@ function _wizardTabLayoutView() {
     '</div>' +
     '<div style="height:5px;background:var(--nr-text-secondary,#999);opacity:0.15;margin:0 4px;border-radius:2px;"></div>' +
     '<div style="flex:1;"></div></div>';
-  const continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _renderWizardStep(5, 'forward'); });
-  return VStack(
-    Text('Browser tab style').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
-    Text('How should your browser tabs look?').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
-    HStack(
+  return window.VStack(
+    window.Text('Browser tab style').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    window.Text('How should your browser tabs look?').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
+    window.HStack(
       _layoutOption('island', 'Island', 'Sidebar tabs', islandPreview, current === 'island'),
       _layoutOption('horizontal', 'Horizontal', 'Top tab bar', horizPreview, current === 'horizontal')
     ).spacing(3).className('justify-center mb-5'),
@@ -415,14 +419,14 @@ const _wizardFeedSelected = new Set();
 let _wizardFeedCategory = null;
 
 function _wizardFeedsView() {
-  const continueBtn = new View('button').id('wiz-feed-continue').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new window.View('button').id('wiz-feed-continue').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _renderWizardStep(6, 'forward'); });
-  return VStack(
-    Text('Choose your feeds').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
-    Text('Pick RSS feeds to follow. You can change these later.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'16px'}),
-    new View('div').id('wiz-feed-tabs').className('flex flex-wrap gap-1.5 justify-center mb-3'),
-    new View('div').id('wiz-feed-grid').styles({maxHeight:'280px', overflowY:'auto', textAlign:'left', marginBottom:'16px'}),
+  return window.VStack(
+    window.Text('Choose your feeds').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    window.Text('Pick RSS feeds to follow. You can change these later.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'16px'}),
+    new window.View('div').id('wiz-feed-tabs').className('flex flex-wrap gap-1.5 justify-center mb-3'),
+    new window.View('div').id('wiz-feed-grid').styles({maxHeight:'280px', overflowY:'auto', textAlign:'left', marginBottom:'16px'}),
     continueBtn
   ).textAlign('center');
 }
@@ -441,17 +445,17 @@ function _wizardFeedRenderTabs() {
   const cats = [];
   FEED_CATALOG.forEach(function(f) { if (cats.indexOf(f.cat) === -1) cats.push(f.cat); });
   const tabs = [];
-  const allTab = new View('button').className('wizard-feed-tab' + (_wizardFeedCategory === null ? ' active' : ''));
+  const allTab = new window.View('button').className('wizard-feed-tab' + (_wizardFeedCategory === null ? ' active' : ''));
   allTab.el.textContent = 'All';
   allTab.onTap(function() { _wizardFeedSelectCategory(null); });
   tabs.push(allTab);
   cats.forEach(function(cat) {
-    const tab = new View('button').className('wizard-feed-tab' + (_wizardFeedCategory === cat ? ' active' : ''));
+    const tab = new window.View('button').className('wizard-feed-tab' + (_wizardFeedCategory === cat ? ' active' : ''));
     tab.el.textContent = cat;
     tab.onTap(function() { _wizardFeedSelectCategory(cat); });
     tabs.push(tab);
   });
-  AetherUI.mount(HStack(tabs).className('flex flex-wrap gap-1.5 justify-center'), tabsContainer);
+  AetherUI.mount(window.HStack(tabs).className('flex flex-wrap gap-1.5 justify-center'), tabsContainer);
 }
 
 function _wizardFeedSelectCategory(cat) {
@@ -480,29 +484,29 @@ function _wizardFeedRenderGrid() {
     const allOn = items.every(function(f) { return _wizardFeedSelected.has(f.key); });
 
     // Category header
-    const catLabel = Text(cat).styles({fontSize:'0.72rem', color:'var(--nr-text-secondary,#999)', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:'500'});
-    const sep = new View('span').flex(1).styles({height:'1px', background:'rgba(255,255,255,0.06)'});
-    var toggleAllBtn = new View('button').styles({fontSize:'0.68rem', color:'var(--nr-text-secondary,#777)', background:'none', border:'none'}).cursor();
+    const catLabel = window.Text(cat).styles({fontSize:'0.72rem', color:'var(--nr-text-secondary,#999)', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:'500'});
+    const sep = new window.View('span').flex(1).styles({height:'1px', background:'rgba(255,255,255,0.06)'});
+    var toggleAllBtn = new window.View('button').styles({fontSize:'0.68rem', color:'var(--nr-text-secondary,#777)', background:'none', border:'none'}).cursor();
     toggleAllBtn.el.textContent = allOn ? 'Deselect all' : 'Select all';
     (function(c) { toggleAllBtn.onTap(function() { _wizardFeedToggleCategory(c); }); })(cat);
-    const header = HStack(catLabel, sep, toggleAllBtn).spacing(2).className('items-center').styles({padding:'0 4px', marginBottom:'4px'});
+    const header = window.HStack(catLabel, sep, toggleAllBtn).spacing(2).className('items-center').styles({padding:'0 4px', marginBottom:'4px'});
 
     // Feed items
     const feedRows = items.map(function(f) {
       const sel = _wizardFeedSelected.has(f.key);
       let faviconView;
       if (f.favicon) {
-        faviconView = RawHTML('<img src="https://www.google.com/s2/favicons?domain=' + f.favicon + '&sz=32" style="width:20px;height:20px;border-radius:4px;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><span style="display:none;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>');
+        faviconView = window.RawHTML('<img src="https://www.google.com/s2/favicons?domain=' + f.favicon + '&sz=32" style="width:20px;height:20px;border-radius:4px;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><span style="display:none;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>');
       } else {
-        faviconView = RawHTML('<span style="display:flex;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>');
+        faviconView = window.RawHTML('<span style="display:flex;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>');
       }
-      const nameView = Text(f.name).styles({fontSize:'0.82rem', fontWeight:'500', color: sel ? 'var(--nr-text-primary,#e0e0e0)' : 'var(--nr-text-secondary,#999)'}).truncate();
-      const descView = Text(f.desc).styles({fontSize:'0.7rem', color:'var(--nr-text-secondary,#777)'}).truncate();
-      const textCol = VStack(nameView, descView).flex(1).styles({minWidth:'0'});
-      const checkSvg = sel ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : '';
-      const checkCircle = new View('div').styles({width:'20px', height:'20px', borderRadius:'50%', border:'2px solid ' + (sel ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.15)'), background: sel ? 'var(--accent,#b4451a)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:'0', transition:'all 0.15s'});
-      if (checkSvg) checkCircle.el.appendChild(RawHTML(checkSvg).build());
-      const row = HStack(faviconView, textCol, checkCircle).spacing(2.5).styles({padding:'6px 10px', borderRadius:'8px', transition:'background 0.15s', background: sel ? 'rgba(255,255,255,0.04)' : 'transparent'}).cursor();
+      const nameView = window.Text(f.name).styles({fontSize:'0.82rem', fontWeight:'500', color: sel ? 'var(--nr-text-primary,#e0e0e0)' : 'var(--nr-text-secondary,#999)'}).truncate();
+      const descView = window.Text(f.desc).styles({fontSize:'0.7rem', color:'var(--nr-text-secondary,#777)'}).truncate();
+      const textCol = window.VStack(nameView, descView).flex(1).styles({minWidth:'0'});
+      const checkSvg = sel ? icon('check', {size: 12, stroke: '#fff', strokeWidth: '3'}) : '';
+      const checkCircle = new window.View('div').styles({width:'20px', height:'20px', borderRadius:'50%', border:'2px solid ' + (sel ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.15)'), background: sel ? 'var(--accent,#b4451a)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:'0', transition:'all 0.15s'});
+      if (checkSvg) checkCircle.el.appendChild(window.RawHTML(checkSvg).build());
+      const row = window.HStack(faviconView, textCol, checkCircle).spacing(2.5).styles({padding:'6px 10px', borderRadius:'8px', transition:'background 0.15s', background: sel ? 'rgba(255,255,255,0.04)' : 'transparent'}).cursor();
       (function(key, isSel) {
         row.el.addEventListener('click', function() { _wizardFeedToggle(key); });
         row.el.addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.06)'; });
@@ -511,9 +515,9 @@ function _wizardFeedRenderGrid() {
       return row;
     });
 
-    sections.push(VStack([header].concat(feedRows)).styles({marginBottom:'12px'}));
+    sections.push(window.VStack([header].concat(feedRows)).styles({marginBottom:'12px'}));
   }
-  AetherUI.mount(VStack(sections), grid);
+  AetherUI.mount(window.VStack(sections), grid);
 
   const btn = document.getElementById('wiz-feed-continue');
   if (btn) btn.disabled = _wizardFeedSelected.size === 0;
@@ -538,13 +542,13 @@ function _wizardFeedToggleCategory(cat) {
 // ── Step 6: Chat Model ──
 
 function _wizardChatModelView() {
-  const continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _renderWizardStep(7, 'forward'); });
-  return VStack(
-    Text('Choose a model').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
-    Text('Pick the default Ollama model for chat and tools.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
-    new View('div').id('wiz-model-list').className('flex flex-col gap-1.5 mb-5').styles({maxHeight:'200px', overflowY:'auto'}),
+  return window.VStack(
+    window.Text('Choose a model').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    window.Text('Pick the default Ollama model for chat and tools.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
+    new window.View('div').id('wiz-model-list').className('flex flex-col gap-1.5 mb-5').styles({maxHeight:'200px', overflowY:'auto'}),
     continueBtn
   ).textAlign('center');
 }
@@ -561,20 +565,20 @@ async function _wizardChatModelInit() {
   if (!container) return;
 
   if (!_wizardModelList.length) {
-    AetherUI.mount(Text('No models found. Make sure Ollama is running.').styles({fontSize:'12px', color:'var(--nr-text-secondary,#999)', padding:'16px 0'}), container);
+    AetherUI.mount(window.Text('No models found. Make sure Ollama is running.').styles({fontSize:'12px', color:'var(--nr-text-secondary,#999)', padding:'16px 0'}), container);
     return;
   }
 
   const current = Settings.get('chatModel') || 'qwen2.5:3b';
   const btns = _wizardModelList.map(function(m) {
-    const btn = new View('button').className('wizard-model-option' + (m === current ? ' selected' : ''));
+    const btn = new window.View('button').className('wizard-model-option' + (m === current ? ' selected' : ''));
     btn.el.textContent = m;
     (function(model) {
       btn.onTap(function() { _wizardPickModel(model, btn.el); });
     })(m);
     return btn;
   });
-  AetherUI.mount(VStack(btns).spacing(1.5), container);
+  AetherUI.mount(window.VStack(btns).spacing(1.5), container);
 }
 
 function _wizardPickModel(model, el) {
@@ -593,30 +597,30 @@ function _wizardPixelPetView() {
   const currentType = Settings.get('pixelPetType') || 'cat';
   const petBtns = _wizardPetTypes.map(function(p) {
     const sel = petOn && currentType === p.id;
-    const btn = new View('button').className('wizard-pet-option' + (sel ? ' selected' : '')).styles({display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', padding:'10px 12px'});
+    const btn = new window.View('button').className('wizard-pet-option' + (sel ? ' selected' : '')).styles({display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', padding:'10px 12px'});
     btn.el.dataset.pet = p.id;
-    btn.el.appendChild(RawHTML('<canvas class="wiz-pet-sprite" data-pet-id="' + p.id + '" width="48" height="48" style="image-rendering:pixelated;width:48px;height:48px;"></canvas>').build());
-    btn.el.appendChild(Text(p.name).styles({fontSize:'11px'}).build());
+    btn.el.appendChild(window.RawHTML('<canvas class="wiz-pet-sprite" data-pet-id="' + p.id + '" width="48" height="48" style="image-rendering:pixelated;width:48px;height:48px;"></canvas>').build());
+    btn.el.appendChild(window.Text(p.name).styles({fontSize:'11px'}).build());
     (function(petId) {
       btn.onTap(function() { _wizardPickPet(petId, btn.el); });
     })(p.id);
     return btn;
   });
   // "None" option
-  const noneBtn = new View('button').className('wizard-pet-option' + (!petOn ? ' selected' : '')).styles({display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', padding:'10px 12px'});
+  const noneBtn = new window.View('button').className('wizard-pet-option' + (!petOn ? ' selected' : '')).styles({display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', padding:'10px 12px'});
   noneBtn.el.dataset.pet = 'none';
-  noneBtn.el.appendChild(RawHTML('<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--nr-text-secondary,#999)" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>').build());
-  noneBtn.el.appendChild(Text('None').styles({fontSize:'11px'}).build());
+  noneBtn.el.appendChild(window.RawHTML('<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;">' + icon('close', {size: 24, stroke: 'var(--nr-text-secondary,#999)'}) + '</div>').build());
+  noneBtn.el.appendChild(window.Text('None').styles({fontSize:'11px'}).build());
   noneBtn.onTap(function() { _wizardPickPet('none', noneBtn.el); });
   petBtns.push(noneBtn);
 
-  const continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _renderWizardStep(8, 'forward'); });
-  return VStack(
-    Text('Pick a companion').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
-    Text('A pixel pet that lives on your screen. Or go solo.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
-    HStack(petBtns).className('flex flex-wrap justify-center gap-2.5 mb-5'),
+  return window.VStack(
+    window.Text('Pick a companion').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    window.Text('A pixel pet that lives on your screen. Or go solo.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
+    window.HStack(petBtns).className('flex flex-wrap justify-center gap-2.5 mb-5'),
     continueBtn
   ).textAlign('center');
 }
@@ -760,16 +764,16 @@ function _wizardPetSprites() {
 // ── Step 8: Neuralook (optional) ──
 
 function _wizardNeuralookView() {
-  const calibrateBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const calibrateBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   calibrateBtn.el.textContent = 'Calibrate now';
   calibrateBtn.onTap(function() { _wizardStartNeuralook(); });
-  const skipBtn = new View('button').className('nr-btn nr-btn-ghost');
+  const skipBtn = new window.View('button').className('nr-btn nr-btn-ghost');
   skipBtn.el.textContent = 'Set up later';
   skipBtn.onTap(function() { _renderWizardStep(9, 'forward'); });
-  return VStack(
-    Text('Eye tracking').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
-    Text('Neuralook uses your camera for gaze-based navigation. A quick calibration is needed.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
-    RawHTML('<div style="margin-bottom:24px;"><svg style="width:48px;height:48px;display:inline-block;" viewBox="0 0 24 24" fill="none" stroke="var(--nr-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>'),
+  return window.VStack(
+    window.Text('Eye tracking').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    window.Text('Neuralook uses your camera for gaze-based navigation. A quick calibration is needed.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
+    window.RawHTML('<div style="margin-bottom:24px;">' + icon('eye', {size: 48, stroke: 'var(--nr-accent)', strokeWidth: '1.5'}) + '</div>'),
     calibrateBtn,
     skipBtn
   ).textAlign('center');
@@ -793,14 +797,14 @@ async function _wizardStartNeuralook() {
 // ── Step 9: Finale ──
 
 function _wizardFinaleView() {
-  const username = _wizardPendingUsername || (_authUserInfo && _authUserInfo.username) || 'you';
-  const enterBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const username = _wizardPendingUsername || (window._authUserInfo && window._authUserInfo.username) || 'you';
+  const enterBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   enterBtn.el.textContent = 'Enter the Net';
   enterBtn.onTap(function() { _wizardFinish(); });
-  return VStack(
-    RawHTML('<div class="wizard-finale-check"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>'),
-    Text("You're all set, @" + username).styles({fontSize:'22px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'6px'}),
-    Text('Neural link established. Jack in.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'24px'}),
+  return window.VStack(
+    window.RawHTML('<div class="wizard-finale-check">' + icon('check', {size: 28, stroke: '#fff', strokeWidth: '2.5'}) + '</div>'),
+    window.Text("You're all set, @" + username).styles({fontSize:'22px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'6px'}),
+    window.Text('Neural link established. Jack in.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'24px'}),
     enterBtn
   ).textAlign('center');
 }
