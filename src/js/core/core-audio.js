@@ -32,12 +32,12 @@ export function _ttsCycleSpeed() {
 }
 
 export function _updateAudioUnified(source, data) {
-  _audioUnifiedState.value = { ..._audioUnifiedState.value, [source]: data };
+  _audioUnifiedState.set(source, data);
   _renderAudioPill();
 }
 
 export function _clearAudioUnified(source) {
-  _audioUnifiedState.value = { ..._audioUnifiedState.value, [source]: null };
+  _audioUnifiedState.set(source, null);
   _renderAudioPill();
 }
 
@@ -57,19 +57,15 @@ export function _renderAudioPill() {
     el.appendChild(indicator);
   }
 
-  if (micRecording) {
-    AetherUI.mount(RawHTML(icon('microphone', { size: 14, stroke: '#ef4444' })), indicator);
-    indicator.classList.add('audio-pill-active', 'nr-breathe');
-    indicator.classList.remove('audio-pill-idle');
-  } else if (active) {
-    AetherUI.mount(RawHTML(_islandAudioBars), indicator);
-    indicator.classList.add('audio-pill-active');
-    indicator.classList.remove('audio-pill-idle', 'nr-breathe');
-  } else {
-    AetherUI.mount(new View('span').className('audio-pill-dot'), indicator);
-    indicator.classList.remove('audio-pill-active', 'nr-breathe');
-    indicator.classList.add('audio-pill-idle');
-  }
+  var audioMode = micRecording ? 'mic' : active ? 'active' : 'idle';
+  AetherUI.mount(Switch(audioMode, {
+    mic: function() { return RawHTML(icon('microphone', { size: 14, stroke: '#ef4444' })); },
+    active: function() { return RawHTML(_islandAudioBars); },
+    idle: function() { return new View('span').className('audio-pill-dot'); },
+  }), indicator);
+  indicator.classList.toggle('audio-pill-active', audioMode !== 'idle');
+  indicator.classList.toggle('audio-pill-idle', audioMode === 'idle');
+  indicator.classList.toggle('nr-breathe', audioMode === 'mic');
 
   // Build dropdown
   let dropdown = el.querySelector('.audio-pill-dropdown');

@@ -314,11 +314,7 @@ function Textarea(binding, placeholder) {
     v.el.style.overflow = 'hidden';
     v.el.style.resize = 'none';
     // Resize on appear
-    var origAppear = v._onAppearFn;
-    v._onAppearFn = function() {
-      if (origAppear) origAppear();
-      resize();
-    };
+    v._onAppearFns.push(resize);
     return v;
   };
 
@@ -439,6 +435,8 @@ function TabView(binding, tabs) {
   v._viewType = 'TabView';
   v.el.className = 'nr-tab-view';
   var _segmented = false;
+  var _cache = {};       // index → { view, el }
+  var _activeIndex = -1;
 
   var bar = document.createElement('div');
   bar.className = 'nr-tab-bar';
@@ -448,26 +446,53 @@ function TabView(binding, tabs) {
   v.el.appendChild(content);
 
   function render(index) {
+    if (index === _activeIndex) return;
+
     // Update buttons
     var btns = bar.querySelectorAll('.nr-tab-btn');
     for (var i = 0; i < btns.length; i++) {
       btns[i].classList.toggle('nr-tab-active', i === index);
     }
-    // Update content
-    content.innerHTML = '';
+
+    // Hide current tab
+    if (_activeIndex >= 0 && _cache[_activeIndex]) {
+      _cache[_activeIndex].el.style.display = 'none';
+    }
+
+    // Show or create requested tab
     if (tabs && tabs[index] && tabs[index].content) {
-      var child = tabs[index].content();
-      if (child instanceof View) {
-        content.appendChild(child.build());
-        if (child._onAppearFn) child._onAppearFn();
-      } else if (child instanceof HTMLElement) {
-        content.appendChild(child);
+      if (_cache[index]) {
+        // Cached — just show it
+        _cache[index].el.style.display = '';
+      } else {
+        // First visit — render and cache
+        var child = tabs[index].content();
+        if (child instanceof View) {
+          var el = child.build();
+          content.appendChild(el);
+          for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
+          v._children.push(child);
+          _cache[index] = { view: child, el: el };
+        } else if (child instanceof HTMLElement) {
+          content.appendChild(child);
+          _cache[index] = { view: null, el: child };
+        }
       }
     }
+
+    _activeIndex = index;
   }
 
   function buildTabs(tabList) {
     bar.innerHTML = '';
+    // Dispose all cached tabs
+    for (var key in _cache) {
+      if (_cache[key].view && _cache[key].view.dispose) _cache[key].view.dispose();
+      if (_cache[key].el.parentNode) _cache[key].el.parentNode.removeChild(_cache[key].el);
+    }
+    _cache = {};
+    _activeIndex = -1;
+
     for (var i = 0; i < tabList.length; i++) {
       var btn = document.createElement('button');
       btn.className = 'nr-tab-btn';

@@ -42,6 +42,14 @@ export function _browseRestoreTabs() {
             win.tabs.push(tab);
             continue;
           }
+          // Chat tab — restore as special tab (content renders on select via openChatPage)
+          if (saved._chatPage) {
+            const tab = { id: saved.id, url: saved.url || ('chat://' + (saved._chatThreadId || '')), title: saved.title || 'Chat', favicon: '', el: null, blank: false, _chatPage: true, _chatThreadId: saved._chatThreadId || null, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [] };
+            if (saved.pinned) tab.pinned = true;
+            if (saved.groupId != null) tab.groupId = saved.groupId;
+            win.tabs.push(tab);
+            continue;
+          }
           // Paper tab — create container div (content renders lazily on select)
           if (saved.paper && saved.contentType) {
             const el = document.createElement('div');

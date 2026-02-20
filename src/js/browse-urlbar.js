@@ -1478,7 +1478,7 @@ export function openSearchHistoryPage() {
   const urlInput = document.getElementById('browse-url-input');
   _browseSetUrlDisplay(urlInput, 'netrun://history');
 
-  _renderWebSearchHistoryPage(el);
+  _renderWebSearchHistoryPage(tab.el);
 }
 
 export function openHelpPage() {

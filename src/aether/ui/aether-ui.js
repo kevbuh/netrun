@@ -3,7 +3,7 @@
 
 'use strict';
 
-import { State, Computed, Effect, Binding, batch, untrack, Context } from '/aether/ui/state.js';
+import { State, Computed, Effect, Binding, Store, batch, untrack, Context } from '/aether/ui/state.js';
 import { View } from '/aether/ui/view.js';
 import { VStack, HStack, ZStack, Grid, Spacer, Divider, ScrollView, Text, Label, Link, Image, Icon, RawHTML } from '/aether/ui/primitives.js';
 import { Button, TextField, Textarea, Toggle, Checkbox, RadioGroup, Slider, Picker, Stepper, TabView, ProgressBar, Pill } from '/aether/ui/controls.js';
@@ -26,7 +26,7 @@ function mount(view, target) {
   container.innerHTML = '';
   if (view instanceof View) {
     container.appendChild(view.build());
-    if (view._onAppearFn) view._onAppearFn();
+    for (var i = 0; i < view._onAppearFns.length; i++) view._onAppearFns[i]();
     _mountedViews.set(container, view);
   } else if (view instanceof HTMLElement) {
     container.appendChild(view);
@@ -39,7 +39,7 @@ function append(view, target) {
   if (!container) return;
   if (view instanceof View) {
     container.appendChild(view.build());
-    if (view._onAppearFn) view._onAppearFn();
+    for (var i = 0; i < view._onAppearFns.length; i++) view._onAppearFns[i]();
   } else if (view instanceof HTMLElement) {
     container.appendChild(view);
   }
@@ -134,6 +134,7 @@ var AetherUI = {
   Computed: Computed,
   Effect: Effect,
   Binding: Binding,
+  Store: Store,
   batch: batch,
   untrack: untrack,
   Context: Context,
@@ -198,7 +199,7 @@ var AetherUI = {
   globals: function() {
     var names = [
       'View',
-      'State', 'Computed', 'Effect', 'Binding', 'batch', 'untrack', 'Context',
+      'State', 'Computed', 'Effect', 'Binding', 'Store', 'batch', 'untrack', 'Context',
       'VStack', 'HStack', 'ZStack', 'Grid', 'Spacer', 'Divider', 'ScrollView',
       'Text', 'Label', 'Link', 'Image', 'Icon', 'RawHTML',
       'Button', 'TextField', 'Textarea', 'Toggle', 'Checkbox', 'RadioGroup',

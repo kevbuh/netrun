@@ -4,9 +4,12 @@ window._showLoginGate = function() {};
 function _showLoginGate() {}
 
 let GOOGLE_CLIENT_ID = '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com';
-fetch('/api/client-config').then(r => r.json()).then(c => {
-  if (c.googleClientId) GOOGLE_CLIENT_ID = c.googleClientId;
-}).catch(e => { if (window.logger) logger.warn('[auth] Config fetch failed:', e); });
+fetch('/api/client-config').then(r => {
+  if (!r.ok) return;
+  return r.json();
+}).then(c => {
+  if (c && c.googleClientId) GOOGLE_CLIENT_ID = c.googleClientId;
+}).catch(() => {});
 
 // ── Google Sign-In button ──
 

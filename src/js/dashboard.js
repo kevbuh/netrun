@@ -900,7 +900,7 @@ export async function renderDashboard() {
     card.className('nr-card ' + cls);
     if (view instanceof (window._AetherUIView || AetherUI.View)) {
       card.el.appendChild(view.build());
-      if (view._onAppearFn) view._onAppearFn();
+      for (var k = 0; k < view._onAppearFns.length; k++) view._onAppearFns[k]();
     }
     return card;
   }
@@ -1455,33 +1455,20 @@ export function renderDevSection(sectionId) {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
-  AetherUI.mount(Text('Loading\u2026').className('text-sm').foreground('quaternary'), contentPane);
+  var renderers = {
+    'overview': _renderDevOverview,
+    'function-registry': _renderDevFunctionRegistry,
+    'feed-validator': _renderDevFeedValidator,
+    'load-order': _renderDevLoadOrder,
+    'dependency-graph': _renderDevDependencyGraph,
+    'git-log': _renderDevGitLog,
+    'tools': _renderDevTools,
+  };
 
-  switch (sectionId) {
-    case 'overview':
-      _renderDevOverview();
-      break;
-    case 'function-registry':
-      _renderDevFunctionRegistry();
-      break;
-    case 'feed-validator':
-      _renderDevFeedValidator();
-      break;
-    case 'load-order':
-      _renderDevLoadOrder();
-      break;
-    case 'dependency-graph':
-      _renderDevDependencyGraph();
-      break;
-    case 'git-log':
-      _renderDevGitLog();
-      break;
-    case 'tools':
-      _renderDevTools();
-      break;
-    default:
-      AetherUI.mount(Text('Unknown section').className('text-sm').foreground('quaternary'), contentPane);
-  }
+  AetherUI.mount(Text('Loading\u2026').className('text-sm').foreground('quaternary'), contentPane);
+  var render = renderers[sectionId];
+  if (render) render();
+  else AetherUI.mount(Text('Unknown section').className('text-sm').foreground('quaternary'), contentPane);
 }
 
 // ── Overview Section ──
@@ -2110,14 +2097,15 @@ export async function _renderDevGitLog() {
     const data = await apiGet('/api/dev-stats');
     const log = data.git_log || [];
 
-    if (log.length) {
-      var logList = RawHTML('<div class="dev-git-log-list" id="dev-git-log-list">' + _devRenderCommitRows(log) + '</div>');
-      AetherUI.mount(logList, container);
-      _devGitLogOffset = log.length;
-      if (log.length >= 20) _devAppendLoadMoreBtn();
-    } else {
-      AetherUI.mount(Text('No commits found').className('text-sm').foreground('quaternary'), container);
-    }
+    AetherUI.mount(Show(log.length,
+      function() {
+        _devGitLogOffset = log.length;
+        var logList = RawHTML('<div class="dev-git-log-list" id="dev-git-log-list">' + _devRenderCommitRows(log) + '</div>');
+        return logList;
+      },
+      function() { return Text('No commits found').className('text-sm').foreground('quaternary'); }
+    ), container);
+    if (log.length >= 20) _devAppendLoadMoreBtn();
   } catch (e) {
     AetherUI.mount(Text('Error: ' + e.message).className('text-sm').foreground('quaternary'), container);
   }

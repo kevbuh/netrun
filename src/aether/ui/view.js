@@ -58,7 +58,7 @@ function View(tag) {
   this._effects = [];
   this._children = [];
   this._viewType = null;
-  this._onAppearFn = null;
+  this._onAppearFns = [];
   this._onDisappearFn = null;
 }
 
@@ -297,9 +297,9 @@ VP.animation = function(config) {
   var motion = window.Motion;
   if (motion && motion.animate) {
     // defer to after mount
-    this._onAppearFn = function() {
+    this._onAppearFns.push(function() {
       motion.animate(el, config);
-    };
+    });
   }
   return this;
 };
@@ -313,7 +313,7 @@ VP.transition = function(props, duration) {
 };
 
 VP.onAppear = function(fn) {
-  this._onAppearFn = fn;
+  this._onAppearFns.push(fn);
   return this;
 };
 
@@ -564,7 +564,7 @@ VP._appendChildren = function(children) {
     if (child instanceof View) {
       this.el.appendChild(child.build());
       this._children.push(child);
-      if (child._onAppearFn) child._onAppearFn();
+      for (var j = 0; j < child._onAppearFns.length; j++) child._onAppearFns[j]();
     } else if (child instanceof HTMLElement) {
       this.el.appendChild(child);
     } else if (typeof child === 'string') {

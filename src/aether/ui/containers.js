@@ -37,7 +37,7 @@ function ForEach(items, keyFnOrRenderFn, renderFn) {
       if (child == null) continue;
       if (child instanceof View) {
         v.el.appendChild(child.build());
-        if (child._onAppearFn) child._onAppearFn();
+        for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
         _childViews.push(child);
       } else if (child instanceof HTMLElement) {
         v.el.appendChild(child);
@@ -78,7 +78,7 @@ function ForEach(items, keyFnOrRenderFn, renderFn) {
         if (child == null) continue;
         if (child instanceof View) {
           _keyedMap[key] = { view: child, el: child.build() };
-          if (child._onAppearFn) child._onAppearFn();
+          for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
         } else if (child instanceof HTMLElement) {
           _keyedMap[key] = { view: null, el: child };
         }
@@ -197,7 +197,7 @@ function Section(header) {
     if (child instanceof View) {
       content.appendChild(child.build());
       v._children.push(child);
-      if (child._onAppearFn) child._onAppearFn();
+      for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
     } else if (child instanceof HTMLElement) {
       content.appendChild(child);
     }
@@ -240,7 +240,7 @@ function Show(condition, thenFn, elseFn) {
       if (child instanceof View) {
         v.el.appendChild(child.build());
         v._children.push(child);
-        if (child._onAppearFn) child._onAppearFn();
+        for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
         _current = child;
       } else if (child instanceof HTMLElement) {
         v.el.appendChild(child);
@@ -292,7 +292,7 @@ function Switch(signal, cases) {
       if (child instanceof View) {
         v.el.appendChild(child.build());
         v._children.push(child);
-        if (child._onAppearFn) child._onAppearFn();
+        for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
         _current = child;
       } else if (child instanceof HTMLElement) {
         v.el.appendChild(child);

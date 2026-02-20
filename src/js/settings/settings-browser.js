@@ -253,13 +253,13 @@ export function _loadSettingsPasswords() {
   const container = document.getElementById('settings-passwords');
   if (!container) return;
   if (!window.electronAPI || !window.electronAPI.pwList) {
-    AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem]">Password storage requires the desktop app.</div>'), container);
+    AetherUI.mount(Text('Password storage requires the desktop app.').className('text-dimmer text-[0.75rem]'), container);
     return;
   }
-  window.electronAPI.pwList().then(entries => {
+  window.electronAPI.pwList().then(function(entries) {
     _renderPasswordsList(container, entries || []);
-  }).catch(() => {
-    AetherUI.mount(RawHTML('<div class="text-dimmer text-[0.75rem]">Failed to load passwords.</div>'), container);
+  }).catch(function() {
+    AetherUI.mount(Text('Failed to load passwords.').className('text-dimmer text-[0.75rem]'), container);
   });
 }
 

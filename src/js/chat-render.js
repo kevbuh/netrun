@@ -17,15 +17,20 @@ function renderMessageHTML(msg, index, total, isFinal) {
   if (msg._userResults?.length) return _renderUserResults(msg._userResults);
 
   const isLast = index === total - 1;
-  const content = (isFinal || !isLast) && typeof marked !== 'undefined'
+  let content = (isFinal || !isLast) && typeof marked !== 'undefined'
     ? marked.parse(msg.content)
     : escapeHtml(msg.content);
+  // Linkify [1], [2] citations if web sources exist
+  if (msg._webSources?.length) content = _linkifyCitations(content, msg._webSources);
+  const sourcesBlock = _renderWebSources(msg._webSources);
+  const followUpsBlock = isLast ? _renderFollowUps(msg._followUps) : '';
   const thinkingBlock = msg._thinkingText ? `<details class="doc-thinking-block"><summary>Thought for a moment</summary><div class="doc-thinking-content">${escapeHtml(msg._thinkingText)}</div></details>` : '';
+  const promptBlock = msg._systemPrompt ? `<details class="doc-thinking-block"><summary>System prompt</summary><pre class="doc-ctx-raw">${escapeHtml(msg._systemPrompt)}</pre></details>` : '';
   const ctxBlock = renderCtxPills(msg._ctxSources, msg);
   const copyBtn = `<button class="doc-msg-copy-btn" title="Copy message">${typeof icon === 'function' ? icon('copy', { size: 12 }) : '\u{1F4CB}'}</button>`;
   const speakBtn = `<button class="doc-msg-speak-btn" title="Read aloud">${typeof icon === 'function' ? icon('speaker', { size: 12 }) : '\u{1F50A}'}</button>`;
   const redoBtn = isLast ? `<button class="doc-msg-redo-btn" title="Redo last message">${typeof icon === 'function' ? icon('redo', { size: 12 }) : '\u21BA'}</button>` : '';
-  return `<div class="doc-msg-ai">${ctxBlock}${thinkingBlock}${content}<div class="doc-msg-actions">${copyBtn}${speakBtn}${redoBtn}</div></div>`;
+  return `<div class="doc-msg-ai">${ctxBlock}${promptBlock}${thinkingBlock}${sourcesBlock}${content}${followUpsBlock}<div class="doc-msg-actions">${copyBtn}${speakBtn}${redoBtn}</div></div>`;
 }
 
 function _renderUserMessage(msg, index) {
@@ -81,6 +86,43 @@ function _renderUserResults(results) {
     `</div>`
   ).join('');
   return `<div class="doc-msg-ai doc-msg-search-results">${resultsHtml}</div>`;
+}
+
+// ── Web source cards (Perplexity-style) ──
+
+function _renderWebSources(sources) {
+  if (!sources?.length) return '';
+  return '<div class="nr-source-cards">' + sources.map(s => {
+    const domain = _extractDomain(s.url);
+    const favicon = 'https://www.google.com/s2/favicons?sz=16&domain=' + encodeURIComponent(domain);
+    return '<a class="nr-source-card" data-source-n="' + s.n + '" href="' + escapeAttr(s.url) + '" title="' + escapeAttr(s.title) + '">' +
+      '<span class="nr-source-badge">' + s.n + '</span>' +
+      '<img class="nr-source-favicon" src="' + escapeAttr(favicon) + '" width="14" height="14" />' +
+      '<span class="nr-source-title">' + escapeHtml(s.title.length > 40 ? s.title.slice(0, 37) + '...' : s.title) + '</span>' +
+      '<span class="nr-source-domain">' + escapeHtml(domain) + '</span>' +
+      '</a>';
+  }).join('') + '</div>';
+}
+
+function _extractDomain(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
+}
+
+function _linkifyCitations(html, sources) {
+  if (!sources?.length) return html;
+  return html.replace(/\[(\d+)\]/g, (match, num) => {
+    const n = parseInt(num);
+    const src = sources.find(s => s.n === n);
+    if (!src) return match;
+    return '<a class="nr-citation" data-source-n="' + n + '" href="' + escapeAttr(src.url) + '" title="' + escapeAttr(src.title) + '">[' + n + ']</a>';
+  });
+}
+
+function _renderFollowUps(followUps) {
+  if (!followUps?.length) return '';
+  return '<div class="nr-followup-strip">' + followUps.map(q =>
+    '<button class="nr-followup-btn">' + escapeHtml(q) + '</button>'
+  ).join('') + '</div>';
 }
 
 // ── Context pills ──
@@ -198,6 +240,43 @@ function attachMessageHandlers(container, opts) {
       if (opts.onNavigate) opts.onNavigate();
     });
     el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  });
+
+  // Source card clicks — open URL in new tab
+  container.querySelectorAll('.nr-source-card').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const url = el.getAttribute('href');
+      window.location.hash = '#browse';
+      if (typeof browseNewTab === 'function') browseNewTab(url);
+      else window.open(url, '_blank');
+      if (opts.onNavigate) opts.onNavigate();
+    });
+    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  });
+
+  // Citation clicks — highlight corresponding source card
+  container.querySelectorAll('.nr-citation').forEach(el => {
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const n = el.getAttribute('data-source-n');
+      const card = container.querySelector('.nr-source-card[data-source-n="' + n + '"]');
+      if (card) {
+        card.classList.add('nr-source-highlight');
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        setTimeout(() => card.classList.remove('nr-source-highlight'), 1500);
+      }
+    });
+    el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  });
+
+  // Follow-up button clicks
+  container.querySelectorAll('.nr-followup-btn').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      if (opts.onFollowUp) opts.onFollowUp(btn.textContent);
+    });
+    btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
   });
 
   // Copy button handlers

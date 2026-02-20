@@ -27,6 +27,7 @@ async function loadSession(threadId) {
     if (m.metadata && m.metadata !== '{}') {
       try {
         const meta = JSON.parse(m.metadata);
+        if (meta._systemPrompt) msg._systemPrompt = meta._systemPrompt;
         if (meta._thinkingText) msg._thinkingText = meta._thinkingText;
         if (meta._toolsCalled) msg._toolsCalled = meta._toolsCalled;
         if (meta._ctxSources) msg._ctxSources = meta._ctxSources;
@@ -34,6 +35,8 @@ async function loadSession(threadId) {
         if (meta._searchResults) msg._searchResults = meta._searchResults;
         if (meta._paperResults) msg._paperResults = meta._paperResults;
         if (meta._userResults) msg._userResults = meta._userResults;
+        if (meta._webSources) msg._webSources = meta._webSources;
+        if (meta._followUps) msg._followUps = meta._followUps;
         if (meta.images) msg.images = meta.images;
         if (meta._display) msg._display = meta._display;
       } catch { /* ignore bad metadata */ }
@@ -287,10 +290,24 @@ function _makeSession(thread, messages) {
             messages[aiIdx]._thinking = true;
             messages[aiIdx]._thinkingLabel = toolLabels[tc.name] || 'Using tool\u2026';
             session._notify('stream');
+          } else if (agentEvent.type === 'web_sources') {
+            // Accumulate deduplicated web sources for source cards
+            if (!messages[aiIdx]._webSources) messages[aiIdx]._webSources = [];
+            const existing = messages[aiIdx]._webSources;
+            const seen = new Set(existing.map(s => s.url));
+            for (const src of (agentEvent.results || [])) {
+              if (!seen.has(src.url)) {
+                seen.add(src.url);
+                existing.push({ n: existing.length + 1, title: src.title, url: src.url, snippet: src.snippet });
+              }
+            }
+            session._notify('stream');
           } else if (agentEvent.type === 'action') {
             if (typeof _handleAgentAction === 'function') {
               _handleAgentAction(agentEvent.action || agentEvent);
             }
+          } else if (agentEvent.type === 'system_prompt') {
+            messages[aiIdx]._systemPrompt = agentEvent.content;
           } else if (agentEvent.type === 'usage') {
             messages[aiIdx]._usage = agentEvent.usage || agentEvent;
           } else if (agentEvent.type === 'error') {
@@ -345,6 +362,15 @@ function _makeSession(thread, messages) {
 
         messages[aiIdx]._thinking = false;
         if (aiText) messages[aiIdx].content = aiText;
+
+        // Parse FOLLOW_UP section from content
+        const fuMatch = messages[aiIdx].content?.match(/\n---\nFOLLOW_UP:\n([\s\S]+)$/);
+        if (fuMatch) {
+          messages[aiIdx]._followUps = fuMatch[1].split('\n')
+            .map(l => l.replace(/^-\s*/, '').trim())
+            .filter(Boolean);
+          messages[aiIdx].content = messages[aiIdx].content.slice(0, fuMatch.index).trimEnd();
+        }
       } else {
         messages[aiIdx]._thinking = false;
         messages[aiIdx].content = 'Error: IPC not available';
@@ -356,6 +382,7 @@ function _makeSession(thread, messages) {
       // Save assistant message to DB
       const finalContent = messages[aiIdx].content || '';
       const metadata = {};
+      if (messages[aiIdx]._systemPrompt) metadata._systemPrompt = messages[aiIdx]._systemPrompt;
       if (messages[aiIdx]._thinkingText) metadata._thinkingText = messages[aiIdx]._thinkingText;
       if (messages[aiIdx]._toolsCalled) metadata._toolsCalled = messages[aiIdx]._toolsCalled;
       if (messages[aiIdx]._ctxSources) metadata._ctxSources = messages[aiIdx]._ctxSources;
@@ -363,6 +390,8 @@ function _makeSession(thread, messages) {
       if (messages[aiIdx]._searchResults) metadata._searchResults = messages[aiIdx]._searchResults;
       if (messages[aiIdx]._paperResults) metadata._paperResults = messages[aiIdx]._paperResults;
       if (messages[aiIdx]._userResults) metadata._userResults = messages[aiIdx]._userResults;
+      if (messages[aiIdx]._webSources) metadata._webSources = messages[aiIdx]._webSources;
+      if (messages[aiIdx]._followUps) metadata._followUps = messages[aiIdx]._followUps;
 
       const savedAi = await electronAPI.dbQuery('chat-message-add', thread.id, 'assistant', finalContent, JSON.stringify(metadata));
       messages[aiIdx].id = savedAi?.id;

@@ -26,14 +26,14 @@ window._PILL_BOTTOM = 20;
 window._customAnnotationCategories = [];
 
 // ── Dynamic Island ──
-window._islandActivities = State({});  // @signal — { id: { type, label, detail, progress, done, _ts } }
+window._islandActivities = Store({});  // @store — { id: { type, label, detail, progress, done, _ts } }
 window._islandDismissTimers = {};  // { id: timeoutId }
 window._islandWaveformBars = '<span class="island-waveform"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 window._islandAudioBars = '<span class="island-waveform island-waveform-anim"><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span><span class="island-waveform-bar"></span></span>';
 window._islandResizeTimer = null;
 
 // ── Audio ──
-window._audioUnifiedState = State({ tab: null, tts: null, cc: null, mic: null });  // @signal
+window._audioUnifiedState = Store({ tab: null, tts: null, cc: null, mic: null });  // @store
 window._ttsSpeeds = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 
 // ── Layout ──

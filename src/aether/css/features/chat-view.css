@@ -7,6 +7,9 @@
 /* The .browse-ntp-inner becomes a flex column: messages on top, search box at bottom */
 .browse-ntp.chat-mode .browse-ntp-inner {
   overflow: hidden;
+  max-width: 100%;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* Search box slides from center (margin-top:40vh) to bottom (margin-top:auto) */
@@ -14,6 +17,11 @@
   margin-top: 0;
   flex-shrink: 0;
   padding-bottom: 8px;
+  width: 100%;
+  max-width: 100%;
+  padding-left: var(--nr-space-4);
+  padding-right: var(--nr-space-4);
+  box-sizing: border-box;
 }
 
 /* Messages area fills the space above the search box */
@@ -25,6 +33,33 @@
   flex-direction: column;
   gap: var(--nr-space-3);
   min-height: 0;
+}
+
+/* Make search box full width in chat mode —
+   .doc-ask-inline-wrap (on the form) sets display:flex,
+   so the search box must explicitly fill the row */
+.browse-ntp.chat-mode .ntp-search-box {
+  max-width: 100% !important;
+  margin: 0 !important;
+  width: 100%;
+  flex: 1;
+}
+
+/* Keep NTP search box styling in chat mode (override doc-ask-inline shrink) */
+.browse-ntp.chat-mode .doc-ask-inline-input.ntp-search-input {
+  font-size: 0.95rem;
+  line-height: 36px;
+  height: 36px;
+  padding: 0 8px;
+  color: var(--nr-text-primary);
+}
+.browse-ntp.chat-mode .doc-ask-inline-input.ntp-search-input::placeholder {
+  color: var(--nr-text-quaternary);
+}
+.browse-ntp.chat-mode .doc-ask-inline-wrap {
+  border-top: none;
+  margin-top: 0;
+  padding: 0;
 }
 
 /* Hide NTP-only controls in chat mode */
@@ -352,6 +387,143 @@
   gap: 6px;
   padding: 4px 0;
   flex-wrap: wrap;
+}
+
+/* ══════════════════════════════════════════════════
+   Web source cards (Perplexity-style)
+   ══════════════════════════════════════════════════ */
+
+.nr-source-cards {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 0 8px;
+  scrollbar-width: thin;
+}
+
+.nr-source-cards::-webkit-scrollbar {
+  height: 4px;
+}
+
+.nr-source-cards::-webkit-scrollbar-thumb {
+  background: var(--nr-border-subtle);
+  border-radius: 2px;
+}
+
+.nr-source-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 140px;
+  max-width: 180px;
+  padding: 8px 10px;
+  border-radius: var(--nr-radius-md);
+  background: var(--nr-bg-raised);
+  border: 1px solid var(--nr-border-subtle);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  flex-shrink: 0;
+  transition: border-color 0.2s, background 0.15s;
+}
+
+.nr-source-card:hover {
+  background: var(--nr-bg-hover);
+  border-color: var(--nr-border);
+}
+
+.nr-source-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--nr-accent);
+  color: var(--nr-text-on-accent, #fff);
+  font-size: 0.65rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.nr-source-favicon {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.nr-source-title {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--nr-text-primary);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.nr-source-domain {
+  font-size: 0.65rem;
+  color: var(--nr-text-quaternary);
+}
+
+/* Highlight flash when citation clicked */
+.nr-source-highlight {
+  border-color: var(--nr-accent) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--nr-accent) 30%, transparent);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+/* ══════════════════════════════════════════════════
+   Inline citations
+   ══════════════════════════════════════════════════ */
+
+.nr-citation {
+  font-size: 0.7em;
+  vertical-align: super;
+  color: var(--nr-accent);
+  text-decoration: none;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0 1px;
+}
+
+.nr-citation:hover {
+  text-decoration: underline;
+}
+
+/* ══════════════════════════════════════════════════
+   Follow-up suggestion buttons
+   ══════════════════════════════════════════════════ */
+
+.nr-followup-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--nr-border-subtle);
+}
+
+.nr-followup-btn {
+  background: var(--nr-bg-raised);
+  border: 1px solid var(--nr-border-subtle);
+  border-radius: var(--nr-radius-full, 999px);
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  color: var(--nr-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.nr-followup-btn:hover {
+  background: var(--nr-bg-hover);
+  color: var(--nr-text-primary);
+  border-color: var(--nr-border);
 }
 
 /* ── NTP Chat Row (dropdown) ── */

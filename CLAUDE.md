@@ -68,7 +68,7 @@ npm run validate-load-order # Check script load order
 - **Feature CSS** (`src/aether/css/features/`): 24 feature-specific stylesheets loaded via `<link>` tags in `index.html`.
 - **Themes** (`src/aether/css/themes/`): dark, light, daylight, clear.
 - **JS modules**: `aether.js` (main entry), `tokens.js`, `motion.js`, `materials.js`, `ambient.js`, `cursor.js`. Exposed as `window.Aether`.
-- **AetherUI** (`src/aether/ui/`): Declarative UI framework — `State`, `Computed`, `Effect` (SolidJS-style signals), layout primitives (`VStack`, `HStack`, `ZStack`), controls (`Button`, `TextField`, `Toggle`, `Slider`, `Picker`), overlays (`Sheet`, `Alert`, `Popover`, `Menu`). Exposed as `window.AetherUI` and `Aether.ui`.
+- **AetherUI** (`src/aether/ui/`): Declarative UI framework — `State`, `Computed`, `Effect` (SolidJS-style signals), `Store` (deep reactive objects with path-based `get`/`set`), layout primitives (`VStack`, `HStack`, `ZStack`), controls (`Button`, `TextField`, `Toggle`, `Slider`, `Picker`, `TabView` with tab caching), overlays (`Sheet`, `Alert`, `Popover`, `Menu`). Exposed as `window.AetherUI` and `Aether.ui`.
 
 ### Frontend JS conventions
 
@@ -92,6 +92,9 @@ npm run validate-load-order # Check script load order
 - `sessionStorage` only for session-scoped ephemeral data (guest mode stash, focus timers)
 - Global module variables (`core-state.js`, `browse-state.js`, `panel-state.js`) for runtime-only state
 - `electronAPI.dbQuery` for backend data operations, not client-side state
+- `State(val)` for simple reactive values; `Store(obj)` for reactive objects with nested updates
+- Prefer `store.get('path')` / `store.set('path', val)` / `store.update('path', fn)` over spreading: `state.value = { ...state.value, key: newVal }`
+- View lifecycle: `.onAppear(fn)` supports multiple callbacks (stacks, does not overwrite)
 
 ### Views (`src/views/`)
 

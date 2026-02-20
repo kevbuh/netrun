@@ -185,11 +185,12 @@ window.addEventListener('resize', function() {
 })();
 
 export function _setIslandActivity(id, data) {
-  const acts = _islandActivities.value;
-  _islandActivities.value = { ...acts, [id]: Object.assign({}, acts[id] || {}, data, { _ts: Date.now() }) };
+  _islandActivities.update(id, function(old) {
+    return Object.assign({}, old || {}, data, { _ts: Date.now() });
+  });
 }
 export function _clearIslandActivity(id) {
-  const acts = { ..._islandActivities.value };
+  var acts = Object.assign({}, _islandActivities.peek());
   delete acts[id];
   _islandActivities.value = acts;
 }

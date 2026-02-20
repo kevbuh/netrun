@@ -8,6 +8,7 @@ export type AgentEvent =
   | { type: 'tool_result'; name: string; result: unknown }
   | { type: 'action'; action: AgentAction }
   | { type: 'web_sources'; results: Array<{ title: string; url: string; snippet: string }> }
+  | { type: 'system_prompt'; content: string }
   | { type: 'usage'; usage: AgentUsage }
   | { type: 'done' }
   | { type: 'error'; error: string };

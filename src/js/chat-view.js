@@ -109,6 +109,12 @@ function _chatViewMorphNTP(ntp) {
     input.classList.add('doc-ask-inline-input');
     if (form) form.classList.add('doc-ask-inline-wrap');
 
+    // Make search box full width in chat mode (remove Tailwind constraints)
+    const searchBox = ntp.querySelector('.ntp-search-box');
+    if (searchBox) {
+      searchBox.classList.remove('max-w-[680px]', 'mx-auto');
+    }
+
     // Insert attachment strip (for /capture, /tab context chips) before the form
     var attachStrip = document.createElement('div');
     attachStrip.className = 'doc-screenshot-attachments';
@@ -438,6 +444,12 @@ function _chatViewCleanupMorph() {
     }
   }
 
+  // Restore search box width constraints
+  const searchBox = ntp.querySelector('.ntp-search-box');
+  if (searchBox) {
+    searchBox.classList.add('max-w-[680px]', 'mx-auto');
+  }
+
   // Remove attachment strip
   const center = ntp.querySelector('.browse-ntp-center');
   if (center) {
@@ -763,6 +775,12 @@ function _chatViewRenderMessages(isFinal) {
           _chatViewRenderMessages(true);
         }
       });
+    },
+    onFollowUp(text) {
+      if (!_chatViewSession || _chatViewSession.streaming) return;
+      const input = document.querySelector('.browse-ntp.chat-mode #search-query');
+      if (input) input.value = '';
+      _chatViewSend(text);
     },
     onSpeak(btn) {
       // Delegate to panel TTS if available

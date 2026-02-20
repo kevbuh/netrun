@@ -116,17 +116,18 @@ function _renderWizardStep(stepIndex, direction) {
   setTimeout(function() {
     _wizardStep = stepIndex;
 
-    var contentView = null;
-    if (stepIndex === 0) contentView = _wizardWelcomeView();
-    else if (stepIndex === 1) contentView = _wizardUsernameView();
-    else if (stepIndex === 2) contentView = _wizardAccentView();
-    else if (stepIndex === 3) contentView = _wizardThemeView();
-    else if (stepIndex === 4) contentView = _wizardTabLayoutView();
-    else if (stepIndex === 5) contentView = _wizardFeedsView();
-    else if (stepIndex === 6) contentView = _wizardChatModelView();
-    else if (stepIndex === 7) contentView = _wizardPixelPetView();
-    else if (stepIndex === 8) contentView = _wizardNeuralookView();
-    else if (stepIndex === 9) contentView = _wizardFinaleView();
+    var contentView = Switch(stepIndex, {
+      0: function() { return _wizardWelcomeView(); },
+      1: function() { return _wizardUsernameView(); },
+      2: function() { return _wizardAccentView(); },
+      3: function() { return _wizardThemeView(); },
+      4: function() { return _wizardTabLayoutView(); },
+      5: function() { return _wizardFeedsView(); },
+      6: function() { return _wizardChatModelView(); },
+      7: function() { return _wizardPixelPetView(); },
+      8: function() { return _wizardNeuralookView(); },
+      9: function() { return _wizardFinaleView(); },
+    });
 
     var stepView = new View('div').className('wizard-step');
     stepView.styles({ position: 'relative' });

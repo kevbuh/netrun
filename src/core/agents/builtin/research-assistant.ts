@@ -159,6 +159,16 @@ export const researchAssistant: AgentDefinition = {
       ? ' You have a context-update tool to remember information across conversations — use it when the user asks you to remember something or when you learn important facts.'
       : '';
 
+    const citationInstructions =
+      '\n\nIMPORTANT — Web search workflow: You MUST call web-search FIRST before answering ' +
+      'any question about facts, events, people, places, technology, or current topics. ' +
+      'Do NOT answer from memory alone — always search first. After searching:\n' +
+      '1. Call extract-text on the top 2-3 result URLs to read their content.\n' +
+      '2. Write your answer using inline citations like [1], [2], [3] matching the order sources were found.\n' +
+      '3. Do NOT include a references list — the UI renders source cards automatically.\n' +
+      '4. End your answer with exactly this format:\n' +
+      '---\nFOLLOW_UP:\n- suggested follow-up question 1\n- suggested follow-up question 2\n- suggested follow-up question 3';
+
     if (truncatedDoc && context.toolsEnabled !== false) {
       // With document + tools
       return (
@@ -171,7 +181,7 @@ export const researchAssistant: AgentDefinition = {
         'the result without calling the tool first. Never say you ' +
         'cannot open tabs or navigate — you can, using your tools.' +
         contextToolNote + ' ' +
-        browserDesc + pageCtx + livingCtx + '\n\n' +
+        browserDesc + citationInstructions + pageCtx + livingCtx + '\n\n' +
         '--- DOCUMENT TEXT ---\n' + truncatedDoc + '\n--- END ---'
       );
     }
@@ -200,7 +210,7 @@ export const researchAssistant: AgentDefinition = {
         'extract-text, save-to-reading-list, navigate, ' +
         'create-calendar-event, open-tab, context-update.' +
         contextToolNote + ' ' +
-        browserDesc + pageCtx + livingCtx
+        browserDesc + citationInstructions + pageCtx + livingCtx
       );
     }
 

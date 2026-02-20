@@ -277,6 +277,9 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
   const systemPrompt = agent.buildSystemPrompt(context);
   const model = context.model ?? agent.model;
 
+  // Emit system prompt for transparency
+  yield { type: 'system_prompt', content: systemPrompt };
+
   // Build message list (filter out empty messages that break Vercel AI SDK validation)
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },

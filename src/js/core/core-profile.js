@@ -128,13 +128,12 @@ export async function renderUserProfile(username) {
 
     // Handle private profiles
     if (profile.profile_private) {
-      var privAvatar;
-      if (profile.picture) {
-        privAvatar = Image(profile.picture).className('w-20 h-20 rounded-full mb-4 opacity-60').attr('referrerpolicy', 'no-referrer');
-      } else {
-        privAvatar = Text((profile.username || '?')[0].toUpperCase())
+      var privAvatar = Show(profile.picture, function() {
+        return Image(profile.picture).className('w-20 h-20 rounded-full mb-4 opacity-60').attr('referrerpolicy', 'no-referrer');
+      }, function() {
+        return Text((profile.username || '?')[0].toUpperCase())
           .className('w-20 h-20 rounded-full bg-accent/10 text-accent/40 flex items-center justify-center text-3xl font-bold mb-4');
-      }
+      });
       AetherUI.mount(VStack(
         privAvatar,
         HStack(Text(profile.username).className('text-[1.2rem] font-semibold text-white_')).spacing(2).className('mb-2'),
@@ -169,15 +168,14 @@ export async function renderUserProfile(username) {
     sections.push(banner);
 
     // ── Avatar + name row ──
-    var avatar;
-    if (profile.picture) {
-      avatar = Image(profile.picture).className('w-16 h-16 rounded-full border-[3px]').attr('referrerpolicy', 'no-referrer');
-      avatar.styles({ borderColor: 'var(--nr-bg-body)' });
-    } else {
-      avatar = Text((profile.username || '?')[0].toUpperCase())
-        .className('w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-[3px]');
-      avatar.cssText('border-color:var(--nr-bg-body);background:' + accentColor + '33;color:' + accentColor);
-    }
+    var avatar = Show(profile.picture, function() {
+      return Image(profile.picture).className('w-16 h-16 rounded-full border-[3px]').attr('referrerpolicy', 'no-referrer')
+        .styles({ borderColor: 'var(--nr-bg-body)' });
+    }, function() {
+      return Text((profile.username || '?')[0].toUpperCase())
+        .className('w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-[3px]')
+        .cssText('border-color:var(--nr-bg-body);background:' + accentColor + '33;color:' + accentColor);
+    });
     var avatarWrap = new View('div');
     avatarWrap.className('relative group');
     avatarWrap._appendChildren([avatar]);

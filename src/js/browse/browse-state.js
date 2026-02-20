@@ -107,6 +107,7 @@ export function _browseSaveTabsNow() {
       const saved = { id: t.id, url: t.url || '', title: t.title, blank: !!t.blank };
       if (t._historyPage) saved._historyPage = true;
       if (t._helpPage) saved._helpPage = true;
+      if (t._chatPage) { saved._chatPage = true; if (t._chatThreadId) saved._chatThreadId = t._chatThreadId; }
       if (t.paper) {
         const p = Object.assign({}, t.paper);
         saved.paper = p; saved.contentType = t.contentType; saved.arxivId = t.arxivId || null;

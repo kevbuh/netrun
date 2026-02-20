@@ -7,10 +7,15 @@ if (window.AetherUI) AetherUI.globals();
 
 // ── User accounts & sync ──
 
+// Clean up broken token (object was stored as "[object Object]" due to prior bug)
+if (_authToken === '[object Object]') {
+  _authToken = null;
+  localStorage.removeItem('authToken');
+}
 // Hydrate token from secure storage (macOS Keychain) if available
 if (!_authToken && window.electronAPI?.getAuthToken) {
   window.electronAPI.getAuthToken().then(t => {
-    if (t && !_authToken) { _authToken = t; localStorage.setItem('authToken', t); }
+    if (t && t !== '[object Object]' && !_authToken) { _authToken = t; localStorage.setItem('authToken', t); }
   });
 }
 let _authUser = localStorage.getItem('authUser') || null;  // email or name
@@ -112,42 +117,40 @@ function _updateAccountUI() {
     }
     return;
   }
-  if (_guestMode) {
-    avatarSpan.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:nr-breathe 3s ease-in-out infinite"><path d="M14 18a2 2 0 0 0-4 0"/><path d="m19 11-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11"/><path d="M2 11h20"/><circle cx="17" cy="18" r="3"/><circle cx="7" cy="18" r="3"/></svg>';
-    avatarSpan.style.display = '';
-    if (avatarIcon) avatarIcon.style.display = 'none';
+  var avatarMode = _guestMode ? 'guest'
+    : (_authUserInfo && (_authUserInfo.username || _authUserInfo.name)) ? 'user'
+    : 'none';
+
+  if (avatarMode === 'none') {
+    avatarSpan.style.display = 'none';
+    if (avatarIcon) avatarIcon.style.display = '';
     return;
   }
-  if (_authUserInfo && (_authUserInfo.username || _authUserInfo.name)) {
-    if (typeof AetherUI === 'undefined') {
-      avatarSpan.style.display = '';
-      if (avatarIcon) avatarIcon.style.display = 'none';
-      return;
-    }
-    if (_authUserInfo.picture) {
-      AetherUI.mount(
-        Image(_authUserInfo.picture)
+
+  avatarSpan.style.display = '';
+  if (avatarIcon) avatarIcon.style.display = 'none';
+
+  if (typeof AetherUI === 'undefined') return;
+
+  AetherUI.mount(Switch(avatarMode, {
+    guest: function() {
+      return RawHTML('<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:nr-breathe 3s ease-in-out infinite"><path d="M14 18a2 2 0 0 0-4 0"/><path d="m19 11-2.11-6.657a2 2 0 0 0-2.752-1.148l-1.276.61A2 2 0 0 1 12 4H8.5a2 2 0 0 0-1.925 1.456L5 11"/><path d="M2 11h20"/><circle cx="17" cy="18" r="3"/><circle cx="7" cy="18" r="3"/></svg>');
+    },
+    user: function() {
+      return Show(_authUserInfo && _authUserInfo.picture, function() {
+        return Image(_authUserInfo.picture)
           .styles({width:'22px', height:'22px', objectFit:'cover', borderRadius:'50%', display:'block'})
-          .attr('referrerpolicy', 'no-referrer'),
-        avatarSpan
-      );
-    } else {
-      const letter = (_authUserInfo.username || _authUserInfo.name || '?')[0].toUpperCase();
-      AetherUI.mount(
-        new View('span')
+          .attr('referrerpolicy', 'no-referrer');
+      }, function() {
+        var letter = (_authUserInfo.username || _authUserInfo.name || '?')[0].toUpperCase();
+        return new View('span')
           .styles({width:'22px', height:'22px', borderRadius:'50%', background:'var(--nr-accent)',
             display:'flex', alignItems:'center', justifyContent:'center',
             fontSize:'11px', fontWeight:'600', color:'#fff'})
-          ._bindText(letter),
-        avatarSpan
-      );
-    }
-    avatarSpan.style.display = '';
-    if (avatarIcon) avatarIcon.style.display = 'none';
-  } else {
-    avatarSpan.style.display = 'none';
-    if (avatarIcon) avatarIcon.style.display = '';
-  }
+          ._bindText(letter);
+      });
+    },
+  }), avatarSpan);
 }
 
 
@@ -324,7 +327,15 @@ export function exitGuestMode() {
         _onLoginSuccess();
         syncFromServer();
       })
-      .catch(() => {
+      .catch(err => {
+        console.warn('[auth] Session verify failed:', err);
+        // If we have cached auth info locally, proceed offline rather than forcing re-login
+        if (_authUserInfo && _authUserInfo.google_id && _authUserInfo.username) {
+          console.log('[auth] Using cached auth info');
+          _authUser = (_authUserInfo.name || _authUserInfo.email || _authUser || '').split(' ')[0];
+          _onLoginSuccess();
+          return;
+        }
         _authToken = null;
         _authUser = null;
         _authUserInfo = null;
@@ -336,8 +347,29 @@ export function exitGuestMode() {
         window.location.href = '/login.html';
       });
   } else {
-    // No token — redirect to login
-    window.location.href = '/login.html';
+    // No token — try hydrating from secure storage before redirecting
+    if (window.electronAPI?.getAuthToken) {
+      window.electronAPI.getAuthToken().then(t => {
+        if (t) {
+          _authToken = t;
+          localStorage.setItem('authToken', t);
+          // Re-run auth check with hydrated token
+          _initAuth();
+        } else if (_authUserInfo && _authUserInfo.google_id && _authUserInfo.username) {
+          // Have cached auth info but no token — proceed offline
+          console.log('[auth] No token but have cached auth info, proceeding');
+          _authToken = 'cached';
+          _authUser = (_authUserInfo.name || _authUserInfo.email || '').split(' ')[0];
+          _onLoginSuccess();
+        } else {
+          window.location.href = '/login.html';
+        }
+      }).catch(() => {
+        window.location.href = '/login.html';
+      });
+    } else {
+      window.location.href = '/login.html';
+    }
   }
 })();
 

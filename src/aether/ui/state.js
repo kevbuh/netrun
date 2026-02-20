@@ -201,6 +201,118 @@ function Context(defaultValue) {
   };
 }
 
+// ─── Store(obj) — deep reactive object ───────────────────
+
+function Store(initial) {
+  // Each path gets its own signal for fine-grained reactivity
+  var _data = _deepClone(initial);
+  var _signals = {};          // 'path.key' → signal
+  var _rootSignal = { _subscribers: new Set(), _isSignal: true };
+
+  function _deepClone(obj) {
+    if (obj == null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(_deepClone);
+    var out = {};
+    for (var k in obj) {
+      if (obj.hasOwnProperty(k)) out[k] = _deepClone(obj[k]);
+    }
+    return out;
+  }
+
+  function _parsePath(path) {
+    if (Array.isArray(path)) return path;
+    return path.replace(/\[(\d+)\]/g, '.$1').split('.');
+  }
+
+  function _getByPath(obj, parts) {
+    for (var i = 0; i < parts.length; i++) {
+      if (obj == null) return undefined;
+      obj = obj[parts[i]];
+    }
+    return obj;
+  }
+
+  function _setByPath(obj, parts, val) {
+    for (var i = 0; i < parts.length - 1; i++) {
+      var key = parts[i];
+      var nextKey = parts[i + 1];
+      if (obj[key] == null) {
+        obj[key] = /^\d+$/.test(nextKey) ? [] : {};
+      }
+      obj = obj[key];
+    }
+    obj[parts[parts.length - 1]] = val;
+  }
+
+  function _getSignal(pathStr) {
+    if (!_signals[pathStr]) {
+      _signals[pathStr] = { _subscribers: new Set(), _isSignal: true };
+    }
+    return _signals[pathStr];
+  }
+
+  // Notify a path and all ancestor paths
+  function _notifyPath(parts) {
+    for (var i = parts.length; i >= 0; i--) {
+      var key = parts.slice(0, i).join('.');
+      var sig = key ? _signals[key] : _rootSignal;
+      if (sig) _notify(sig);
+    }
+  }
+
+  var store = {
+    _isStore: true,
+    _isSignal: true,
+    _subscribers: _rootSignal._subscribers,
+
+    // Read the whole object (tracked at root level)
+    get value() {
+      _track(_rootSignal);
+      return _data;
+    },
+
+    // Replace the entire object
+    set value(next) {
+      _data = _deepClone(next);
+      // Notify all path signals + root
+      for (var key in _signals) _notify(_signals[key]);
+      _notify(_rootSignal);
+    },
+
+    // get('user.name') — fine-grained tracked read
+    get: function(path) {
+      var parts = _parsePath(path);
+      var pathStr = parts.join('.');
+      _track(_getSignal(pathStr));
+      return _getByPath(_data, parts);
+    },
+
+    // set('user.name', 'Alice') — fine-grained update
+    set: function(path, val) {
+      var parts = _parsePath(path);
+      var old = _getByPath(_data, parts);
+      if (old === val) return;
+      _setByPath(_data, parts, val);
+      _notifyPath(parts);
+    },
+
+    // update('user', fn) — read-modify-write at a path
+    update: function(path, fn) {
+      var parts = _parsePath(path);
+      var old = _getByPath(_data, parts);
+      var next = fn(old);
+      if (old === next) return;
+      _setByPath(_data, parts, next);
+      _notifyPath(parts);
+    },
+
+    // peek() — untracked full read
+    peek: function() { return _data; }
+  };
+
+  return store;
+}
+
 // ─── isSignal helper ──────────────────────────────────────
 
 function isSignal(v) {
@@ -224,6 +336,7 @@ window._AetherUIState = {
   Computed: Computed,
   Effect: Effect,
   Binding: Binding,
+  Store: Store,
   batch: batch,
   untrack: untrack,
   Context: Context,
@@ -239,7 +352,8 @@ window.State = State;
 window.Computed = Computed;
 window.Effect = Effect;
 window.Binding = Binding;
+window.Store = Store;
 window.batch = batch;
 window.untrack = untrack;
 
-export { State, Computed, Effect, Binding, batch, untrack, Context, isSignal, isBinding, resolve };
+export { State, Computed, Effect, Binding, Store, batch, untrack, Context, isSignal, isBinding, resolve };

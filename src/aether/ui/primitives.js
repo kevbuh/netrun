@@ -82,7 +82,7 @@ function ZStack() {
     v.el.appendChild(childEl);
     if (child instanceof View) {
       v._children.push(child);
-      if (child._onAppearFn) child._onAppearFn();
+      for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
     }
   }
   v.alignment = function(a) {

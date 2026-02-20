@@ -219,10 +219,10 @@ export function registerDbQueriesIPC(): void {
       const picture = tokenInfo.picture ?? jwtPayload.picture ?? '';
       if (!googleId) return { error: 'Invalid token' };
       userQueries.upsertUser({ google_id: googleId, email, name, picture });
-      const token = userQueries.createSession(googleId);
+      const session = userQueries.createSession(googleId);
       const info = userQueries.getUser(googleId);
       const username = info?.username ?? null;
-      return { token, email, name, username, picture, google_id: googleId };
+      return { token: session.token, email, name, username, picture, google_id: googleId };
     } catch (e: any) {
       return { error: `Token verification failed: ${e.message ?? e}` };
     }

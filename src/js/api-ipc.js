@@ -677,13 +677,15 @@ export function _getGoogleId() {
       const user = JSON.parse(userData);
       if (user.google_id || user.googleId) return user.google_id || user.googleId;
     }
-    // Fallback: check authUserInfo (set during login before 'user' key exists)
+  } catch (e) { logger.warn('[api-ipc] Google ID parse failed (user key):', e); }
+  // Fallback: check authUserInfo (set during login before 'user' key exists)
+  try {
     const authInfo = localStorage.getItem('authUserInfo');
     if (authInfo) {
       const info = JSON.parse(authInfo);
       if (info.google_id) return info.google_id;
     }
-  } catch (e) { logger.warn('[api-ipc] Google ID parse failed:', e); }
+  } catch (e) { logger.warn('[api-ipc] Google ID parse failed (authUserInfo):', e); }
   return null;
 }
 

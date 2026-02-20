@@ -78,23 +78,15 @@ export function renderSettingsView() {
   if (pane) {
     const titles = { profile: 'Profile', appearance: 'Appearance', browser: 'Browser', ai: 'AI', feed: 'Feed', context: 'Context', help: 'Help' };
     var titleView = RawHTML('<h2 class="text-[1.2rem] font-semibold text-primary mb-5">' + (titles[_settingsSection] || 'Settings') + '</h2>');
-    var sectionView;
-
-    if (_settingsSection === 'profile') {
-      sectionView = VStack([_renderAccountSettings()]);
-    } else if (_settingsSection === 'appearance') {
-      sectionView = _renderAppearanceSettings();
-    } else if (_settingsSection === 'browser') {
-      sectionView = _renderBrowserSettings();
-    } else if (_settingsSection === 'ai') {
-      sectionView = _renderAISettings();
-    } else if (_settingsSection === 'feed') {
-      sectionView = _renderFeedSettings();
-    } else if (_settingsSection === 'context') {
-      sectionView = _renderContextSettings();
-    } else if (_settingsSection === 'help') {
-      sectionView = _renderHelpSettings();
-    }
+    var sectionView = Switch(_settingsSection, {
+      profile: function() { return VStack([_renderAccountSettings()]); },
+      appearance: function() { return _renderAppearanceSettings(); },
+      browser: function() { return _renderBrowserSettings(); },
+      ai: function() { return _renderAISettings(); },
+      feed: function() { return _renderFeedSettings(); },
+      context: function() { return _renderContextSettings(); },
+      help: function() { return _renderHelpSettings(); },
+    });
 
     AetherUI.mount(VStack([titleView, sectionView]), pane);
   }

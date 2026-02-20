@@ -90,7 +90,7 @@ function Sheet(isPresented, contentFn) {
     var content = contentFn();
     if (content instanceof View) {
       body.appendChild(content.build());
-      if (content._onAppearFn) content._onAppearFn();
+      for (var k = 0; k < content._onAppearFns.length; k++) content._onAppearFns[k]();
     } else if (content instanceof HTMLElement) {
       body.appendChild(content);
     }
@@ -281,7 +281,7 @@ function Popover(anchorView, isPresented, contentFn) {
     var content = contentFn();
     if (content instanceof View) {
       popEl.appendChild(content.build());
-      if (content._onAppearFn) content._onAppearFn();
+      for (var k = 0; k < content._onAppearFns.length; k++) content._onAppearFns[k]();
     } else if (content instanceof HTMLElement) {
       popEl.appendChild(content);
     }
