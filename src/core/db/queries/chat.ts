@@ -17,6 +17,7 @@ export interface ChatMessage {
   content: string;
   created_at: number;
   metadata: string;
+  parent_id: string | null;
 }
 
 export function createThread(id: string, title: string, model: string): ChatThread {
@@ -59,13 +60,13 @@ export function deleteThread(id: string): void {
   prepare('DELETE FROM chat_threads WHERE id = ?').run(id);
 }
 
-export function addMessage(id: string, threadId: string, role: string, content: string, metadata?: string): ChatMessage {
+export function addMessage(id: string, threadId: string, role: string, content: string, metadata?: string, parentId?: string): ChatMessage {
   const now = Date.now() / 1000;
   prepare(
-    'INSERT INTO chat_messages (id, thread_id, role, content, created_at, metadata) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(id, threadId, role, content, now, metadata || '{}');
+    'INSERT INTO chat_messages (id, thread_id, role, content, created_at, metadata, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(id, threadId, role, content, now, metadata || '{}', parentId || null);
   prepare('UPDATE chat_threads SET updated_at = ? WHERE id = ?').run(now, threadId);
-  return { id, thread_id: threadId, role, content, created_at: now, metadata: metadata || '{}' };
+  return { id, thread_id: threadId, role, content, created_at: now, metadata: metadata || '{}', parent_id: parentId || null };
 }
 
 export function getMessages(threadId: string, limit = 200, offset = 0): ChatMessage[] {
@@ -85,6 +86,47 @@ export function updateMessage(id: string, updates: { content?: string; metadata?
 
 export function deleteMessage(id: string): void {
   prepare('DELETE FROM chat_messages WHERE id = ?').run(id);
+}
+
+/** Get all messages for a thread (full tree, not just one path). */
+export function getMessageTree(threadId: string): ChatMessage[] {
+  return prepare(
+    'SELECT * FROM chat_messages WHERE thread_id = ? ORDER BY created_at ASC'
+  ).all(threadId) as ChatMessage[];
+}
+
+/** Walk parent_id chain from a leaf back to root, return path root→leaf order. */
+export function getMessagePath(leafId: string): ChatMessage[] {
+  const path: ChatMessage[] = [];
+  let current = prepare('SELECT * FROM chat_messages WHERE id = ?').get(leafId) as ChatMessage | undefined;
+  while (current) {
+    path.unshift(current);
+    if (!current.parent_id) break;
+    current = prepare('SELECT * FROM chat_messages WHERE id = ?').get(current.parent_id) as ChatMessage | undefined;
+  }
+  return path;
+}
+
+/** Get direct children of a message (for finding branch points). */
+export function getChildren(messageId: string): ChatMessage[] {
+  return prepare(
+    'SELECT * FROM chat_messages WHERE parent_id = ? ORDER BY created_at ASC'
+  ).all(messageId) as ChatMessage[];
+}
+
+/** One-time migration: chain existing messages that have NULL parent_ids. */
+export function migrateThreadParentIds(threadId: string): void {
+  const msgs = prepare(
+    'SELECT id, parent_id FROM chat_messages WHERE thread_id = ? ORDER BY created_at ASC'
+  ).all(threadId) as { id: string; parent_id: string | null }[];
+
+  // Only migrate if ALL messages have null parent_id (untouched thread)
+  if (msgs.length < 2 || msgs.some(m => m.parent_id !== null)) return;
+
+  const stmt = prepare('UPDATE chat_messages SET parent_id = ? WHERE id = ?');
+  for (let i = 1; i < msgs.length; i++) {
+    stmt.run(msgs[i - 1].id, msgs[i].id);
+  }
 }
 
 export function searchThreads(query: string): ChatThread[] {

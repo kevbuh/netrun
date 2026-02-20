@@ -170,9 +170,9 @@ export function registerChatIPC(): void {
 
   // ── Chat message CRUD ──
 
-  ipcMain.handle('db:chat-message-add', (_event, threadId: string, role: string, content: string, metadata?: string) => {
+  ipcMain.handle('db:chat-message-add', (_event, threadId: string, role: string, content: string, metadata?: string, parentId?: string) => {
     const id = crypto.randomUUID();
-    return chatDb.addMessage(id, threadId, role, content, metadata);
+    return chatDb.addMessage(id, threadId, role, content, metadata, parentId);
   });
 
   ipcMain.handle('db:chat-message-list', (_event, threadId: string, limit?: number, offset?: number) => {
@@ -186,6 +186,25 @@ export function registerChatIPC(): void {
 
   ipcMain.handle('db:chat-message-delete', (_event, id: string) => {
     chatDb.deleteMessage(id);
+    return { ok: true };
+  });
+
+  // ── Conversation tree queries ──
+
+  ipcMain.handle('db:chat-message-tree', (_event, threadId: string) => {
+    return chatDb.getMessageTree(threadId);
+  });
+
+  ipcMain.handle('db:chat-message-path', (_event, leafId: string) => {
+    return chatDb.getMessagePath(leafId);
+  });
+
+  ipcMain.handle('db:chat-message-children', (_event, messageId: string) => {
+    return chatDb.getChildren(messageId);
+  });
+
+  ipcMain.handle('db:chat-message-migrate-parents', (_event, threadId: string) => {
+    chatDb.migrateThreadParentIds(threadId);
     return { ok: true };
   });
 }

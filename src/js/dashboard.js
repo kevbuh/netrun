@@ -66,15 +66,12 @@ export function _dashBuildQuickActions() {
     { label: 'Search', fn: function() { openSearch(); }, iconName: 'search' },
     { label: 'Calendar', fn: function() { wmOpen('calendar'); }, iconName: 'calendar' },
   ];
-  var grid = new (window._AetherUIView || AetherUI.View)('div');
-  grid.className('grid grid-cols-2 gap-2 h-full');
-  actions.forEach(function(a) {
-    var btn = Button('').ghost().onTap(a.fn);
+  return Grid(actions.map(function(a) {
+    var btn = Button(null).ghost().onTap(a.fn);
     btn.el.innerHTML = icon(a.iconName, {size: 16, class: 'w-4 h-4 shrink-0'}) +
                        '<span>' + a.label + '</span>';
-    grid.el.appendChild(btn.build());
-  });
-  return grid;
+    return btn;
+  })).columns(2).gap('8px').frame({height: '100%'});
 }
 
 export function _dashBuildTrendingCard(trending) {
@@ -217,7 +214,7 @@ export async function renderDashboard() {
       ).spacing('8px').className('mb-2'),
       VStack(_todayEvents.map(function(ev) {
         var evColor = ev.color || '#60a5fa';
-        var dot = new (window._AetherUIView || AetherUI.View)('span');
+        var dot = new View('span');
         dot.className('w-2 h-2 rounded-full shrink-0');
         dot.styles({ background: evColor });
         var descView = ev.description ? Text(ev.description).className('text-[0.72rem] text-dimmer truncate') : null;
@@ -248,7 +245,7 @@ export async function renderDashboard() {
 
   // Summary element placeholder
   function _buildSummaryEl(cls) {
-    var el = new (window._AetherUIView || AetherUI.View)('div');
+    var el = new View('div');
     el.id('dash-day-summary').className('text-[0.8rem] text-dim leading-relaxed ' + (cls || 'mb-3'));
     el.styles({ minHeight: '1.2em' });
     var inner = Text('Summarizing your day...').className('text-dimmest text-[0.75rem]');
@@ -312,9 +309,9 @@ export async function renderDashboard() {
     var inboxItems = [];
     _inboxFeedNotifs.slice().sort(function(a, b) { return (b.seenAt || 0) - (a.seenAt || 0); }).slice(0, 5).forEach(function(n) {
       var chip = typeof getSourceChip === 'function' ? getSourceChip(n.source) : '';
-      var dot = new (window._AetherUIView || AetherUI.View)('span');
+      var dot = new View('span');
       dot.className('w-1.5 h-1.5 rounded-full bg-accent shrink-0');
-      var dismissBtn = new (window._AetherUIView || AetherUI.View)('button');
+      var dismissBtn = new View('button');
       dismissBtn.className('text-dimmer hover:text-primary text-sm bg-transparent border-none cursor-pointer px-0.5 shrink-0');
       dismissBtn.el.textContent = '\u00d7';
       dismissBtn.el.title = 'Dismiss';
@@ -329,7 +326,7 @@ export async function renderDashboard() {
       inboxItems.push(row);
     });
     _inboxMsgs.slice(0, 3).forEach(function(m) {
-      var dot = new (window._AetherUIView || AetherUI.View)('span');
+      var dot = new View('span');
       dot.className('w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0');
       var content = '<span class="font-medium">' + escapeHtml(m.from_username || 'Unknown') + '</span>: ' + escapeHtml((m.content || '').slice(0, 60));
       inboxItems.push(HStack(
@@ -743,7 +740,7 @@ export async function renderDashboard() {
       if (!isPostCached(p.link)) cachePostOffline(p.link, p, offlineBtn.el.firstChild);
     });
 
-    var delBtn = new (window._AetherUIView || AetherUI.View)('button');
+    var delBtn = new View('button');
     delBtn.className('dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none');
     delBtn.styles({ color: 'var(--nr-text-quaternary)', fontSize: '1rem' });
     delBtn.el.textContent = '\u00d7';
@@ -784,7 +781,7 @@ export async function renderDashboard() {
   const _pJoinDate = profile.created ? new Date(profile.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : '';
 
   // Background banner
-  var bgBanner = new (window._AetherUIView || AetherUI.View)('div');
+  var bgBanner = new View('div');
   bgBanner.className('relative rounded-xl overflow-hidden mb-6 ' + (profile.profile_bg ? '' : 'nr-living-gradient'));
   bgBanner.styles({
     minHeight: '120px',
@@ -792,10 +789,10 @@ export async function renderDashboard() {
       ? "url('" + escapeAttr(profile.profile_bg) + "') center/cover no-repeat"
       : 'linear-gradient(135deg, ' + _pAccent + '33, ' + _pAccent + '11)'
   });
-  var bgGrad = new (window._AetherUIView || AetherUI.View)('div');
+  var bgGrad = new View('div');
   bgGrad.styles({ position: 'absolute', bottom: '0', left: '0', right: '0', height: '60px', background: 'linear-gradient(to top,var(--nr-bg-body),transparent)' });
   bgBanner.el.appendChild(bgGrad.build());
-  var bgBtn = new (window._AetherUIView || AetherUI.View)('button');
+  var bgBtn = new View('button');
   bgBtn.className('absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center bg-black/40 text-white/70 hover:text-white border-none cursor-pointer transition-colors');
   bgBtn.el.title = 'Change background';
   bgBtn.el.innerHTML = icon('camera', {class: 'w-3.5 h-3.5'});
@@ -837,12 +834,15 @@ export async function renderDashboard() {
     VStack(settingsBtn).className('ml-auto')
   ).className('flex items-center gap-4 mb-6 -mt-12 relative z-10 px-2');
 
-  var statusPicker = new (window._AetherUIView || AetherUI.View)('div');
+  var statusPicker = new View('div');
   statusPicker.id('dash-status-picker').className('hidden mb-4');
 
   // Profile counters
   function _counterView(count, label) {
-    return RawHTML('<div><span class="text-white_ font-semibold">' + (count || 0) + '</span> <span class="text-dimmer">' + label + '</span></div>');
+    return HStack(
+      Text(String(count || 0)).fontWeight('600'),
+      Text('\u00a0' + label).className('text-dimmer')
+    );
   }
   var countersRow = HStack(
     _counterView(profile.comment_count, 'comments'),
@@ -863,7 +863,7 @@ export async function renderDashboard() {
   var _bentoCommentsView = myComments.length ? VStack(myComments.slice(0, 4).map(function(c) {
     var timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
     var preview = (c.content || '').length > 80 ? c.content.slice(0, 80) + '...' : c.content;
-    var link = new (window._AetherUIView || AetherUI.View)('a');
+    var link = new View('a');
     link.el.href = '#paper/' + encodeURIComponent(c.paperLink);
     link.className('block px-2 py-1.5 rounded-md hover:bg-hover transition-colors');
     link.styles({ textDecoration: 'none' });
@@ -878,7 +878,7 @@ export async function renderDashboard() {
   // Reposts card view
   var _bentoRepostsView = myReposts.length ? VStack(myReposts.slice(0, 4).map(function(r) {
     var timeAgo = typeof _relativeTime === 'function' ? _relativeTime(r.timestamp) : '';
-    var link = new (window._AetherUIView || AetherUI.View)('a');
+    var link = new View('a');
     link.el.href = '#view/' + encodeURIComponent(r.paperLink);
     link.className('flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover transition-colors');
     link.styles({ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' });
@@ -896,25 +896,23 @@ export async function renderDashboard() {
 
   // Helper to wrap a view in a bento card
   function _bentoCard(view, cls) {
-    var card = new (window._AetherUIView || AetherUI.View)('div');
+    var card = new View('div');
     card.className('nr-card ' + cls);
-    if (view instanceof (window._AetherUIView || AetherUI.View)) {
-      card.el.appendChild(view.build());
-      for (var k = 0; k < view._onAppearFns.length; k++) view._onAppearFns[k]();
-    }
+    card._appendChildren([view]);
     return card;
   }
 
   // Card header helper
   function _cardHeader(title, right) {
-    var h = new (window._AetherUIView || View)('h3');
-    h.el.className = 'text-[0.82rem] font-semibold text-primary';
-    h.el.textContent = title;
-    return HStack(h, Spacer(), right).className('mb-2');
+    return HStack(
+      Text(title).className('text-[0.82rem] font-semibold text-primary'),
+      Spacer(),
+      right
+    ).className('mb-2');
   }
 
   // ── Build bento grid ──
-  var bentoGrid = new (window._AetherUIView || AetherUI.View)('div');
+  var bentoGrid = new View('div');
   bentoGrid.className('bento-grid');
 
   // Daily Overview (3x1)
@@ -931,7 +929,7 @@ export async function renderDashboard() {
   }
 
   // Activity Heatmap (4x1)
-  var heatmapCard = new (window._AetherUIView || AetherUI.View)('div');
+  var heatmapCard = new View('div');
   heatmapCard.className('nr-card bento-4x1');
   var heatmapHeader = _cardHeader('Activity', Text(String(now.getFullYear())).className('text-[0.68rem] text-dimmest'));
   heatmapCard.el.appendChild(heatmapHeader.build());
@@ -1122,7 +1120,7 @@ export function _openStatusPicker() {
   picker.classList.remove('hidden');
 
   // None option
-  var noneOpt = new (window._AetherUIView || AetherUI.View)('div');
+  var noneOpt = new View('div');
   noneOpt.className('w-9 h-9 rounded-lg border cursor-pointer flex items-center justify-center text-dimmer text-sm ' + (!currentEmoji ? 'border-accent bg-accent/10' : 'border-border-card hover:border-accent/40'));
   noneOpt.attr('data-pet', '');
   noneOpt.el.innerHTML = '&mdash;';
@@ -1131,7 +1129,7 @@ export function _openStatusPicker() {
 
   // Pet options
   var petOpts = petTypes.map(function(t) {
-    var opt = new (window._AetherUIView || AetherUI.View)('div');
+    var opt = new View('div');
     opt.className('w-9 h-9 rounded-lg border cursor-pointer flex items-center justify-center ' + (currentEmoji === t ? 'border-accent bg-accent/10' : 'border-border-card hover:border-accent/40'));
     opt.attr('data-pet', t);
     opt.el.title = t;
@@ -1255,7 +1253,7 @@ export async function openAllSaved() {
         if (!isPostCached(p.link)) cachePostOffline(p.link, p, offlineBtn.el.firstChild);
       });
 
-      var delBtn = new (window._AetherUIView || AetherUI.View)('button');
+      var delBtn = new View('button');
       delBtn.className('dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none');
       delBtn.styles({ color: 'var(--nr-text-quaternary)', fontSize: '1rem' });
       delBtn.el.textContent = '\u00d7';
@@ -1471,6 +1469,21 @@ export function renderDevSection(sectionId) {
   else AetherUI.mount(Text('Unknown section').className('text-sm').foreground('quaternary'), contentPane);
 }
 
+// ── Dev helpers ──
+
+function _devStatCard(value, label, color) {
+  return VStack(
+    Text(String(value)).className('dev-stat-value').styles({ fontSize: '24px', color: color || 'var(--nr-text-primary)' }),
+    Text(label).className('dev-stat-label').styles({ fontSize: '0.65rem' })
+  ).className('dev-stat-card').styles({ padding: '12px' });
+}
+
+function _devStatGrid() {
+  var items = Array.prototype.slice.call(arguments);
+  return Grid.apply(null, items)
+    .styles({ gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: '12px', marginTop: '8px' });
+}
+
 // ── Overview Section ──
 export async function _renderDevOverview() {
   const contentPane = document.getElementById('dev-content-pane');
@@ -1480,9 +1493,9 @@ export async function _renderDevOverview() {
     Text('Project Health').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
     Text('Real-time metrics and performance monitoring').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
-  var statsCards = new (window._AetherUIView || AetherUI.View)('div');
+  var statsCards = new View('div');
   statsCards.className('dev-stats-cards').id('dev-stats-cards');
-  var chartArea = new (window._AetherUIView || AetherUI.View)('div');
+  var chartArea = new View('div');
   chartArea.id('dev-loc-chart');
   AetherUI.mount(VStack(header, statsCards, chartArea), contentPane);
 
@@ -1585,7 +1598,7 @@ export function _renderDevFunctionRegistry() {
   var reportBtn = Button('Open HTML Report').className('dev-btn-secondary').onTap(function() { _devOpenFunctionRegistryReport(); });
   var statusEl = Text('').id('dev-fn-reg-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
   var controls = HStack(analyzeBtn, reportBtn, statusEl).gap('8px').wrap().styles({marginBottom:'16px'});
-  var results = new (window._AetherUIView || AetherUI.View)('div');
+  var results = new View('div');
   results.id('dev-fn-reg-results');
 
   AetherUI.mount(VStack(header, controls, results), contentPane);
@@ -1604,7 +1617,7 @@ export function _renderDevFeedValidator() {
   var valBtn = Button('Run Validation').className('dev-btn-primary').id('dev-feed-val-btn').onTap(function() { _devRunFeedValidator(); });
   var statusEl = Text('').id('dev-feed-val-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
   var controls = HStack(valBtn, statusEl).gap('8px').styles({marginBottom:'16px'});
-  var results = new (window._AetherUIView || AetherUI.View)('div');
+  var results = new View('div');
   results.id('dev-feed-val-results');
 
   AetherUI.mount(VStack(header, controls, results), contentPane);
@@ -1623,7 +1636,7 @@ export function _renderDevLoadOrder() {
   var runBtn = Button('Run Analysis').className('dev-btn-primary').id('dev-load-ord-btn').onTap(function() { _devRunLoadOrderAnalysis(); });
   var statusEl = Text('').id('dev-load-ord-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
   var controls = HStack(runBtn, statusEl).gap('8px').styles({marginBottom:'16px'});
-  var results = new (window._AetherUIView || AetherUI.View)('div');
+  var results = new View('div');
   results.id('dev-load-ord-results');
 
   AetherUI.mount(VStack(header, controls, results), contentPane);
@@ -1656,16 +1669,16 @@ export function _renderDevDependencyGraph() {
     .gap('8px').styles({marginBottom:'12px'}).wrap();
 
   // Controls Row 2 (function view)
-  var searchInput = new (window._AetherUIView || AetherUI.View)('input');
+  var searchInput = new View('input');
   searchInput.id('dev-graph-search').className('dev-input');
   searchInput.el.type = 'text';
   searchInput.el.placeholder = 'Search functions...';
   searchInput.on('input', function() { _devGraphSearch(searchInput.el.value); });
-  var fileFilter = new (window._AetherUIView || AetherUI.View)('select');
+  var fileFilter = new View('select');
   fileFilter.id('dev-graph-file-filter').className('dev-input');
   fileFilter.el.innerHTML = '<option value="">All Files</option>';
   fileFilter.onChange(function() { _devGraphFilterByFile(fileFilter.el.value); });
-  var unusedCb = new (window._AetherUIView || AetherUI.View)('input');
+  var unusedCb = new View('input');
   unusedCb.el.type = 'checkbox';
   unusedCb.id('dev-graph-show-unused');
   unusedCb.onChange(function() { _devGraphToggleUnused(unusedCb.el.checked); });
@@ -1688,7 +1701,7 @@ export function _renderDevDependencyGraph() {
   ).gap('16px').styles({marginBottom:'12px', fontSize:'0.65rem', color:'var(--nr-text-quaternary)'}).wrap();
 
   // Graph container
-  var graphContainer = new (window._AetherUIView || AetherUI.View)('div');
+  var graphContainer = new View('div');
   graphContainer.id('dev-dep-graph-container')
     .styles({background:'var(--nr-bg-surface)', border:'1px solid var(--nr-border-default)', borderRadius:'6px', padding:'16px', maxHeight:'600px', overflowY:'auto', fontFamily:'monospace', fontSize:'12px', lineHeight:'1.6'});
   graphContainer.el.innerHTML = '<div style="color:var(--nr-text-quaternary)">Click "Load Graph" to start...</div>';
@@ -1861,8 +1874,7 @@ export function _devRenderFileTree(nodes, edges) {
     }
   });
 
-  container.innerHTML = '';
-  container.appendChild(wrapper.el);
+  AetherUI.mount(wrapper, container);
 }
 
 export function _devToggleFileInFileView(file) {
@@ -2031,8 +2043,7 @@ export function _devRenderFunctionTree(allNodes, allEdges) {
     wrapper.el.appendChild(fileDiv.el);
   });
 
-  container.innerHTML = '';
-  container.appendChild(wrapper.el);
+  AetherUI.mount(wrapper, container);
 }
 
 export function _devToggleFile(file) {
@@ -2086,7 +2097,7 @@ export async function _renderDevGitLog() {
     Text('Git History').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
     Text('Recent commit activity').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
-  var logContainer = new (window._AetherUIView || AetherUI.View)('div');
+  var logContainer = new View('div');
   logContainer.id('dev-git-log-container');
   AetherUI.mount(VStack(header, logContainer), contentPane);
 
@@ -2099,8 +2110,10 @@ export async function _renderDevGitLog() {
 
     AetherUI.mount(Show(log.length,
       function() {
+        _devGitLogState = State(log);
         _devGitLogOffset = log.length;
-        var logList = RawHTML('<div class="dev-git-log-list" id="dev-git-log-list">' + _devRenderCommitRows(log) + '</div>');
+        var logList = new View('div').id('dev-git-log-list').className('dev-git-log-list');
+        logList._appendChildren([ForEach(_devGitLogState, function(c) { return c.sha; }, _devCommitRow)]);
         return logList;
       },
       function() { return Text('No commits found').className('text-sm').foreground('quaternary'); }
@@ -2121,7 +2134,7 @@ export function _renderDevTools() {
     Text('Testing utilities and debugging tools').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
 
-  var achSelect = new (window._AetherUIView || AetherUI.View)('select');
+  var achSelect = new View('select');
   achSelect.id('dev-ach-select').className('dev-input').styles({minWidth:'180px'});
   achSelect.el.innerHTML = '<option value="bookworm">Bookworm</option><option value="curator">Curator</option><option value="critic">Critic</option><option value="explorer">Explorer</option><option value="model_switch">Model Swapper</option><option value="pixel_parent">Pixel Parent</option>';
 
@@ -2200,109 +2213,38 @@ export async function _devRunFunctionRegistry() {
     const warningCount = dupsBySeverity.WARNING.length;
     const infoCount = dupsBySeverity.INFO.length;
 
-    AetherUI.mount(RawHTML(`
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:8px">
-        <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-accent)">${summary.totalFunctions}</div>
-          <div class="dev-stat-label" style="font-size:0.65rem">Functions</div>
-        </div>
-        <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:${summary.duplicateFunctions > 0 ? '#f59e0b' : 'var(--nr-text-primary)'}">${summary.duplicateFunctions}</div>
-          <div class="dev-stat-label" style="font-size:0.65rem">Duplicates</div>
-        </div>
-        <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:${summary.unusedFunctions > 0 ? '#ef4444' : 'var(--nr-text-primary)'}">${summary.unusedFunctions}</div>
-          <div class="dev-stat-label" style="font-size:0.65rem">Unused</div>
-        </div>
-        <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-text-primary)">${summary.totalFiles}</div>
-          <div class="dev-stat-label" style="font-size:0.65rem">Files</div>
-        </div>
-      </div>
+    var parts = [
+      _devStatGrid(
+        _devStatCard(summary.totalFunctions, 'Functions', 'var(--nr-accent)'),
+        _devStatCard(summary.duplicateFunctions, 'Duplicates', summary.duplicateFunctions > 0 ? '#f59e0b' : null),
+        _devStatCard(summary.unusedFunctions, 'Unused', summary.unusedFunctions > 0 ? '#ef4444' : null),
+        _devStatCard(summary.totalFiles, 'Files', null)
+      )
+    ];
 
-      ${data.issues.duplicates.length > 0 ? `
-        <div style="margin-top:16px;padding:8px 12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px">
-          <div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600">
-            Severity Breakdown:
-            <span style="color:#ef4444;margin-left:12px">${errorCount} ERROR</span>
-            <span style="color:#f59e0b;margin-left:8px">${warningCount} WARNING</span>
-            <span style="color:#60a5fa;margin-left:8px">${infoCount} INFO</span>
-          </div>
-        </div>
-      ` : ''}
-
-      ${errorCount > 0 ? `
-        <div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #ef4444">
-          <div style="color:#ef4444;font-size:0.75rem;font-weight:600;margin-bottom:8px">ERROR: Global Naming Conflicts (${errorCount})</div>
-          ${dupsBySeverity.ERROR.slice(0, 5).map(dup => `
-            <div style="margin-bottom:8px;font-size:0.65rem">
-              <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
-              <div style="color:var(--nr-text-quaternary);margin-top:4px;margin-left:8px">
-                ${dup.definitions.map(def => `${def.file}:${def.line}`).join(', ')}
-              </div>
-            </div>
-          `).join('')}
-          ${errorCount > 5 ? `<div style="color:var(--nr-text-quaternary);font-size:0.65rem;margin-top:8px">...and ${errorCount - 5} more</div>` : ''}
-        </div>
-      ` : ''}
-
-      ${warningCount > 0 ? `
-        <div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #f59e0b">
-          <div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Same-Scope Duplicates (${warningCount})</div>
-          ${dupsBySeverity.WARNING.slice(0, 5).map(dup => `
-            <div style="margin-bottom:8px;font-size:0.65rem">
-              <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
-              <div style="color:var(--nr-text-quaternary);margin-top:4px;margin-left:8px">
-                ${dup.definitions.map(def => `${def.file}:${def.line}`).join(', ')}
-              </div>
-            </div>
-          `).join('')}
-          ${warningCount > 5 ? `<div style="color:var(--nr-text-quaternary);font-size:0.65rem;margin-top:8px">...and ${warningCount - 5} more</div>` : ''}
-        </div>
-      ` : ''}
-
-      ${infoCount > 0 ? `
-        <details style="margin-top:12px">
-          <summary style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;border-left:3px solid #60a5fa;cursor:pointer;color:#60a5fa;font-size:0.7rem;font-weight:600">
-            ℹ️ INFO: Nested Duplicates (${infoCount}) - Safe, intentional
-          </summary>
-          <div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px">
-            ${dupsBySeverity.INFO.slice(0, 10).map(dup => `
-              <div style="margin-bottom:8px;font-size:0.65rem">
-                <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code>
-                <span style="color:var(--nr-text-quaternary);margin-left:8px">(${dup.definitions.length} definitions)</span>
-              </div>
-            `).join('')}
-            ${infoCount > 10 ? `<div style="color:var(--nr-text-quaternary);font-size:0.65rem;margin-top:8px">...and ${infoCount - 10} more</div>` : ''}
-          </div>
-        </details>
-      ` : ''}
-
-      ${data.issues.unused.length > 0 ? `
-        <div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px">
-          <div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">🗑️ Unused Functions (${data.issues.unused.length})</div>
-          <div style="color:var(--nr-text-quaternary);font-size:0.65rem;max-height:150px;overflow-y:auto">
-            ${data.issues.unused.slice(0, 10).map(u => `<code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px;margin-right:8px;margin-bottom:4px;display:inline-block">${escapeHtml(u.name)}()</code>`).join('')}
-            ${data.issues.unused.length > 10 ? `<div style="margin-top:8px">...and ${data.issues.unused.length - 10} more</div>` : ''}
-          </div>
-        </div>
-      ` : ''}
-
-      ${Object.entries(data.functions).sort((a, b) => b[1].callCount - a[1].callCount).slice(0, 5).length > 0 ? `
-        <div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px">
-          <div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">🔥 Most Called Functions</div>
-          ${Object.entries(data.functions).sort((a, b) => b[1].callCount - a[1].callCount).slice(0, 5).map(([name, info], i) => `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:0.65rem">
-              <span>
-                <span style="color:var(--nr-accent);font-weight:600">#${i + 1}</span>
-                <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px;margin-left:8px">${escapeHtml(name)}()</code>
-              </span>
-              <span style="color:var(--nr-text-quaternary)">${info.callCount} calls</span>
-            </div>
-          `).join('')}
-        </div>
-      ` : ''}
-    `), results);
+    // Severity breakdown + error/warning/info panels kept as RawHTML (complex structure)
+    var detailsHtml = '';
+    if (data.issues.duplicates.length > 0) {
+      detailsHtml += `<div style="margin-top:16px;padding:8px 12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px"><div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600">Severity Breakdown: <span style="color:#ef4444;margin-left:12px">${errorCount} ERROR</span><span style="color:#f59e0b;margin-left:8px">${warningCount} WARNING</span><span style="color:#60a5fa;margin-left:8px">${infoCount} INFO</span></div></div>`;
+    }
+    if (errorCount > 0) {
+      detailsHtml += `<div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #ef4444"><div style="color:#ef4444;font-size:0.75rem;font-weight:600;margin-bottom:8px">ERROR: Global Naming Conflicts (${errorCount})</div>${dupsBySeverity.ERROR.slice(0, 5).map(dup => `<div style="margin-bottom:8px;font-size:0.65rem"><code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code><div style="color:var(--nr-text-quaternary);margin-top:4px;margin-left:8px">${dup.definitions.map(def => `${def.file}:${def.line}`).join(', ')}</div></div>`).join('')}${errorCount > 5 ? `<div style="color:var(--nr-text-quaternary);font-size:0.65rem;margin-top:8px">...and ${errorCount - 5} more</div>` : ''}</div>`;
+    }
+    if (warningCount > 0) {
+      detailsHtml += `<div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #f59e0b"><div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Same-Scope Duplicates (${warningCount})</div>${dupsBySeverity.WARNING.slice(0, 5).map(dup => `<div style="margin-bottom:8px;font-size:0.65rem"><code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code><div style="color:var(--nr-text-quaternary);margin-top:4px;margin-left:8px">${dup.definitions.map(def => `${def.file}:${def.line}`).join(', ')}</div></div>`).join('')}${warningCount > 5 ? `<div style="color:var(--nr-text-quaternary);font-size:0.65rem;margin-top:8px">...and ${warningCount - 5} more</div>` : ''}</div>`;
+    }
+    if (infoCount > 0) {
+      detailsHtml += `<details style="margin-top:12px"><summary style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;border-left:3px solid #60a5fa;cursor:pointer;color:#60a5fa;font-size:0.7rem;font-weight:600">&#8505;&#65039; INFO: Nested Duplicates (${infoCount}) - Safe, intentional</summary><div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px">${dupsBySeverity.INFO.slice(0, 10).map(dup => `<div style="margin-bottom:8px;font-size:0.65rem"><code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(dup.name)}()</code><span style="color:var(--nr-text-quaternary);margin-left:8px">(${dup.definitions.length} definitions)</span></div>`).join('')}${infoCount > 10 ? `<div style="color:var(--nr-text-quaternary);font-size:0.65rem;margin-top:8px">...and ${infoCount - 10} more</div>` : ''}</div></details>`;
+    }
+    if (data.issues.unused.length > 0) {
+      detailsHtml += `<div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px"><div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">Unused Functions (${data.issues.unused.length})</div><div style="color:var(--nr-text-quaternary);font-size:0.65rem;max-height:150px;overflow-y:auto">${data.issues.unused.slice(0, 10).map(u => `<code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px;margin-right:8px;margin-bottom:4px;display:inline-block">${escapeHtml(u.name)}()</code>`).join('')}${data.issues.unused.length > 10 ? `<div style="margin-top:8px">...and ${data.issues.unused.length - 10} more</div>` : ''}</div></div>`;
+    }
+    var topFuncs = Object.entries(data.functions).sort((a, b) => b[1].callCount - a[1].callCount).slice(0, 5);
+    if (topFuncs.length > 0) {
+      detailsHtml += `<div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px"><div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">Most Called Functions</div>${topFuncs.map(([name, info], i) => `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:0.65rem"><span><span style="color:var(--nr-accent);font-weight:600">#${i + 1}</span><code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px;margin-left:8px">${escapeHtml(name)}()</code></span><span style="color:var(--nr-text-quaternary)">${info.callCount} calls</span></div>`).join('')}</div>`;
+    }
+    if (detailsHtml) parts.push(RawHTML(detailsHtml));
+    AetherUI.mount(VStack.apply(null, parts), results);
   } catch (e) {
     status.textContent = 'Error: ' + e.message;
     status.style.color = 'var(--nr-text-error, #ef4444)';
@@ -2346,34 +2288,19 @@ export async function _devRunFeedValidator() {
     status.textContent = isSync ? 'Catalogs in sync' : `${data.errorCount} mismatch${data.errorCount === 1 ? '' : 'es'} found`;
     status.style.color = isSync ? '#34d399' : '#ef4444';
 
-    AetherUI.mount(RawHTML(`
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:8px;margin-bottom:16px">
-        <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-accent)">${data.jsCatalogSize}</div>
-          <div class="dev-stat-label" style="font-size:0.65rem">JS Entries</div>
-        </div>
-        <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-accent)">${data.pyCatalogSize}</div>
-          <div class="dev-stat-label" style="font-size:0.65rem">PY Entries</div>
-        </div>
-        <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:${isSync ? '#34d399' : '#ef4444'}">${data.errorCount}</div>
-          <div class="dev-stat-label" style="font-size:0.65rem">Mismatches</div>
-        </div>
-      </div>
-
-      ${data.errorCount > 0 ? `
-        ${_devRenderFeedValidatorErrors(data.errors)}
-      ` : `
-        <div style="padding:24px;text-align:center;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px">
-          <div style="width:48px;height:48px;margin:0 auto 12px;border-radius:50%;background:#34d399;display:flex;align-items:center;justify-content:center">
-            ${icon('check', {size: 24, stroke: 'white', strokeWidth: '3'})}
-          </div>
-          <div style="color:var(--nr-text-primary);font-size:0.85rem;font-weight:600">All ${data.jsCatalogSize} feed entries are in sync!</div>
-          <div style="color:var(--nr-text-quaternary);font-size:0.7rem;margin-top:4px">JS and Python catalogs match perfectly.</div>
-        </div>
-      `}
-    `), results);
+    var feedValidatorParts = [
+      _devStatGrid(
+        _devStatCard(data.jsCatalogSize, 'JS Entries', 'var(--nr-accent)'),
+        _devStatCard(data.pyCatalogSize, 'PY Entries', 'var(--nr-accent)'),
+        _devStatCard(data.errorCount, 'Mismatches', isSync ? '#34d399' : '#ef4444')
+      )
+    ];
+    if (data.errorCount > 0) {
+      feedValidatorParts.push(RawHTML(_devRenderFeedValidatorErrors(data.errors)));
+    } else {
+      feedValidatorParts.push(RawHTML(`<div style="padding:24px;text-align:center;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px"><div style="width:48px;height:48px;margin:0 auto 12px;border-radius:50%;background:#34d399;display:flex;align-items:center;justify-content:center">${icon('check', {size: 24, stroke: 'white', strokeWidth: '3'})}</div><div style="color:var(--nr-text-primary);font-size:0.85rem;font-weight:600">All ${data.jsCatalogSize} feed entries are in sync!</div><div style="color:var(--nr-text-quaternary);font-size:0.7rem;margin-top:4px">JS and Python catalogs match perfectly.</div></div>`));
+    }
+    AetherUI.mount(VStack.apply(null, feedValidatorParts), results);
   } catch (e) {
     status.textContent = 'Error: ' + e.message;
     status.style.color = 'var(--nr-text-error, #ef4444)';
@@ -2482,92 +2409,27 @@ export async function _devRunLoadOrderAnalysis() {
     status.textContent = isOptimal ? 'Load order optimal' : `${data.warnings.length} warning${data.warnings.length === 1 ? '' : 's'} found`;
     status.style.color = isOptimal ? '#34d399' : '#f59e0b';
 
-    AetherUI.mount(RawHTML(`
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:8px;margin-bottom:16px">
-        <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-accent)">${data.scriptCount}</div>
-          <div class="dev-stat-label" style="font-size:0.65rem">Scripts</div>
-        </div>
-        <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:${data.warnings.length > 0 ? '#f59e0b' : 'var(--nr-text-primary)'}">${data.warnings.length}</div>
-          <div class="dev-stat-label" style="font-size:0.65rem">Warnings</div>
-        </div>
-        <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-text-quaternary)">${data.infos.length}</div>
-          <div class="dev-stat-label" style="font-size:0.65rem">Info</div>
-        </div>
-        <div class="dev-stat-card" style="padding:12px">
-          <div class="dev-stat-value" style="font-size:24px;color:var(--nr-text-primary)">${data.cycles.length}</div>
-          <div class="dev-stat-label" style="font-size:0.65rem">Circular Deps</div>
-        </div>
-      </div>
-
-      <details open style="margin-bottom:12px">
-        <summary style="padding:10px 14px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;cursor:pointer;color:var(--nr-text-primary);font-size:0.75rem;font-weight:600;transition:all var(--motion-fast) var(--motion-smooth)">
-          Script Load Order (${data.scriptCount} files)
-        </summary>
-        <div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px;max-height:300px;overflow-y:auto">
-          ${data.scriptOrder.map((script, i) => `
-            <div style="font-size:0.65rem;color:var(--nr-text-quaternary);margin-bottom:2px;font-family:monospace">
-              <span style="color:var(--nr-accent);font-weight:600">${i + 1}.</span>
-              <span style="margin-left:8px">${escapeHtml(script)}</span>
-            </div>
-          `).join('')}
-        </div>
-      </details>
-
-      ${data.warnings.length > 0 ? `
-        <div style="margin-bottom:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #f59e0b">
-          <div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Forward References (may cause issues)</div>
-          <div style="color:var(--nr-text-quaternary);font-size:0.65rem;max-height:200px;overflow-y:auto">
-            ${data.warnings.slice(0, 10).map(ref => `
-              <div style="margin-bottom:8px;padding:8px;background:var(--nr-bg-raised);border-radius:4px">
-                <div><strong>${ref.callFile}</strong> (order ${ref.callOrder}) calls <code style="color:#60a5fa">${escapeHtml(ref.funcName)}()</code></div>
-                <div style="margin-top:4px;color:var(--nr-text-quaternary)">→ Defined in <strong>${ref.defFile}</strong> (order ${ref.defOrder})</div>
-              </div>
-            `).join('')}
-            ${data.warnings.length > 10 ? `<div style="margin-top:8px">...and ${data.warnings.length - 10} more</div>` : ''}
-          </div>
-        </div>
-      ` : ''}
-
-      ${data.infos.length > 0 ? `
-        <details style="margin-bottom:12px">
-          <summary style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;cursor:pointer;color:#60a5fa;font-size:0.7rem;font-weight:600;border-left:3px solid #60a5fa">
-            ℹ️ Forward References (INFO - ${data.infos.length}) - Safe with defer
-          </summary>
-          <div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px">
-            <div style="color:var(--nr-text-quaternary);font-size:0.65rem;margin-bottom:8px">
-              These forward references are safe because scripts use defer attribute and functions are called inside other functions or event handlers.
-            </div>
-            <div style="color:var(--nr-text-quaternary);font-size:0.65rem">
-              ${data.infos.slice(0, 5).map(ref => `
-                <div style="margin-bottom:4px">
-                  ${ref.callFile} → <code style="color:#60a5fa">${escapeHtml(ref.funcName)}()</code> → ${ref.defFile}
-                </div>
-              `).join('')}
-              ${data.infos.length > 5 ? `<div style="margin-top:8px">...and ${data.infos.length - 5} more</div>` : ''}
-            </div>
-          </div>
-        </details>
-      ` : ''}
-
-      ${data.cycles.length > 0 ? `
-        <details style="margin-bottom:12px">
-          <summary style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;cursor:pointer;color:var(--nr-text-primary);font-size:0.7rem;font-weight:600">
-            🔄 Circular Dependencies (${data.cycles.length})
-          </summary>
-          <div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px">
-            <div style="color:var(--nr-text-quaternary);font-size:0.65rem">
-              ${data.cycles.slice(0, 10).map(cycle => `
-                <div style="margin-bottom:4px">${cycle.join(' → ')}</div>
-              `).join('')}
-              ${data.cycles.length > 10 ? `<div style="margin-top:8px">...and ${data.cycles.length - 10} more</div>` : ''}
-            </div>
-          </div>
-        </details>
-      ` : ''}
-    `), results);
+    var loadOrderParts = [
+      _devStatGrid(
+        _devStatCard(data.scriptCount, 'Scripts', 'var(--nr-accent)'),
+        _devStatCard(data.warnings.length, 'Warnings', data.warnings.length > 0 ? '#f59e0b' : null),
+        _devStatCard(data.infos.length, 'Info', 'var(--nr-text-quaternary)'),
+        _devStatCard(data.cycles.length, 'Circular Deps', null)
+      )
+    ];
+    // Complex panels use RawHTML (details/summary, tables)
+    var loadOrderHtml = `<details open style="margin-bottom:12px"><summary style="padding:10px 14px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;cursor:pointer;color:var(--nr-text-primary);font-size:0.75rem;font-weight:600">Script Load Order (${data.scriptCount} files)</summary><div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px;max-height:300px;overflow-y:auto">${data.scriptOrder.map((script, i) => `<div style="font-size:0.65rem;color:var(--nr-text-quaternary);margin-bottom:2px;font-family:monospace"><span style="color:var(--nr-accent);font-weight:600">${i + 1}.</span><span style="margin-left:8px">${escapeHtml(script)}</span></div>`).join('')}</div></details>`;
+    if (data.warnings.length > 0) {
+      loadOrderHtml += `<div style="margin-bottom:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #f59e0b"><div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Forward References (may cause issues)</div><div style="color:var(--nr-text-quaternary);font-size:0.65rem;max-height:200px;overflow-y:auto">${data.warnings.slice(0, 10).map(ref => `<div style="margin-bottom:8px;padding:8px;background:var(--nr-bg-raised);border-radius:4px"><div><strong>${ref.callFile}</strong> (order ${ref.callOrder}) calls <code style="color:#60a5fa">${escapeHtml(ref.funcName)}()</code></div><div style="margin-top:4px;color:var(--nr-text-quaternary)">\u2192 Defined in <strong>${ref.defFile}</strong> (order ${ref.defOrder})</div></div>`).join('')}${data.warnings.length > 10 ? `<div style="margin-top:8px">...and ${data.warnings.length - 10} more</div>` : ''}</div></div>`;
+    }
+    if (data.infos.length > 0) {
+      loadOrderHtml += `<details style="margin-bottom:12px"><summary style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;cursor:pointer;color:#60a5fa;font-size:0.7rem;font-weight:600;border-left:3px solid #60a5fa">Forward References (INFO - ${data.infos.length}) - Safe with defer</summary><div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px"><div style="color:var(--nr-text-quaternary);font-size:0.65rem;margin-bottom:8px">These forward references are safe because scripts use defer and functions are called inside other functions or event handlers.</div><div style="color:var(--nr-text-quaternary);font-size:0.65rem">${data.infos.slice(0, 5).map(ref => `<div style="margin-bottom:4px">${ref.callFile} \u2192 <code style="color:#60a5fa">${escapeHtml(ref.funcName)}()</code> \u2192 ${ref.defFile}</div>`).join('')}${data.infos.length > 5 ? `<div style="margin-top:8px">...and ${data.infos.length - 5} more</div>` : ''}</div></div></details>`;
+    }
+    if (data.cycles.length > 0) {
+      loadOrderHtml += `<details style="margin-bottom:12px"><summary style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;cursor:pointer;color:var(--nr-text-primary);font-size:0.7rem;font-weight:600">Circular Dependencies (${data.cycles.length})</summary><div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px"><div style="color:var(--nr-text-quaternary);font-size:0.65rem">${data.cycles.slice(0, 10).map(cycle => `<div style="margin-bottom:4px">${cycle.join(' \u2192 ')}</div>`).join('')}${data.cycles.length > 10 ? `<div style="margin-top:8px">...and ${data.cycles.length - 10} more</div>` : ''}</div></div></details>`;
+    }
+    loadOrderParts.push(RawHTML(loadOrderHtml));
+    AetherUI.mount(VStack.apply(null, loadOrderParts), results);
   } catch (e) {
     status.textContent = 'Error: ' + e.message;
     status.style.color = 'var(--nr-text-error, #ef4444)';
@@ -2578,41 +2440,44 @@ export async function _devRunLoadOrderAnalysis() {
 }
 
 export var _devGitLogOffset = 0;
+export var _devGitLogState = null;
+
+function _devCommitRow(c) {
+  var d = new Date(c.date);
+  var relative = _devRelativeTime(d);
+  var diffView = (c.ins || c.del)
+    ? RawHTML('<span class="dev-git-log-diff"><span style="color:#3fb950">+' + c.ins + '</span> <span style="color:#f85149">-' + c.del + '</span></span>')
+    : null;
+  return HStack(
+    Text(c.sha).className('dev-git-log-sha'),
+    Text(escapeHtml(c.message)).className('dev-git-log-msg'),
+    diffView,
+    Text(relative).className('dev-git-log-meta')
+  ).className('dev-git-log-item');
+}
 
 export function _devRenderCommitRows(log) {
-  return log.map(c => {
-    const d = new Date(c.date);
-    const relative = _devRelativeTime(d);
-    const diffStr = (c.ins || c.del) ? `<span class="dev-git-log-diff"><span style="color:#3fb950">+${c.ins}</span> <span style="color:#f85149">-${c.del}</span></span>` : '';
-    return `<div class="dev-git-log-item">
-      <span class="dev-git-log-sha">${c.sha}</span>
-      <span class="dev-git-log-msg">${escapeHtml(c.message)}</span>
-      ${diffStr}
-      <span class="dev-git-log-meta">${relative}</span>
-    </div>`;
-  }).join('');
+  return ForEach(log, function(c) { return c.sha; }, _devCommitRow);
 }
 
 export function _devAppendLoadMoreBtn() {
-  const list = document.getElementById('dev-git-log-list');
-  if (!list) return;
+  const container = document.getElementById('dev-git-log-container');
+  if (!container) return;
   const old = document.getElementById('dev-git-load-more');
   if (old) old.remove();
   var btnView = Button('Load more commits').className('dev-git-load-more-btn').attr('id', 'dev-git-load-more');
-  var btn = btnView.el;
-  btnView.onTap(function() { _devLoadMoreCommits(btn); });
-  list.after(btn);
+  btnView.onTap(function() { _devLoadMoreCommits(btnView.el); });
+  container.appendChild(btnView.build());
 }
 
 export async function _devLoadMoreCommits(btn) {
-  btn.textContent = 'Loading…';
+  btn.textContent = 'Loading\u2026';
   btn.disabled = true;
   try {
     const data = await apiGet(`/api/dev-git-log?offset=${_devGitLogOffset}&limit=20`);
     const log = data.git_log || [];
-    if (log.length) {
-      const list = document.getElementById('dev-git-log-list');
-      if (list) list.insertAdjacentHTML('beforeend', _devRenderCommitRows(log));
+    if (log.length && _devGitLogState) {
+      _devGitLogState.value = _devGitLogState.value.concat(log);
       _devGitLogOffset += log.length;
     }
     if (!data.has_more || !log.length) {
@@ -2688,6 +2553,7 @@ window._devRunFeedValidator = _devRunFeedValidator;
 window._devRenderFeedValidatorErrors = _devRenderFeedValidatorErrors;
 window._devRunLoadOrderAnalysis = _devRunLoadOrderAnalysis;
 window._devGitLogOffset = _devGitLogOffset;
+window._devGitLogState = _devGitLogState;
 window._devRenderCommitRows = _devRenderCommitRows;
 window._devAppendLoadMoreBtn = _devAppendLoadMoreBtn;
 window._devLoadMoreCommits = _devLoadMoreCommits;

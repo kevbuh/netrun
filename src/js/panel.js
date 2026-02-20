@@ -1424,6 +1424,28 @@ export function _panelBuildChatInput(popup, config) {
       return;
     }
 
+    // Arrow keys navigate agent dropdown
+    const agentDropdown = popup.querySelector('.aether-agent-dropdown');
+    if (agentDropdown && _aetherAgentList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
+      ev.preventDefault();
+      if (ev.key === 'ArrowDown') _aetherAgentIdx = Math.min(_aetherAgentIdx + 1, _aetherAgentList.length - 1);
+      else _aetherAgentIdx = Math.max(_aetherAgentIdx - 1, 0);
+      _aetherRenderAgentDropdown(popup);
+      const sel = agentDropdown.querySelector('.aether-note-item.selected');
+      if (sel) sel.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    if (agentDropdown && _aetherAgentList.length && ev.key === 'Enter') {
+      ev.preventDefault();
+      _aetherSelectAgent(popup);
+      return;
+    }
+    if (agentDropdown && ev.key === 'Escape') {
+      ev.preventDefault();
+      _aetherHideAgentDropdown(popup);
+      return;
+    }
+
     // Arrow keys navigate tab dropdown
     const tabDropdown = popup.querySelector('.aether-tab-dropdown');
     if (tabDropdown && _aetherTabList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
@@ -1547,6 +1569,7 @@ export function _panelBuildChatInput(popup, config) {
     if (ev.key === 'Escape') {
       ev.preventDefault();
       if (modelDropdown) { _aetherHideModelDropdown(popup); return; }
+      if (agentDropdown) { _aetherHideAgentDropdown(popup); return; }
       if (dropdown) { _aetherHideCmdDropdown(popup); return; }
       _aetherTrackMode = false;
       _aetherPinned = false;

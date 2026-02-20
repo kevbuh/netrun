@@ -49,10 +49,45 @@ function _renderUserMessage(msg, index) {
 }
 
 function _renderThinkingMessage(msg) {
+  const ctxBlock = renderCtxPills(msg._ctxSources, msg);
+
+  // Rich activity tracker
+  if (msg._activity?.length) {
+    const now = Date.now();
+    const _iconForStep = (a) => {
+      if (typeof icon !== 'function') return '';
+      if (a.type === 'thinking') return icon('eye', { size: 13 });
+      if (a.category === 'search') return icon('search', { size: 13 });
+      if (a.category === 'extract') return icon('fileText', { size: 13 });
+      if (a.type === 'inference') return icon('chatBubble', { size: 13 });
+      return icon('globe', { size: 13 });
+    };
+
+    const entries = msg._activity.map(a => {
+      const done = !!a.endedAt;
+      const elapsed = done ? (a.endedAt - a.startedAt) : (now - a.startedAt);
+      const timeStr = elapsed >= 100 ? _formatDuration(elapsed) : '';
+      const stepIcon = done
+        ? `<span class="nr-step-icon done">${typeof icon === 'function' ? icon('check', { size: 11 }) : '\u2713'}</span>`
+        : `<span class="nr-step-icon active">${_iconForStep(a)}</span>`;
+      const detail = a.detail ? `<span class="nr-step-detail">${escapeHtml(a.detail.length > 50 ? a.detail.slice(0, 47) + '\u2026' : a.detail)}</span>` : '';
+      const time = timeStr ? `<span class="nr-step-time">${timeStr}</span>` : '';
+      return `<div class="nr-step${done ? ' done' : ' active'}">${stepIcon}<span class="nr-step-label">${escapeHtml(a.label)}</span>${detail}${time}</div>`;
+    }).join('');
+
+    const preview = msg._thinkingText ? `<div class="doc-thinking-preview">${escapeHtml(msg._thinkingText.length > 200 ? '\u2026' + msg._thinkingText.slice(-200) : msg._thinkingText)}</div>` : '';
+    return `<div class="doc-msg-ai">${ctxBlock}<div class="nr-steps">${entries}</div>${preview}</div>`;
+  }
+
+  // Fallback: simple dots + label
   const label = msg._thinkingLabel ? `<span class="doc-thinking-label">${escapeHtml(msg._thinkingLabel)}</span>` : '';
   const preview = msg._thinkingText ? `<div class="doc-thinking-preview">${escapeHtml(msg._thinkingText.length > 200 ? '\u2026' + msg._thinkingText.slice(-200) : msg._thinkingText)}</div>` : '';
-  const ctxBlock = renderCtxPills(msg._ctxSources, msg);
   return `<div class="doc-msg-ai">${ctxBlock}<span class="doc-chat-thinking"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>${label}${preview}</div>`;
+}
+
+function _formatDuration(ms) {
+  if (ms < 1000) return ms + 'ms';
+  return (ms / 1000).toFixed(1) + 's';
 }
 
 function _renderSearchResults(results, className) {
@@ -349,11 +384,27 @@ function renderChatStats(messages, streamStart) {
   if (lastAi._usage?.duration_ms) {
     const ms = lastAi._usage.duration_ms;
     parts.push(ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms');
+  } else if (lastAi._timings?.total) {
+    parts.push(_formatDuration(lastAi._timings.total));
   } else if (streamStart) {
     const elapsed = Date.now() - streamStart;
     parts.push(elapsed >= 1000 ? (elapsed / 1000).toFixed(1) + 's' : elapsed + 'ms');
   }
   if (lastAi._usage?.model) parts.push(lastAi._usage.model);
+
+  // Per-phase timing breakdown
+  if (lastAi._timings) {
+    const t = lastAi._timings;
+    const phases = [];
+    if (t.search) phases.push('search ' + _formatDuration(t.search));
+    if (t.extract) phases.push('extract ' + _formatDuration(t.extract));
+    if (t.inference) phases.push('generate ' + _formatDuration(t.inference));
+    if (phases.length) {
+      return parts.join(' \u00B7 ') +
+        '<span class="nr-timing-breakdown">' + phases.join(' \u00B7 ') + '</span>';
+    }
+  }
+
   return parts.join(' \u00B7 ');
 }
 

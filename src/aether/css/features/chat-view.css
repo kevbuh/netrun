@@ -373,12 +373,14 @@
 .browse-ntp.chat-mode .aether-note-dropdown,
 .browse-ntp.chat-mode .aether-tab-dropdown,
 .browse-ntp.chat-mode .aether-history-dropdown {
-  max-height: 240px;
+  max-height: 260px;
   overflow-y: auto;
-  background: var(--nr-bg-overlay);
-  border: 1px solid var(--nr-border);
-  border-radius: var(--nr-radius-md);
-  margin-bottom: 4px;
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-subtle);
+  border-radius: var(--nr-radius-lg);
+  margin-bottom: 6px;
+  padding: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
 /* Attachment strip in chat mode */
@@ -524,6 +526,245 @@
   background: var(--nr-bg-hover);
   color: var(--nr-text-primary);
   border-color: var(--nr-border);
+}
+
+/* ══════════════════════════════════════════════════
+   Step tracker (live activity during streaming)
+   ══════════════════════════════════════════════════ */
+
+.nr-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 2px 0 4px;
+}
+
+.nr-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  position: relative;
+}
+
+/* Vertical connector line between steps */
+.nr-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 24px;
+  bottom: -4px;
+  width: 1px;
+  background: var(--nr-border-subtle);
+}
+
+.nr-step.done {
+  color: var(--nr-text-tertiary);
+}
+
+.nr-step.active {
+  color: var(--nr-text-primary);
+}
+
+/* Step icon container */
+.nr-step-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.nr-step-icon.done {
+  background: color-mix(in srgb, var(--nr-green, #38a169) 15%, transparent);
+  color: var(--nr-green, #38a169);
+}
+
+.nr-step-icon.done svg {
+  width: 11px;
+  height: 11px;
+}
+
+.nr-step-icon.active {
+  background: color-mix(in srgb, var(--nr-accent) 15%, transparent);
+  color: var(--nr-accent);
+  animation: nr-step-pulse 2s ease-in-out infinite;
+}
+
+.nr-step-icon.active svg {
+  width: 13px;
+  height: 13px;
+}
+
+@keyframes nr-step-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--nr-accent) 25%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--nr-accent) 0%, transparent); }
+}
+
+.nr-step-label {
+  font-weight: 500;
+}
+
+.nr-step.done .nr-step-label {
+  font-weight: 400;
+}
+
+.nr-step-detail {
+  color: var(--nr-text-quaternary);
+  font-size: 0.74rem;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nr-step-time {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--nr-text-quaternary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════
+   Chat stats bar
+   ══════════════════════════════════════════════════ */
+
+.chat-view-stats {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2px var(--nr-space-4);
+  font-size: 0.72rem;
+  color: var(--nr-text-quaternary);
+  text-align: left;
+}
+
+/* Timing breakdown in stats bar */
+.nr-timing-breakdown {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.68rem;
+  color: var(--nr-text-quaternary);
+  opacity: 0.8;
+}
+
+.nr-timing-breakdown::before {
+  content: '\2014  ';
+}
+
+/* ══════════════════════════════════════════════════
+   Conversation tree widget
+   ══════════════════════════════════════════════════ */
+
+.chat-tree-widget {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 4px var(--nr-space-4) 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.chat-tree-widget::-webkit-scrollbar {
+  height: 4px;
+}
+
+.chat-tree-widget::-webkit-scrollbar-thumb {
+  background: var(--nr-border-subtle);
+  border-radius: 2px;
+}
+
+.chat-tree-svg {
+  display: block;
+}
+
+/* Edges (lines between nodes) */
+.chat-tree-edge {
+  stroke: var(--nr-border-subtle);
+  stroke-width: 1.5;
+}
+
+.chat-tree-edge.active {
+  stroke: var(--nr-accent);
+  stroke-width: 2;
+}
+
+/* Nodes (circles) */
+.chat-tree-node {
+  fill: var(--nr-border);
+  cursor: pointer;
+  transition: fill 0.15s, r 0.15s;
+}
+
+.chat-tree-node:hover {
+  fill: var(--nr-text-secondary);
+  r: 6;
+}
+
+.chat-tree-node.active {
+  fill: var(--nr-accent);
+}
+
+.chat-tree-node.active:hover {
+  fill: var(--nr-accent);
+  r: 6;
+}
+
+.chat-tree-node.user {
+  stroke: var(--nr-bg-surface);
+  stroke-width: 1;
+}
+
+/* ══════════════════════════════════════════════════
+   Branch navigation (prev/next sibling)
+   ══════════════════════════════════════════════════ */
+
+.chat-branch-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  justify-content: flex-end;
+  padding: 0 var(--nr-space-4) 2px;
+}
+
+.chat-branch-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--nr-radius-sm);
+  color: var(--nr-text-tertiary);
+  font-size: 0.75rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+.chat-branch-btn:hover:not(.disabled) {
+  color: var(--nr-text-primary);
+  background: var(--nr-bg-hover);
+}
+
+.chat-branch-btn.disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.chat-branch-count {
+  font-size: 0.68rem;
+  color: var(--nr-text-quaternary);
+  font-variant-numeric: tabular-nums;
+  min-width: 24px;
+  text-align: center;
 }
 
 /* ── NTP Chat Row (dropdown) ── */

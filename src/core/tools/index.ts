@@ -35,7 +35,7 @@ export { calendarList, calendarCreate, calendarUpdate, calendarDelete } from './
 export { contextUpdate } from './context/index.js';
 
 import { toolRegistry } from './registry.js';
-import { webSearch, paperSearch } from './search/index.js';
+import { webSearch, paperSearch, webResearch } from './search/index.js';
 import { extractText } from './content/index.js';
 import { navigate, openTab, saveToReadingList, createCalendarEvent } from './system/index.js';
 import { browserReadPage, browserClick, browserType, browserScroll, browserNavigate, browserScreenshot, browserQuerySelector, browserWaitFor, browserGetUrl, browserGetTabs, browserSwitchTab, browserBack, browserForward, browserPressKey, browserGetStorage } from './browser/index.js';
@@ -50,6 +50,7 @@ export function registerAllTools(): void {
   // Search (3)
   toolRegistry.register(webSearch);
   toolRegistry.register(paperSearch);
+  toolRegistry.register(webResearch);
 
   // Content (1)
   toolRegistry.register(extractText);

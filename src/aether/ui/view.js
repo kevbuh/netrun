@@ -24,11 +24,16 @@ function _radiusToken(v) {
 }
 
 function _colorToken(name) {
+  if (!name) return name;
+  // Pass through raw var() expressions and raw CSS values (hex, rgb, hsl, etc.)
+  if (name.startsWith('var(') || name.startsWith('#') || name.startsWith('rgb') || name.startsWith('hsl')) return name;
+  // Wrap bare CSS custom property names
+  if (name.startsWith('--')) return 'var(' + name + ')';
   var map = {
     body: '--nr-bg-body', surface: '--nr-bg-surface', raised: '--nr-bg-raised',
     sunken: '--nr-bg-sunken', overlay: '--nr-bg-overlay', input: '--nr-bg-input',
     primary: '--nr-text-primary', secondary: '--nr-text-secondary',
-    quaternary: '--nr-text-quaternary',
+    tertiary: '--nr-text-tertiary', quaternary: '--nr-text-quaternary',
     inverse: '--nr-text-inverse', link: '--nr-text-link',
     accent: '--nr-accent', 'accent-hover': '--nr-accent-hover',
     'border-default': '--nr-border-default', 'border-strong': '--nr-border-strong',
@@ -84,7 +89,7 @@ VP.dispose = function() {
 
 VP._bindText = function(content) {
   var el = this.el;
-  if (S.isSignal(content) || (content && content._isBinding)) {
+  if (S.isSignal(content) || S.isBinding(content)) {
     el.textContent = S.resolve(content);
     this._effects.push(S.Effect(function() {
       el.textContent = S.resolve(content);
@@ -232,10 +237,7 @@ VP.fontMono = function() {
 VP.opacity = function(v) {
   if (S.isSignal(v)) {
     var el = this.el;
-    el.style.opacity = S.resolve(v);
-    this._effects.push(S.Effect(function() {
-      el.style.opacity = S.resolve(v);
-    }));
+    _reactive(this, v, function(val) { el.style.opacity = val; });
   } else {
     this.el.style.opacity = v;
   }
@@ -395,10 +397,7 @@ VP.html = function(content) {
 VP.visible = function(v) {
   if (S.isSignal(v)) {
     var el = this.el;
-    el.style.display = v.value ? '' : 'none';
-    this._effects.push(S.Effect(function() {
-      el.style.display = v.value ? '' : 'none';
-    }));
+    _reactive(this, v, function(val) { el.style.display = val ? '' : 'none'; });
   } else {
     this.el.style.display = v ? '' : 'none';
   }
@@ -408,10 +407,7 @@ VP.visible = function(v) {
 VP.disabled = function(v) {
   if (S.isSignal(v)) {
     var el = this.el;
-    el.disabled = S.resolve(v);
-    this._effects.push(S.Effect(function() {
-      el.disabled = S.resolve(v);
-    }));
+    _reactive(this, v, function(val) { el.disabled = !!val; });
   } else {
     this.el.disabled = !!v;
   }

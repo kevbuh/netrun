@@ -16,28 +16,23 @@ function _spaceToken(v) {
 
 // ─── Button ───────────────────────────────────────────────
 
+var _BTN_VARIANTS = ['nr-btn-primary', 'nr-btn-secondary', 'nr-btn-ghost', 'nr-btn-danger'];
+
+function _setBtnVariant(el, variant) {
+  el.classList.remove.apply(el.classList, _BTN_VARIANTS);
+  el.classList.add(variant);
+}
+
 function Button(label) {
   var v = new View('button');
   v._viewType = 'Button';
   v.el.className = 'nr-btn nr-btn-primary';
   v._bindText(label);
 
-  v.primary = function() {
-    v.el.className = v.el.className.replace(/nr-btn-\w+/g, '').trim() + ' nr-btn-primary';
-    return v;
-  };
-  v.secondary = function() {
-    v.el.className = v.el.className.replace(/nr-btn-\w+/g, '').trim() + ' nr-btn-secondary';
-    return v;
-  };
-  v.ghost = function() {
-    v.el.className = v.el.className.replace(/nr-btn-\w+/g, '').trim() + ' nr-btn-ghost';
-    return v;
-  };
-  v.danger = function() {
-    v.el.className = v.el.className.replace(/nr-btn-\w+/g, '').trim() + ' nr-btn-danger';
-    return v;
-  };
+  v.primary   = function() { _setBtnVariant(v.el, 'nr-btn-primary');   return v; };
+  v.secondary = function() { _setBtnVariant(v.el, 'nr-btn-secondary'); return v; };
+  v.ghost     = function() { _setBtnVariant(v.el, 'nr-btn-ghost');     return v; };
+  v.danger    = function() { _setBtnVariant(v.el, 'nr-btn-danger');    return v; };
   v.small = function() { v.el.classList.add('nr-btn-sm'); return v; };
   v.large = function() { v.el.classList.add('nr-btn-lg'); return v; };
   v.iconButton = function(iconName) {

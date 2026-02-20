@@ -557,7 +557,7 @@ export function _aetherRenderModelDropdown(popup) {
 
     if (active) {
       var curSpan = new View('span').className('aether-note-item-tags');
-      curSpan.cssText('margin-left:auto;opacity:0.6');
+      /* styled via .aether-note-item-tags CSS */
       curSpan.el.textContent = 'current';
       row.el.appendChild(curSpan.el);
     }
@@ -568,11 +568,11 @@ export function _aetherRenderModelDropdown(popup) {
         if (model) {
           _aetherModelIdx = idx;
           Settings.set('chatModel', model);
-          _aetherRenderModelDropdown(popup);
+          _aetherHideModelDropdown(popup);
           const label = popup.querySelector('.aether-model-label');
           if (label) label.textContent = model;
           const input = popup.querySelector('.doc-ask-inline-input');
-          if (input) { input.value = ''; input.focus(); }
+          if (input) { input.value = ''; input.placeholder = 'Ask anything…'; input.focus(); }
           if (!Settings.get('ach_model_switch')) {
             Settings.set('ach_model_switch', '1');
             if (typeof showAchievement === 'function') showAchievement('Model Swapper', 'Switched your AI model for the first time');
@@ -663,7 +663,7 @@ export function _aetherRenderAgentDropdown(popup) {
 
     if (active) {
       var curSpan = new View('span').className('aether-note-item-tags');
-      curSpan.cssText('margin-left:auto;opacity:0.6');
+      /* styled via .aether-note-item-tags CSS */
       curSpan.el.textContent = 'current';
       row.el.appendChild(curSpan.el);
     }
@@ -674,11 +674,11 @@ export function _aetherRenderAgentDropdown(popup) {
         if (agent) {
           _aetherAgentIdx = idx;
           Settings.set('chatAgent', agent.id);
-          _aetherRenderAgentDropdown(popup);
+          _aetherHideAgentDropdown(popup);
           const chip = popup.querySelector('.aether-agent-chip-label');
           if (chip) chip.textContent = agent.name;
           const input = popup.querySelector('.doc-ask-inline-input');
-          if (input) { input.value = ''; input.focus(); }
+          if (input) { input.value = ''; input.placeholder = 'Ask anything…'; input.focus(); }
         }
       });
     })(a, i);

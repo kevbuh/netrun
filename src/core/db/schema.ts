@@ -189,6 +189,14 @@ export function initSchema(db: Database.Database): void {
     db.exec(`UPDATE context_meta SET file_type = 'identity' WHERE file_id = 'main.md'`);
   } catch { /* ignore */ }
 
+  // Migration: add parent_id column to chat_messages for conversation tree
+  try {
+    db.exec(`ALTER TABLE chat_messages ADD COLUMN parent_id TEXT REFERENCES chat_messages(id)`);
+  } catch { /* column already exists */ }
+  try {
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_chat_messages_parent ON chat_messages(parent_id)`);
+  } catch { /* index already exists */ }
+
   // ── Annotations ──
   db.exec(`
     CREATE TABLE IF NOT EXISTS annotation_feedback (

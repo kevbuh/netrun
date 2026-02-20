@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Tool, ToolResult } from '../types.js';
+import { extractPdfViaWorker } from '../../python/pdf-worker.js';
 
 interface ExtractResult {
   text: string;
@@ -65,7 +66,7 @@ export const extractText: Tool<z.infer<typeof parameters>, ExtractResult> = {
     let text: string;
 
     if (isArxiv) {
-      // For arXiv, download PDF and extract via Python child process
+      // For arXiv, download PDF and extract via persistent Python worker
       let pdfUrl = input.url.replace('/abs/', '/pdf/');
       if (!pdfUrl.endsWith('.pdf')) pdfUrl += '.pdf';
 
@@ -74,8 +75,22 @@ export const extractText: Tool<z.infer<typeof parameters>, ExtractResult> = {
       });
       const pdfBuffer = Buffer.from(await resp.arrayBuffer());
 
-      // Use Python PyMuPDF for PDF extraction
-      text = await extractPdfText(pdfBuffer);
+      // Write to temp file for the worker
+      const { tmpdir } = await import('os');
+      const { writeFileSync, unlinkSync } = await import('fs');
+      const path = await import('path');
+      const tmpPath = path.join(tmpdir(), `netrun-pdf-${Date.now()}.pdf`);
+      writeFileSync(tmpPath, pdfBuffer);
+
+      try {
+        // Use persistent worker (fast — no process spawn overhead)
+        text = await extractPdfViaWorker(tmpPath);
+      } catch {
+        // Fall back to one-shot spawn
+        text = await extractPdfText(tmpPath);
+      } finally {
+        try { unlinkSync(tmpPath); } catch { /* ignore */ }
+      }
     } else {
       // Regular URL: fetch HTML and extract text
       const resp = await fetch(input.url, {
@@ -102,22 +117,14 @@ export const extractText: Tool<z.infer<typeof parameters>, ExtractResult> = {
 };
 
 /**
- * Extract text from a PDF buffer using Python PyMuPDF.
- * Spawns a child process to run the extraction script.
+ * Extract text from a PDF file using Python PyMuPDF (one-shot fallback).
+ * Only used when the persistent worker is unavailable.
  */
-async function extractPdfText(pdfBuffer: Buffer): Promise<string> {
+async function extractPdfText(tmpPath: string): Promise<string> {
   const { spawn } = await import('child_process');
-  const { tmpdir } = await import('os');
-  const { writeFileSync, unlinkSync } = await import('fs');
-  const path = await import('path');
 
-  // Write PDF to temp file
-  const tmpPath = path.join(tmpdir(), `netrun-pdf-${Date.now()}.pdf`);
-  writeFileSync(tmpPath, pdfBuffer);
-
-  try {
-    return await new Promise<string>((resolve, reject) => {
-      const proc = spawn('python3', ['-c', `
+  return new Promise<string>((resolve, reject) => {
+    const proc = spawn('python3', ['-c', `
 import fitz, sys, json
 doc = fitz.open(sys.argv[1])
 pages = [doc[i].get_text() for i in range(len(doc))]
@@ -125,24 +132,21 @@ doc.close()
 print(json.dumps({"pages": pages}))
 `, tmpPath]);
 
-      let stdout = '';
-      let stderr = '';
-      proc.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
-      proc.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
-      proc.on('close', (code: number) => {
-        if (code !== 0) {
-          reject(new Error(`PDF extraction failed: ${stderr}`));
-          return;
-        }
-        try {
-          const result = JSON.parse(stdout);
-          resolve(result.pages.join('\n\n---\n\n'));
-        } catch {
-          reject(new Error('Failed to parse PDF extraction output'));
-        }
-      });
+    let stdout = '';
+    let stderr = '';
+    proc.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
+    proc.stderr.on('data', (d: Buffer) => { stderr += d.toString(); });
+    proc.on('close', (code: number) => {
+      if (code !== 0) {
+        reject(new Error(`PDF extraction failed: ${stderr}`));
+        return;
+      }
+      try {
+        const result = JSON.parse(stdout);
+        resolve(result.pages.join('\n\n---\n\n'));
+      } catch {
+        reject(new Error('Failed to parse PDF extraction output'));
+      }
     });
-  } finally {
-    try { unlinkSync(tmpPath); } catch { /* ignore */ }
-  }
+  });
 }

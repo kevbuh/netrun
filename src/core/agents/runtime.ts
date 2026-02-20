@@ -321,6 +321,7 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
     // Tool call loop
     let lastToolCallSig: string | null = null;
     let repeatCount = 0;
+    let hasResearchContent = false;
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
       if (signal?.aborted) {
@@ -426,10 +427,14 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
           yield { type: 'action', action };
         }
 
-        if (toolName === 'web-search' && result.success && result.data) {
+        if ((toolName === 'web-search' || toolName === 'web-research') && result.success && result.data) {
           const data = result.data as any;
           if (data.results?.length) {
             yield { type: 'web_sources', results: data.results };
+            // web-research already includes extracted content — skip further tool iterations
+            if (toolName === 'web-research') {
+              hasResearchContent = true;
+            }
           }
         }
 
@@ -459,6 +464,11 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
           content: JSON.stringify(result.data ?? { error: result.error }),
           tool_call_id: tc.id,
         });
+      }
+
+      // Early exit: web-research already fetched + extracted — go straight to streaming
+      if (hasResearchContent) {
+        break;
       }
     }
   }

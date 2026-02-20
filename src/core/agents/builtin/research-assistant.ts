@@ -63,6 +63,7 @@ export const researchAssistant: AgentDefinition = {
   description: 'General-purpose AI assistant for research, browsing, and app control',
 
   tools: [
+    'web-research',
     'web-search',
     'paper-search',
     'extract-text',
@@ -160,13 +161,17 @@ export const researchAssistant: AgentDefinition = {
       : '';
 
     const citationInstructions =
-      '\n\nIMPORTANT — Web search workflow: You MUST call web-search FIRST before answering ' +
+      '\n\nIMPORTANT — Web search workflow: You MUST call web-research FIRST before answering ' +
       'any question about facts, events, people, places, technology, or current topics. ' +
-      'Do NOT answer from memory alone — always search first. After searching:\n' +
-      '1. Call extract-text on the top 2-3 result URLs to read their content.\n' +
-      '2. Write your answer using inline citations like [1], [2], [3] matching the order sources were found.\n' +
-      '3. Do NOT include a references list — the UI renders source cards automatically.\n' +
-      '4. End your answer with exactly this format:\n' +
+      'Do NOT answer from memory alone — always search first.\n' +
+      'web-research has two modes:\n' +
+      '- Default: searches + extracts full page text from top 3 results in parallel. Use for in-depth questions.\n' +
+      '- snippetsOnly=true: returns only search snippets (much faster). Use for simple factual lookups ' +
+      '(dates, definitions, names, simple yes/no questions).\n' +
+      'Only use web-search + extract-text separately if you need to fetch a specific URL you already know. After researching:\n' +
+      '1. Write your answer using inline citations like [1], [2], [3] matching the order sources were found.\n' +
+      '2. Do NOT include a references list — the UI renders source cards automatically.\n' +
+      '3. End your answer with exactly this format:\n' +
       '---\nFOLLOW_UP:\n- suggested follow-up question 1\n- suggested follow-up question 2\n- suggested follow-up question 3';
 
     if (truncatedDoc && context.toolsEnabled !== false) {
@@ -206,8 +211,8 @@ export const researchAssistant: AgentDefinition = {
         'perform real actions in the app. IMPORTANT: You MUST actually call the tools to ' +
         'perform actions — never pretend you performed an action or describe the result ' +
         'without calling the tool first. Never say you cannot open tabs or ' +
-        'navigate — you can, using your tools. Available tools: web-search, paper-search, ' +
-        'extract-text, save-to-reading-list, navigate, ' +
+        'navigate — you can, using your tools. Available tools: web-research (search + extract in one step), ' +
+        'web-search, paper-search, extract-text, save-to-reading-list, navigate, ' +
         'create-calendar-event, open-tab, context-update.' +
         contextToolNote + ' ' +
         browserDesc + citationInstructions + pageCtx + livingCtx
