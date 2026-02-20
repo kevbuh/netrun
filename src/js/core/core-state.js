@@ -55,6 +55,12 @@ window._islandWaveformBars = _islandWaveformBars;
 window._islandAudioBars = _islandAudioBars;
 _bridge('_islandResizeTimer', () => _islandResizeTimer, v => { _islandResizeTimer = v; });
 
+// Island stack — collapsed when 3+ non-tabs pills active
+let _islandStackExpanded = false;
+export function getIslandStackExpanded() { return _islandStackExpanded; }
+export function setIslandStackExpanded(v) { _islandStackExpanded = v; }
+_bridge('_islandStackExpanded', () => _islandStackExpanded, v => { _islandStackExpanded = v; });
+
 // ── Audio ──
 export const _audioUnifiedState = Store({ tab: null, tts: null, cc: null, mic: null });  // @store
 export const _ttsSpeeds = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];

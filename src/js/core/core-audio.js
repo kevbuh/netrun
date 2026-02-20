@@ -444,146 +444,299 @@ export function _islandBuildTray(a, isBrowse) {
   return '';
 }
 
-// Attach click handlers and hover/tray behavior to pill
-export function _islandAttachHandlers(pill, a, hasTray) {
-  pill.onclick = function(e) {
-    const dismissEl = e.target.closest('[data-island-dismiss]');
-    if (dismissEl) {
-      e.stopPropagation();
-      const dismissId = dismissEl.getAttribute('data-island-dismiss');
-      const act = window._islandActivities.value[dismissId];
-      if (act && act.dismiss) act.dismiss();
-      else islandRemove(dismissId);
-      return;
-    }
-    const tabCloseBtn = e.target.closest('[data-island-tab-close]');
-    if (tabCloseBtn) {
-      e.stopPropagation();
-      const closeTabId = +tabCloseBtn.getAttribute('data-island-tab-close');
-      if (typeof browseCloseTab === 'function') browseCloseTab(closeTabId);
-      return;
-    }
-    const tabNewBtn = e.target.closest('[data-island-tab-new]');
-    if (tabNewBtn) {
-      e.stopPropagation();
-      if (typeof browseNewTab === 'function') browseNewTab();
-      pill.classList.remove('island-tray-open');
-      return;
-    }
-    const tabItem = e.target.closest('[data-island-tab]');
-    if (tabItem) {
-      e.stopPropagation();
-      const tabId = +tabItem.getAttribute('data-island-tab');
-      if (typeof browseSelectTab === 'function') browseSelectTab(tabId);
-      pill.classList.remove('island-tray-open');
-      return;
-    }
-    // Annotation rating buttons
-    const rateGoodBtn = e.target.closest('[data-ann-rate-good]');
-    const rateBadBtn = e.target.closest('[data-ann-rate-bad]');
-    if (rateGoodBtn || rateBadBtn) {
-      e.stopPropagation();
-      const rIdx = +(rateGoodBtn || rateBadBtn).getAttribute(rateGoodBtn ? 'data-ann-rate-good' : 'data-ann-rate-bad');
-      const rRating = rateGoodBtn ? 'good' : 'bad';
-      const rAnn = a.items && a.items[rIdx];
-      if (rAnn) {
-        let rUrl = '';
-        let rTitle = '';
-        if (typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
-          const rTab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
-          if (rTab) { rUrl = rTab.url || ''; rTitle = rTab.title || ''; }
-        }
-        apiPost('/api/annotation-feedback', { quote: rAnn.quote || '', explanation: rAnn.explanation || '', annType: rAnn.type || '', rating: rRating, url: rUrl, pageTitle: rTitle })
-          .catch(function() {});
-        const rBtn = rateGoodBtn || rateBadBtn;
-        rBtn.style.opacity = '1';
-        rBtn.style.color = rateGoodBtn ? '#4caf50' : '#ef5350';
-        AetherUI.mount(window.RawHTML(icon('check', { size: 12, strokeWidth: '2.5' })), rBtn);
-      }
-      return;
-    }
-    const annItem = e.target.closest('[data-island-ann]');
-    if (annItem) {
-      e.stopPropagation();
-      const annUrl = annItem.getAttribute('data-island-ann-url');
-      if (annUrl && typeof browseNewTab === 'function') {
-        browseNewTab(annUrl);
-      } else {
-        const annIdx = +annItem.getAttribute('data-island-ann');
-        if (typeof scrollToAnnotation === 'function') scrollToAnnotation(annIdx);
-      }
-      return;
-    }
-    const dlClear = e.target.closest('[data-island-dl-clear]');
-    if (dlClear) {
-      e.stopPropagation();
-      if (typeof clearBrowseDownloads === 'function') clearBrowseDownloads();
-      islandRemove('download');
-      return;
-    }
-    const dlRemove = e.target.closest('[data-island-dl-remove]');
-    if (dlRemove) {
-      e.stopPropagation();
-      var dlId = dlRemove.getAttribute('data-island-dl-remove');
-      if (typeof removeBrowseDownload === 'function') removeBrowseDownload(dlId);
-      return;
-    }
-    const dlItem = e.target.closest('[data-island-dl]');
-    if (dlItem) {
-      e.stopPropagation();
-      var dlId = dlItem.getAttribute('data-island-dl');
-      if (typeof openDownloadFile === 'function') openDownloadFile(dlId);
-      return;
-    }
-    if (a.action) a.action();
-  };
-  pill.style.cursor = (a.action || a.type === 'insight' || a.type === 'tabs') ? 'pointer' : 'default';
+// ── Detail card (long-press) ──
+let _activeDetailCard = null;
 
-  // Hover/click management for tray
+export function _islandCloseDetailCard() {
+  if (!_activeDetailCard) return;
+  const card = _activeDetailCard;
+  _activeDetailCard = null;
+  Motion.animate(card, { spring: 'snappy', to: { opacity: 0, scale: 0.92, y: -8 } }).onFinish(function() {
+    card.remove();
+  });
+}
+
+export function _islandShowDetailCard(pill, activity) {
+  _islandCloseDetailCard();
+  const card = document.createElement('div');
+  card.className = 'island-detail-card';
+  // Header with type label
+  const typeLabels = { context: 'Context', download: 'Downloads', tabs: 'Tabs', insight: 'Annotations', achievement: 'Achievement', ai: 'AI', nowplaying: 'Now Playing', tts: 'Text to Speech', cc: 'Captions', audio: 'Audio', rss: 'Feed', bookmark: 'Bookmarked', 'feed-notif': 'Feed', pulse: 'Activity', qf: 'Quick Find', calendar: 'Calendar' };
+  const headerHtml = '<div class="island-detail-card-header">' + _islandRenderPill(activity) + '</div>';
+  // Tray content in larger format
+  const isBrowse = ((window._currentRouteHash || window.location.hash || '').match(/^#(browse|research|search)$/));
+  const trayContent = _islandBuildTray(activity, isBrowse);
+  card.innerHTML = headerHtml + '<div class="island-ctx-tray">' + (trayContent || '<div style="padding:8px;opacity:0.4;font-size:0.72rem">' + (typeLabels[activity.type] || activity.type) + (activity.label ? ' — ' + activity.label : '') + (activity.detail ? '<br>' + activity.detail : '') + '</div>') + '</div>';
+  document.body.appendChild(card);
+  // Position below pill, clamped to viewport edges
+  const pillRect = pill.getBoundingClientRect();
+  let left = pillRect.left + pillRect.width / 2 - card.offsetWidth / 2;
+  let top = pillRect.bottom + 8;
+  // Clamp to viewport
+  if (left < 8) left = 8;
+  if (left + card.offsetWidth > window.innerWidth - 8) left = window.innerWidth - card.offsetWidth - 8;
+  if (top + card.offsetHeight > window.innerHeight - 8) top = pillRect.top - card.offsetHeight - 8;
+  card.style.left = left + 'px';
+  card.style.top = top + 'px';
+  // Animate in
+  Motion.animate(card, { spring: 'smooth', from: { opacity: 0, scale: 0.92, y: -8 }, to: { opacity: 1, scale: 1, y: 0 } });
+  _activeDetailCard = card;
+  // Attach click handlers on the card's interactive elements
+  card.onclick = function(e) {
+    _islandHandleTrayClicks(e, pill, activity);
+  };
+  // Close on outside click (deferred so this click doesn't close it)
+  setTimeout(function() {
+    document.addEventListener('mousedown', function _detailOutside(e) {
+      if (_activeDetailCard && !_activeDetailCard.contains(e.target) && !pill.contains(e.target)) {
+        document.removeEventListener('mousedown', _detailOutside);
+        _islandCloseDetailCard();
+      }
+    });
+  }, 10);
+}
+
+// Handle clicks on tray interactive elements (shared between pill onclick and detail card)
+function _islandHandleTrayClicks(e, pill, a) {
+  const dismissEl = e.target.closest('[data-island-dismiss]');
+  if (dismissEl) {
+    e.stopPropagation();
+    const dismissId = dismissEl.getAttribute('data-island-dismiss');
+    const act = window._islandActivities.value[dismissId];
+    if (act && act.dismiss) act.dismiss();
+    else islandRemove(dismissId);
+    return true;
+  }
+  const tabCloseBtn = e.target.closest('[data-island-tab-close]');
+  if (tabCloseBtn) {
+    e.stopPropagation();
+    const closeTabId = +tabCloseBtn.getAttribute('data-island-tab-close');
+    if (typeof browseCloseTab === 'function') browseCloseTab(closeTabId);
+    return true;
+  }
+  const tabNewBtn = e.target.closest('[data-island-tab-new]');
+  if (tabNewBtn) {
+    e.stopPropagation();
+    if (typeof browseNewTab === 'function') browseNewTab();
+    pill.classList.remove('island-tray-open');
+    return true;
+  }
+  const tabItem = e.target.closest('[data-island-tab]');
+  if (tabItem) {
+    e.stopPropagation();
+    const tabId = +tabItem.getAttribute('data-island-tab');
+    if (typeof browseSelectTab === 'function') browseSelectTab(tabId);
+    pill.classList.remove('island-tray-open');
+    return true;
+  }
+  const rateGoodBtn = e.target.closest('[data-ann-rate-good]');
+  const rateBadBtn = e.target.closest('[data-ann-rate-bad]');
+  if (rateGoodBtn || rateBadBtn) {
+    e.stopPropagation();
+    const rIdx = +(rateGoodBtn || rateBadBtn).getAttribute(rateGoodBtn ? 'data-ann-rate-good' : 'data-ann-rate-bad');
+    const rRating = rateGoodBtn ? 'good' : 'bad';
+    const rAnn = a.items && a.items[rIdx];
+    if (rAnn) {
+      let rUrl = '';
+      let rTitle = '';
+      if (typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
+        const rTab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+        if (rTab) { rUrl = rTab.url || ''; rTitle = rTab.title || ''; }
+      }
+      apiPost('/api/annotation-feedback', { quote: rAnn.quote || '', explanation: rAnn.explanation || '', annType: rAnn.type || '', rating: rRating, url: rUrl, pageTitle: rTitle })
+        .catch(function() {});
+      const rBtn = rateGoodBtn || rateBadBtn;
+      rBtn.style.opacity = '1';
+      rBtn.style.color = rateGoodBtn ? '#4caf50' : '#ef5350';
+      AetherUI.mount(window.RawHTML(icon('check', { size: 12, strokeWidth: '2.5' })), rBtn);
+    }
+    return true;
+  }
+  const annItem = e.target.closest('[data-island-ann]');
+  if (annItem) {
+    e.stopPropagation();
+    const annUrl = annItem.getAttribute('data-island-ann-url');
+    if (annUrl && typeof browseNewTab === 'function') {
+      browseNewTab(annUrl);
+    } else {
+      const annIdx = +annItem.getAttribute('data-island-ann');
+      if (typeof scrollToAnnotation === 'function') scrollToAnnotation(annIdx);
+    }
+    return true;
+  }
+  const dlClear = e.target.closest('[data-island-dl-clear]');
+  if (dlClear) {
+    e.stopPropagation();
+    if (typeof clearBrowseDownloads === 'function') clearBrowseDownloads();
+    islandRemove('download');
+    return true;
+  }
+  const dlRemove = e.target.closest('[data-island-dl-remove]');
+  if (dlRemove) {
+    e.stopPropagation();
+    var dlId = dlRemove.getAttribute('data-island-dl-remove');
+    if (typeof removeBrowseDownload === 'function') removeBrowseDownload(dlId);
+    return true;
+  }
+  const dlItem = e.target.closest('[data-island-dl]');
+  if (dlItem) {
+    e.stopPropagation();
+    var dlId = dlItem.getAttribute('data-island-dl');
+    if (typeof openDownloadFile === 'function') openDownloadFile(dlId);
+    return true;
+  }
+  return false;
+}
+
+// Attach click handlers and gesture behavior to pill
+export function _islandAttachHandlers(pill, a, hasTray) {
+  // Click handler for tray interactive elements
+  pill.onclick = function(e) {
+    if (_islandHandleTrayClicks(e, pill, a)) return;
+    // If we get here and it's a direct click (not from gesture), handle action
+    if (a.action && !pill._islandGestureHandled) a.action();
+    pill._islandGestureHandled = false;
+  };
+  pill.style.cursor = 'pointer';
+
+  // Unified gesture handler: mousedown disambiguates tap / long-press / drag
+  if (!pill._islandGestureBound) {
+    pill._islandGestureBound = true;
+    const MOVE_THRESHOLD = 5;
+    const LONG_PRESS_MS = 500;
+    const DISMISS_DIST = 40;
+
+    pill.addEventListener('mousedown', function(e) {
+      // Skip if clicking on tray interactive elements
+      if (e.target.closest('[data-island-tab], [data-island-tab-close], [data-island-tab-new], [data-island-dismiss], [data-island-dl], [data-island-dl-clear], [data-island-dl-remove], [data-ann-rate-good], [data-ann-rate-bad], [data-island-ann]')) return;
+      if (e.button !== 0) return;
+
+      const startX = e.clientX;
+      const startY = e.clientY;
+      let isDragging = false;
+      let longPressTimer = null;
+      const id = pill.getAttribute('data-island-id');
+      const currentActivity = window._islandActivities.value[id] || a;
+
+      // Start long-press timer
+      pill.classList.add('island-pressing');
+      longPressTimer = setTimeout(function() {
+        longPressTimer = null;
+        pill.classList.remove('island-pressing');
+        // Long-press fired — show detail card
+        pill._islandGestureHandled = true;
+        cleanup();
+        _islandShowDetailCard(pill, currentActivity);
+      }, LONG_PRESS_MS);
+
+      function onMouseMove(ev) {
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (!isDragging && dist >= MOVE_THRESHOLD) {
+          // Switch to drag mode — cancel long-press
+          isDragging = true;
+          pill.classList.remove('island-pressing');
+          if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+          pill.classList.add('island-dragging');
+          // Close tray if open
+          pill.classList.remove('island-tray-open');
+        }
+
+        if (isDragging) {
+          const tilt = (dx / 100) * 8;
+          const opacity = Math.max(0.2, 1 - dist / 120);
+          pill.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) rotate(' + tilt + 'deg)';
+          pill.style.opacity = opacity;
+        }
+      }
+
+      function onMouseUp(ev) {
+        cleanup();
+        pill.classList.remove('island-pressing');
+        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+
+        if (isDragging) {
+          pill._islandGestureHandled = true;
+          pill.classList.remove('island-dragging');
+          const dx = ev.clientX - startX;
+          const dy = ev.clientY - startY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist >= DISMISS_DIST) {
+            // Dismiss: fly away in drag direction
+            const angle = Math.atan2(dy, dx);
+            const flyX = Math.cos(angle) * 200;
+            const flyY = Math.sin(angle) * 200;
+            pill.style.pointerEvents = 'none';
+            Motion.animate(pill, {
+              spring: 'snappy',
+              to: { x: flyX, y: flyY, opacity: 0, scale: 0.5 }
+            }).onFinish(function() {
+              islandRemove(id);
+            });
+          } else {
+            // Snap back
+            Motion.animate(pill, {
+              spring: 'bouncy',
+              from: { x: parseFloat(pill.style.transform.match(/translate\(([-\d.]+)px/)?.[1]) || 0, y: parseFloat(pill.style.transform.match(/, ([-\d.]+)px/)?.[1]) || 0, rotate: parseFloat(pill.style.transform.match(/rotate\(([-\d.]+)deg/)?.[1]) || 0 },
+              to: { x: 0, y: 0, rotate: 0 }
+            });
+            pill.style.opacity = '';
+            pill.style.transform = '';
+          }
+        } else {
+          // Tap — toggle tray or execute action
+          pill.style.transform = '';
+          pill.style.opacity = '';
+          _islandHandleTap(pill, currentActivity, hasTray);
+        }
+      }
+
+      function cleanup() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+
+    // Close tray on outside click (120ms debounce for webview clicks that don't bubble)
+    document.addEventListener('mousedown', function(e) {
+      if (!pill.contains(e.target)) {
+        pill.classList.remove('island-tray-open');
+      }
+    });
+    // Close on window blur (webview focus)
+    window.addEventListener('blur', function() {
+      pill.classList.remove('island-tray-open');
+    });
+  }
+}
+
+// Handle tap action for pill — click-to-toggle tray for all types
+function _islandHandleTap(pill, a, hasTray) {
   if (hasTray) {
     if (a.type === 'tabs') {
-      // Tabs uses click — in island mode, render into pill-url-dropdown
-      if (!pill._islandClickBound) {
-        pill._islandClickBound = true;
-        pill.style.cursor = 'pointer';
-        pill.addEventListener('click', function(e) {
-          if (e.target.closest('[data-island-tab], [data-island-tab-close], [data-island-tab-new], [data-island-dismiss]')) return;
-          // Island mode: use connected pill dropdown
-          if (typeof _showTabsInPillDropdown === 'function') {
-            const pillDd = document.getElementById('pill-url-dropdown');
-            const pillWrap = document.getElementById('pill-url-wrap');
-            if (pillDd && pillWrap && pillWrap.classList.contains('pill-dropdown-open') && pillDd.querySelector('[data-pill-tab-switch]')) {
-              // Already showing tabs — close it
-              if (typeof _browseUrlHideHistory === 'function') _browseUrlHideHistory();
-            } else {
-              _showTabsInPillDropdown();
-            }
-            return;
-          }
-          pill.classList.toggle('island-tray-open');
-        });
-        // Close on outside click or focus loss (webview clicks don't bubble)
-        document.addEventListener('click', function(e) {
-          if (!pill.contains(e.target)) pill.classList.remove('island-tray-open');
-        });
-        window.addEventListener('blur', function() {
-          pill.classList.remove('island-tray-open');
-        });
-        document.addEventListener('mousedown', function(e) {
-          if (!pill.contains(e.target)) pill.classList.remove('island-tray-open');
-        });
+      // Tabs pill in island mode: use connected pill dropdown
+      if (typeof _showTabsInPillDropdown === 'function') {
+        const pillDd = document.getElementById('pill-url-dropdown');
+        const pillWrap = document.getElementById('pill-url-wrap');
+        if (pillDd && pillWrap && pillWrap.classList.contains('pill-dropdown-open') && pillDd.querySelector('[data-pill-tab-switch]')) {
+          if (typeof _browseUrlHideHistory === 'function') _browseUrlHideHistory();
+        } else {
+          _showTabsInPillDropdown();
+        }
+        return;
       }
-    } else if (!pill._islandHoverBound) {
-      pill._islandHoverBound = true;
-      pill.addEventListener('mouseenter', function() {
-        if (pill._islandLeaveTimer) { clearTimeout(pill._islandLeaveTimer); pill._islandLeaveTimer = null; }
-        if (pill._islandAutoClose) { clearTimeout(pill._islandAutoClose); pill._islandAutoClose = null; }
-        pill.classList.add('island-tray-open');
-      });
-      pill.addEventListener('mouseleave', function() {
-        pill._islandLeaveTimer = setTimeout(function() { pill.classList.remove('island-tray-open'); }, 120);
-      });
     }
+    // All tray types: click-to-toggle
+    if (pill._islandAutoClose) { clearTimeout(pill._islandAutoClose); pill._islandAutoClose = null; }
+    pill.classList.toggle('island-tray-open');
+  } else if (a.action) {
+    a.action();
   }
 }
 
@@ -636,6 +789,31 @@ export function _islandRender() {
   });
   ids = pinnedLeft.concat(ids);
 
+  // ── Auto-stack grouping ──
+  // Eligible pills: non-tabs, non-nowplaying pills destined for left container
+  const isIslandModeCheck = document.getElementById('sidebar-nav') && document.getElementById('sidebar-nav').classList.contains('island-mode');
+  const stackEligible = ids.filter(function(id) { return id !== 'tabs' && id !== 'nowplaying'; });
+  const shouldStack = stackEligible.length >= 3 && !window._islandStackExpanded;
+  // IDs to actually render (if stacked, only show top pill as stack + hide others)
+  let stackedIds = null; // set of IDs hidden in stack
+  let stackTopId = null; // the visible pill representing the stack
+  if (shouldStack) {
+    stackTopId = stackEligible[0]; // highest priority
+    stackedIds = new Set(stackEligible.slice(1));
+  }
+  // If stack was just expanded, remove the old stack element
+  const oldStackEl = container.querySelector('.pill-island[data-island-id="_stack"]');
+  if (oldStackEl && !shouldStack) {
+    _islandSnapshotRects(container);
+    oldStackEl.classList.add('island-exiting');
+    oldStackEl.addEventListener('animationend', function onExit(ev) {
+      if (ev.animationName !== 'pill-exit') return;
+      oldStackEl.removeEventListener('animationend', onExit);
+      oldStackEl.remove();
+      _islandFlipNeighbors(container);
+    });
+  }
+
   // Build pills — reuse existing DOM elements where possible
   const existingEls = {};
   container.querySelectorAll('.pill-island[data-island-id]').forEach(function(el) {
@@ -655,7 +833,6 @@ export function _islandRender() {
     });
   }
 
-  const prevPill = null; // track insertion order
   ids.forEach(function(id) {
     const a = window._islandActivities.value[id];
     let pill = existingEls[id];
@@ -701,6 +878,42 @@ export function _islandRender() {
 
     // Attach event handlers
     _islandAttachHandlers(pill, a, hasTray);
+
+    // ── Auto-stack: hide stacked pills, mark top pill as stack ──
+    if (stackedIds && stackedIds.has(id)) {
+      pill.style.display = 'none';
+      pill.classList.remove('island-active');
+    } else {
+      pill.style.display = '';
+      if (shouldStack && id === stackTopId) {
+        pill.classList.add('island-stack');
+        // Add or update +N badge
+        let badge = pill.querySelector('.island-stack-badge');
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'island-stack-badge';
+          const content = pill.querySelector('.pill-island-content');
+          if (content) content.appendChild(badge);
+        }
+        badge.textContent = '+' + stackedIds.size;
+        // Click stack to expand
+        if (!pill._stackClickBound) {
+          pill._stackClickBound = true;
+          pill.addEventListener('click', function _stackClick(e) {
+            if (!pill.classList.contains('island-stack')) return;
+            e.stopPropagation();
+            _islandSnapshotRects(container);
+            window._islandStackExpanded = true;
+            _islandRender();
+            _islandFlipNeighbors(container);
+          });
+        }
+      } else {
+        pill.classList.remove('island-stack');
+        const oldBadge = pill.querySelector('.island-stack-badge');
+        if (oldBadge) oldBadge.remove();
+      }
+    }
 
     // Sync goo tray dimensions with actual tray content
     if (hasTray && tray && tray.innerHTML) {
@@ -967,6 +1180,29 @@ export function _islandRender() {
     if (rightContainer) {
       const strandedPills = Array.from(rightContainer.querySelectorAll('.pill-island'));
       strandedPills.forEach(function(p) { container.appendChild(p); });
+    }
+  }
+
+  // ── Stack collapse on outside click ──
+  if (window._islandStackExpanded && !shouldStack) {
+    // Stack was expanded and pills fanned out — listen for outside click to collapse
+    if (!container._stackCollapseHandler) {
+      container._stackCollapseHandler = function _collapseStack(e) {
+        if (!container.contains(e.target)) {
+          document.removeEventListener('mousedown', _collapseStack);
+          container._stackCollapseHandler = null;
+          _islandSnapshotRects(container);
+          window._islandStackExpanded = false;
+          _islandRender();
+          _islandFlipNeighbors(container);
+        }
+      };
+      // Defer to avoid triggering on the click that expanded
+      setTimeout(function() {
+        if (container._stackCollapseHandler) {
+          document.addEventListener('mousedown', container._stackCollapseHandler);
+        }
+      }, 10);
     }
   }
 }

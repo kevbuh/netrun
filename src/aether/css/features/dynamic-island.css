@@ -1968,3 +1968,97 @@
       color: #1a1400;
     }
 
+    /* ── Drag-to-dismiss ── */
+    .pill-island.island-dragging {
+      cursor: grabbing !important;
+      transition: none !important;
+      animation: none !important;
+      z-index: 100;
+    }
+
+    /* ── Long-press scale-up ── */
+    .pill-island.island-pressing {
+      animation: island-press-scale 0.5s ease-out forwards !important;
+    }
+
+    /* ── Detail card (long-press) ── */
+    .island-detail-card {
+      position: fixed;
+      min-width: 320px;
+      max-width: 480px;
+      border-radius: 16px;
+      background: var(--aether-dropdown-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35), 0 0 1px rgba(255,255,255,0.1);
+      z-index: 10000;
+      padding: 16px;
+      pointer-events: auto;
+      overflow: hidden;
+    }
+    .island-detail-card .island-ctx-tray {
+      position: static;
+      max-height: none;
+      opacity: 1;
+      pointer-events: auto;
+      padding: 0;
+      overflow: visible;
+      background: transparent;
+      border-radius: 0;
+      min-width: 0;
+      max-width: none;
+      width: auto;
+    }
+    .island-detail-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--aether-text);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .island-detail-card-header .island-dot,
+    .island-detail-card-header .island-ai-dot,
+    .island-detail-card-header .island-annotate-dot,
+    .island-detail-card-header .island-accent-dot {
+      width: 8px;
+      height: 8px;
+    }
+
+    /* ── Auto-stack grouping ── */
+    .island-stack {
+      position: relative;
+      cursor: pointer;
+    }
+    .island-stack::before,
+    .island-stack::after {
+      content: '';
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      height: 100%;
+      border-radius: 12px;
+      background: var(--pill-surface, var(--aether-hover));
+      pointer-events: none;
+    }
+    .island-stack::before {
+      top: -3px;
+      opacity: 0.5;
+      transform: scale(0.94);
+    }
+    .island-stack::after {
+      top: -6px;
+      opacity: 0.3;
+      transform: scale(0.88);
+    }
+    .island-stack-badge {
+      font-size: 0.55rem;
+      font-weight: 700;
+      color: var(--aether-text-dim);
+      margin-left: 2px;
+      opacity: 0.7;
+    }
+
