@@ -275,7 +275,7 @@ let _searchQuery = '';
 let _rootView = null;
 
 function _buildSidebar(data) {
-  const sidebar = VStack().addClass('docs-sidebar');
+  const sidebar = VStack().className('docs-sidebar');
 
   // Search
   const searchWrap = document.createElement('div');

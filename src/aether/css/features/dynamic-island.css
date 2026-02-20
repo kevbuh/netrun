@@ -24,100 +24,6 @@
       right: 8px;
     }
 
-    /* ── AI Inline Pill — collapsed magic icon with dropdown ── */
-    #pill-ai-inline {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      width: 24px;
-      height: 24px;
-      border-radius: 12px;
-      background: var(--pill-surface, var(--aether-hover));
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      z-index: 1;
-      cursor: pointer;
-      color: var(--aether-text);
-      -webkit-app-region: no-drag;
-      transition: background 0.2s ease, box-shadow 0.25s ease, opacity 0.25s ease;
-      overflow: visible;
-    }
-    .browse-mode.island-mode #pill-ai-inline {
-      display: flex;
-    }
-    #pill-ai-inline:hover {
-      background: var(--pill-surface-hover, rgba(255,255,255,0.18));
-      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-    }
-    #pill-ai-inline:active { transform: translateY(-50%) scale(0.92); transition: transform 0.06s ease; }
-    [data-aether-theme="midnight"] #pill-ai-inline { background: rgba(255,255,255,0.12); }
-    [data-aether-theme="midnight"] #pill-ai-inline:hover { background: rgba(255,255,255,0.18); }
-    [data-aether-theme="match"] #pill-ai-inline { background: rgba(255,255,255,0.12); }
-    [data-aether-theme="match"] #pill-ai-inline:hover { background: rgba(255,255,255,0.18); }
-    [data-aether-theme="aether"] #pill-ai-inline { background: rgba(0,0,0,0.08); }
-    [data-aether-theme="aether"] #pill-ai-inline:hover { background: rgba(0,0,0,0.12); }
-
-    /* Magic icon */
-    #pill-ai-inline .pill-ai-icon {
-      opacity: 0.55;
-      transition: opacity 0.2s ease;
-      flex-shrink: 0;
-    }
-    #pill-ai-inline:hover .pill-ai-icon { opacity: 1; }
-
-    /* Dropdown — AI tools menu */
-    #pill-ai-inline .pill-ai-dropdown {
-      display: none;
-      position: absolute;
-      top: calc(100% + 4px);
-      right: 0;
-      min-width: 180px;
-      border-radius: 10px;
-      background: var(--aether-dropdown-bg, var(--pill-surface));
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-      z-index: 100;
-      opacity: 0;
-      transform: scaleY(0.92) translateY(-4px);
-      transform-origin: top right;
-      pointer-events: none;
-      transition: opacity 0.15s ease, transform 0.15s var(--motion-snappy, ease);
-      padding: 4px 0;
-    }
-    #pill-ai-inline.ai-dropdown-open .pill-ai-dropdown {
-      display: block;
-      opacity: 1;
-      transform: scaleY(1) translateY(0);
-      pointer-events: auto;
-    }
-    #pill-ai-inline .pill-ai-dropdown-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      font-size: 0.7rem;
-      color: var(--aether-text);
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.12s ease;
-    }
-    #pill-ai-inline .pill-ai-dropdown-item:hover {
-      background: var(--pill-surface-hover, rgba(255,255,255,0.1));
-    }
-    #pill-ai-inline .pill-ai-dropdown-item svg {
-      flex-shrink: 0;
-      opacity: 0.6;
-    }
-    #pill-ai-inline .pill-ai-dropdown-divider {
-      height: 1px;
-      background: var(--aether-border, rgba(255,255,255,0.08));
-      margin: 3px 0;
-    }
-
     .pill-island {
       display: flex;
       align-items: center;
@@ -1394,73 +1300,249 @@
     .browse-mode.island-mode #pill-url-wrap > * {
       margin: 0;
     }
-    /* ── Unified Audio Pill ── */
-    #pill-live-pulse {
+    /* ── Unified AI Pill ── */
+    #pill-ai-unified {
+      position: relative;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
       display: none;
       align-items: center;
       justify-content: center;
-      width: 20px;
+      width: 28px;
       height: 28px;
-      flex-shrink: 0;
-      -webkit-app-region: no-drag;
-      position: relative;
       cursor: pointer;
-      margin-left: 4px;
+      border-radius: 50%;
+      transition: background 0.2s ease, box-shadow 0.25s ease;
+      overflow: visible;
+      z-index: 2;
     }
-    .browse-mode #pill-live-pulse {
+    .browse-mode #pill-ai-unified {
       display: flex;
+      margin-left: auto;
     }
-    /* Pulse dropdown — same style as hamburger menu */
-    .pulse-dropdown {
+    #pill-ai-unified:hover {
+      background: var(--pill-surface-hover, rgba(255,255,255,0.12));
+    }
+    #pill-ai-unified:active {
+      transform: scale(0.92);
+      transition: transform 0.06s ease;
+    }
+
+    /* ── Indicator (center of pill) ── */
+    .ai-unified-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      transition: all 0.2s var(--motion-snappy, ease);
+    }
+    /* Idle sparkle — low opacity */
+    .ai-unified-indicator.ai-unified-idle { opacity: 0.45; }
+    .ai-unified-indicator.ai-unified-idle svg { width: 14px; height: 14px; }
+    #pill-ai-unified:hover .ai-unified-indicator.ai-unified-idle { opacity: 0.9; }
+
+    /* Mic recording — red pulsing */
+    .ai-unified-indicator.ai-unified-mic svg { color: #ef4444; animation: pill-mic-pulse 1.2s ease-in-out infinite; }
+
+    /* AI active — purple breathing */
+    .ai-unified-indicator.ai-unified-ai { }
+    .ai-unified-dot-ai {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #a78bfa;
+      box-shadow: 0 0 8px rgba(167, 139, 250, 0.5);
+    }
+
+    /* Audio playing — waveform bars */
+    .ai-unified-indicator.ai-unified-audio .island-waveform { height: 14px; }
+    .ai-unified-indicator.ai-unified-audio .island-waveform-bar { background: var(--nr-accent); }
+
+    /* Pulse flash — colored dot */
+    .ai-unified-dot-pulse {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      animation: pulse-flash-glow 1s ease-in-out infinite;
+    }
+
+    /* Generic dot for idle/pageinfo */
+    .ai-unified-dot {
+      border-radius: 50%;
+    }
+    .ai-unified-dot-idle {
+      width: 5px;
+      height: 5px;
+      background: var(--nr-text-secondary, #666);
+      opacity: 0.3;
+    }
+
+    /* ── Secondary activity dots ── */
+    .ai-unified-secondary {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      position: absolute;
+      bottom: 2px;
+      right: -2px;
+    }
+    .ai-unified-sec-dot {
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Focus timer (inside pill) ── */
+    #pill-ai-unified #pill-focus-timer {
+      font-size: 9px;
+      opacity: 0.5;
+      pointer-events: none;
+      position: absolute;
+      bottom: -10px;
+      white-space: nowrap;
+    }
+
+    /* ── Dropdown ── */
+    .ai-unified-dropdown {
       display: none;
       position: absolute;
-      top: calc(100% + 4px);
+      top: calc(100% + 6px);
       right: 0;
       min-width: 240px;
-      max-height: 360px;
+      max-width: 320px;
+      max-height: 480px;
       overflow-y: auto;
       overflow-x: hidden;
-      background: var(--aether-dropdown-bg);
+      background: var(--aether-dropdown-bg, rgba(30, 30, 30, 0.96));
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
       border-radius: 14px;
       padding: 6px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35);
       z-index: 9999;
       flex-direction: column;
       gap: 1px;
+      opacity: 0;
+      transform: scaleY(0.94) translateY(-4px);
+      transform-origin: top right;
+      pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.15s var(--motion-snappy, ease);
     }
-    #pill-live-pulse.dropdown-open .pulse-dropdown {
+    #pill-ai-unified.ai-unified-open .ai-unified-dropdown {
       display: flex;
+      opacity: 1;
+      transform: scaleY(1) translateY(0);
+      pointer-events: auto;
     }
-    .pulse-dropdown::before {
-      display: none;
+
+    /* ── Dropdown items ── */
+    .ai-unified-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      color: var(--aether-text);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s ease;
     }
-    .pulse-dropdown-header {
-      padding: 6px 12px;
+    .ai-unified-item:hover {
+      background: var(--aether-hover);
+    }
+    .ai-unified-item svg { flex-shrink: 0; opacity: 0.6; }
+    .ai-unified-item:hover svg { opacity: 1; }
+
+    /* Highlighted primary action */
+    .ai-unified-item-highlight {
+      color: var(--nr-accent, #a78bfa);
+      font-weight: 500;
+    }
+    .ai-unified-item-highlight svg { opacity: 0.9; }
+
+    /* Disabled items */
+    .ai-unified-item-disabled {
+      opacity: 0.35;
+      pointer-events: none;
+      cursor: default;
+    }
+
+    /* Divider */
+    .ai-unified-divider {
+      height: 1px;
+      background: var(--aether-border, rgba(255,255,255,0.06));
+      margin: 4px 0;
+    }
+
+    /* Section label */
+    .ai-unified-section-label {
+      padding: 4px 10px 2px;
       font-size: 0.6rem;
-      color: var(--aether-text-muted);
+      color: var(--aether-text-muted, rgba(255,255,255,0.4));
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-    .pulse-event-row {
+
+    /* ── Page info rows ── */
+    .ai-unified-info-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 10px;
+      font-size: 0.72rem;
+    }
+    .ai-unified-info-label {
+      color: var(--aether-text-muted, rgba(255,255,255,0.45));
+      min-width: 70px;
+      flex-shrink: 0;
+    }
+    .ai-unified-info-value {
+      color: var(--aether-text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ai-unified-info-desc {
+      padding: 3px 10px;
+      font-size: 0.68rem;
+      color: var(--aether-text-muted);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* ── Activity/pulse event rows ── */
+    .ai-unified-activity-scroll {
+      max-height: 200px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .ai-unified-event {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 3px 8px;
+      padding: 3px 10px;
       font-size: 0.65rem;
       border-radius: 4px;
     }
-    .pulse-event-row:hover { background: var(--aether-hover); }
-    .pulse-status-dot {
+    .ai-unified-event:hover { background: var(--aether-hover); }
+    .ai-unified-event-status {
       width: 4px;
       height: 4px;
       border-radius: 50%;
       flex-shrink: 0;
     }
-    .pulse-cat {
+    .ai-unified-event-cat {
       min-width: 36px;
       flex-shrink: 0;
     }
-    .pulse-label {
+    .ai-unified-event-label {
       flex: 1;
       min-width: 0;
       overflow: hidden;
@@ -1468,186 +1550,15 @@
       white-space: nowrap;
       opacity: 0.7;
     }
-    .pulse-age {
+    .ai-unified-event-age {
       opacity: 0.35;
       flex-shrink: 0;
     }
-    .live-pulse-dot.island-pulse-dot {
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: var(--text-secondary, #666);
-      transition: background 0.3s, box-shadow 0.3s;
-    }
-    .live-pulse-dot.island-pulse-dot-idle {
-      opacity: 0.25;
-      animation: pulse-breathe 3s ease-in-out infinite;
-    }
-    .live-pulse-dot.island-pulse-dot-active {
-      opacity: 1;
-      background: var(--nr-accent);
-      box-shadow: 0 0 4px var(--nr-accent);
-      animation: island-pulse calc(1.5s - var(--pulse-intensity, 0) * 1s) ease-in-out infinite;
-    }
-    .live-pulse-dot.pulse-flash-active {
-      opacity: 1;
-      animation: pulse-flash-glow 1s ease-in-out infinite;
-    }
 
-    #pill-audio-unified {
-      position: relative;
-      flex-shrink: 0;
-      -webkit-app-region: no-drag;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      min-width: 28px;
-      height: 28px;
-      cursor: pointer;
-      gap: 2px;
-    }
-    .browse-mode #pill-audio-unified {
-      display: flex;
-      margin-left: auto;
-    }
-    .audio-pill-indicator {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      transition: all 0.2s var(--motion-snappy);
-    }
-    .audio-pill-dot {
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: var(--text-secondary, #666);
-      opacity: 0.25;
-      animation: pulse-breathe 3s ease-in-out infinite;
-    }
-    .audio-pill-active .island-waveform { height: 14px; }
-    .audio-pill-active .island-waveform-bar { background: var(--nr-accent); }
-    /* Audio pill dropdown — same style as hamburger menu */
-    .audio-pill-dropdown {
-      display: none;
-      position: absolute;
-      top: calc(100% + 4px);
-      right: 0;
-      min-width: 200px;
-      width: max-content;
-      background: var(--aether-dropdown-bg);
-      border-radius: 14px;
-      padding: 6px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-      z-index: 9999;
-      flex-direction: column;
-      gap: 1px;
-    }
-    #pill-audio-unified.dropdown-open .audio-pill-dropdown {
-      display: flex;
-    }
-    .audio-pill-dropdown::before {
-      display: none;
-    }
-    .audio-pill-dropdown button {
-      width: 100%;
-      text-align: left;
-      padding: 6px 12px;
-      border: none;
-      background: none;
-      color: var(--aether-text);
-      font-size: 0.78rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      border-radius: 8px;
-      white-space: nowrap;
-    }
-    .audio-pill-dropdown button:hover {
-      background: var(--aether-hover);
-    }
-    .audio-pill-dropdown button:disabled {
-      color: var(--aether-text-dimmest);
-      cursor: default;
-    }
-    .audio-pill-dropdown button:disabled:hover {
-      background: none;
-    }
-    .audio-pill-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 8px;
-      border-radius: 6px;
-      cursor: pointer;
-      color: var(--aether-text);
-      font-size: 12px;
-      white-space: nowrap;
-    }
-    .audio-pill-row:hover {
-      background: var(--aether-hover);
-    }
-    .audio-pill-row-label {
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .audio-pill-ctrl {
-      background: none;
-      border: none;
-      color: var(--aether-text-muted);
-      cursor: pointer;
-      padding: 2px;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-    }
-    .audio-pill-ctrl:hover { color: var(--aether-text); }
-    .audio-pill-stop:hover { color: #ef4444; }
-    .audio-pill-noise-active {
-      gap: 6px;
-    }
-    .audio-pill-noise-type {
-      font-size: 11px; opacity: 0.7; cursor: pointer;
-      padding: 1px 4px; border-radius: 4px; transition: opacity 0.15s, background 0.15s;
-      white-space: nowrap;
-    }
-    .audio-pill-noise-type:hover { opacity: 1; background: rgba(255,255,255,0.1); }
-    .audio-pill-noise-vol {
-      width: 48px; height: 3px; accent-color: var(--nr-accent, #888);
-      cursor: pointer; flex-shrink: 0;
-    }
-    .island-tts-speed {
-      font-size: 11px; opacity: 0.45; margin-left: 3px; cursor: pointer;
-      padding: 1px 4px; border-radius: 4px; transition: opacity 0.15s, background 0.15s;
-    }
-    .island-tts-speed:hover { opacity: 1; background: rgba(255,255,255,0.1); }
-    .audio-pill-source .island-waveform { height: 12px; }
-    .audio-pill-tts-status .island-waveform { height: 12px; }
+    /* ── Light theme adjustments ── */
+    [data-aether-theme="aether"] #pill-ai-unified:hover { background: rgba(0,0,0,0.08); }
+    [data-aether-theme="aether"] .ai-unified-dropdown { background: rgba(255,255,255,0.96); box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
 
-    #pill-mic-btn.pill-mic-active {
-      color: #ef4444;
-      animation: pill-mic-pulse 1.2s ease-in-out infinite;
-    }
-    .island-mic-pulse svg {
-      animation: pill-mic-pulse 1.2s ease-in-out infinite;
-    }
-    .island-mic-text {
-      max-width: 180px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 12px;
-    }
-    .audio-pill-mic-active svg {
-      animation: pill-mic-pulse 1.2s ease-in-out infinite;
-    }
-    .audio-pill-transcript {
-      cursor: default;
-    }
     #pill-browse-more {
       max-width: 0;
       opacity: 0;

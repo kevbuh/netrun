@@ -9,7 +9,7 @@ import { _menuBtn, isPostSaved } from '/js/feed.js';
 import { browseCloseWindow, browseCreateWindow, browseSelectWindow } from '/js/browse/browse-windows.js';
 import { browsePrintPage, browseShowAIView } from '/js/browse/browse-menu.js';
 import { browseSaveToReadingList, browseShare } from '/js/browse/browse-features.js';
-import { openSearchHistoryPage, toggleAdBlock } from '/js/browse-urlbar.js';
+import { openSearchHistoryPage, toggleAdBlock, toggleDoH } from '/js/browse-urlbar.js';
 import { toggleBrowseSidebar } from '/js/views.js';
 import { getPillBrowseMode, setPillBrowseMode } from '/js/browse/browse-state.js';
 // Depends on: browse-state.js
@@ -169,8 +169,10 @@ export function _togglePillMenu() {
   pill.classList.toggle('menu-expanded');
   if (opening) {
     _populatePillMenuMoreItems();
+    document.body.classList.add('island-dropdown-guard');
     setTimeout(() => document.addEventListener('mousedown', _pillMenuOutsideClick), 0);
   } else {
+    document.body.classList.remove('island-dropdown-guard');
     document.removeEventListener('mousedown', _pillMenuOutsideClick);
   }
 }
@@ -254,6 +256,12 @@ export function _populatePillMenuMoreItems() {
   items.push(_menuBtn(icon('shield', {size: 16, strokeWidth: '1.5'}),
     'Ad Blocker', function() { toggleAdBlock(); _closePillMenu(); }, { style: adOn ? { color: 'var(--nr-accent)' } : {}, trailing: adTrailing }));
 
+  // Encrypted DNS
+  const dohOn = Settings.get('dohEnabled') !== 'false';
+  const dohTrailing = window.Text(dohOn ? 'On' : 'Off').font('caption2').styles({marginLeft:'auto'}).foreground('quaternary');
+  items.push(_menuBtn(icon('lock', {size: 16, strokeWidth: '1.5'}),
+    'Encrypted DNS', function() { toggleDoH(); _closePillMenu(); }, { style: dohOn ? { color: 'var(--nr-accent)' } : {}, trailing: dohTrailing }));
+
   // Annotate
   const annEnabled = tab && typeof _annotationsEnabled !== 'undefined' && _annotationsEnabled.get(tab.id);
   items.push(_menuBtn(icon('annotate', {size: 16}),
@@ -318,6 +326,7 @@ export function _pillMenuOutsideClick(e) {
 export function _closePillMenu() {
   const pill = document.getElementById('sidebar-nav');
   if (pill) pill.classList.remove('menu-expanded');
+  document.body.classList.remove('island-dropdown-guard');
   document.removeEventListener('mousedown', _pillMenuOutsideClick);
 }
 

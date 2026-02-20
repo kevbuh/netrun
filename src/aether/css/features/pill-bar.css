@@ -348,8 +348,7 @@
     .browse-mode.ntp-active #pill-browse-more,
     .browse-mode.ntp-active #pill-newtab-btn,
     .browse-mode.ntp-active .pill-url-divider,
-    .browse-mode.ntp-active #pill-audio-unified,
-    .browse-mode.ntp-active #pill-live-pulse {
+    .browse-mode.ntp-active #pill-ai-unified {
       display: none !important;
     }
     .browse-mode.ntp-active #pill-nav-icons {

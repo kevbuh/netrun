@@ -1,0 +1,53 @@
+/* ── Netrunner Game — easter egg overlay ── */
+
+.nr-netrunner-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: nr-netrunner-fadein 0.3s ease-out;
+}
+
+@keyframes nr-netrunner-fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.nr-netrunner-canvas {
+  border: 1px solid var(--nr-accent, #00ff88);
+  border-radius: var(--nr-radius-lg, 12px);
+  box-shadow:
+    0 0 30px rgba(0, 255, 136, 0.1),
+    0 0 80px rgba(0, 255, 136, 0.05);
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  max-width: 95vw;
+  max-height: 80vh;
+}
+
+/* CRT flicker on boot */
+.nr-netrunner-overlay .nr-netrunner-canvas {
+  animation: nr-netrunner-crt 0.15s ease-out;
+}
+
+@keyframes nr-netrunner-crt {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.01);
+    filter: brightness(3);
+  }
+  40% {
+    opacity: 1;
+    transform: scaleY(1.02);
+    filter: brightness(1.5);
+  }
+  100% {
+    transform: scaleY(1);
+    filter: brightness(1);
+  }
+}

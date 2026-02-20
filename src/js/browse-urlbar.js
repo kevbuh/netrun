@@ -1880,6 +1880,25 @@ export function _browseUpdateAdBlockBtn() {
   btn.classList.toggle('text-dimmer', !on);
 }
 
+export function toggleDoH() {
+  const on = Settings.get('dohEnabled') !== 'false';
+  const newState = !on;
+  Settings.set('dohEnabled', newState ? 'true' : 'false');
+  if (window.electronAPI && window.electronAPI.dohSetConfig) {
+    window.electronAPI.dohSetConfig(newState, Settings.get('dohProvider') || 'cloudflare');
+  }
+  _browseUpdateDohBtn();
+}
+
+export function _browseUpdateDohBtn() {
+  const btn = document.getElementById('browse-doh-btn');
+  if (!btn) return;
+  const on = Settings.get('dohEnabled') !== 'false';
+  btn.style.color = on ? 'var(--nr-accent)' : '';
+  btn.title = on ? 'Encrypted DNS (on)' : 'Encrypted DNS (off)';
+  btn.classList.toggle('text-dimmer', !on);
+}
+
 export function _browseUpdateAdBlockBadge(url) {
   const badge = document.getElementById('browse-adblock-badge');
   if (!badge) return;
@@ -2145,6 +2164,7 @@ export function _renderSitePermissionsDropdown(container) {
 // Initialize button state on load
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', _browseUpdateAdBlockBtn);
+  document.addEventListener('DOMContentLoaded', _browseUpdateDohBtn);
 }
 
 // Listen for browse commands from Electron main process (for Cmd+T and Cmd+W)
@@ -2215,6 +2235,7 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
 // ── Action registry ──
 registerActions({
   toggleAdBlock: () => toggleAdBlock(),
+  toggleDoH: () => toggleDoH(),
   openSearchHistoryPage: () => openSearchHistoryPage(),
 });
 

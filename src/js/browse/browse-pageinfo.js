@@ -1,7 +1,6 @@
-// browse-pageinfo.js — Page info pill for Dynamic Island
+// browse-pageinfo.js — Page info state provider for unified AI pill
 // Consolidates page metadata (publish date, author, word count, scroll %, token count)
 import { icon } from '/js/core/icons.js';
-import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
 
 // ── Cache ──
 const _pageInfoCache = new Map(); // url -> { data, ts }
@@ -67,23 +66,24 @@ function _buildBadges() {
   return parts.join(' · ');
 }
 
-// ── Push update to island ──
+// ── Module-level state for unified pill ──
+let _currentLabel = '';
+let _currentBadges = '';
+let _currentMeta = null;
+
+export function _getPageInfoState() {
+  return { label: _currentLabel, badges: _currentBadges, meta: _currentMeta };
+}
+window._getPageInfoState = _getPageInfoState;
+
+// ── Push update to unified pill ──
 function _pushPill(meta) {
   const label = _buildLabel(meta);
   const badges = _buildBadges();
-  // Always show pill when we have scroll or tokens (even without metadata)
-  if (!label && !badges) {
-    islandRemove('pageinfo');
-    return;
-  }
-  const displayLabel = label || '';
-  const pillData = {
-    type: 'pageinfo',
-    label: displayLabel,
-    badges: badges,
-    meta: meta || null,
-  };
-  islandUpdate('pageinfo', pillData);
+  _currentLabel = label || '';
+  _currentBadges = badges;
+  _currentMeta = meta || null;
+  if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
 }
 
 // ── Content script (runs inside webview) ──
@@ -231,7 +231,10 @@ export function _pageInfoRestoreForTab(tab) {
 export function _pageInfoCleanup() {
   _scrollPct = -1;
   _tokenCount = 0;
-  islandRemove('pageinfo');
+  _currentLabel = '';
+  _currentBadges = '';
+  _currentMeta = null;
+  if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
 }
 
 export function _pageInfoUpdateScroll(pct) {

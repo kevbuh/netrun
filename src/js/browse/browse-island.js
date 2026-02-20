@@ -1,11 +1,9 @@
 // browse-island.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
 import Settings from '/js/core/core-settings.js';
-import { escapeAttr, escapeHtml } from '/js/core/core-utils.js';
 import { islandRemove } from '/js/core/core-ui.js';
 import { _clearAudioUnified, _renderAudioPill, _updateAudioUnified } from '/js/core/core-audio.js';
-import { _annotationsEnabled, _readPageAloud, _updateAnnotateButtonState, scrollToAnnotation, toggleAnnotations } from '/js/browse/browse-annotations.js';
-import { browseShowAIView } from '/js/browse/browse-menu.js';
+import { _annotationsEnabled, _updateAnnotateButtonState } from '/js/browse/browse-annotations.js';
 import { _browseApplyAdaptiveColor, _browseSetUrlDisplay, _browseUpdateAdBlockBadge, _browseUpdateAdBlockBtn, _browseUrlHideHistory, _browseUrlKeydown, _saveBrowseVisit, _saveWebSearch, openHelpPage, openSearchHistoryPage } from '/js/browse-urlbar.js';
 import { openNetrunPage } from '/js/netrun-page.js';
 import { _browseBindFrame } from '/js/browse/browse-downloads.js';
@@ -53,7 +51,6 @@ export function _applyBrowseTabLayout() {
       if (pillTabs) pillTabs.innerHTML = '';
       _islandSyncTabs();
       _islandSyncBookmark();
-      _syncAIPill();
     } else {
       if (pill) { pill.classList.remove('browse-mode', 'island-mode', 'ntp-active'); }
       islandRemove('tabs');
@@ -372,7 +369,7 @@ export function _pillMicClick() {
         const data = await electronAPI.captionsTranscribe(pcmBase64, 16000);
         _clearAudioUnified('mic');
         if (data && data.text) {
-          const pill = document.getElementById('pill-audio-unified');
+          const pill = document.getElementById('pill-ai-unified');
           const rect = pill ? pill.getBoundingClientRect() : { x: window.innerWidth / 2 - 100, bottom: 60 };
           _showPanel({ anchor: { x: rect.x, y: rect.bottom + 4 }, initialValue: data.text, finalized: true });
           if (Settings.get('voiceAutoSend') === 'on') {
@@ -1381,117 +1378,6 @@ export function _browseApplyZoom(focalX, focalY) {
   if (label) label.textContent = Math.round(_browseZoomLevel * 100) + '%';
   _browseShowZoomControls();
 }
-
-// ── AI Pill — magic icon with dropdown ──
-
-function _syncAIPill() {
-  // No-op — pill is now a static icon, no state sync needed
-}
-
-// Expose globally so core-audio.js can call it after _islandRender
-window._syncAIPill = _syncAIPill;
-
-function _closeAIPillDropdown() {
-  const pill = document.getElementById('pill-ai-inline');
-  if (pill) pill.classList.remove('ai-dropdown-open');
-}
-
-function _buildAIPillDropdown(pill) {
-  const dropdown = pill.querySelector('.pill-ai-dropdown');
-  if (!dropdown) return;
-
-  const tab = (typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined')
-    ? _browseTabs.find(function(t) { return t.id === _browseActiveTab; }) : null;
-  const hasTab = tab && !tab.blank && tab.url;
-
-  function _item(svgStr, label, action, opts) {
-    opts = opts || {};
-    const el = document.createElement('div');
-    el.className = 'pill-ai-dropdown-item';
-    el.innerHTML = svgStr + '<span>' + escapeHtml(label) + '</span>';
-    if (opts.disabled) { el.style.opacity = '0.35'; el.style.pointerEvents = 'none'; }
-    if (opts.color) el.style.color = opts.color;
-    el.addEventListener('click', function(e) {
-      e.stopPropagation();
-      _closeAIPillDropdown();
-      if (action) action();
-    });
-    return el;
-  }
-
-  function _divider() {
-    const el = document.createElement('div');
-    el.className = 'pill-ai-dropdown-divider';
-    return el;
-  }
-
-  dropdown.innerHTML = '';
-
-  // Ask AI — opens chat panel
-  dropdown.appendChild(_item(
-    icon('chatBubble', { size: 14 }),
-    'Ask AI',
-    function() { _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 }, trackCursor: false }); }
-  ));
-
-  dropdown.appendChild(_divider());
-
-  // Annotate Page
-  const annEnabled = hasTab && typeof _annotationsEnabled !== 'undefined' && _annotationsEnabled.get(tab.id);
-  dropdown.appendChild(_item(
-    icon('annotate', { size: 14 }),
-    annEnabled ? 'Remove Annotations' : 'Annotate Page',
-    function() { toggleAnnotations(); },
-    { disabled: !hasTab, color: annEnabled ? 'var(--nr-accent)' : undefined }
-  ));
-
-  // Read Aloud
-  dropdown.appendChild(_item(
-    icon('speaker', { size: 14 }),
-    'Read Aloud',
-    function() { _readPageAloud(); },
-    { disabled: !hasTab }
-  ));
-
-  // AI View
-  dropdown.appendChild(_item(
-    icon('eye', { size: 14 }),
-    'AI View',
-    function() { browseShowAIView(); },
-    { disabled: !hasTab }
-  ));
-}
-
-// Click handler — toggle dropdown
-(function _initAIPillClick() {
-  function _attach() {
-    const pill = document.getElementById('pill-ai-inline');
-    if (!pill || pill._aiClickBound) return;
-    pill._aiClickBound = true;
-
-    pill.addEventListener('click', function(e) {
-      e.stopPropagation();
-      const isOpen = pill.classList.contains('ai-dropdown-open');
-      if (isOpen) {
-        _closeAIPillDropdown();
-      } else {
-        _buildAIPillDropdown(pill);
-        pill.classList.add('ai-dropdown-open');
-        // Close on outside click
-        setTimeout(function() {
-          document.addEventListener('mousedown', function _close(ev) {
-            if (!pill.contains(ev.target)) {
-              _closeAIPillDropdown();
-              document.removeEventListener('mousedown', _close);
-            }
-          });
-        }, 10);
-      }
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _attach);
-  else setTimeout(_attach, 0);
-})();
 
 // ── Action registry ──
 registerActions({

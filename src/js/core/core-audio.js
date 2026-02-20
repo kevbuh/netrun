@@ -810,17 +810,7 @@ export function _islandRender() {
     });
   }
 
-  // IDs consumed by the unified AI inline pill — skip regular island rendering
-  const _aiInlineIds = new Set();
-  if (isIslandModeCheck && document.getElementById('pill-ai-inline')) {
-    ids.forEach(function(id) {
-      const act = window._islandActivities.value[id];
-      if (id === 'insight' || (act && act.type === 'ai')) _aiInlineIds.add(id);
-    });
-  }
-
   ids.forEach(function(id) {
-    if (_aiInlineIds.has(id)) return; // rendered by #pill-ai-inline instead
     const a = window._islandActivities.value[id];
     let pill = existingEls[id];
     const isNew = !pill;
@@ -1076,16 +1066,8 @@ export function _islandRender() {
   // Proximity detection: move overflow pills to right side of URL capsule
   const urlWrap = document.getElementById('pill-url-wrap');
   const isIslandNow = document.getElementById('sidebar-nav') && document.getElementById('sidebar-nav').classList.contains('island-mode');
-  // Position AI inline pill to the right of the URL capsule
-  const aiInline = document.getElementById('pill-ai-inline');
-  if (aiInline && isIslandNow && urlWrap) {
-    const _navBar = document.getElementById('sidebar-nav');
-    const _navRect = _navBar ? _navBar.getBoundingClientRect() : { left: 0 };
-    const _urlR = urlWrap.getBoundingClientRect();
-    aiInline.style.left = (_urlR.right - _navRect.left + 6) + 'px';
-  }
-  // Sync AI pill content with consumed activities
-  if (typeof window._syncAIPill === 'function') window._syncAIPill();
+  // Trigger unified AI pill render
+  if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
   if (urlWrap && isIslandNow && rightContainer) {
     const urlRect = urlWrap.getBoundingClientRect();
     const contRect = container.getBoundingClientRect();
@@ -1099,7 +1081,7 @@ export function _islandRender() {
     const navRect = navBar ? navBar.getBoundingClientRect() : { right: window.innerWidth };
     // Measure width of right-side buttons so pills sit to their left
     let rightBtnsW = 0;
-    ['pill-audio-unified', 'pill-browse-more'].forEach(function(bid) {
+    ['pill-ai-unified', 'pill-browse-more'].forEach(function(bid) {
       const b = document.getElementById(bid);
       if (b && b.offsetWidth > 0) rightBtnsW += b.offsetWidth + 2; // + gap
     });
@@ -1129,7 +1111,7 @@ export function _islandRender() {
     });
     // Find the left edge of the first visible right-side button
     let rightBoundary = navRect.right - 4;
-    ['pill-audio-unified', 'pill-browse-more'].forEach(function(bid) {
+    ['pill-ai-unified', 'pill-browse-more'].forEach(function(bid) {
       const b = document.getElementById(bid);
       if (b && b.offsetWidth > 0) {
         const br = b.getBoundingClientRect();

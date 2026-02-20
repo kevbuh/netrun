@@ -686,7 +686,11 @@ export function _browseUpdateNewTabPage(tab) {
       ntp.appendChild(inner.el);
 
       const versionEl = window.Text('netrun').className('browse-ntp-version');
-      versionEl.cssText('position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--nr-text-quaternary);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;');
+      versionEl.cssText('position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--nr-text-quaternary);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;cursor:pointer;transition:color 0.15s;');
+      versionEl.el.title = 'netrun://';
+      versionEl.el.addEventListener('mouseenter', function() { this.style.color = 'var(--nr-text-secondary)'; });
+      versionEl.el.addEventListener('mouseleave', function() { this.style.color = ''; });
+      versionEl.el.addEventListener('click', function() { browseNavigate('netrun://'); });
       ntp.appendChild(versionEl.el);
       container.appendChild(ntp);
       apiGet('/api/version').then(v => {

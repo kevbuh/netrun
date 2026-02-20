@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { runAgent } from '../runtime';
+import { runAgent, resolveActionResult } from '../runtime';
 import { ToolRegistry } from '../../tools/registry';
 import { ProviderRegistry } from '../../providers/registry';
 import type { LLMProvider, ChatResponse, StreamEvent } from '../../providers/types';
 import type { AgentDefinition, AgentContext, AgentEvent, AgentSessionConfig } from '../types';
 import { z } from 'zod';
-import { browserClick, browserPressKey } from '../../tools/browser/index';
-import { navigate } from '../../tools/system/navigate';
+import {
+  browserClick, browserPressKey, browserQuerySelector, browserReadPage,
+  browserType, browserScroll, browserNavigate,
+} from '../../tools/browser/index';
+import { navigate, openTab } from '../../tools/system/index';
 
 // We need to mock the singletons. Use vi.mock to intercept imports.
 vi.mock('../../tools/registry', async (importOriginal) => {
@@ -324,5 +327,328 @@ describe('Agent Runtime', () => {
       e => e.type === 'tool_call' && (e as any).name === 'navigate'
     );
     expect(navEvent).toBeDefined();
+  });
+});
+
+describe('Unified pipeline integration', () => {
+  let toolRegistryMod: typeof import('../../tools/registry');
+  let providerRegistryMod: typeof import('../../providers/registry');
+
+  beforeEach(async () => {
+    toolRegistryMod = await import('../../tools/registry');
+    providerRegistryMod = await import('../../providers/registry');
+  });
+
+  it('async tool round-trip: emitAction → resolveActionResult → tool gets data', async () => {
+    try { toolRegistryMod.toolRegistry.register(browserQuerySelector); } catch { /* already registered */ }
+
+    // When the tool emits an action, grab the requestId and resolve it
+    const onAction = (action: any) => {
+      if (action.type === 'agent_query_selector' && action.requestId) {
+        // Simulate the frontend responding after a short delay
+        setTimeout(() => {
+          resolveActionResult(action.requestId, {
+            elements: [{ id: 42, tag: 'button', text: 'Submit' }],
+          });
+        }, 10);
+      }
+    };
+
+    const provider = makeMockProvider({
+      chatResponses: [
+        {
+          message: {
+            role: 'assistant',
+            content: '',
+            tool_calls: [{
+              id: 'tc1',
+              type: 'function',
+              function: { name: 'browser-query-selector', arguments: '{"selector":".submit-btn"}' },
+            }],
+          },
+        },
+        { message: { role: 'assistant', content: 'Found it' } },
+      ],
+      streamTokens: ['Done'],
+    });
+    providerRegistryMod.providerRegistry.register(provider);
+
+    const events = await collectEvents({
+      agent: makeAgent({ tools: ['browser-query-selector'] }),
+      messages: [{ role: 'user', content: 'find submit button' }],
+      context: { toolsEnabled: true },
+      onAction,
+    });
+
+    // The tool result should contain the resolved data, not "pending"
+    const resultEvent = events.find(e => e.type === 'tool_result' && (e as any).name === 'browser-query-selector');
+    expect(resultEvent).toBeDefined();
+    const resultData = (resultEvent as any).result;
+    expect(resultData.elements).toBeDefined();
+    expect(resultData.elements[0].id).toBe(42);
+    expect(resultData.elements[0].text).toBe('Submit');
+  });
+
+  it('onAction callback receives actions emitted by tools', async () => {
+    try { toolRegistryMod.toolRegistry.register(browserClick); } catch { /* already registered */ }
+    try { toolRegistryMod.toolRegistry.register(browserNavigate); } catch { /* already registered */ }
+
+    const provider = makeMockProvider({
+      chatResponses: [
+        {
+          message: {
+            role: 'assistant',
+            content: '',
+            tool_calls: [
+              {
+                id: 'tc1',
+                type: 'function',
+                function: { name: 'browser-navigate', arguments: '{"url":"https://example.com"}' },
+              },
+              {
+                id: 'tc2',
+                type: 'function',
+                function: { name: 'browser-click', arguments: '{"element_id":7}' },
+              },
+            ],
+          },
+        },
+        { message: { role: 'assistant', content: 'Done' } },
+      ],
+      streamTokens: ['ok'],
+    });
+    providerRegistryMod.providerRegistry.register(provider);
+
+    const receivedActions: any[] = [];
+    await collectEvents({
+      agent: makeAgent({ tools: ['browser-navigate', 'browser-click'] }),
+      messages: [{ role: 'user', content: 'go to example.com and click 7' }],
+      context: { toolsEnabled: true },
+      onAction: (action) => receivedActions.push(action),
+    });
+
+    // Both actions should have been delivered via onAction
+    expect(receivedActions.some(a => a.type === 'agent_navigate' && a.url === 'https://example.com')).toBe(true);
+    expect(receivedActions.some(a => a.type === 'agent_click' && a.element_id === 7)).toBe(true);
+  });
+
+  it('sequential tools run one-at-a-time, parallel tools run concurrently', async () => {
+    // Register a non-sequential tool that tracks execution order
+    const executionLog: string[] = [];
+    try {
+      toolRegistryMod.toolRegistry.register({
+        name: 'parallel-tool',
+        description: 'test',
+        category: 'test',
+        access: ['agent'],
+        parameters: z.object({ id: z.string() }),
+        execute: async (input: any) => {
+          executionLog.push(`parallel-start-${input.id}`);
+          await new Promise(r => setTimeout(r, 20));
+          executionLog.push(`parallel-end-${input.id}`);
+          return { success: true, data: { id: input.id } };
+        },
+      });
+    } catch { /* already registered */ }
+
+    try { toolRegistryMod.toolRegistry.register(browserClick); } catch { /* already registered */ }
+    try { toolRegistryMod.toolRegistry.register(browserScroll); } catch { /* already registered */ }
+
+    const provider = makeMockProvider({
+      chatResponses: [
+        {
+          message: {
+            role: 'assistant',
+            content: '',
+            tool_calls: [
+              // Two parallel tools + two sequential tools in the same batch
+              { id: 'tc1', type: 'function', function: { name: 'parallel-tool', arguments: '{"id":"a"}' } },
+              { id: 'tc2', type: 'function', function: { name: 'parallel-tool', arguments: '{"id":"b"}' } },
+              { id: 'tc3', type: 'function', function: { name: 'browser-click', arguments: '{"element_id":1}' } },
+              { id: 'tc4', type: 'function', function: { name: 'browser-scroll', arguments: '{"direction":"down"}' } },
+            ],
+          },
+        },
+        { message: { role: 'assistant', content: 'Done' } },
+      ],
+      streamTokens: ['ok'],
+    });
+    providerRegistryMod.providerRegistry.register(provider);
+
+    const events = await collectEvents({
+      agent: makeAgent({ tools: ['parallel-tool', 'browser-click', 'browser-scroll'] }),
+      messages: [{ role: 'user', content: 'do stuff' }],
+      context: { toolsEnabled: true },
+    });
+
+    // Parallel tools should overlap: a-start, b-start appear before both ends
+    const aStart = executionLog.indexOf('parallel-start-a');
+    const bStart = executionLog.indexOf('parallel-start-b');
+    const aEnd = executionLog.indexOf('parallel-end-a');
+    const bEnd = executionLog.indexOf('parallel-end-b');
+    expect(aStart).toBeLessThan(aEnd);
+    expect(bStart).toBeLessThan(bEnd);
+    // Both start before either ends (proves concurrency)
+    expect(Math.max(aStart, bStart)).toBeLessThan(Math.min(aEnd, bEnd));
+
+    // All four tool results should be present
+    const results = events.filter(e => e.type === 'tool_result');
+    expect(results).toHaveLength(4);
+  });
+
+  it('browserDom flows through context to browser-read-page', async () => {
+    try { toolRegistryMod.toolRegistry.register(browserReadPage); } catch { /* already registered */ }
+
+    const provider = makeMockProvider({
+      chatResponses: [
+        {
+          message: {
+            role: 'assistant',
+            content: '',
+            tool_calls: [{
+              id: 'tc1',
+              type: 'function',
+              function: { name: 'browser-read-page', arguments: '{}' },
+            }],
+          },
+        },
+        { message: { role: 'assistant', content: 'Read' } },
+      ],
+      streamTokens: ['ok'],
+    });
+    providerRegistryMod.providerRegistry.register(provider);
+
+    const events = await collectEvents({
+      agent: makeAgent({ tools: ['browser-read-page'] }),
+      messages: [{ role: 'user', content: 'read page' }],
+      context: { toolsEnabled: true, browserDom: '<div id="1">Hello</div>' },
+    });
+
+    const resultEvent = events.find(e => e.type === 'tool_result' && (e as any).name === 'browser-read-page');
+    expect(resultEvent).toBeDefined();
+    expect((resultEvent as any).result.dom).toBe('<div id="1">Hello</div>');
+  });
+
+  it('navigate tool emits action with correct view through the runtime', async () => {
+    try { toolRegistryMod.toolRegistry.register(navigate); } catch { /* already registered */ }
+
+    const provider = makeMockProvider({
+      chatResponses: [
+        {
+          message: {
+            role: 'assistant',
+            content: '',
+            tool_calls: [{
+              id: 'tc1',
+              type: 'function',
+              function: { name: 'navigate', arguments: '{"view":"settings"}' },
+            }],
+          },
+        },
+        { message: { role: 'assistant', content: 'Done' } },
+      ],
+      streamTokens: ['ok'],
+    });
+    providerRegistryMod.providerRegistry.register(provider);
+
+    const receivedActions: any[] = [];
+    const events = await collectEvents({
+      agent: makeAgent({ tools: ['navigate'] }),
+      messages: [{ role: 'user', content: 'go to settings' }],
+      context: { toolsEnabled: true },
+      onAction: (action) => receivedActions.push(action),
+    });
+
+    // onAction should receive the navigate action
+    expect(receivedActions).toHaveLength(1);
+    expect(receivedActions[0].type).toBe('navigate');
+    expect(receivedActions[0].view).toBe('settings');
+
+    // And it should also appear as a yielded action event
+    const actionEvent = events.find(e => e.type === 'action');
+    expect(actionEvent).toBeDefined();
+    expect((actionEvent as any).action.type).toBe('navigate');
+    expect((actionEvent as any).action.view).toBe('settings');
+
+    // Tool result should be successful
+    const resultEvent = events.find(e => e.type === 'tool_result' && (e as any).name === 'navigate');
+    expect(resultEvent).toBeDefined();
+    expect((resultEvent as any).result.status).toBe('ok');
+  });
+
+  it('middleware runs when tools execute through the runtime', async () => {
+    try { toolRegistryMod.toolRegistry.register(browserClick); } catch { /* already registered */ }
+
+    // Register a test middleware on the mock registry
+    let middlewareToolName: string | undefined;
+    toolRegistryMod.toolRegistry.use(async (tool, _input, _ctx, next) => {
+      middlewareToolName = tool.name;
+      return next();
+    });
+
+    const provider = makeMockProvider({
+      chatResponses: [
+        {
+          message: {
+            role: 'assistant',
+            content: '',
+            tool_calls: [{
+              id: 'tc1',
+              type: 'function',
+              function: { name: 'browser-click', arguments: '{"element_id":1}' },
+            }],
+          },
+        },
+        { message: { role: 'assistant', content: 'Done' } },
+      ],
+      streamTokens: ['ok'],
+    });
+    providerRegistryMod.providerRegistry.register(provider);
+
+    await collectEvents({
+      agent: makeAgent({ tools: ['browser-click'] }),
+      messages: [{ role: 'user', content: 'click 1' }],
+      context: { toolsEnabled: true },
+    });
+
+    expect(middlewareToolName).toBe('browser-click');
+  });
+
+  it('browser-type emits action with element_id and text through runtime', async () => {
+    try { toolRegistryMod.toolRegistry.register(browserType); } catch { /* already registered */ }
+
+    const provider = makeMockProvider({
+      chatResponses: [
+        {
+          message: {
+            role: 'assistant',
+            content: '',
+            tool_calls: [{
+              id: 'tc1',
+              type: 'function',
+              function: { name: 'browser-type', arguments: '{"element_id":3,"text":"hello world"}' },
+            }],
+          },
+        },
+        { message: { role: 'assistant', content: 'Typed' } },
+      ],
+      streamTokens: ['ok'],
+    });
+    providerRegistryMod.providerRegistry.register(provider);
+
+    const receivedActions: any[] = [];
+    await collectEvents({
+      agent: makeAgent({ tools: ['browser-type'] }),
+      messages: [{ role: 'user', content: 'type hello' }],
+      context: { toolsEnabled: true },
+      onAction: (action) => receivedActions.push(action),
+    });
+
+    expect(receivedActions).toHaveLength(1);
+    expect(receivedActions[0]).toEqual({
+      type: 'agent_type',
+      element_id: 3,
+      text: 'hello world',
+    });
   });
 });

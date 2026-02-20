@@ -113,99 +113,30 @@ window.addEventListener('resize', function() {
   if (avail > 0) cont.style.setProperty('--island-pills-max-w', Math.floor(avail) + 'px');
 });
 
-// Register pulse pill — renders into #pill-live-pulse (right of audio pill)
-(function() {
-  let _pulseFlashTimer = null;
-  let _pulseLastEventTs = 0;
-  const _pulseCatColors = { ai: '#a78bfa', feed: '#f97316', network: '#94a3b8', system: '#e879f9' };
+// ── Pulse state provider for unified AI pill ──
+let _pulseFlashTimer = null;
+let _pulseLastEventTs = 0;
+let _pulseIsFlashing = false;
 
-  function _renderLivePulse() {
-    const el = document.getElementById('pill-live-pulse');
-    if (!el) return;
-    var recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];
-    const lastEvent = recent.length ? recent[recent.length - 1] : null;
-    let dot = el.querySelector('.live-pulse-dot');
-    if (!dot) {
-      const dotView = new window.View('span').className('live-pulse-dot island-pulse-dot island-pulse-dot-idle nr-breathe');
-      dot = dotView.el;
-      el.appendChild(dot);
-    }
+export function _getPulseState() {
+  const recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];
+  const lastEvent = recent.length ? recent[recent.length - 1] : null;
 
-    // Flash the color of the latest event for 3 seconds
-    if (lastEvent && lastEvent.timestamp > _pulseLastEventTs) {
-      _pulseLastEventTs = lastEvent.timestamp;
-      var col = _pulseCatColors[lastEvent.category] || '#94a3b8';
-      dot.style.background = col;
-      dot.style.boxShadow = '0 0 6px ' + col;
-      dot.className = 'live-pulse-dot island-pulse-dot pulse-flash-active';
-      if (_pulseFlashTimer) clearTimeout(_pulseFlashTimer);
-      _pulseFlashTimer = setTimeout(function() {
-        _pulseFlashTimer = null;
-        dot.style.background = '';
-        dot.style.boxShadow = '';
-        dot.className = 'live-pulse-dot island-pulse-dot island-pulse-dot-idle nr-breathe';
-      }, 3000);
-    } else if (!_pulseFlashTimer) {
-      dot.className = 'live-pulse-dot island-pulse-dot island-pulse-dot-idle nr-breathe';
-      dot.style.background = '';
-      dot.style.boxShadow = '';
-    }
-
-    // Build dropdown
-    let dropdown = el.querySelector('.pulse-dropdown');
-    if (!dropdown) {
-      const ddView = new window.View('div').className('pulse-dropdown');
-      dropdown = ddView.el;
-      el.appendChild(dropdown);
-    }
-    var recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];
-    let html = '<div class="pulse-dropdown-header">Live Pulse</div>';
-    const start = Math.max(0, recent.length - 30);
-    for (let ri = recent.length - 1; ri >= start; ri--) {
-      const ev = recent[ri];
-      var col = _pulseCatColors[ev.category] || '#94a3b8';
-      const age = Math.round((Date.now() - ev.timestamp) / 1000);
-      const ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
-      const statusDot = ev.ok === true ? '#22c55e' : ev.ok === false ? '#ef4444' : '#94a3b8';
-      html += '<div class="pulse-event-row"><span class="pulse-status-dot" style="background:' + statusDot + '"></span><span class="pulse-cat" style="color:' + col + '">' + escapeHtml(ev.category) + '</span><span class="pulse-label">' + escapeHtml(ev.label) + '</span><span class="pulse-age">' + ageStr + '</span></div>';
-    }
-    if (!recent.length) html += '<div style="padding:8px;opacity:0.3;font-size:0.65rem;text-align:center">No events yet</div>';
-    dropdown.innerHTML = html;
+  // Track flash state
+  if (lastEvent && lastEvent.timestamp > _pulseLastEventTs) {
+    _pulseLastEventTs = lastEvent.timestamp;
+    _pulseIsFlashing = true;
+    if (_pulseFlashTimer) clearTimeout(_pulseFlashTimer);
+    _pulseFlashTimer = setTimeout(function() {
+      _pulseFlashTimer = null;
+      _pulseIsFlashing = false;
+      if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
+    }, 3000);
   }
-  function _initPulse() {
-    _renderLivePulse();
-    // Click-to-toggle dropdown
-    var pulseEl = document.getElementById('pill-live-pulse');
-    if (pulseEl && !pulseEl._clickToggleBound) {
-      pulseEl._clickToggleBound = true;
-      pulseEl.addEventListener('click', function(e) {
-        e.stopPropagation();
-        var open = pulseEl.classList.toggle('dropdown-open');
-        if (open) document.body.classList.add('island-dropdown-guard');
-        else document.body.classList.remove('island-dropdown-guard');
-      });
-      document.addEventListener('click', function(e) {
-        if (!pulseEl.classList.contains('dropdown-open')) return;
-        if (!pulseEl.contains(e.target)) {
-          pulseEl.classList.remove('dropdown-open');
-          document.body.classList.remove('island-dropdown-guard');
-        }
-      });
-    }
-    if (typeof Motion !== 'undefined' && Motion.pulse) {
-      let _pulseThrottle = null;
-      Motion.pulse.on(function() {
-        if (_pulseThrottle) return;
-        _pulseThrottle = setTimeout(function() {
-          _pulseThrottle = null;
-          _renderLivePulse();
-        }, 500);
-      });
-    }
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _initPulse);
-  else setTimeout(_initPulse, 0);
-})();
+
+  return { recent: recent, lastEvent: lastEvent, isFlashing: _pulseIsFlashing };
+}
+window._getPulseState = _getPulseState;
 
 export function _setIslandActivity(id, data) {
   window._islandActivities.update(id, function(old) {

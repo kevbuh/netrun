@@ -8,6 +8,9 @@ import { _browseUpdateNewTabPage, browseSelectTab } from '/js/browse/browse-pass
 import { browseSelectWindow, openBrowse } from '/js/browse/browse-windows.js';
 import { _browseWindows, getBrowseActiveWindow } from '/js/browse/browse-state.js';
 import { wmOpen } from '/js/core/core-views.js';
+import { getSavedPosts } from '/js/feed.js';
+import { apiGet } from '/js/api.js';
+import { initNetrunner } from '/js/netrunner-game.js';
 
 // ─── Open / reuse the netrun:// tab ─────────────────────────
 
@@ -70,6 +73,11 @@ export function _renderNetrunPage(el) {
   // Feature cards
   content.appendChild(_buildFeatureCards());
 
+  // Dashboard strip (async — renders in-place when data loads)
+  const dashSlot = document.createElement('div');
+  content.appendChild(dashSlot);
+  _buildDashboardStrip(dashSlot);
+
   // Special routes
   content.appendChild(_buildRoutes());
 
@@ -77,6 +85,9 @@ export function _renderNetrunPage(el) {
   _buildHelpSections(content);
 
   el.appendChild(content);
+
+  // Easter egg: Konami code starts the netrunner game
+  initNetrunner();
 }
 
 // ─── Hero ────────────────────────────────────────────────────
@@ -150,6 +161,166 @@ function _buildFeatureCards() {
   }
 
   return grid;
+}
+
+// ─── Dashboard Strip (compact) ───────────────────────────────
+
+async function _buildDashboardStrip(slot) {
+  // Gather data in parallel
+  const saved = getSavedPosts();
+  const calPromise = apiGet('/api/calendar').catch(() => []);
+
+  // Activity counts from settings
+  const searchHist = window.Settings?.getJSON('searchHistory', []) || [];
+  const webHist = window.Settings?.getJSON('webSearchHistory', []) || [];
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todaySearches = searchHist.filter(e => e?.ts && new Date(e.ts).toISOString().slice(0, 10) === todayStr).length
+    + webHist.filter(e => e?.ts && new Date(e.ts).toISOString().slice(0, 10) === todayStr).length;
+  const savedEntries = Object.values(saved);
+  const savedCount = savedEntries.length;
+
+  // Wait for calendar
+  const events = (await calPromise) || [];
+  const todayEvents = events.filter(e => e.date === todayStr);
+
+  // Nothing to show?
+  if (savedCount === 0 && todayEvents.length === 0 && todaySearches === 0) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'nr-hub-dash';
+
+  // ── Today header ──
+  const header = document.createElement('div');
+  header.className = 'nr-hub-dash-header';
+
+  const dateEl = document.createElement('div');
+  dateEl.className = 'nr-hub-dash-date';
+  dateEl.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  dateEl.addEventListener('click', () => wmOpen('dashboard'));
+  header.appendChild(dateEl);
+
+  if (todaySearches > 0) {
+    const chip = document.createElement('span');
+    chip.className = 'nr-hub-dash-chip';
+    chip.textContent = todaySearches + ' search' + (todaySearches === 1 ? '' : 'es');
+    header.appendChild(chip);
+  }
+  if (savedCount > 0) {
+    const chip = document.createElement('span');
+    chip.className = 'nr-hub-dash-chip';
+    chip.textContent = savedCount + ' saved';
+    header.appendChild(chip);
+  }
+  if (todayEvents.length > 0) {
+    const chip = document.createElement('span');
+    chip.className = 'nr-hub-dash-chip';
+    chip.textContent = todayEvents.length + ' event' + (todayEvents.length === 1 ? '' : 's');
+    header.appendChild(chip);
+  }
+
+  wrap.appendChild(header);
+
+  // ── Reading List (max 5) ──
+  if (savedCount > 0) {
+    const card = document.createElement('div');
+    card.className = 'nr-hub-dash-card';
+
+    const title = document.createElement('div');
+    title.className = 'nr-hub-dash-card-title';
+    title.textContent = 'Reading List';
+    card.appendChild(title);
+
+    const sorted = savedEntries.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0)).slice(0, 5);
+    for (const entry of sorted) {
+      const paper = entry.paper || {};
+      const row = document.createElement('div');
+      row.className = 'nr-hub-saved-row';
+      row.addEventListener('click', () => browseNavigate(paper.link));
+
+      let hostname = '';
+      try { hostname = new URL(paper.link).hostname.replace(/^www\./, ''); } catch {}
+
+      const fav = document.createElement('img');
+      fav.className = 'nr-hub-saved-favicon';
+      fav.src = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(hostname) + '&sz=32';
+      fav.alt = '';
+      fav.loading = 'lazy';
+      row.appendChild(fav);
+
+      const titleEl = document.createElement('div');
+      titleEl.className = 'nr-hub-saved-title';
+      titleEl.textContent = paper.title || paper.link || 'Untitled';
+      row.appendChild(titleEl);
+
+      if (hostname) {
+        const hostEl = document.createElement('div');
+        hostEl.className = 'nr-hub-saved-host';
+        hostEl.textContent = hostname;
+        row.appendChild(hostEl);
+      }
+
+      card.appendChild(row);
+    }
+
+    if (savedCount > 5) {
+      const more = document.createElement('div');
+      more.className = 'nr-hub-dash-more';
+      more.textContent = 'View all ' + savedCount + ' saved \u2192';
+      more.addEventListener('click', () => wmOpen('dashboard'));
+      card.appendChild(more);
+    }
+
+    wrap.appendChild(card);
+  }
+
+  // ── Upcoming Events (max 3) ──
+  if (todayEvents.length > 0) {
+    const card = document.createElement('div');
+    card.className = 'nr-hub-dash-card';
+
+    const title = document.createElement('div');
+    title.className = 'nr-hub-dash-card-title';
+    title.textContent = 'Today\u2019s Events';
+    card.appendChild(title);
+
+    for (const ev of todayEvents.slice(0, 3)) {
+      const row = document.createElement('div');
+      row.className = 'nr-hub-event-row';
+      row.addEventListener('click', () => wmOpen('calendar'));
+
+      const dot = document.createElement('div');
+      dot.className = 'nr-hub-event-dot';
+      dot.style.background = ev.color || 'var(--nr-accent)';
+      row.appendChild(dot);
+
+      const titleEl = document.createElement('div');
+      titleEl.className = 'nr-hub-event-title';
+      titleEl.textContent = ev.title || 'Event';
+      row.appendChild(titleEl);
+
+      if (ev.description) {
+        const descEl = document.createElement('div');
+        descEl.className = 'nr-hub-event-desc';
+        descEl.textContent = ev.description;
+        row.appendChild(descEl);
+      }
+
+      card.appendChild(row);
+    }
+
+    if (todayEvents.length > 3) {
+      const more = document.createElement('div');
+      more.className = 'nr-hub-dash-more';
+      more.textContent = 'View all ' + todayEvents.length + ' events \u2192';
+      more.addEventListener('click', () => wmOpen('calendar'));
+      card.appendChild(more);
+    }
+
+    wrap.appendChild(card);
+  }
+
+  slot.appendChild(wrap);
 }
 
 // ─── Special Routes ──────────────────────────────────────────
