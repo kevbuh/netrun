@@ -245,21 +245,21 @@ export function _aetherRenderCmdDropdown(popup, query) {
     return;
   }
   if (!dropdown) {
-    var ddView = new View('div').className('aether-cmd-dropdown');
+    const ddView = new View('div').className('aether-cmd-dropdown');
     ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
     dropdown = ddView.el;
-    var askWrap = popup.querySelector('.doc-ask-inline-wrap');
+    const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
     else popup.appendChild(dropdown);
   }
   _aetherCmdIdx = Math.min(_aetherCmdIdx, matches.length - 1);
   dropdown.innerHTML = '';
   matches.forEach(function(c, i) {
-    var row = new View('div').className('aether-cmd-item' + (i === _aetherCmdIdx ? ' selected' : ''));
+    const row = new View('div').className('aether-cmd-item' + (i === _aetherCmdIdx ? ' selected' : ''));
     row.el.dataset.idx = String(i);
-    var nameSpan = new View('span').className('aether-cmd-name');
+    const nameSpan = new View('span').className('aether-cmd-name');
     nameSpan.el.textContent = '/' + c.name;
-    var descSpan = new View('span').className('aether-cmd-desc');
+    const descSpan = new View('span').className('aether-cmd-desc');
     descSpan.el.textContent = c.desc;
     row.el.appendChild(nameSpan.el);
     row.el.appendChild(descSpan.el);
@@ -269,7 +269,7 @@ export function _aetherRenderCmdDropdown(popup, query) {
         ev.stopPropagation(); ev.preventDefault();
         if (!cmd) return;
         if (cmd.hasArgs) {
-          var askInput = popup.querySelector('.doc-ask-inline-input') || popup.querySelector('.doc-ask-inline');
+          const askInput = popup.querySelector('.doc-ask-inline-input') || popup.querySelector('.doc-ask-inline');
           if (askInput) { askInput.value = '/' + cmd.name + ' '; askInput.focus(); }
           _aetherHideCmdDropdown(popup);
         } else if (cmd._special) {
@@ -344,7 +344,7 @@ export function _aetherRenderHistoryDropdown(popup, query) {
       if (askWrap) popup.insertBefore(dropdown, askWrap);
       else popup.appendChild(dropdown);
     }
-    var emptyMsg = new View('div');
+    const emptyMsg = new View('div');
     emptyMsg.cssText('padding:10px 12px;font-size:0.8rem;color:var(--nr-text-secondary);text-align:center');
     emptyMsg.el.textContent = 'No history found';
     dropdown.innerHTML = '';
@@ -365,7 +365,7 @@ export function _aetherRenderHistoryDropdown(popup, query) {
 
   dropdown.innerHTML = '';
   const fullSelected = _aetherHistoryIdx === -1;
-  var fullRow = new View('div').className('aether-note-item aether-history-full' + (fullSelected ? ' selected' : ''));
+  const fullRow = new View('div').className('aether-note-item aether-history-full' + (fullSelected ? ' selected' : ''));
   fullRow.el.dataset.idx = '-1';
   fullRow.cssText('padding:6px 10px;font-size:0.75rem;border-bottom:none');
   fullRow.el.textContent = 'See full history';
@@ -379,34 +379,34 @@ export function _aetherRenderHistoryDropdown(popup, query) {
   dropdown.appendChild(fullRow.el);
 
   _aetherHistoryList.forEach(function(h, i) {
-    var domain = '';
+    let domain = '';
     try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
     const favicon = typeof _browseFaviconUrl === 'function' ? _browseFaviconUrl(h.url) : '';
     const time = typeof _relativeTime === 'function' ? _relativeTime(h.ts) : '';
 
-    var favImg = new View('img');
+    const favImg = new View('img');
     favImg.el.src = favicon;
     favImg.cssText('width:14px;height:14px;flex-shrink:0;border-radius:2px');
     favImg.el.onerror = function() { this.style.display = 'none'; };
 
-    var titleDiv = new View('div');
+    const titleDiv = new View('div');
     titleDiv.cssText('font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap');
     titleDiv.el.textContent = h.title || domain;
 
-    var domainDiv = new View('div');
+    const domainDiv = new View('div');
     domainDiv.cssText('font-size:0.68rem;color:var(--nr-text-quaternary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap');
     domainDiv.el.textContent = domain;
 
-    var infoDiv = new View('div');
+    const infoDiv = new View('div');
     infoDiv.cssText('flex:1;min-width:0;overflow:hidden');
     infoDiv.el.appendChild(titleDiv.el);
     infoDiv.el.appendChild(domainDiv.el);
 
-    var timeSpan = new View('span');
+    const timeSpan = new View('span');
     timeSpan.cssText('font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0');
     timeSpan.el.textContent = time;
 
-    var row = new View('div').className('aether-note-item' + (i === _aetherHistoryIdx ? ' selected' : ''));
+    const row = new View('div').className('aether-note-item' + (i === _aetherHistoryIdx ? ' selected' : ''));
     row.el.dataset.idx = String(i);
     row.cssText('display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:none');
     row.el.appendChild(favImg.el);
@@ -537,7 +537,7 @@ export async function _doAetherModel(popup) {
 export function _aetherRenderModelDropdown(popup) {
   let dropdown = popup.querySelector('.aether-model-dropdown');
   if (!dropdown) {
-    var ddView = new View('div').className('aether-note-dropdown aether-model-dropdown');
+    const ddView = new View('div').className('aether-note-dropdown aether-model-dropdown');
     ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
     dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
@@ -548,15 +548,15 @@ export function _aetherRenderModelDropdown(popup) {
   dropdown.innerHTML = '';
   _aetherModelList.forEach(function(m, i) {
     const active = m === currentModel;
-    var row = new View('div').className('aether-note-item' + (i === _aetherModelIdx ? ' selected' : ''));
+    const row = new View('div').className('aether-note-item' + (i === _aetherModelIdx ? ' selected' : ''));
     row.el.dataset.idx = String(i);
 
-    var nameSpan = new View('span').className('aether-note-item-title');
+    const nameSpan = new View('span').className('aether-note-item-title');
     nameSpan.el.textContent = m;
     row.el.appendChild(nameSpan.el);
 
     if (active) {
-      var curSpan = new View('span').className('aether-note-item-tags');
+      const curSpan = new View('span').className('aether-note-item-tags');
       /* styled via .aether-note-item-tags CSS */
       curSpan.el.textContent = 'current';
       row.el.appendChild(curSpan.el);
@@ -639,7 +639,7 @@ export async function _doAetherAgent(popup) {
 export function _aetherRenderAgentDropdown(popup) {
   let dropdown = popup.querySelector('.aether-agent-dropdown');
   if (!dropdown) {
-    var ddView = new View('div').className('aether-note-dropdown aether-agent-dropdown');
+    const ddView = new View('div').className('aether-note-dropdown aether-agent-dropdown');
     ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
     dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
@@ -650,19 +650,19 @@ export function _aetherRenderAgentDropdown(popup) {
   dropdown.innerHTML = '';
   _aetherAgentList.forEach(function(a, i) {
     const active = a.id === currentAgent;
-    var row = new View('div').className('aether-note-item' + (i === _aetherAgentIdx ? ' selected' : ''));
+    const row = new View('div').className('aether-note-item' + (i === _aetherAgentIdx ? ' selected' : ''));
     row.el.dataset.idx = String(i);
 
-    var nameDiv = new View('div').className('aether-note-item-title');
+    const nameDiv = new View('div').className('aether-note-item-title');
     nameDiv.el.textContent = a.name;
     row.el.appendChild(nameDiv.el);
 
-    var descDiv = new View('div').className('aether-note-item-snippet');
+    const descDiv = new View('div').className('aether-note-item-snippet');
     descDiv.el.textContent = a.description;
     row.el.appendChild(descDiv.el);
 
     if (active) {
-      var curSpan = new View('span').className('aether-note-item-tags');
+      const curSpan = new View('span').className('aether-note-item-tags');
       /* styled via .aether-note-item-tags CSS */
       curSpan.el.textContent = 'current';
       row.el.appendChild(curSpan.el);
@@ -826,7 +826,7 @@ export function _renderTabDropdown(popup) {
     return;
   }
   if (!dropdown) {
-    var ddView = new View('div').className('aether-tab-dropdown');
+    const ddView = new View('div').className('aether-tab-dropdown');
     ddView.on('mousedown', function(ev) { ev.stopPropagation(); });
     dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
@@ -840,27 +840,27 @@ export function _renderTabDropdown(popup) {
     const domain = (function() { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })();
     const favUrl = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=16';
 
-    var favImg = new View('img').className('aether-tab-item-favicon');
+    const favImg = new View('img').className('aether-tab-item-favicon');
     favImg.el.src = favUrl;
     favImg.el.onerror = function() { this.style.display = 'none'; };
 
-    var tabTitle = new View('div').className('aether-tab-item-title');
+    const tabTitle = new View('div').className('aether-tab-item-title');
     tabTitle.el.textContent = tab.title || 'Untitled';
 
-    var tabUrl = new View('div').className('aether-tab-item-url');
+    const tabUrl = new View('div').className('aether-tab-item-url');
     tabUrl.el.textContent = domain;
 
-    var infoDiv = new View('div').className('aether-tab-item-info');
+    const infoDiv = new View('div').className('aether-tab-item-info');
     infoDiv.el.appendChild(tabTitle.el);
     infoDiv.el.appendChild(tabUrl.el);
 
-    var row = new View('div').className('aether-tab-item' + (i === _aetherTabIdx ? ' selected' : ''));
+    const row = new View('div').className('aether-tab-item' + (i === _aetherTabIdx ? ' selected' : ''));
     row.el.dataset.idx = String(i);
     row.el.appendChild(favImg.el);
     row.el.appendChild(infoDiv.el);
 
     if (activeTabId != null && tab.id === activeTabId) {
-      var curSpan = new View('span');
+      const curSpan = new View('span');
       curSpan.cssText('opacity:0.4;font-size:10px;margin-left:auto;flex-shrink:0');
       curSpan.el.textContent = 'current';
       row.el.appendChild(curSpan.el);
@@ -1037,12 +1037,12 @@ Type in the browser URL bar:
 
   const popupRect = popup.getBoundingClientRect();
 
-  var panelView = new View('div').id('aether-help-panel').className('aether-help-preview-panel');
+  const panelView = new View('div').id('aether-help-panel').className('aether-help-preview-panel');
   panelView.on('mousedown', (ev) => ev.stopPropagation());
   const panel = panelView.build();
 
   // Title bar (reuse note editor styles)
-  var titleBarView = new View('div').className('aether-note-editor-title-bar');
+  const titleBarView = new View('div').className('aether-note-editor-title-bar');
   const titleBar = titleBarView.build();
 
   let hDragging = false, hDragOff = { x: 0, y: 0 };
@@ -1058,17 +1058,17 @@ Type in the browser URL bar:
   document.addEventListener('mousemove', hMove);
   document.addEventListener('mouseup', hUp);
 
-  var titleSpanView = new View('span').className('aether-note-editor-title')._bindText('Help');
+  const titleSpanView = new View('span').className('aether-note-editor-title')._bindText('Help');
   titleBar.appendChild(titleSpanView.build());
 
-  var closeBtnView = new View('button').className('aether-note-editor-close').attr('title', 'Close');
+  const closeBtnView = new View('button').className('aether-note-editor-close').attr('title', 'Close');
   closeBtnView.el.textContent = '\u00d7';
   closeBtnView.onTap((ev) => { ev.stopPropagation(); panel.remove(); document.removeEventListener('mousemove', hMove); document.removeEventListener('mouseup', hUp); });
   titleBar.appendChild(closeBtnView.build());
   panel.appendChild(titleBar);
 
   // Rendered markdown content
-  var contentView = new View('div').className('aether-help-preview-content nb-rendered-md');
+  const contentView = new View('div').className('aether-help-preview-content nb-rendered-md');
   contentView.el.innerHTML = typeof marked !== 'undefined' ? marked.parse(helpMd) : helpMd.replace(/\n/g, '<br>');
   panel.appendChild(contentView.build());
 

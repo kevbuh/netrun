@@ -172,7 +172,7 @@ export function _browseResetAdaptiveColor() {
   _browseResetAdaptiveText();
 }
 
-var _adaptiveTextProps = [
+const _adaptiveTextProps = [
   '--nr-text-primary', '--nr-text-secondary', '--nr-text-tertiary',
   '--nr-text-quaternary', '--nr-tint', '--nr-tint-strong',
   '--aether-text', '--aether-text-secondary', '--aether-text-dim',
@@ -531,7 +531,7 @@ export function _browseUrlShowHistory() {
     allExperiments.filter(exp => exp.title.toLowerCase().includes(filter) || (exp.desc || '').toLowerCase().includes(filter)).slice(0, 5) : [];
 
   // Chat thread matches — also fetch recent threads for NTP with no filter
-  let chatThreads = [];
+  const chatThreads = [];
   if (filter && filter.length >= 2 && typeof electronAPI !== 'undefined') {
     electronAPI.dbQuery('chat-thread-list', 50, 0).then(threads => {
       if (!threads) return;
@@ -1511,7 +1511,7 @@ export function openSearchHistoryPage() {
   if (tab.el) tab.el.remove();
 
   const container = document.getElementById('browse-content');
-  var elView = new View('div').attr('id', 'browse-history-' + tab.id);
+  const elView = new View('div').attr('id', 'browse-history-' + tab.id);
   elView.cssText('width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;');
   container.appendChild(elView.el);
   tab.el = elView.el;
@@ -1552,7 +1552,7 @@ export function openHelpPage() {
   if (tab.el) tab.el.remove();
 
   const container = document.getElementById('browse-content');
-  var elView = new View('div').attr('id', 'browse-help-' + tab.id);
+  const elView = new View('div').attr('id', 'browse-help-' + tab.id);
   elView.cssText('width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;');
   container.appendChild(elView.el);
   tab.el = elView.el;
@@ -2018,16 +2018,16 @@ export function _showPermissionPrompt(domain, permKey) {
   const label = _SITE_PERM_PROMPTS[permKey] || permKey;
   const icon = _SITE_PERM_ICONS_LG[permKey] || '';
 
-  var overlayView = new View('div').attr('id', 'site-permission-prompt');
+  const overlayView = new View('div').attr('id', 'site-permission-prompt');
   overlayView.cssText('position:fixed;inset:0;z-index:100000;display:flex;align-items:flex-start;justify-content:center;padding-top:80px;background:rgba(0,0,0,0.45);');
-  var overlay = overlayView.el;
+  const overlay = overlayView.el;
 
   // Build select element for remember decision
-  var selectView = new View('select');
+  const selectView = new View('select');
   selectView.cssText('padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.75rem;cursor:pointer;');
-  var optSession = new View('option').attr('value', 'session');
+  const optSession = new View('option').attr('value', 'session');
   optSession.el.textContent = 'Until I close this site';
-  var optAlways = new View('option').attr('value', 'always');
+  const optAlways = new View('option').attr('value', 'always');
   optAlways.el.textContent = 'Always';
   optAlways.el.selected = true;
   selectView.el.appendChild(optSession.el);
@@ -2036,9 +2036,9 @@ export function _showPermissionPrompt(domain, permKey) {
   function _getRememberVal() { return selectView.el.value; }
   function _dismissPrompt() { overlay.remove(); }
 
-  var closeSvg = '<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+  const closeSvg = '<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>';
 
-  var card = VStack(
+  const card = VStack(
     // Header row
     HStack(
       VStack(
@@ -2080,10 +2080,10 @@ export function _showPermissionPrompt(domain, permKey) {
   ).cssText('background:var(--nr-bg-overlay);border:1px solid var(--nr-border-default);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,0.4);width:380px;overflow:hidden;');
 
   // Insert select into the remember row
-  var rememberRow = card.el.querySelector('.nr-hstack');
+  const rememberRow = card.el.querySelector('.nr-hstack');
   // The remember row is the first HStack inside the second VStack child
-  var actionSection = card.el.children[1]; // second VStack (padding:0 20px 16px)
-  var rememberHStack = actionSection && actionSection.children[0];
+  const actionSection = card.el.children[1]; // second VStack (padding:0 20px 16px)
+  const rememberHStack = actionSection && actionSection.children[0];
   if (rememberHStack) rememberHStack.appendChild(selectView.el);
 
   AetherUI.mount(card, overlay);

@@ -245,14 +245,14 @@ export function _browseRebuildSplitLayout() {
 
   // Build pane wrappers
   panes.forEach(function(pane, i) {
-    var tab = win.tabs.find(function(t) { return t.id === pane.tabId; });
-    var wrapper = new View('div');
+    const tab = win.tabs.find(function(t) { return t.id === pane.tabId; });
+    const wrapper = new View('div');
     wrapper.className('browse-split-pane' + (pane.id === focusedPaneId ? ' focused' : ''));
     wrapper.attr('data-pane', pane.id);
     wrapper.styles({ width: pane.width + '%', height: '100%', position: 'relative', overflow: 'hidden' });
 
     // Close button
-    var closeBtn = Button('\u00d7').className('browse-pane-close');
+    const closeBtn = Button('\u00d7').className('browse-pane-close');
     closeBtn.el.title = 'Close split pane';
     closeBtn.onTap(function(e) { e.stopPropagation(); browseUnsplitPane(pane.id); });
     wrapper.el.appendChild(closeBtn.el);
@@ -279,7 +279,7 @@ export function _browseRebuildSplitLayout() {
 
     // Insert divider between panes (not after last)
     if (i < panes.length - 1) {
-      var divider = document.createElement('div');
+      const divider = document.createElement('div');
       divider.className = 'browse-split-divider';
       divider.dataset.leftPane = pane.id;
       divider.dataset.rightPane = panes[i + 1].id;

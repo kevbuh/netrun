@@ -312,7 +312,7 @@ export let _refTooltipHideTimer = null;
 export function _paperShowRefTooltip(data, frame) {
   if (_refTooltipHideTimer) { clearTimeout(_refTooltipHideTimer); _refTooltipHideTimer = null; }
   if (!_refTooltipEl) {
-    var tooltipView = new View('div').attr('id', 'aether-ref-tooltip').className('nr-ref-tooltip');
+    const tooltipView = new View('div').attr('id', 'aether-ref-tooltip').className('nr-ref-tooltip');
     _refTooltipEl = tooltipView.el;
     document.body.appendChild(_refTooltipEl);
   }
@@ -320,7 +320,7 @@ export function _paperShowRefTooltip(data, frame) {
   const tip = _refTooltipEl;
   const refNum = data.refNum;
 
-  var tipChildren = [
+  const tipChildren = [
     new View('div').className('nr-ref-tooltip-num')._bindText('[' + refNum + ']')
   ];
   if (data.title) {
@@ -355,7 +355,7 @@ export async function _paperLookupRef(data, frame) {
   if (loading) loading.remove();
 
   if (result) {
-    var extraEls = [];
+    const extraEls = [];
     const authors = (result.authors || []).slice(0, 3).map(a => a.name);
     if (result.authors && result.authors.length > 3) authors.push('et al.');
     if (authors.length) {
@@ -370,9 +370,9 @@ export async function _paperLookupRef(data, frame) {
     }
 
     const titleEl = _refTooltipEl.querySelector('.nr-ref-tooltip-title, .nr-ref-tooltip-text');
-    var insertPoint = titleEl || _refTooltipEl.lastElementChild || _refTooltipEl;
+    const insertPoint = titleEl || _refTooltipEl.lastElementChild || _refTooltipEl;
     extraEls.forEach(function(v) {
-      var built = v.build();
+      const built = v.build();
       if (titleEl && titleEl.nextSibling) {
         titleEl.parentNode.insertBefore(built, titleEl.nextSibling);
       } else {

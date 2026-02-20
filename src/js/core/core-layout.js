@@ -59,19 +59,19 @@ if (window.electronAPI && window.electronAPI.isElectron) {
 
   // JS-based window dragging on pill bar — preserves custom cursor
   (function initPillBarDrag() {
-    var dragging = false;
-    var startScreenX = 0;
-    var startScreenY = 0;
-    var startWinX = 0;
-    var startWinY = 0;
+    let dragging = false;
+    let startScreenX = 0;
+    let startScreenY = 0;
+    let startWinX = 0;
+    let startWinY = 0;
 
     function isInteractive(el) {
       if (!el) return false;
       // Walk up from target to pill bar — if we hit an interactive element, don't drag
-      var node = el;
-      var bar = document.getElementById('sidebar-nav');
+      let node = el;
+      const bar = document.getElementById('sidebar-nav');
       while (node && node !== bar) {
-        var tag = node.tagName;
+        const tag = node.tagName;
         if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'A' || tag === 'SELECT') return true;
         if (node.classList && (
           node.classList.contains('pill-island') ||
@@ -85,7 +85,7 @@ if (window.electronAPI && window.electronAPI.isElectron) {
     }
 
     document.addEventListener('mousedown', function(e) {
-      var bar = document.getElementById('sidebar-nav');
+      const bar = document.getElementById('sidebar-nav');
       if (!bar || !bar.contains(e.target)) return;
       if (isInteractive(e.target)) return;
       if (e.button !== 0) return;
@@ -102,8 +102,8 @@ if (window.electronAPI && window.electronAPI.isElectron) {
 
     document.addEventListener('mousemove', function(e) {
       if (!dragging) return;
-      var dx = e.screenX - startScreenX;
-      var dy = e.screenY - startScreenY;
+      const dx = e.screenX - startScreenX;
+      const dy = e.screenY - startScreenY;
       electronAPI.windowSetPosition(startWinX + dx, startWinY + dy);
     });
 

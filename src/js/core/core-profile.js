@@ -25,7 +25,7 @@ function _profileUserCard(u, size) {
   const imgSize = size === 'grid' ? 'w-12 h-12' : 'w-8 h-8';
   const textSize = size === 'grid' ? 'text-lg' : 'text-sm';
 
-  var avatar;
+  let avatar;
   if (u.picture) {
     avatar = Image(u.picture).className(imgSize + ' rounded-full').attr('referrerpolicy', 'no-referrer');
   } else {
@@ -34,14 +34,14 @@ function _profileUserCard(u, size) {
   }
 
   if (size === 'grid') {
-    var card = VStack(avatar, Text(u.username).className('text-primary text-sm font-medium'));
+    const card = VStack(avatar, Text(u.username).className('text-primary text-sm font-medium'));
     if (joinDate) card._appendChildren([Text('Joined ' + joinDate).className('text-dimmer text-[0.7rem]')]);
     card.spacing(2).className('flex items-center px-4 py-4 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors cursor-pointer');
     card.onTap(function() { location.hash = '#profile/' + encodeURIComponent(u.username); });
     return card;
   }
   // list mode
-  var row = HStack(avatar, Text(u.username).className('text-primary text-sm font-medium')).spacing(3);
+  const row = HStack(avatar, Text(u.username).className('text-primary text-sm font-medium')).spacing(3);
   row.className('px-3 py-2.5 rounded-lg hover:bg-hover transition-colors cursor-pointer');
   row.onTap(function() { location.hash = '#profile/' + encodeURIComponent(u.username); });
   return row;
@@ -53,7 +53,7 @@ export async function renderUserProfile(username) {
 
   // No username → search/browse mode
   if (!username) {
-    var searchInput = TextField('Search by username...').id('profile-search-input')
+    const searchInput = TextField('Search by username...').id('profile-search-input')
       .className('w-full bg-input border border-border-input rounded-lg px-4 py-2.5 text-primary text-sm outline-none focus:border-accent mb-4');
     AetherUI.mount(VStack(
       Text('Find a user').className('text-[1.3rem] font-semibold text-white_ mb-5'),
@@ -70,7 +70,7 @@ export async function renderUserProfile(username) {
       if (!users.length) {
         AetherUI.mount(Text('No users yet').className('text-dimmer text-sm'), allUsersEl);
       } else {
-        var grid = new View('div');
+        const grid = new View('div');
         grid.el.className = 'grid gap-3';
         grid.styles({ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' });
         users.forEach(function(u) { AetherUI.append(_profileUserCard(u, 'grid'), grid.el); });
@@ -128,7 +128,7 @@ export async function renderUserProfile(username) {
 
     // Handle private profiles
     if (profile.profile_private) {
-      var privAvatar = Show(profile.picture, function() {
+      const privAvatar = Show(profile.picture, function() {
         return Image(profile.picture).className('w-20 h-20 rounded-full mb-4 opacity-60').attr('referrerpolicy', 'no-referrer');
       }, function() {
         return Text((profile.username || '?')[0].toUpperCase())
@@ -146,19 +146,19 @@ export async function renderUserProfile(username) {
     const isOwnProfile = _authUserInfo && _authUserInfo.username === profile.username;
     const accentColor = profile.accent_color || '#b4451a';
 
-    var sections = [];
+    const sections = [];
 
     // ── Header banner ──
-    var banner = new View('div');
+    const banner = new View('div');
     banner.className('relative rounded-xl overflow-hidden mb-6');
     banner.cssText('min-height:120px;' + (profile.profile_bg
       ? "background:url('" + profile.profile_bg.replace(/'/g, "\\'") + "') center/cover no-repeat"
       : 'background:linear-gradient(135deg, ' + accentColor + '33, ' + accentColor + '11)'));
-    var bannerGrad = new View('div');
+    const bannerGrad = new View('div');
     bannerGrad.cssText('position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,var(--nr-bg-body),transparent)');
     banner._appendChildren([bannerGrad]);
     if (isOwnProfile) {
-      var bgBtn = new View('button');
+      const bgBtn = new View('button');
       bgBtn.className('absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center bg-black/40 text-white/70 hover:text-white border-none cursor-pointer transition-colors');
       bgBtn.el.title = 'Change background';
       bgBtn.el.innerHTML = icon('camera', { size: 14 });
@@ -168,7 +168,7 @@ export async function renderUserProfile(username) {
     sections.push(banner);
 
     // ── Avatar + name row ──
-    var avatar = Show(profile.picture, function() {
+    const avatar = Show(profile.picture, function() {
       return Image(profile.picture).className('w-16 h-16 rounded-full border-[3px]').attr('referrerpolicy', 'no-referrer')
         .styles({ borderColor: 'var(--nr-bg-body)' });
     }, function() {
@@ -176,11 +176,11 @@ export async function renderUserProfile(username) {
         .className('w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-[3px]')
         .cssText('border-color:var(--nr-bg-body);background:' + accentColor + '33;color:' + accentColor);
     });
-    var avatarWrap = new View('div');
+    const avatarWrap = new View('div');
     avatarWrap.className('relative group');
     avatarWrap._appendChildren([avatar]);
     if (isOwnProfile) {
-      var picBtn = new View('button');
+      const picBtn = new View('button');
       picBtn.className('absolute inset-0 w-full h-full rounded-full bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border-none');
       picBtn.el.title = 'Change picture';
       picBtn.el.innerHTML = icon('camera', { size: 20, stroke: '#fff' });
@@ -189,22 +189,22 @@ export async function renderUserProfile(username) {
     }
 
     // Name + status
-    var isOnline = profile.last_seen && (Date.now() / 1000 - profile.last_seen) < 300;
-    var statusDot = new View('div');
+    const isOnline = profile.last_seen && (Date.now() / 1000 - profile.last_seen) < 300;
+    const statusDot = new View('div');
     statusDot.className('w-2.5 h-2.5 rounded-full');
     statusDot.styles(isOnline
       ? { background: '#22c55e', boxShadow: '0 0 4px #22c55e80' }
       : { background: '#6b7280' });
     statusDot.el.title = isOnline ? 'Online' : 'Offline';
 
-    var nameCol = VStack(
+    const nameCol = VStack(
       HStack(Text(profile.username).className('text-[1.3rem] font-semibold text-white_'), statusDot).spacing(2)
     );
     if (profile.status_emoji || profile.status_text) {
-      var statusRow = HStack();
+      const statusRow = HStack();
       statusRow.spacing(1.5).className('mt-1');
       if (profile.status_emoji) {
-        var petCanvas = new View('canvas');
+        const petCanvas = new View('canvas');
         petCanvas.className('profile-status-pet shrink-0');
         petCanvas.el.width = 18; petCanvas.el.height = 18;
         petCanvas.attr('data-type', profile.status_emoji);
@@ -216,7 +216,7 @@ export async function renderUserProfile(username) {
     }
     if (joinDate) nameCol._appendChildren([Text('Joined ' + joinDate).className('text-dimmer text-[0.78rem] mt-0.5')]);
 
-    var actionBtn;
+    let actionBtn;
     if (isOwnProfile) {
       actionBtn = new View('button');
       actionBtn.className('w-8 h-8 rounded-lg flex items-center justify-center bg-transparent border border-border-card text-dim hover:text-primary hover:border-accent/40 cursor-pointer transition-colors');
@@ -232,15 +232,15 @@ export async function renderUserProfile(username) {
     sections.push(new View('div').id('profile-message-form').className('hidden mb-6'));
 
     // ── Stats row ──
-    var statsItems = [];
+    const statsItems = [];
     function _statLink(count, label, sectionId) {
       if (!count) {
         return HStack(Text('0').className('text-white_ font-semibold'), Text(label).className('text-dimmer')).spacing(0.5);
       }
-      var link = HStack(Text(String(count)).className('text-white_ font-semibold'), Text(label).className('text-dimmer')).spacing(0.5);
+      const link = HStack(Text(String(count)).className('text-white_ font-semibold'), Text(label).className('text-dimmer')).spacing(0.5);
       link.className('hover:text-accent cursor-pointer');
       link.onTap(function() {
-        var s = document.getElementById(sectionId);
+        const s = document.getElementById(sectionId);
         if (s) s.scrollIntoView({ behavior: 'smooth' });
       });
       return link;
@@ -251,9 +251,9 @@ export async function renderUserProfile(username) {
 
     // ── Achievements section ──
     if (achievements.length) {
-      var achItems = achievements.map(function(ach) {
-        var unlockedDate = ach.unlocked_at ? new Date(ach.unlocked_at * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
-        var achCard = HStack(
+      const achItems = achievements.map(function(ach) {
+        const unlockedDate = ach.unlocked_at ? new Date(ach.unlocked_at * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+        const achCard = HStack(
           RawHTML(icon('help', { size: 24, strokeWidth: '1.5' })).className('achievement-icon'),
           VStack(
             Text(ach.name).className('text-primary text-sm font-medium'),
@@ -272,7 +272,7 @@ export async function renderUserProfile(username) {
     const customFeeds = feeds.customFeeds || [];
     if (catalogFeeds.length || customFeeds.length) {
       const myFeedSources = typeof getFeedSources === 'function' ? getFeedSources() : {};
-      var feedChips = [];
+      const feedChips = [];
       for (const key of catalogFeeds) {
         const chip = getSourceChip(key);
         const subscribed = !!myFeedSources[key];
@@ -284,7 +284,7 @@ export async function renderUserProfile(username) {
           feedEl = HStack(Text(entry ? entry.name : key).className('text-primary'));
         }
         if (!subscribed) {
-          var subBtn = Button('+ Subscribe').className('text-[0.65rem] text-accent hover:underline ml-1 bg-transparent border-none cursor-pointer');
+          const subBtn = Button('+ Subscribe').className('text-[0.65rem] text-accent hover:underline ml-1 bg-transparent border-none cursor-pointer');
           (function(k, btn) {
             btn.onTap(function() {
               window._profileSubscribeFeed(k, btn.el);
@@ -303,10 +303,10 @@ export async function renderUserProfile(username) {
 
     // ── Recent comments section ──
     if (comments.length) {
-      var commentCards = comments.map(function(c) {
-        var tAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
-        var contentPreview = (c.content || '').length > 120 ? c.content.slice(0, 120) + '...' : c.content;
-        var card = VStack(
+      const commentCards = comments.map(function(c) {
+        const tAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
+        const contentPreview = (c.content || '').length > 120 ? c.content.slice(0, 120) + '...' : c.content;
+        const card = VStack(
           Text(contentPreview).className('text-[0.78rem] text-primary leading-relaxed'),
           Text(tAgo).className('text-dimmer text-[0.7rem] mt-1')
         );
@@ -319,11 +319,11 @@ export async function renderUserProfile(username) {
 
     // ── Reposts section ──
     if (reposts.length) {
-      var repostCards = reposts.map(function(r) {
-        var tAgo = typeof _relativeTime === 'function' ? _relativeTime(r.timestamp) : '';
-        var hostname = '';
+      const repostCards = reposts.map(function(r) {
+        const tAgo = typeof _relativeTime === 'function' ? _relativeTime(r.timestamp) : '';
+        let hostname = '';
         try { hostname = new URL(r.paperLink).hostname.replace(/^www\./, ''); } catch (e) {}
-        var card = VStack(
+        const card = VStack(
           HStack(Icon('repost', 14).className('text-green-400 shrink-0'), Text(r.paperTitle || r.paperLink).className('text-[0.78rem] text-primary leading-relaxed truncate')).spacing(2),
           Text((hostname ? hostname + ' \u00b7 ' : '') + tAgo).className('text-dimmer text-[0.7rem] mt-1')
         );
@@ -354,7 +354,7 @@ export async function renderUserProfile(username) {
 }
 
 function _profileSection(title, sectionId, content) {
-  var section = VStack(
+  const section = VStack(
     Text(title).className('text-muted text-xs font-semibold mb-3 uppercase tracking-wide'),
     content
   ).className('mb-8');
@@ -376,7 +376,7 @@ export function showProfileMessageForm(username) {
   if (!el.classList.contains('hidden')) { el.classList.add('hidden'); return; }
   el.classList.remove('hidden');
 
-  var textarea = new View('textarea');
+  const textarea = new View('textarea');
   textarea.id('profile-msg-textarea');
   textarea.className('w-full text-[0.82rem] bg-input border border-border-input rounded-lg px-3 py-2 text-primary resize-none outline-none focus:border-accent');
   textarea.el.rows = 3;

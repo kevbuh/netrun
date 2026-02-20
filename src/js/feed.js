@@ -126,7 +126,7 @@ export function markPostAsRead(link) {
   if (!read.includes(link)) { read.push(link); setLS('readPosts', read); }
   // Capture read article into living context
   if (typeof contextIngest === 'function') {
-    var paper = allPapers.find(function(p) { return p.link === link; });
+    const paper = allPapers.find(function(p) { return p.link === link; });
     if (paper) {
       contextIngest('feed', '## Reading', '- Read: [' + (paper.title || 'Untitled') + '](' + link + ')', { dedupeKey: 'read-' + link });
     }
@@ -134,7 +134,7 @@ export function markPostAsRead(link) {
 }
 
 export function _menuBtn(label, fn) {
-  var b = new View('button');
+  const b = new View('button');
   b.el.textContent = label;
   b.el.addEventListener('mousedown', function(e) { e.stopPropagation(); fn(); });
   return b;
@@ -149,9 +149,9 @@ export function openCardMenu(btn, ev, index) {
   const sourceKey = p.source;
   const sourceName = SOURCE_NAMES[p.source] || p.source;
 
-  var menuView = new View('div').attr('id', 'card-menu-portal').className('card-menu');
-  var menu = menuView.el;
-  var menuItems = VStack(
+  const menuView = new View('div').attr('id', 'card-menu-portal').className('card-menu');
+  const menu = menuView.el;
+  const menuItems = VStack(
     _menuBtn('Block post', function() { hidePost(p.link, p.title); closeCardMenu(); }),
     _menuBtn('Unsubscribe from ' + sourceName, function() { unsubscribeSource(sourceKey); closeCardMenu(); })
   );
@@ -226,15 +226,15 @@ export function removeBlockedWord(word) {
   renderPapers();
 }
 export function renderBlockedWordsList() {
-  var el = document.getElementById('blocked-words-list');
+  const el = document.getElementById('blocked-words-list');
   if (!el) return;
-  var words = getBlockedWords();
+  const words = getBlockedWords();
   if (!words.length) {
     AetherUI.mount(Text('No blocked words yet.').className('text-dimmer text-[0.75rem]'), el);
     return;
   }
-  var chips = words.map(function(w) {
-    var btn = new View('button').className('text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-sm leading-none ml-0.5');
+  const chips = words.map(function(w) {
+    const btn = new View('button').className('text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-sm leading-none ml-0.5');
     btn.el.textContent = '\u00d7';
     btn.onTap(function() { removeBlockedWord(w); });
     return HStack(
@@ -242,7 +242,7 @@ export function renderBlockedWordsList() {
       btn
     ).spacing(1).className('inline-flex items-center bg-input border border-border-input rounded-full px-2.5 py-0.5 text-primary text-[0.78rem]');
   });
-  var wrap = new View('div');
+  const wrap = new View('div');
   wrap.el.className = 'flex flex-wrap gap-1.5';
   chips.forEach(function(c) { wrap.el.appendChild(c.build()); });
   AetherUI.mount(wrap, el);
@@ -431,35 +431,35 @@ export function unsubscribeSource(key) {
 }
 
 export function renderSourceBubbles() {
-  var el = document.getElementById('source-bubbles');
+  const el = document.getElementById('source-bubbles');
   if (!el) return;
-  var sourceCounts = {};
-  for (var _i = 0; _i < allPapers.length; _i++) {
-    var _p = allPapers[_i];
+  const sourceCounts = {};
+  for (let _i = 0; _i < allPapers.length; _i++) {
+    const _p = allPapers[_i];
     sourceCounts[_p.source] = (sourceCounts[_p.source] || 0) + 1;
   }
-  var sources = Object.keys(sourceCounts);
-  var catSelect = document.getElementById('category');
-  var currentCat = catSelect ? catSelect.value : '';
-  var bubbleViews = [];
+  const sources = Object.keys(sourceCounts);
+  const catSelect = document.getElementById('category');
+  const currentCat = catSelect ? catSelect.value : '';
+  const bubbleViews = [];
 
   sources.forEach(function(key) {
-    var entry = FEED_CATALOG.find(function(f) { return f.key === key; });
-    var name = entry ? entry.name : (key.startsWith('custom:') ? key.slice(7) : key);
-    var logo = SOURCE_LOGO_INLINE[key] || '';
-    var count = sourceCounts[key];
-    var dimmed = hiddenSourceFilters.has(key);
+    const entry = FEED_CATALOG.find(function(f) { return f.key === key; });
+    const name = entry ? entry.name : (key.startsWith('custom:') ? key.slice(7) : key);
+    const logo = SOURCE_LOGO_INLINE[key] || '';
+    const count = sourceCounts[key];
+    const dimmed = hiddenSourceFilters.has(key);
 
     if (key === 'arxiv' && catSelect) {
-      var opts = Array.from(catSelect.options);
-      var selectOpts = opts.map(function(o) {
-        var label = o.value ? o.textContent : 'arXiv (' + count + ')';
+      const opts = Array.from(catSelect.options);
+      const selectOpts = opts.map(function(o) {
+        const label = o.value ? o.textContent : 'arXiv (' + count + ')';
         return '<option value="' + escapeHtml(o.value) + '"' + (o.value === currentCat ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
       }).join('');
-      var arxivBubble = RawHTML('<span class="inline-flex items-center rounded-full border ' + (dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15') + ' text-[0.78rem] transition-all duration-150 whitespace-nowrap select-none"><span class="inline-flex items-center pl-2.5 pointer-events-none">' + logo + '</span><select class="arxiv-cat-select bg-transparent border-none text-[0.78rem] ' + (dimmed ? 'text-dim' : 'text-primary') + ' cursor-pointer outline-none appearance-none py-1 pl-1 pr-5" onchange="document.getElementById(\'category\').value=this.value; renderPapers(); renderSourceBubbles(); _fitArxivSelect(this)">' + selectOpts + '</select></span>');
+      const arxivBubble = RawHTML('<span class="inline-flex items-center rounded-full border ' + (dimmed ? 'border-border-subtle bg-card opacity-40' : 'border-accent bg-accent/15') + ' text-[0.78rem] transition-all duration-150 whitespace-nowrap select-none"><span class="inline-flex items-center pl-2.5 pointer-events-none">' + logo + '</span><select class="arxiv-cat-select bg-transparent border-none text-[0.78rem] ' + (dimmed ? 'text-dim' : 'text-primary') + ' cursor-pointer outline-none appearance-none py-1 pl-1 pr-5" onchange="document.getElementById(\'category\').value=this.value; renderPapers(); renderSourceBubbles(); _fitArxivSelect(this)">' + selectOpts + '</select></span>');
       bubbleViews.push(arxivBubble);
     } else {
-      var bubble = HStack(
+      const bubble = HStack(
         logo ? RawHTML(logo) : null,
         Text(name).className(dimmed ? 'text-dim' : 'text-primary'),
         Text(String(count)).className('text-[0.68rem] ' + (dimmed ? 'text-dimmer' : 'text-dim'))
@@ -469,10 +469,10 @@ export function renderSourceBubbles() {
     }
   });
 
-  var wrap = HStack.apply(null, bubbleViews).className('flex-wrap gap-1.5');
+  const wrap = HStack.apply(null, bubbleViews).className('flex-wrap gap-1.5');
   AetherUI.mount(wrap, el);
   // Auto-size the arxiv select after rendering
-  var arxivSel = el.querySelector('.arxiv-cat-select');
+  const arxivSel = el.querySelector('.arxiv-cat-select');
   if (arxivSel) _fitArxivSelect(arxivSel);
 }
 
@@ -573,22 +573,22 @@ export const _hcHoveredIdx = -1;
 export const _hcZoom = 1;
 
 export function _renderHcCategoryTabs() {
-  var container = document.getElementById('hc-category-tabs');
+  const container = document.getElementById('hc-category-tabs');
   if (!container) return;
-  var cats = [];
+  const cats = [];
   FEED_CATALOG.forEach(function(f) { if (!cats.includes(f.cat)) cats.push(f.cat); });
-  var tabs = [
+  const tabs = [
     new View('button').className('hc-tab' + (_hcActiveCategory === null ? ' active' : ''))
       .onTap(function() { _hcSelectCategory(null); })
   ];
   tabs[0].el.textContent = 'All';
   cats.forEach(function(cat) {
-    var tab = new View('button').className('hc-tab' + (_hcActiveCategory === cat ? ' active' : ''));
+    const tab = new View('button').className('hc-tab' + (_hcActiveCategory === cat ? ' active' : ''));
     tab.el.textContent = cat;
     tab.onTap(function() { _hcSelectCategory(cat); });
     tabs.push(tab);
   });
-  var wrap = HStack(tabs).spacing(1);
+  const wrap = HStack(tabs).spacing(1);
   AetherUI.mount(wrap, container);
 }
 
@@ -600,38 +600,38 @@ export function _hcSelectCategory(cat) {
 }
 
 export function renderOnboardGrid() {
-  var grid = document.getElementById('onboard-grid');
-  var entries = _hcActiveCategory
+  const grid = document.getElementById('onboard-grid');
+  const entries = _hcActiveCategory
     ? FEED_CATALOG.filter(function(f) { return f.cat === _hcActiveCategory; })
     : FEED_CATALOG;
 
   // Group by category
-  var byCategory = {};
+  const byCategory = {};
   entries.forEach(function(f) {
     if (!byCategory[f.cat]) byCategory[f.cat] = [];
     byCategory[f.cat].push(f);
   });
 
-  var sections = [];
+  const sections = [];
   Object.keys(byCategory).forEach(function(cat) {
-    var items = byCategory[cat];
-    var allOn = items.every(function(f) { return onboardSelected.has(f.key); });
-    var toggleBtn = new View('button').className('text-[0.68rem] text-dimmer hover:text-primary cursor-pointer bg-transparent border-none transition-colors');
+    const items = byCategory[cat];
+    const allOn = items.every(function(f) { return onboardSelected.has(f.key); });
+    const toggleBtn = new View('button').className('text-[0.68rem] text-dimmer hover:text-primary cursor-pointer bg-transparent border-none transition-colors');
     toggleBtn.el.textContent = allOn ? 'Deselect all' : 'Select all';
     toggleBtn.onTap(function() { _toggleOnboardCategory(cat); });
 
-    var header = HStack(
+    const header = HStack(
       Text(cat).className('text-[0.72rem] text-dim uppercase tracking-wider font-medium'),
       new View('span').className('flex-1 h-px bg-border-subtle'),
       toggleBtn
     ).spacing(2).className('mb-1.5 px-1');
 
-    var itemViews = items.map(function(f) {
-      var sel = onboardSelected.has(f.key);
-      var iconHtml = f.favicon
+    const itemViews = items.map(function(f) {
+      const sel = onboardSelected.has(f.key);
+      const iconHtml = f.favicon
         ? '<img src="https://www.google.com/s2/favicons?domain=' + f.favicon + '&sz=32" class="w-5 h-5 rounded" onerror="this.outerHTML=\'<span class=\\\'inline-flex items-center justify-center w-5 h-5 rounded text-[0.6rem] font-bold\\\' style=\\\'background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '\\\'>' + (f.letter || f.name[0]) + '</span>\'">'
         : '<span class="inline-flex items-center justify-center w-5 h-5 rounded text-[0.6rem] font-bold" style="background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>';
-      var checkHtml = sel ? icon('check', {size: 12, class: 'w-3 h-3 text-white', strokeWidth: '3'}) : '';
+      const checkHtml = sel ? icon('check', {size: 12, class: 'w-3 h-3 text-white', strokeWidth: '3'}) : '';
       return HStack(
         RawHTML(iconHtml),
         VStack(
@@ -644,7 +644,7 @@ export function renderOnboardGrid() {
         .onTap(function() { toggleOnboardSource(f.key); });
     });
 
-    var section = VStack([header].concat(itemViews)).className('mb-4');
+    const section = VStack([header].concat(itemViews)).className('mb-4');
     sections.push(section);
   });
 
@@ -735,14 +735,14 @@ export function getCustomFeeds() {
 }
 
 export function renderCustomFeedsList() {
-  var list = document.getElementById('custom-feeds-list');
+  const list = document.getElementById('custom-feeds-list');
   if (!list) return;
-  var feeds = getCustomFeeds();
+  const feeds = getCustomFeeds();
   if (!feeds.length) { AetherUI.mount(Text('No custom feeds added.').className('text-dim text-[0.78rem]'), list); return; }
-  var rows = feeds.map(function(f, i) {
-    var toggle = RawHTML('<span class="nr-switch"><input type="checkbox" ' + (f.enabled !== false ? 'checked' : '') + '><span class="slider"></span></span>');
+  const rows = feeds.map(function(f, i) {
+    const toggle = RawHTML('<span class="nr-switch"><input type="checkbox" ' + (f.enabled !== false ? 'checked' : '') + '><span class="slider"></span></span>');
     toggle.el.querySelector('input').addEventListener('change', function() { toggleCustomFeed(i, this.checked); });
-    var removeBtn = new View('button').className('text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-base leading-none').attr('title', 'Remove');
+    const removeBtn = new View('button').className('text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-base leading-none').attr('title', 'Remove');
     removeBtn.el.textContent = '\u00d7';
     removeBtn.onTap(function() { removeCustomFeed(i); });
     return HStack(
@@ -801,30 +801,30 @@ export function toggleCustomFeed(index, enabled) {
 
 
 export function renderAlgorithmView() {
-  var container = document.getElementById('algorithm-view-content');
+  const container = document.getElementById('algorithm-view-content');
   if (!container) return;
 
-  var profile = typeof getInterestProfile === 'function' ? getInterestProfile() : null;
-  var readCount = getReadPosts().length;
-  var savedCount = Object.keys(getSavedPosts()).length;
-  var hiddenCount = getHiddenPosts().length;
-  var topTopics = profile ? (profile.topTopics || []) : [];
-  var topCats = profile ? (profile.topCategories || []) : [];
+  const profile = typeof getInterestProfile === 'function' ? getInterestProfile() : null;
+  const readCount = getReadPosts().length;
+  const savedCount = Object.keys(getSavedPosts()).length;
+  const hiddenCount = getHiddenPosts().length;
+  const topTopics = profile ? (profile.topTopics || []) : [];
+  const topCats = profile ? (profile.topCategories || []) : [];
 
-  var wBase = parseFloat(Settings.get('fyWeightBase') || '0.7');
-  var wAff = parseFloat(Settings.get('fyWeightAffinity') || '0.3');
-  var wRec = parseFloat(Settings.get('fyWeightRecency') || '1.0');
-  var maxRun = parseInt(Settings.get('maxPerCategoryRun') || '3', 10);
+  const wBase = parseFloat(Settings.get('fyWeightBase') || '0.7');
+  const wAff = parseFloat(Settings.get('fyWeightAffinity') || '0.3');
+  const wRec = parseFloat(Settings.get('fyWeightRecency') || '1.0');
+  const maxRun = parseInt(Settings.get('maxPerCategoryRun') || '3', 10);
 
-  var exampleLlm = 72, exampleAff = 0.8, exampleAge = 3;
-  var exampleRecency = Math.max(0, 10 - exampleAge * 0.5) * wRec;
-  var exampleScore = (exampleLlm * (wBase + exampleAff * wAff) + exampleRecency).toFixed(1);
+  const exampleLlm = 72, exampleAff = 0.8, exampleAge = 3;
+  const exampleRecency = Math.max(0, 10 - exampleAge * 0.5) * wRec;
+  const exampleScore = (exampleLlm * (wBase + exampleAff * wAff) + exampleRecency).toFixed(1);
 
-  var topicsHtml = topTopics.length ? topTopics.map(function(t) { return '<span class="bg-hover text-dim text-[0.68rem] px-1.5 py-0.5 rounded">' + escapeHtml(t) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>';
-  var catsHtml = topCats.length ? topCats.map(function(c) { return '<span class="bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20">' + escapeHtml(c) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>';
+  const topicsHtml = topTopics.length ? topTopics.map(function(t) { return '<span class="bg-hover text-dim text-[0.68rem] px-1.5 py-0.5 rounded">' + escapeHtml(t) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>';
+  const catsHtml = topCats.length ? topCats.map(function(c) { return '<span class="bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20">' + escapeHtml(c) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>';
 
   function _algoSlider(label, id, min, max, value, onInput, onChange) {
-    var slider = new View('input');
+    const slider = new View('input');
     slider.el.type = 'range'; slider.el.min = min; slider.el.max = max; slider.el.value = value;
     slider.el.className = 'flex-1 accent-[var(--nr-accent)]';
     slider.el.addEventListener('input', onInput);
@@ -837,11 +837,11 @@ export function renderAlgorithmView() {
   }
 
 
-  var resetBtn = new View('button').className('text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
+  const resetBtn = new View('button').className('text-red-400/80 text-[0.78rem] hover:text-red-400 bg-transparent border border-red-400/30 hover:border-red-400/60 rounded-md px-3 py-1 cursor-pointer transition-colors');
   resetBtn.el.textContent = 'Reset all personalization';
   resetBtn.onTap(function() { resetPersonalization(); renderAlgorithmView(); });
 
-  var view = VStack(
+  const view = VStack(
     RawHTML('<h2 class="text-[1.3rem] font-semibold text-white_ mb-1">How the Algorithm Works</h2>'),
     Text('Your feed is ranked using a personalized composite score that combines LLM relevance scoring, source affinity from your reading habits, and recency.').className('text-dim text-[0.8rem] mb-6'),
 
@@ -880,7 +880,7 @@ export function renderAlgorithmView() {
       RawHTML('<h3 class="text-muted text-[0.85rem] font-medium mb-2">5. Category Diversity</h3>'),
       RawHTML('<p class="text-dim text-[0.78rem] leading-relaxed mb-3">After scoring, posts are reordered to prevent any single category from dominating a run. If more than <span class="text-primary">' + maxRun + '</span> consecutive posts come from the same category, a post from a different category is pulled forward.</p>'),
       (function() {
-        var s = new View('input');
+        const s = new View('input');
         s.el.type = 'range'; s.el.min = '1'; s.el.max = '10'; s.el.value = maxRun;
         s.el.className = 'flex-1 accent-[var(--nr-accent)]';
         s.el.addEventListener('input', function() { document.getElementById('algo-div-val').textContent = this.value; });
@@ -1315,13 +1315,13 @@ export function getFilteredPapers(ctx) {
 }
 
 export function _renderPaperCompactRow(p, i, ctx) {
-  var readSet = ctx.readSet;
-  var sourceChip = getSourceChip(p.source, p.arxivId);
-  var isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
-  var isRead = readSet.has(p.link);
-  var actionWrap = new View('span').className('ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity');
+  const readSet = ctx.readSet;
+  const sourceChip = getSourceChip(p.source, p.arxivId);
+  const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+  const isRead = readSet.has(p.link);
+  const actionWrap = new View('span').className('ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity');
   actionWrap.el.appendChild(_cardActionRow(p, i, ctx).build());
-  var row = HStack(
+  const row = HStack(
     isNew && !isRead ? new View('span').className('inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0') : null,
     RawHTML(sourceChip),
     RawHTML('<span class="text-[0.82rem] ' + (isRead ? 'text-muted' : 'text-primary') + ' truncate">' + renderTitle(p.title) + '</span>'),
@@ -1335,34 +1335,34 @@ export function _renderPaperCompactRow(p, i, ctx) {
 }
 
 export function _renderPaperCard(p, i, ctx) {
-  var readSet = ctx.readSet;
-  var isHN = p.source === 'hn';
-  var _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
-  var sourceLabel = _hasExternalLink ? (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
-  var isPoly = p.source === 'polymarket';
-  var snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
-  var nLink = _normalizeRatingKey(p.link);
-  var userRating = ctx.ratings ? (ctx.ratings[nLink] || ctx.ratings[p.link] || 0) : getPaperRating(p.link);
-  var isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
-  var isRead = readSet.has(p.link);
-  var cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
-  var pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
-  var imgView = RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
+  const readSet = ctx.readSet;
+  const isHN = p.source === 'hn';
+  const _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
+  const sourceLabel = _hasExternalLink ? (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
+  const isPoly = p.source === 'polymarket';
+  const snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
+  const nLink = _normalizeRatingKey(p.link);
+  const userRating = ctx.ratings ? (ctx.ratings[nLink] || ctx.ratings[p.link] || 0) : getPaperRating(p.link);
+  const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+  const isRead = readSet.has(p.link);
+  const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
+  const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
+  const imgView = RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
 
   // Title row
-  var titleHtml = (isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '') + renderTitle(p.title);
-  var titleEl = RawHTML(titleHtml);
+  const titleHtml = (isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '') + renderTitle(p.title);
+  const titleEl = RawHTML(titleHtml);
   titleEl.className('text-[0.92rem] font-semibold ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug min-w-0');
-  var titleRow = HStack(imgView, titleEl).spacing(2).className('items-center');
+  const titleRow = HStack(imgView, titleEl).spacing(2).className('items-center');
 
   // Body
-  var body = null;
+  let body = null;
   if (snippet) {
     body = Text(snippet).className('text-[0.78rem] text-muted leading-relaxed mt-1.5');
   }
 
   // Meta row
-  var metaItems = [Text(sourceLabel).className('text-[0.75rem] text-dim')];
+  const metaItems = [Text(sourceLabel).className('text-[0.75rem] text-dim')];
   if (_hasExternalLink) metaItems.push(RawHTML('<span class="text-[0.68rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>'));
   if (!(isHN && _hasExternalLink)) {
     if (isHN) metaItems.push(Text(p.hnScore + ' pts').className('text-[0.68rem] text-dim'));
@@ -1372,9 +1372,9 @@ export function _renderPaperCard(p, i, ctx) {
   if (userRating > 0) metaItems.push(RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
   if (p.date) metaItems.push(Text(p.date).className('text-[0.68rem] text-dim'));
   metaItems.push(_cardActionRow(p, i, ctx));
-  var metaRow = HStack.apply(null, metaItems).spacing(2).className('flex-wrap mt-2');
+  const metaRow = HStack.apply(null, metaItems).spacing(2).className('flex-wrap mt-2');
 
-  var card = VStack(titleRow, body, metaRow, _cardCommentContainer(p, i));
+  const card = VStack(titleRow, body, metaRow, _cardCommentContainer(p, i));
   card.className('paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150' + (isRead ? ' opacity-50' : ''));
   card.attr('data-link', p.link);
   card.onTap(function(e) { openPaper(i, e); });
@@ -1403,50 +1403,50 @@ export function _buildRenderCtx() {
 }
 
 export function _renderFeedEmptyState(container) {
-  var children = [ Text('No papers match your filter').className('text-dim').styles({fontSize:'0.9rem'}) ];
-  var v = VStack(children).alignment('center').styles({justifyContent:'center', columnSpan:'all', padding:'5rem 0'}).spacing(4);
+  const children = [ Text('No papers match your filter').className('text-dim').styles({fontSize:'0.9rem'}) ];
+  const v = VStack(children).alignment('center').styles({justifyContent:'center', columnSpan:'all', padding:'5rem 0'}).spacing(4);
   AetherUI.mount(v, container);
 }
 
 export function _renderPaperVerboseCard(p, i, ctx) {
-  var readSet = ctx.readSet;
-  var isHN = p.source === 'hn';
-  var _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
-  var sourceName = _hasExternalLink ? (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
-  var isPoly = p.source === 'polymarket';
-  var fullDesc = isPoly ? '' : (p.description || '');
-  var pCats = Array.isArray(p.categories) ? p.categories : [];
-  var nLink = _normalizeRatingKey(p.link);
-  var userRating = ctx.ratings[nLink] || ctx.ratings[p.link] || 0;
-  var isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
-  var isRead = readSet.has(p.link);
-  var cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
-  var pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
-  var imgView = RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
+  const readSet = ctx.readSet;
+  const isHN = p.source === 'hn';
+  const _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
+  const sourceName = _hasExternalLink ? (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
+  const isPoly = p.source === 'polymarket';
+  const fullDesc = isPoly ? '' : (p.description || '');
+  const pCats = Array.isArray(p.categories) ? p.categories : [];
+  const nLink = _normalizeRatingKey(p.link);
+  const userRating = ctx.ratings[nLink] || ctx.ratings[p.link] || 0;
+  const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+  const isRead = readSet.has(p.link);
+  const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
+  const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
+  const imgView = RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
 
   // Title row
-  var titleHtml = (isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '') + renderTitle(p.title);
-  var titleEl = RawHTML(titleHtml);
+  const titleHtml = (isNew && !isRead ? '<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>' : '') + renderTitle(p.title);
+  const titleEl = RawHTML(titleHtml);
   titleEl.className('text-[1rem] font-semibold ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug min-w-0');
-  var titleRow = HStack(imgView, titleEl).spacing(2).className('items-center');
+  const titleRow = HStack(imgView, titleEl).spacing(2).className('items-center');
 
   // Authors
-  var authorsView = p.authors ? Text(truncate(p.authors, 200)).className('text-[0.76rem] text-dimmer mt-1') : null;
+  const authorsView = p.authors ? Text(truncate(p.authors, 200)).className('text-[0.76rem] text-dimmer mt-1') : null;
 
   // Description
-  var descView = fullDesc ? Text(fullDesc).className('text-[0.82rem] text-muted leading-relaxed mt-2') : null;
+  const descView = fullDesc ? Text(fullDesc).className('text-[0.82rem] text-muted leading-relaxed mt-2') : null;
 
   // Categories
-  var catsView = null;
+  let catsView = null;
   if (pCats.length) {
-    var catItems = pCats.slice(0, 6).map(function(c) {
+    const catItems = pCats.slice(0, 6).map(function(c) {
       return Text(c).className('text-[0.65rem] px-1.5 py-0.5 rounded bg-hover text-dim');
     });
     catsView = HStack.apply(null, catItems).spacing(0.5).className('flex-wrap mt-1.5');
   }
 
   // Meta row
-  var metaItems = [Text(sourceName).className('text-[0.72rem] text-dim')];
+  const metaItems = [Text(sourceName).className('text-[0.72rem] text-dim')];
   if (_hasExternalLink) metaItems.push(RawHTML('<span class="text-[0.72rem] text-dimmer">via ' + escapeHtml(SOURCE_NAMES[p.source] || p.source) + (isHN ? ' \u00b7 ' + p.hnScore + ' pts' : '') + '</span>'));
   if (!(isHN && _hasExternalLink)) {
     if (isHN) metaItems.push(Text(p.hnScore + ' pts').className('text-[0.72rem] text-dim'));
@@ -1456,9 +1456,9 @@ export function _renderPaperVerboseCard(p, i, ctx) {
   if (userRating > 0) metaItems.push(RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
   if (p.date) metaItems.push(Text(p.date).className('text-[0.72rem] text-dim'));
   metaItems.push(_cardActionRow(p, i, ctx));
-  var metaRow = HStack.apply(null, metaItems).spacing(2).className('flex-wrap mt-3');
+  const metaRow = HStack.apply(null, metaItems).spacing(2).className('flex-wrap mt-3');
 
-  var card = VStack(titleRow, authorsView, descView, catsView, metaRow, _cardCommentContainer(p, i));
+  const card = VStack(titleRow, authorsView, descView, catsView, metaRow, _cardCommentContainer(p, i));
   card.className('paper bg-card border border-border-card rounded-xl p-5 cursor-pointer transition-all duration-150' + (isRead ? ' opacity-50' : ''));
   card.attr('data-link', p.link);
   card.onTap(function(e) { openPaper(i, e); });
@@ -1466,62 +1466,62 @@ export function _renderPaperVerboseCard(p, i, ctx) {
 }
 
 export function _renderPaperTwitterCard(p, i, ctx) {
-  var readSet = ctx.readSet;
-  var isHN = p.source === 'hn';
-  var sourceName = SOURCE_NAMES[p.source] || p.source;
-  var handle = (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return p.source; } })();
-  var isPoly = p.source === 'polymarket';
-  var snippet = isPoly ? '' : (p.description ? truncate(p.description, 280) : '');
-  var isSaved = !!ctx.savedPosts[p.link];
-  var bmFill = isSaved ? 'var(--nr-accent)' : 'none';
-  var bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
-  var isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
-  var isRead = readSet.has(p.link);
-  var cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
-  var pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
-  var avatarView = RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-10 h-10 rounded-full shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
-  var tAgo = p.pubDate && typeof _relativeTime === 'function' ? _relativeTime(p.pubDate) : (p.date || '');
-  var hnPts = isHN ? p.hnScore || 0 : 0;
-  var citations = p.citations !== undefined ? p.citations : null;
-  var statsNum = isPoly ? p.polyYesPct + '%' : isHN ? String(hnPts) : (citations !== null ? String(citations) : '');
-  var reposted = ctx.repostedSet.has(p.link);
-  var commentCount = _tweetCommentCounts[p.link] || '';
+  const readSet = ctx.readSet;
+  const isHN = p.source === 'hn';
+  const sourceName = SOURCE_NAMES[p.source] || p.source;
+  const handle = (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return p.source; } })();
+  const isPoly = p.source === 'polymarket';
+  const snippet = isPoly ? '' : (p.description ? truncate(p.description, 280) : '');
+  const isSaved = !!ctx.savedPosts[p.link];
+  const bmFill = isSaved ? 'var(--nr-accent)' : 'none';
+  const bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
+  const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
+  const isRead = readSet.has(p.link);
+  const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
+  const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
+  const avatarView = RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-10 h-10 rounded-full shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
+  const tAgo = p.pubDate && typeof _relativeTime === 'function' ? _relativeTime(p.pubDate) : (p.date || '');
+  const hnPts = isHN ? p.hnScore || 0 : 0;
+  const citations = p.citations !== undefined ? p.citations : null;
+  const statsNum = isPoly ? p.polyYesPct + '%' : isHN ? String(hnPts) : (citations !== null ? String(citations) : '');
+  const reposted = ctx.repostedSet.has(p.link);
+  const commentCount = _tweetCommentCounts[p.link] || '';
 
   // Build action buttons using AetherUI
-  var btnClass = 'group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors';
-  var commentBtn = RawHTML('<button class="' + btnClass + ' text-dimmer hover:text-blue-400">' + icon('chatBubble', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]" data-tweet-comment-count="' + escapeAttr(p.link) + '">' + commentCount + '</span></button>');
+  const btnClass = 'group flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 transition-colors';
+  const commentBtn = RawHTML('<button class="' + btnClass + ' text-dimmer hover:text-blue-400">' + icon('chatBubble', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]" data-tweet-comment-count="' + escapeAttr(p.link) + '">' + commentCount + '</span></button>');
   commentBtn.el.firstChild.addEventListener('click', function(e) { e.stopPropagation(); _toggleTweetComments(p.link, i); });
-  var repostBtn = RawHTML('<button class="' + btnClass + ' ' + (reposted ? '' : 'text-dimmer hover:text-green-400') + '" style="' + (reposted ? 'color:rgb(74,222,128)' : '') + '">' + icon('repost', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]">' + statsNum + '</span></button>');
+  const repostBtn = RawHTML('<button class="' + btnClass + ' ' + (reposted ? '' : 'text-dimmer hover:text-green-400') + '" style="' + (reposted ? 'color:rgb(74,222,128)' : '') + '">' + icon('repost', {size: 16, class: 'w-4 h-4'}) + '<span class="text-[0.72rem]">' + statsNum + '</span></button>');
   repostBtn.el.firstChild.addEventListener('click', function(e) { e.stopPropagation(); _tweetRepost(i, repostBtn.el.firstChild); });
-  var bmBtn = RawHTML('<button class="' + btnClass + '" style="color:' + (bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)') + '">' + icon('bookmark', {size: 16, class: 'w-4 h-4', fill: bmFill, stroke: bmStroke}) + '</button>');
+  const bmBtn = RawHTML('<button class="' + btnClass + '" style="color:' + (bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)') + '">' + icon('bookmark', {size: 16, class: 'w-4 h-4', fill: bmFill, stroke: bmStroke}) + '</button>');
   bmBtn.el.firstChild.addEventListener('click', function(e) { e.stopPropagation(); toggleSavePost(lastFilteredPapers[i], e); });
-  var menuBtn = RawHTML('<button class="' + btnClass + ' text-dimmer hover:text-primary">' + icon('moreVertical', {size: 16, class: 'w-4 h-4'}) + '</button>');
+  const menuBtn = RawHTML('<button class="' + btnClass + ' text-dimmer hover:text-primary">' + icon('moreVertical', {size: 16, class: 'w-4 h-4'}) + '</button>');
   menuBtn.el.firstChild.addEventListener('click', function(e) { openCardMenu(menuBtn.el.firstChild, e, i); });
-  var actionBar = HStack(commentBtn, repostBtn, bmBtn, menuBtn).className('justify-between mt-2.5 max-w-[400px]');
+  const actionBar = HStack(commentBtn, repostBtn, bmBtn, menuBtn).className('justify-between mt-2.5 max-w-[400px]');
 
   // Header line
-  var headerItems = [];
+  const headerItems = [];
   if (isNew && !isRead) headerItems.push(RawHTML('<span class="inline-block w-2 h-2 rounded-full bg-accent shrink-0" title="New"></span>'));
   headerItems.push(Text(sourceName).className('text-[0.88rem] font-bold ' + (isRead ? 'text-muted' : 'text-primary')));
   headerItems.push(Text('@' + handle).className('text-[0.8rem] text-dimmer'));
   headerItems.push(Text('\u00b7').className('text-dimmer'));
   headerItems.push(Text(tAgo).className('text-[0.8rem] text-dimmer'));
-  var headerRow = HStack.apply(null, headerItems).spacing(1).className('flex-wrap');
+  const headerRow = HStack.apply(null, headerItems).spacing(1).className('flex-wrap');
 
   // Title
-  var titleEl = RawHTML(renderTitle(p.title));
+  const titleEl = RawHTML(renderTitle(p.title));
   titleEl.className('text-[0.92rem] ' + (isRead ? 'text-muted' : 'text-primary') + ' leading-snug mt-1 font-semibold');
 
   // Body content
-  var bodyChildren = [headerRow, titleEl];
+  const bodyChildren = [headerRow, titleEl];
   if (snippet) bodyChildren.push(Text(snippet).className('text-[0.84rem] text-muted leading-relaxed mt-1'));
   bodyChildren.push(actionBar);
   bodyChildren.push(_cardCommentContainer(p, i));
 
-  var content = VStack.apply(null, bodyChildren);
+  const content = VStack.apply(null, bodyChildren);
   content.className('min-w-0 flex-1');
 
-  var card = HStack(avatarView, content).spacing(3);
+  const card = HStack(avatarView, content).spacing(3);
   card.className('py-3 px-4 border-b border-border-card cursor-pointer transition-colors hover:bg-hover' + (isRead ? ' opacity-50' : ''));
   card.attr('data-link', p.link);
   card.onTap(function(e) { openPaper(i, e); });
@@ -1529,13 +1529,13 @@ export function _renderPaperTwitterCard(p, i, ctx) {
 }
 
 export function _renderPapersNow() {
-  var ctx = _buildRenderCtx();
-  var hiddenSet = ctx.hiddenSet;
-  var filtered = getFilteredPapers(ctx);
+  const ctx = _buildRenderCtx();
+  const hiddenSet = ctx.hiddenSet;
+  const filtered = getFilteredPapers(ctx);
   lastFilteredPapers = filtered;
-  var visible = filtered.slice(0, visibleCount);
+  const visible = filtered.slice(0, visibleCount);
   document.getElementById('stats').textContent = 'Showing ' + visible.length + ' of ' + filtered.length + ' papers';
-  var container = document.getElementById('papers');
+  const container = document.getElementById('papers');
   if (!filtered.length) {
     _renderFeedEmptyState(container);
     return;
@@ -1543,7 +1543,7 @@ export function _renderPapersNow() {
 
   container.innerHTML = '';
 
-  var cards = visible.map(function(p, i) {
+  const cards = visible.map(function(p, i) {
     if (feedViewMode === 'compact') return _renderPaperCompactRow(p, i, ctx);
     if (feedViewMode === 'verbose') return _renderPaperVerboseCard(p, i, ctx);
     if (feedViewMode === 'twitter') return _renderPaperTwitterCard(p, i, ctx);
@@ -1551,8 +1551,8 @@ export function _renderPapersNow() {
   });
 
   if (feedViewMode === 'compact' || feedViewMode === 'verbose' || feedViewMode === 'twitter') {
-    var wrapClass = feedViewMode === 'twitter' ? 'flex flex-col max-w-[600px] mx-auto' : 'flex flex-col' + (feedViewMode === 'verbose' ? ' gap-3' : '');
-    var wrap = VStack.apply(null, cards).className(wrapClass);
+    const wrapClass = feedViewMode === 'twitter' ? 'flex flex-col max-w-[600px] mx-auto' : 'flex flex-col' + (feedViewMode === 'verbose' ? ' gap-3' : '');
+    const wrap = VStack.apply(null, cards).className(wrapClass);
     wrap.styles({ columnSpan: 'all' });
     container.appendChild(wrap.build());
   } else {
@@ -1561,15 +1561,15 @@ export function _renderPapersNow() {
   }
 
   // Animate cards that are new since the last render
-  var prevLinks = _renderedLinks;
+  const prevLinks = _renderedLinks;
   _renderedLinks = new Set(visible.map(function(p) { return p.link; }));
   if (prevLinks.size > 0) {
-    var _feedNewIdx = 0;
+    let _feedNewIdx = 0;
     container.querySelectorAll('[data-link]').forEach(function(el) {
       if (!prevLinks.has(el.dataset.link)) {
         Motion.fadeIn(el, { y: 8, delay: _feedNewIdx * Motion.stagger.tight });
         _feedNewIdx++;
-        var dot = document.createElement('span');
+        const dot = document.createElement('span');
         dot.className = 'feed-new-dot';
         el.style.position = 'relative';
         el.appendChild(dot);
@@ -1580,7 +1580,7 @@ export function _renderPapersNow() {
   _fetchTweetCommentCounts(visible);
   visible.forEach(function(p, i) {
     if (_tweetCommentsOpen.has(p.link)) {
-      var cmtContainer = document.getElementById('tweet-comments-' + i);
+      const cmtContainer = document.getElementById('tweet-comments-' + i);
       if (cmtContainer) {
         cmtContainer.style.display = 'block';
         apiGet('/api/comments?paperLink=' + encodeURIComponent(p.link))
@@ -1639,43 +1639,43 @@ export async function _toggleTweetComments(link, idx) {
 }
 
 export function _renderTweetComments(container, comments, link, idx) {
-  var topLevel = comments.filter(function(c) { return !c.parentId; }).sort(function(a, b) { return a.timestamp - b.timestamp; });
-  var byParent = {};
+  const topLevel = comments.filter(function(c) { return !c.parentId; }).sort(function(a, b) { return a.timestamp - b.timestamp; });
+  const byParent = {};
   comments.forEach(function(c) { if (c.parentId) (byParent[c.parentId] = byParent[c.parentId] || []).push(c); });
-  var currentUser = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || '';
+  const currentUser = (typeof _authUserInfo !== 'undefined' && _authUserInfo && _authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || '';
 
   function renderThread(c, depth) {
-    var replies = (byParent[c.id] || []).sort(function(a, b) { return a.timestamp - b.timestamp; });
-    var ml = depth > 0 ? 'margin-left:' + Math.min(depth, 4) * 16 + 'px; border-left: 2px solid var(--nr-border-default); padding-left: 8px;' : '';
-    var initial = (c.author || '?')[0].toUpperCase();
-    var timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
-    var isOwn = c.author === currentUser;
+    const replies = (byParent[c.id] || []).sort(function(a, b) { return a.timestamp - b.timestamp; });
+    const ml = depth > 0 ? 'margin-left:' + Math.min(depth, 4) * 16 + 'px; border-left: 2px solid var(--nr-border-default); padding-left: 8px;' : '';
+    const initial = (c.author || '?')[0].toUpperCase();
+    const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
+    const isOwn = c.author === currentUser;
 
-    var threadEl = new View('div');
+    const threadEl = new View('div');
     threadEl.cssText(ml + '; margin-bottom: 6px;');
 
-    var avatarDiv = new View('div');
+    const avatarDiv = new View('div');
     avatarDiv.cssText('width:20px;height:20px;min-width:20px;border-radius:50%;background:var(--nr-accent);color:#fff;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center');
     avatarDiv.el.textContent = initial;
 
-    var authorLink = new View('a');
+    const authorLink = new View('a');
     authorLink.el.href = '#profile/' + encodeURIComponent(c.author);
     authorLink.el.className = 'text-[0.72rem] font-medium text-primary hover:text-accent';
     authorLink.el.style.textDecoration = 'none';
     authorLink.el.textContent = c.author;
     authorLink.el.addEventListener('click', function(e) { e.stopPropagation(); });
 
-    var timeSpan = new View('span');
+    const timeSpan = new View('span');
     timeSpan.el.className = 'text-[0.65rem] text-dimmer';
     timeSpan.el.textContent = timeAgo;
 
-    var metaRow = new View('div');
+    const metaRow = new View('div');
     metaRow.el.className = 'flex items-center gap-1.5';
     metaRow.el.appendChild(authorLink.el);
     metaRow.el.appendChild(timeSpan.el);
 
     if (isOwn) {
-      var delBtnEl = new View('button');
+      const delBtnEl = new View('button');
       delBtnEl.el.className = 'cmt-del text-dimmest hover:text-red-400 text-[0.65rem] ml-auto bg-transparent border-none cursor-pointer';
       delBtnEl.el.dataset.cid = c.id;
       delBtnEl.el.textContent = 'x';
@@ -1683,54 +1683,54 @@ export function _renderTweetComments(container, comments, link, idx) {
       metaRow.el.appendChild(delBtnEl.el);
     }
 
-    var contentDiv = new View('div');
+    const contentDiv = new View('div');
     contentDiv.el.className = 'text-[0.78rem] text-primary mt-0.5 leading-relaxed';
     contentDiv.el.innerHTML = escapeHtml(c.content).replace(/\n/g, '<br>');
 
-    var showReplyBtn = new View('button');
+    const showReplyBtn = new View('button');
     showReplyBtn.el.className = 'cmt-show-reply text-[0.68rem] text-dim hover:text-accent mt-0.5 bg-transparent border-none cursor-pointer p-0';
     showReplyBtn.el.dataset.cid = c.id;
     showReplyBtn.el.textContent = 'Reply';
     showReplyBtn.el.addEventListener('click', function(e) { e.stopPropagation(); _showTweetReply(c.id); });
 
-    var replyTa = new View('textarea');
+    const replyTa = new View('textarea');
     replyTa.el.id = 'tweet-reply-ta-' + c.id;
     replyTa.el.className = 'w-full text-[0.75rem] bg-input border border-border-input rounded px-2 py-1 text-primary resize-none outline-none focus:border-accent';
     replyTa.el.rows = 2;
     replyTa.el.placeholder = 'Write a reply...';
     replyTa.el.addEventListener('click', function(e) { e.stopPropagation(); });
 
-    var replySubmit = new View('button');
+    const replySubmit = new View('button');
     replySubmit.el.className = 'cmt-reply-submit px-2 py-0.5 text-[0.68rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none';
     replySubmit.el.dataset.cid = c.id;
     replySubmit.el.textContent = 'Reply';
     replySubmit.el.addEventListener('click', function(e) { e.stopPropagation(); _postTweetReply(c.id, link, idx); });
 
-    var replyCancel = new View('button');
+    const replyCancel = new View('button');
     replyCancel.el.className = 'cmt-reply-cancel px-2 py-0.5 text-[0.68rem] rounded border border-border-input text-dim hover:text-primary cursor-pointer bg-transparent';
     replyCancel.el.dataset.cid = c.id;
     replyCancel.el.textContent = 'Cancel';
     replyCancel.el.addEventListener('click', function(e) { e.stopPropagation(); _hideTweetReply(c.id); });
 
-    var replyBtnRow = new View('div');
+    const replyBtnRow = new View('div');
     replyBtnRow.el.className = 'flex gap-1 mt-1';
     replyBtnRow.el.appendChild(replySubmit.el);
     replyBtnRow.el.appendChild(replyCancel.el);
 
-    var replyForm = new View('div');
+    const replyForm = new View('div');
     replyForm.el.id = 'tweet-reply-' + c.id;
     replyForm.el.className = 'hidden mt-1';
     replyForm.el.appendChild(replyTa.el);
     replyForm.el.appendChild(replyBtnRow.el);
 
-    var bodyDiv = new View('div');
+    const bodyDiv = new View('div');
     bodyDiv.el.className = 'flex-1 min-w-0';
     bodyDiv.el.appendChild(metaRow.el);
     bodyDiv.el.appendChild(contentDiv.el);
     bodyDiv.el.appendChild(showReplyBtn.el);
     bodyDiv.el.appendChild(replyForm.el);
 
-    var rowDiv = new View('div');
+    const rowDiv = new View('div');
     rowDiv.el.className = 'flex items-start gap-1.5';
     rowDiv.el.appendChild(avatarDiv.el);
     rowDiv.el.appendChild(bodyDiv.el);
@@ -1741,7 +1741,7 @@ export function _renderTweetComments(container, comments, link, idx) {
     return threadEl;
   }
 
-  var wrap = new View('div');
+  const wrap = new View('div');
   wrap.el.className = 'mt-2 pt-2 border-t border-border-card';
   if (topLevel.length) {
     topLevel.forEach(function(c) { wrap.el.appendChild(renderThread(c, 0).build()); });
@@ -1749,15 +1749,15 @@ export function _renderTweetComments(container, comments, link, idx) {
     wrap.el.appendChild(Text('No comments yet').className('text-dim text-[0.75rem] py-1').build());
   }
 
-  var inputRow = new View('div');
+  const inputRow = new View('div');
   inputRow.el.className = 'flex gap-2 mt-2';
-  var commentTa = new View('textarea');
+  const commentTa = new View('textarea');
   commentTa.el.id = 'tweet-comment-input-' + idx;
   commentTa.el.className = 'flex-1 text-[0.75rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent';
   commentTa.el.rows = 1;
   commentTa.el.placeholder = 'Add a comment...';
   commentTa.el.addEventListener('click', function(e) { e.stopPropagation(); });
-  var postBtn = new View('button').className('px-3 py-1 text-[0.72rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none shrink-0');
+  const postBtn = new View('button').className('px-3 py-1 text-[0.72rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none shrink-0');
   postBtn.el.textContent = 'Post';
   postBtn.el.addEventListener('click', function(e) { e.stopPropagation(); _postTweetComment(link, idx); });
   inputRow.el.appendChild(commentTa.el);
@@ -1876,19 +1876,19 @@ export function _tweetRepost(idx, btn) {
 
 // Shared comment & repost action buttons for all card views
 export function _cardActionRow(p, i, ctx) {
-  var isSaved = ctx ? !!ctx.savedPosts[p.link] : isPostSaved(p.link);
-  var bmFill = isSaved ? 'var(--nr-accent)' : 'none';
-  var bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
-  var commentCount = _tweetCommentCounts[p.link] || '';
-  var reposted = ctx ? ctx.repostedSet.has(p.link) : _isReposted(p.link);
-  var v = new View('div');
+  const isSaved = ctx ? !!ctx.savedPosts[p.link] : isPostSaved(p.link);
+  const bmFill = isSaved ? 'var(--nr-accent)' : 'none';
+  const bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
+  const commentCount = _tweetCommentCounts[p.link] || '';
+  const reposted = ctx ? ctx.repostedSet.has(p.link) : _isReposted(p.link);
+  const v = new View('div');
   v.el.className = 'flex items-center gap-3 shrink-0 ml-auto';
   v.el.innerHTML =
     '<button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors" title="Comments">' + icon('chatBubble', {size: 14, class: 'w-3.5 h-3.5'}) + '<span class="text-[0.68rem]" data-tweet-comment-count="' + escapeAttr(p.link) + '">' + commentCount + '</span></button>' +
     '<button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 transition-colors ' + (reposted ? '' : 'text-dimmer hover:text-green-400') + '" style="' + (reposted ? 'color:rgb(74,222,128)' : '') + '" title="Repost">' + icon('repost', {size: 14, class: 'w-3.5 h-3.5'}) + '</button>' +
     '<button class="bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:' + (bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)') + '" title="' + (isSaved ? 'Remove from Reading List' : 'Save to Reading List') + '">' + icon('bookmark', {size: 14, class: 'w-3.5 h-3.5', fill: bmFill, stroke: bmStroke}) + '</button>' +
     '<button class="bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-primary transition-colors">' + icon('moreVertical', {size: 14, class: 'w-3.5 h-3.5'}) + '</button>';
-  var btns = v.el.querySelectorAll('button');
+  const btns = v.el.querySelectorAll('button');
   btns[0].addEventListener('click', function(e) { e.stopPropagation(); _toggleTweetComments(p.link, i); });
   btns[1].addEventListener('click', function(e) { e.stopPropagation(); _tweetRepost(i, btns[1]); });
   btns[2].addEventListener('click', function(e) { e.stopPropagation(); toggleSavePost(lastFilteredPapers[i], e); });
@@ -1897,7 +1897,7 @@ export function _cardActionRow(p, i, ctx) {
 }
 
 export function _cardCommentContainer(p, i) {
-  var v = new View('div').id('tweet-comments-' + i);
+  const v = new View('div').id('tweet-comments-' + i);
   v.styles({ display: _tweetCommentsOpen.has(p.link) ? 'block' : 'none' });
   return v;
 }

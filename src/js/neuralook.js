@@ -911,7 +911,7 @@ export let _nlTrainPill = null;
 export function _nlShowTrainPill() {
   if (window.location.hash === '#neuralook') return;
   _nlDismissTrainPill();
-  var pillView = new View('div').attr('id', 'nl-train-pill');
+  const pillView = new View('div').attr('id', 'nl-train-pill');
   pillView.styles({
     position: 'fixed', right: '20px', zIndex: '99999',
     background: 'var(--nr-bg-surface, #23232a)', border: '1px solid var(--nr-border-default, #2a2a2f)',
@@ -921,21 +921,21 @@ export function _nlShowTrainPill() {
     opacity: '0',
     cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px',
   });
-  var pill = pillView.el;
+  const pill = pillView.el;
   if (window.Aether && Aether.materials) Aether.materials.apply(pill, 'regular');
   else { pill.style.backdropFilter = 'blur(12px)'; pill.style.WebkitBackdropFilter = 'blur(12px)'; }
 
-  var spinnerSvg = '<svg width="18" height="18" viewBox="0 0 18 18" style="animation:nl-pill-spin 1s linear infinite"><circle cx="9" cy="9" r="7" fill="none" stroke="var(--nr-accent,#b4451a)" stroke-width="2" stroke-dasharray="30 14" stroke-linecap="round"/></svg>';
-  var iconDiv = new View('div').attr('id', 'nl-pill-icon').cssText('width:18px;height:18px;flex-shrink:0;');
+  const spinnerSvg = '<svg width="18" height="18" viewBox="0 0 18 18" style="animation:nl-pill-spin 1s linear infinite"><circle cx="9" cy="9" r="7" fill="none" stroke="var(--nr-accent,#b4451a)" stroke-width="2" stroke-dasharray="30 14" stroke-linecap="round"/></svg>';
+  const iconDiv = new View('div').attr('id', 'nl-pill-icon').cssText('width:18px;height:18px;flex-shrink:0;');
   iconDiv.el.appendChild(RawHTML(spinnerSvg).el);
 
-  var textDiv = VStack(
+  const textDiv = VStack(
     Text('Training ' + _nlModelLabel()).attr('id', 'nl-pill-title').cssText('font-weight:600;font-size:0.8rem;'),
     Text('Starting... \u00b7 v' + (_nlModelVersion + 1)).attr('id', 'nl-pill-detail').cssText('font-size:0.7rem;color:var(--text-secondary,#888);')
   ).attr('id', 'nl-pill-text').cssText('flex:1;line-height:1.4;');
 
-  var stopSvg = '<svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="#f87171"/></svg>';
-  var stopBtn = new View('div').attr('id', 'nl-pill-stop');
+  const stopSvg = '<svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="#f87171"/></svg>';
+  const stopBtn = new View('div').attr('id', 'nl-pill-stop');
   stopBtn.cssText('width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;border:1px solid var(--border,#333);transition:border-color 0.2s;');
   stopBtn.el.appendChild(RawHTML(stopSvg).el);
   stopBtn.on('click', function(ev) { ev.stopPropagation(); _nlStopTraining(); });
@@ -1120,7 +1120,7 @@ export function _nlToggleCamera() {
       const vid = box.querySelector('video');
       if (vid) vid.remove();
       if (!document.getElementById('nl-camera-placeholder')) {
-        var ph = Text('Camera off').className('text-dimmer text-[0.75rem]').attr('id', 'nl-camera-placeholder');
+        const ph = Text('Camera off').className('text-dimmer text-[0.75rem]').attr('id', 'nl-camera-placeholder');
         box.appendChild(ph.el);
       }
     }
@@ -1232,27 +1232,27 @@ export function _nlShowCalibrationOverlay() {
   if (existing) existing.remove();
 
   // Blank background so calibration dots are clearly visible
-  var overlayView = new View('div').attr('id', 'nl-calibration-overlay');
+  const overlayView = new View('div').attr('id', 'nl-calibration-overlay');
   overlayView.styles({
     position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
     background: 'var(--nr-bg-body, #0a0a0a)', zIndex: '99999',
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
   });
-  var overlay = overlayView.el;
+  const overlay = overlayView.el;
 
-  var instrView = new View('div').attr('id', 'nl-cal-instr');
+  const instrView = new View('div').attr('id', 'nl-cal-instr');
   instrView.cssText('position:absolute;top:30px;left:50%;transform:translateX(-50%);font-size:0.9rem;text-align:center;z-index:100000;pointer-events:none;background:rgba(0,0,0,0.7);color:#fff;padding:8px 16px;border-radius:8px;');
   overlay.appendChild(instrView.el);
 
   // Camera preview in bottom-right corner
   if (_nlVideoEl && _nlVideoEl.srcObject) {
-    var camBoxView = new View('div');
+    const camBoxView = new View('div');
     camBoxView.styles({
       position: 'absolute', bottom: '50px', right: '24px', width: '180px', height: '135px',
       borderRadius: '10px', overflow: 'hidden', zIndex: '100000',
       border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 4px 16px rgba(0,0,0,0.5)'
     });
-    var camBox = camBoxView.el;
+    const camBox = camBoxView.el;
     const camVid = document.createElement('video');
     camVid.srcObject = _nlVideoEl.srcObject;
     camVid.autoplay = true;
@@ -1264,12 +1264,12 @@ export function _nlShowCalibrationOverlay() {
   }
 
   // Progress bar
-  var progBarView = new View('div').attr('id', 'nl-cal-progbar');
+  const progBarView = new View('div').attr('id', 'nl-cal-progbar');
   progBarView.styles({
     position: 'absolute', bottom: '24px', left: '10%', width: '80%', height: '4px',
     background: 'rgba(255,255,255,0.2)', borderRadius: '2px', zIndex: '100000'
   });
-  var progFillView = new View('div').attr('id', 'nl-cal-progfill');
+  const progFillView = new View('div').attr('id', 'nl-cal-progfill');
   progFillView.styles({
     width: '0%', height: '100%', background: 'var(--nr-accent, #b4451a)',
     borderRadius: '2px', transition: 'width 0.3s'
@@ -1307,7 +1307,7 @@ export function _nlShowNextCalibrationDot() {
   if (progFill) progFill.style.width = Math.round((_nlCurrentPoint / _NL_CAL_POSITIONS.length) * 100) + '%';
 
   // Dot with outline for visibility on any background
-  var dotView = new View('div').attr('id', 'nl-cal-dot');
+  const dotView = new View('div').attr('id', 'nl-cal-dot');
   dotView.styles({
     position: 'absolute', left: xPct + '%', top: yPct + '%',
     width: '20px', height: '20px', borderRadius: '50%',
@@ -1317,10 +1317,10 @@ export function _nlShowNextCalibrationDot() {
     transform: 'translate(-50%, -50%)',
     zIndex: '100001', opacity: '0', transition: 'opacity 0.3s'
   });
-  var dot = dotView.el;
+  const dot = dotView.el;
 
   // Shrinking ring
-  var ringView = new View('div').attr('id', 'nl-cal-ring');
+  const ringView = new View('div').attr('id', 'nl-cal-ring');
   Object.assign(ringView.el.style, {
     position: 'absolute', left: xPct + '%', top: yPct + '%',
     width: '44px', height: '44px', borderRadius: '50%',
@@ -1330,7 +1330,7 @@ export function _nlShowNextCalibrationDot() {
     transition: `opacity 0.3s, transform ${_NL_STARE_MS}ms linear`
   });
 
-  var ring = ringView.el;
+  const ring = ringView.el;
   overlay.appendChild(ring);
   overlay.appendChild(dot);
 
@@ -1590,15 +1590,15 @@ export function _nlFetchImplicitCount() {
 // ── Click Feedback Indicators ──
 
 export function _nlShowClickFeedback(x, y, accepted, detail) {
-  var color = accepted ? '#4ade80' : '#f87171';
-  var elView = new View('div');
+  const color = accepted ? '#4ade80' : '#f87171';
+  const elView = new View('div');
   elView.styles({
     position: 'fixed', left: (x + 12) + 'px', top: (y - 8) + 'px', zIndex: '99999',
     pointerEvents: 'none', fontSize: '0.65rem', fontFamily: 'inherit', fontWeight: '600',
     color: color, whiteSpace: 'nowrap', lineHeight: '1',
     opacity: '0'
   });
-  var el = elView.el;
+  const el = elView.el;
   el.textContent = accepted ? '+' + detail : detail;
   document.body.appendChild(el);
   Motion.fadeOut(el, { y: -16, duration: 800, spring: 'gentle', remove: true });
@@ -1607,7 +1607,7 @@ export function _nlShowClickFeedback(x, y, accepted, detail) {
 export function _nlShowModelUpdatedPill(version, valErrorPx) {
   const existing = document.getElementById('nl-model-updated-pill');
   if (existing) { pillStackRemove('nl-model-updated-pill'); existing.remove(); }
-  var pillView = new View('div').attr('id', 'nl-model-updated-pill');
+  const pillView = new View('div').attr('id', 'nl-model-updated-pill');
   pillView.styles({
     position: 'fixed', right: '20px', zIndex: '99999',
     background: 'var(--nr-bg-surface, #23232a)', border: '1px solid #60a5fa',
@@ -1618,13 +1618,13 @@ export function _nlShowModelUpdatedPill(version, valErrorPx) {
     display: 'flex', alignItems: 'center', gap: '10px',
     cursor: 'pointer'
   });
-  var pill = pillView.el;
+  const pill = pillView.el;
   if (window.Aether && Aether.materials) Aether.materials.apply(pill, 'regular');
   else { pill.style.backdropFilter = 'blur(12px)'; pill.style.WebkitBackdropFilter = 'blur(12px)'; }
 
-  var updatedSvg = '<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="#60a5fa"/><path d="M9 5v4l3 2" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const updatedSvg = '<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="#60a5fa"/><path d="M9 5v4l3 2" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   pill.appendChild(RawHTML(updatedSvg).el);
-  var textDiv = VStack(
+  const textDiv = VStack(
     Text('Tracking model updated to v' + version).cssText('font-weight:600;font-size:0.8rem;'),
     Text('Val error: ' + valErrorPx + 'px').cssText('font-size:0.7rem;color:var(--text-secondary,#888);')
   ).cssText('line-height:1.4;');
@@ -1837,10 +1837,10 @@ export function _nlRefineModel() {
 
 export function _nlCreateDot() {
   _nlRemoveDot();
-  var savedColor = document.getElementById('nl-dot-color')?.value || '#ef4444';
-  var savedSize = document.getElementById('nl-dot-size')?.value || '20';
-  var sz = parseInt(savedSize, 10);
-  var dotView = new View('div').attr('id', 'nl-gaze-dot');
+  const savedColor = document.getElementById('nl-dot-color')?.value || '#ef4444';
+  const savedSize = document.getElementById('nl-dot-size')?.value || '20';
+  const sz = parseInt(savedSize, 10);
+  const dotView = new View('div').attr('id', 'nl-gaze-dot');
   dotView.styles({
     position: 'fixed', width: sz + 'px', height: sz + 'px', borderRadius: '50%',
     background: savedColor, opacity: '0.7', pointerEvents: 'none', zIndex: '99998',

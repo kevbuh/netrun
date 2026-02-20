@@ -58,7 +58,7 @@ export function _browseUpdateTokenCount(count) {
     el.classList.remove('active');
     el.textContent = '';
   } else {
-    var label = count >= 1000 ? Math.round(count / 1000) + 'k' : String(count);
+    const label = count >= 1000 ? Math.round(count / 1000) + 'k' : String(count);
     el.textContent = label + ' tok';
     el.classList.add('active');
   }

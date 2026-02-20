@@ -45,19 +45,19 @@ export function _renderNtpFileChips() {
   if (!container) return;
   if (!_ntpUploadedFiles.length) { container.innerHTML = ''; return; }
 
-  var fileSvg = '<svg class="ntp-file-card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>';
+  const fileSvg = '<svg class="ntp-file-card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>';
 
-  var chips = _ntpUploadedFiles.map(function(f, i) {
-    var dotIdx = f.name.lastIndexOf('.');
-    var ext = dotIdx >= 0 ? f.name.substring(dotIdx + 1).toUpperCase() : 'FILE';
-    var baseName = dotIdx >= 0 ? f.name.substring(0, dotIdx) : f.name;
+  const chips = _ntpUploadedFiles.map(function(f, i) {
+    const dotIdx = f.name.lastIndexOf('.');
+    const ext = dotIdx >= 0 ? f.name.substring(dotIdx + 1).toUpperCase() : 'FILE';
+    const baseName = dotIdx >= 0 ? f.name.substring(0, dotIdx) : f.name;
 
-    var icon = RawHTML(fileSvg);
-    var info = new View('div').className('ntp-file-card-info')._appendChildren([
+    const icon = RawHTML(fileSvg);
+    const info = new View('div').className('ntp-file-card-info')._appendChildren([
       new View('span').className('ntp-file-card-name')._bindText(escapeHtml(baseName)),
       new View('span').className('ntp-file-card-type')._bindText(escapeHtml(ext))
     ]);
-    var removeBtn = new View('span').className('ntp-file-card-remove')._bindText('\u00d7')
+    const removeBtn = new View('span').className('ntp-file-card-remove')._bindText('\u00d7')
       .onTap(function(e) { e.stopPropagation(); removeNtpFile(i); });
 
     return new View('button').className('ntp-file-card').attr('title', escapeHtml(f.name))

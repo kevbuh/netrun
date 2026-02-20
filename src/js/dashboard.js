@@ -47,7 +47,7 @@ export function _dashTrending(limit) {
 }
 
 export function _dashBuildStatsRow(papersRead, savedCount, projectCount) {
-  var stats = [
+  const stats = [
     { value: papersRead, label: 'Papers Read', sub: 'in feed', color: '#60a5fa' },
     { value: savedCount, label: 'Saved', sub: 'reading list', color: '#34d399' },
     { value: projectCount, label: 'Projects', sub: 'active', color: '#a78bfa' },
@@ -62,12 +62,12 @@ export function _dashBuildStatsRow(papersRead, savedCount, projectCount) {
 }
 
 export function _dashBuildQuickActions() {
-  var actions = [
+  const actions = [
     { label: 'Search', fn: function() { openSearch(); }, iconName: 'search' },
     { label: 'Calendar', fn: function() { wmOpen('calendar'); }, iconName: 'calendar' },
   ];
   return Grid(actions.map(function(a) {
-    var btn = Button(null).ghost().onTap(a.fn);
+    const btn = Button(null).ghost().onTap(a.fn);
     btn.el.innerHTML = icon(a.iconName, {size: 16, class: 'w-4 h-4 shrink-0'}) +
                        '<span>' + a.label + '</span>';
     return btn;
@@ -77,10 +77,10 @@ export function _dashBuildQuickActions() {
 export function _dashBuildTrendingCard(trending) {
   if (!trending.length) return Text('No trending posts yet. Open your feed to get started.').className('text-[0.8rem] text-dimmer px-1');
   return ForEach(trending, function(p, i) {
-    var chip = typeof getSourceChip === 'function' ? getSourceChip(p.source, p.arxivId) : '';
-    var engagement = (p.points || 0) + (p.citations || 0);
-    var engLabel = engagement > 0 ? '<span class="text-[0.68rem] text-dimmest shrink-0">' + engagement + '</span>' : '';
-    var row = HStack(
+    const chip = typeof getSourceChip === 'function' ? getSourceChip(p.source, p.arxivId) : '';
+    const engagement = (p.points || 0) + (p.citations || 0);
+    const engLabel = engagement > 0 ? '<span class="text-[0.68rem] text-dimmest shrink-0">' + engagement + '</span>' : '';
+    const row = HStack(
       Text(String(i + 1)).className('bento-trending-rank'),
       VStack(
         Text(p.title).className('text-[0.8rem] text-primary truncate'),
@@ -205,7 +205,7 @@ export async function renderDashboard() {
   if (_todaySearchCount) _chips.push(_todaySearchCount + ' search' + (_todaySearchCount > 1 ? 'es' : ''));
 
   // Today's events banner view
-  var _eventsBanner = null;
+  let _eventsBanner = null;
   if (_todayEvents.length) {
     _eventsBanner = VStack(
       HStack(
@@ -213,11 +213,11 @@ export async function renderDashboard() {
         Text("Today's Events").className('text-[0.78rem] font-semibold').styles({color:'#60a5fa'})
       ).spacing('8px').className('mb-2'),
       VStack(_todayEvents.map(function(ev) {
-        var evColor = ev.color || '#60a5fa';
-        var dot = new View('span');
+        const evColor = ev.color || '#60a5fa';
+        const dot = new View('span');
         dot.className('w-2 h-2 rounded-full shrink-0');
         dot.styles({ background: evColor });
-        var descView = ev.description ? Text(ev.description).className('text-[0.72rem] text-dimmer truncate') : null;
+        const descView = ev.description ? Text(ev.description).className('text-[0.72rem] text-dimmer truncate') : null;
         return HStack(
           dot,
           Text(ev.title || 'Calendar event').className('text-[0.85rem] text-primary font-medium'),
@@ -245,22 +245,22 @@ export async function renderDashboard() {
 
   // Summary element placeholder
   function _buildSummaryEl(cls) {
-    var el = new View('div');
+    const el = new View('div');
     el.id('dash-day-summary').className('text-[0.8rem] text-dim leading-relaxed ' + (cls || 'mb-3'));
     el.styles({ minHeight: '1.2em' });
-    var inner = Text('Summarizing your day...').className('text-dimmest text-[0.75rem]');
+    const inner = Text('Summarizing your day...').className('text-dimmest text-[0.75rem]');
     el.el.appendChild(inner.build());
     return el;
   }
 
-  var overviewView;
+  let overviewView;
   if (_timelineItems.length || _todayEvents.length) {
-    var maxItems = 8;
-    var shown = _timelineItems.slice(0, maxItems);
-    var remaining = _timelineItems.length - maxItems;
+    const maxItems = 8;
+    const shown = _timelineItems.slice(0, maxItems);
+    const remaining = _timelineItems.length - maxItems;
 
-    var timelineRows = shown.map(function(a) {
-      var row = HStack(
+    const timelineRows = shown.map(function(a) {
+      const row = HStack(
         RawHTML('<span class="shrink-0">' + (_ovIcons[a.icon] || '') + '</span>'),
         Text(_fmtTime(a.time)).className('text-[0.7rem] text-dimmest w-12 shrink-0'),
         Text(_ovLabels[a.type] || a.type).className('text-[0.65rem] text-dimmer w-16 shrink-0'),
@@ -271,8 +271,8 @@ export async function renderDashboard() {
       }
       return row;
     });
-    var remainderView = remaining > 0 ? Text('+ ' + remaining + ' more').className('text-[0.72rem] text-dimmest px-1.5 mt-1') : null;
-    var timelineView = shown.length ? VStack(timelineRows.concat(remainderView ? [remainderView] : [])).spacing('4px') : null;
+    const remainderView = remaining > 0 ? Text('+ ' + remaining + ' more').className('text-[0.72rem] text-dimmest px-1.5 mt-1') : null;
+    const timelineView = shown.length ? VStack(timelineRows.concat(remainderView ? [remainderView] : [])).spacing('4px') : null;
 
     overviewView = VStack(
       HStack(
@@ -304,19 +304,19 @@ export async function renderDashboard() {
   const _inboxFeedNotifs = typeof _getFeedNotifications === 'function' ? _getFeedNotifications() : [];
   const _inboxMsgs = inboxMessages || [];
   const _inboxTotal = _inboxFeedNotifs.length + _inboxMsgs.length;
-  var inboxView = null;
+  let inboxView = null;
   if (_inboxTotal > 0) {
-    var inboxItems = [];
+    const inboxItems = [];
     _inboxFeedNotifs.slice().sort(function(a, b) { return (b.seenAt || 0) - (a.seenAt || 0); }).slice(0, 5).forEach(function(n) {
-      var chip = typeof getSourceChip === 'function' ? getSourceChip(n.source) : '';
-      var dot = new View('span');
+      const chip = typeof getSourceChip === 'function' ? getSourceChip(n.source) : '';
+      const dot = new View('span');
       dot.className('w-1.5 h-1.5 rounded-full bg-accent shrink-0');
-      var dismissBtn = new View('button');
+      const dismissBtn = new View('button');
       dismissBtn.className('text-dimmer hover:text-primary text-sm bg-transparent border-none cursor-pointer px-0.5 shrink-0');
       dismissBtn.el.textContent = '\u00d7';
       dismissBtn.el.title = 'Dismiss';
       dismissBtn.onTap(function(e) { e.stopPropagation(); dismissFeedNotification(n.link, dismissBtn.el); renderDashboard(); });
-      var row = HStack(
+      const row = HStack(
         dot,
         chip ? RawHTML(chip) : null,
         Text(n.title).className('text-[0.78rem] text-primary truncate flex-1'),
@@ -326,16 +326,16 @@ export async function renderDashboard() {
       inboxItems.push(row);
     });
     _inboxMsgs.slice(0, 3).forEach(function(m) {
-      var dot = new View('span');
+      const dot = new View('span');
       dot.className('w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0');
-      var content = '<span class="font-medium">' + escapeHtml(m.from_username || 'Unknown') + '</span>: ' + escapeHtml((m.content || '').slice(0, 60));
+      const content = '<span class="font-medium">' + escapeHtml(m.from_username || 'Unknown') + '</span>: ' + escapeHtml((m.content || '').slice(0, 60));
       inboxItems.push(HStack(
         dot,
         RawHTML('<span class="text-[0.78rem] text-primary truncate flex-1">' + content + '</span>')
       ).className('flex items-center gap-2 px-1.5 py-1 rounded-md hover:bg-hover transition-colors cursor-pointer')
        .onTap(function() { window.location.hash = 'inbox'; }));
     });
-    var inboxList = VStack(inboxItems).className('flex flex-col gap-0.5').styles({maxHeight:'200px', overflowY:'auto'});
+    const inboxList = VStack(inboxItems).className('flex flex-col gap-0.5').styles({maxHeight:'200px', overflowY:'auto'});
     inboxView = VStack(
       HStack(
         Text('Inbox').className('text-[0.82rem] font-semibold text-primary'),
@@ -545,54 +545,54 @@ export async function renderDashboard() {
     window._heatmapPopoverKey = null;
     window._heatmapPopoverAddForm = false;
     window._renderHeatmapPopover = function(key) {
-      var items = window._heatmapItems[key] || [];
-      var parts = key.split('-');
-      var dateLabel = new Date(+parts[0], +parts[1]-1, +parts[2]).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-      var typeIcons = { event: '\u{1F4C5}', note: '\u{1F4DD}', saved: '\u{1F516}' };
-      var typeLabels = { event: 'Event', note: 'Note', saved: 'Saved' };
-      var presetColors = ['#b4451a','#3b82f6','#22c55e','#a855f7','#eab308','#ef4444'];
-      var colorLabels = ['Accent','Blue','Green','Purple','Yellow','Red'];
+      const items = window._heatmapItems[key] || [];
+      const parts = key.split('-');
+      const dateLabel = new Date(+parts[0], +parts[1]-1, +parts[2]).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      const typeIcons = { event: '\u{1F4C5}', note: '\u{1F4DD}', saved: '\u{1F516}' };
+      const typeLabels = { event: 'Event', note: 'Note', saved: 'Saved' };
+      const presetColors = ['#b4451a','#3b82f6','#22c55e','#a855f7','#eab308','#ef4444'];
+      const colorLabels = ['Accent','Blue','Green','Purple','Yellow','Red'];
 
       // Header
-      var addBtn = new View('button');
+      const addBtn = new View('button');
       addBtn.el.textContent = '+';
       addBtn.el.title = 'Add event';
       addBtn.cssText('background:none;border:none;color:var(--nr-accent);cursor:pointer;font-size:13px;font-weight:600;padding:0 2px');
       addBtn.onTap(function() { window._heatmapPopoverAddForm = !window._heatmapPopoverAddForm; window._renderHeatmapPopover(key); });
-      var header = HStack(
+      const header = HStack(
         Text(dateLabel).styles({color:'var(--nr-text-quaternary)', fontSize:'11px'}),
         Spacer(), addBtn
       ).styles({padding:'4px 12px 6px', borderBottom:'1px solid var(--nr-border-default)', marginBottom:'2px'});
 
-      var children = [header];
+      const children = [header];
 
       // Add form
       if (window._heatmapPopoverAddForm) {
-        var titleInput = new View('input');
+        const titleInput = new View('input');
         titleInput.el.id = 'hm-ev-title';
         titleInput.el.type = 'text';
         titleInput.el.placeholder = 'Event title\u2026';
         titleInput.cssText('width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:12px;margin-bottom:6px;box-sizing:border-box');
 
-        var descTa = new View('textarea');
+        const descTa = new View('textarea');
         descTa.el.id = 'hm-ev-desc';
         descTa.el.placeholder = 'Description (optional)';
         descTa.el.rows = 2;
         descTa.cssText('width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:12px;margin-bottom:6px;resize:none;box-sizing:border-box');
 
-        var colorLabel = new View('span');
+        const colorLabel = new View('span');
         colorLabel.cssText('font-size:11px;color:var(--nr-text-quaternary)');
         colorLabel.el.textContent = 'Color:';
 
         var colorSwatches = presetColors.map(function(c, i) {
-          var radioInput = new View('input');
+          const radioInput = new View('input');
           radioInput.el.type = 'radio';
           radioInput.el.name = 'hm-ev-color';
           radioInput.el.value = c;
           radioInput.el.checked = (i === 0);
           radioInput.cssText('display:none');
 
-          var swatch = new View('span');
+          const swatch = new View('span');
           swatch.cssText('width:18px;height:18px;border-radius:50%;display:inline-block;border:2px solid transparent;background:' + c);
           swatch.el.title = colorLabels[i];
           (function(ri, sw) {
@@ -603,34 +603,34 @@ export async function renderDashboard() {
             });
           })(radioInput, swatch);
 
-          var lbl = new View('label');
+          const lbl = new View('label');
           lbl.cssText('cursor:pointer');
           lbl.el.appendChild(radioInput.el);
           lbl.el.appendChild(swatch.el);
           return [radioInput, swatch, lbl];
         });
 
-        var colorRow = new View('div');
+        const colorRow = new View('div');
         colorRow.cssText('display:flex;align-items:center;gap:6px;margin-bottom:6px');
         colorRow.el.appendChild(colorLabel.el);
         colorSwatches.forEach(function(s) { colorRow.el.appendChild(s[2].el); });
 
-        var saveEvtBtn = new View('button');
+        const saveEvtBtn = new View('button');
         saveEvtBtn.el.textContent = 'Save';
         saveEvtBtn.cssText('padding:3px 10px;border-radius:6px;background:var(--nr-accent);color:white;border:none;font-size:12px;cursor:pointer');
         (function(k) { saveEvtBtn.onTap(function() { _heatmapAddEvent(k); }); })(key);
 
-        var cancelEvtBtn = new View('button');
+        const cancelEvtBtn = new View('button');
         cancelEvtBtn.el.textContent = 'Cancel';
         cancelEvtBtn.cssText('padding:3px 10px;border-radius:6px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);color:var(--nr-text-primary);font-size:12px;cursor:pointer');
         (function(k) { cancelEvtBtn.onTap(function() { window._heatmapPopoverAddForm = false; window._renderHeatmapPopover(k); }); })(key);
 
-        var btnRow = new View('div');
+        const btnRow = new View('div');
         btnRow.cssText('display:flex;gap:6px');
         btnRow.el.appendChild(saveEvtBtn.el);
         btnRow.el.appendChild(cancelEvtBtn.el);
 
-        var formView = new View('div');
+        const formView = new View('div');
         formView.cssText('padding:6px 12px 8px');
         formView.el.appendChild(titleInput.el);
         formView.el.appendChild(descTa.el);
@@ -644,15 +644,15 @@ export async function renderDashboard() {
         children.push(Text('No activity').styles({padding:'6px 12px', color:'var(--nr-text-quaternary)'}));
       } else {
         items.forEach(function(item) {
-          var ico = typeIcons[item.type] || '';
-          var colorDot = item.type === 'event' && item.color
+          const ico = typeIcons[item.type] || '';
+          const colorDot = item.type === 'event' && item.color
             ? RawHTML('<span style="width:8px;height:8px;border-radius:50%;background:' + item.color + ';flex-shrink:0"></span>')
             : RawHTML('<span style="flex-shrink:0">' + ico + '</span>');
-          var titleText = Text(item.title).truncate().flex(1);
-          var tagText = Text(typeLabels[item.type] || '').styles({fontSize:'9px', color:'var(--nr-text-quaternary)', marginLeft:'4px'});
-          var rowChildren = [colorDot, titleText, tagText];
+          const titleText = Text(item.title).truncate().flex(1);
+          const tagText = Text(typeLabels[item.type] || '').styles({fontSize:'9px', color:'var(--nr-text-quaternary)', marginLeft:'4px'});
+          const rowChildren = [colorDot, titleText, tagText];
           if (item.type === 'event' && item.id) {
-            var delBtn = new View('button');
+            const delBtn = new View('button');
             delBtn.el.innerHTML = '&times;';
             delBtn.el.title = 'Delete event';
             delBtn.cssText('background:none;border:none;color:var(--nr-text-quaternary);cursor:pointer;padding:0 2px;font-size:14px;line-height:1;flex-shrink:0');
@@ -661,7 +661,7 @@ export async function renderDashboard() {
             })(item.id);
             rowChildren.push(delBtn);
           }
-          var row = HStack.apply(null, rowChildren).spacing(1)
+          const row = HStack.apply(null, rowChildren).spacing(1)
             .styles({padding:'4px 12px', color:'var(--nr-text-primary)'}).className('hover:bg-hover');
           if (item.type === 'saved' && item.link) {
             row.cursor();
@@ -673,7 +673,7 @@ export async function renderDashboard() {
         });
       }
 
-      var view = VStack.apply(null, children);
+      const view = VStack.apply(null, children);
       pop.innerHTML = '';
       pop.appendChild(view.build());
     };
@@ -724,30 +724,30 @@ export async function renderDashboard() {
     const rp = entry.readProgress;
     const progressHtml = rp ? '<div style="height:2px;margin-top:2px;background:var(--nr-border-default);border-radius:1px;overflow:hidden"><div style="width:' + Math.round(rp * 100) + '%;height:100%;background:var(--nr-accent);border-radius:1px"></div></div>' : '';
 
-    var hostnameView = hostname ? Text(hostname).className('text-[0.7rem] text-dimmer truncate') : null;
-    var progressView = rp ? RawHTML(progressHtml) : null;
-    var contentCol = VStack(
+    const hostnameView = hostname ? Text(hostname).className('text-[0.7rem] text-dimmer truncate') : null;
+    const progressView = rp ? RawHTML(progressHtml) : null;
+    const contentCol = VStack(
       Text(p.title).className('text-[0.82rem] text-primary truncate'),
       hostnameView,
       progressView
     ).className('flex-1 min-w-0').onTap(function(e) { openSavedPaper(p.link, e); });
 
-    var ratingHtml = getPaperRating(p.link) > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
-    var cached = isPostCached(p.link);
-    var offlineBtn = RawHTML('<button class="dash-offline shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none' + (cached ? ' cached' : '') + '" title="' + (cached ? 'Saved offline' : 'Save offline') + '">' + (cached ? _offlineCachedIcon() : _offlineDownloadIcon()) + '</button>');
+    const ratingHtml = getPaperRating(p.link) > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
+    const cached = isPostCached(p.link);
+    const offlineBtn = RawHTML('<button class="dash-offline shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none' + (cached ? ' cached' : '') + '" title="' + (cached ? 'Saved offline' : 'Save offline') + '">' + (cached ? _offlineCachedIcon() : _offlineDownloadIcon()) + '</button>');
     offlineBtn.el.firstChild.addEventListener('click', function(e) {
       e.stopPropagation();
       if (!isPostCached(p.link)) cachePostOffline(p.link, p, offlineBtn.el.firstChild);
     });
 
-    var delBtn = new View('button');
+    const delBtn = new View('button');
     delBtn.className('dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none');
     delBtn.styles({ color: 'var(--nr-text-quaternary)', fontSize: '1rem' });
     delBtn.el.textContent = '\u00d7';
     delBtn.el.title = 'Remove';
     delBtn.onTap(function() { dashRemoveSaved(p.link); });
 
-    var row = HStack(
+    const row = HStack(
       RawHTML(faviconHtml),
       contentCol,
       ratingHtml ? RawHTML('<span class="shrink-0">' + ratingHtml + '</span>') : null,
@@ -757,12 +757,12 @@ export async function renderDashboard() {
 
     return row;
   };
-  var readingView;
+  let readingView;
   if (displayedSaved.length) {
-    var savedRows = displayedSaved.map(_renderSavedRow).filter(Boolean);
-    var readingContainer = VStack(savedRows);
+    const savedRows = displayedSaved.map(_renderSavedRow).filter(Boolean);
+    const readingContainer = VStack(savedRows);
     if (hasMoreSaved) {
-      var viewAllBtn = Button('View all ' + savedEntries.length + ' saved posts').ghost()
+      const viewAllBtn = Button('View all ' + savedEntries.length + ' saved posts').ghost()
         .className('text-[0.78rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer mt-2 px-2')
         .onTap(function() { openAllSaved(); });
       readingContainer.el.appendChild(viewAllBtn.build());
@@ -781,7 +781,7 @@ export async function renderDashboard() {
   const _pJoinDate = profile.created ? new Date(profile.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long' }) : '';
 
   // Background banner
-  var bgBanner = new View('div');
+  const bgBanner = new View('div');
   bgBanner.className('relative rounded-xl overflow-hidden mb-6 ' + (profile.profile_bg ? '' : 'nr-living-gradient'));
   bgBanner.styles({
     minHeight: '120px',
@@ -789,10 +789,10 @@ export async function renderDashboard() {
       ? "url('" + escapeAttr(profile.profile_bg) + "') center/cover no-repeat"
       : 'linear-gradient(135deg, ' + _pAccent + '33, ' + _pAccent + '11)'
   });
-  var bgGrad = new View('div');
+  const bgGrad = new View('div');
   bgGrad.styles({ position: 'absolute', bottom: '0', left: '0', right: '0', height: '60px', background: 'linear-gradient(to top,var(--nr-bg-body),transparent)' });
   bgBanner.el.appendChild(bgGrad.build());
-  var bgBtn = new View('button');
+  const bgBtn = new View('button');
   bgBtn.className('absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center bg-black/40 text-white/70 hover:text-white border-none cursor-pointer transition-colors');
   bgBtn.el.title = 'Change background';
   bgBtn.el.innerHTML = icon('camera', {class: 'w-3.5 h-3.5'});
@@ -800,23 +800,23 @@ export async function renderDashboard() {
   bgBanner.el.appendChild(bgBtn.build());
 
   // Avatar
-  var avatarHtml = profile.picture
+  const avatarHtml = profile.picture
     ? '<img src="' + escapeAttr(profile.picture) + '" class="w-16 h-16 rounded-full border-[3px]" style="border-color:var(--nr-bg-body)" referrerpolicy="no-referrer" />'
     : '<div class="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold border-[3px]" style="border-color:var(--nr-bg-body);background:' + _pAccent + '33;color:' + _pAccent + '">' + escapeHtml((profile.username || (_authUserInfo && _authUserInfo.username) || '?')[0].toUpperCase()) + '</div>';
-  var avatarGroup = RawHTML('<div class="relative group">' + avatarHtml + '<button class="absolute inset-0 w-full h-full rounded-full bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border-none" title="Change picture">' + icon('camera', {size: 20, class: 'w-5 h-5 text-white'}) + '</button></div>');
+  const avatarGroup = RawHTML('<div class="relative group">' + avatarHtml + '<button class="absolute inset-0 w-full h-full rounded-full bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border-none" title="Change picture">' + icon('camera', {size: 20, class: 'w-5 h-5 text-white'}) + '</button></div>');
   avatarGroup.el.querySelector('button').addEventListener('click', function() { _uploadProfilePic(); });
 
   // Status display
-  var statusPetHtml = profile.status_emoji ? '<canvas id="dash-status-pet" width="18" height="18" class="shrink-0" style="image-rendering:pixelated"></canvas>' : '';
-  var statusTextHtml = profile.status_text
+  const statusPetHtml = profile.status_emoji ? '<canvas id="dash-status-pet" width="18" height="18" class="shrink-0" style="image-rendering:pixelated"></canvas>' : '';
+  const statusTextHtml = profile.status_text
     ? '<span class="text-dim text-[0.78rem]">' + escapeHtml(profile.status_text) + '</span>'
     : '<span class="text-dimmest text-[0.72rem] italic">Set status...</span>';
-  var statusDisplay = RawHTML('<span id="dash-status-display" class="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="Click to set status">' + statusPetHtml + statusTextHtml + '</span>');
+  const statusDisplay = RawHTML('<span id="dash-status-display" class="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity" title="Click to set status">' + statusPetHtml + statusTextHtml + '</span>');
   statusDisplay.el.firstChild.addEventListener('click', function() { _openStatusPicker(); });
 
-  var joinDateView = _pJoinDate ? Text('Joined ' + _pJoinDate).className('text-dimmer text-[0.78rem] mt-0.5') : null;
+  const joinDateView = _pJoinDate ? Text('Joined ' + _pJoinDate).className('text-dimmer text-[0.78rem] mt-0.5') : null;
 
-  var profileInfoCol = VStack(
+  const profileInfoCol = VStack(
     HStack(
       Text(profile.username || (_authUserInfo && _authUserInfo.username) || '').className('text-[1.3rem] font-semibold text-white_'),
       RawHTML('<div class="w-2.5 h-2.5 rounded-full" style="background:#22c55e;box-shadow:0 0 4px #22c55e80" title="Online"></div>')
@@ -825,16 +825,16 @@ export async function renderDashboard() {
     joinDateView
   );
 
-  var settingsBtn = RawHTML('<button class="w-8 h-8 rounded-lg flex items-center justify-center bg-transparent border border-border-card text-dim hover:text-primary hover:border-accent/40 cursor-pointer transition-colors" title="Settings">' + icon('settings', {size: 16, class: 'w-4 h-4'}) + '</button>');
+  const settingsBtn = RawHTML('<button class="w-8 h-8 rounded-lg flex items-center justify-center bg-transparent border border-border-card text-dim hover:text-primary hover:border-accent/40 cursor-pointer transition-colors" title="Settings">' + icon('settings', {size: 16, class: 'w-4 h-4'}) + '</button>');
   settingsBtn.el.firstChild.addEventListener('click', function() { openSettings(); });
 
-  var profileRow = HStack(
+  const profileRow = HStack(
     avatarGroup,
     profileInfoCol,
     VStack(settingsBtn).className('ml-auto')
   ).className('flex items-center gap-4 mb-6 -mt-12 relative z-10 px-2');
 
-  var statusPicker = new View('div');
+  const statusPicker = new View('div');
   statusPicker.id('dash-status-picker').className('hidden mb-4');
 
   // Profile counters
@@ -844,14 +844,14 @@ export async function renderDashboard() {
       Text('\u00a0' + label).className('text-dimmer')
     );
   }
-  var countersRow = HStack(
+  const countersRow = HStack(
     _counterView(profile.comment_count, 'comments'),
     _counterView(profile.repost_count, 'reposts'),
   ).className('flex gap-6 mb-6 text-[0.82rem]');
 
-  var greetingView = Text(getGreeting()).className('text-[0.95rem] font-medium text-dimmer mb-4');
+  const greetingView = Text(getGreeting()).className('text-[0.95rem] font-medium text-dimmer mb-4');
 
-  var profileHeaderView = VStack(bgBanner, profileRow, statusPicker, countersRow, greetingView);
+  const profileHeaderView = VStack(bgBanner, profileRow, statusPicker, countersRow, greetingView);
 
   // ── Bento layout data ──
   const _papersRead = _dashPapersReadRecent();
@@ -860,14 +860,14 @@ export async function renderDashboard() {
   const _trending = _dashTrending(5);
 
   // Comments card view
-  var _bentoCommentsView = myComments.length ? VStack(myComments.slice(0, 4).map(function(c) {
-    var timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
-    var preview = (c.content || '').length > 80 ? c.content.slice(0, 80) + '...' : c.content;
-    var link = new View('a');
+  const _bentoCommentsView = myComments.length ? VStack(myComments.slice(0, 4).map(function(c) {
+    const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
+    const preview = (c.content || '').length > 80 ? c.content.slice(0, 80) + '...' : c.content;
+    const link = new View('a');
     link.el.href = '#paper/' + encodeURIComponent(c.paperLink);
     link.className('block px-2 py-1.5 rounded-md hover:bg-hover transition-colors');
     link.styles({ textDecoration: 'none' });
-    var inner = VStack(
+    const inner = VStack(
       Text(preview).className('text-[0.75rem] text-primary leading-snug truncate'),
       Text(timeAgo).className('text-dimmest text-[0.65rem] mt-0.5')
     );
@@ -876,13 +876,13 @@ export async function renderDashboard() {
   })) : null;
 
   // Reposts card view
-  var _bentoRepostsView = myReposts.length ? VStack(myReposts.slice(0, 4).map(function(r) {
-    var timeAgo = typeof _relativeTime === 'function' ? _relativeTime(r.timestamp) : '';
-    var link = new View('a');
+  const _bentoRepostsView = myReposts.length ? VStack(myReposts.slice(0, 4).map(function(r) {
+    const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(r.timestamp) : '';
+    const link = new View('a');
     link.el.href = '#view/' + encodeURIComponent(r.paperLink);
     link.className('flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-hover transition-colors');
     link.styles({ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' });
-    var inner = HStack(
+    const inner = HStack(
       RawHTML(icon('repost', {size: 12, class: 'w-3 h-3 text-green-400 shrink-0'})),
       Text(r.paperTitle || r.paperLink).className('text-[0.75rem] text-primary truncate flex-1'),
       Text(timeAgo).className('text-[0.65rem] text-dimmest shrink-0')
@@ -896,7 +896,7 @@ export async function renderDashboard() {
 
   // Helper to wrap a view in a bento card
   function _bentoCard(view, cls) {
-    var card = new View('div');
+    const card = new View('div');
     card.className('nr-card ' + cls);
     card._appendChildren([view]);
     return card;
@@ -912,14 +912,14 @@ export async function renderDashboard() {
   }
 
   // ── Build bento grid ──
-  var bentoGrid = new View('div');
+  const bentoGrid = new View('div');
   bentoGrid.className('bento-grid');
 
   // Daily Overview (3x1)
   bentoGrid.el.appendChild(_bentoCard(overviewView, 'bento-3x1').build());
 
   // Quick Actions (1x1)
-  var qaCard = _bentoCard(_dashBuildQuickActions(), 'bento-1x1');
+  const qaCard = _bentoCard(_dashBuildQuickActions(), 'bento-1x1');
   qaCard.styles({ padding: '10px' });
   bentoGrid.el.appendChild(qaCard.build());
 
@@ -929,28 +929,28 @@ export async function renderDashboard() {
   }
 
   // Activity Heatmap (4x1)
-  var heatmapCard = new View('div');
+  const heatmapCard = new View('div');
   heatmapCard.className('nr-card bento-4x1');
-  var heatmapHeader = _cardHeader('Activity', Text(String(now.getFullYear())).className('text-[0.68rem] text-dimmest'));
+  const heatmapHeader = _cardHeader('Activity', Text(String(now.getFullYear())).className('text-[0.68rem] text-dimmest'));
   heatmapCard.el.appendChild(heatmapHeader.build());
-  var heatmapWrap = RawHTML(heatmapHtml);
+  const heatmapWrap = RawHTML(heatmapHtml);
   heatmapCard.el.appendChild(heatmapWrap.build());
-  var popoverView = new View('div').attr('id', 'heatmap-popover');
+  const popoverView = new View('div').attr('id', 'heatmap-popover');
   popoverView.cssText('display:none;position:fixed;z-index:10001;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;padding:8px 0;min-width:220px;max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px');
-  var popoverEl = popoverView.el;
+  const popoverEl = popoverView.el;
   heatmapCard.el.appendChild(popoverEl);
   bentoGrid.el.appendChild(heatmapCard.build());
 
   // Trending
-  var trendCard = _bentoCard(VStack(
+  const trendCard = _bentoCard(VStack(
     _cardHeader('Trending', null),
     _dashBuildTrendingCard(_trending)
   ), 'bento-4x1');
   bentoGrid.el.appendChild(trendCard.build());
 
   // Reading List (2x2)
-  var readingScroll = VStack(readingView).className('scrollbar-hide').styles({maxHeight:'320px', overflowY:'auto'});
-  var readingCard = _bentoCard(VStack(
+  const readingScroll = VStack(readingView).className('scrollbar-hide').styles({maxHeight:'320px', overflowY:'auto'});
+  const readingCard = _bentoCard(VStack(
     _cardHeader('Reading List', Text(String(savedEntries.length)).className('text-[0.68rem] text-dimmest')),
     readingScroll
   ), 'bento-2x2');
@@ -959,16 +959,16 @@ export async function renderDashboard() {
   // Bottom row: comments, reposts
   if (myComments.length || myReposts.length) {
     if (myComments.length) {
-      var commentsCls = !myReposts.length ? 'bento-4x1' : 'bento-2x1';
-      var commentsCard = _bentoCard(VStack(
+      const commentsCls = !myReposts.length ? 'bento-4x1' : 'bento-2x1';
+      const commentsCard = _bentoCard(VStack(
         _cardHeader('Recent Comments', Text(String(myComments.length)).className('text-[0.68rem] text-dimmest')),
         _bentoCommentsView
       ), commentsCls);
       bentoGrid.el.appendChild(commentsCard.build());
     }
     if (myReposts.length) {
-      var repostsCls = !myComments.length ? 'bento-4x1' : 'bento-2x1';
-      var repostsCard = _bentoCard(VStack(
+      const repostsCls = !myComments.length ? 'bento-4x1' : 'bento-2x1';
+      const repostsCard = _bentoCard(VStack(
         _cardHeader('Reposts', Text(String(myReposts.length)).className('text-[0.68rem] text-dimmest')),
         _bentoRepostsView
       ), repostsCls);
@@ -977,7 +977,7 @@ export async function renderDashboard() {
   }
 
   // ── Mount the full dashboard view ──
-  var dashView = VStack(profileHeaderView, _dashBuildStatsRow(_papersRead, _savedCount, _projectCount), bentoGrid);
+  const dashView = VStack(profileHeaderView, _dashBuildStatsRow(_papersRead, _savedCount, _projectCount), bentoGrid);
   AetherUI.mount(dashView, container);
 
   document.removeEventListener('mousedown', _closeDashSearch);
@@ -997,13 +997,13 @@ export async function renderDashboard() {
 
   // ── Snapshot stats into living context (hourly) ──
   if (typeof contextIngest === 'function') {
-    var _statsItems = [];
+    const _statsItems = [];
     if (_todayActivity.length) _statsItems.push(_todayActivity.length + ' activities');
     if (_unreadSavedCount) _statsItems.push(_unreadSavedCount + ' unread saved');
     // Fetch context file size and include in stats
     electronAPI.dbQuery('context-list').then(function(res) {
-      var mainFile = (res.files || []).find(function(f) { return f.file_id === 'main.md' || f.filePath === 'main.md'; });
-      var kb = mainFile ? (mainFile.char_count / 1024).toFixed(1) : '0';
+      const mainFile = (res.files || []).find(function(f) { return f.file_id === 'main.md' || f.filePath === 'main.md'; });
+      const kb = mainFile ? (mainFile.char_count / 1024).toFixed(1) : '0';
       _statsItems.push(kb + ' KB context');
       if (_statsItems.length) {
         contextIngest('dashboard', '## Stats', '- ' + _statsItems.join(', '),
@@ -1120,7 +1120,7 @@ export function _openStatusPicker() {
   picker.classList.remove('hidden');
 
   // None option
-  var noneOpt = new View('div');
+  const noneOpt = new View('div');
   noneOpt.className('w-9 h-9 rounded-lg border cursor-pointer flex items-center justify-center text-dimmer text-sm ' + (!currentEmoji ? 'border-accent bg-accent/10' : 'border-border-card hover:border-accent/40'));
   noneOpt.attr('data-pet', '');
   noneOpt.el.innerHTML = '&mdash;';
@@ -1128,8 +1128,8 @@ export function _openStatusPicker() {
   noneOpt.onTap(function() { _selectStatusPet(noneOpt.el); });
 
   // Pet options
-  var petOpts = petTypes.map(function(t) {
-    var opt = new View('div');
+  const petOpts = petTypes.map(function(t) {
+    const opt = new View('div');
     opt.className('w-9 h-9 rounded-lg border cursor-pointer flex items-center justify-center ' + (currentEmoji === t ? 'border-accent bg-accent/10' : 'border-border-card hover:border-accent/40'));
     opt.attr('data-pet', t);
     opt.el.title = t;
@@ -1138,21 +1138,21 @@ export function _openStatusPicker() {
     return opt;
   });
 
-  var petGrid = HStack([noneOpt].concat(petOpts)).spacing('8px').id('status-pet-grid').className('mb-3');
+  const petGrid = HStack([noneOpt].concat(petOpts)).spacing('8px').id('status-pet-grid').className('mb-3');
 
-  var textInput = TextField(currentText, 'What are you up to?');
+  const textInput = TextField(currentText, 'What are you up to?');
   textInput.id('status-text-input');
   textInput.el.maxLength = 80;
   textInput.className('w-full bg-input border border-border-input rounded-lg px-3 py-2 text-primary text-[0.82rem] outline-none focus:border-accent mb-3');
 
-  var saveBtn = Button('Save').onTap(function() { _saveStatus(); })
+  const saveBtn = Button('Save').onTap(function() { _saveStatus(); })
     .className('px-3 py-1.5 rounded-md text-[0.78rem] bg-accent text-white border-none cursor-pointer hover:bg-accent-hover transition-colors');
-  var clearBtn = Button('Clear').onTap(function() { _clearStatus(); })
+  const clearBtn = Button('Clear').onTap(function() { _clearStatus(); })
     .className('px-3 py-1.5 rounded-md text-[0.78rem] bg-transparent text-dimmer border border-border-card cursor-pointer hover:text-primary hover:border-accent/40 transition-colors');
-  var cancelBtn = Button('Cancel').onTap(function() { document.getElementById('dash-status-picker').classList.add('hidden'); })
+  const cancelBtn = Button('Cancel').onTap(function() { document.getElementById('dash-status-picker').classList.add('hidden'); })
     .className('px-3 py-1.5 rounded-md text-[0.78rem] bg-transparent text-dimmer border-none cursor-pointer hover:text-primary transition-colors ml-auto');
 
-  var pickerContent = VStack(
+  const pickerContent = VStack(
     Text('Pick a pet').className('text-[0.78rem] text-dimmer font-medium mb-2'),
     petGrid,
     textInput,
@@ -1164,7 +1164,7 @@ export function _openStatusPicker() {
   // Render pet thumbnails
   if (typeof _renderPetThumb === 'function') {
     picker.querySelectorAll('.status-pet-thumb').forEach(function(c) {
-      var thumb = _renderPetThumb(c.dataset.type, 24);
+      const thumb = _renderPetThumb(c.dataset.type, 24);
       if (thumb) c.getContext('2d').drawImage(thumb, 0, 0);
     });
   }
@@ -1217,43 +1217,43 @@ export async function openAllSaved() {
   const saved = getSavedPosts();
   const entries = Object.values(saved).sort(function(a, b) { return b.savedAt - a.savedAt; });
 
-  var backBtn = HStack(
+  const backBtn = HStack(
     RawHTML(icon('backArrow', {size: 16, class: 'w-4 h-4 mr-1.5'})),
     Text('Back').className('text-[0.82rem]')
   ).className('bg-transparent border-none text-muted cursor-pointer p-0 inline-flex items-center hover:text-primary shrink-0 mb-4')
    .onTap(function() { openDashboard(); });
 
-  var titleView = RawHTML('<h2 class="text-[1.3rem] font-semibold text-white_ mb-4">Reading List <span class="text-dim font-normal text-[0.9rem]">(' + entries.length + ')</span></h2>');
+  const titleView = RawHTML('<h2 class="text-[1.3rem] font-semibold text-white_ mb-4">Reading List <span class="text-dim font-normal text-[0.9rem]">(' + entries.length + ')</span></h2>');
 
-  var rowViews;
+  let rowViews;
   if (entries.length) {
     rowViews = entries.map(function(entry) {
-      var p = entry.paper;
-      var hostname = p.hostname || (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return ''; } })();
-      var favicon = p.favicon || (function() { try { return new URL(p.link).origin + '/favicon.ico'; } catch(e) { return ''; } })();
-      var pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title || p.link) : '';
-      var faviconHtml = favicon
+      const p = entry.paper;
+      const hostname = p.hostname || (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return ''; } })();
+      const favicon = p.favicon || (function() { try { return new URL(p.link).origin + '/favicon.ico'; } catch(e) { return ''; } })();
+      const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title || p.link) : '';
+      const faviconHtml = favicon
         ? '<img src="' + escapeAttr(favicon) + '" class="w-4 h-4 rounded-sm shrink-0" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">'
         : pixelFallback;
-      var dateStr = entry.savedAt ? new Date(entry.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-      var rp = entry.readProgress;
-      var progressHtml = rp ? '<div style="height:2px;margin-top:2px;background:var(--nr-border-default);border-radius:1px;overflow:hidden"><div style="width:' + Math.round(rp * 100) + '%;height:100%;background:var(--nr-accent);border-radius:1px"></div></div>' : '';
+      const dateStr = entry.savedAt ? new Date(entry.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+      const rp = entry.readProgress;
+      const progressHtml = rp ? '<div style="height:2px;margin-top:2px;background:var(--nr-border-default);border-radius:1px;overflow:hidden"><div style="width:' + Math.round(rp * 100) + '%;height:100%;background:var(--nr-accent);border-radius:1px"></div></div>' : '';
 
-      var contentCol = VStack(
+      const contentCol = VStack(
         Text(p.title).className('text-[0.82rem] text-primary truncate'),
         hostname ? Text(hostname).className('text-[0.7rem] text-dimmer truncate') : null,
         rp ? RawHTML(progressHtml) : null
       ).className('flex-1 min-w-0').onTap(function(e) { openSavedPaper(p.link, e); });
 
-      var ratingHtml = getPaperRating(p.link) > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
-      var cached = isPostCached(p.link);
-      var offlineBtn = RawHTML('<button class="dash-offline shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none' + (cached ? ' cached' : '') + '" title="' + (cached ? 'Saved offline' : 'Save offline') + '">' + (cached ? _offlineCachedIcon() : _offlineDownloadIcon()) + '</button>');
+      const ratingHtml = getPaperRating(p.link) > 0 ? renderStarRating(p.link, { size: 'sm', interactive: false }) : '';
+      const cached = isPostCached(p.link);
+      const offlineBtn = RawHTML('<button class="dash-offline shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none' + (cached ? ' cached' : '') + '" title="' + (cached ? 'Saved offline' : 'Save offline') + '">' + (cached ? _offlineCachedIcon() : _offlineDownloadIcon()) + '</button>');
       offlineBtn.el.firstChild.addEventListener('click', function(e) {
         e.stopPropagation();
         if (!isPostCached(p.link)) cachePostOffline(p.link, p, offlineBtn.el.firstChild);
       });
 
-      var delBtn = new View('button');
+      const delBtn = new View('button');
       delBtn.className('dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none');
       delBtn.styles({ color: 'var(--nr-text-quaternary)', fontSize: '1rem' });
       delBtn.el.textContent = '\u00d7';
@@ -1273,7 +1273,7 @@ export async function openAllSaved() {
     rowViews = [Text('No saved posts').className('text-[0.8rem] text-dimmer px-2')];
   }
 
-  var allSavedView = VStack([backBtn, titleView].concat(rowViews));
+  const allSavedView = VStack([backBtn, titleView].concat(rowViews));
   AetherUI.mount(allSavedView, container);
 }
 
@@ -1416,9 +1416,9 @@ export function renderDevPanel() {
   }
 
   // Render sidebar navigation
-  var sidebarView = VStack(DEV_SECTIONS.map(function(section) {
-    var isActive = section.id === _devActiveSection;
-    var item = Text(section.label)
+  const sidebarView = VStack(DEV_SECTIONS.map(function(section) {
+    const isActive = section.id === _devActiveSection;
+    const item = Text(section.label)
       .styles({
         padding:'12px 16px',
         borderLeft:'3px solid ' + (isActive ? 'var(--nr-accent)' : 'transparent'),
@@ -1453,7 +1453,7 @@ export function renderDevSection(sectionId) {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
-  var renderers = {
+  const renderers = {
     'overview': _renderDevOverview,
     'function-registry': _renderDevFunctionRegistry,
     'feed-validator': _renderDevFeedValidator,
@@ -1464,7 +1464,7 @@ export function renderDevSection(sectionId) {
   };
 
   AetherUI.mount(Text('Loading\u2026').className('text-sm').foreground('quaternary'), contentPane);
-  var render = renderers[sectionId];
+  const render = renderers[sectionId];
   if (render) render();
   else AetherUI.mount(Text('Unknown section').className('text-sm').foreground('quaternary'), contentPane);
 }
@@ -1479,7 +1479,7 @@ function _devStatCard(value, label, color) {
 }
 
 function _devStatGrid() {
-  var items = Array.prototype.slice.call(arguments);
+  const items = Array.prototype.slice.call(arguments);
   return Grid.apply(null, items)
     .styles({ gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: '12px', marginTop: '8px' });
 }
@@ -1489,13 +1489,13 @@ export async function _renderDevOverview() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
-  var header = VStack(
+  const header = VStack(
     Text('Project Health').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
     Text('Real-time metrics and performance monitoring').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
-  var statsCards = new View('div');
+  const statsCards = new View('div');
   statsCards.className('dev-stats-cards').id('dev-stats-cards');
-  var chartArea = new View('div');
+  const chartArea = new View('div');
   chartArea.id('dev-loc-chart');
   AetherUI.mount(VStack(header, statsCards, chartArea), contentPane);
 
@@ -1523,8 +1523,8 @@ export async function _renderDevOverview() {
     { value: (data.ram_mb || 0) + ' MB', label: 'RAM' },
     { value: (data.project_mb || 0) + ' MB', label: 'Size' },
   ];
-  var cardsView = HStack(stats.map(function(s) {
-    var valView = Text(String(s.value)).className('dev-stat-value');
+  const cardsView = HStack(stats.map(function(s) {
+    const valView = Text(String(s.value)).className('dev-stat-value');
     if (s.id) valView.id(s.id);
     return VStack(valView, Text(s.label).className('dev-stat-label')).className('dev-stat-card');
   }));
@@ -1589,16 +1589,16 @@ export function _renderDevFunctionRegistry() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
-  var header = VStack(
+  const header = VStack(
     Text('Function Registry').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
     Text('Analyze global functions, duplicates, and unused code across all vanilla JS files.').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
 
-  var analyzeBtn = Button('Analyze Functions').className('dev-btn-primary').id('dev-fn-reg-btn').onTap(function() { _devRunFunctionRegistry(); });
-  var reportBtn = Button('Open HTML Report').className('dev-btn-secondary').onTap(function() { _devOpenFunctionRegistryReport(); });
-  var statusEl = Text('').id('dev-fn-reg-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
-  var controls = HStack(analyzeBtn, reportBtn, statusEl).gap('8px').wrap().styles({marginBottom:'16px'});
-  var results = new View('div');
+  const analyzeBtn = Button('Analyze Functions').className('dev-btn-primary').id('dev-fn-reg-btn').onTap(function() { _devRunFunctionRegistry(); });
+  const reportBtn = Button('Open HTML Report').className('dev-btn-secondary').onTap(function() { _devOpenFunctionRegistryReport(); });
+  const statusEl = Text('').id('dev-fn-reg-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
+  const controls = HStack(analyzeBtn, reportBtn, statusEl).gap('8px').wrap().styles({marginBottom:'16px'});
+  const results = new View('div');
   results.id('dev-fn-reg-results');
 
   AetherUI.mount(VStack(header, controls, results), contentPane);
@@ -1609,15 +1609,15 @@ export function _renderDevFeedValidator() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
-  var header = VStack(
+  const header = VStack(
     Text('Feed Catalog Validator').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
     Text('Validate sync between JS (core.js) and Python (feed_catalog.py) feed catalogs.').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
 
-  var valBtn = Button('Run Validation').className('dev-btn-primary').id('dev-feed-val-btn').onTap(function() { _devRunFeedValidator(); });
-  var statusEl = Text('').id('dev-feed-val-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
-  var controls = HStack(valBtn, statusEl).gap('8px').styles({marginBottom:'16px'});
-  var results = new View('div');
+  const valBtn = Button('Run Validation').className('dev-btn-primary').id('dev-feed-val-btn').onTap(function() { _devRunFeedValidator(); });
+  const statusEl = Text('').id('dev-feed-val-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
+  const controls = HStack(valBtn, statusEl).gap('8px').styles({marginBottom:'16px'});
+  const results = new View('div');
   results.id('dev-feed-val-results');
 
   AetherUI.mount(VStack(header, controls, results), contentPane);
@@ -1628,15 +1628,15 @@ export function _renderDevLoadOrder() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
-  var header = VStack(
+  const header = VStack(
     Text('Script Load Order').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
     Text('Analyze script dependencies and detect forward references or circular dependencies.').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
 
-  var runBtn = Button('Run Analysis').className('dev-btn-primary').id('dev-load-ord-btn').onTap(function() { _devRunLoadOrderAnalysis(); });
-  var statusEl = Text('').id('dev-load-ord-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
-  var controls = HStack(runBtn, statusEl).gap('8px').styles({marginBottom:'16px'});
-  var results = new View('div');
+  const runBtn = Button('Run Analysis').className('dev-btn-primary').id('dev-load-ord-btn').onTap(function() { _devRunLoadOrderAnalysis(); });
+  const statusEl = Text('').id('dev-load-ord-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
+  const controls = HStack(runBtn, statusEl).gap('8px').styles({marginBottom:'16px'});
+  const results = new View('div');
   results.id('dev-load-ord-results');
 
   AetherUI.mount(VStack(header, controls, results), contentPane);
@@ -1647,45 +1647,45 @@ export function _renderDevDependencyGraph() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
-  var header = VStack(
+  const header = VStack(
     Text('Dependency Graph').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
     Text('Interactive dependency visualization. Switch between file-level and function-level views.').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
 
   // Controls Row 1
-  var loadBtn = Button('Load Graph').className('dev-btn-primary').id('dev-dep-graph-btn').onTap(function() { _devLoadDependencyGraph(); });
-  var fileToggle = Button('Files').id('dev-graph-level-file')
+  const loadBtn = Button('Load Graph').className('dev-btn-primary').id('dev-dep-graph-btn').onTap(function() { _devLoadDependencyGraph(); });
+  const fileToggle = Button('Files').id('dev-graph-level-file')
     .styles({background:'var(--nr-accent)', color:'#fff', border:'none', padding:'6px 14px', fontSize:'0.75rem', fontWeight:'600', transition:'all var(--motion-fast) var(--motion-smooth)'})
     .cursor().onTap(function() { _devSetGraphLevel('file'); });
-  var funcToggle = Button('Functions').id('dev-graph-level-function')
+  const funcToggle = Button('Functions').id('dev-graph-level-function')
     .styles({background:'transparent', color:'var(--nr-text-primary)', border:'none', padding:'6px 14px', fontSize:'0.75rem', transition:'all var(--motion-fast) var(--motion-smooth)'})
     .cursor().onTap(function() { _devSetGraphLevel('function'); });
-  var toggleGroup = HStack(fileToggle, funcToggle)
+  const toggleGroup = HStack(fileToggle, funcToggle)
     .styles({background:'var(--nr-bg-surface)', border:'1px solid var(--nr-border-default)', borderRadius:'6px', overflow:'hidden'});
-  var resetBtn = Button('Reset Zoom').className('dev-btn-secondary').id('dev-graph-reset-btn').visible(false)
+  const resetBtn = Button('Reset Zoom').className('dev-btn-secondary').id('dev-graph-reset-btn').visible(false)
     .onTap(function() { _devResetGraphZoom(); });
-  var statusEl = Text('').id('dev-dep-graph-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
-  var controlsRow1 = HStack(loadBtn, toggleGroup, resetBtn, statusEl)
+  const statusEl = Text('').id('dev-dep-graph-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
+  const controlsRow1 = HStack(loadBtn, toggleGroup, resetBtn, statusEl)
     .gap('8px').styles({marginBottom:'12px'}).wrap();
 
   // Controls Row 2 (function view)
-  var searchInput = new View('input');
+  const searchInput = new View('input');
   searchInput.id('dev-graph-search').className('dev-input');
   searchInput.el.type = 'text';
   searchInput.el.placeholder = 'Search functions...';
   searchInput.on('input', function() { _devGraphSearch(searchInput.el.value); });
-  var fileFilter = new View('select');
+  const fileFilter = new View('select');
   fileFilter.id('dev-graph-file-filter').className('dev-input');
   fileFilter.el.innerHTML = '<option value="">All Files</option>';
   fileFilter.onChange(function() { _devGraphFilterByFile(fileFilter.el.value); });
-  var unusedCb = new View('input');
+  const unusedCb = new View('input');
   unusedCb.el.type = 'checkbox';
   unusedCb.id('dev-graph-show-unused');
   unusedCb.onChange(function() { _devGraphToggleUnused(unusedCb.el.checked); });
-  var unusedLabel = RawHTML('<label style="display:flex;align-items:center;gap:4px;font-size:0.75rem;color:var(--nr-text-quaternary)"></label>');
+  const unusedLabel = RawHTML('<label style="display:flex;align-items:center;gap:4px;font-size:0.75rem;color:var(--nr-text-quaternary)"></label>');
   unusedLabel.el.firstChild.appendChild(unusedCb.build());
   unusedLabel.el.firstChild.appendChild(document.createTextNode('Show unused'));
-  var controlsRow2 = HStack(searchInput, fileFilter, unusedLabel)
+  const controlsRow2 = HStack(searchInput, fileFilter, unusedLabel)
     .id('dev-graph-function-controls')
     .styles({display:'none', marginBottom:'12px'}).gap('8px').wrap();
 
@@ -1693,7 +1693,7 @@ export function _renderDevDependencyGraph() {
   function _legendItem(color, radius, text) {
     return RawHTML('<div style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:8px;height:8px;border-radius:' + radius + ';background:' + color + '"></span>' + text + '</div>');
   }
-  var legend = HStack(
+  const legend = HStack(
     _legendItem('#ef4444', '50%', 'Cross-file dependency'),
     _legendItem('var(--nr-text-quaternary)', '50%', 'Same-file dependency'),
     _legendItem('var(--nr-accent)', '2px', 'File group'),
@@ -1701,7 +1701,7 @@ export function _renderDevDependencyGraph() {
   ).gap('16px').styles({marginBottom:'12px', fontSize:'0.65rem', color:'var(--nr-text-quaternary)'}).wrap();
 
   // Graph container
-  var graphContainer = new View('div');
+  const graphContainer = new View('div');
   graphContainer.id('dev-dep-graph-container')
     .styles({background:'var(--nr-bg-surface)', border:'1px solid var(--nr-border-default)', borderRadius:'6px', padding:'16px', maxHeight:'600px', overflowY:'auto', fontFamily:'monospace', fontSize:'12px', lineHeight:'1.6'});
   graphContainer.el.innerHTML = '<div style="color:var(--nr-text-quaternary)">Click "Load Graph" to start...</div>';
@@ -1803,16 +1803,16 @@ export function _devRenderFileTree(nodes, edges) {
     deps.get(src).push({ target: tgt, calls: e.calls });
   });
 
-  var wrapper = new View('div');
+  const wrapper = new View('div');
   wrapper.cssText('color:var(--nr-text-primary)');
 
-  var btnRow = new View('div');
+  const btnRow = new View('div');
   btnRow.cssText('margin-bottom:12px;display:flex;gap:8px');
-  var expandBtn = new View('button');
+  const expandBtn = new View('button');
   expandBtn.el.textContent = 'Expand All';
   expandBtn.cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer');
   expandBtn.onTap(function() { _devExpandAllFiles(); });
-  var collapseBtn = new View('button');
+  const collapseBtn = new View('button');
   collapseBtn.el.textContent = 'Collapse All';
   collapseBtn.cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer');
   collapseBtn.onTap(function() { _devCollapseAllFiles(); });
@@ -1825,18 +1825,18 @@ export function _devRenderFileTree(nodes, edges) {
     const isCollapsed = _devCollapsedFiles.has(node.id);
     const nodeDeps = deps.get(node.id) || [];
 
-    var nodeDiv = new View('div');
+    const nodeDiv = new View('div');
     nodeDiv.cssText('margin-bottom:4px');
 
-    var toggleDiv = new View('div');
+    const toggleDiv = new View('div');
     toggleDiv.cssText('cursor:pointer');
-    var arrowSpan = new View('span');
+    const arrowSpan = new View('span');
     arrowSpan.cssText('color:var(--nr-accent)');
     arrowSpan.el.textContent = isCollapsed ? '▶' : '▼';
-    var nameSpan = new View('span');
+    const nameSpan = new View('span');
     nameSpan.cssText('color:var(--nr-text-primary);font-weight:600');
     nameSpan.el.textContent = ' ' + node.id;
-    var statsSpan = new View('span');
+    const statsSpan = new View('span');
     statsSpan.cssText('color:var(--nr-text-quaternary);margin-left:12px;font-size:11px');
     statsSpan.el.textContent = node.functions + ' funcs, ' + node.loc + ' LOC';
     toggleDiv.el.appendChild(arrowSpan.el);
@@ -1846,19 +1846,19 @@ export function _devRenderFileTree(nodes, edges) {
     nodeDiv.el.appendChild(toggleDiv.el);
 
     if (!isCollapsed && nodeDeps.length > 0) {
-      var depsDiv = new View('div');
+      const depsDiv = new View('div');
       depsDiv.cssText('margin-left:24px;color:var(--nr-text-quaternary);font-size:11px;margin-top:2px');
       nodeDeps.slice(0, 5).forEach(function(dep) {
-        var depRow = new View('div');
+        const depRow = new View('div');
         depRow.el.textContent = '→ ' + dep.target + ' ';
-        var callsSpan = new View('span');
+        const callsSpan = new View('span');
         callsSpan.cssText('opacity:0.7');
         callsSpan.el.textContent = '(' + dep.calls + '× calls)';
         depRow.el.appendChild(callsSpan.el);
         depsDiv.el.appendChild(depRow.el);
       });
       if (nodeDeps.length > 5) {
-        var moreRow = new View('div');
+        const moreRow = new View('div');
         moreRow.el.textContent = '→ +' + (nodeDeps.length - 5) + ' more dependencies...';
         depsDiv.el.appendChild(moreRow.el);
       }
@@ -1867,7 +1867,7 @@ export function _devRenderFileTree(nodes, edges) {
     wrapper.el.appendChild(nodeDiv.el);
 
     if (!isLast) {
-      var sep = new View('div');
+      const sep = new View('div');
       sep.cssText('color:var(--nr-border-default);margin-left:5px');
       sep.el.textContent = '│';
       wrapper.el.appendChild(sep.el);
@@ -1947,16 +1947,16 @@ export function _devRenderFunctionTree(allNodes, allEdges) {
     deps.get(e.source).push({ target: e.target, calls: e.calls });
   });
 
-  var wrapper = new View('div');
+  const wrapper = new View('div');
   wrapper.cssText('color:var(--nr-text-primary)');
 
-  var btnRow = new View('div');
+  const btnRow = new View('div');
   btnRow.cssText('margin-bottom:12px;display:flex;gap:8px');
-  var expandBtn = new View('button');
+  const expandBtn = new View('button');
   expandBtn.el.textContent = 'Expand All';
   expandBtn.cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer');
   expandBtn.onTap(function() { _devExpandAllFiles(); });
-  var collapseBtn = new View('button');
+  const collapseBtn = new View('button');
   collapseBtn.el.textContent = 'Collapse All';
   collapseBtn.cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer');
   collapseBtn.onTap(function() { _devCollapseAllFiles(); });
@@ -1968,13 +1968,13 @@ export function _devRenderFunctionTree(allNodes, allEdges) {
     const isCollapsed = _devCollapsedFiles.has(file);
     const funcs = fileGroups[file];
 
-    var fileDiv = new View('div');
+    const fileDiv = new View('div');
     fileDiv.cssText('margin-bottom:8px');
 
-    var fileHeader = new View('div');
+    const fileHeader = new View('div');
     fileHeader.cssText('cursor:pointer;color:var(--nr-accent);font-weight:600;margin-bottom:4px');
     fileHeader.el.textContent = (isCollapsed ? '▶' : '▼') + ' \uD83D\uDCC1 ' + file + ' ';
-    var funcCountSpan = new View('span');
+    const funcCountSpan = new View('span');
     funcCountSpan.cssText('font-weight:normal;color:var(--nr-text-quaternary);font-size:11px');
     funcCountSpan.el.textContent = '(' + funcs.length + ' functions)';
     fileHeader.el.appendChild(funcCountSpan.el);
@@ -1991,36 +1991,36 @@ export function _devRenderFunctionTree(allNodes, allEdges) {
           return target && target.file !== func.file;
         });
 
-        var funcRow = new View('div');
+        const funcRow = new View('div');
         funcRow.cssText('margin-left:16px;margin-bottom:2px');
 
-        var prefixSpan = new View('span');
+        const prefixSpan = new View('span');
         prefixSpan.cssText('color:var(--nr-border-default)');
         prefixSpan.el.textContent = prefix;
         funcRow.el.appendChild(prefixSpan.el);
         funcRow.el.appendChild(document.createTextNode(' '));
 
-        var nameSpan = new View('span');
+        const nameSpan = new View('span');
         nameSpan.cssText('color:' + (func.callCount > 10 ? 'var(--nr-accent)' : 'var(--nr-text-primary)'));
         nameSpan.el.textContent = func.id;
         funcRow.el.appendChild(nameSpan.el);
 
-        var statsSpan = new View('span');
+        const statsSpan = new View('span');
         statsSpan.cssText('color:var(--nr-text-quaternary);margin-left:8px;font-size:10px');
         statsSpan.el.textContent = func.callCount + '\u00d7 called' + (crossFileDeps.length > 0 ? ' \u2022 ' + crossFileDeps.length + ' cross-file' : '');
         funcRow.el.appendChild(statsSpan.el);
 
         if (crossFileDeps.length > 0) {
-          var crossDiv = new View('div');
+          const crossDiv = new View('div');
           crossDiv.cssText('margin-left:32px;color:var(--nr-text-quaternary);font-size:10px');
           crossFileDeps.slice(0, 2).forEach(function(dep) {
             const target = allNodes.find(function(n) { return n.id === dep.target; });
-            var arrow = new View('span');
+            const arrow = new View('span');
             arrow.cssText('color:#ef4444');
             arrow.el.textContent = '\u2192';
             crossDiv.el.appendChild(arrow.el);
             crossDiv.el.appendChild(document.createTextNode(' ' + dep.target + ' '));
-            var fileRef = new View('span');
+            const fileRef = new View('span');
             fileRef.cssText('opacity:0.7');
             fileRef.el.textContent = '(' + (target ? target.file : '') + ') ';
             crossDiv.el.appendChild(fileRef.el);
@@ -2033,7 +2033,7 @@ export function _devRenderFunctionTree(allNodes, allEdges) {
         fileDiv.el.appendChild(funcRow.el);
 
         if (!isLast) {
-          var sep = new View('div');
+          const sep = new View('div');
           sep.cssText('margin-left:16px;color:var(--nr-border-default)');
           sep.el.textContent = '│';
           fileDiv.el.appendChild(sep.el);
@@ -2093,11 +2093,11 @@ export async function _renderDevGitLog() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
-  var header = VStack(
+  const header = VStack(
     Text('Git History').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
     Text('Recent commit activity').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
-  var logContainer = new View('div');
+  const logContainer = new View('div');
   logContainer.id('dev-git-log-container');
   AetherUI.mount(VStack(header, logContainer), contentPane);
 
@@ -2112,7 +2112,7 @@ export async function _renderDevGitLog() {
       function() {
         _devGitLogState = State(log);
         _devGitLogOffset = log.length;
-        var logList = new View('div').id('dev-git-log-list').className('dev-git-log-list');
+        const logList = new View('div').id('dev-git-log-list').className('dev-git-log-list');
         logList._appendChildren([ForEach(_devGitLogState, function(c) { return c.sha; }, _devCommitRow)]);
         return logList;
       },
@@ -2129,21 +2129,21 @@ export function _renderDevTools() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
 
-  var header = VStack(
+  const header = VStack(
     Text('Dev Tools').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
     Text('Testing utilities and debugging tools').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
 
-  var achSelect = new View('select');
+  const achSelect = new View('select');
   achSelect.id('dev-ach-select').className('dev-input').styles({minWidth:'180px'});
   achSelect.el.innerHTML = '<option value="bookworm">Bookworm</option><option value="curator">Curator</option><option value="critic">Critic</option><option value="explorer">Explorer</option><option value="model_switch">Model Swapper</option><option value="pixel_parent">Pixel Parent</option>';
 
-  var showBtn = Button('Show').onTap(function() { _devTestAchievement(); })
+  const showBtn = Button('Show').onTap(function() { _devTestAchievement(); })
     .styles({background:'linear-gradient(135deg,#b8860b,#ffd700)', color:'#1a1400', border:'none', borderRadius:'6px', padding:'6px 14px', fontSize:'0.75rem', fontWeight:'600'}).cursor();
-  var dismissBtn = Button('Dismiss').className('dev-btn-secondary').onTap(function() { islandRemove('achievement'); });
-  var resetBtn = Button('Reset All').className('dev-btn-secondary').onTap(function() { _devResetAchievements(); });
+  const dismissBtn = Button('Dismiss').className('dev-btn-secondary').onTap(function() { islandRemove('achievement'); });
+  const resetBtn = Button('Reset All').className('dev-btn-secondary').onTap(function() { _devResetAchievements(); });
 
-  var tester = VStack(
+  const tester = VStack(
     Text('Achievement Tester').styles({color:'var(--nr-text-primary)', fontSize:'0.85rem', fontWeight:'600', marginBottom:'12px'}),
     HStack(achSelect, showBtn, dismissBtn, resetBtn).id('dev-ach-tester').gap('8px').wrap()
   ).styles({background:'var(--nr-bg-surface)', border:'1px solid var(--nr-border-default)', borderRadius:'8px', padding:'16px'});
@@ -2213,7 +2213,7 @@ export async function _devRunFunctionRegistry() {
     const warningCount = dupsBySeverity.WARNING.length;
     const infoCount = dupsBySeverity.INFO.length;
 
-    var parts = [
+    const parts = [
       _devStatGrid(
         _devStatCard(summary.totalFunctions, 'Functions', 'var(--nr-accent)'),
         _devStatCard(summary.duplicateFunctions, 'Duplicates', summary.duplicateFunctions > 0 ? '#f59e0b' : null),
@@ -2223,7 +2223,7 @@ export async function _devRunFunctionRegistry() {
     ];
 
     // Severity breakdown + error/warning/info panels kept as RawHTML (complex structure)
-    var detailsHtml = '';
+    let detailsHtml = '';
     if (data.issues.duplicates.length > 0) {
       detailsHtml += `<div style="margin-top:16px;padding:8px 12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px"><div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600">Severity Breakdown: <span style="color:#ef4444;margin-left:12px">${errorCount} ERROR</span><span style="color:#f59e0b;margin-left:8px">${warningCount} WARNING</span><span style="color:#60a5fa;margin-left:8px">${infoCount} INFO</span></div></div>`;
     }
@@ -2239,7 +2239,7 @@ export async function _devRunFunctionRegistry() {
     if (data.issues.unused.length > 0) {
       detailsHtml += `<div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px"><div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">Unused Functions (${data.issues.unused.length})</div><div style="color:var(--nr-text-quaternary);font-size:0.65rem;max-height:150px;overflow-y:auto">${data.issues.unused.slice(0, 10).map(u => `<code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px;margin-right:8px;margin-bottom:4px;display:inline-block">${escapeHtml(u.name)}()</code>`).join('')}${data.issues.unused.length > 10 ? `<div style="margin-top:8px">...and ${data.issues.unused.length - 10} more</div>` : ''}</div></div>`;
     }
-    var topFuncs = Object.entries(data.functions).sort((a, b) => b[1].callCount - a[1].callCount).slice(0, 5);
+    const topFuncs = Object.entries(data.functions).sort((a, b) => b[1].callCount - a[1].callCount).slice(0, 5);
     if (topFuncs.length > 0) {
       detailsHtml += `<div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px"><div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">Most Called Functions</div>${topFuncs.map(([name, info], i) => `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:0.65rem"><span><span style="color:var(--nr-accent);font-weight:600">#${i + 1}</span><code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px;margin-left:8px">${escapeHtml(name)}()</code></span><span style="color:var(--nr-text-quaternary)">${info.callCount} calls</span></div>`).join('')}</div>`;
     }
@@ -2288,7 +2288,7 @@ export async function _devRunFeedValidator() {
     status.textContent = isSync ? 'Catalogs in sync' : `${data.errorCount} mismatch${data.errorCount === 1 ? '' : 'es'} found`;
     status.style.color = isSync ? '#34d399' : '#ef4444';
 
-    var feedValidatorParts = [
+    const feedValidatorParts = [
       _devStatGrid(
         _devStatCard(data.jsCatalogSize, 'JS Entries', 'var(--nr-accent)'),
         _devStatCard(data.pyCatalogSize, 'PY Entries', 'var(--nr-accent)'),
@@ -2409,7 +2409,7 @@ export async function _devRunLoadOrderAnalysis() {
     status.textContent = isOptimal ? 'Load order optimal' : `${data.warnings.length} warning${data.warnings.length === 1 ? '' : 's'} found`;
     status.style.color = isOptimal ? '#34d399' : '#f59e0b';
 
-    var loadOrderParts = [
+    const loadOrderParts = [
       _devStatGrid(
         _devStatCard(data.scriptCount, 'Scripts', 'var(--nr-accent)'),
         _devStatCard(data.warnings.length, 'Warnings', data.warnings.length > 0 ? '#f59e0b' : null),
@@ -2418,7 +2418,7 @@ export async function _devRunLoadOrderAnalysis() {
       )
     ];
     // Complex panels use RawHTML (details/summary, tables)
-    var loadOrderHtml = `<details open style="margin-bottom:12px"><summary style="padding:10px 14px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;cursor:pointer;color:var(--nr-text-primary);font-size:0.75rem;font-weight:600">Script Load Order (${data.scriptCount} files)</summary><div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px;max-height:300px;overflow-y:auto">${data.scriptOrder.map((script, i) => `<div style="font-size:0.65rem;color:var(--nr-text-quaternary);margin-bottom:2px;font-family:monospace"><span style="color:var(--nr-accent);font-weight:600">${i + 1}.</span><span style="margin-left:8px">${escapeHtml(script)}</span></div>`).join('')}</div></details>`;
+    let loadOrderHtml = `<details open style="margin-bottom:12px"><summary style="padding:10px 14px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;cursor:pointer;color:var(--nr-text-primary);font-size:0.75rem;font-weight:600">Script Load Order (${data.scriptCount} files)</summary><div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px;max-height:300px;overflow-y:auto">${data.scriptOrder.map((script, i) => `<div style="font-size:0.65rem;color:var(--nr-text-quaternary);margin-bottom:2px;font-family:monospace"><span style="color:var(--nr-accent);font-weight:600">${i + 1}.</span><span style="margin-left:8px">${escapeHtml(script)}</span></div>`).join('')}</div></details>`;
     if (data.warnings.length > 0) {
       loadOrderHtml += `<div style="margin-bottom:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #f59e0b"><div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Forward References (may cause issues)</div><div style="color:var(--nr-text-quaternary);font-size:0.65rem;max-height:200px;overflow-y:auto">${data.warnings.slice(0, 10).map(ref => `<div style="margin-bottom:8px;padding:8px;background:var(--nr-bg-raised);border-radius:4px"><div><strong>${ref.callFile}</strong> (order ${ref.callOrder}) calls <code style="color:#60a5fa">${escapeHtml(ref.funcName)}()</code></div><div style="margin-top:4px;color:var(--nr-text-quaternary)">\u2192 Defined in <strong>${ref.defFile}</strong> (order ${ref.defOrder})</div></div>`).join('')}${data.warnings.length > 10 ? `<div style="margin-top:8px">...and ${data.warnings.length - 10} more</div>` : ''}</div></div>`;
     }
@@ -2443,9 +2443,9 @@ export var _devGitLogOffset = 0;
 export var _devGitLogState = null;
 
 function _devCommitRow(c) {
-  var d = new Date(c.date);
-  var relative = _devRelativeTime(d);
-  var diffView = (c.ins || c.del)
+  const d = new Date(c.date);
+  const relative = _devRelativeTime(d);
+  const diffView = (c.ins || c.del)
     ? RawHTML('<span class="dev-git-log-diff"><span style="color:#3fb950">+' + c.ins + '</span> <span style="color:#f85149">-' + c.del + '</span></span>')
     : null;
   return HStack(
@@ -2465,7 +2465,7 @@ export function _devAppendLoadMoreBtn() {
   if (!container) return;
   const old = document.getElementById('dev-git-load-more');
   if (old) old.remove();
-  var btnView = Button('Load more commits').className('dev-git-load-more-btn').attr('id', 'dev-git-load-more');
+  const btnView = Button('Load more commits').className('dev-git-load-more-btn').attr('id', 'dev-git-load-more');
   btnView.onTap(function() { _devLoadMoreCommits(btnView.el); });
   container.appendChild(btnView.build());
 }

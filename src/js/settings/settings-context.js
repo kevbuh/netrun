@@ -7,8 +7,8 @@ if (window.AetherUI) AetherUI.globals();
 export let _contextFiles = [];
 export let _contextDir = '';
 export let _selectedContextFile = null;
-var _contextHasFiles = State(false);
-var _contextEditorVisible = State(false);
+const _contextHasFiles = State(false);
+const _contextEditorVisible = State(false);
 
 export function _renderContextSettings() {
   return VStack(
@@ -43,7 +43,7 @@ export function _renderContextSettings() {
         ).className('flex items-center justify-between mb-2'),
 
         (function() {
-          var ta = new View('textarea');
+          const ta = new View('textarea');
           ta.el.id = 'context-editor-textarea';
           ta.el.className = 'w-full rounded-lg border border-border-subtle bg-card/50 text-primary text-[0.78rem] p-3 focus:outline-none focus:border-accent/50 transition-colors';
           ta.cssText('font-family:var(--nr-font-mono);height:40vh;resize:vertical;');
@@ -66,16 +66,16 @@ export function _renderContextSettings() {
 }
 
 export function _renderContextFileCard(f) {
-  var name = f.file_id || f.fileId || '';
-  var charCount = f.char_count || f.charCount || 0;
-  var kb = (charCount / 1024).toFixed(1);
-  var updatedTs = f.updated_at || f.updatedAt || 0;
-  var compactedTs = f.compacted_at || f.compactedAt || null;
-  var updatedAgo = typeof timeAgo === 'function' && updatedTs ? timeAgo(updatedTs * 1000) : 'unknown';
-  var compactedLabel = compactedTs && typeof timeAgo === 'function' ? timeAgo(compactedTs * 1000) : 'never';
-  var selected = _selectedContextFile === name;
+  const name = f.file_id || f.fileId || '';
+  const charCount = f.char_count || f.charCount || 0;
+  const kb = (charCount / 1024).toFixed(1);
+  const updatedTs = f.updated_at || f.updatedAt || 0;
+  const compactedTs = f.compacted_at || f.compactedAt || null;
+  const updatedAgo = typeof timeAgo === 'function' && updatedTs ? timeAgo(updatedTs * 1000) : 'unknown';
+  const compactedLabel = compactedTs && typeof timeAgo === 'function' ? timeAgo(compactedTs * 1000) : 'never';
+  const selected = _selectedContextFile === name;
 
-  var card = VStack(
+  const card = VStack(
     HStack(
       Text(name).className('text-[0.8rem] ' + (selected ? 'text-accent' : 'text-primary') + ' font-medium'),
       Spacer(),
@@ -94,10 +94,10 @@ export function _renderContextFileCard(f) {
 }
 
 export function _renderContextFileList() {
-  var list = document.getElementById('context-file-list');
+  const list = document.getElementById('context-file-list');
   if (!list) return;
   list.innerHTML = '';
-  for (var i = 0; i < _contextFiles.length; i++) {
+  for (let i = 0; i < _contextFiles.length; i++) {
     AetherUI.append(_renderContextFileCard(_contextFiles[i]), list);
   }
 }
@@ -108,9 +108,9 @@ export function _loadContextFiles() {
       _contextFiles = data.files || [];
       _contextDir = data.dir || '';
       _contextHasFiles.value = _contextFiles.length > 0;
-      var list = document.getElementById('context-file-list');
-      var countLabel = document.getElementById('context-count-label');
-      var infoBar = document.getElementById('context-info-bar');
+      const list = document.getElementById('context-file-list');
+      const countLabel = document.getElementById('context-count-label');
+      const infoBar = document.getElementById('context-info-bar');
       if (!list) return;
       if (_contextFiles.length === 0) {
         list.innerHTML = '';
@@ -118,11 +118,11 @@ export function _loadContextFiles() {
         if (infoBar) AetherUI.mount(Text('No context files.').className('text-dimmer text-[0.75rem]'), infoBar);
         return;
       }
-      var totalChars = _contextFiles.reduce(function(sum, f) { return sum + (f.char_count || f.charCount || 0); }, 0);
-      var totalKb = (totalChars / 1024).toFixed(1);
+      const totalChars = _contextFiles.reduce(function(sum, f) { return sum + (f.char_count || f.charCount || 0); }, 0);
+      const totalKb = (totalChars / 1024).toFixed(1);
       if (countLabel) countLabel.textContent = _contextFiles.length + ' file' + (_contextFiles.length !== 1 ? 's' : '');
       if (infoBar) {
-        var infoChildren = [
+        const infoChildren = [
           Text(_contextFiles.length + ' file' + (_contextFiles.length !== 1 ? 's' : '')).className('text-primary text-[0.8rem] font-medium'),
           Text(totalKb + ' KB total').className('text-dimmer text-[0.7rem]')
         ];
@@ -137,21 +137,21 @@ export function _selectContextFile(fileId) {
   _selectedContextFile = fileId;
   _renderContextFileList();
   _contextEditorVisible.value = true;
-  var title = document.getElementById('context-editor-title');
-  var textarea = document.getElementById('context-editor-textarea');
-  var charsLabel = document.getElementById('context-editor-chars');
-  var compactBtn = document.getElementById('context-compact-btn');
+  const title = document.getElementById('context-editor-title');
+  const textarea = document.getElementById('context-editor-textarea');
+  const charsLabel = document.getElementById('context-editor-chars');
+  const compactBtn = document.getElementById('context-compact-btn');
   if (title) title.textContent = fileId;
   if (textarea) textarea.value = 'Loading...';
   apiGet('/api/context/read?file=' + encodeURIComponent(fileId))
     .then(function(data) {
-      var content = data.content || '';
+      const content = data.content || '';
       if (textarea) {
         textarea.value = content;
         textarea.oninput = function() {
           if (charsLabel) {
-            var len = textarea.value.length;
-            var kbStr = (len / 1024).toFixed(1);
+            const len = textarea.value.length;
+            const kbStr = (len / 1024).toFixed(1);
             charsLabel.textContent = kbStr + ' KB' + (len > 8000 ? ' (over threshold)' : '');
             charsLabel.className = 'text-[0.7rem] ' + (len > 8000 ? 'text-amber-400' : 'text-dimmer');
           }
@@ -170,13 +170,13 @@ export function _selectContextFile(fileId) {
 
 export function _saveContextFile() {
   if (!_selectedContextFile) return;
-  var textarea = document.getElementById('context-editor-textarea');
+  const textarea = document.getElementById('context-editor-textarea');
   if (!textarea) return;
   apiPost('/api/context/update', { file: _selectedContextFile, content: textarea.value })
     .then(function(data) {
       if (typeof showToast === 'function') showToast('Saved');
-      for (var i = 0; i < _contextFiles.length; i++) {
-        var fid = _contextFiles[i].file_id || _contextFiles[i].fileId;
+      for (let i = 0; i < _contextFiles.length; i++) {
+        const fid = _contextFiles[i].file_id || _contextFiles[i].fileId;
         if (fid === _selectedContextFile) {
           _contextFiles[i].char_count = data.charCount || textarea.value.length;
           break;
@@ -188,7 +188,7 @@ export function _saveContextFile() {
 
 export function _compactContextFile() {
   if (!_selectedContextFile) return;
-  var compactBtn = document.getElementById('context-compact-btn');
+  const compactBtn = document.getElementById('context-compact-btn');
   if (compactBtn) { compactBtn.textContent = 'Compacting...'; compactBtn.disabled = true; }
   apiPost('/api/context/compact', { file: _selectedContextFile })
     .then(function() {
@@ -213,11 +213,11 @@ export function _deleteContextFile() {
 }
 
 export function _createTaskContext() {
-  var taskId = prompt('Enter a task ID (e.g. "research-llm"):');
+  let taskId = prompt('Enter a task ID (e.g. "research-llm"):');
   if (!taskId) return;
   taskId = taskId.trim().replace(/[^a-zA-Z0-9_-]/g, '-');
   if (!taskId) return;
-  var file = 'task-' + taskId + '.md';
+  const file = 'task-' + taskId + '.md';
   apiPost('/api/context/create', { file: file })
     .then(function() {
       _loadContextFiles();

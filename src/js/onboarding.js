@@ -52,7 +52,7 @@ function openOnboarding() {
 }
 
 function _renderOnboardingWizard() {
-  var container = document.getElementById('onboarding-container');
+  const container = document.getElementById('onboarding-container');
   if (!container) return;
   container.innerHTML = '<div id="onboarding-wizard" class="nr-modal wizard-mode" style="position:relative;"></div>';
   _wizardStep = 0;
@@ -60,32 +60,32 @@ function _renderOnboardingWizard() {
 }
 
 function _wizardUpdateAccentGlow() {
-  var modal = document.getElementById('onboarding-wizard');
+  const modal = document.getElementById('onboarding-wizard');
   if (!modal) return;
-  var accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
-  var hex = accent.replace('#', '');
-  var r = parseInt(hex.slice(0,2), 16) || 0;
-  var g = parseInt(hex.slice(2,4), 16) || 0;
-  var b = parseInt(hex.slice(4,6), 16) || 0;
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
+  const hex = accent.replace('#', '');
+  const r = parseInt(hex.slice(0,2), 16) || 0;
+  const g = parseInt(hex.slice(2,4), 16) || 0;
+  const b = parseInt(hex.slice(4,6), 16) || 0;
   modal.style.setProperty('--accent-glow', 'rgba(' + r + ',' + g + ',' + b + ',0.15)');
   modal.classList.add('wizard-glow', 'nr-glow');
 }
 
 function _wizardAnimateHeight(wizard, step) {
-  var prevHeight = wizard.offsetHeight;
+  const prevHeight = wizard.offsetHeight;
   wizard.style.height = 'auto';
-  var newHeight = step.scrollHeight;
+  const newHeight = step.scrollHeight;
   wizard.style.height = prevHeight + 'px';
   void wizard.offsetHeight;
   wizard.style.height = newHeight + 'px';
-  var onEnd = function() { wizard.style.height = 'auto'; wizard.removeEventListener('transitionend', onEnd); };
+  const onEnd = function() { wizard.style.height = 'auto'; wizard.removeEventListener('transitionend', onEnd); };
   wizard.addEventListener('transitionend', onEnd);
 }
 
 function _wizardBackView(stepIndex) {
   if (stepIndex === 0) return null;
-  var prevStep = stepIndex - 1;
-  var btn = new View('button').className('wizard-back');
+  const prevStep = stepIndex - 1;
+  const btn = new View('button').className('wizard-back');
   btn.el.title = 'Back';
   btn.el.appendChild(RawHTML('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>').build());
   btn.onTap(function() { _renderWizardStep(prevStep, 'back'); });
@@ -93,30 +93,30 @@ function _wizardBackView(stepIndex) {
 }
 
 function _wizardDotsView(stepIndex) {
-  var dots = [];
-  for (var i = 0; i < _wizardTotalSteps; i++) {
-    var cls = i === stepIndex ? 'active' : i < stepIndex ? 'completed' : '';
+  const dots = [];
+  for (let i = 0; i < _wizardTotalSteps; i++) {
+    const cls = i === stepIndex ? 'active' : i < stepIndex ? 'completed' : '';
     dots.push(new View('div').className('wizard-dot ' + cls));
   }
   return HStack(dots).className('wizard-dots');
 }
 
 function _renderWizardStep(stepIndex, direction) {
-  var wizard = document.getElementById('onboarding-wizard');
+  const wizard = document.getElementById('onboarding-wizard');
   if (!wizard) return;
 
-  var prev = wizard.querySelector('.wizard-step');
+  const prev = wizard.querySelector('.wizard-step');
   if (prev) {
     prev.classList.remove('active');
     prev.classList.add('exit-left');
     setTimeout(function() { if (prev.parentNode) prev.remove(); }, 350);
   }
 
-  var delay = prev ? 350 : 0;
+  const delay = prev ? 350 : 0;
   setTimeout(function() {
     _wizardStep = stepIndex;
 
-    var contentView = Switch(stepIndex, {
+    const contentView = Switch(stepIndex, {
       0: function() { return _wizardWelcomeView(); },
       1: function() { return _wizardUsernameView(); },
       2: function() { return _wizardAccentView(); },
@@ -129,10 +129,10 @@ function _renderWizardStep(stepIndex, direction) {
       9: function() { return _wizardFinaleView(); },
     });
 
-    var stepView = new View('div').className('wizard-step');
+    const stepView = new View('div').className('wizard-step');
     stepView.styles({ position: 'relative' });
-    var step = stepView.el;
-    var backView = _wizardBackView(stepIndex);
+    const step = stepView.el;
+    const backView = _wizardBackView(stepIndex);
     if (backView) step.appendChild(backView.build());
     step.appendChild(_wizardDotsView(stepIndex).build());
     if (contentView) step.appendChild(contentView.build());
@@ -157,12 +157,12 @@ function _renderWizardStep(stepIndex, direction) {
 // ── Step 0: Welcome ──
 
 function _wizardWelcomeView() {
-  var name = (_authUserInfo && (_authUserInfo.name || '')) || _authUser || '';
-  var firstName = name.split(' ')[0] || 'there';
-  var pic = _authUserInfo && _authUserInfo.picture;
-  var avatarView;
+  const name = (_authUserInfo && (_authUserInfo.name || '')) || _authUser || '';
+  const firstName = name.split(' ')[0] || 'there';
+  const pic = _authUserInfo && _authUserInfo.picture;
+  let avatarView;
   if (pic) {
-    var img = new View('img').className('wizard-welcome-avatar');
+    const img = new View('img').className('wizard-welcome-avatar');
     img.el.src = pic;
     img.el.referrerPolicy = 'no-referrer';
     avatarView = img;
@@ -170,7 +170,7 @@ function _wizardWelcomeView() {
     avatarView = new View('div').className('wizard-welcome-letter');
     avatarView.el.textContent = firstName[0].toUpperCase();
   }
-  var continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Get started';
   continueBtn.onTap(function() { _renderWizardStep(1, 'forward'); });
   return VStack(
@@ -184,12 +184,12 @@ function _wizardWelcomeView() {
 // ── Step 1: Username ──
 
 function _wizardUsernameView() {
-  var input = new View('input').id('wiz-username');
+  const input = new View('input').id('wiz-username');
   input.el.type = 'text';
   input.el.maxLength = 20;
   input.el.placeholder = 'username';
   input.cssText('width:100%;box-sizing:border-box;padding:10px 14px;font-size:15px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--nr-text-primary,#e0e0e0);outline:none;text-align:center;');
-  var submitBtn = new View('button').id('wiz-username-btn').className('nr-btn nr-btn-primary nr-btn-lg').styles({marginTop:'4px'});
+  const submitBtn = new View('button').id('wiz-username-btn').className('nr-btn nr-btn-primary nr-btn-lg').styles({marginTop:'4px'});
   submitBtn.el.textContent = 'Continue';
   submitBtn.el.disabled = true;
   submitBtn.onTap(function() { _wizardSubmitUsername(); });
@@ -204,20 +204,20 @@ function _wizardUsernameView() {
 }
 
 function _wizardUsernameInit() {
-  var input = document.getElementById('wiz-username');
+  const input = document.getElementById('wiz-username');
   if (!input) return;
   input.addEventListener('input', function() {
-    var val = input.value.replace(/[^a-zA-Z0-9_-]/g, '');
+    const val = input.value.replace(/[^a-zA-Z0-9_-]/g, '');
     if (val !== input.value) input.value = val;
-    var btn = document.getElementById('wiz-username-btn');
-    var valid = val.length >= 2 && val.length <= 20;
+    const btn = document.getElementById('wiz-username-btn');
+    const valid = val.length >= 2 && val.length <= 20;
     if (btn) btn.disabled = !valid;
-    var errEl = document.getElementById('wiz-username-error');
+    const errEl = document.getElementById('wiz-username-error');
     if (errEl) errEl.textContent = '';
   });
   input.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
-      var btn = document.getElementById('wiz-username-btn');
+      const btn = document.getElementById('wiz-username-btn');
       if (btn && !btn.disabled) _wizardSubmitUsername();
     }
   });
@@ -225,10 +225,10 @@ function _wizardUsernameInit() {
 }
 
 function _wizardSubmitUsername() {
-  var input = document.getElementById('wiz-username');
-  var errEl = document.getElementById('wiz-username-error');
+  const input = document.getElementById('wiz-username');
+  const errEl = document.getElementById('wiz-username-error');
   if (!input || !errEl) return;
-  var username = input.value.trim();
+  const username = input.value.trim();
   if (username.length < 2 || username.length > 20 || !/^[a-zA-Z0-9_-]+$/.test(username)) {
     errEl.textContent = 'Invalid username format';
     return;
@@ -240,7 +240,7 @@ function _wizardSubmitUsername() {
 async function _wizardCommitAccount() {
   if (!_wizardPendingUsername) return;
   try {
-    var data = await apiPost('/api/auth/username', { username: _wizardPendingUsername });
+    const data = await apiPost('/api/auth/username', { username: _wizardPendingUsername });
     _authUserInfo.username = data.username;
     localStorage.setItem('authUserInfo', JSON.stringify(_authUserInfo));
   } catch (e) {
@@ -252,17 +252,17 @@ async function _wizardCommitAccount() {
 // ── Step 2: Accent Color ──
 
 function _wizardAccentView() {
-  var current = Settings.get('accentColor') || '#b4451a';
-  var currentName = (_wizardAccentColors.find(function(c) { return c.color === current; }) || { name: 'Orange' }).name;
-  var swatches = _wizardAccentColors.map(function(a) {
-    var btn = new View('button').className('onboard-swatch' + (a.color === current ? ' selected' : ''));
+  const current = Settings.get('accentColor') || '#b4451a';
+  const currentName = (_wizardAccentColors.find(function(c) { return c.color === current; }) || { name: 'Orange' }).name;
+  const swatches = _wizardAccentColors.map(function(a) {
+    const btn = new View('button').className('onboard-swatch' + (a.color === current ? ' selected' : ''));
     btn.styles({ background: a.color });
     btn.el.dataset.color = a.color;
     btn.el.dataset.name = a.name;
     btn.onTap(function() { _wizardPickAccent(a.color, btn.el); });
     return btn;
   });
-  var continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _wizardAccentContinue(); });
   return VStack(
@@ -275,7 +275,7 @@ function _wizardAccentView() {
 }
 
 function _wizardAccentInit() {
-  var current = Settings.get('accentColor') || '#b4451a';
+  const current = Settings.get('accentColor') || '#b4451a';
   if (typeof applyAccentColor === 'function') applyAccentColor(current);
   _wizardUpdateAccentGlow();
 }
@@ -283,13 +283,13 @@ function _wizardAccentInit() {
 function _wizardPickAccent(color, el) {
   if (typeof setAccentColor === 'function') setAccentColor(color);
   _wizardUpdateAccentGlow();
-  var wizard = document.getElementById('onboarding-wizard');
+  const wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
     wizard.querySelectorAll('.onboard-swatch').forEach(function(s) { s.classList.remove('selected'); });
   }
   if (el) el.classList.add('selected');
-  var nameEl = document.getElementById('wiz-color-name');
-  var match = _wizardAccentColors.find(function(c) { return c.color === color; });
+  const nameEl = document.getElementById('wiz-color-name');
+  const match = _wizardAccentColors.find(function(c) { return c.color === color; });
   if (nameEl && match) nameEl.textContent = match.name;
 }
 
@@ -300,7 +300,7 @@ function _wizardAccentContinue() {
 // ── Step 3: Theme ──
 
 function _wizardThemePreviewHTML(t) {
-  var accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#b4451a';
   return '<div class="wizard-theme-preview" style="background:' + t.bg + ';border-color:' + (t.id === 'dark' || t.id === 'clear' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)') + ';">' +
     '<div class="wizard-theme-preview-bar" style="background:' + t.bar + ';"></div>' +
     '<div class="wizard-theme-preview-body">' +
@@ -311,18 +311,18 @@ function _wizardThemePreviewHTML(t) {
 }
 
 function _wizardThemeView() {
-  var current = Settings.get('theme') || 'clear';
-  var options = _wizardThemes.map(function(t) {
-    var btn = new View('button').className('wizard-theme-option' + (t.id === current ? ' selected' : ''));
+  const current = Settings.get('theme') || 'clear';
+  const options = _wizardThemes.map(function(t) {
+    const btn = new View('button').className('wizard-theme-option' + (t.id === current ? ' selected' : ''));
     btn.el.dataset.theme = t.id;
     btn.el.appendChild(RawHTML(_wizardThemePreviewHTML(t)).build());
-    var labelWrap = new View('div').flex(1).textAlign('left').styles({marginLeft:'12px'});
+    const labelWrap = new View('div').flex(1).textAlign('left').styles({marginLeft:'12px'});
     labelWrap.el.appendChild(RawHTML('<span class="wizard-theme-name">' + t.name + '</span><br/><span class="wizard-theme-desc">' + t.desc + '</span>').build());
     btn.el.appendChild(labelWrap.el);
     btn.onTap(function() { _wizardPickTheme(t.id, btn.el); });
     return btn;
   });
-  var continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _wizardThemeContinue(); });
   return VStack(
@@ -334,20 +334,20 @@ function _wizardThemeView() {
 }
 
 function _wizardThemeInit() {
-  var current = Settings.get('theme') || 'clear';
+  const current = Settings.get('theme') || 'clear';
   if (typeof setTheme === 'function') setTheme(current);
 }
 
 function _wizardPickTheme(themeId, el) {
   if (typeof setTheme === 'function') setTheme(themeId);
-  var modal = document.getElementById('onboarding-wizard');
-  var isLight = themeId === 'light' || themeId === 'daylight';
+  const modal = document.getElementById('onboarding-wizard');
+  const isLight = themeId === 'light' || themeId === 'daylight';
   if (modal) {
     modal.style.background = isLight ? 'rgba(255, 255, 255, 0.75)' : 'rgba(12, 12, 20, 0.7)';
     modal.style.borderColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
     modal.style.color = isLight ? '#333' : '#e0e0e0';
   }
-  var wizard = document.getElementById('onboarding-wizard');
+  const wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
     wizard.querySelectorAll('.wizard-theme-option').forEach(function(b) { b.classList.remove('selected'); });
   }
@@ -361,9 +361,9 @@ function _wizardThemeContinue() {
 // ── Step 4: Tab Layout ──
 
 function _wizardTabLayoutView() {
-  var current = Settings.get('browseTabLayout') || 'island';
+  const current = Settings.get('browseTabLayout') || 'island';
   function _layoutOption(layout, name, desc, previewHTML, selected) {
-    var btn = new View('button').className('wizard-tab-layout-option' + (selected ? ' selected' : ''));
+    const btn = new View('button').className('wizard-tab-layout-option' + (selected ? ' selected' : ''));
     btn.el.dataset.layout = layout;
     btn.el.appendChild(RawHTML('<div class="wizard-tab-layout-preview">' + previewHTML + '</div>').build());
     btn.el.appendChild(RawHTML('<span class="wizard-tab-layout-name">' + name + '</span>').build());
@@ -371,14 +371,14 @@ function _wizardTabLayoutView() {
     btn.onTap(function() { _wizardPickTabLayout(layout, btn.el); });
     return btn;
   }
-  var islandPreview = '<div style="display:flex;gap:4px;align-items:center;justify-content:center;height:100%;">' +
+  const islandPreview = '<div style="display:flex;gap:4px;align-items:center;justify-content:center;height:100%;">' +
     '<div style="width:10px;height:100%;background:var(--nr-text-secondary,#999);opacity:0.2;border-radius:3px;"></div>' +
     '<div style="flex:1;display:flex;flex-direction:column;gap:3px;padding:4px;">' +
       '<div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:80%;"></div>' +
       '<div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:60%;"></div>' +
       '<div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:70%;"></div>' +
     '</div></div>';
-  var horizPreview = '<div style="display:flex;flex-direction:column;height:100%;">' +
+  const horizPreview = '<div style="display:flex;flex-direction:column;height:100%;">' +
     '<div style="display:flex;gap:2px;padding:3px 4px;">' +
       '<div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>' +
       '<div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>' +
@@ -386,7 +386,7 @@ function _wizardTabLayoutView() {
     '</div>' +
     '<div style="height:5px;background:var(--nr-text-secondary,#999);opacity:0.15;margin:0 4px;border-radius:2px;"></div>' +
     '<div style="flex:1;"></div></div>';
-  var continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _renderWizardStep(5, 'forward'); });
   return VStack(
@@ -402,7 +402,7 @@ function _wizardTabLayoutView() {
 
 function _wizardPickTabLayout(layout, el) {
   Settings.set('browseTabLayout', layout);
-  var wizard = document.getElementById('onboarding-wizard');
+  const wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
     wizard.querySelectorAll('.wizard-tab-layout-option').forEach(function(b) { b.classList.remove('selected'); });
   }
@@ -415,7 +415,7 @@ const _wizardFeedSelected = new Set();
 let _wizardFeedCategory = null;
 
 function _wizardFeedsView() {
-  var continueBtn = new View('button').id('wiz-feed-continue').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new View('button').id('wiz-feed-continue').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _renderWizardStep(6, 'forward'); });
   return VStack(
@@ -436,17 +436,17 @@ function _wizardFeedsInit() {
 }
 
 function _wizardFeedRenderTabs() {
-  var tabsContainer = document.getElementById('wiz-feed-tabs');
+  const tabsContainer = document.getElementById('wiz-feed-tabs');
   if (!tabsContainer) return;
-  var cats = [];
+  const cats = [];
   FEED_CATALOG.forEach(function(f) { if (cats.indexOf(f.cat) === -1) cats.push(f.cat); });
-  var tabs = [];
-  var allTab = new View('button').className('wizard-feed-tab' + (_wizardFeedCategory === null ? ' active' : ''));
+  const tabs = [];
+  const allTab = new View('button').className('wizard-feed-tab' + (_wizardFeedCategory === null ? ' active' : ''));
   allTab.el.textContent = 'All';
   allTab.onTap(function() { _wizardFeedSelectCategory(null); });
   tabs.push(allTab);
   cats.forEach(function(cat) {
-    var tab = new View('button').className('wizard-feed-tab' + (_wizardFeedCategory === cat ? ' active' : ''));
+    const tab = new View('button').className('wizard-feed-tab' + (_wizardFeedCategory === cat ? ' active' : ''));
     tab.el.textContent = cat;
     tab.onTap(function() { _wizardFeedSelectCategory(cat); });
     tabs.push(tab);
@@ -461,48 +461,48 @@ function _wizardFeedSelectCategory(cat) {
 }
 
 function _wizardFeedRenderGrid() {
-  var grid = document.getElementById('wiz-feed-grid');
+  const grid = document.getElementById('wiz-feed-grid');
   if (!grid) return;
 
-  var entries = _wizardFeedCategory
+  const entries = _wizardFeedCategory
     ? FEED_CATALOG.filter(function(f) { return f.cat === _wizardFeedCategory; })
     : FEED_CATALOG;
 
-  var byCategory = {};
+  const byCategory = {};
   entries.forEach(function(f) {
     if (!byCategory[f.cat]) byCategory[f.cat] = [];
     byCategory[f.cat].push(f);
   });
 
-  var sections = [];
-  for (var cat of Object.keys(byCategory)) {
-    var items = byCategory[cat];
-    var allOn = items.every(function(f) { return _wizardFeedSelected.has(f.key); });
+  const sections = [];
+  for (const cat of Object.keys(byCategory)) {
+    const items = byCategory[cat];
+    const allOn = items.every(function(f) { return _wizardFeedSelected.has(f.key); });
 
     // Category header
-    var catLabel = Text(cat).styles({fontSize:'0.72rem', color:'var(--nr-text-secondary,#999)', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:'500'});
-    var sep = new View('span').flex(1).styles({height:'1px', background:'rgba(255,255,255,0.06)'});
+    const catLabel = Text(cat).styles({fontSize:'0.72rem', color:'var(--nr-text-secondary,#999)', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:'500'});
+    const sep = new View('span').flex(1).styles({height:'1px', background:'rgba(255,255,255,0.06)'});
     var toggleAllBtn = new View('button').styles({fontSize:'0.68rem', color:'var(--nr-text-secondary,#777)', background:'none', border:'none'}).cursor();
     toggleAllBtn.el.textContent = allOn ? 'Deselect all' : 'Select all';
     (function(c) { toggleAllBtn.onTap(function() { _wizardFeedToggleCategory(c); }); })(cat);
-    var header = HStack(catLabel, sep, toggleAllBtn).spacing(2).className('items-center').styles({padding:'0 4px', marginBottom:'4px'});
+    const header = HStack(catLabel, sep, toggleAllBtn).spacing(2).className('items-center').styles({padding:'0 4px', marginBottom:'4px'});
 
     // Feed items
-    var feedRows = items.map(function(f) {
-      var sel = _wizardFeedSelected.has(f.key);
-      var faviconView;
+    const feedRows = items.map(function(f) {
+      const sel = _wizardFeedSelected.has(f.key);
+      let faviconView;
       if (f.favicon) {
         faviconView = RawHTML('<img src="https://www.google.com/s2/favicons?domain=' + f.favicon + '&sz=32" style="width:20px;height:20px;border-radius:4px;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><span style="display:none;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>');
       } else {
         faviconView = RawHTML('<span style="display:flex;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>');
       }
-      var nameView = Text(f.name).styles({fontSize:'0.82rem', fontWeight:'500', color: sel ? 'var(--nr-text-primary,#e0e0e0)' : 'var(--nr-text-secondary,#999)'}).truncate();
-      var descView = Text(f.desc).styles({fontSize:'0.7rem', color:'var(--nr-text-secondary,#777)'}).truncate();
-      var textCol = VStack(nameView, descView).flex(1).styles({minWidth:'0'});
-      var checkSvg = sel ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : '';
-      var checkCircle = new View('div').styles({width:'20px', height:'20px', borderRadius:'50%', border:'2px solid ' + (sel ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.15)'), background: sel ? 'var(--accent,#b4451a)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:'0', transition:'all 0.15s'});
+      const nameView = Text(f.name).styles({fontSize:'0.82rem', fontWeight:'500', color: sel ? 'var(--nr-text-primary,#e0e0e0)' : 'var(--nr-text-secondary,#999)'}).truncate();
+      const descView = Text(f.desc).styles({fontSize:'0.7rem', color:'var(--nr-text-secondary,#777)'}).truncate();
+      const textCol = VStack(nameView, descView).flex(1).styles({minWidth:'0'});
+      const checkSvg = sel ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : '';
+      const checkCircle = new View('div').styles({width:'20px', height:'20px', borderRadius:'50%', border:'2px solid ' + (sel ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.15)'), background: sel ? 'var(--accent,#b4451a)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:'0', transition:'all 0.15s'});
       if (checkSvg) checkCircle.el.appendChild(RawHTML(checkSvg).build());
-      var row = HStack(faviconView, textCol, checkCircle).spacing(2.5).styles({padding:'6px 10px', borderRadius:'8px', transition:'background 0.15s', background: sel ? 'rgba(255,255,255,0.04)' : 'transparent'}).cursor();
+      const row = HStack(faviconView, textCol, checkCircle).spacing(2.5).styles({padding:'6px 10px', borderRadius:'8px', transition:'background 0.15s', background: sel ? 'rgba(255,255,255,0.04)' : 'transparent'}).cursor();
       (function(key, isSel) {
         row.el.addEventListener('click', function() { _wizardFeedToggle(key); });
         row.el.addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.06)'; });
@@ -515,7 +515,7 @@ function _wizardFeedRenderGrid() {
   }
   AetherUI.mount(VStack(sections), grid);
 
-  var btn = document.getElementById('wiz-feed-continue');
+  const btn = document.getElementById('wiz-feed-continue');
   if (btn) btn.disabled = _wizardFeedSelected.size === 0;
 }
 
@@ -526,8 +526,8 @@ function _wizardFeedToggle(key) {
 }
 
 function _wizardFeedToggleCategory(cat) {
-  var items = FEED_CATALOG.filter(function(f) { return f.cat === cat; });
-  var allOn = items.every(function(f) { return _wizardFeedSelected.has(f.key); });
+  const items = FEED_CATALOG.filter(function(f) { return f.cat === cat; });
+  const allOn = items.every(function(f) { return _wizardFeedSelected.has(f.key); });
   items.forEach(function(f) {
     if (allOn) _wizardFeedSelected.delete(f.key);
     else _wizardFeedSelected.add(f.key);
@@ -538,7 +538,7 @@ function _wizardFeedToggleCategory(cat) {
 // ── Step 6: Chat Model ──
 
 function _wizardChatModelView() {
-  var continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _renderWizardStep(7, 'forward'); });
   return VStack(
@@ -551,13 +551,13 @@ function _wizardChatModelView() {
 
 async function _wizardChatModelInit() {
   try {
-    var data = await apiGet('/api/models');
+    const data = await apiGet('/api/models');
     _wizardModelList = data.models || [];
   } catch (e) {
     _wizardModelList = [];
   }
 
-  var container = document.getElementById('wiz-model-list');
+  const container = document.getElementById('wiz-model-list');
   if (!container) return;
 
   if (!_wizardModelList.length) {
@@ -565,9 +565,9 @@ async function _wizardChatModelInit() {
     return;
   }
 
-  var current = Settings.get('chatModel') || 'qwen2.5:3b';
-  var btns = _wizardModelList.map(function(m) {
-    var btn = new View('button').className('wizard-model-option' + (m === current ? ' selected' : ''));
+  const current = Settings.get('chatModel') || 'qwen2.5:3b';
+  const btns = _wizardModelList.map(function(m) {
+    const btn = new View('button').className('wizard-model-option' + (m === current ? ' selected' : ''));
     btn.el.textContent = m;
     (function(model) {
       btn.onTap(function() { _wizardPickModel(model, btn.el); });
@@ -579,7 +579,7 @@ async function _wizardChatModelInit() {
 
 function _wizardPickModel(model, el) {
   Settings.set('chatModel', model);
-  var wizard = document.getElementById('onboarding-wizard');
+  const wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
     wizard.querySelectorAll('.wizard-model-option').forEach(function(b) { b.classList.remove('selected'); });
   }
@@ -589,11 +589,11 @@ function _wizardPickModel(model, el) {
 // ── Step 7: Pixel Pet ──
 
 function _wizardPixelPetView() {
-  var petOn = Settings.get('pixelPet') === 'on';
-  var currentType = Settings.get('pixelPetType') || 'cat';
-  var petBtns = _wizardPetTypes.map(function(p) {
-    var sel = petOn && currentType === p.id;
-    var btn = new View('button').className('wizard-pet-option' + (sel ? ' selected' : '')).styles({display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', padding:'10px 12px'});
+  const petOn = Settings.get('pixelPet') === 'on';
+  const currentType = Settings.get('pixelPetType') || 'cat';
+  const petBtns = _wizardPetTypes.map(function(p) {
+    const sel = petOn && currentType === p.id;
+    const btn = new View('button').className('wizard-pet-option' + (sel ? ' selected' : '')).styles({display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', padding:'10px 12px'});
     btn.el.dataset.pet = p.id;
     btn.el.appendChild(RawHTML('<canvas class="wiz-pet-sprite" data-pet-id="' + p.id + '" width="48" height="48" style="image-rendering:pixelated;width:48px;height:48px;"></canvas>').build());
     btn.el.appendChild(Text(p.name).styles({fontSize:'11px'}).build());
@@ -603,14 +603,14 @@ function _wizardPixelPetView() {
     return btn;
   });
   // "None" option
-  var noneBtn = new View('button').className('wizard-pet-option' + (!petOn ? ' selected' : '')).styles({display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', padding:'10px 12px'});
+  const noneBtn = new View('button').className('wizard-pet-option' + (!petOn ? ' selected' : '')).styles({display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', padding:'10px 12px'});
   noneBtn.el.dataset.pet = 'none';
   noneBtn.el.appendChild(RawHTML('<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--nr-text-secondary,#999)" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>').build());
   noneBtn.el.appendChild(Text('None').styles({fontSize:'11px'}).build());
   noneBtn.onTap(function() { _wizardPickPet('none', noneBtn.el); });
   petBtns.push(noneBtn);
 
-  var continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const continueBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
   continueBtn.onTap(function() { _renderWizardStep(8, 'forward'); });
   return VStack(
@@ -622,13 +622,13 @@ function _wizardPixelPetView() {
 }
 
 function _wizardPixelPetInit() {
-  var sprites = _wizardPetSprites();
-  var G = 16, S = 48 / G;
+  const sprites = _wizardPetSprites();
+  const G = 16, S = 48 / G;
   document.querySelectorAll('.wiz-pet-sprite').forEach(function(canvas) {
-    var id = canvas.dataset.petId;
-    var draw = sprites[id];
+    const id = canvas.dataset.petId;
+    const draw = sprites[id];
     if (!draw) return;
-    var ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, 48, 48);
     function px(x, y, c) { ctx.fillStyle = c; ctx.fillRect(x * S, y * S, S, S); }
     draw(px, { sitting: true, blink: false, legFrame: 0 });
@@ -636,7 +636,7 @@ function _wizardPixelPetInit() {
 }
 
 function _wizardPickPet(petId, el) {
-  var wizard = document.getElementById('onboarding-wizard');
+  const wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
     wizard.querySelectorAll('.wizard-pet-option').forEach(function(b) { b.classList.remove('selected'); });
   }
@@ -760,10 +760,10 @@ function _wizardPetSprites() {
 // ── Step 8: Neuralook (optional) ──
 
 function _wizardNeuralookView() {
-  var calibrateBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const calibrateBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   calibrateBtn.el.textContent = 'Calibrate now';
   calibrateBtn.onTap(function() { _wizardStartNeuralook(); });
-  var skipBtn = new View('button').className('nr-btn nr-btn-ghost');
+  const skipBtn = new View('button').className('nr-btn nr-btn-ghost');
   skipBtn.el.textContent = 'Set up later';
   skipBtn.onTap(function() { _renderWizardStep(9, 'forward'); });
   return VStack(
@@ -778,8 +778,8 @@ function _wizardNeuralookView() {
 async function _wizardStartNeuralook() {
   await _wizardCommitAccount();
   if (_wizardFeedSelected.size > 0) {
-    var sources = {};
-    var notifSources = {};
+    const sources = {};
+    const notifSources = {};
     FEED_CATALOG.forEach(function(f) {
       sources[f.key] = _wizardFeedSelected.has(f.key);
       notifSources[f.key] = false;
@@ -793,8 +793,8 @@ async function _wizardStartNeuralook() {
 // ── Step 9: Finale ──
 
 function _wizardFinaleView() {
-  var username = _wizardPendingUsername || (_authUserInfo && _authUserInfo.username) || 'you';
-  var enterBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  const username = _wizardPendingUsername || (_authUserInfo && _authUserInfo.username) || 'you';
+  const enterBtn = new View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   enterBtn.el.textContent = 'Enter the Net';
   enterBtn.onTap(function() { _wizardFinish(); });
   return VStack(
@@ -808,8 +808,8 @@ function _wizardFinaleView() {
 async function _wizardFinish() {
   await _wizardCommitAccount();
   if (_wizardFeedSelected.size > 0) {
-    var sources = {};
-    var notifSources = {};
+    const sources = {};
+    const notifSources = {};
     FEED_CATALOG.forEach(function(f) {
       sources[f.key] = _wizardFeedSelected.has(f.key);
       notifSources[f.key] = false;

@@ -4,7 +4,7 @@ if (window.AetherUI) AetherUI.globals();
 
 // ── Closed Captions ──
 
-export let _ccPillDismissed = false;
+export const _ccPillDismissed = false;
 
 export function _updateCCButton() {
   const hasAudio = _browseIsElectron && _browseAudioTabs.size > 0;

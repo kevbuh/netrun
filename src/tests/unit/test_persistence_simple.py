@@ -4,7 +4,6 @@ Unit tests for persistence utilities.
 Tests basic utility functions and database operations.
 """
 
-import pytest
 import sys
 import os
 import sqlite3

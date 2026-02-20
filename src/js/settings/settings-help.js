@@ -2,7 +2,7 @@
 if (window.AetherUI) AetherUI.globals();
 
 export function _renderHelpSettings() {
-  var h = '';
+  let h = '';
 
   // Search
   h += '<div class="mb-8"><h3 class="text-white_ text-sm font-semibold mb-3">Search</h3>';
@@ -13,7 +13,7 @@ export function _renderHelpSettings() {
   h += '</div></div>';
 
   // Bangs
-  var bangs = _HELP_DATA.getBangs();
+  const bangs = _HELP_DATA.getBangs();
   if (bangs.length) {
     h += '<div class="mb-8 pt-5 border-t border-border-subtle"><h3 class="text-white_ text-sm font-semibold mb-3">Bangs</h3>';
     h += '<p class="text-dim text-[0.8rem] mb-3">Type <code class="text-muted">!</code> followed by a shortcut and your query to search a specific site. Works at the start or end of input.</p>';

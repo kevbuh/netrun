@@ -68,8 +68,8 @@ export function showPanelForView(viewKey) {
   }
 
   // Render tab buttons
-  var tabBtns = reg.tabs.map(function(t) {
-    var btn = new View('button')
+  const tabBtns = reg.tabs.map(function(t) {
+    const btn = new View('button')
       .className('universal-panel-tab-btn' + (_panelActiveTab === t.id ? ' active' : ''))
       .attr('data-tab-id', t.id)
       .attr('title', t.label)

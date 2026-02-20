@@ -354,7 +354,7 @@ export function _applyDaylightColors() {
   }
 
   // Map legacy keyframe names → --nr-* token names
-  var _nrMap = {
+  const _nrMap = {
     '--bg-body': '--nr-bg-body', '--bg-card': '--nr-bg-surface',
     '--bg-hover': '--nr-bg-raised', '--bg-canvas': '--nr-bg-sunken',
     '--bg-popup': '--nr-bg-overlay', '--bg-input': '--nr-bg-input',
@@ -395,7 +395,7 @@ export function stopDaylightTheme() {
   if (_daylightInterval) { clearInterval(_daylightInterval); _daylightInterval = null; }
   window._daylightStartReal = null;
   // Remove all inline --nr-* properties set by daylight
-  var _nrMap = {
+  const _nrMap = {
     '--bg-body': '--nr-bg-body', '--bg-card': '--nr-bg-surface',
     '--bg-hover': '--nr-bg-raised', '--bg-canvas': '--nr-bg-sunken',
     '--bg-popup': '--nr-bg-overlay', '--bg-input': '--nr-bg-input',

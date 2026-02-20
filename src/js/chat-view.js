@@ -2,13 +2,13 @@
 // Uses ChatEngine for agent streaming and ChatRender for rich message rendering.
 import Settings from '/js/core/core-settings.js';
 
-var _chatViewThreadId = null;
-var _chatViewThread = null;
-var _chatViewSession = null;      // ChatEngine session
-var _chatViewMsgList = null;       // the .chat-view-messages div inside the morphed NTP
-var _chatViewOrigPlaceholder = ''; // original input placeholder to restore on un-morph
-var _chatViewOrigHandlers = null;  // original input handlers to restore on un-morph
-var _chatViewCmdPopup = null;      // the "popup" adapter element for command handlers
+let _chatViewThreadId = null;
+let _chatViewThread = null;
+let _chatViewSession = null;      // ChatEngine session
+let _chatViewMsgList = null;       // the .chat-view-messages div inside the morphed NTP
+let _chatViewOrigPlaceholder = ''; // original input placeholder to restore on un-morph
+let _chatViewOrigHandlers = null;  // original input handlers to restore on un-morph
+let _chatViewCmdPopup = null;      // the "popup" adapter element for command handlers
 
 // ── Morph NTP into chat mode ──
 
@@ -82,7 +82,7 @@ function _chatViewMorphNTP(ntp) {
   if (!inner || !center) return;
 
   // Insert messages div before the center (which contains the form)
-  var msgList = document.createElement('div');
+  const msgList = document.createElement('div');
   msgList.className = 'chat-view-messages';
   msgList.id = 'chat-view-msg-list';
   inner.insertBefore(msgList, center);
@@ -119,7 +119,7 @@ function _chatViewMorphNTP(ntp) {
     }
 
     // Insert attachment strip (for /capture, /tab context chips) before the form
-    var attachStrip = document.createElement('div');
+    const attachStrip = document.createElement('div');
     attachStrip.className = 'doc-screenshot-attachments';
     attachStrip.style.display = 'none';
     if (form) center.insertBefore(attachStrip, form);
@@ -136,9 +136,9 @@ function _chatViewMorphNTP(ntp) {
 
     // ── oninput: slash command detection ──
     input.oninput = function() {
-      var val = input.value;
+      const val = input.value;
       if (val.startsWith('/')) {
-        var histMatch = val.match(/^\/history(\s+(.*))?$/i);
+        const histMatch = val.match(/^\/history(\s+(.*))?$/i);
         if (histMatch && histMatch[1] !== undefined) {
           _aetherHideCmdDropdown(_chatViewCmdPopup);
           _aetherHistoryIdx = -1;
@@ -156,16 +156,16 @@ function _chatViewMorphNTP(ntp) {
 
     // ── onkeydown: full keyboard handling for dropdowns + chat ──
     input.onkeydown = function(ev) {
-      var val = input.value;
-      var isCmd = val.startsWith('/');
-      var popup = _chatViewCmdPopup;
+      const val = input.value;
+      const isCmd = val.startsWith('/');
+      const popup = _chatViewCmdPopup;
       if (!popup) return;
 
-      var dropdown = popup.querySelector('.aether-cmd-dropdown');
-      var modelDropdown = popup.querySelector('.aether-model-dropdown');
-      var agentDropdown = popup.querySelector('.aether-agent-dropdown');
-      var tabDropdown = popup.querySelector('.aether-tab-dropdown');
-      var histDropdown = popup.querySelector('.aether-history-dropdown');
+      const dropdown = popup.querySelector('.aether-cmd-dropdown');
+      const modelDropdown = popup.querySelector('.aether-model-dropdown');
+      const agentDropdown = popup.querySelector('.aether-agent-dropdown');
+      const tabDropdown = popup.querySelector('.aether-tab-dropdown');
+      const histDropdown = popup.querySelector('.aether-history-dropdown');
 
       // ── Model dropdown navigation ──
       if (modelDropdown && _aetherModelList.length && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
@@ -173,7 +173,7 @@ function _chatViewMorphNTP(ntp) {
         if (ev.key === 'ArrowDown') _aetherModelIdx = Math.min(_aetherModelIdx + 1, _aetherModelList.length - 1);
         else _aetherModelIdx = Math.max(_aetherModelIdx - 1, 0);
         _aetherRenderModelDropdown(popup);
-        var sel = modelDropdown.querySelector('.aether-note-item.selected');
+        const sel = modelDropdown.querySelector('.aether-note-item.selected');
         if (sel) sel.scrollIntoView({ block: 'nearest' });
         return;
       }
@@ -194,7 +194,7 @@ function _chatViewMorphNTP(ntp) {
         if (ev.key === 'ArrowDown') _aetherAgentIdx = Math.min(_aetherAgentIdx + 1, _aetherAgentList.length - 1);
         else _aetherAgentIdx = Math.max(_aetherAgentIdx - 1, 0);
         _aetherRenderAgentDropdown(popup);
-        var sel2 = agentDropdown.querySelector('.aether-note-item.selected');
+        const sel2 = agentDropdown.querySelector('.aether-note-item.selected');
         if (sel2) sel2.scrollIntoView({ block: 'nearest' });
         return;
       }
@@ -214,9 +214,9 @@ function _chatViewMorphNTP(ntp) {
         ev.preventDefault();
         if (ev.key === 'ArrowDown') _aetherTabIdx = Math.min(_aetherTabIdx + 1, _aetherTabList.length - 1);
         else _aetherTabIdx = Math.max(_aetherTabIdx - 1, 0);
-        var items = tabDropdown.querySelectorAll('.aether-tab-item');
+        const items = tabDropdown.querySelectorAll('.aether-tab-item');
         items.forEach(function(el, i) { el.classList.toggle('selected', i === _aetherTabIdx); });
-        var selTab = items[_aetherTabIdx];
+        const selTab = items[_aetherTabIdx];
         if (selTab) selTab.scrollIntoView({ block: 'nearest' });
         return;
       }
@@ -237,9 +237,9 @@ function _chatViewMorphNTP(ntp) {
         ev.preventDefault();
         if (ev.key === 'ArrowDown') _aetherHistoryIdx = Math.min(_aetherHistoryIdx + 1, _aetherHistoryList.length - 1);
         else _aetherHistoryIdx = Math.max(_aetherHistoryIdx - 1, -1);
-        var hItems = histDropdown.querySelectorAll('.aether-note-item');
+        const hItems = histDropdown.querySelectorAll('.aether-note-item');
         hItems.forEach(function(el) { el.classList.toggle('selected', parseInt(el.dataset.idx) === _aetherHistoryIdx); });
-        var selHist = histDropdown.querySelector('.aether-note-item[data-idx="' + _aetherHistoryIdx + '"]');
+        const selHist = histDropdown.querySelector('.aether-note-item[data-idx="' + _aetherHistoryIdx + '"]');
         if (selHist) selHist.scrollIntoView({ block: 'nearest' });
         return;
       }
@@ -257,18 +257,18 @@ function _chatViewMorphNTP(ntp) {
       // ── Command dropdown navigation ──
       if (isCmd && dropdown && (ev.key === 'ArrowDown' || ev.key === 'ArrowUp')) {
         ev.preventDefault();
-        var cmdItems = dropdown.querySelectorAll('.aether-cmd-item');
+        const cmdItems = dropdown.querySelectorAll('.aether-cmd-item');
         if (ev.key === 'ArrowDown') _aetherCmdIdx = Math.min(_aetherCmdIdx + 1, cmdItems.length - 1);
         else _aetherCmdIdx = Math.max(_aetherCmdIdx - 1, 0);
         _aetherRenderCmdDropdown(popup, val.slice(1).trim());
-        var dd = popup.querySelector('.aether-cmd-dropdown');
-        var selCmd = dd && dd.querySelector('.aether-cmd-item.selected');
+        const dd = popup.querySelector('.aether-cmd-dropdown');
+        const selCmd = dd && dd.querySelector('.aether-cmd-item.selected');
         if (selCmd) selCmd.scrollIntoView({ block: 'nearest' });
         return;
       }
       if (isCmd && dropdown && ev.key === 'Tab') {
         ev.preventDefault();
-        var matches = _aetherFilterCommands(val.slice(1).trim());
+        const matches = _aetherFilterCommands(val.slice(1).trim());
         if (matches[_aetherCmdIdx]) input.value = '/' + matches[_aetherCmdIdx].name;
         _aetherRenderCmdDropdown(popup, matches[_aetherCmdIdx]?.name || '');
         return;
@@ -278,8 +278,8 @@ function _chatViewMorphNTP(ntp) {
       if (ev.key === 'Enter' && !ev.shiftKey) {
         ev.preventDefault();
         if (isCmd && dropdown) {
-          var cmdMatches = _aetherFilterCommands(val.slice(1).trim());
-          var cmd = cmdMatches[_aetherCmdIdx] || cmdMatches[0];
+          const cmdMatches = _aetherFilterCommands(val.slice(1).trim());
+          const cmd = cmdMatches[_aetherCmdIdx] || cmdMatches[0];
           if (cmd) {
             if (cmd.hasArgs) {
               input.value = '/' + cmd.name + ' ';
@@ -298,7 +298,7 @@ function _chatViewMorphNTP(ntp) {
         if (isCmd && val.trim().length > 1) {
           _chatViewExecFullCommand(popup, val);
         } else if (!isCmd) {
-          var text = val.trim();
+          const text = val.trim();
           if (text && _chatViewSession && !_chatViewSession.streaming) {
             input.value = '';
             _chatViewSend(text);
@@ -329,7 +329,7 @@ function _chatViewMorphNTP(ntp) {
     form._origOnsubmit = form.onsubmit;
     form.onsubmit = function(e) {
       e.preventDefault();
-      var text = input ? input.value.trim() : '';
+      const text = input ? input.value.trim() : '';
       if (text && _chatViewSession && !_chatViewSession.streaming) {
         input.value = '';
         _chatViewSend(text);
@@ -355,7 +355,7 @@ function _chatViewHideAllDropdowns() {
 function _chatViewExecSpecial(name, popup) {
   // Commands that use popup chat (panel-specific) — send as natural language instead
   if (name === 'links') {
-    var input = popup.querySelector('.doc-ask-inline-input');
+    const input = popup.querySelector('.doc-ask-inline-input');
     if (input) input.value = '';
     _chatViewSend('List all links on the current page');
     return;
@@ -371,12 +371,12 @@ function _chatViewExecSpecial(name, popup) {
 }
 
 function _chatViewExecFullCommand(popup, text) {
-  var raw = text.slice(1).trim();
-  var spaceIdx = raw.indexOf(' ');
+  const raw = text.slice(1).trim();
+  const spaceIdx = raw.indexOf(' ');
   if (spaceIdx > 0) {
-    var cmdName = raw.slice(0, spaceIdx).toLowerCase();
-    var args = raw.slice(spaceIdx + 1).trim();
-    var cmd = _aetherCommands.find(function(c) { return c.name === cmdName; });
+    const cmdName = raw.slice(0, spaceIdx).toLowerCase();
+    const args = raw.slice(spaceIdx + 1).trim();
+    const cmd = _aetherCommands.find(function(c) { return c.name === cmdName; });
     if (cmd && cmd.hasArgs && args) {
       _aetherHideCmdDropdown(popup);
       var input = popup.querySelector('.doc-ask-inline-input');
@@ -391,9 +391,9 @@ function _chatViewExecFullCommand(popup, text) {
     if (cmd && cmd.fn) { cmd.fn(); if (input) input.value = ''; return; }
   }
   // No space — try to match and execute
-  var query = raw.toLowerCase();
-  var matches = _aetherFilterCommands(query);
-  var matched = matches[_aetherCmdIdx] || matches[0];
+  const query = raw.toLowerCase();
+  const matches = _aetherFilterCommands(query);
+  const matched = matches[_aetherCmdIdx] || matches[0];
   if (matched) {
     if (matched.hasArgs) return; // needs args
     if (matched._special) {
@@ -403,7 +403,7 @@ function _chatViewExecFullCommand(popup, text) {
     }
     _aetherHideCmdDropdown(popup);
     matched.fn();
-    var inp = popup.querySelector('.doc-ask-inline-input');
+    const inp = popup.querySelector('.doc-ask-inline-input');
     if (inp) inp.value = '';
   }
 }
@@ -848,7 +848,7 @@ async function _chatViewSend(text) {
   if (!_chatViewSession || _chatViewSession.streaming) return;
 
   // Collect pending attachments
-  var sendOpts = {};
+  const sendOpts = {};
   if (typeof _pendingScreenshots !== 'undefined' && _pendingScreenshots.length) {
     sendOpts.images = _pendingScreenshots.slice();
     _pendingScreenshots.length = 0;
@@ -859,7 +859,7 @@ async function _chatViewSend(text) {
   }
   // Clear attachment strip UI
   if (_chatViewCmdPopup) {
-    var strip = _chatViewCmdPopup.querySelector('.doc-screenshot-attachments');
+    const strip = _chatViewCmdPopup.querySelector('.doc-screenshot-attachments');
     if (strip) { strip.innerHTML = ''; strip.style.display = 'none'; }
   }
 

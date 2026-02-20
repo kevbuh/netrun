@@ -97,19 +97,19 @@ export const _HELP_DATA = {
 // ─── AetherUI Settings Helpers ──────────────────────────────
 
 export function _settingRow(label, desc, control) {
-  var leftChildren = [];
+  const leftChildren = [];
   if (label) leftChildren.push(Text(label).className('nr-settings-row-label'));
   if (desc) leftChildren.push(Text(desc).className('nr-settings-row-desc'));
-  var left = VStack.apply(null, leftChildren).className('nr-settings-row-left');
-  var rowChildren = [left];
+  const left = VStack.apply(null, leftChildren).className('nr-settings-row-left');
+  const rowChildren = [left];
   if (control) rowChildren.push(control);
-  var row = HStack.apply(null, rowChildren).className('nr-settings-group-row');
+  const row = HStack.apply(null, rowChildren).className('nr-settings-group-row');
   return row;
 }
 
 export function _settingToggle(label, desc, checked, onChange) {
-  var toggle = Toggle(null);
-  var input = toggle.el.querySelector('input[type="checkbox"]');
+  const toggle = Toggle(null);
+  const input = toggle.el.querySelector('input[type="checkbox"]');
   if (input) input.checked = !!checked;
   if (onChange) toggle.on('change', function(e) {
     if (e.target.type === 'checkbox') onChange(e.target.checked);
@@ -119,8 +119,8 @@ export function _settingToggle(label, desc, checked, onChange) {
 
 export function _settingToggleLS(label, desc, lsKey, opts) {
   opts = opts || {};
-  var defaultOn = opts.defaultOn !== undefined ? opts.defaultOn : true;
-  var checked = defaultOn
+  const defaultOn = opts.defaultOn !== undefined ? opts.defaultOn : true;
+  let checked = defaultOn
     ? Settings.get(lsKey) !== (opts.offValue || 'off')
     : Settings.get(lsKey) === (opts.onValue || 'on');
   if (opts.checkedFn) checked = opts.checkedFn();
@@ -135,19 +135,19 @@ export function _settingToggleLS(label, desc, lsKey, opts) {
 }
 
 export function _settingBtnGroup(label, options, currentValue, onSelect) {
-  var btns = options.map(function(opt) {
-    var value = typeof opt === 'object' ? opt.value : opt;
-    var text = typeof opt === 'object' ? opt.label : (value.charAt(0).toUpperCase() + value.slice(1));
-    var active = value === currentValue;
-    var b = new View('button');
+  const btns = options.map(function(opt) {
+    const value = typeof opt === 'object' ? opt.value : opt;
+    const text = typeof opt === 'object' ? opt.label : (value.charAt(0).toUpperCase() + value.slice(1));
+    const active = value === currentValue;
+    const b = new View('button');
     b.el.textContent = text;
     b.className('px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' +
       (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'));
     b.onTap(function() { onSelect(value); });
     return b;
   });
-  var right = HStack.apply(null, btns).spacing(1);
-  var row = HStack(
+  const right = HStack.apply(null, btns).spacing(1);
+  const row = HStack(
     Text(label).className('nr-settings-row-label'),
     right
   ).className('nr-settings-group-row');
@@ -155,11 +155,11 @@ export function _settingBtnGroup(label, options, currentValue, onSelect) {
 }
 
 export function _settingPillGroup(label, options, currentValue, onSelect) {
-  var btns = options.map(function(opt) {
-    var value = typeof opt === 'object' ? opt.value : opt;
-    var text = typeof opt === 'object' ? opt.label : value;
-    var active = value === currentValue;
-    var b = new View('button');
+  const btns = options.map(function(opt) {
+    const value = typeof opt === 'object' ? opt.value : opt;
+    const text = typeof opt === 'object' ? opt.label : value;
+    const active = value === currentValue;
+    const b = new View('button');
     b.el.textContent = text;
     b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
       (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
@@ -171,9 +171,9 @@ export function _settingPillGroup(label, options, currentValue, onSelect) {
 
 export function _settingSlider(label, desc, value, opts, onInput, onChange) {
   opts = opts || {};
-  var valSpan = Text(opts.format ? opts.format(value) : String(value))
+  const valSpan = Text(opts.format ? opts.format(value) : String(value))
     .className('text-muted text-[0.78rem] w-10 text-right font-mono');
-  var slider = new View('input');
+  const slider = new View('input');
   slider.el.type = 'range';
   slider.className('flex-1 accent-accent');
   if (opts.min != null) slider.el.min = opts.min;
@@ -185,40 +185,40 @@ export function _settingSlider(label, desc, value, opts, onInput, onChange) {
     if (onInput) onInput(slider.el.value);
   });
   if (onChange) slider.el.addEventListener('change', function() { onChange(slider.el.value); });
-  var right = HStack(slider, valSpan).spacing(2).className('flex-1 max-w-[200px]');
+  const right = HStack(slider, valSpan).spacing(2).className('flex-1 max-w-[200px]');
 
-  var leftChildren = [];
+  const leftChildren = [];
   if (label) leftChildren.push(Text(label).className('nr-settings-row-label'));
   if (desc) leftChildren.push(Text(desc).className('nr-settings-row-desc'));
-  var left = VStack.apply(null, leftChildren).className('nr-settings-row-left');
-  var row = HStack(left, right).className('nr-settings-group-row');
+  const left = VStack.apply(null, leftChildren).className('nr-settings-row-left');
+  const row = HStack(left, right).className('nr-settings-group-row');
   return row;
 }
 
 export function _settingSection(title, children, opts) {
   opts = opts || {};
-  var items = [];
+  let items = [];
   if (title) {
-    var titleEl = new View('div');
+    const titleEl = new View('div');
     titleEl.el.className = 'nr-settings-section-title';
     titleEl.el.textContent = title;
     items.push(titleEl);
   }
   if (opts.desc) {
-    var descEl = new View('div');
+    const descEl = new View('div');
     descEl.el.className = 'nr-settings-section-desc';
     descEl.el.textContent = opts.desc;
     items.push(descEl);
   }
-  var childArr = [].concat(children).filter(Boolean);
+  const childArr = [].concat(children).filter(Boolean);
   items = items.concat(childArr);
-  var section = VStack.apply(null, items);
+  const section = VStack.apply(null, items);
   section.className('mb-8' + (opts.borderTop ? ' pt-5 border-t border-border-subtle' : ''));
   return section;
 }
 
 export function _settingHeadingRow(title, desc, control) {
-  var left = VStack(
+  const left = VStack(
     Text(title).className('text-white_ text-sm font-semibold'),
     desc ? Text(desc).className('text-dim text-[0.8rem] mt-0.5') : null
   );
@@ -226,22 +226,22 @@ export function _settingHeadingRow(title, desc, control) {
 }
 
 export function _settingCard(title, children) {
-  var items = [];
+  const items = [];
   if (title) items.push(Text(title).className('nr-settings-group-header'));
-  var childArr = [].concat(children).filter(Boolean);
-  var group = VStack.apply(null, childArr).className('nr-settings-group');
+  const childArr = [].concat(children).filter(Boolean);
+  const group = VStack.apply(null, childArr).className('nr-settings-group');
   items.push(group);
-  var wrapper = VStack.apply(null, items).className('mb-4');
+  const wrapper = VStack.apply(null, items).className('mb-4');
   return wrapper;
 }
 
 export function _settingGroupContent(children) {
-  var block = new View('div');
+  const block = new View('div');
   block.el.className = 'nr-settings-group-content';
-  var childArr = [].concat(children).filter(Boolean);
-  for (var i = 0; i < childArr.length; i++) {
-    var child = childArr[i];
-    var el = child.el || child;
+  const childArr = [].concat(children).filter(Boolean);
+  for (let i = 0; i < childArr.length; i++) {
+    const child = childArr[i];
+    const el = child.el || child;
     block.el.appendChild(el);
   }
   return block;

@@ -27,7 +27,7 @@ export function _vibeLogCmd(cmd, ms) {
   if (_vibeCmdLog.length > 50) _vibeCmdLog.shift();
   const el = document.getElementById('vibe-cmdlog-body');
   if (!el) return;
-  var rows = _vibeCmdLog.slice().reverse().map(function(c) {
+  const rows = _vibeCmdLog.slice().reverse().map(function(c) {
     return HStack([
       new View('span').className('text-dimmer')._bindText(c.ts),
       Text(' '),
@@ -66,7 +66,7 @@ export function _vibeRenderStatus(data) {
     function() {
       return Show(lines.length,
         function() {
-          var rows = lines.map(function(l) {
+          const rows = lines.map(function(l) {
             if (l.startsWith('## ')) return new View('div').className('vibe-status-branch')._bindText(escapeHtml(l.slice(3)));
             return RawHTML('<div class="vibe-row">' + _vibeColorStatus(l) + '</div>');
           });
@@ -87,7 +87,7 @@ export function _vibeRenderFiles(data) {
     function() {
       return Show(files.length,
         function() {
-          var rows = files.map(function(f, i) {
+          const rows = files.map(function(f, i) {
             return RawHTML('<div class="vibe-row vibe-selectable" data-pane="1" data-idx="' + i + '">' + _vibeFileStatusBadge(f.status) + ' ' + escapeHtml(f.path) + '</div>')
               .onTap(function() { _vibeSelectFile(i); });
           });
@@ -108,8 +108,8 @@ export function _vibeRenderBranches(data) {
     function() {
       return Show(branches.length,
         function() {
-          var rows = branches.map(function(b, i) {
-            var children = [];
+          const rows = branches.map(function(b, i) {
+            const children = [];
             if (b.current) children.push(new View('span').className('text-green-400')._bindText('* '));
             else children.push(Text('  '));
             children.push(new View('span').className('text-accent')._bindText('\u2387 '));
@@ -135,7 +135,7 @@ export function _vibeRenderCommits(data) {
     function() {
       return Show(commits.length,
         function() {
-          var rows = commits.map(function(c, i) {
+          const rows = commits.map(function(c, i) {
             return HStack([
               new View('span').className('text-yellow-400')._bindText('\u25C6'),
               Text(' '),
@@ -163,7 +163,7 @@ export function _vibeRenderStash(data) {
     function() {
       return Show(entries.length,
         function() {
-          var rows = entries.map(function(s, i) {
+          const rows = entries.map(function(s, i) {
             return new View('div').className('vibe-row vibe-selectable').attr('data-pane', '4').attr('data-idx', String(i))
               ._bindText(escapeHtml(s))
               .onTap(function() { _vibeSelectStash(i); });

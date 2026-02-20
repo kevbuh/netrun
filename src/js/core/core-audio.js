@@ -45,19 +45,19 @@ export function _renderAudioPill() {
   const el = document.getElementById('pill-audio-unified');
   if (!el) return;
   const { tab, tts, cc, mic } = _audioUnifiedState.value;
-  var micRecording = typeof _pillMicRecorder !== 'undefined' && _pillMicRecorder;
+  const micRecording = typeof _pillMicRecorder !== 'undefined' && _pillMicRecorder;
   const rainActive = typeof _rainOn !== 'undefined' && _rainOn;
   const active = !!(tab || tts || cc || mic || micRecording || rainActive);
 
   // Build pill indicator
   let indicator = el.querySelector('.audio-pill-indicator');
   if (!indicator) {
-    var indicatorView = new View('div').className('audio-pill-indicator');
+    const indicatorView = new View('div').className('audio-pill-indicator');
     indicator = indicatorView.build();
     el.appendChild(indicator);
   }
 
-  var audioMode = micRecording ? 'mic' : active ? 'active' : 'idle';
+  const audioMode = micRecording ? 'mic' : active ? 'active' : 'idle';
   AetherUI.mount(Switch(audioMode, {
     mic: function() { return RawHTML(icon('microphone', { size: 14, stroke: '#ef4444' })); },
     active: function() { return RawHTML(_islandAudioBars); },
@@ -70,14 +70,14 @@ export function _renderAudioPill() {
   // Build dropdown
   let dropdown = el.querySelector('.audio-pill-dropdown');
   if (!dropdown) {
-    var dropdownView = new View('div').className('audio-pill-dropdown');
+    const dropdownView = new View('div').className('audio-pill-dropdown');
     dropdown = dropdownView.build();
     el.appendChild(dropdown);
   }
 
   function _audioBtn(iconName, label, action, opts) {
     opts = opts || {};
-    var btn = new View('button');
+    const btn = new View('button');
     btn._appendChildren([RawHTML(icon(iconName, opts.iconOpts || { size: 14 }))]);
     btn._appendChildren([Text(' ' + label)]);
     if (opts.trailing) btn._appendChildren([opts.trailing]);
@@ -87,11 +87,11 @@ export function _renderAudioPill() {
     return btn;
   }
 
-  var items = [];
+  const items = [];
 
   // Tab audio source
   if (tab) {
-    var tabBtn = new View('button');
+    const tabBtn = new View('button');
     tabBtn._appendChildren([RawHTML(_islandAudioBars), Text(' ' + escapeHtml(tab.label || 'Tab Audio'))]);
     tabBtn.onTap(function() { if (typeof goToAudioTab === 'function') goToAudioTab(); });
     items.push(tabBtn);
@@ -99,8 +99,8 @@ export function _renderAudioPill() {
 
   // TTS status
   if (tts) {
-    var spdText = (parseFloat(Settings.get('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x';
-    var spdSpan = new View('span').styles({marginLeft:'auto', fontSize:'0.7rem', opacity:'0.5'})._bindText(spdText);
+    const spdText = (parseFloat(Settings.get('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x';
+    const spdSpan = new View('span').styles({marginLeft:'auto', fontSize:'0.7rem', opacity:'0.5'})._bindText(spdText);
     items.push(_audioBtn(tts.paused ? 'play' : 'pause', tts.paused ? 'Resume TTS' : 'Pause TTS', function() { _ttsPauseResume(); _renderAudioPill(); }, { color: 'var(--nr-accent)', trailing: spdSpan }));
     items.push(_audioBtn('close', 'Stop TTS', function() { _ttsStopAll(); _renderAudioPill(); }));
   }
@@ -123,7 +123,7 @@ export function _renderAudioPill() {
 
   // White noise
   if (rainActive) {
-    var noiseLabel = (typeof NOISE_PRESETS !== 'undefined' && typeof _rainNoiseType !== 'undefined' && NOISE_PRESETS[_rainNoiseType]) ? NOISE_PRESETS[_rainNoiseType].label : 'White noise';
+    const noiseLabel = (typeof NOISE_PRESETS !== 'undefined' && typeof _rainNoiseType !== 'undefined' && NOISE_PRESETS[_rainNoiseType]) ? NOISE_PRESETS[_rainNoiseType].label : 'White noise';
     items.push(_audioBtn('rain', escapeHtml(noiseLabel), function() { _pillNoiseCycle(); _renderAudioPill(); }, { color: 'var(--nr-accent)', stopProp: true }));
     items.push(_audioBtn('close', 'Stop noise', function() { stopRain(); _renderAudioPill(); }));
   } else {
@@ -297,15 +297,15 @@ export function _islandBuildTray(a, isBrowse) {
     var trayHtml = '';
     // Paper metadata at top of tray (when on an academic paper page)
     if (a._paper && a._paperState) {
-      var ps = a._paperState;
-      var s2 = ps.s2Data;
-      var meta = ps.meta || {};
-      var paperTitle = (s2 && s2.title) || meta.title || '';
+      const ps = a._paperState;
+      const s2 = ps.s2Data;
+      const meta = ps.meta || {};
+      const paperTitle = (s2 && s2.title) || meta.title || '';
       if (paperTitle) {
         trayHtml += '<div style="padding:8px 10px 4px;font-size:13px;font-weight:600;color:var(--nr-text-primary);line-height:1.4">' + escapeHtml(paperTitle) + '</div>';
       }
       if (s2) {
-        var paperDetails = [];
+        const paperDetails = [];
         if (s2.year) paperDetails.push(s2.year);
         if (s2.venue) paperDetails.push(s2.venue);
         if (s2.citationCount != null) paperDetails.push(s2.citationCount + ' citation' + (s2.citationCount !== 1 ? 's' : ''));
@@ -313,27 +313,27 @@ export function _islandBuildTray(a, isBrowse) {
           trayHtml += '<div style="padding:2px 10px 4px;font-size:11px;color:var(--nr-text-secondary)">' + escapeHtml(paperDetails.join(' \u00b7 ')) + '</div>';
         }
       }
-      var paperAuthors = (s2 && s2.authors) || [];
-      var authorDetails = ps.authorDetails || [];
+      const paperAuthors = (s2 && s2.authors) || [];
+      const authorDetails = ps.authorDetails || [];
       if (paperAuthors.length || (meta.authors && meta.authors.length)) {
         trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 0"></div>';
-        var displayAuthors = paperAuthors.length ? paperAuthors.slice(0, 5) : meta.authors.slice(0, 5).map(function(n) { return { name: n }; });
-        for (var pai = 0; pai < displayAuthors.length; pai++) {
-          var pAuthor = displayAuthors[pai];
-          var pName = pAuthor.name || '';
-          var pDetail = null;
-          for (var pdi = 0; pdi < authorDetails.length; pdi++) {
+        const displayAuthors = paperAuthors.length ? paperAuthors.slice(0, 5) : meta.authors.slice(0, 5).map(function(n) { return { name: n }; });
+        for (let pai = 0; pai < displayAuthors.length; pai++) {
+          const pAuthor = displayAuthors[pai];
+          const pName = pAuthor.name || '';
+          let pDetail = null;
+          for (let pdi = 0; pdi < authorDetails.length; pdi++) {
             if (authorDetails[pdi] && authorDetails[pdi].name === pName) { pDetail = authorDetails[pdi]; break; }
           }
-          var hBadge = pDetail && pDetail.hIndex != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:auto">h-index: ' + pDetail.hIndex + '</span>' : '';
-          var citBadge = pDetail && pDetail.citationCount != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:6px">' + pDetail.citationCount.toLocaleString() + ' cit.</span>' : '';
+          const hBadge = pDetail && pDetail.hIndex != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:auto">h-index: ' + pDetail.hIndex + '</span>' : '';
+          const citBadge = pDetail && pDetail.citationCount != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:6px">' + pDetail.citationCount.toLocaleString() + ' cit.</span>' : '';
           trayHtml += '<div style="padding:4px 10px;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--nr-text-primary)">';
           trayHtml += '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(pName) + '</span>';
           trayHtml += hBadge + citBadge;
           trayHtml += '</div>';
         }
         if ((paperAuthors.length > 5) || (meta.authors && meta.authors.length > 5)) {
-          var pExtra = (paperAuthors.length || meta.authors.length) - 5;
+          const pExtra = (paperAuthors.length || meta.authors.length) - 5;
           trayHtml += '<div style="padding:2px 10px 4px;font-size:11px;color:var(--nr-text-quaternary)">+' + pExtra + ' more</div>';
         }
       }
@@ -537,8 +537,8 @@ export function _islandAttachHandlers(pill, a, hasTray) {
           if (e.target.closest('[data-island-tab], [data-island-tab-close], [data-island-tab-new], [data-island-dismiss]')) return;
           // Island mode: use connected pill dropdown
           if (typeof _showTabsInPillDropdown === 'function') {
-            var pillDd = document.getElementById('pill-url-dropdown');
-            var pillWrap = document.getElementById('pill-url-wrap');
+            const pillDd = document.getElementById('pill-url-dropdown');
+            const pillWrap = document.getElementById('pill-url-wrap');
             if (pillDd && pillWrap && pillWrap.classList.contains('pill-dropdown-open') && pillDd.querySelector('[data-pill-tab-switch]')) {
               // Already showing tabs — close it
               if (typeof _browseUrlHideHistory === 'function') _browseUrlHideHistory();
@@ -648,13 +648,13 @@ export function _islandRender() {
     let pill = existingEls[id];
     const isNew = !pill;
     if (isNew) {
-      var gooBg = VStack(
+      const gooBg = VStack(
         new View('div').className('goo-shape goo-pill-shape'),
         new View('div').className('goo-shape goo-tray-shape')
       ).className('pill-goo-bg');
-      var compactDiv = new View('div').className('pill-island-content');
-      var itemsTray = new View('div').className('island-ctx-tray');
-      var pillView = VStack(gooBg, compactDiv, itemsTray).className('pill-island');
+      const compactDiv = new View('div').className('pill-island-content');
+      const itemsTray = new View('div').className('island-ctx-tray');
+      const pillView = VStack(gooBg, compactDiv, itemsTray).className('pill-island');
       pillView.attr('data-island-id', id);
       pill = pillView.el;
     }

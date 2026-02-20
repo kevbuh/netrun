@@ -9,11 +9,11 @@
 import Settings from '/js/core/core-settings.js';
 
 // Window & tab state
-export let _browseWindows = []; // { id, name, tabs: [], activeTab, groups: [] }
-export let _browseActiveWindow = null;
-export let _browseNextWindowId = 1;
-export let _browseNextTabId = 1;
-export let _browseNextGroupId = 1;
+export const _browseWindows = []; // { id, name, tabs: [], activeTab, groups: [] }
+export const _browseActiveWindow = null;
+export const _browseNextWindowId = 1;
+export const _browseNextTabId = 1;
+export const _browseNextGroupId = 1;
 
 // Group configuration
 export const _BROWSE_GROUP_COLORS = ['grey','blue','red','yellow','green','pink','purple','cyan'];
@@ -31,36 +31,36 @@ if (_browseIsElectron && window.electronAPI.adblockSetEnabled) {
 }
 
 // Audio tracking: { tabId: { windowId, muted } }
-export let _browseAudioTabs = new Map();
-export let _pillBrowseMode = false;
+export const _browseAudioTabs = new Map();
+export const _pillBrowseMode = false;
 
 // Closed captions state
-export let _ccStream = null;
-export let _ccSocket = null;
-export let _ccAudioCtx = null;
-export let _ccWorkletNode = null;
-export let _ccActive = false;
-export let _ccTabId = null;
-export let _ccCaptionLines = [];
-export let _ccFadeTimer = null;
+export const _ccStream = null;
+export const _ccSocket = null;
+export const _ccAudioCtx = null;
+export const _ccWorkletNode = null;
+export const _ccActive = false;
+export const _ccTabId = null;
+export const _ccCaptionLines = [];
+export const _ccFadeTimer = null;
 
 // UI state — browseTabLayout is read directly from Settings.get('browseTabLayout')
 
 // NTP uploaded files: { name, content, file }
-export let _ntpUploadedFiles = [];
+export const _ntpUploadedFiles = [];
 
 // Closed tabs for Cmd+Shift+T reopen
 export const _BROWSE_CLOSED_TABS_MAX = 50;
-export let _browseClosedTabs = Settings.getJSON('browseClosedTabs', []);
+export const _browseClosedTabs = Settings.getJSON('browseClosedTabs', []);
 
 // Password manager state
-export let _pwAutofillOffered = new Set(); // tab ids that have been offered autofill
-export let _pwSaveDismissed = new Map(); // 'origin|username' → true
-export let _pwLastSubmit = null; // { origin, username, ts } dedup
-export let _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
+export const _pwAutofillOffered = new Set(); // tab ids that have been offered autofill
+export const _pwSaveDismissed = new Map(); // 'origin|username' → true
+export const _pwLastSubmit = null; // { origin, username, ts } dedup
+export const _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
 
 // Split pane state
-export let _browseNextPaneId = 1;
+export const _browseNextPaneId = 1;
 
 // Return view for "back" button — backed by Settings.get('_browseReturnView')
 

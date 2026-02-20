@@ -320,20 +320,20 @@ export function _renderTabs() {
 
   tabsEl.innerHTML = '';
   _terminals.forEach(function(t) {
-    var tabSvg = '<svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>';
-    var tab = new View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
+    const tabSvg = '<svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>';
+    const tab = new View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
     tab.attr('data-term-id', t.id);
     tab.onTap(function() { selectTerminal(t.id); });
     tab.el.appendChild(RawHTML(tabSvg).el);
-    var title = Text(t.name).className('term-tab-title');
+    const title = Text(t.name).className('term-tab-title');
     title.on('dblclick', function(e) { e.stopPropagation(); _startRenameTab(t.id); });
     tab.el.appendChild(title.el);
-    var closeBtn = Button('\u00d7').className('term-tab-close').attr('title', 'Close');
+    const closeBtn = Button('\u00d7').className('term-tab-close').attr('title', 'Close');
     closeBtn.onTap(function(e) { e.stopPropagation(); destroyTerminal(t.id); });
     tab.el.appendChild(closeBtn.el);
     tabsEl.appendChild(tab.el);
   });
-  var newBtn = Button('+').className('term-tab-new').attr('title', 'New Tab');
+  const newBtn = Button('+').className('term-tab-new').attr('title', 'New Tab');
   newBtn.onTap(function() { createTerminal(); });
   tabsEl.appendChild(newBtn.el);
 }
@@ -425,23 +425,23 @@ export function _renderLayout() {
     }
 
     if (node.type === 'split') {
-      var wrapper = new View('div').className('term-split');
+      const wrapper = new View('div').className('term-split');
       wrapper.cssText('display:flex;flex-direction:' + (node.direction === 'horizontal' ? 'column' : 'row') + ';width:100%;height:100%;');
 
-      var ratio = node.ratio || 0.5;
+      const ratio = node.ratio || 0.5;
 
-      var pane1 = new View('div').className('term-split-pane');
+      const pane1 = new View('div').className('term-split-pane');
       pane1.cssText(node.direction === 'horizontal'
         ? 'height:' + (ratio * 100) + '%;width:100%;overflow:hidden;'
         : 'width:' + (ratio * 100) + '%;height:100%;overflow:hidden;');
 
-      var handle = new View('div').className('term-split-handle');
+      const handle = new View('div').className('term-split-handle');
       handle.cssText(node.direction === 'horizontal'
         ? 'height:4px;width:100%;cursor:row-resize;background:var(--nr-border-dim);flex-shrink:0;'
         : 'width:4px;height:100%;cursor:col-resize;background:var(--nr-border-dim);flex-shrink:0;');
       _initSplitResize(handle.el, node, pane1.el);
 
-      var pane2 = new View('div').className('term-split-pane');
+      const pane2 = new View('div').className('term-split-pane');
       pane2.cssText(node.direction === 'horizontal'
         ? 'height:' + ((1 - ratio) * 100) + '%;width:100%;overflow:hidden;'
         : 'width:' + ((1 - ratio) * 100) + '%;height:100%;overflow:hidden;');
@@ -945,21 +945,21 @@ export function _renderBottomTerminalTabs() {
 
   tabsEl.innerHTML = '';
   _terminals.forEach(function(t) {
-    var tabSvg = '<svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>';
-    var tab = new View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
+    const tabSvg = '<svg class="w-3 h-3 shrink-0 text-dimmer" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3"/></svg>';
+    const tab = new View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
     tab.attr('data-term-id', t.id);
     tab.onTap(function() { _bottomSelectTerminal(t.id); });
     tab.el.appendChild(RawHTML(tabSvg).el);
-    var title = Text(t.name).className('term-tab-title');
+    const title = Text(t.name).className('term-tab-title');
     tab.el.appendChild(title.el);
     if (_terminals.length > 1) {
-      var closeBtn = Button('\u00d7').className('term-tab-close').attr('title', 'Close');
+      const closeBtn = Button('\u00d7').className('term-tab-close').attr('title', 'Close');
       closeBtn.onTap(function(e) { e.stopPropagation(); destroyTerminal(t.id); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); });
       tab.el.appendChild(closeBtn.el);
     }
     tabsEl.appendChild(tab.el);
   });
-  var newBtn = Button('+').className('term-tab-new').attr('title', 'New Tab');
+  const newBtn = Button('+').className('term-tab-new').attr('title', 'New Tab');
   newBtn.onTap(function() { createTerminal(); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); });
   tabsEl.appendChild(newBtn.el);
 }

@@ -316,14 +316,14 @@ export function _initInsightPartialListener() {
 
     // Inject streamed annotation incrementally only if user enabled for this tab
     if (partial.annotation) {
-      var tab = _browseTabs.find(function(t) { return t.id === partial.tabId; });
+      const tab = _browseTabs.find(function(t) { return t.id === partial.tabId; });
       if (tab && _annotationsEnabled.get(tab.id)) {
         injectSingleAnnotation(tab, partial.annotation);
         _updateAnnotateButtonState();
       }
       if (typeof islandUpdate === 'function') {
-        var count = partial.annotationCount || 0;
-        var currentLabel = count + ' annotation' + (count !== 1 ? 's' : '');
+        const count = partial.annotationCount || 0;
+        const currentLabel = count + ' annotation' + (count !== 1 ? 's' : '');
         islandUpdate('insight', {
           type: 'insight',
           label: currentLabel,
@@ -356,7 +356,7 @@ export async function _waitForWebviewReady(frame, timeout) {
   if (!frame || frame.tagName !== 'WEBVIEW') return false;
   if (frame.isConnected && frame.getWebContentsId && frame.getWebContentsId()) return true;
   return new Promise(function(resolve) {
-    var timer = setTimeout(function() { resolve(false); }, timeout || 5000);
+    const timer = setTimeout(function() { resolve(false); }, timeout || 5000);
     frame.addEventListener('dom-ready', function onReady() {
       frame.removeEventListener('dom-ready', onReady);
       clearTimeout(timer);
@@ -445,7 +445,7 @@ export function _showAnnotationTooltip(data, frame, pinned) {
   let tip = document.getElementById('aether-annotation-tooltip');
   if (_annTooltipPinned && !pinned) return; // don't overwrite pinned tooltip with hover
   if (!tip) {
-    var tipView = new View('div').id('aether-annotation-tooltip').className('doc-selection-popup aether-ann-tooltip')
+    const tipView = new View('div').id('aether-annotation-tooltip').className('doc-selection-popup aether-ann-tooltip')
       .styles({zIndex:'999999', pointerEvents:'auto'});
     tipView.on('mousedown', function(ev) { ev.stopPropagation(); });
     tip = tipView.build();
@@ -454,13 +454,13 @@ export function _showAnnotationTooltip(data, frame, pinned) {
   _annTooltipPinned = !!pinned;
   tip.style.position = 'fixed';
 
-  var thumbUpSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>';
-  var thumbDownSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>';
-  var checkSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-  var rateBtnStyle = { background: 'none', border: 'none', cursor: 'pointer', padding: '2px', opacity: '0.5', color: 'rgba(255,255,255,0.7)' };
+  const thumbUpSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>';
+  const thumbDownSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>';
+  const checkSvg = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  const rateBtnStyle = { background: 'none', border: 'none', cursor: 'pointer', padding: '2px', opacity: '0.5', color: 'rgba(255,255,255,0.7)' };
 
   function _makeRateBtn(svgHtml, rating, title, hoverColor) {
-    var btn = new View('button').attr('title', title).styles(rateBtnStyle);
+    const btn = new View('button').attr('title', title).styles(rateBtnStyle);
     btn._appendChildren([RawHTML(svgHtml)]);
     btn.onHover(
       function() { btn.el.style.opacity = '1'; btn.el.style.color = hoverColor; },
@@ -470,14 +470,14 @@ export function _showAnnotationTooltip(data, frame, pinned) {
     btn.onTap(function(ev) {
       ev.stopPropagation(); ev.preventDefault();
       if (btn.el.disabled) return;
-      var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+      const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
       apiPost('/api/annotation-feedback', { quote: data.quote || data.explanation || '', explanation: data.explanation || '', annType: data.type || '', rating: rating, url: (tab && tab.url) || '', pageTitle: (tab && tab.title) || '' })
         .then(function() {
           btn.el.style.opacity = '1';
           btn.el.style.color = rating === 'good' ? '#4caf50' : '#ef5350';
           AetherUI.mount(RawHTML(checkSvg), btn.el);
           btn.el.disabled = true;
-          var sibling = btn.el.parentElement.querySelector('button:not([disabled])');
+          const sibling = btn.el.parentElement.querySelector('button:not([disabled])');
           if (sibling) sibling.style.display = 'none';
         }).catch(function() {
           btn.el.style.opacity = '0.5';
@@ -486,21 +486,21 @@ export function _showAnnotationTooltip(data, frame, pinned) {
     return btn;
   }
 
-  var rateRow = HStack([
+  const rateRow = HStack([
     _makeRateBtn(thumbUpSvg, 'good', 'Good', '#4caf50'),
     _makeRateBtn(thumbDownSvg, 'bad', 'Bad', '#ef5350')
   ]).position('absolute').styles({top:'6px', right:'6px', display:'flex', gap:'2px'});
 
-  var labelChildren = [Text(data.label || data.type)];
+  const labelChildren = [Text(data.label || data.type)];
   if (data.confidence != null) {
     labelChildren.push(new View('span').className('aether-ann-confidence')._bindText(data.confidence + '%'));
   }
-  var labelEl = HStack(labelChildren).className('aether-ann-label')
+  const labelEl = HStack(labelChildren).className('aether-ann-label')
     .styles({color: data.labelColor || '#4caf50', paddingRight: '36px'});
 
-  var explEl = new View('div').className('aether-ann-explanation')._bindText(data.explanation);
+  const explEl = new View('div').className('aether-ann-explanation')._bindText(data.explanation);
 
-  var tipChildren = [rateRow, labelEl, explEl];
+  const tipChildren = [rateRow, labelEl, explEl];
   if (data.conflictsWith) {
     tipChildren.push(new View('div').className('aether-ann-conflict')._bindText('Conflicts with: ' + data.conflictsWith));
   }
@@ -780,7 +780,7 @@ export function injectSingleAnnotation(tab, ann) {
   const quoteEsc = JSON.stringify(ann.quote).slice(1, -1).replace(/'/g, "\\'");
   const bgEsc = c.bg.replace(/'/g, "\\'");
   const borderEsc = c.border.replace(/'/g, "\\'");
-  var annOpacity = ann.confidence != null ? Math.max(0.4, ann.confidence / 100) : 1;
+  const annOpacity = ann.confidence != null ? Math.max(0.4, ann.confidence / 100) : 1;
   const script = `(function(){
     var quote='${quoteEsc}';if(!quote)return;
     var annData=JSON.parse('${annJSON}');

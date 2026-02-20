@@ -200,7 +200,7 @@ def _nl_build_temporal_sequences(X, AUX, Y, targets_rounded, seq_len=8):
     for i, t in enumerate(targets_rounded):
         target_indices[t].append(i)
     seq_X, seq_AUX, seq_Y = [], [], []
-    for t, indices in target_indices.items():
+    for _t, indices in target_indices.items():
         indices.sort()
         if len(indices) < seq_len:
             # Pad short sequences by repeating last frame
@@ -355,8 +355,10 @@ def neuralook_train(google_id):
                     s = shift[i].item()
                     if s != 0:
                         aug[i] = torch.roll(aug[i], shifts=s, dims=-1)
-                        if s > 0: aug[i, :, :, :s] = 0.0
-                        else: aug[i, :, :, s:] = 0.0
+                        if s > 0:
+                            aug[i, :, :, :s] = 0.0
+                        else:
+                            aug[i, :, :, s:] = 0.0
                 return aug.clamp(0.0, 1.0)
 
             # Build temporal sequences from calibration data
@@ -503,12 +505,20 @@ def neuralook_train(google_id):
                         _nl_save_model(model, screen_w, screen_h, eye_w, eye_h, method)
                         with torch.no_grad():
                             vp_hot, _ = model(X_val, AUX_val)
-                            vp2_hot = vp_hot.clone(); vp2_hot[:, 0] *= screen_w; vp2_hot[:, 1] *= screen_h
-                            yv_hot = Y_val.clone(); yv_hot[:, 0] *= screen_w; yv_hot[:, 1] *= screen_h
+                            vp2_hot = vp_hot.clone()
+                            vp2_hot[:, 0] *= screen_w
+                            vp2_hot[:, 1] *= screen_h
+                            yv_hot = Y_val.clone()
+                            yv_hot[:, 0] *= screen_w
+                            yv_hot[:, 1] *= screen_h
                             hot_val_err = round(torch.sqrt(((vp2_hot - yv_hot) ** 2).sum(dim=1)).mean().item(), 1)
                             tp_hot, _ = model(X_train, AUX_train)
-                            tp2_hot = tp_hot.clone(); tp2_hot[:, 0] *= screen_w; tp2_hot[:, 1] *= screen_h
-                            yt_hot = Y_train.clone(); yt_hot[:, 0] *= screen_w; yt_hot[:, 1] *= screen_h
+                            tp2_hot = tp_hot.clone()
+                            tp2_hot[:, 0] *= screen_w
+                            tp2_hot[:, 1] *= screen_h
+                            yt_hot = Y_train.clone()
+                            yt_hot[:, 0] *= screen_w
+                            yt_hot[:, 1] *= screen_h
                             hot_train_err = round(torch.sqrt(((tp2_hot - yt_hot) ** 2).sum(dim=1)).mean().item(), 1)
                         yield sse_event('model_updated', {'val_error_px': hot_val_err, 'train_error_px': hot_train_err, 'epoch': epoch})
                     else:
@@ -536,12 +546,20 @@ def neuralook_train(google_id):
 
             with torch.no_grad():
                 train_pred, _ = model(X_train, AUX_train)
-                tp = train_pred.clone(); tp[:, 0] *= screen_w; tp[:, 1] *= screen_h
-                yt = Y_train.clone(); yt[:, 0] *= screen_w; yt[:, 1] *= screen_h
+                tp = train_pred.clone()
+                tp[:, 0] *= screen_w
+                tp[:, 1] *= screen_h
+                yt = Y_train.clone()
+                yt[:, 0] *= screen_w
+                yt[:, 1] *= screen_h
                 train_err = torch.sqrt(((tp - yt) ** 2).sum(dim=1)).mean().item()
                 vp, _ = model(X_val, AUX_val)
-                vp2 = vp.clone(); vp2[:, 0] *= screen_w; vp2[:, 1] *= screen_h
-                yv = Y_val.clone(); yv[:, 0] *= screen_w; yv[:, 1] *= screen_h
+                vp2 = vp.clone()
+                vp2[:, 0] *= screen_w
+                vp2[:, 1] *= screen_h
+                yv = Y_val.clone()
+                yv[:, 0] *= screen_w
+                yv[:, 1] *= screen_h
                 val_err = torch.sqrt(((vp2 - yv) ** 2).sum(dim=1)).mean().item()
 
             _neuralook_models[method] = model
@@ -794,8 +812,6 @@ def neuralook_auto_refine(google_id):
             _neuralook_models[method] = model
             _neuralook_screen = screen_info
 
-        # Save pre-refine state for rollback
-        pre_refine_state = {k: v.clone() for k, v in model.state_dict().items()}
 
         # Freeze conv layers (and proj for temporal models), micro-refinement settings
         for param in model.features.parameters():
@@ -814,7 +830,7 @@ def neuralook_auto_refine(google_id):
         best_state = None
         no_improve = 0
 
-        for epoch in range(max_epochs):
+        for _epoch in range(max_epochs):
             model.train()
             perm = torch.randperm(n_train)
             epoch_loss = 0.0
@@ -850,12 +866,20 @@ def neuralook_auto_refine(google_id):
 
         with torch.no_grad():
             train_pred, _ = model(X_train, AUX_train)
-            tp = train_pred.clone(); tp[:, 0] *= screen_w; tp[:, 1] *= screen_h
-            yt = Y_train.clone(); yt[:, 0] *= screen_w; yt[:, 1] *= screen_h
+            tp = train_pred.clone()
+            tp[:, 0] *= screen_w
+            tp[:, 1] *= screen_h
+            yt = Y_train.clone()
+            yt[:, 0] *= screen_w
+            yt[:, 1] *= screen_h
             train_err = torch.sqrt(((tp - yt) ** 2).sum(dim=1)).mean().item()
             vp, _ = model(X_val, AUX_val)
-            vp2 = vp.clone(); vp2[:, 0] *= screen_w; vp2[:, 1] *= screen_h
-            yv = Y_val.clone(); yv[:, 0] *= screen_w; yv[:, 1] *= screen_h
+            vp2 = vp.clone()
+            vp2[:, 0] *= screen_w
+            vp2[:, 1] *= screen_h
+            yv = Y_val.clone()
+            yv[:, 0] *= screen_w
+            yv[:, 1] *= screen_h
             val_err = torch.sqrt(((vp2 - yv) ** 2).sum(dim=1)).mean().item()
 
         val_err_rounded = round(val_err, 1)

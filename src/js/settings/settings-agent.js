@@ -6,8 +6,8 @@ if (window.AetherUI) AetherUI.globals();
 export function _renderAISettings() {
   // ── Models group ──
   function _modelRow(label, desc, lsKey, fallback) {
-    var currentVal = Settings.get(lsKey) || fallback;
-    var sel = new View('select');
+    const currentVal = Settings.get(lsKey) || fallback;
+    const sel = new View('select');
     sel.el.setAttribute('data-key', lsKey);
     sel.el.setAttribute('data-fallback', fallback);
     sel.className('settings-model-select px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent cursor-pointer');
@@ -16,7 +16,7 @@ export function _renderAISettings() {
     return _settingRow(label, desc, sel);
   }
 
-  var modelsGroup = _settingCard('Models', [
+  const modelsGroup = _settingCard('Models', [
     _modelRow('Chat Model', 'Default model for aether panel chat and document Q&A.', 'chatModel', 'qwen2.5:3b'),
     _modelRow('Vision Model', 'Model for chatting with screenshots (drag-to-capture).', 'visionModel', 'qwen3-vl:8b'),
     _modelRow('Summary Model', 'Generates the daily overview summary on the home page.', 'summaryModel', 'qwen3:0.6b'),
@@ -25,23 +25,23 @@ export function _renderAISettings() {
   ]);
 
   // ── Behavior group ──
-  var toolsOn = Settings.get('chatTools') !== 'off';
-  var chatToolsToggle = _settingToggle('Chat Tools', 'Allow the AI to take actions on your behalf during chat. Upgrades model to one that supports function calling.',
+  const toolsOn = Settings.get('chatTools') !== 'off';
+  const chatToolsToggle = _settingToggle('Chat Tools', 'Allow the AI to take actions on your behalf during chat. Upgrades model to one that supports function calling.',
     toolsOn, function(on) { Settings.set('chatTools', on ? 'on' : 'off'); });
 
-  var thinkingToggle = _settingToggleLS('Thinking', 'Let the model reason step-by-step before responding. Uses more tokens but can improve quality.',
+  const thinkingToggle = _settingToggleLS('Thinking', 'Let the model reason step-by-step before responding. Uses more tokens but can improve quality.',
     'chatThinking', { defaultOn: false });
 
-  var voiceToggle = _settingToggleLS('Voice Auto-Send', 'Automatically send the message after voice transcription completes.',
+  const voiceToggle = _settingToggleLS('Voice Auto-Send', 'Automatically send the message after voice transcription completes.',
     'voiceAutoSend', { defaultOn: false });
 
-  var tabComplete = Settings.get('panelTabComplete') !== 'off';
-  var tabCompleteToggle = _settingToggle('Tab Completion', 'Suggest a question when you open the panel or select text. Press Tab to accept.',
+  const tabComplete = Settings.get('panelTabComplete') !== 'off';
+  const tabCompleteToggle = _settingToggle('Tab Completion', 'Suggest a question when you open the panel or select text. Press Tab to accept.',
     tabComplete, function(on) { Settings.set('panelTabComplete', on ? 'on' : 'off'); });
 
-  var clickAetherToggle = _settingToggleLS('Click Aether', 'Right-click anywhere to open an aether panel with chat and web search.', 'clickAether', { defaultOn: true });
+  const clickAetherToggle = _settingToggleLS('Click Aether', 'Right-click anywhere to open an aether panel with chat and web search.', 'clickAether', { defaultOn: true });
 
-  var behaviorGroup = _settingCard('Behavior', [
+  const behaviorGroup = _settingCard('Behavior', [
     chatToolsToggle,
     thinkingToggle,
     voiceToggle,
@@ -50,23 +50,23 @@ export function _renderAISettings() {
   ]);
 
   // ── Insight group ──
-  var insightToggle = _settingToggle('Insight', 'Analyze pages with a local LLM. Produces a short insight and highlights key findings.',
+  const insightToggle = _settingToggle('Insight', 'Analyze pages with a local LLM. Produces a short insight and highlights key findings.',
     Settings.get('insightEnabled') !== 'off', function(on) {
       Settings.set('insightEnabled', on ? 'on' : 'off');
       if (window.electronAPI && window.electronAPI.insightSetEnabled) window.electronAPI.insightSetEnabled(on);
     });
-  var autoInsightToggle = _settingToggleLS('Auto Insight', 'Automatically run insight on every page you navigate to.', 'autoAnnotate', { defaultOn: false });
-  var ocrToggle = _settingToggle('Visual OCR', 'Capture a screenshot and extract visual text before analysis. Adds ~1-2s per page.',
+  const autoInsightToggle = _settingToggleLS('Auto Insight', 'Automatically run insight on every page you navigate to.', 'autoAnnotate', { defaultOn: false });
+  const ocrToggle = _settingToggle('Visual OCR', 'Capture a screenshot and extract visual text before analysis. Adds ~1-2s per page.',
     Settings.get('insightOcr') !== 'off', function(on) { Settings.set('insightOcr', on ? 'on' : 'off'); });
 
-  var insightGroup = _settingCard('Insight', [
+  const insightGroup = _settingCard('Insight', [
     insightToggle,
     autoInsightToggle,
     ocrToggle,
   ]);
 
   // ── Reference content ──
-  var systemPrompts = RawHTML(
+  const systemPrompts = RawHTML(
     '<div class="mb-8 pt-5 border-t border-border-subtle">' +
     '<h3 class="text-white_ text-sm font-semibold mb-3">System Prompts</h3>' +
     '<p class="text-dim text-[0.8rem] mb-3">The AI receives different system instructions depending on context. Dynamic values shown in <code class="text-accent">orange</code>.</p>' +
@@ -83,7 +83,7 @@ export function _renderAISettings() {
     '<pre class="text-dim text-[0.72rem] whitespace-pre-wrap leading-relaxed font-mono">You are a helpful visual analysis assistant. The user has taken a screenshot and wants to ask about it. Describe what you see and answer their questions based on the visual content provided.</pre></div></div></div>'
   );
 
-  var howItWorks = RawHTML(
+  const howItWorks = RawHTML(
     '<div class="mb-8 pt-5 border-t border-border-subtle">' +
     '<h3 class="text-white_ text-sm font-semibold mb-3">How It Works</h3>' +
     '<div class="space-y-2 text-[0.8rem] text-dim">' +

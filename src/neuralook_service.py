@@ -47,8 +47,7 @@ def _handle_train(body, req_id):
         # Import model classes from neuralook route (reuse)
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'routes'))
         from neuralook import (
-            _nl_get_model_class, _nl_save_model, _nl_load_model,
-            _nl_build_temporal_sequences, _neuralook_models as _route_models
+            _nl_get_model_class, _nl_save_model,
         )
 
         method = body.get('method', 'cnn')
@@ -183,12 +182,20 @@ def _handle_train(body, req_id):
 
         with torch.no_grad():
             train_pred, _ = model(X_train, AUX_train)
-            tp = train_pred.clone(); tp[:, 0] *= screen_w; tp[:, 1] *= screen_h
-            yt = Y_train.clone(); yt[:, 0] *= screen_w; yt[:, 1] *= screen_h
+            tp = train_pred.clone()
+            tp[:, 0] *= screen_w
+            tp[:, 1] *= screen_h
+            yt = Y_train.clone()
+            yt[:, 0] *= screen_w
+            yt[:, 1] *= screen_h
             train_err = torch.sqrt(((tp - yt) ** 2).sum(dim=1)).mean().item()
             vp, _ = model(X_val, AUX_val)
-            vp2 = vp.clone(); vp2[:, 0] *= screen_w; vp2[:, 1] *= screen_h
-            yv = Y_val.clone(); yv[:, 0] *= screen_w; yv[:, 1] *= screen_h
+            vp2 = vp.clone()
+            vp2[:, 0] *= screen_w
+            vp2[:, 1] *= screen_h
+            yv = Y_val.clone()
+            yv[:, 0] *= screen_w
+            yv[:, 1] *= screen_h
             val_err = torch.sqrt(((vp2 - yv) ** 2).sum(dim=1)).mean().item()
 
         _neuralook_models[method] = model
@@ -273,7 +280,7 @@ def _handle_auto_refine(body, req_id):
         global _neuralook_models, _neuralook_screen, _neuralook_hidden
 
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'routes'))
-        from neuralook import _nl_load_model, _nl_save_model, _nl_get_model_class, _nl_append_refine_history
+        from neuralook import _nl_load_model, _nl_save_model, _nl_append_refine_history
 
         screen_w = body.get('screenW', 1920)
         screen_h = body.get('screenH', 1080)
@@ -358,7 +365,7 @@ def _handle_auto_refine(body, req_id):
         best_state = None
         no_improve = 0
 
-        for epoch in range(30):
+        for _epoch in range(30):
             model.train()
             perm = torch.randperm(n_train)
             for start in range(0, n_train, batch_size):
@@ -387,12 +394,18 @@ def _handle_auto_refine(body, req_id):
 
         with torch.no_grad():
             tp, _ = model(X_train, AUX_train)
-            tp[:, 0] *= screen_w; tp[:, 1] *= screen_h
-            yt = Y_train.clone(); yt[:, 0] *= screen_w; yt[:, 1] *= screen_h
+            tp[:, 0] *= screen_w
+            tp[:, 1] *= screen_h
+            yt = Y_train.clone()
+            yt[:, 0] *= screen_w
+            yt[:, 1] *= screen_h
             train_err = round(torch.sqrt(((tp - yt) ** 2).sum(dim=1)).mean().item(), 1)
             vp, _ = model(X_val, AUX_val)
-            vp[:, 0] *= screen_w; vp[:, 1] *= screen_h
-            yv = Y_val.clone(); yv[:, 0] *= screen_w; yv[:, 1] *= screen_h
+            vp[:, 0] *= screen_w
+            vp[:, 1] *= screen_h
+            yv = Y_val.clone()
+            yv[:, 0] *= screen_w
+            yv[:, 1] *= screen_h
             val_err = round(torch.sqrt(((vp - yv) ** 2).sum(dim=1)).mean().item(), 1)
 
         _neuralook_models[method] = model

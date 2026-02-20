@@ -175,10 +175,10 @@ export function _populatePillMenuMoreItems() {
   // Helper: menu button with SVG icon and label
   function _menuBtn(svgHtml, label, action, opts) {
     opts = opts || {};
-    var btn = new View('button');
-    var icon = RawHTML(svgHtml);
-    var textEl = Text(label).flex(1);
-    var row = opts.trailing ? HStack([icon, textEl, opts.trailing]) : HStack([icon, textEl]);
+    const btn = new View('button');
+    const icon = RawHTML(svgHtml);
+    const textEl = Text(label).flex(1);
+    const row = opts.trailing ? HStack([icon, textEl, opts.trailing]) : HStack([icon, textEl]);
     row.spacing(2).alignment('center');
     btn.el.appendChild(row.build());
     if (opts.disabled) btn.el.disabled = true;
@@ -191,23 +191,23 @@ export function _populatePillMenuMoreItems() {
     return new View('div').styles({height:'1px', background:'var(--aether-border)'}).margin('2px', '0');
   }
 
-  var items = [];
+  const items = [];
 
   // Windows section
   if (typeof _browseWindows !== 'undefined' && _browseWindows.length > 0) {
-    var header = Text('Windows').font('caption2').foreground('quaternary')
+    const header = Text('Windows').font('caption2').foreground('quaternary')
       .styles({padding:'4px 12px 2px', textTransform:'uppercase', letterSpacing:'0.05em'});
     items.push(header);
 
-    var winSvg = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 9h18" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    for (var i = 0; i < _browseWindows.length; i++) {
+    const winSvg = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 9h18" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    for (let i = 0; i < _browseWindows.length; i++) {
       (function(w) {
-        var isActiveWin = w.id === _browseActiveWindow;
-        var countText = Text(String(w.tabs.length)).styles({marginLeft:'auto'}).font('caption2').foreground('quaternary');
+        const isActiveWin = w.id === _browseActiveWindow;
+        const countText = Text(String(w.tabs.length)).styles({marginLeft:'auto'}).font('caption2').foreground('quaternary');
 
-        var trailing = HStack([countText]);
+        let trailing = HStack([countText]);
         if (!isActiveWin && _browseWindows.length > 1) {
-          var closeSpan = Text('\u00d7').styles({marginLeft:'4px'}).opacity('0.4').cursor();
+          const closeSpan = Text('\u00d7').styles({marginLeft:'4px'}).opacity('0.4').cursor();
           closeSpan.onTap(function(e) { e.stopPropagation(); browseCloseWindow(w.id); _populatePillMenuMoreItems(); });
           trailing = HStack([countText, closeSpan]);
         }
@@ -215,7 +215,7 @@ export function _populatePillMenuMoreItems() {
           { style: isActiveWin ? { color: 'var(--nr-accent)', fontWeight: '600' } : {}, trailing: trailing }));
       })(_browseWindows[i]);
     }
-    var newWinSvg = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>';
+    const newWinSvg = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>';
     items.push(_menuBtn(newWinSvg, 'New Window', function() { browseCreateWindow(); _closePillMenu(); }));
     items.push(_menuDivider());
   }
@@ -228,7 +228,7 @@ export function _populatePillMenuMoreItems() {
   items.push(_menuDivider());
 
   // Bookmark
-  var isSaved = hasTab && typeof isPostSaved === 'function' && isPostSaved(tab.url);
+  const isSaved = hasTab && typeof isPostSaved === 'function' && isPostSaved(tab.url);
   items.push(_menuBtn('<svg class="w-4 h-4" viewBox="0 0 24 24" fill="' + (isSaved ? 'var(--nr-accent)' : 'none') + '" stroke="' + (isSaved ? 'var(--nr-accent)' : 'currentColor') + '" stroke-width="2"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>',
     isSaved ? 'Saved' : 'Save to Reading List', function() { browseSaveToReadingList(); _populatePillMenuMoreItems(); }));
 
@@ -237,13 +237,13 @@ export function _populatePillMenuMoreItems() {
     'Share', function() { browseShare(); _closePillMenu(); }, { disabled: !hasTab }));
 
   // Ad Blocker
-  var adOn = Settings.get('adBlockEnabled') === 'true';
-  var adTrailing = Text(adOn ? 'On' : 'Off').font('caption2').styles({marginLeft:'auto'}).foreground('quaternary');
+  const adOn = Settings.get('adBlockEnabled') === 'true';
+  const adTrailing = Text(adOn ? 'On' : 'Off').font('caption2').styles({marginLeft:'auto'}).foreground('quaternary');
   items.push(_menuBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>',
     'Ad Blocker', function() { toggleAdBlock(); _closePillMenu(); }, { style: adOn ? { color: 'var(--nr-accent)' } : {}, trailing: adTrailing }));
 
   // Annotate
-  var annEnabled = tab && typeof _annotationsEnabled !== 'undefined' && _annotationsEnabled.get(tab.id);
+  const annEnabled = tab && typeof _annotationsEnabled !== 'undefined' && _annotationsEnabled.get(tab.id);
   items.push(_menuBtn('<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 9h8M8 13h6" stroke-linecap="round"/></svg>',
     annEnabled ? 'Remove Annotations' : 'Annotate Page', function() { toggleAnnotations(); _closePillMenu(); },
     { disabled: !hasTab, style: annEnabled ? { color: 'var(--nr-accent)' } : {} }));
@@ -267,7 +267,7 @@ export function _populatePillMenuMoreItems() {
     'AI View', function() { browseShowAIView(); _closePillMenu(); }, { disabled: !hasTab }));
 
   // Tab layout toggle
-  var isIsland = Settings.get('browseTabLayout') === 'island';
+  const isIsland = Settings.get('browseTabLayout') === 'island';
   items.push(_menuBtn(isIsland
     ? '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 3h16v5H4V3zM4 3h16v18H4V3z"/></svg>'
     : '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M4 3h16v18H4V3z"/></svg>',

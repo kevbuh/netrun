@@ -117,7 +117,7 @@ function _updateAccountUI() {
     }
     return;
   }
-  var avatarMode = _guestMode ? 'guest'
+  const avatarMode = _guestMode ? 'guest'
     : (_authUserInfo && (_authUserInfo.username || _authUserInfo.name)) ? 'user'
     : 'none';
 
@@ -142,7 +142,7 @@ function _updateAccountUI() {
           .styles({width:'22px', height:'22px', objectFit:'cover', borderRadius:'50%', display:'block'})
           .attr('referrerpolicy', 'no-referrer');
       }, function() {
-        var letter = (_authUserInfo.username || _authUserInfo.name || '?')[0].toUpperCase();
+        const letter = (_authUserInfo.username || _authUserInfo.name || '?')[0].toUpperCase();
         return new View('span')
           .styles({width:'22px', height:'22px', borderRadius:'50%', background:'var(--nr-accent)',
             display:'flex', alignItems:'center', justifyContent:'center',

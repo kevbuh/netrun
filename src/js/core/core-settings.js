@@ -2,17 +2,17 @@
 // Central source of truth for all app settings.
 // Layers: memory cache → localStorage (write-through) → SQLite (durable)
 
-var Settings = (function() {
-  var _defs = {};      // { key: { default, sync } }
-  var _cache = {};     // in-memory cache
-  var _listeners = {}; // { key: [fn, ...] }
-  var _ready = false;
+const Settings = (function() {
+  const _defs = {};      // { key: { default, sync } }
+  const _cache = {};     // in-memory cache
+  const _listeners = {}; // { key: [fn, ...] }
+  let _ready = false;
 
   function define(key, opts) {
     opts = opts || {};
     _defs[key] = { default: opts.default !== undefined ? opts.default : null, sync: !!opts.sync };
     // Hydrate cache from localStorage immediately
-    var stored = localStorage.getItem(key);
+    const stored = localStorage.getItem(key);
     if (stored !== null) {
       _cache[key] = stored;
     }
@@ -22,7 +22,7 @@ var Settings = (function() {
     // Check cache first
     if (key in _cache) return _cache[key];
     // Check localStorage
-    var stored = localStorage.getItem(key);
+    const stored = localStorage.getItem(key);
     if (stored !== null) {
       _cache[key] = stored;
       return stored;
@@ -34,14 +34,14 @@ var Settings = (function() {
 
   // Get parsed JSON value (replaces getLS pattern)
   function getJSON(key, fallback) {
-    var raw = get(key);
+    const raw = get(key);
     if (raw === null || raw === undefined) return fallback !== undefined ? fallback : null;
     try { return JSON.parse(raw); } catch(e) { return fallback !== undefined ? fallback : null; }
   }
 
   function set(key, value) {
-    var strVal = (typeof value === 'string') ? value : JSON.stringify(value);
-    var old = _cache[key];
+    const strVal = (typeof value === 'string') ? value : JSON.stringify(value);
+    const old = _cache[key];
     _cache[key] = strVal;
     // Write-through to localStorage
     localStorage.setItem(key, strVal);
@@ -80,10 +80,10 @@ var Settings = (function() {
   async function init() {
     if (!window.electronAPI || !window.electronAPI.dbQuery) return;
     try {
-      var rows = await window.electronAPI.dbQuery('settings-all');
+      const rows = await window.electronAPI.dbQuery('settings-all');
       if (rows && rows.length) {
-        for (var i = 0; i < rows.length; i++) {
-          var row = rows[i];
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
           // SQLite is source of truth — only backfill if localStorage is empty
           if (localStorage.getItem(row.key) === null) {
             localStorage.setItem(row.key, row.value);
@@ -95,7 +95,7 @@ var Settings = (function() {
       }
       // Push any localStorage-only values into SQLite
       for (var key in _defs) {
-        var val = localStorage.getItem(key);
+        const val = localStorage.getItem(key);
         if (val !== null) {
           window.electronAPI.dbQuery('settings-set', key, val).catch(function(e) { logger.warn('[settings] sync failed:', key, e); });
         }
@@ -107,20 +107,20 @@ var Settings = (function() {
   }
 
   function getSyncKeys() {
-    var keys = [];
-    for (var k in _defs) {
+    const keys = [];
+    for (const k in _defs) {
       if (_defs[k].sync) keys.push(k);
     }
     return keys;
   }
 
   function getAll() {
-    var result = {};
-    for (var k in _defs) {
+    const result = {};
+    for (const k in _defs) {
       result[k] = get(k);
     }
     // Also include any cached keys not in defs (dynamic keys)
-    for (var c in _cache) {
+    for (const c in _cache) {
       if (!(c in result)) result[c] = _cache[c];
     }
     return result;

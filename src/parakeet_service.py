@@ -16,6 +16,7 @@ Responses:
 import sys
 import json
 import base64
+import contextlib
 import struct
 import tempfile
 import os
@@ -123,10 +124,8 @@ def main() -> None:
                 send({"id": req_id, "event": "error", "error": str(e)})
             finally:
                 if tmp_path and os.path.exists(tmp_path):
-                    try:
+                    with contextlib.suppress(OSError):
                         os.unlink(tmp_path)
-                    except OSError:
-                        pass
 
         else:
             send({"id": req_id, "event": "error", "error": f"Unknown command: {cmd}"})

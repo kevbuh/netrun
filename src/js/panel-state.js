@@ -8,13 +8,13 @@
 //   @const    — set once at init, never changes
 
 // ── Chat State ──  @runtime
-export let _popupChatMessages = [];
-export let _popupChatAbort = null;
-export let _chatStreamStart = 0;
-export let _aetherBackgroundStreaming = false;
-export let _chatMemoryRetrieved = false;
-export let _panelThreadId = null; // thread ID for the current panel chat session
-export let _panelSession = null; // ChatEngine session for the current panel
+export const _popupChatMessages = [];
+export const _popupChatAbort = null;
+export const _chatStreamStart = 0;
+export const _aetherBackgroundStreaming = false;
+export const _chatMemoryRetrieved = false;
+export const _panelThreadId = null; // thread ID for the current panel chat session
+export const _panelSession = null; // ChatEngine session for the current panel
 
 // ── Aether Cursor/Focus State ──
 export let _aetherTrackModeVal = false;
@@ -41,46 +41,46 @@ Object.defineProperty(window, '_aetherTrackMode', {
   }
 });
 
-export let _lastMouseX = 0;
-export let _lastMouseY = 0;
-export let _aetherPrevFocus = null; // { el, selStart, selEnd } — restore on Escape
-export let _aetherDragging = false;
-export let _aetherDragOffset = { x: 0, y: 0 };
-export let _aetherDragPopup = null;
-export let _aetherPinned = false;
+export const _lastMouseX = 0;
+export const _lastMouseY = 0;
+export const _aetherPrevFocus = null; // { el, selStart, selEnd } — restore on Escape
+export const _aetherDragging = false;
+export const _aetherDragOffset = { x: 0, y: 0 };
+export const _aetherDragPopup = null;
+export const _aetherPinned = false;
 
 // ── Context Attachments ──
-export let _pendingScreenshots = [];
-export let _pendingTabContexts = []; // {tabId, title, url, content} — browser tabs attached to chat
-export let _pendingFileContexts = []; // {name, content} — uploaded files attached to chat
+export const _pendingScreenshots = [];
+export const _pendingTabContexts = []; // {tabId, title, url, content} — browser tabs attached to chat
+export const _pendingFileContexts = []; // {name, content} — uploaded files attached to chat
 
 // ── TTS State ──
-export let _ttsAudio = null; // current Kokoro TTS audio element
-export let _ttsAudioCtx = null;
-export let _ttsAnalyser = null;
-export let _ttsRafId = null;
-export let _ttsQueue = []; // queued audio blobs for chunked playback
-export let _ttsChunks = []; // text chunks pending TTS
-export let _ttsChunkIdx = 0; // next chunk to fetch
-export let _ttsStopped = false; // cancellation flag
-export let _ttsPaused = false; // pause flag
-export let _ttsPlayedDurations = []; // durations of already-finished chunks
-export let _ttsRemainingDurations = []; // estimated durations of queued chunks
-export let _ttsPlayingChunkIdx = -1; // index of the chunk currently being read aloud
-export let _ttsTabId = null; // tab ID where TTS was started (persists across tab switches)
+export const _ttsAudio = null; // current Kokoro TTS audio element
+export const _ttsAudioCtx = null;
+export const _ttsAnalyser = null;
+export const _ttsRafId = null;
+export const _ttsQueue = []; // queued audio blobs for chunked playback
+export const _ttsChunks = []; // text chunks pending TTS
+export const _ttsChunkIdx = 0; // next chunk to fetch
+export const _ttsStopped = false; // cancellation flag
+export const _ttsPaused = false; // pause flag
+export const _ttsPlayedDurations = []; // durations of already-finished chunks
+export const _ttsRemainingDurations = []; // estimated durations of queued chunks
+export const _ttsPlayingChunkIdx = -1; // index of the chunk currently being read aloud
+export const _ttsTabId = null; // tab ID where TTS was started (persists across tab switches)
 
 // ── Command State (Aether slash commands) ──
-export let _aetherCmdIdx = -1;
-export let _aetherTabIdx = -1;
-export let _aetherTabList = [];
-export let _aetherTabSwitchMode = false; // true when cycling through tabs with /tabs
-export let _aetherHistoryIdx = -1;
-export let _aetherHistoryList = [];
-export let _aetherModelIdx = -1;
-export let _aetherModelList = [];
-export let _aetherAgentIdx = -1;
-export let _aetherAgentList = [];
-export let _aetherTabAutoAdding = false;
+export const _aetherCmdIdx = -1;
+export const _aetherTabIdx = -1;
+export const _aetherTabList = [];
+export const _aetherTabSwitchMode = false; // true when cycling through tabs with /tabs
+export const _aetherHistoryIdx = -1;
+export const _aetherHistoryList = [];
+export const _aetherModelIdx = -1;
+export const _aetherModelList = [];
+export const _aetherAgentIdx = -1;
+export const _aetherAgentList = [];
+export const _aetherTabAutoAdding = false;
 
 // ── Window assignments for global access ──
 window._popupChatMessages = _popupChatMessages;

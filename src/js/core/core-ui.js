@@ -119,9 +119,9 @@ window.addEventListener('resize', function() {
     if (!el) return;
     var recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];
     const lastEvent = recent.length ? recent[recent.length - 1] : null;
-    var dot = el.querySelector('.live-pulse-dot');
+    let dot = el.querySelector('.live-pulse-dot');
     if (!dot) {
-      var dotView = new View('span').className('live-pulse-dot island-pulse-dot island-pulse-dot-idle nr-breathe');
+      const dotView = new View('span').className('live-pulse-dot island-pulse-dot island-pulse-dot-idle nr-breathe');
       dot = dotView.el;
       el.appendChild(dot);
     }
@@ -147,9 +147,9 @@ window.addEventListener('resize', function() {
     }
 
     // Build dropdown
-    var dropdown = el.querySelector('.pulse-dropdown');
+    let dropdown = el.querySelector('.pulse-dropdown');
     if (!dropdown) {
-      var ddView = new View('div').className('pulse-dropdown');
+      const ddView = new View('div').className('pulse-dropdown');
       dropdown = ddView.el;
       el.appendChild(dropdown);
     }

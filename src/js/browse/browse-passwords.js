@@ -60,8 +60,8 @@ export function _pwShowAutofillPicker(tab, frame, entries) {
   const container = document.getElementById('browse-content');
   if (!container) return;
 
-  var pillBtns = entries.map(function(e) {
-    var btn = new View('button');
+  const pillBtns = entries.map(function(e) {
+    const btn = new View('button');
     btn.el.textContent = e.username || 'No username';
     btn.cssText('padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.78rem;cursor:pointer;');
     btn.onTap(function() {
@@ -71,13 +71,13 @@ export function _pwShowAutofillPicker(tab, frame, entries) {
     return btn;
   });
 
-  var label = Text('Choose account:').font('callout').foreground('tertiary');
-  var dismissBtn = new View('button');
+  const label = Text('Choose account:').font('callout').foreground('tertiary');
+  const dismissBtn = new View('button');
   dismissBtn.el.textContent = 'Dismiss';
   dismissBtn.cssText('margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;');
   dismissBtn.onTap(function() { _pwHideSavePrompt(); });
 
-  var row = HStack([label].concat(pillBtns, [dismissBtn])).spacing(2).alignment('center');
+  const row = HStack([label].concat(pillBtns, [dismissBtn])).spacing(2).alignment('center');
   row.className('browse-pw-save-bar').id('browse-pw-bar');
   container.prepend(row.build());
 }
@@ -100,11 +100,11 @@ export function _pwShowSavePrompt(tab, data) {
   // Keep password in closure, not DOM
   const password = data.password;
 
-  var lockIcon = RawHTML('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--nr-accent);flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>');
+  const lockIcon = RawHTML('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--nr-accent);flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>');
 
-  var promptText = RawHTML('<span style="font-size:0.8rem;color:var(--nr-text-primary);">Save password for <strong>' + escapeHtml(displayUser) + '</strong>?</span>');
+  const promptText = RawHTML('<span style="font-size:0.8rem;color:var(--nr-text-primary);">Save password for <strong>' + escapeHtml(displayUser) + '</strong>?</span>');
 
-  var saveBtn = new View('button');
+  const saveBtn = new View('button');
   saveBtn.el.textContent = 'Save';
   saveBtn.cssText('padding:3px 12px;border-radius:4px;border:none;background:var(--nr-accent);color:#fff;font-size:0.78rem;cursor:pointer;font-weight:500;');
   saveBtn.onTap(function() {
@@ -112,7 +112,7 @@ export function _pwShowSavePrompt(tab, data) {
     _pwHideSavePrompt(true);
   });
 
-  var neverBtn = new View('button');
+  const neverBtn = new View('button');
   neverBtn.el.textContent = 'Never';
   neverBtn.cssText('padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-secondary);font-size:0.78rem;cursor:pointer;');
   neverBtn.onTap(function() {
@@ -120,18 +120,18 @@ export function _pwShowSavePrompt(tab, data) {
     _pwHideSavePrompt(true);
   });
 
-  var closeBtn = new View('button');
+  const closeBtn = new View('button');
   closeBtn.el.textContent = '\u00d7';
   closeBtn.cssText('margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;');
   closeBtn.onTap(function() { _pwHideSavePrompt(true); });
 
-  var row = HStack([lockIcon, promptText, saveBtn, neverBtn, closeBtn]).spacing(2).alignment('center');
+  const row = HStack([lockIcon, promptText, saveBtn, neverBtn, closeBtn]).spacing(2).alignment('center');
   row.className('browse-pw-save-bar').id('browse-pw-bar');
-  var bar = row.build();
+  const bar = row.build();
   container.prepend(bar);
 
   // Auto-dismiss after 15s
-  var timer = setTimeout(function() { _pwHideSavePrompt(true); }, 15000);
+  const timer = setTimeout(function() { _pwHideSavePrompt(true); }, 15000);
   bar._pwDismissTimer = timer;
 }
 
@@ -160,9 +160,9 @@ export function _showBrowseContextMenu(x, y, data) {
   _hideBrowseContextMenu();
   _browseContextData = data;
 
-  var linkUrl = data.linkUrl || '';
-  var linkText = data.linkText || '';
-  var imgUrl = data.imgUrl || '';
+  const linkUrl = data.linkUrl || '';
+  const linkText = data.linkText || '';
+  const imgUrl = data.imgUrl || '';
 
   function _ctxItem(label, action) {
     return new View('div').className('blm-item')._bindText(label)
@@ -170,7 +170,7 @@ export function _showBrowseContextMenu(x, y, data) {
   }
   function _ctxSep() { return new View('div').className('blm-sep'); }
 
-  var items = [];
+  const items = [];
 
   // Link options
   if (linkUrl) {
@@ -194,21 +194,21 @@ export function _showBrowseContextMenu(x, y, data) {
 
   // Search option
   if (linkText && linkUrl) {
-    var truncatedText = linkText.length > 25 ? linkText.slice(0, 22) + '...' : linkText;
+    const truncatedText = linkText.length > 25 ? linkText.slice(0, 22) + '...' : linkText;
     items.push(_ctxSep());
     items.push(_ctxItem('Search Google for "' + truncatedText + '"', function() {
       browseNewTab('https://www.google.com/search?q=' + encodeURIComponent(linkText));
     }));
   }
 
-  var menuView = VStack(items).className('browse-link-menu')
+  const menuView = VStack(items).className('browse-link-menu')
     .styles({left: x + 'px', top: y + 'px'});
-  var menu = menuView.build();
+  const menu = menuView.build();
   document.body.appendChild(menu);
   _browseContextMenu = menu;
 
   // Adjust if off screen
-  var rect = menu.getBoundingClientRect();
+  const rect = menu.getBoundingClientRect();
   if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
   if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
 }
@@ -466,7 +466,7 @@ export function _browseUpdateBarForTab(tab) {
     // Cite button
     if (!citeBtn) {
       const moreBtn = document.getElementById('browse-more-btn');
-      var citeBtnView = new View('button').id('browse-cite-btn')
+      const citeBtnView = new View('button').id('browse-cite-btn')
         .className('browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center')
         .attr('title', 'Cite');
       citeBtnView.onTap(function() { if (typeof showCitePopup === 'function') showCitePopup(); });
@@ -478,7 +478,7 @@ export function _browseUpdateBarForTab(tab) {
     // Bookmark button
     if (!bookmarkBtn) {
       const moreBtn = document.getElementById('browse-more-btn');
-      var bookmarkBtnView = new View('button').id('browse-paper-bookmark-btn')
+      const bookmarkBtnView = new View('button').id('browse-paper-bookmark-btn')
         .className('browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none cursor-pointer hover:bg-hover flex items-center justify-center')
         .attr('title', 'Save');
       bookmarkBtnView.onTap(function() { if (typeof togglePaperViewBookmark === 'function') togglePaperViewBookmark(); });
@@ -504,23 +504,23 @@ export function _browseUpdateNewTabPage(tab) {
   let ntp = container.querySelector('.browse-ntp');
   if (tab && tab.blank) {
     if (!ntp) {
-      var ntpView = new View('div').className('browse-ntp nr-living-gradient');
+      const ntpView = new View('div').className('browse-ntp nr-living-gradient');
       ntp = ntpView.el;
 
       // File input (low-level)
-      var fileInput = document.createElement('input');
+      const fileInput = document.createElement('input');
       fileInput.type = 'file'; fileInput.id = 'browse-pdf-file-input'; fileInput.multiple = true;
       fileInput.style.display = 'none';
       fileInput.onchange = function() { handleNtpFileInput(fileInput); };
       ntp.appendChild(fileInput);
 
       // SVGs
-      var submitSvg = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-5 5m5-5l5 5"/></svg>';
-      var plusSvg = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5"/></svg>';
-      var micSvg = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+      const submitSvg = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-5 5m5-5l5 5"/></svg>';
+      const plusSvg = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5"/></svg>';
+      const micSvg = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
 
       // Search input (low-level form element)
-      var searchInput = document.createElement('input');
+      const searchInput = document.createElement('input');
       searchInput.type = 'text'; searchInput.id = 'search-query';
       searchInput.placeholder = 'Ask anything...'; searchInput.autocomplete = 'off';
       searchInput.className = 'ntp-search-input';
@@ -530,16 +530,16 @@ export function _browseUpdateNewTabPage(tab) {
       searchInput.onkeydown = function(ev) { _browseUrlKeydown(ev); };
 
       // + button (dropdown menu)
-      var addBtn = new View('button').className('ntp-add-btn').attr('type', 'button').attr('title', 'More options');
+      const addBtn = new View('button').className('ntp-add-btn').attr('type', 'button').attr('title', 'More options');
       addBtn.el.innerHTML = plusSvg;
       addBtn.on('mousedown', function(e) { e.preventDefault(); });
       addBtn.onTap(function() {
         _browseUrlCancelHide();
         // Dismiss existing menu if any
-        var existing = document.querySelector('.ntp-plus-menu');
+        const existing = document.querySelector('.ntp-plus-menu');
         if (existing) { existing.remove(); return; }
 
-        var icons = {
+        const icons = {
           file: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 002.112 2.13"/></svg>',
           chat: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>',
           research: '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v16.5c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9zm3.75 11.625a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>',
@@ -547,24 +547,24 @@ export function _browseUpdateNewTabPage(tab) {
         };
 
         function _menuRow(iconHtml, label, action) {
-          var iconView = RawHTML(iconHtml);
+          const iconView = RawHTML(iconHtml);
           iconView.el.style.cssText = 'width:20px;height:20px;flex-shrink:0;color:var(--nr-text-secondary);';
-          var row = HStack([iconView, Text(label)]).alignment('center').gap(3)
+          const row = HStack([iconView, Text(label)]).alignment('center').gap(3)
             .className('ntp-plus-menu-item');
           row.onTap(function() {
-            var m = document.querySelector('.ntp-plus-menu');
+            const m = document.querySelector('.ntp-plus-menu');
             if (m) m.remove();
             action();
           });
           return row;
         }
 
-        var rows = [
+        const rows = [
           _menuRow(icons.file, 'Add files', function() { fileInput.click(); }),
           new View('div').className('ntp-plus-menu-divider'),
           _menuRow(icons.chat, 'Chat', function() {
-            var input = document.getElementById('search-query');
-            var text = input ? input.value.trim() : '';
+            const input = document.getElementById('search-query');
+            const text = input ? input.value.trim() : '';
             if (text && typeof chatViewNewThread === 'function') chatViewNewThread(text);
             else if (typeof openChatPage === 'function') openChatPage();
           }),
@@ -576,12 +576,12 @@ export function _browseUpdateNewTabPage(tab) {
           }),
         ];
 
-        var menuView = VStack(rows).className('ntp-plus-menu nr-menu').material('thin');
-        var menu = menuView.build();
+        const menuView = VStack(rows).className('ntp-plus-menu nr-menu').material('thin');
+        const menu = menuView.build();
         document.body.appendChild(menu);
 
         // Position above the + button
-        var rect = addBtn.el.getBoundingClientRect();
+        const rect = addBtn.el.getBoundingClientRect();
         menu.style.position = 'fixed';
         menu.style.left = rect.left + 'px';
         menu.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
@@ -598,17 +598,17 @@ export function _browseUpdateNewTabPage(tab) {
       });
 
       // Mic button
-      var micBtn = new View('button').className('ntp-mic-btn').attr('type', 'button').attr('title', 'Voice input');
+      const micBtn = new View('button').className('ntp-mic-btn').attr('type', 'button').attr('title', 'Voice input');
       micBtn.el.innerHTML = micSvg;
       micBtn.on('mousedown', function(e) { e.preventDefault(); });
       micBtn.onTap(function() { if (typeof _pillMicClick === 'function') _pillMicClick(); });
 
       // Submit button
-      var submitBtn = new View('button').className('ntp-action-submit').attr('title', 'Search').attr('type', 'submit');
+      const submitBtn = new View('button').className('ntp-action-submit').attr('title', 'Search').attr('type', 'submit');
       submitBtn.el.innerHTML = submitSvg;
 
       // Chat history button
-      var chatHistBtn = new View('button').className('ntp-chat-history-btn').attr('type', 'button').attr('title', 'All chats');
+      const chatHistBtn = new View('button').className('ntp-chat-history-btn').attr('type', 'button').attr('title', 'All chats');
       chatHistBtn.el.innerHTML = icon('chatHistory', { size: 18 });
       chatHistBtn.on('mousedown', function(e) { e.preventDefault(); });
       chatHistBtn.onTap(function() {
@@ -616,35 +616,35 @@ export function _browseUpdateNewTabPage(tab) {
       });
 
       // Single-row search bar: [+] [input] [chat-history] [mic] [send]
-      var searchRow = new View('div').className('ntp-search-row');
+      const searchRow = new View('div').className('ntp-search-row');
       searchRow.el.appendChild(addBtn.el);
       searchRow.el.appendChild(searchInput);
       searchRow.el.appendChild(chatHistBtn.el);
       searchRow.el.appendChild(micBtn.el);
       searchRow.el.appendChild(submitBtn.el);
 
-      var histDropdown = new View('div').attr('id', 'search-history-dropdown-view').className('ntp-dropdown');
+      const histDropdown = new View('div').attr('id', 'search-history-dropdown-view').className('ntp-dropdown');
       histDropdown.styles({ display: 'none' });
 
-      var fileChips = new View('div').attr('id', 'ntp-file-chips').className('ntp-file-chips-container');
+      const fileChips = new View('div').attr('id', 'ntp-file-chips').className('ntp-file-chips-container');
 
-      var searchBox = new View('div').className('ntp-search-box max-w-[680px] mx-auto');
+      const searchBox = new View('div').className('ntp-search-box max-w-[680px] mx-auto');
       searchBox.el.appendChild(searchRow.el);
 
-      var form = new View('form').attr('id', 'search-form');
+      const form = new View('form').attr('id', 'search-form');
       form.on('submit', function(e) { e.preventDefault(); submitSearch(); });
       form.el.appendChild(searchBox.el);
       form.el.appendChild(histDropdown.el);
       form.el.appendChild(fileChips.el);
 
-      var center = new View('div').className('browse-ntp-center');
+      const center = new View('div').className('browse-ntp-center');
       center.el.appendChild(form.el);
 
-      var inner = new View('div').className('browse-ntp-inner');
+      const inner = new View('div').className('browse-ntp-inner');
       inner.el.appendChild(center.el);
       ntp.appendChild(inner.el);
 
-      var versionEl = Text('netrun').className('browse-ntp-version');
+      const versionEl = Text('netrun').className('browse-ntp-version');
       versionEl.cssText('position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--nr-text-quaternary);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;');
       ntp.appendChild(versionEl.el);
       container.appendChild(ntp);

@@ -42,7 +42,7 @@ export function _topbarOverflowOutside(e) {
 // ── Paper Viewer (shared) ──
 export const paperViewOrigin = 'arxiv';
 
-export let _currentPaperViewPaper = null;
+export const _currentPaperViewPaper = null;
 export const _paperOriginExpId = null;
 export const _paperInsightsLoaded = false;
 export function toggleBrowseSidebar() {

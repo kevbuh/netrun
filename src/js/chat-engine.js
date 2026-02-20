@@ -94,7 +94,7 @@ function _makeSession(thread, messages, allMessages) {
   let _streaming = false;
   let _streamStart = 0;
   let _memoryRetrieved = false;
-  let _allMessages = allMessages || messages.slice(); // full tree
+  const _allMessages = allMessages || messages.slice(); // full tree
   let _activeLeafId = messages.length ? messages[messages.length - 1].id : null;
 
   const session = {

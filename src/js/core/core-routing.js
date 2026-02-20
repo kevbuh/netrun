@@ -3,7 +3,7 @@
 import Settings from '/js/core/core-settings.js';
 
 // ── Route table — exact hash → action ──
-var _ROUTE_TABLE = {
+const _ROUTE_TABLE = {
   '#research':    () => { openResearch(); },
   '#settings':    () => wmOpen('settings'),
   '#quality':     () => { _settingsSection = 'feed'; _settingsFeedTab = 'quality'; Settings.set('settingsSection', 'feed'); wmOpen('settings'); },
@@ -23,7 +23,7 @@ var _ROUTE_TABLE = {
 };
 
 // ── Prefix route handlers — hash prefix → handler(remainder) ──
-var _ROUTE_PREFIX_HANDLERS = [
+const _ROUTE_PREFIX_HANDLERS = [
   ['#profile/',    (rest) => openUserProfile(decodeURIComponent(rest))],
 ];
 

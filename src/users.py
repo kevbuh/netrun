@@ -1,5 +1,6 @@
 """User management - auth, sessions, user data, calendar, social features."""
 
+import contextlib
 import json
 import time
 import secrets
@@ -312,10 +313,8 @@ def get_user_feed_sources(google_id):
     conn.close()
     result = {'feedSources': {}, 'customFeeds': []}
     for row in rows:
-        try:
+        with contextlib.suppress(json.JSONDecodeError, ValueError):
             result[row['key']] = json.loads(row['value'])
-        except (json.JSONDecodeError, ValueError):
-            pass
     return result
 
 

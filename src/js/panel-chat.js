@@ -17,7 +17,7 @@ export function _saveChatMemory() {
   apiPost('/api/chat-memory', { messages: msgs, pageUrl, pageTitle }).catch(e => logger.warn('[chat] Memory save failed:', e));
   // Capture conversation summary into living context
   if (msgs.length >= 4 && typeof contextIngest === 'function') {
-    var summary = userMsgs.map(function(m) { return (m.content || '').slice(0, 80); }).join('; ').slice(0, 200);
+    const summary = userMsgs.map(function(m) { return (m.content || '').slice(0, 80); }).join('; ').slice(0, 200);
     contextIngest('chat', '## Chat Insights',
       '- ' + (pageTitle || 'Chat') + ': ' + summary,
       { dedupeKey: 'chat-' + pageUrl });
@@ -36,7 +36,7 @@ export function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiT
     _popupChatMessages[aiIdx]._thinkingLabel = 'Thinking…';
     _renderPopupChatLive(false);
   } else if (agentEvent.type === 'token') {
-    let token = agentEvent.content || agentEvent.text || agentEvent.token || '';
+    const token = agentEvent.content || agentEvent.text || agentEvent.token || '';
     let _visibleToken = token;
     // Handle <think> tags in token stream
     if (_inThinkTag) {
@@ -724,17 +724,17 @@ export function _addTabContextToPanel(popup, tabInfo) {
   if (!strip) return;
   strip.style.display = 'flex';
 
-  var chipView = new View('div').className('doc-tab-context-chip');
+  const chipView = new View('div').className('doc-tab-context-chip');
   chipView.attr('data-tab-id', tabInfo.tabId);
-  var chip = chipView.el;
+  const chip = chipView.el;
   const domain = (() => { try { return new URL(tabInfo.url).hostname.replace('www.', ''); } catch { return ''; } })();
   const favUrl = tabInfo.url ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=16' : '';
-  var favHtml = favUrl ? '<img src="' + favUrl + '" class="w-3 h-3 flex-shrink-0 rounded-sm" onerror="this.style.display=\'none\'">' :
+  const favHtml = favUrl ? '<img src="' + favUrl + '" class="w-3 h-3 flex-shrink-0 rounded-sm" onerror="this.style.display=\'none\'">' :
     icon('browserTab', { size: 12, class: 'w-3 h-3 flex-shrink-0' });
   chip.appendChild(RawHTML(favHtml).el);
   chip.appendChild(Text(tabInfo.title || domain || 'Tab').className('truncate').el);
 
-  var removeBtn = Button('\u00d7').className('doc-note-context-remove');
+  const removeBtn = Button('\u00d7').className('doc-note-context-remove');
   removeBtn.on('mousedown', function(ev) { ev.stopPropagation(); });
   removeBtn.onTap(function(ev) {
     ev.stopPropagation();
@@ -850,17 +850,17 @@ export function _addScreenshotToPanel(popup, base64) {
   if (!strip) return;
   strip.style.display = 'flex';
 
-  var thumbView = new View('div').className('doc-screenshot-thumb');
-  var thumb = thumbView.el;
-  var imgView = new View('img');
+  const thumbView = new View('div').className('doc-screenshot-thumb');
+  const thumb = thumbView.el;
+  const imgView = new View('img');
   imgView.el.src = 'data:image/png;base64,' + base64;
   thumb.appendChild(imgView.el);
 
-  var removeBtn = Button('\u00d7').className('doc-screenshot-thumb-remove');
+  const removeBtn = Button('\u00d7').className('doc-screenshot-thumb-remove');
   removeBtn.on('mousedown', function(ev) { ev.stopPropagation(); });
   removeBtn.onTap(function(ev) {
     ev.stopPropagation();
-    var idx = _pendingScreenshots.indexOf(base64);
+    const idx = _pendingScreenshots.indexOf(base64);
     if (idx !== -1) _pendingScreenshots.splice(idx, 1);
     thumb.remove();
     if (_pendingScreenshots.length === 0) strip.style.display = 'none';

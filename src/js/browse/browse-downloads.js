@@ -225,40 +225,40 @@ export function _browseRenderDownloads() {
     return;
   }
 
-  var completedSvg = '<svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
-  var fileSvg = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
-  var folderSvg = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>';
-  var closeSvg = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  const completedSvg = '<svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+  const fileSvg = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>';
+  const folderSvg = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>';
+  const closeSvg = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
 
-  var clearBtn = new View('button').className('browse-downloads-clear')._bindText('Clear all')
+  const clearBtn = new View('button').className('browse-downloads-clear')._bindText('Clear all')
     .onTap(function(e) { e.stopPropagation(); clearBrowseDownloads(); });
-  var header = HStack([
+  const header = HStack([
     new View('span').className('browse-downloads-title')._bindText('Downloads'),
     clearBtn
   ]).className('browse-downloads-header');
 
-  var items = [header];
-  for (var i = 0; i < _browseDownloads.length; i++) {
+  const items = [header];
+  for (let i = 0; i < _browseDownloads.length; i++) {
     (function(dl) {
-      var icon = RawHTML(dl.state === 'completed' ? completedSvg : fileSvg).className('browse-download-item-icon');
+      const icon = RawHTML(dl.state === 'completed' ? completedSvg : fileSvg).className('browse-download-item-icon');
 
-      var pct = dl.totalBytes > 0 ? Math.round((dl.receivedBytes / dl.totalBytes) * 100) : 0;
-      var size = dl.totalBytes > 0 ? _formatBytes(dl.totalBytes) : '';
-      var status = dl.state === 'completed' ? 'Completed' + (size ? ' \u00b7 ' + size : '')
+      const pct = dl.totalBytes > 0 ? Math.round((dl.receivedBytes / dl.totalBytes) * 100) : 0;
+      const size = dl.totalBytes > 0 ? _formatBytes(dl.totalBytes) : '';
+      const status = dl.state === 'completed' ? 'Completed' + (size ? ' \u00b7 ' + size : '')
         : dl.state === 'cancelled' ? 'Cancelled'
         : pct + '% \u00b7 ' + _formatBytes(dl.receivedBytes) + (dl.totalBytes > 0 ? ' / ' + size : '');
 
-      var infoChildren = [
+      const infoChildren = [
         new View('div').className('browse-download-item-name')._bindText(escapeHtml(dl.filename)),
         new View('div').className('browse-download-item-status')._bindText(status)
       ];
       if (dl.state === 'progressing') {
-        var bar = new View('div').className('browse-download-item-progress-bar').styles({ width: pct + '%' });
+        const bar = new View('div').className('browse-download-item-progress-bar').styles({ width: pct + '%' });
         infoChildren.push(new View('div').className('browse-download-item-progress')._appendChildren([bar]));
       }
-      var info = VStack(infoChildren).className('browse-download-item-info');
+      const info = VStack(infoChildren).className('browse-download-item-info');
 
-      var actionChildren = [];
+      const actionChildren = [];
       if (dl.state === 'completed') {
         actionChildren.push(
           new View('button').className('nr-btn nr-btn-ghost nr-btn-sm').attr('title', 'Show in folder')
@@ -271,9 +271,9 @@ export function _browseRenderDownloads() {
           .onTap(function(e) { e.stopPropagation(); removeBrowseDownload(dl.id); })
           ._appendChildren([RawHTML(closeSvg)])
       );
-      var actions = HStack(actionChildren).className('browse-download-item-actions');
+      const actions = HStack(actionChildren).className('browse-download-item-actions');
 
-      var row = HStack([icon, info, actions]).className('browse-download-item')
+      const row = HStack([icon, info, actions]).className('browse-download-item')
         .onTap(function() { openDownloadFile(dl.id); });
       items.push(row);
     })(_browseDownloads[i]);
