@@ -253,7 +253,8 @@ function _initCursor() {
       }
       console.log('__AETHER_CURSOR__' + JSON.stringify({
         x: e.clientX, y: e.clientY,
-        hovering: hovering, text: isText, media: isMedia, lum: lum
+        hovering: hovering, text: isText, media: isMedia, lum: lum,
+        iw: window.innerWidth, ih: window.innerHeight
       }));
     }, { passive: true });
 
@@ -268,8 +269,12 @@ function _initCursor() {
    */
   function handleWebviewCursor(frame, data) {
     var rect = frame.getBoundingClientRect();
-    mouse.x = rect.left + data.x;
-    mouse.y = rect.top + data.y;
+    // When the webview is zoomed (setZoomFactor), its internal viewport shrinks
+    // so clientX/Y values span a smaller range. Scale them to parent coords.
+    var sx = (data.iw && data.iw > 0) ? rect.width / data.iw : 1;
+    var sy = (data.ih && data.ih > 0) ? rect.height / data.ih : 1;
+    mouse.x = rect.left + data.x * sx;
+    mouse.y = rect.top + data.y * sy;
     inWebview = true;
 
     setHover(data.hovering);
@@ -353,8 +358,13 @@ function _initCursor() {
 
         doc.addEventListener('mousemove', function (e) {
           var rect = iframe.getBoundingClientRect();
-          mouse.x = rect.left + e.clientX;
-          mouse.y = rect.top + e.clientY;
+          // When iframe has CSS transform scale(), rect reflects the visual
+          // (scaled) bounds but e.clientX is in the iframe's own CSS pixel space.
+          // Scale internal coords to parent coords.
+          var sx = iframe.clientWidth > 0 ? rect.width / iframe.clientWidth : 1;
+          var sy = iframe.clientHeight > 0 ? rect.height / iframe.clientHeight : 1;
+          mouse.x = rect.left + e.clientX * sx;
+          mouse.y = rect.top + e.clientY * sy;
           inWebview = true;
 
           var target = e.target;
