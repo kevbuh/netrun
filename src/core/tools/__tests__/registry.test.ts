@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { z } from 'zod';
 import { ToolRegistry } from '../registry';
+import type { ToolMiddleware } from '../registry';
 import type { Tool } from '../types';
 
 function makeTool(overrides: Partial<Tool> = {}): Tool {
@@ -103,5 +104,49 @@ describe('ToolRegistry', () => {
     expect(defs[0].function.name).toBe('test-tool');
     expect(defs[0].function.parameters.type).toBe('object');
     expect(defs[0].function.parameters.properties).toHaveProperty('input');
+  });
+
+  it('runs middleware during execute', async () => {
+    let middlewareCalled = false;
+    const mw: ToolMiddleware = async (_tool, _input, _ctx, next) => {
+      middlewareCalled = true;
+      return next();
+    };
+
+    registry.register(makeTool());
+    registry.use(mw);
+
+    const result = await registry.execute('test-tool', { input: 'x' }, {});
+    expect(result.success).toBe(true);
+    expect(middlewareCalled).toBe(true);
+  });
+
+  it('middleware can modify result', async () => {
+    const mw: ToolMiddleware = async (_tool, _input, _ctx, next) => {
+      const result = await next();
+      return { ...result, data: { modified: true } };
+    };
+
+    registry.register(makeTool());
+    registry.use(mw);
+
+    const result = await registry.execute('test-tool', { input: 'x' }, {});
+    expect(result.data).toEqual({ modified: true });
+  });
+
+  it('validation runs before middleware', async () => {
+    let middlewareCalled = false;
+    const mw: ToolMiddleware = async (_tool, _input, _ctx, next) => {
+      middlewareCalled = true;
+      return next();
+    };
+
+    registry.register(makeTool());
+    registry.use(mw);
+
+    // Invalid input — middleware should NOT run
+    const result = await registry.execute('test-tool', { input: 123 }, {});
+    expect(result.success).toBe(false);
+    expect(middlewareCalled).toBe(false);
   });
 });

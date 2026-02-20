@@ -11,7 +11,8 @@ import { _browseApplyAdaptiveColor, _browseSetUrlDisplay, _browseUpdateAdBlockBa
 import { _browseCollapseEmptyWindows, browseNewTab } from '/js/browse/browse-windows.js';
 import { _browseFaviconUrl, _browseNavDirection, _clearBrowseNavDirection, _browseRenderTabs, _browseTitleFromUrl, _updateIslandNavButtons } from '/js/browse/browse-island.js';
 import { _browseToggleFindBar, _browseUpdateSaveBtn, _swipeCommit, _switchTabLeft, _switchTabRight } from '/js/browse/browse-features.js';
-import { _browseUpdateScrollPill, _browseUpdateTokenCount, _updateAudioIndicator } from '/js/browse/browse-audio.js';
+import { _updateAudioIndicator } from '/js/browse/browse-audio.js';
+import { _pageInfoOnPageLoad, _pageInfoCleanup, _pageInfoUpdateScroll, _pageInfoUpdateTokens } from '/js/browse/browse-pageinfo.js';
 import { _ccPillDismissed, _resetCcPillDismissed, stopCaptions } from '/js/browse/browse-captions.js';
 import { _hideBrowseContextMenu, _pwCheckAutofill, _pwHideSavePrompt, _pwShowSavePrompt, _showBrowseContextMenu, browseCloseTab } from '/js/browse/browse-passwords.js';
 import { _iframeRectToParent, _positionAtCursor, _showPanel } from '/js/panel.js';
@@ -504,7 +505,7 @@ export function _browseHandleNavigation(tab, frame) {
     // Clear RSS feeds and scroll pill on navigation
     tab.rssFeeds = null;
     _browseUpdateRssPill(tab);
-    if (tab.id === _browseActiveTab) { _browseUpdateScrollPill(-1); _browseUpdateTokenCount(0); }
+    if (tab.id === _browseActiveTab) { _pageInfoCleanup(); }
     // Focus timer: start/stop based on current site
     if (tab.id === _browseActiveTab) _checkFocusTimer(navUrl);
     // Clear any existing annotation state for this tab on navigation
@@ -642,6 +643,10 @@ export function _browseHandleNavigation(tab, frame) {
       // Academic paper detection & metadata extraction
       if (typeof _paperOnPageLoad === 'function') {
         _paperOnPageLoad(tab, frame);
+      }
+      // Page info pill (metadata, scroll %, tokens)
+      if (tab.id === _browseActiveTab) {
+        _pageInfoOnPageLoad(tab, frame);
       }
       // Extract page color for adaptive URL bar (theme-color meta > body bg > html bg)
       try {
@@ -1348,11 +1353,11 @@ export function _browseInjectContentScripts(tab, frame) {
       if (url) browseNewTab(url);
     } else if (e.message && e.message.startsWith('__AETHER_SCROLL__')) {
       if (tab.id === _browseActiveTab) {
-        _browseUpdateScrollPill(parseInt(e.message.slice('__AETHER_SCROLL__'.length)));
+        _pageInfoUpdateScroll(parseInt(e.message.slice('__AETHER_SCROLL__'.length)));
       }
     } else if (e.message && e.message.startsWith('__AETHER_TOKENS__')) {
       if (tab.id === _browseActiveTab) {
-        _browseUpdateTokenCount(parseInt(e.message.slice('__AETHER_TOKENS__'.length)));
+        _pageInfoUpdateTokens(parseInt(e.message.slice('__AETHER_TOKENS__'.length)));
       }
     } else if (e.message && e.message.startsWith('__AETHER_SWIPE__')) {
       if (tab.id === _browseActiveTab && typeof _swipeCommit === 'function') {

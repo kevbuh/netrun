@@ -1,5 +1,6 @@
 // browse-annotations.js — Unified Insight (ambient + annotations)
 // Depends on: browse-state.js
+import { logger } from '/js/logger.js';
 import Settings from '/js/core/core-settings.js';
 import { apiPost } from '/js/api.js';
 import { icon } from '/js/core/icons.js';
@@ -77,19 +78,19 @@ export async function _triggerInsightExtract(tab) {
           if (wc) break;
         }
       }
-      console.debug('[insight] OCR capture: webContentsId =', wc, 'tag =', tab.el.tagName);
+      logger.debug('[insight] OCR capture: webContentsId =', wc, 'tag =', tab.el.tagName);
       if (wc) {
         try {
           screenshot = await window.electronAPI.captureWebview(wc);
           // capturePage() can return an empty base64 string if the page hasn't painted yet
           if (screenshot && screenshot.length < 100) {
-            console.debug('[insight] OCR capture: image too small, retrying after delay');
+            logger.debug('[insight] OCR capture: image too small, retrying after delay');
             await new Promise(r => setTimeout(r, 500));
             screenshot = await window.electronAPI.captureWebview(wc);
           }
-          console.debug('[insight] OCR capture: got screenshot, length =', screenshot?.length ?? 0);
+          logger.debug('[insight] OCR capture: got screenshot, length =', screenshot?.length ?? 0);
         } catch (e) {
-          console.debug('[insight] OCR capture failed:', e);
+          logger.debug('[insight] OCR capture failed:', e);
         }
       }
     }
@@ -402,7 +403,7 @@ export async function _extractTextFromFrame(tab) {
     } else if (frame.tagName === 'IFRAME') {
       return frame.contentDocument.body.innerText || '';
     }
-  } catch (err) { console.error('[insight] _extractTextFromFrame error:', err); }
+  } catch (err) { logger.error('[insight] _extractTextFromFrame error:', err); }
   return '';
 }
 

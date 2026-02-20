@@ -6,6 +6,7 @@ import { _getGoogleId } from '/js/api-ipc.js';
 import { apiGet } from '/js/api.js';
 import { islandUpdate } from '/js/core/core-ui.js';
 import { _handleAgentAction } from '/js/panel-chat.js';
+import { logger } from '/js/logger.js';
 
 // ── Active sessions (keyed by threadId) ──
 const _sessions = new Map();
@@ -119,7 +120,7 @@ function _makeSession(thread, messages, allMessages) {
 
     _notify(type) {
       for (const fn of _updateListeners) {
-        try { fn(type, session); } catch(e) { console.warn('[chat-engine] listener error:', e); }
+        try { fn(type, session); } catch(e) { logger.warn('[chat-engine] listener error:', e); }
       }
     },
 

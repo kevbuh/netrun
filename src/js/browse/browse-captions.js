@@ -1,4 +1,5 @@
 // browse-captions.js — Extracted from browse-tabs.js
+import { logger } from '/js/logger.js';
 import { icon } from '/js/core/icons.js';
 import { _clearAudioUnified, _updateAudioUnified } from '/js/core/core-audio.js';
 import { _browseFocusPane, _browseGetFocusedPane, browseUnsplitPane } from '/js/browse/browse-split-panes.js';
@@ -89,7 +90,7 @@ export async function toggleCaptions() {
     // Start AudioWorklet pipeline — sends PCM chunks via IPC instead of WebSocket
     await _ccStartAudioWorklet();
   } catch (err) {
-    console.warn('CC start failed:', err);
+    logger.warn('CC start failed:', err);
     stopCaptions();
   }
 }

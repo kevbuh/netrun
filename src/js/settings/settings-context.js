@@ -1,5 +1,6 @@
 import Settings from '../core/core-settings.js';
 import { apiGet, apiPost, apiDelete } from '/js/api.js';
+import { logger } from '/js/logger.js';
 
 // ─── Context Settings ──────────────────────────────────────
 
@@ -129,7 +130,7 @@ export function _loadContextFiles() {
         AetherUI.mount(HStack.apply(null, infoChildren).spacing(3), infoBar);
       }
       _renderContextFileList();
-    }).catch(function(e) { console.warn('loadContextFiles:', e); });
+    }).catch(function(e) { logger.warn('loadContextFiles:', e); });
 }
 
 export function _selectContextFile(fileId) {
@@ -162,7 +163,7 @@ export function _selectContextFile(fileId) {
         compactBtn.style.opacity = content.length < 8000 ? '0.4' : '1';
       }
     }).catch(function(e) {
-      console.warn('selectContextFile:', e);
+      logger.warn('selectContextFile:', e);
       if (textarea) textarea.value = 'Error loading file.';
     });
 }
@@ -182,7 +183,7 @@ export function _saveContextFile() {
         }
       }
       _renderContextFileList();
-    }).catch(function(e) { console.warn('saveContextFile:', e); });
+    }).catch(function(e) { logger.warn('saveContextFile:', e); });
 }
 
 export function _compactContextFile() {
@@ -195,7 +196,7 @@ export function _compactContextFile() {
       _selectContextFile(_selectedContextFile);
       _loadContextFiles();
     }).catch(function(e) {
-      console.warn('compactContextFile:', e);
+      logger.warn('compactContextFile:', e);
       if (compactBtn) { compactBtn.textContent = 'Compact Now'; compactBtn.disabled = false; }
     });
 }
@@ -208,7 +209,7 @@ export function _deleteContextFile() {
       _selectedContextFile = null;
       _contextEditorVisible.value = false;
       _loadContextFiles();
-    }).catch(function(e) { console.warn('deleteContextFile:', e); });
+    }).catch(function(e) { logger.warn('deleteContextFile:', e); });
 }
 
 export function _createTaskContext() {
@@ -221,6 +222,6 @@ export function _createTaskContext() {
     .then(function() {
       _loadContextFiles();
       setTimeout(function() { _selectContextFile(file); }, 300);
-    }).catch(function(e) { console.warn('createTaskContext:', e); });
+    }).catch(function(e) { logger.warn('createTaskContext:', e); });
 }
 

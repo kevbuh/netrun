@@ -14,9 +14,10 @@ export const navigate: Tool<z.infer<typeof parameters>, { status: string; messag
   description: 'Switch to a different app section (home, browse, saved, etc.). This ONLY switches the app panel — it does NOT open websites or URLs.',
   category: 'system',
   access: ['agent', 'ui'],
+  sequential: true,
   parameters,
-  async execute(input): Promise<ToolResult<{ status: string; message: string }>> {
-    // Action is emitted by the agent runtime
+  async execute(input, context): Promise<ToolResult<{ status: string; message: string }>> {
+    context.emitAction?.({ type: 'navigate', view: input.view });
     return { success: true, data: { status: 'ok', message: `Navigated to ${input.view}` } };
   },
 };

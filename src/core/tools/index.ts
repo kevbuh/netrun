@@ -1,4 +1,5 @@
 export { toolRegistry, ToolRegistry } from './registry.js';
+export type { ToolMiddleware } from './registry.js';
 export type { Tool, ToolResult, ToolContext, ToolAccess, ToolDefinition } from './types.js';
 
 // Search tools

@@ -174,6 +174,24 @@ window.addEventListener('resize', function() {
   }
   function _initPulse() {
     _renderLivePulse();
+    // Click-to-toggle dropdown
+    var pulseEl = document.getElementById('pill-live-pulse');
+    if (pulseEl && !pulseEl._clickToggleBound) {
+      pulseEl._clickToggleBound = true;
+      pulseEl.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var open = pulseEl.classList.toggle('dropdown-open');
+        if (open) document.body.classList.add('island-dropdown-guard');
+        else document.body.classList.remove('island-dropdown-guard');
+      });
+      document.addEventListener('click', function(e) {
+        if (!pulseEl.classList.contains('dropdown-open')) return;
+        if (!pulseEl.contains(e.target)) {
+          pulseEl.classList.remove('dropdown-open');
+          document.body.classList.remove('island-dropdown-guard');
+        }
+      });
+    }
     if (typeof Motion !== 'undefined' && Motion.pulse) {
       let _pulseThrottle = null;
       Motion.pulse.on(function() {

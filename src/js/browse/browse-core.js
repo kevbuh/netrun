@@ -1,6 +1,7 @@
-// browse-core.js — Core browse functionality (tabs, navigation)  
+// browse-core.js — Core browse functionality (tabs, navigation)
 // Depends on: browse-state.js
 
+import { logger } from '/js/logger.js';
 import Settings from '/js/core/core-settings.js';
 import { _browseBindFrame } from '/js/browse/browse-downloads.js';
 import { _browseCreateFrame } from '/js/browse/browse-ntp.js';
@@ -40,9 +41,17 @@ export function _browseRestoreTabs() {
             win.tabs.push(tab);
             continue;
           }
-          // Help page tab
+          // Help page tab (legacy — migrate to netrun hub)
           if (saved._helpPage) {
-            const tab = { id: saved.id, url: 'netrun://help', title: 'Help', favicon: '', el: null, blank: false, _helpPage: true, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [] };
+            const tab = { id: saved.id, url: 'netrun://', title: 'Netrun', favicon: '', el: null, blank: false, _netrunPage: true, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [] };
+            if (saved.pinned) tab.pinned = true;
+            if (saved.groupId != null) tab.groupId = saved.groupId;
+            win.tabs.push(tab);
+            continue;
+          }
+          // Netrun hub page tab
+          if (saved._netrunPage) {
+            const tab = { id: saved.id, url: 'netrun://', title: 'Netrun', favicon: '', el: null, blank: false, _netrunPage: true, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [] };
             if (saved.pinned) tab.pinned = true;
             if (saved.groupId != null) tab.groupId = saved.groupId;
             win.tabs.push(tab);
@@ -105,6 +114,6 @@ export function _browseRestoreTabs() {
     }
 
     return false;
-  } catch (e) { console.error('[browse] restore tabs failed:', e); return false; }
+  } catch (e) { logger.error('[browse] restore tabs failed:', e); return false; }
 }
 

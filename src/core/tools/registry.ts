@@ -1,12 +1,22 @@
 import { zodToJsonSchema } from './schema-utils.js';
 import type { Tool, ToolAccess, ToolDefinition, ToolContext, ToolResult } from './types.js';
 
+/** Middleware function that wraps tool execution */
+export type ToolMiddleware = (
+  tool: Tool,
+  input: unknown,
+  context: ToolContext,
+  next: () => Promise<ToolResult>,
+) => Promise<ToolResult>;
+
 /**
  * Central tool registry. All tools register here on startup.
  * Supports lookup by name, category, and access level.
+ * Supports middleware pipeline for cross-cutting concerns.
  */
 export class ToolRegistry {
   private tools = new Map<string, Tool>();
+  private middlewares: ToolMiddleware[] = [];
 
   /** Register a tool. Throws if name is already taken. */
   register(tool: Tool): void {
@@ -14,6 +24,11 @@ export class ToolRegistry {
       throw new Error(`Tool "${tool.name}" is already registered`);
     }
     this.tools.set(tool.name, tool);
+  }
+
+  /** Register a middleware. Middleware run in registration order (first registered = outermost). */
+  use(mw: ToolMiddleware): void {
+    this.middlewares.push(mw);
   }
 
   /** Get a tool by name */
@@ -50,7 +65,7 @@ export class ToolRegistry {
     return [...cats];
   }
 
-  /** Execute a tool by name */
+  /** Execute a tool by name, running it through the middleware chain */
   async execute(name: string, input: unknown, context: ToolContext): Promise<ToolResult> {
     const tool = this.tools.get(name);
     if (!tool) {
@@ -60,8 +75,16 @@ export class ToolRegistry {
     if (!parsed.success) {
       return { success: false, error: `Invalid input: ${parsed.error.message}` };
     }
+
+    // Build middleware chain: outermost middleware is called first
+    const coreExecute = () => tool.execute(parsed.data, context);
+    const chain = this.middlewares.reduceRight<() => Promise<ToolResult>>(
+      (next, mw) => () => mw(tool, parsed.data, context, next),
+      coreExecute,
+    );
+
     try {
-      return await tool.execute(parsed.data, context);
+      return await chain();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return { success: false, error: message };

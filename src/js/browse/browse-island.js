@@ -4,8 +4,10 @@ import Settings from '/js/core/core-settings.js';
 import { escapeAttr, escapeHtml } from '/js/core/core-utils.js';
 import { islandRemove } from '/js/core/core-ui.js';
 import { _clearAudioUnified, _renderAudioPill, _updateAudioUnified } from '/js/core/core-audio.js';
-import { _annotationsEnabled, _updateAnnotateButtonState, scrollToAnnotation, toggleAnnotations } from '/js/browse/browse-annotations.js';
+import { _annotationsEnabled, _readPageAloud, _updateAnnotateButtonState, scrollToAnnotation, toggleAnnotations } from '/js/browse/browse-annotations.js';
+import { browseShowAIView } from '/js/browse/browse-menu.js';
 import { _browseApplyAdaptiveColor, _browseSetUrlDisplay, _browseUpdateAdBlockBadge, _browseUpdateAdBlockBtn, _browseUrlHideHistory, _browseUrlKeydown, _saveBrowseVisit, _saveWebSearch, openHelpPage, openSearchHistoryPage } from '/js/browse-urlbar.js';
+import { openNetrunPage } from '/js/netrun-page.js';
 import { _browseBindFrame } from '/js/browse/browse-downloads.js';
 import { _browseCreateFrame, _browseProxyUrl, _browseSetFrameAllow } from '/js/browse/browse-ntp.js';
 import { _browseFocusPane, _browseGetSplitPanes, browseUnsplitPane } from '/js/browse/browse-split-panes.js';
@@ -1042,6 +1044,7 @@ document.addEventListener('keydown', (e) => {
 export function _browseTitleFromUrl(url) {
   if (url === 'ntp://' || url === 'ntp://newtab') return 'New Tab';
   if (url === 'chat://') return 'Chats';
+  if (url === 'netrun://' || url === 'netrun:///') return 'Netrun';
   try {
     const u = new URL(url);
     if (u.hostname === 'www.google.com' && u.pathname === '/search') {
@@ -1067,8 +1070,8 @@ export function browseNavigate(input) {
     openSearchHistoryPage();
     return;
   }
-  if (cmd === '/help' || cmd === 'netrun://help' || cmd === 'netrun://help/') {
-    openHelpPage();
+  if (cmd === '/help' || cmd === 'netrun://help' || cmd === 'netrun://help/' || cmd === 'netrun://' || cmd === 'netrun:///') {
+    openNetrunPage();
     return;
   }
   if (cmd === '/upload') {
@@ -1095,7 +1098,7 @@ export function browseNavigate(input) {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab) { browseNewTab(url); return; }
   // Tear down special pages if this tab was showing one
-  if (tab._historyPage || tab._helpPage || tab._chatPage) {
+  if (tab._historyPage || tab._helpPage || tab._netrunPage || tab._chatPage) {
     // Clean up NTP morph if in chat-mode (DOM only; tab state handled below)
     if (tab._chatPage && typeof chatViewCleanupMorph === 'function') {
       const ntpMorphed = document.getElementById('browse-content')?.querySelector('.browse-ntp.chat-mode');
@@ -1105,6 +1108,7 @@ export function browseNavigate(input) {
     tab.el = null;
     delete tab._historyPage;
     delete tab._helpPage;
+    delete tab._netrunPage;
     delete tab._chatPage;
     delete tab._chatThreadId;
   }
@@ -1378,89 +1382,87 @@ export function _browseApplyZoom(focalX, focalY) {
   _browseShowZoomControls();
 }
 
-// ── Unified AI Pill — sync + click ──
+// ── AI Pill — magic icon with dropdown ──
 
 function _syncAIPill() {
-  const pill = document.getElementById('pill-ai-inline');
-  if (!pill) return;
-
-  const activities = window._islandActivities ? window._islandActivities.value : {};
-  const indicator = pill.querySelector('.pill-ai-indicator');
-  const label = pill.querySelector('.pill-ai-label');
-  const tray = pill.querySelector('.island-ctx-tray');
-
-  // 1. Check for active AI operation (aether, ai-lucky, ai-summary, etc.)
-  let aiActivity = null;
-  const aiIds = ['aether', 'ai-lucky', 'ai-summary', 'ai-transcribe', 'ai-train'];
-  for (let i = 0; i < aiIds.length; i++) {
-    const a = activities[aiIds[i]];
-    if (a && a.type === 'ai') { aiActivity = a; break; }
-  }
-  // Also check any activity with type === 'ai'
-  if (!aiActivity) {
-    const allIds = Object.keys(activities);
-    for (let i = 0; i < allIds.length; i++) {
-      const a = activities[allIds[i]];
-      if (a && a.type === 'ai') { aiActivity = a; break; }
-    }
-  }
-
-  // 2. Check insight state for active tab
-  const insightActivity = activities['insight'];
-
-  // 3. Priority: ai-active/ai-done > analyzing > annotated > offer > idle
-  let state = 'idle';
-  let labelText = '';
-  let trayHtml = '';
-
-  if (aiActivity) {
-    if (aiActivity.done || (aiActivity.label && aiActivity.label.indexOf('\u2713') !== -1)) {
-      state = 'ai-done';
-      labelText = aiActivity.label || 'Done';
-    } else {
-      state = 'ai-active';
-      labelText = aiActivity.label || '';
-    }
-  } else if (insightActivity) {
-    if (insightActivity.loading) {
-      state = 'analyzing';
-      labelText = insightActivity.label || 'Analyzing\u2026';
-    } else if (insightActivity.offer) {
-      state = 'offer';
-      labelText = 'Annotate';
-    } else if (insightActivity.items && insightActivity.items.length) {
-      state = 'annotated';
-      labelText = insightActivity.label || (insightActivity.items.length + ' annotations');
-      // Build tray from insight data
-      const isBrowse = true;
-      trayHtml = window._islandBuildTray(insightActivity, isBrowse);
-    } else if (insightActivity.done) {
-      state = 'idle';
-    } else {
-      // Has insight data but no items (e.g. just insight text)
-      state = 'annotated';
-      labelText = insightActivity.label || 'Insight';
-      trayHtml = window._islandBuildTray ? window._islandBuildTray(insightActivity, true) : '';
-    }
-  }
-
-  // If both AI and insight are active, append insight info
-  if (aiActivity && insightActivity && insightActivity.items && insightActivity.items.length) {
-    trayHtml = window._islandBuildTray ? window._islandBuildTray(insightActivity, true) : '';
-  }
-
-  pill.setAttribute('data-ai-state', state);
-  if (label) label.textContent = labelText;
-  if (tray && tray._lastHtml !== trayHtml) {
-    tray.innerHTML = trayHtml;
-    tray._lastHtml = trayHtml;
-  }
+  // No-op — pill is now a static icon, no state sync needed
 }
 
 // Expose globally so core-audio.js can call it after _islandRender
 window._syncAIPill = _syncAIPill;
 
-// Click handler
+function _closeAIPillDropdown() {
+  const pill = document.getElementById('pill-ai-inline');
+  if (pill) pill.classList.remove('ai-dropdown-open');
+}
+
+function _buildAIPillDropdown(pill) {
+  const dropdown = pill.querySelector('.pill-ai-dropdown');
+  if (!dropdown) return;
+
+  const tab = (typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined')
+    ? _browseTabs.find(function(t) { return t.id === _browseActiveTab; }) : null;
+  const hasTab = tab && !tab.blank && tab.url;
+
+  function _item(svgStr, label, action, opts) {
+    opts = opts || {};
+    const el = document.createElement('div');
+    el.className = 'pill-ai-dropdown-item';
+    el.innerHTML = svgStr + '<span>' + escapeHtml(label) + '</span>';
+    if (opts.disabled) { el.style.opacity = '0.35'; el.style.pointerEvents = 'none'; }
+    if (opts.color) el.style.color = opts.color;
+    el.addEventListener('click', function(e) {
+      e.stopPropagation();
+      _closeAIPillDropdown();
+      if (action) action();
+    });
+    return el;
+  }
+
+  function _divider() {
+    const el = document.createElement('div');
+    el.className = 'pill-ai-dropdown-divider';
+    return el;
+  }
+
+  dropdown.innerHTML = '';
+
+  // Ask AI — opens chat panel
+  dropdown.appendChild(_item(
+    icon('chatBubble', { size: 14 }),
+    'Ask AI',
+    function() { _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 }, trackCursor: false }); }
+  ));
+
+  dropdown.appendChild(_divider());
+
+  // Annotate Page
+  const annEnabled = hasTab && typeof _annotationsEnabled !== 'undefined' && _annotationsEnabled.get(tab.id);
+  dropdown.appendChild(_item(
+    icon('annotate', { size: 14 }),
+    annEnabled ? 'Remove Annotations' : 'Annotate Page',
+    function() { toggleAnnotations(); },
+    { disabled: !hasTab, color: annEnabled ? 'var(--nr-accent)' : undefined }
+  ));
+
+  // Read Aloud
+  dropdown.appendChild(_item(
+    icon('speaker', { size: 14 }),
+    'Read Aloud',
+    function() { _readPageAloud(); },
+    { disabled: !hasTab }
+  ));
+
+  // AI View
+  dropdown.appendChild(_item(
+    icon('eye', { size: 14 }),
+    'AI View',
+    function() { browseShowAIView(); },
+    { disabled: !hasTab }
+  ));
+}
+
+// Click handler — toggle dropdown
 (function _initAIPillClick() {
   function _attach() {
     const pill = document.getElementById('pill-ai-inline');
@@ -1469,63 +1471,21 @@ window._syncAIPill = _syncAIPill;
 
     pill.addEventListener('click', function(e) {
       e.stopPropagation();
-      const state = pill.getAttribute('data-ai-state');
-
-      if (state === 'offer') {
-        // Trigger annotation
-        toggleAnnotations();
-      } else if (state === 'annotated') {
-        // Toggle tray
-        pill.classList.toggle('ai-tray-open');
-        if (pill.classList.contains('ai-tray-open')) {
-          // Close tray on outside click
-          setTimeout(function() {
-            document.addEventListener('mousedown', function _closeTray(ev) {
-              if (!pill.contains(ev.target)) {
-                pill.classList.remove('ai-tray-open');
-                document.removeEventListener('mousedown', _closeTray);
-              }
-            });
-          }, 10);
-        }
-      } else if (state === 'ai-done') {
-        // Reopen panel with response
-        const activities = window._islandActivities ? window._islandActivities.value : {};
-        const aiIds = ['aether', 'ai-lucky', 'ai-summary', 'ai-transcribe', 'ai-train'];
-        for (let i = 0; i < aiIds.length; i++) {
-          const a = activities[aiIds[i]];
-          if (a && a.action) { a.action(); return; }
-        }
-        _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 }, trackCursor: false });
-      } else if (state === 'idle' || state === 'ai-active') {
-        // Open Aether chat panel
-        _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 }, trackCursor: false });
-      }
-      // analyzing — do nothing
-    });
-
-    // Delegate annotation tray clicks
-    pill.addEventListener('click', function(e) {
-      const annItem = e.target.closest('[data-island-ann]');
-      if (annItem) {
-        const idx = parseInt(annItem.getAttribute('data-island-ann'), 10);
-        if (!isNaN(idx)) {
-          scrollToAnnotation(idx);
-        }
-        // Handle linked URL for CONNECTION annotations
-        const linkedUrl = annItem.getAttribute('data-island-ann-url');
-        if (linkedUrl) {
-          if (typeof browseNewTab === 'function') browseNewTab(linkedUrl);
-        }
-      }
-      // Rate buttons
-      const rateGood = e.target.closest('[data-ann-rate-good]');
-      const rateBad = e.target.closest('[data-ann-rate-bad]');
-      if (rateGood || rateBad) {
-        e.stopPropagation();
-        const btn = rateGood || rateBad;
-        btn.style.opacity = '1';
-        btn.style.color = rateGood ? '#22c55e' : '#ef4444';
+      const isOpen = pill.classList.contains('ai-dropdown-open');
+      if (isOpen) {
+        _closeAIPillDropdown();
+      } else {
+        _buildAIPillDropdown(pill);
+        pill.classList.add('ai-dropdown-open');
+        // Close on outside click
+        setTimeout(function() {
+          document.addEventListener('mousedown', function _close(ev) {
+            if (!pill.contains(ev.target)) {
+              _closeAIPillDropdown();
+              document.removeEventListener('mousedown', _close);
+            }
+          });
+        }, 10);
       }
     });
   }

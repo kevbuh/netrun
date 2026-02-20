@@ -18,6 +18,22 @@ let _adblockEngine = null;
 let _adblockEnabled = true;
 const _blockedCounts = {};
 
+// ── DNS-over-HTTPS (DoH) ──
+
+const DOH_PROVIDERS = {
+  cloudflare: 'https://1.1.1.1/dns-query',
+  quad9:      'https://9.9.9.9/dns-query',
+  mullvad:    'https://194.242.2.4/dns-query',
+};
+
+function applyDoH(enabled, provider) {
+  const server = DOH_PROVIDERS[provider] || DOH_PROVIDERS.cloudflare;
+  app.configureHostResolver({
+    secureDnsMode: enabled ? 'secure' : 'off',
+    secureDnsServers: enabled ? [server] : [],
+  });
+}
+
 const ADBLOCK_ENGINE_PATH = () => path.join(app.getPath('userData'), 'adblock_engine.dat');
 const ADBLOCK_META_PATH = () => path.join(app.getPath('userData'), 'adblock_meta.json');
 const ADBLOCK_FILTER_LISTS = [
@@ -748,6 +764,10 @@ app.whenReady().then(() => {
   ipcMain.handle('adblock-stats', () => _getEngineStats());
 
   initAdblock();
+
+  // ── DoH (encrypted DNS) ──
+  applyDoH(true, 'cloudflare');
+  ipcMain.handle('doh-set-config', (_, enabled, provider) => applyDoH(!!enabled, provider || 'cloudflare'));
 
   ipcMain.handle('print', async (event, options) => {
     const win = BrowserWindow.fromWebContents(event.sender);

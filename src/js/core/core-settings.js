@@ -1,3 +1,5 @@
+import { logger } from '/js/logger.js';
+
 // ─── Unified Settings Registry ────────────────────────────────
 // Central source of truth for all app settings.
 // Layers: memory cache → localStorage (write-through) → SQLite (durable)
@@ -51,7 +53,7 @@ const Settings = (function() {
     }
     // Notify listeners
     if (_listeners[key]) {
-      _listeners[key].forEach(function(fn) { try { fn(strVal, old); } catch(e) { console.error('[Settings] listener error:', e); } });
+      _listeners[key].forEach(function(fn) { try { fn(strVal, old); } catch(e) { logger.error('[Settings] listener error:', e); } });
     }
   }
 
@@ -102,7 +104,7 @@ const Settings = (function() {
       }
       _ready = true;
     } catch(e) {
-      console.warn('[Settings] init failed:', e);
+      logger.warn('[Settings] init failed:', e);
     }
   }
 
@@ -206,6 +208,8 @@ const Settings = (function() {
 
   // Browser
   define('adBlockEnabled',          { default: 'true', sync: true  }); // @persisted
+  define('dohEnabled',              { default: 'true',       sync: false }); // @local
+  define('dohProvider',             { default: 'cloudflare', sync: false }); // @local
   define('urlBarSections',          { default: null,   sync: true  }); // @persisted
   define('urlShorten',              { default: 'true', sync: false }); // @local
   define('adaptiveUrlBar',          { default: 'on',   sync: false }); // @local

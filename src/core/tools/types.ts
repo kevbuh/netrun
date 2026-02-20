@@ -11,6 +11,14 @@ export interface ToolContext {
   signal?: AbortSignal;
   /** Callback for streaming partial results */
   onProgress?: (data: unknown) => void;
+  /** Emit an action to the frontend (navigate, click, etc.) */
+  emitAction?: (action: { type: string; [key: string]: unknown }) => void;
+  /** Wait for an async frontend result by request ID */
+  waitForResult?: (requestId: string, timeoutMs?: number) => Promise<unknown>;
+  /** Browser DOM snapshot */
+  browserDom?: string;
+  /** Document text content */
+  documentText?: string;
 }
 
 /** Result of a tool execution */
@@ -32,6 +40,8 @@ export interface Tool<TInput = unknown, TOutput = unknown> {
   access: ToolAccess[];
   /** Zod schema for input validation */
   parameters: z.ZodType<TInput>;
+  /** If true, must not run in parallel with other sequential tools */
+  sequential?: boolean;
   /** Execute the tool */
   execute(input: TInput, context: ToolContext): Promise<ToolResult<TOutput>>;
 }

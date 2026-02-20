@@ -5,6 +5,7 @@ import * as feedQueries from '../db/queries/feeds.js';
 import * as socialQueries from '../db/queries/social.js';
 import * as contentQueries from '../db/queries/content.js';
 import * as socialExtQueries from '../db/queries/social-extended.js';
+import * as drawingQueries from '../db/queries/drawings.js';
 import { GOOGLE_CLIENT_ID } from './shared.js';
 
 export function registerDbQueriesIPC(): void {
@@ -202,6 +203,26 @@ export function registerDbQueriesIPC(): void {
   ipcMain.handle('db:blocked-titles-set', (_event, titles: string[]) => {
     feedQueries.setBlockedTitles(titles);
   });
+  // ── Drawings (whiteboard) ──
+  ipcMain.handle('db:draw-create', (_event, id: string, title?: string) => {
+    return drawingQueries.createDrawing(id, title);
+  });
+  ipcMain.handle('db:draw-get', (_event, id: string) => {
+    return drawingQueries.getDrawing(id);
+  });
+  ipcMain.handle('db:draw-save', (_event, id: string, canvasJson: string, thumbnail?: string) => {
+    drawingQueries.saveDrawing(id, canvasJson, thumbnail);
+  });
+  ipcMain.handle('db:draw-list', (_event, limit?: number) => {
+    return drawingQueries.listDrawings(limit);
+  });
+  ipcMain.handle('db:draw-delete', (_event, id: string) => {
+    drawingQueries.deleteDrawing(id);
+  });
+  ipcMain.handle('db:draw-update-title', (_event, id: string, title: string) => {
+    drawingQueries.updateDrawingTitle(id, title);
+  });
+
   // ── Auth: Google login ──
   ipcMain.handle('db:auth-google', async (_event, credential: string) => {
     if (!credential) return { error: 'Missing credential' };

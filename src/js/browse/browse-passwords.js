@@ -14,10 +14,12 @@ import { _browseCloseFindBar, _browseFindBarActive, _browseUpdateSaveBtn } from 
 import { _browseCreateFrame, handleNtpFileInput, handleNtpFileUpload } from '/js/browse/browse-ntp.js';
 import { _browseEnsureTabFrame, _browseFocusPane, _browseGetFocusedPane, _browseGetSplitPanes, _browseIsSplitMode, _browsePaneForTab, _browseRebuildSplitLayout, _browseSetSplitPanes, browseUnsplitPane } from '/js/browse/browse-split-panes.js';
 import { _browseSetUrlDisplay, _browseUrlCancelHide, _browseUrlKeydown, _browseUrlScheduleHide, _browseUrlShowHistory, _renderHelpPage, _renderWebSearchHistoryPage } from '/js/browse-urlbar.js';
-import { _browseUpdateScrollPill, _browseUpdateTokenCount, _updateAudioIndicator } from '/js/browse/browse-audio.js';
+import { _updateAudioIndicator } from '/js/browse/browse-audio.js';
+import { _pageInfoRestoreForTab, _pageInfoCleanup } from '/js/browse/browse-pageinfo.js';
 import { _currentPaperViewPaper, setCurrentPaperViewPaper } from '/js/views.js';
 import { browseCloseWindow, browseNewPaperTab, browseNewTab } from '/js/browse/browse-windows.js';
 import { chatViewCleanupMorph, chatViewNewThread, openChatPage } from '/js/chat-view.js';
+import { drawViewCleanupMorph } from '/js/draw-view.js';
 import { isPostSaved } from '/js/feed.js';
 import { onSearchInput, submitSearch } from '/js/search.js';
 import { stopCaptions } from '/js/browse/browse-captions.js';
@@ -346,6 +348,7 @@ export function browseSelectTab(id) {
     }
     // Show annotate offer pill (restores cache or shows clickable "Annotate" pill)
     if (tab && !tab.blank && tab.url && typeof _showAnnotateOfferPill === 'function') _showAnnotateOfferPill(tab);
+    if (tab && !tab.blank && tab.url) _pageInfoRestoreForTab(tab);
     return;
   }
 
@@ -362,15 +365,19 @@ export function browseSelectTab(id) {
   // Stop captions when switching away from captured tab
   if (window._ccTabId && window._ccTabId !== id) stopCaptions();
 
-  // Clear scroll pill and token count when switching tabs
-  _browseUpdateScrollPill(-1);
-  _browseUpdateTokenCount(0);
+  // Clear pageinfo pill when switching tabs (will restore from cache for new tab)
+  _pageInfoCleanup();
 
   // Clean up chat morph DOM if switching away from a chat tab (keep tab flags for restore)
   const prevTab = win.tabs.find(t => t.id === win.activeTab);
   if (prevTab && prevTab._chatPage && prevTab.id !== id) {
     const ntpMorphed = document.getElementById('browse-content')?.querySelector('.browse-ntp.chat-mode');
     if (ntpMorphed && typeof chatViewCleanupMorph === 'function') chatViewCleanupMorph();
+  }
+  // Clean up draw morph DOM if switching away from a draw tab
+  if (prevTab && prevTab._drawPage && prevTab.id !== id) {
+    const ntpMorphed = document.getElementById('browse-content')?.querySelector('.browse-ntp.draw-mode');
+    if (ntpMorphed && typeof drawViewCleanupMorph === 'function') drawViewCleanupMorph();
   }
 
   win.activeTab = id;
@@ -424,11 +431,23 @@ export function browseSelectTab(id) {
     _renderHelpPage(el);
   }
 
+  // Restore netrun hub page tab if needed
+  if (tab && tab._netrunPage && !tab.el) {
+    const container = document.getElementById('browse-content');
+    const el = document.createElement('div');
+    el.id = 'browse-netrun-' + tab.id;
+    el.className = 'nr-hub-scroll';
+    el.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;';
+    container.appendChild(el);
+    tab.el = el;
+    if (typeof window._renderNetrunPage === 'function') window._renderNetrunPage(el);
+  }
+
   win.tabs.forEach(t => {
     if (t.el) t.el.style.display = t.id === id ? '' : 'none';
   });
   const urlInput = document.getElementById('browse-url-input');
-  _browseSetUrlDisplay(urlInput, tab ? (tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : tab.url) : '');
+  _browseSetUrlDisplay(urlInput, tab ? (tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : tab._netrunPage ? 'netrun://' : tab.url) : '');
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   window._browseSaveTabs();
@@ -477,6 +496,8 @@ export function browseSelectTab(id) {
     const act = typeof window._islandActivities !== 'undefined' ? window._islandActivities['insight'] : null;
     if (act) islandRemove('insight');
   }
+  // Restore page info pill from cache for the selected tab
+  if (tab && !tab.blank && tab.url) _pageInfoRestoreForTab(tab);
 }
 
 export function _browseUpdateBarForTab(tab) {
@@ -698,8 +719,8 @@ export function _browseUpdateNewTabPage(tab) {
       }
     }
   } else if (ntp) {
-    // Keep NTP visible when in chat-mode morph
-    if (!ntp.classList.contains('chat-mode')) ntp.style.display = 'none';
+    // Keep NTP visible when in chat-mode or draw-mode morph
+    if (!ntp.classList.contains('chat-mode') && !ntp.classList.contains('draw-mode')) ntp.style.display = 'none';
   }
   if (Settings.get('browseTabLayout') === 'island') _pillSyncUrl();
   const pinchOverlay = container.querySelector('.browse-pinch-overlay');

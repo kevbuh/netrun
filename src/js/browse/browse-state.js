@@ -53,6 +53,14 @@ if (_browseIsElectron && window.electronAPI.adblockSetEnabled) {
   window.electronAPI.adblockSetEnabled(Settings.get('adBlockEnabled') === 'true');
 }
 
+// Sync DoH state to main process
+if (_browseIsElectron && window.electronAPI.dohSetConfig) {
+  window.electronAPI.dohSetConfig(
+    Settings.get('dohEnabled') !== 'false',
+    Settings.get('dohProvider') || 'cloudflare'
+  );
+}
+
 // Audio tracking: { tabId: { windowId, muted } }
 export const _browseAudioTabs = new Map();
 let _pillBrowseMode = false;
@@ -171,6 +179,7 @@ export function _browseSaveTabsNow() {
       const saved = { id: t.id, url: t.url || '', title: t.title, blank: !!t.blank };
       if (t._historyPage) saved._historyPage = true;
       if (t._helpPage) saved._helpPage = true;
+      if (t._netrunPage) saved._netrunPage = true;
       if (t._chatPage) { saved._chatPage = true; if (t._chatThreadId) saved._chatThreadId = t._chatThreadId; }
       if (t.paper) {
         const p = Object.assign({}, t.paper);

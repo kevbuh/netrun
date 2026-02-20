@@ -17,7 +17,31 @@ import { clearBrowseDownloads, openDownloadFile, removeBrowseDownload } from '/j
 import { goToAudioTab } from '/js/browse/browse-audio.js';
 import { toggleCaptions } from '/js/browse/browse-captions.js';
 
+// ── Webview pointer guard — prevent webview from stealing events when dropdowns are open ──
+
+// Centralized guard: observe any island-tray-open or dropdown-open to block webview pointer events
+var _islandGuardObserver = null;
+function _islandInitGuard() {
+  if (_islandGuardObserver) return;
+  var nav = document.getElementById('sidebar-nav');
+  if (!nav) return;
+  _islandGuardObserver = new MutationObserver(function() {
+    var anyOpen = !!nav.querySelector('.island-tray-open, .dropdown-open');
+    document.body.classList.toggle('island-dropdown-guard', anyOpen);
+  });
+  _islandGuardObserver.observe(nav, { attributes: true, attributeFilter: ['class'], subtree: true });
+}
+
 // ── Unified Audio Pill ──
+
+export function _getAudioState() {
+  const { tab, tts, cc, mic } = window._audioUnifiedState.value;
+  const micRecording = typeof _pillMicRecorder !== 'undefined' && !!_pillMicRecorder;
+  const rainActive = typeof _rainOn !== 'undefined' && _rainOn;
+  const rainNoiseType = typeof _rainNoiseType !== 'undefined' ? _rainNoiseType : 'rain';
+  return { tab, tts, cc, mic, micRecording, rainActive, rainNoiseType };
+}
+window._getAudioState = _getAudioState;
 
 export function _pillNoiseCycle() {
   const types = typeof NOISE_PRESETS !== 'undefined' ? Object.keys(NOISE_PRESETS) : [];
@@ -55,101 +79,9 @@ export function _clearAudioUnified(source) {
 }
 
 export function _renderAudioPill() {
-  const el = document.getElementById('pill-audio-unified');
-  if (!el) return;
-  const { tab, tts, cc, mic } = window._audioUnifiedState.value;
-  const micRecording = typeof _pillMicRecorder !== 'undefined' && _pillMicRecorder;
-  const rainActive = typeof _rainOn !== 'undefined' && _rainOn;
-  const active = !!(tab || tts || cc || mic || micRecording || rainActive);
-
-  // Build pill indicator
-  let indicator = el.querySelector('.audio-pill-indicator');
-  if (!indicator) {
-    const indicatorView = new window.View('div').className('audio-pill-indicator');
-    indicator = indicatorView.build();
-    el.appendChild(indicator);
-  }
-
-  const audioMode = micRecording ? 'mic' : active ? 'active' : 'idle';
-  AetherUI.mount(window.Switch(audioMode, {
-    mic: function() { return window.RawHTML(icon('microphone', { size: 14, stroke: '#ef4444' })); },
-    active: function() { return window.RawHTML(window._islandAudioBars); },
-    idle: function() { return new window.View('span').className('audio-pill-dot'); },
-  }), indicator);
-  indicator.classList.toggle('audio-pill-active', audioMode !== 'idle');
-  indicator.classList.toggle('audio-pill-idle', audioMode === 'idle');
-  indicator.classList.toggle('nr-breathe', audioMode === 'mic');
-
-  // Build dropdown
-  let dropdown = el.querySelector('.audio-pill-dropdown');
-  if (!dropdown) {
-    const dropdownView = new window.View('div').className('audio-pill-dropdown');
-    dropdown = dropdownView.build();
-    el.appendChild(dropdown);
-  }
-
-  function _audioBtn(iconName, label, action, opts) {
-    opts = opts || {};
-    const btn = new window.View('button');
-    btn._appendChildren([window.RawHTML(icon(iconName, opts.iconOpts || { size: 14 }))]);
-    btn._appendChildren([window.Text(' ' + label)]);
-    if (opts.trailing) btn._appendChildren([opts.trailing]);
-    if (opts.color) btn.styles({ color: opts.color });
-    if (opts.disabled) btn.el.disabled = true;
-    btn.onTap(function(e) { if (opts.stopProp) e.stopPropagation(); if (action) action(); });
-    return btn;
-  }
-
-  const items = [];
-
-  // Tab audio source
-  if (tab) {
-    const tabBtn = new window.View('button');
-    tabBtn._appendChildren([window.RawHTML(window._islandAudioBars), window.Text(' ' + escapeHtml(tab.label || 'Tab Audio'))]);
-    tabBtn.onTap(function() { if (typeof goToAudioTab === 'function') goToAudioTab(); });
-    items.push(tabBtn);
-  }
-
-  // TTS status
-  if (tts) {
-    const spdText = (parseFloat(Settings.get('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x';
-    const spdSpan = new window.View('span').styles({marginLeft:'auto', fontSize:'0.7rem', opacity:'0.5'})._bindText(spdText);
-    items.push(_audioBtn(tts.paused ? 'play' : 'pause', tts.paused ? 'Resume TTS' : 'Pause TTS', function() { _ttsPauseResume(); _renderAudioPill(); }, { color: 'var(--nr-accent)', trailing: spdSpan }));
-    items.push(_audioBtn('close', 'Stop TTS', function() { _ttsStopAll(); _renderAudioPill(); }));
-  }
-
-  // CC row
-  if (cc) {
-    items.push(_audioBtn('cc', escapeHtml(cc.label || 'CC'), function() { if (typeof toggleCaptions === 'function') toggleCaptions(); }, { color: 'var(--nr-accent)' }));
-  } else if (tab) {
-    items.push(_audioBtn('cc', 'Captions', function() { if (typeof toggleCaptions === 'function') toggleCaptions(); }));
-  }
-
-  // Mic
-  if (micRecording) {
-    items.push(_audioBtn('microphone', 'Stop recording', function() { _pillMicClick(); }, { color: '#ef4444', iconOpts: { size: 14, stroke: '#ef4444' } }));
-  } else if (mic) {
-    items.push(_audioBtn('microphone', escapeHtml(mic.label || 'Transcribing\u2026'), null, { disabled: true }));
-  } else {
-    items.push(_audioBtn('microphone', 'Voice input', function() { _pillMicClick(); }));
-  }
-
-  // White noise
-  if (rainActive) {
-    const noiseLabel = (typeof NOISE_PRESETS !== 'undefined' && typeof _rainNoiseType !== 'undefined' && NOISE_PRESETS[_rainNoiseType]) ? NOISE_PRESETS[_rainNoiseType].label : 'White noise';
-    items.push(_audioBtn('rain', escapeHtml(noiseLabel), function() { _pillNoiseCycle(); _renderAudioPill(); }, { color: 'var(--nr-accent)', stopProp: true }));
-    items.push(_audioBtn('close', 'Stop noise', function() { stopRain(); _renderAudioPill(); }));
-  } else {
-    items.push(_audioBtn('rain', 'White noise', function() { startRain(); _renderAudioPill(); }));
-  }
-
-  // Read aloud
-  items.push(_audioBtn('speaker', 'Read aloud', function() { _readPageAloud(); }));
-
-  AetherUI.mount(window.VStack(items), dropdown);
+  // Delegate to unified AI pill renderer
+  if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
 }
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _renderAudioPill);
-else setTimeout(_renderAudioPill, 0);
 
 export function _islandRenderPill(a) {
   if (a.type === 'feed-notif') {
@@ -243,6 +175,12 @@ export function _islandRenderPill(a) {
       if (cc != null) paperBadge = '<span style="margin-left:6px;font-size:10px;padding:1px 5px;border-radius:8px;background:rgba(139,92,246,0.15);color:#8b5cf6">' + cc + ' cit.</span>';
     }
     return annIcon + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || '') + '</span>' + paperBadge;
+  } else if (a.type === 'pageinfo') {
+    const piIcon = icon('clock', { size: 14, stroke: 'var(--nr-text-secondary)' });
+    let html = piIcon;
+    if (a.label) html += '<span>' + escapeHtml(a.label) + '</span>';
+    if (a.badges) html += '<span class="island-pageinfo-badges">' + escapeHtml(a.badges) + '</span>';
+    return html;
   } else if (a.type === 'calendar') {
     return icon('calendar', { size: 14, stroke: '#3b82f6' }) + '<span style="color:#3b82f6">' + escapeHtml(a.label || '') + '</span>';
   } else if (a.type === 'bookmark') {
@@ -391,6 +329,31 @@ export function _islandBuildTray(a, isBrowse) {
       trayHtml += '</div>';
     }
     return trayHtml;
+  } else if (a.type === 'pageinfo') {
+    var trayHtml = '';
+    var m = a.meta || {};
+    function _piRow(label, value) {
+      if (!value) return '';
+      return '<div class="island-pageinfo-row"><span class="island-pageinfo-label">' + escapeHtml(label) + '</span><span class="island-pageinfo-value">' + escapeHtml(value) + '</span></div>';
+    }
+    if (m.published) {
+      try { var pd = new Date(m.published); trayHtml += _piRow('Published', pd.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })); } catch(e) { trayHtml += _piRow('Published', m.published); }
+    }
+    if (m.modified) {
+      try { var md = new Date(m.modified); trayHtml += _piRow('Modified', md.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })); } catch(e) { trayHtml += _piRow('Modified', m.modified); }
+    }
+    if (m.author) trayHtml += _piRow('Author', m.author);
+    if (m.type) trayHtml += _piRow('Type', m.type);
+    if (m.wordCount) {
+      var mins = Math.max(1, Math.round(m.wordCount / 238));
+      trayHtml += _piRow('Reading time', mins + ' min (' + m.wordCount.toLocaleString() + ' words)');
+    }
+    if (a.badges) trayHtml += _piRow('Position', a.badges);
+    if (m.description) {
+      var desc = m.description.length > 200 ? m.description.slice(0, 197) + '\u2026' : m.description;
+      trayHtml += '<div class="island-pageinfo-desc">' + escapeHtml(desc) + '</div>';
+    }
+    return trayHtml || '<div style="padding:8px 10px;opacity:0.4;font-size:0.72rem">No metadata available</div>';
   } else if (a.type === 'achievement') {
     return '<div class="island-ach-tray-content">'
       + '<div class="island-ach-tray-icon">' + icon('help', { size: 18, stroke: '#caa12a', strokeWidth: '1.5' }) + '</div>'
@@ -704,15 +667,27 @@ export function _islandAttachHandlers(pill, a, hasTray) {
       document.addEventListener('mouseup', onMouseUp);
     });
 
-    // Close tray on outside click (120ms debounce for webview clicks that don't bubble)
+    // Close tray on outside click (debounced so tray interactions aren't swallowed)
     document.addEventListener('mousedown', function(e) {
-      if (!pill.contains(e.target)) {
-        pill.classList.remove('island-tray-open');
+      if (!pill.contains(e.target) && pill.classList.contains('island-tray-open')) {
+        // Small delay: let click targets inside the tray process first
+        setTimeout(function() {
+          if (!pill.contains(document.activeElement)) {
+            pill.classList.remove('island-tray-open');
+          }
+        }, 80);
       }
     });
-    // Close on window blur (webview focus)
+    // Close on window blur (webview focus) — debounced to avoid premature close
+    var _blurCloseTimer = 0;
     window.addEventListener('blur', function() {
-      pill.classList.remove('island-tray-open');
+      clearTimeout(_blurCloseTimer);
+      _blurCloseTimer = setTimeout(function() {
+        pill.classList.remove('island-tray-open');
+      }, 300);
+    });
+    window.addEventListener('focus', function() {
+      clearTimeout(_blurCloseTimer);
     });
   }
 }
@@ -765,6 +740,7 @@ export function _islandSnapshotRects(cont) {
 }
 
 export function _islandRender() {
+  _islandInitGuard();
   const container = document.getElementById('pill-island');
   if (!container) return;
   const rightContainer = document.getElementById('pill-island-right');
@@ -782,7 +758,7 @@ export function _islandRender() {
     const idx = ids.indexOf(pid);
     if (idx !== -1) { ids.splice(idx, 1); pinnedLeft.push(pid); }
   });
-  const priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, bookmark: 2.55, insight: 2.5, 'feed-notif': 2, audio: 2, qf: 2, feed: 1, context: 0 };
+  const priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, ai: 3, rss: 2.6, bookmark: 2.55, insight: 2.5, 'feed-notif': 2, audio: 2, qf: 2, pageinfo: 1.5, feed: 1, context: 0 };
   ids.sort(function(a, b) {
     const pa = priority[window._islandActivities.value[a].type] || 0;
     const pb = priority[window._islandActivities.value[b].type] || 0;
@@ -879,7 +855,7 @@ export function _islandRender() {
       tray.innerHTML = _islandBuildTray(a, isBrowse);
     }
     const hasItems = !!(a.items && a.items.length);
-    const hasTray = (hasItems && (a.type === 'context' || a.type === 'download' || a.type === 'tabs' || a.type === 'insight')) || a.type === 'achievement' || a.type === 'pulse' || (a.type === 'insight' && a._paper && a._paperState);
+    const hasTray = (hasItems && (a.type === 'context' || a.type === 'download' || a.type === 'tabs' || a.type === 'insight')) || a.type === 'achievement' || a.type === 'pulse' || a.type === 'pageinfo' || (a.type === 'insight' && a._paper && a._paperState);
     pill.classList.toggle('island-context', a.type === 'context');
     pill.classList.toggle('island-download-pill', a.type === 'download');
     pill.classList.toggle('island-tabs-pill', a.type === 'tabs');

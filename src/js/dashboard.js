@@ -12,6 +12,7 @@ import { _relativeTime } from '/js/search.js';
 import { _setBrowseReturnView, openBrowse } from '/js/browse/browse-windows.js';
 import { addCalendarEvent, calendarEvents, deleteCalendarEvent } from '/js/calendar.js';
 import { openSettings } from '/js/settings/settings-core.js';
+import { logger } from '/js/logger.js';
 
 // ── Dashboard ──
 
@@ -1203,7 +1204,7 @@ export async function _saveStatus() {
     }
     document.getElementById('dash-status-picker')?.classList.add('hidden');
     renderDashboard();
-  } catch (e) { console.error('Save status error', e); }
+  } catch (e) { logger.error('Save status error', e); }
 }
 
 export async function _clearStatus() {
@@ -1211,7 +1212,7 @@ export async function _clearStatus() {
     await apiPut('/api/users/me/status', { emoji: '', text: '' });
     document.getElementById('dash-status-picker')?.classList.add('hidden');
     renderDashboard();
-  } catch (e) { console.error('Clear status error', e); }
+  } catch (e) { logger.error('Clear status error', e); }
 }
 
 // ── All Saved Posts view ──

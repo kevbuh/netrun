@@ -1,0 +1,222 @@
+/* Docs view — AetherUI auto-generated documentation */
+
+/* ── Layout ── */
+.docs-sidebar {
+  width: 220px;
+  min-width: 220px;
+  border-right: 1px solid var(--nr-border-default);
+  overflow-y: auto;
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.docs-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px 64px;
+}
+
+/* ── Search ── */
+.docs-search {
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.docs-search input {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--nr-radius-md);
+  border: 1px solid var(--nr-border-default);
+  background: var(--nr-bg-input);
+  color: var(--nr-text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.docs-search input:focus {
+  border-color: var(--nr-accent);
+}
+
+.docs-search input::placeholder {
+  color: var(--nr-text-quaternary);
+}
+
+/* ── Sidebar nav ── */
+.docs-nav-category {
+  padding: 6px 16px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--nr-text-quaternary);
+  margin-top: 8px;
+}
+
+.docs-nav-category:first-child {
+  margin-top: 0;
+}
+
+.docs-nav-item {
+  padding: 4px 16px 4px 24px;
+  font-size: 13px;
+  color: var(--nr-text-secondary);
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.docs-nav-item:hover {
+  background: var(--nr-bg-raised);
+  color: var(--nr-text-primary);
+}
+
+.docs-nav-item.active {
+  color: var(--nr-accent);
+  background: var(--nr-bg-raised);
+}
+
+/* ── Content: component cards ── */
+.docs-card {
+  margin-bottom: 32px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--nr-border-subtle);
+}
+
+.docs-card:last-child {
+  border-bottom: none;
+}
+
+.docs-card-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--nr-text-primary);
+  margin: 0 0 4px;
+}
+
+.docs-card-file {
+  font-size: 12px;
+  color: var(--nr-text-quaternary);
+  margin-bottom: 12px;
+}
+
+.docs-card-desc {
+  font-size: 14px;
+  color: var(--nr-text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+/* ── Signature ── */
+.docs-signature {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 13px;
+  background: var(--nr-bg-sunken);
+  border: 1px solid var(--nr-border-subtle);
+  border-radius: var(--nr-radius-md);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  color: var(--nr-text-primary);
+  overflow-x: auto;
+}
+
+.docs-signature .sig-fn {
+  color: var(--nr-accent);
+}
+
+.docs-signature .sig-param {
+  color: var(--nr-text-secondary);
+}
+
+/* ── Method list ── */
+.docs-methods-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--nr-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+.docs-method {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.docs-method-name {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  color: var(--nr-accent);
+  white-space: nowrap;
+}
+
+.docs-method-params {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  color: var(--nr-text-quaternary);
+}
+
+/* ── Live preview ── */
+.docs-preview {
+  margin-top: 16px;
+  border: 1px solid var(--nr-border-subtle);
+  border-radius: var(--nr-radius-md);
+  overflow: hidden;
+}
+
+.docs-preview-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--nr-text-quaternary);
+  padding: 8px 14px;
+  background: var(--nr-bg-sunken);
+  border-bottom: 1px solid var(--nr-border-subtle);
+}
+
+.docs-preview-body {
+  padding: 16px;
+  min-height: 48px;
+}
+
+/* ── Modifiers section ── */
+.docs-modifier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 4px 16px;
+}
+
+.docs-modifier-item {
+  font-size: 13px;
+  padding: 3px 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.docs-modifier-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--nr-accent);
+  flex-shrink: 0;
+  position: relative;
+  top: -1px;
+}
+
+/* ── Empty state ── */
+.docs-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--nr-text-quaternary);
+  font-size: 14px;
+}

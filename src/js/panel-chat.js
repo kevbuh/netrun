@@ -20,6 +20,7 @@ import { browseNewTab } from '/js/browse/browse-windows.js';
 import { browseSplitTab } from '/js/browse/browse-split-panes.js';
 import { toggleSavePost } from '/js/feed.js';
 import { toggleTabMute } from '/js/browse/browse-audio.js';
+import { logger } from '/js/logger.js';
 
 export function _saveChatMemory() {
   if (window._popupChatMessages.length < 2) return;
@@ -334,10 +335,10 @@ export function _sendPopupChatMessage(popup, capturedText) {
               ? await agentGetSemanticDOM(_agentTab)
               : await agentGetAccessibleDOM(_agentTab);
             if (domTree && domTree.error) {
-              console.warn('[agent] DOM extraction error:', domTree.error);
+              logger.warn('[agent] DOM extraction error:', domTree.error);
               domTree = null;
             }
-          } catch (_e) { console.warn('[agent] DOM extraction failed:', _e); }
+          } catch (_e) { logger.warn('[agent] DOM extraction failed:', _e); }
         }
       }
 
@@ -726,7 +727,7 @@ export async function _browserCaptureRect(rect) {
     tmp.getContext('2d').drawImage(full, Math.round(sx), Math.round(sy), Math.round(sw), Math.round(sh), 0, 0, tmp.width, tmp.height);
     return tmp.toDataURL('image/png').split(',')[1];
   } catch (err) {
-    console.error('Browser screenshot capture failed:', err);
+    logger.error('Browser screenshot capture failed:', err);
     return null;
   }
 }
@@ -806,7 +807,7 @@ export function _showTabContextMenu(e, tabEl) {
             _addTabContextToPanel(aetherPanel, { tabId: tab.id, title: tab.title, url: tab.url, content });
           }
         } catch (err) {
-          console.warn('Failed to extract tab context:', err);
+          logger.warn('Failed to extract tab context:', err);
         }
       })();
     }

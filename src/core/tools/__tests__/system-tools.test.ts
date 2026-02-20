@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { navigate, openTab, saveToReadingList, createCalendarEvent } from '../system/index';
 
 describe('system tools', () => {
@@ -6,37 +6,54 @@ describe('system tools', () => {
     it('has correct metadata', () => {
       expect(navigate.name).toBe('navigate');
       expect(navigate.category).toBe('system');
+      expect(navigate.sequential).toBe(true);
     });
 
-    it('returns success', async () => {
-      const result = await navigate.execute({ view: 'settings' }, {});
+    it('returns success and emits action', async () => {
+      const emitAction = vi.fn();
+      const result = await navigate.execute({ view: 'settings' }, { emitAction });
       expect(result.success).toBe(true);
       expect(result.data!.message).toContain('settings');
+      expect(emitAction).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'navigate', view: 'settings' })
+      );
     });
   });
 
   describe('open-tab', () => {
-    it('returns success with URL', async () => {
-      const result = await openTab.execute({ url: 'https://example.com' }, {});
+    it('returns success with URL and emits action', async () => {
+      const emitAction = vi.fn();
+      const result = await openTab.execute({ url: 'https://example.com' }, { emitAction });
       expect(result.success).toBe(true);
       expect(result.data!.message).toContain('example.com');
+      expect(emitAction).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'open_tab', url: 'https://example.com' })
+      );
     });
 
     it('returns success without URL', async () => {
-      const result = await openTab.execute({}, {});
+      const emitAction = vi.fn();
+      const result = await openTab.execute({}, { emitAction });
       expect(result.success).toBe(true);
       expect(result.data!.message).toContain('new tab');
+      expect(emitAction).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'open_tab', url: '' })
+      );
     });
   });
 
   describe('save-to-reading-list', () => {
-    it('returns bookmarked status', async () => {
+    it('returns bookmarked status and emits action', async () => {
+      const emitAction = vi.fn();
       const result = await saveToReadingList.execute(
         { url: 'https://example.com', title: 'Test' },
-        {}
+        { emitAction }
       );
       expect(result.success).toBe(true);
       expect(result.data!.message).toContain('bookmarked');
+      expect(emitAction).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'bookmark', url: 'https://example.com', title: 'Test' })
+      );
     });
   });
 

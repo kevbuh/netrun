@@ -3,6 +3,7 @@
 // All routes are handled via IPC through the core TypeScript backend.
 
 import Settings from '/js/core/core-settings.js';
+import { logger } from '/js/logger.js';
 
 /** Unwrap a tool result {success, data, error} */
 export function _unwrapTool(result, dataKey) {
@@ -657,7 +658,7 @@ export async function ipcRoute(path, opts = {}) {
   }
 
   // Unknown route — log and return null (should not happen in normal usage)
-  console.warn('[api-ipc] Unhandled route:', method, path);
+  logger.warn('[api-ipc] Unhandled route:', method, path);
   return null;
 }
 

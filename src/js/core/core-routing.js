@@ -24,6 +24,7 @@ const _ROUTE_TABLE = {
   '#terminal':    () => { openTerminal(); },
   '#neuralook':   () => wmOpen('neuralook'),
   '#dev':         () => wmOpen('dev'),
+  '#docs':        () => wmOpen('docs'),
   '#vibe':        () => wmOpen('dashboard'),
   '#feed':        () => wmOpen('feed'),
 };

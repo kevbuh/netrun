@@ -385,6 +385,4 @@ export function _vibeActivateSelection() {
   else if (pane === 4) _vibeSelectStash(idx);
 }
 
-// Auto-refresh git status when tab regains focus
-window.addEventListener('focus', () => {});
 

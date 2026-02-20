@@ -12,6 +12,7 @@ import { _relativeTime } from '/js/search.js';
 import { openBrowse, openLocalPdf } from '/js/browse/browse-windows.js';
 import { openPaper } from '/js/panel.js';
 import { petReact } from '/js/pixel-pet.js';
+import { logger } from '/js/logger.js';
 
 // ── Auto-refresh timer ──
 export let _refreshTimer = null;
@@ -284,7 +285,7 @@ export async function cachePostOffline(link, paper, btnEl) {
     setLS('offlineCached', [...cached]);
     if (btnEl) { btnEl.innerHTML = _offlineCachedIcon(); btnEl.classList.add('cached'); }
   } catch (e) {
-    console.error('cachePostOffline error', e);
+    logger.error('cachePostOffline error', e);
     if (btnEl) {
       btnEl.innerHTML = _offlineDownloadIcon();
       btnEl.disabled = false;
@@ -1051,7 +1052,7 @@ export function parseFeed(xml) {
     // Check for parsing errors
     const parserError = doc.querySelector('parsererror');
     if (parserError) {
-      console.error('Feed parsing error:', parserError.textContent);
+      logger.error('Feed parsing error:', parserError.textContent);
       return [];
     }
 
@@ -1133,7 +1134,7 @@ export function parseFeed(xml) {
 
     return parsedItems;
   } catch (e) {
-    console.error('Error parsing feed:', e);
+    logger.error('Error parsing feed:', e);
     return [];
   }
 }
@@ -1595,7 +1596,7 @@ export function _renderPapersNow() {
         cmtContainer.style.display = 'block';
         apiGet('/api/comments?paperLink=' + encodeURIComponent(p.link))
           .then(function(comments) { _renderTweetComments(cmtContainer, comments, p.link, i); })
-          .catch(function(e) { console.warn('loadTweetComments:', e); });
+          .catch(function(e) { logger.warn('loadTweetComments:', e); });
       }
     }
   });
@@ -1859,7 +1860,7 @@ export function _tweetRepost(idx, btn) {
     btn.className = btn.className.replace(/(?:^|\s)text-dimmer\s+hover:text-green-400/g, '') + ' text-dimmer hover:text-green-400';
     delete btn.dataset.reposted;
     ipcRoute('/api/reposts', { method: 'DELETE', body: JSON.stringify({ paperLink: p.link }) })
-      .catch(e => console.error('Unrepost error:', e));
+      .catch(e => logger.error('Unrepost error:', e));
     return;
   }
   // Animate the repost icon
@@ -1881,7 +1882,7 @@ export function _tweetRepost(idx, btn) {
   // Save repost to server
   const username = (typeof window._authUserInfo !== 'undefined' && window._authUserInfo && window._authUserInfo.username) || (typeof _authUser !== 'undefined' && _authUser) || '';
   apiPost('/api/reposts', { paperLink: p.link, paperTitle: p.title, username })
-    .catch(e => console.error('Repost error:', e));
+    .catch(e => logger.error('Repost error:', e));
 }
 
 // Shared comment & repost action buttons for all card views

@@ -11,6 +11,7 @@ import { _relativeTime } from '/js/search.js';
 import { _renderPetThumb } from '/js/pixel-pet.js';
 import { getFeedSources } from '/js/feed.js';
 import { openSettings, renderSettingsView } from '/js/settings/settings-core.js';
+import { logger } from '/js/logger.js';
 
 // ── User Profile ──
 
@@ -86,7 +87,7 @@ export async function renderUserProfile(username) {
       }
     } catch (e) {
       AetherUI.mount(window.Text('Failed to load users').className('text-dimmer text-sm'), allUsersEl);
-      console.error('Load users error', e);
+      logger.error('Load users error', e);
     }
 
     const input = document.getElementById('profile-search-input');
@@ -111,7 +112,7 @@ export async function renderUserProfile(username) {
           }
           results.innerHTML = '';
           users.forEach(function(u) { AetherUI.append(_profileUserCard(u, 'list'), results); });
-        } catch (e) { console.error('User search error', e); }
+        } catch (e) { logger.error('User search error', e); }
       }, 300);
     });
     setTimeout(() => input.focus(), 50);
@@ -356,7 +357,7 @@ export async function renderUserProfile(username) {
       });
     }
   } catch (e) {
-    console.error('Profile load error', e);
+    logger.error('Profile load error', e);
     AetherUI.mount(window.Text('Failed to load profile').className('text-dimmer text-sm mt-8 text-center'), el);
   }
 }
@@ -440,7 +441,7 @@ export function _uploadProfilePic() {
           if (hash.startsWith('#profile')) renderUserProfile(window._authUserInfo?.username);
           if (hash === '#settings' && typeof renderSettingsView === 'function') renderSettingsView();
         }
-      } catch (e) { console.error('Picture upload error', e); }
+      } catch (e) { logger.error('Picture upload error', e); }
     };
     reader.readAsDataURL(file);
   };
@@ -461,7 +462,7 @@ export function _uploadProfileBg() {
         if (data.profile_bg) {
           renderUserProfile(window._authUserInfo?.username);
         }
-      } catch (e) { console.error('Background upload error', e); }
+      } catch (e) { logger.error('Background upload error', e); }
     };
     reader.readAsDataURL(file);
   };

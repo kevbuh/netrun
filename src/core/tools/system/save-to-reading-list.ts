@@ -11,8 +11,10 @@ export const saveToReadingList: Tool<z.infer<typeof parameters>, { status: strin
   description: 'Bookmark a post or paper to the user\'s reading list.',
   category: 'system',
   access: ['agent', 'ui'],
+  sequential: true,
   parameters,
-  async execute(): Promise<ToolResult<{ status: string; message: string }>> {
+  async execute(input, context): Promise<ToolResult<{ status: string; message: string }>> {
+    context.emitAction?.({ type: 'bookmark', url: input.url, title: input.title });
     return { success: true, data: { status: 'ok', message: 'Post bookmarked' } };
   },
 };

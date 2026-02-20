@@ -7,6 +7,7 @@ import { initInsight } from './ambient/index.js';
 import { contextManager } from './context/manager.js';
 import { contextIntake } from './context/intake.js';
 import { parakeetManager } from './parakeet-manager.js';
+import { loggingMiddleware, timeoutMiddleware } from './tools/middleware/index.js';
 
 /**
  * Initialize the core system: tools, providers, agents, IPC handlers.
@@ -15,6 +16,10 @@ import { parakeetManager } from './parakeet-manager.js';
 export function initCore(): void {
   // Register all built-in tools
   registerAllTools();
+
+  // Register middleware (logging outermost, timeout inner)
+  toolRegistry.use(loggingMiddleware);
+  toolRegistry.use(timeoutMiddleware);
 
   // Register all built-in agents
   registerAllAgents();

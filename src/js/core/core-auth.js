@@ -8,6 +8,7 @@ import { _loadCustomAnnotationCategories } from '/js/core/core-ui.js';
 import { _updateNowPlayingContext } from '/js/core/core-audio.js';
 import { applyStoredAppearance } from '/js/settings/settings-init.js';
 import { renderSettingsView } from '/js/settings/settings-core.js';
+import { logger } from '/js/logger.js';
 
 // ── User accounts & sync ──
 
@@ -54,6 +55,10 @@ SYNC_KEYS.forEach(k => _syncKeysSet.add(k));
 if (Settings.get('adBlockEnabled') === null) {
   Settings.set('adBlockEnabled', 'true');
 }
+
+// Default encrypted DNS to enabled
+if (Settings.get('dohEnabled') === null) Settings.set('dohEnabled', 'true');
+if (Settings.get('dohProvider') === null) Settings.set('dohProvider', 'cloudflare');
 
 // ── localStorage helpers (reduce try/parse/default boilerplate) ──
 export function getLS(key, fallback) {
@@ -193,7 +198,7 @@ export async function syncToServer(force) {
     const result = await apiPost('/api/sync', { data: _buildSyncPayload(keysToSync) });
     if (result.data) _applySyncData(result.data);
   } catch (e) {
-    console.warn('[sync] push failed:', e);
+    logger.warn('[sync] push failed:', e);
     // Re-mark as dirty so they retry next cycle
     for (const k of keysToSync) _syncDirtyKeys.add(k);
   }
@@ -206,7 +211,7 @@ export async function syncFromServer() {
     const result = await apiPost('/api/sync', { data: {} });
     if (result.data) _applySyncData(result.data);
   } catch (e) {
-    console.warn('[sync] pull failed:', e);
+    logger.warn('[sync] pull failed:', e);
   }
 }
 
@@ -330,10 +335,10 @@ export function exitGuestMode() {
         syncFromServer();
       })
       .catch(err => {
-        console.warn('[auth] Session verify failed:', err);
+        logger.warn('[auth] Session verify failed:', err);
         // If we have cached auth info locally, proceed offline rather than forcing re-login
         if (window._authUserInfo && window._authUserInfo.google_id && window._authUserInfo.username) {
-          console.log('[auth] Using cached auth info');
+          logger.debug('[auth] Using cached auth info');
           _authUser = (window._authUserInfo.name || window._authUserInfo.email || _authUser || '').split(' ')[0];
           _onLoginSuccess();
           return;
@@ -359,7 +364,7 @@ export function exitGuestMode() {
           _initAuth();
         } else if (window._authUserInfo && window._authUserInfo.google_id && window._authUserInfo.username) {
           // Have cached auth info but no token — proceed offline
-          console.log('[auth] No token but have cached auth info, proceeding');
+          logger.debug('[auth] No token but have cached auth info, proceeding');
           window._authToken = 'cached';
           _authUser = (window._authUserInfo.name || window._authUserInfo.email || '').split(' ')[0];
           _onLoginSuccess();

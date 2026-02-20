@@ -1,5 +1,5 @@
 import type { ToolCall, ChatMessage, StreamEvent } from '../providers/types.js';
-import type { ToolResult } from '../tools/types.js';
+import type { ToolResult, ToolContext } from '../tools/types.js';
 import { toolRegistry } from '../tools/registry.js';
 import { providerRegistry } from '../providers/registry.js';
 import type {
@@ -102,153 +102,6 @@ function waitForActionResult(requestId: string, timeoutMs = 15000): Promise<unkn
   });
 }
 
-/** Tools that need to wait for async frontend results */
-const ASYNC_ACTION_TOOLS = new Set([
-  'browser-query-selector', 'browser-wait-for', 'browser-get-url',
-  'browser-get-tabs', 'browser-switch-tab', 'browser-back', 'browser-forward',
-  'browser-get-storage',
-]);
-
-/** All action tools handled locally (not via registry) — must run sequentially */
-const LOCAL_ACTION_TOOLS = new Set([
-  'navigate', 'open-tab', 'save-to-reading-list', 'browser-read-page',
-  'browser-click', 'browser-type', 'browser-scroll', 'browser-navigate',
-  'browser-screenshot', 'browser-query-selector', 'browser-wait-for',
-  'browser-get-url', 'browser-get-tabs', 'browser-switch-tab',
-  'browser-back', 'browser-forward', 'browser-press-key', 'browser-get-storage',
-]);
-
-/**
- * Execute a single tool and return the result along with any actions.
- */
-async function executeTool(
-  name: string,
-  args: Record<string, unknown>,
-  context: { googleId?: string; documentText?: string; browserDom?: string },
-  onAction?: (action: AgentAction) => void,
-): Promise<{ result: ToolResult; actions: AgentAction[] }> {
-  const actions: AgentAction[] = [];
-
-  // Handle action-type tools that signal the frontend
-  const actionTools: Record<string, (args: Record<string, unknown>) => ToolResult> = {
-    navigate: (a) => {
-      const action: AgentAction = { type: 'navigate', view: a.view ?? 'home' };
-      actions.push(action);
-      return { success: true, data: { status: 'ok', message: `Navigated to ${a.view ?? 'home'}` } };
-    },
-    'open-tab': (a) => {
-      const url = (a.url as string) ?? '';
-      actions.push({ type: 'open_tab', url });
-      return { success: true, data: { status: 'ok', message: url ? `Opened ${url}` : 'Opened a new tab' } };
-    },
-    'save-to-reading-list': (a) => {
-      actions.push({ type: 'bookmark', url: a.url, title: a.title });
-      return { success: true, data: { status: 'ok', message: 'Post bookmarked' } };
-    },
-    'browser-read-page': () => {
-      actions.push({ type: 'agent_read_page' });
-      if (context.browserDom) {
-        return { success: true, data: { status: 'ok', dom: context.browserDom } };
-      }
-      return { success: true, data: { status: 'ok', message: 'DOM is included in your system context.' } };
-    },
-    'browser-click': (a) => {
-      actions.push({ type: 'agent_click', element_id: a.element_id });
-      return { success: true, data: { status: 'ok', message: `Clicked element ${a.element_id}` } };
-    },
-    'browser-type': (a) => {
-      actions.push({ type: 'agent_type', element_id: a.element_id, text: a.text });
-      return { success: true, data: { status: 'ok', message: `Typed into element ${a.element_id}` } };
-    },
-    'browser-scroll': (a) => {
-      actions.push({ type: 'agent_scroll', direction: a.direction ?? 'down' });
-      return { success: true, data: { status: 'ok', message: `Scrolled ${a.direction ?? 'down'}` } };
-    },
-    'browser-navigate': (a) => {
-      actions.push({ type: 'agent_navigate', url: a.url });
-      return { success: true, data: { status: 'ok', message: `Navigating to ${a.url}` } };
-    },
-    'browser-screenshot': () => {
-      actions.push({ type: 'agent_screenshot' });
-      return { success: true, data: { status: 'pending', message: 'Taking screenshot...' } };
-    },
-    'browser-query-selector': (a) => {
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      actions.push({ type: 'agent_query_selector', selector: a.selector, max_results: a.max_results, requestId });
-      return { success: true, data: { status: 'pending', message: `Querying selector: ${a.selector}` } };
-    },
-    'browser-wait-for': (a) => {
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      actions.push({ type: 'agent_wait_for', selector: a.selector, timeout_ms: a.timeout_ms, requestId });
-      return { success: true, data: { status: 'pending', message: `Waiting for ${a.selector}...` } };
-    },
-    'browser-get-url': () => {
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      actions.push({ type: 'agent_get_url', requestId });
-      return { success: true, data: { status: 'pending', message: 'Getting URL...' } };
-    },
-    'browser-get-tabs': () => {
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      actions.push({ type: 'agent_get_tabs', requestId });
-      return { success: true, data: { status: 'pending', message: 'Listing tabs...' } };
-    },
-    'browser-switch-tab': (a) => {
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      actions.push({ type: 'agent_switch_tab', tab_id: a.tab_id, requestId });
-      return { success: true, data: { status: 'pending', message: `Switching to tab ${a.tab_id}...` } };
-    },
-    'browser-back': () => {
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      actions.push({ type: 'agent_back', requestId });
-      return { success: true, data: { status: 'pending', message: 'Going back...' } };
-    },
-    'browser-forward': () => {
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      actions.push({ type: 'agent_forward', requestId });
-      return { success: true, data: { status: 'pending', message: 'Going forward...' } };
-    },
-    'browser-press-key': (a) => {
-      actions.push({ type: 'agent_press_key', key: a.key, modifiers: a.modifiers, element_id: a.element_id });
-      return { success: true, data: { status: 'ok', message: `Pressed ${a.key}` } };
-    },
-    'browser-get-storage': (a) => {
-      const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      actions.push({ type: 'agent_get_storage', storage_type: a.type, key_filter: a.key_filter, requestId });
-      return { success: true, data: { status: 'pending', message: `Reading ${a.type}...` } };
-    },
-  };
-
-  let result: ToolResult;
-  const actionHandler = actionTools[name];
-  if (actionHandler) {
-    result = actionHandler(args);
-  } else {
-    // Execute via tool registry
-    result = await toolRegistry.execute(name, args, { googleId: context.googleId });
-  }
-
-  // Emit actions to frontend
-  if (onAction) {
-    for (const action of actions) {
-      onAction(action);
-    }
-  }
-
-  // For async action tools, wait for the frontend result and use it as the tool result
-  if (ASYNC_ACTION_TOOLS.has(name) && actions.length > 0) {
-    const action = actions[actions.length - 1];
-    const requestId = action.requestId as string;
-    if (requestId) {
-      const timeoutMs = name === 'browser-wait-for'
-        ? ((args.timeout_ms as number) || 5000) + 5000
-        : 15000;
-      const asyncResult = await waitForActionResult(requestId, timeoutMs);
-      result = { success: true, data: asyncResult };
-    }
-  }
-
-  return { result, actions };
-}
 
 /**
  * Run the agent loop: LLM inference -> tool calls -> results -> repeat.
@@ -394,34 +247,47 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
         yield { type: 'tool_call', name: toolName, args: toolArgs };
       }
 
-      // Split into parallel-safe tools and sequential action tools
+      // Split into parallel-safe tools and sequential tools using registry metadata
       const parallelBatch: ParsedToolCall[] = [];
       const sequentialBatch: ParsedToolCall[] = [];
       for (const entry of parsed) {
-        if (LOCAL_ACTION_TOOLS.has(entry.toolName)) {
+        const tool = toolRegistry.get(entry.toolName);
+        if (tool?.sequential) {
           sequentialBatch.push(entry);
         } else {
           parallelBatch.push(entry);
         }
       }
 
-      // Execute parallel-safe tools concurrently
-      const toolCtx = {
-        googleId: context.googleId,
-        documentText: context.documentText,
-        browserDom: context.browserDom,
+      // Build a per-tool context with emitAction and waitForResult injected
+      const makeToolCtx = (): ToolContext => {
+        const actions: AgentAction[] = [];
+        return {
+          googleId: context.googleId,
+          documentText: context.documentText,
+          browserDom: context.browserDom,
+          emitAction: (action) => {
+            actions.push(action);
+            config.onAction?.(action);
+          },
+          waitForResult: waitForActionResult,
+          _actions: actions,
+        } as ToolContext & { _actions: AgentAction[] };
       };
 
+      // Execute parallel-safe tools concurrently
+      const parallelCtxs = parallelBatch.map(() => makeToolCtx());
       const parallelResults = await Promise.all(
-        parallelBatch.map(({ toolName, toolArgs }) =>
-          executeTool(toolName, toolArgs, toolCtx, config.onAction)
+        parallelBatch.map(({ toolName, toolArgs }, idx) =>
+          toolRegistry.execute(toolName, toolArgs, parallelCtxs[idx])
         )
       );
 
       // Emit events and add results to messages for parallel tools
       for (let j = 0; j < parallelBatch.length; j++) {
         const { tc, toolName } = parallelBatch[j];
-        const { result, actions } = parallelResults[j];
+        const result = parallelResults[j];
+        const actions = (parallelCtxs[j] as any)._actions as AgentAction[];
 
         for (const action of actions) {
           yield { type: 'action', action };
@@ -431,7 +297,6 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
           const data = result.data as any;
           if (data.results?.length) {
             yield { type: 'web_sources', results: data.results };
-            // web-research already includes extracted content — skip further tool iterations
             if (toolName === 'web-research') {
               hasResearchContent = true;
             }
@@ -447,11 +312,11 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
         });
       }
 
-      // Execute sequential (async action) tools one at a time
+      // Execute sequential tools one at a time
       for (const { tc, toolName, toolArgs } of sequentialBatch) {
-        const { result, actions } = await executeTool(
-          toolName, toolArgs, toolCtx, config.onAction,
-        );
+        const perToolCtx = makeToolCtx();
+        const result = await toolRegistry.execute(toolName, toolArgs, perToolCtx);
+        const actions = (perToolCtx as any)._actions as AgentAction[];
 
         for (const action of actions) {
           yield { type: 'action', action };

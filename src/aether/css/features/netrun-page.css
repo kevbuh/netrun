@@ -1,0 +1,220 @@
+/* ─── netrun:// Hub Page ─── */
+
+.nr-hub-scroll {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--nr-bg-body);
+  color: var(--nr-text-primary);
+}
+
+.nr-hub-content {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+/* ─── Hero ─── */
+
+.nr-hub-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.nr-hub-hero-logo {
+  width: 48px;
+  height: 48px;
+  color: var(--nr-accent);
+  margin-bottom: 16px;
+}
+
+.nr-hub-hero-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--nr-text-primary);
+  margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+
+.nr-hub-hero-tagline {
+  font-size: 0.82rem;
+  color: var(--nr-text-secondary);
+  margin-bottom: 4px;
+}
+
+.nr-hub-hero-version {
+  font-size: 0.7rem;
+  color: var(--nr-text-quaternary);
+  font-family: var(--nr-font-mono);
+}
+
+/* ─── Feature Cards ─── */
+
+.nr-hub-cards {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 40px;
+}
+
+@media (min-width: 640px) {
+  .nr-hub-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.nr-hub-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--nr-radius-lg);
+  border: 1px solid var(--nr-border-subtle);
+  background: var(--nr-bg-surface);
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.nr-hub-card:hover {
+  border-color: var(--nr-accent);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px var(--nr-shadow-card);
+}
+
+.nr-hub-card-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: var(--nr-accent);
+  margin-top: 1px;
+}
+
+.nr-hub-card-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--nr-text-primary);
+  margin-bottom: 2px;
+}
+
+.nr-hub-card-desc {
+  font-size: 0.75rem;
+  color: var(--nr-text-secondary);
+  line-height: 1.4;
+}
+
+/* ─── Section Headings ─── */
+
+.nr-hub-section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--nr-text-primary);
+  margin-bottom: 4px;
+}
+
+.nr-hub-section-desc {
+  font-size: 0.78rem;
+  color: var(--nr-text-secondary);
+  margin-bottom: 10px;
+}
+
+.nr-hub-section {
+  margin-bottom: 32px;
+}
+
+/* ─── Tables ─── */
+
+.nr-hub-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.nr-hub-th {
+  text-align: left;
+  padding: 6px 12px;
+  font-size: 0.7rem;
+  color: var(--nr-text-quaternary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--nr-border-default);
+}
+
+.nr-hub-tr {
+  border-bottom: 1px solid var(--nr-border-subtle);
+}
+
+.nr-hub-td-key {
+  padding: 6px 12px;
+  color: var(--nr-text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.nr-hub-td-val {
+  padding: 6px 12px;
+  color: var(--nr-text-secondary);
+  vertical-align: top;
+}
+
+/* ─── Route rows ─── */
+
+.nr-hub-route {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--nr-radius-md);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.nr-hub-route:hover {
+  background: var(--nr-bg-raised);
+}
+
+.nr-hub-route-url {
+  font-family: var(--nr-font-mono);
+  font-size: 0.8rem;
+  color: var(--nr-accent);
+  min-width: 140px;
+}
+
+.nr-hub-route-desc {
+  font-size: 0.8rem;
+  color: var(--nr-text-secondary);
+}
+
+/* ─── Keyboard shortcut styling ─── */
+
+.nr-hub-kbd {
+  display: inline-block;
+  font-family: inherit;
+  font-size: 0.78rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--nr-border-default);
+  background: var(--nr-bg-surface);
+}
+
+/* ─── Section separator ─── */
+
+.nr-hub-section + .nr-hub-section {
+  padding-top: 8px;
+  border-top: 1px solid var(--nr-border-subtle);
+}
+
+/* ─── Aether panel description ─── */
+
+.nr-hub-panel-desc {
+  font-size: 0.82rem;
+  color: var(--nr-text-secondary);
+  line-height: 1.6;
+}
+
+.nr-hub-panel-desc strong {
+  color: var(--nr-text-primary);
+}

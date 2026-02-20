@@ -1,5 +1,6 @@
 // browse-menu.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
+import { logger } from '/js/logger.js';
 import Settings from '/js/core/core-settings.js';
 import { icon } from '/js/core/icons.js';
 import { getBarOverflowIds, removeFromBarOverflow } from '/js/core/core-sidebar.js';
@@ -17,13 +18,13 @@ import { toggleBrowseSidebar } from '/js/views.js';
 export function toggleBrowseMoreMenu() {
   const dd = document.getElementById('browse-more-menu');
   if (!dd) return;
-  if (dd.style.display !== 'none') { dd.style.display = 'none'; return; }
+  if (dd.style.display !== 'none') { dd.style.display = 'none'; document.body.classList.remove('island-dropdown-guard'); return; }
 
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   const hasTab = tab && !tab.blank && tab.url;
   const isIsland = Settings.get('browseTabLayout') === 'island';
 
-  const _closeMenu = function() { dd.style.display = 'none'; };
+  const _closeMenu = function() { dd.style.display = 'none'; document.body.classList.remove('island-dropdown-guard'); };
 
   // Helper for menu buttons
   function _mBtn(svgHtml, label, action, opts) {
@@ -128,6 +129,7 @@ export function toggleBrowseMoreMenu() {
 
   AetherUI.mount(menuPanel, dd);
   dd.style.display = '';
+  document.body.classList.add('island-dropdown-guard');
 
   // Set up long-press drag on overflow items to drag back to bar
   _setupOverflowDrag(dd);
@@ -136,6 +138,7 @@ export function toggleBrowseMoreMenu() {
     const handler = function(e) {
       if (!dd.contains(e.target) && !e.target.closest('[onclick*="toggleBrowseMoreMenu"]') && !e.target.closest('#pill-browse-more')) {
         dd.style.display = 'none';
+        document.body.classList.remove('island-dropdown-guard');
         document.removeEventListener('mousedown', handler, true);
       }
     };
@@ -359,7 +362,7 @@ export function browseShowAIView() {
     // Esc to close
     function onKey(e) { if (e.key === 'Escape') { overlayView.el.remove(); document.removeEventListener('keydown', onKey); } }
     document.addEventListener('keydown', onKey);
-  }).catch(function(e) { console.warn('[AI View] Failed:', e); });
+  }).catch(function(e) { logger.warn('[AI View] Failed:', e); });
 }
 
 // ── Action registry ──

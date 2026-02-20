@@ -4,6 +4,7 @@ import { _SITE_PERM_ICONS, _SITE_PERM_KEYS, _SITE_PERM_LABELS, _browseApplyAdapt
 import { _getDoomScrollSites, _saveDoomScrollSites } from '/js/browse/browse-downloads.js';
 import { _settingBtnGroup, _settingCard, _settingGroupContent, _settingRow, _settingToggle } from '/js/settings/settings-helpers.js';
 import { resetAdBlockRules, setBrowseTabLayout } from '/js/settings/settings-theme.js';
+import { logger } from '/js/logger.js';
 
 // ─── Browser Settings ──────────────────────────────────────
 
@@ -316,7 +317,7 @@ export function _pwDeleteEntry(id) {
   if (!window.electronAPI || !window.electronAPI.pwDelete) return;
   window.electronAPI.pwDelete(id).then(() => {
     _loadSettingsPasswords();
-  }).catch((e) => { console.warn('pwDelete:', e); });
+  }).catch((e) => { logger.warn('pwDelete:', e); });
 }
 
 export function _renderBrowserSettings() {
@@ -344,6 +345,23 @@ export function _renderBrowserSettings() {
   // YT Shorts
   const ytSection = _settingToggle('Hide YouTube Shorts', 'Hides Shorts from the homepage, sidebar, search, and channel pages.',
     Settings.get('hideYTShorts') === 'true', function(on) { Settings.set('hideYTShorts', on ? 'true' : 'false'); });
+
+  // Encrypted DNS (DoH)
+  const dohToggle = _settingToggle('Encrypted DNS', 'Encrypts all DNS queries over HTTPS so your ISP cannot see the domains you visit.',
+    Settings.get('dohEnabled') !== 'false', function(on) {
+      Settings.set('dohEnabled', on ? 'true' : 'false');
+      if (window.electronAPI && window.electronAPI.dohSetConfig) {
+        window.electronAPI.dohSetConfig(on, Settings.get('dohProvider') || 'cloudflare');
+      }
+    });
+  const dohProvider = _settingBtnGroup('DNS Provider',
+    [{value:'cloudflare',label:'Cloudflare'},{value:'quad9',label:'Quad9'},{value:'mullvad',label:'Mullvad'}],
+    Settings.get('dohProvider') || 'cloudflare', function(v) {
+      Settings.set('dohProvider', v);
+      if (window.electronAPI && window.electronAPI.dohSetConfig) {
+        window.electronAPI.dohSetConfig(Settings.get('dohEnabled') !== 'false', v);
+      }
+    });
 
   // Focus mode
   const focusToggle = _settingToggle('Focus Mode', 'Block or limit time on distracting sites to prevent doom scrolling.',
@@ -412,6 +430,8 @@ export function _renderBrowserSettings() {
     _settingCard('Privacy', [
       _settingGroupContent([adBlockSection]),
       ytSection,
+      dohToggle,
+      _settingGroupContent([dohProvider]),
       focusToggle,
       _settingGroupContent([focusSites]),
     ]),

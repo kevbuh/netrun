@@ -13,6 +13,7 @@ import { browseNewTab, openBrowse } from '/js/browse/browse-windows.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
 import { openNeuralook } from '/js/neuralook.js';
 import { openSettings } from '/js/settings/settings-core.js';
+import { openDocs } from '/js/docs.js';
 
 // ── View management ──
 
@@ -274,6 +275,7 @@ export const VIEW_REGISTRY = {
   'author-profile-view': { template: '/views/author-profile.html', tier: 2 },
   'neuralook-view':      { template: '/views/neuralook.html', tier: 2 },
   'dev-stats-view':      { template: '/views/dev.html',      tier: 2 },
+  'docs-view':           { template: '/views/docs.html',     tier: 2 },
 };
 
 export async function ensureView(viewId) {
@@ -356,6 +358,7 @@ const _wmViewMeta = {
   inbox:      { sidebarId: 'sb-inbox',     label: 'Inbox',      openFn() { openInbox(); } },
   neuralook:  { sidebarId: 'sb-neuralook', label: 'Neuralook',  openFn() { openNeuralook(); } },
   dev:        { sidebarId: 'sb-dev',       label: 'Dev Stats',  openFn() { openDevStats(); } },
+  docs:       { sidebarId: 'sb-docs',     label: 'Docs',       openFn() { openDocs(); } },
   settings:   { sidebarId: 'sb-settings',  label: 'Settings',   openFn() { openSettings(); } },
   calendar:   { sidebarId: 'sb-dashboard',  label: 'Dashboard',  openFn() { openDashboard(); } },
 };

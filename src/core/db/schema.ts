@@ -219,6 +219,19 @@ export function initSchema(db: Database.Database): void {
     );
   `);
 
+  // ── Drawings (whiteboard) ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS drawings (
+      id TEXT PRIMARY KEY,
+      title TEXT DEFAULT 'Untitled',
+      canvas_json TEXT DEFAULT '{}',
+      thumbnail TEXT DEFAULT '',
+      created_at REAL NOT NULL,
+      updated_at REAL NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_drawings_updated ON drawings(updated_at DESC);
+  `);
+
   // ── Usage log ──
   db.exec(`
     CREATE TABLE IF NOT EXISTS usage_log (

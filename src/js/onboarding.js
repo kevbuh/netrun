@@ -8,6 +8,7 @@ import { icon } from '/js/core/icons.js';
 import { FEED_CATALOG } from '/js/core/core-views.js';
 import { applyAccentColor, setAccentColor } from '/js/settings/settings-colors.js';
 import { setTheme } from '/js/settings/settings-theme.js';
+import { logger } from '/js/logger.js';
 
 // Auth guard: no token → redirect to login
 (function() {
@@ -248,7 +249,7 @@ async function _wizardCommitAccount() {
     window._authUserInfo.username = data.username;
     localStorage.setItem('authUserInfo', JSON.stringify(window._authUserInfo));
   } catch (e) {
-    console.warn('[wizard] username commit failed:', e.message);
+    logger.warn('[wizard] username commit failed:', e.message);
   }
   _wizardPendingUsername = null;
 }

@@ -5,6 +5,8 @@ import { ProviderRegistry } from '../../providers/registry';
 import type { LLMProvider, ChatResponse, StreamEvent } from '../../providers/types';
 import type { AgentDefinition, AgentContext, AgentEvent, AgentSessionConfig } from '../types';
 import { z } from 'zod';
+import { browserClick, browserPressKey } from '../../tools/browser/index';
+import { navigate } from '../../tools/system/navigate';
 
 // We need to mock the singletons. Use vi.mock to intercept imports.
 vi.mock('../../tools/registry', async (importOriginal) => {
@@ -162,6 +164,9 @@ describe('Agent Runtime', () => {
   });
 
   it('detects stuck loops (repeated tool calls)', async () => {
+    // Register the navigate tool so the registry can find it
+    try { toolRegistryMod.toolRegistry.register(navigate); } catch { /* already registered */ }
+
     const repeatedResponse: ChatResponse = {
       message: {
         role: 'assistant',
@@ -214,6 +219,9 @@ describe('Agent Runtime', () => {
   });
 
   it('emits action events for browser tools', async () => {
+    // Register browser-click so the registry can find it
+    try { toolRegistryMod.toolRegistry.register(browserClick); } catch { /* already registered */ }
+
     const provider = makeMockProvider({
       chatResponses: [
         {
@@ -250,6 +258,9 @@ describe('Agent Runtime', () => {
   });
 
   it('emits action events for browser-press-key', async () => {
+    // Register browser-press-key so the registry can find it
+    try { toolRegistryMod.toolRegistry.register(browserPressKey); } catch { /* already registered */ }
+
     const provider = makeMockProvider({
       chatResponses: [
         {
@@ -285,6 +296,9 @@ describe('Agent Runtime', () => {
   });
 
   it('falls back to text-based tool call parsing', async () => {
+    // Register navigate so the registry can find it
+    try { toolRegistryMod.toolRegistry.register(navigate); } catch { /* already registered */ }
+
     const provider = makeMockProvider({
       chatResponses: [
         // Model emits tool call as JSON text instead of structured tool_calls

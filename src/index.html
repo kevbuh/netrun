@@ -139,7 +139,10 @@
   <link rel="stylesheet" href="/aether/css/features/cursor.css">
   <link rel="stylesheet" href="/aether/css/features/print-preview.css">
   <link rel="stylesheet" href="/aether/css/features/chat-view.css">
+  <link rel="stylesheet" href="/aether/css/features/draw-view.css">
+  <link rel="stylesheet" href="/aether/css/features/netrun-page.css">
   <link rel="stylesheet" href="/aether/css/features/settings.css">
+  <link rel="stylesheet" href="/aether/css/features/docs.css">
   <script>
     // Apply theme + accent before paint to prevent flash
     (function() {
@@ -387,6 +390,8 @@
   <script type="module" src="/js/chat-engine.js"></script>
   <script type="module" src="/js/chat-render.js"></script>
   <script type="module" src="/js/chat-view.js"></script>
+  <script type="module" src="/js/draw-view.js"></script>
+  <script type="module" src="/js/netrun-page.js"></script>
   <!-- Panel modules (split from panel.js) -->
   <script type="module" src="/js/panel-state.js"></script>
   <script type="module" src="/js/panel-tts.js"></script>
@@ -409,6 +414,7 @@
   <script type="module" src="/js/browse/browse-menu.js"></script>
   <script type="module" src="/js/browse/browse-pill.js"></script>
   <script type="module" src="/js/browse/browse-annotations.js"></script>
+  <script type="module" src="/js/browse/browse-pageinfo.js"></script>
   <script type="module" src="/js/browse/browse-paper.js"></script>
   <script type="module" src="/js/browse/browse-agent.js"></script>
   <script type="module" src="/js/browse-urlbar.js"></script>
@@ -417,6 +423,7 @@
   <script type="module" src="/js/terminal.js"></script>
   <script type="module" src="/js/vibe.js"></script>
   <script type="module" src="/js/neuralook.js"></script>
+  <script type="module" src="/js/docs.js"></script>
   <script type="module">
     import { FaceLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.mjs';
     window.FaceLandmarker = FaceLandmarker;
@@ -478,6 +485,9 @@
       <button class="sidebar-icon" id="sb-dev" data-action-click="wmOpen" data-action-arg="dev" title="Dev Stats">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5"/></svg>
       </button>
+      <button class="sidebar-icon" id="sb-docs" data-action-click="wmOpen" data-action-arg="docs" title="Docs">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/></svg>
+      </button>
       <button class="sidebar-icon" id="sb-settings" data-action-click="openSettings" title="Settings">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 0 1 1.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.559.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.894.149c-.424.07-.764.383-.929.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 0 1-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.398.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 0 1-.12-1.45l.527-.737c.25-.35.272-.806.108-1.204-.165-.397-.506-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.526-.738a1.125 1.125 0 0 1 .12-1.45l.773-.773a1.125 1.125 0 0 1 1.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
       </button>
@@ -502,13 +512,12 @@
       </button>
       <div id="pill-url-dropdown"></div>
     </div>
-    <div id="pill-ai-inline" data-ai-state="idle">
-      <div class="pill-ai-indicator"></div>
-      <span class="pill-ai-label"></span>
-      <div class="island-ctx-tray"></div>
+    <div id="pill-ai-inline">
+      <svg class="pill-ai-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v2m0 14v2m-7-9H3m18 0h-2m-1.5-6.5L16 7m-8-1.5L6.5 7m11 11L16 17M8 18.5 6.5 17"/><circle cx="12" cy="12" r="3"/></svg>
+      <div class="pill-ai-dropdown"></div>
     </div>
     <div id="pill-island-right" class="pill-island-container"></div>
-    <div id="pill-audio-unified"><span id="pill-scroll-pct"></span><span id="pill-token-count"></span><span id="pill-focus-timer"></span></div>
+    <div id="pill-audio-unified"><span id="pill-focus-timer"></span></div>
     <div id="pill-live-pulse"></div>
     <button id="pill-browse-more" class="sidebar-icon" data-action-click="toggleBrowseMoreMenu" title="More options">
       <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>

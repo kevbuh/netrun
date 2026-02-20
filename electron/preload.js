@@ -55,6 +55,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   adblockCosmetic: (url) => ipcRenderer.invoke('adblock-cosmetic', url),
   adblockUpdate: () => ipcRenderer.invoke('adblock-update'),
   adblockStats: () => ipcRenderer.invoke('adblock-stats'),
+  // DNS-over-HTTPS
+  dohSetConfig: (enabled, provider) => ipcRenderer.invoke('doh-set-config', enabled, provider),
 
   // ── Terminal (node-pty via IPC) ──
   terminalStart: (cwd) => ipcRenderer.invoke('terminal:start', cwd),

@@ -24,27 +24,25 @@
       right: 8px;
     }
 
-    /* ── AI Inline Pill — unified insight + AI status ── */
+    /* ── AI Inline Pill — collapsed magic icon with dropdown ── */
     #pill-ai-inline {
       display: none;
       align-items: center;
-      gap: 5px;
+      justify-content: center;
+      width: 24px;
       height: 24px;
       border-radius: 12px;
       background: var(--pill-surface, var(--aether-hover));
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      padding: 0 8px;
       position: absolute;
       top: 50%;
       transform: translateY(-50%);
       z-index: 1;
       cursor: pointer;
-      white-space: nowrap;
-      font-size: 0.65rem;
       color: var(--aether-text);
       -webkit-app-region: no-drag;
-      transition: background 0.2s ease, box-shadow 0.25s ease, padding 0.3s ease, opacity 0.25s ease;
+      transition: background 0.2s ease, box-shadow 0.25s ease, opacity 0.25s ease;
       overflow: visible;
     }
     .browse-mode.island-mode #pill-ai-inline {
@@ -54,7 +52,7 @@
       background: var(--pill-surface-hover, rgba(255,255,255,0.18));
       box-shadow: 0 2px 8px rgba(0,0,0,0.12);
     }
-    #pill-ai-inline:active { transform: translateY(-50%) scale(0.95); transition: transform 0.06s ease; }
+    #pill-ai-inline:active { transform: translateY(-50%) scale(0.92); transition: transform 0.06s ease; }
     [data-aether-theme="midnight"] #pill-ai-inline { background: rgba(255,255,255,0.12); }
     [data-aether-theme="midnight"] #pill-ai-inline:hover { background: rgba(255,255,255,0.18); }
     [data-aether-theme="match"] #pill-ai-inline { background: rgba(255,255,255,0.12); }
@@ -62,82 +60,62 @@
     [data-aether-theme="aether"] #pill-ai-inline { background: rgba(0,0,0,0.08); }
     [data-aether-theme="aether"] #pill-ai-inline:hover { background: rgba(0,0,0,0.12); }
 
-    /* Indicator dot/icon area */
-    #pill-ai-inline .pill-ai-indicator {
-      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
-      transition: background 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+    /* Magic icon */
+    #pill-ai-inline .pill-ai-icon {
+      opacity: 0.55;
+      transition: opacity 0.2s ease;
+      flex-shrink: 0;
     }
-    /* Label area */
-    #pill-ai-inline .pill-ai-label {
-      transition: opacity 0.2s ease, max-width 0.3s var(--motion-snappy, ease);
-      overflow: hidden; text-overflow: ellipsis; max-width: 200px;
-    }
-    #pill-ai-inline .pill-ai-label:empty { display: none; }
+    #pill-ai-inline:hover .pill-ai-icon { opacity: 1; }
 
-    /* ── AI pill states ── */
-    /* idle: dim purple dot, no label */
-    #pill-ai-inline[data-ai-state="idle"] .pill-ai-indicator {
-      background: #a78bfa; opacity: 0.35;
-    }
-    #pill-ai-inline[data-ai-state="idle"] { padding: 0 6px; }
-
-    /* offer: grey comment icon + "Annotate" */
-    #pill-ai-inline[data-ai-state="offer"] .pill-ai-indicator {
-      background: var(--nr-text-secondary, #888); opacity: 0.6;
-    }
-
-    /* analyzing: animated annotate dot */
-    #pill-ai-inline[data-ai-state="analyzing"] .pill-ai-indicator {
-      background: #ffc107;
-      animation: island-pulse 1.5s ease-in-out infinite;
-    }
-
-    /* annotated: colored dot */
-    #pill-ai-inline[data-ai-state="annotated"] .pill-ai-indicator {
-      background: #4caf50; opacity: 1;
-    }
-
-    /* ai-active: breathing purple dot */
-    #pill-ai-inline[data-ai-state="ai-active"] .pill-ai-indicator {
-      background: #a78bfa;
-      animation: island-pulse 1.5s ease-in-out infinite, ai-dot-ring 2s ease-in-out infinite;
-      box-shadow: 0 0 0 0 rgba(167,139,250,0);
-    }
-
-    /* ai-done: green dot */
-    #pill-ai-inline[data-ai-state="ai-done"] .pill-ai-indicator {
-      background: #22c55e; opacity: 1;
-    }
-
-    /* Tray — reuses .island-ctx-tray from the regular pill system */
-    #pill-ai-inline .island-ctx-tray {
+    /* Dropdown — AI tools menu */
+    #pill-ai-inline .pill-ai-dropdown {
       display: none;
       position: absolute;
       top: calc(100% + 4px);
       right: 0;
-      min-width: 280px;
-      max-width: 380px;
-      max-height: 400px;
-      overflow-y: auto;
-      overflow-x: hidden;
-      border-radius: 12px;
+      min-width: 180px;
+      border-radius: 10px;
       background: var(--aether-dropdown-bg, var(--pill-surface));
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       box-shadow: 0 8px 32px rgba(0,0,0,0.25);
       z-index: 100;
       opacity: 0;
-      transform: scaleY(0.9) translateY(-4px);
+      transform: scaleY(0.92) translateY(-4px);
       transform-origin: top right;
       pointer-events: none;
-      transition: opacity 0.2s ease, transform 0.2s var(--motion-snappy, ease);
+      transition: opacity 0.15s ease, transform 0.15s var(--motion-snappy, ease);
       padding: 4px 0;
     }
-    #pill-ai-inline.ai-tray-open .island-ctx-tray {
+    #pill-ai-inline.ai-dropdown-open .pill-ai-dropdown {
       display: block;
       opacity: 1;
       transform: scaleY(1) translateY(0);
       pointer-events: auto;
+    }
+    #pill-ai-inline .pill-ai-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      font-size: 0.7rem;
+      color: var(--aether-text);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s ease;
+    }
+    #pill-ai-inline .pill-ai-dropdown-item:hover {
+      background: var(--pill-surface-hover, rgba(255,255,255,0.1));
+    }
+    #pill-ai-inline .pill-ai-dropdown-item svg {
+      flex-shrink: 0;
+      opacity: 0.6;
+    }
+    #pill-ai-inline .pill-ai-dropdown-divider {
+      height: 1px;
+      background: var(--aether-border, rgba(255,255,255,0.08));
+      margin: 3px 0;
     }
 
     .pill-island {
@@ -487,6 +465,11 @@
     }
     .pill-island .island-ctx-tray {
       z-index: 1;
+    }
+    /* When an island dropdown/tray is open, prevent webview/iframe from stealing pointer events */
+    .island-dropdown-guard #browse-content > webview,
+    .island-dropdown-guard #browse-content > iframe {
+      pointer-events: none !important;
     }
 
     .island-ctx-item {
@@ -1436,6 +1419,7 @@
       min-width: 240px;
       max-height: 360px;
       overflow-y: auto;
+      overflow-x: hidden;
       background: var(--aether-dropdown-bg);
       border-radius: 14px;
       padding: 6px;
@@ -1444,16 +1428,11 @@
       flex-direction: column;
       gap: 1px;
     }
-    #pill-live-pulse:hover .pulse-dropdown {
+    #pill-live-pulse.dropdown-open .pulse-dropdown {
       display: flex;
     }
     .pulse-dropdown::before {
-      content: '';
-      position: absolute;
-      top: -8px;
-      left: 0;
-      right: 0;
-      height: 8px;
+      display: none;
     }
     .pulse-dropdown-header {
       padding: 6px 12px;
@@ -1566,16 +1545,11 @@
       flex-direction: column;
       gap: 1px;
     }
-    #pill-audio-unified:hover .audio-pill-dropdown {
+    #pill-audio-unified.dropdown-open .audio-pill-dropdown {
       display: flex;
     }
     .audio-pill-dropdown::before {
-      content: '';
-      position: absolute;
-      top: -8px;
-      left: 0;
-      right: 0;
-      height: 8px;
+      display: none;
     }
     .audio-pill-dropdown button {
       width: 100%;

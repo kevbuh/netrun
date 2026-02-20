@@ -1,3 +1,5 @@
+import { logger } from '/js/logger.js';
+
 // ── Action Registry: event delegation for inline handler replacement ──
 // Replaces onclick="fn()" with data-action-click="fn" + data-action-arg="..."
 
@@ -32,7 +34,7 @@ export function registerActions(map) {
 function _dispatch(name, event, arg, el) {
   const handler = _actions[name];
   if (!handler) {
-    console.warn(`[actions] No handler registered for "${name}"`);
+    logger.warn(`[actions] No handler registered for "${name}"`);
     return;
   }
   handler(event, arg, el);

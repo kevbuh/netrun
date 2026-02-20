@@ -4,6 +4,7 @@ import { _browseBindFrame } from '/js/browse/browse-downloads.js';
 import { _browseCreateFrame } from '/js/browse/browse-ntp.js';
 import { _browseRenderTabs } from '/js/browse/browse-island.js';
 import { _browseSetUrlDisplay, _renderHelpPage, _renderWebSearchHistoryPage } from '/js/browse-urlbar.js';
+import { _renderNetrunPage } from '/js/netrun-page.js';
 import { _browseUpdateSaveBtn } from '/js/browse/browse-features.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
 
@@ -123,6 +124,16 @@ export function _browseEnsureTabFrame(tab) {
     container.appendChild(el);
     tab.el = el;
     _renderHelpPage(el);
+    return;
+  }
+  if (tab._netrunPage) {
+    const el = document.createElement('div');
+    el.id = 'browse-netrun-' + tab.id;
+    el.className = 'nr-hub-scroll';
+    el.style.cssText = 'width:100%;height:100%;';
+    container.appendChild(el);
+    tab.el = el;
+    _renderNetrunPage(el);
     return;
   }
   if (tab.paper && tab.contentType) {
@@ -320,7 +331,7 @@ export function _browseFocusPane(paneId) {
   // Update URL bar
   const tab = win?.tabs.find(t => t.id === pane.tabId);
   const urlInput = document.getElementById('browse-url-input');
-  if (tab) _browseSetUrlDisplay(urlInput, tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : (tab.url || ''));
+  if (tab) _browseSetUrlDisplay(urlInput, tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : tab._netrunPage ? 'netrun://' : (tab.url || ''));
   _browseUpdateSaveBtn();
   _browseRenderTabs();
 }

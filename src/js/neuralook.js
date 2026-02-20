@@ -4,6 +4,7 @@ import { icon } from '/js/core/icons.js';
 import { islandUpdate, islandRemove, showAchievement, pillStackAdd, pillStackRemove } from '/js/core/core-ui.js';
 import { setSidebarActive } from '/js/core/core-layout.js';
 import { ensureView, hideAllViews } from '/js/core/core-views.js';
+import { logger } from '/js/logger.js';
 
 // ── Neuralook — Eye Tracking window.View(CNN Gaze Estimation) ──
 
@@ -704,7 +705,7 @@ export async function _nlInitMediapipe() {
     _nlMpModelReady = true;
     return true;
   } catch (e) {
-    console.error('Neuralook: MediaPipe init error', e);
+    logger.error('Neuralook: MediaPipe init error', e);
     _nlMpModelLoading = false;
     return false;
   }
@@ -1384,7 +1385,7 @@ export async function _nlOnCalibrationComplete() {
     };
     await apiPost('/api/neuralook/save-calibration', calibPayload);
     _nlCalibSaved = true;
-  } catch (e) { console.warn('Neuralook: failed to save calibration', e); }
+  } catch (e) { logger.warn('Neuralook: failed to save calibration', e); }
 
   _nlTraining = true;
   _nlUpdatePillIndicator();
@@ -1741,7 +1742,7 @@ export async function _nlStartAutoRefine() {
     _nlSaveRefinementHistory();
     _nlRefreshTrainView();
     if (window.location.hash === '#neuralook') renderNeuralookView();
-    console.warn('[neuralook] auto-refine error:', e);
+    logger.warn('[neuralook] auto-refine error:', e);
   } finally {
     _nlAutoRefineInProgress = false;
     _nlRefreshStats();

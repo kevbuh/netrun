@@ -4,7 +4,7 @@
 import Settings from '/js/core/core-settings.js';
 
 // ── Sidebar icon visibility & order ──
-const SIDEBAR_ICON_IDS = ['sb-dashboard','sb-home','sb-browse','sb-neuralook','sb-dev','sb-settings'];
+const SIDEBAR_ICON_IDS = ['sb-dashboard','sb-home','sb-browse','sb-neuralook','sb-dev','sb-docs','sb-settings'];
 
 function _sidebarEl(id) {
   return document.getElementById(id + '-wrap') || document.getElementById(id);

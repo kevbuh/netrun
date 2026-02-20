@@ -14,6 +14,7 @@ import { browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js'
 import { browseNewTab, browseSelectWindow, openBrowse, openLocalPdf } from '/js/browse/browse-windows.js';
 import { browsePrintPage } from '/js/browse/browse-menu.js';
 import { toggleTabMute } from '/js/browse/browse-audio.js';
+import { logger } from '/js/logger.js';
 
 export function _aetherHideCursorOverlay() {
   document.body.classList.add('aether-hide-cursor');
@@ -481,13 +482,13 @@ export async function _doAetherCapture(popup) {
     try {
       screenshot = await window.electronAPI.captureScreen(captureRect);
     } catch (e) {
-      console.error('Screenshot capture failed:', e);
+      logger.error('Screenshot capture failed:', e);
     }
   } else if (typeof html2canvas !== 'undefined') {
     try {
       screenshot = await _browserCaptureRect(captureRect);
     } catch (e) {
-      console.error('Browser screenshot capture failed:', e);
+      logger.error('Browser screenshot capture failed:', e);
     }
   }
 

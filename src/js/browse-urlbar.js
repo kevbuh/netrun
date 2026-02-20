@@ -14,6 +14,7 @@ import { _relativeTime, submitSearch } from '/js/search.js';
 import { browseNewTab, browseSelectWindow, openBrowse, openLocalPdfDialog } from '/js/browse/browse-windows.js';
 import { browsePrintPage } from '/js/browse/browse-menu.js';
 import { chatViewNewThread, chatViewUnmorph, openChatPage } from '/js/chat-view.js';
+import { drawViewUnmorph } from '/js/draw-view.js';
 
 // ── URL Shortening ──
 
@@ -154,6 +155,8 @@ function _browseApplyAdaptiveText({ r, g, b }) {
     el.style.setProperty('--aether-hover',         'rgba(0,0,0,0.05)');
     el.style.setProperty('--aether-hover-subtle',  'rgba(0,0,0,0.04)');
     el.style.setProperty('--aether-scrollbar',     'rgba(0,0,0,0.12)');
+    // Adaptive dropdown bg — light frosted surface for light pages
+    el.style.setProperty('--aether-dropdown-bg', `rgba(${Math.min(r+20,255)},${Math.min(g+20,255)},${Math.min(b+20,255)},0.95)`);
   } else if (lum < 0.15) {
     // Dark background → light text & light tints
     el.style.setProperty('--nr-text-primary',    'rgba(255,255,255,0.90)');
@@ -174,6 +177,8 @@ function _browseApplyAdaptiveText({ r, g, b }) {
     el.style.setProperty('--aether-hover',         'rgba(255,255,255,0.08)');
     el.style.setProperty('--aether-hover-subtle',  'rgba(255,255,255,0.06)');
     el.style.setProperty('--aether-scrollbar',     'rgba(255,255,255,0.12)');
+    // Adaptive dropdown bg — dark frosted surface for dark pages
+    el.style.setProperty('--aether-dropdown-bg', `rgba(${Math.max(r-10,0)},${Math.max(g-10,0)},${Math.max(b-10,0)},0.95)`);
   } else {
     // Mid-range — let theme tokens handle it
     _browseResetAdaptiveText();
@@ -191,7 +196,7 @@ const _adaptiveTextProps = [
   '--aether-text', '--aether-text-secondary', '--aether-text-dim',
   '--aether-text-dimmer', '--aether-text-dimmest', '--aether-text-muted',
   '--aether-placeholder', '--aether-border', '--aether-hover',
-  '--aether-hover-subtle', '--aether-scrollbar'
+  '--aether-hover-subtle', '--aether-scrollbar', '--aether-dropdown-bg'
 ];
 function _browseResetAdaptiveText() {
   const el = document.documentElement;
@@ -1542,42 +1547,10 @@ export function openSearchHistoryPage() {
 }
 
 export function openHelpPage() {
-  if (typeof openBrowse === 'function') openBrowse();
-
-  // Reuse existing help tab
-  for (const w of window._browseWindows) {
-    const existing = w.tabs.find(t => t._helpPage);
-    if (existing) {
-      if (w.id !== window._browseActiveWindow) browseSelectWindow(w.id);
-      browseSelectTab(existing.id);
-      return;
-    }
+  // Redirect to the new netrun:// hub page
+  if (typeof window.openNetrunPage === 'function') {
+    window.openNetrunPage();
   }
-
-  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
-  if (!tab) return;
-
-  tab.blank = false;
-  tab.url = 'netrun://help';
-  tab.title = 'Help';
-  tab.favicon = '';
-  tab._helpPage = true;
-
-  if (tab.el) tab.el.remove();
-
-  const container = document.getElementById('browse-content');
-  const elView = new window.View('div').attr('id', 'browse-help-' + tab.id);
-  elView.cssText('width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;');
-  container.appendChild(elView.el);
-  tab.el = elView.el;
-
-  _browseUpdateNewTabPage(tab);
-  _browseRenderTabs();
-
-  const urlInput = document.getElementById('browse-url-input');
-  _browseSetUrlDisplay(urlInput, 'netrun://help');
-
-  _renderHelpPage(el);
 }
 
 export function _renderHelpPage(el) {
@@ -2215,10 +2188,12 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
     } else if (command === 'close-tab') {
       const win = window._getCurrentWindow();
       if (win && win.activeTab) {
-        // If the active tab is in chat-mode, unmorph back to NTP instead of closing
+        // If the active tab is in chat-mode or draw-mode, unmorph back to NTP instead of closing
         const _activeTab = win.tabs.find(t => t.id === win.activeTab);
         if (_activeTab && _activeTab._chatPage && typeof chatViewUnmorph === 'function') {
           chatViewUnmorph();
+        } else if (_activeTab && _activeTab._drawPage && typeof drawViewUnmorph === 'function') {
+          drawViewUnmorph();
         } else {
           browseCloseTab(win.activeTab);
         }

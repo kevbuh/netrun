@@ -44,31 +44,6 @@ export function goToAudioTab() {
   }
 }
 
-export function _browseUpdateScrollPill(pct) {
-  const el = document.getElementById('pill-scroll-pct');
-  if (!el) return;
-  if (pct <= 0) {
-    el.classList.remove('active');
-    el.textContent = '';
-  } else {
-    el.textContent = pct + '%';
-    el.classList.add('active');
-  }
-}
-
-export function _browseUpdateTokenCount(count) {
-  const el = document.getElementById('pill-token-count');
-  if (!el) return;
-  if (count <= 0) {
-    el.classList.remove('active');
-    el.textContent = '';
-  } else {
-    const label = count >= 1000 ? Math.round(count / 1000) + 'k' : String(count);
-    el.textContent = label + ' tok';
-    el.classList.add('active');
-  }
-}
-
 export function _updateAudioIndicator() {
   // Remove legacy floating indicator if it exists
   const legacy = document.getElementById('audio-indicator');

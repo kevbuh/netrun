@@ -2,9 +2,7 @@
 // Loaded before other modules to provide global logger.
 // All logs can be toggled via Settings.get('debugLogs')
 
-import Settings from '/js/core/core-settings.js';
-
-const _DEBUG_ENABLED = Settings.get('debugLogs') === 'true';
+const _DEBUG_ENABLED = localStorage.getItem('debugLogs') === 'true';
 
 const logger = {
   debug(...args) {
@@ -27,12 +25,12 @@ const logger = {
 
 // Allow toggling debug logs at runtime
 window.enableDebugLogs = () => {
-  Settings.set('debugLogs', 'true');
+  localStorage.setItem('debugLogs', 'true');
   console.log('Debug logging enabled. Reload to take effect.');
 };
 
 window.disableDebugLogs = () => {
-  Settings.remove('debugLogs');
+  localStorage.removeItem('debugLogs');
   console.log('Debug logging disabled. Reload to take effect.');
 };
 

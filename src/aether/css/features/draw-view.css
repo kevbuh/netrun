@@ -1,0 +1,169 @@
+/* draw-view.css — Whiteboard / drawing canvas styles */
+
+/* NTP morph: hide NTP center, fill with canvas */
+.browse-ntp.draw-mode .browse-ntp-center,
+.browse-ntp.draw-mode .browse-ntp-version {
+  display: none !important;
+}
+
+.browse-ntp.draw-mode {
+  overflow: hidden;
+}
+
+/* Canvas container fills the NTP */
+.draw-view-container {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  background: var(--nr-bg-primary);
+}
+
+.draw-view-container canvas {
+  display: block;
+}
+
+/* ── Floating toolbar ── */
+.draw-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-default);
+  border-radius: var(--nr-radius-pill);
+  box-shadow: var(--nr-shadow-md);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  user-select: none;
+}
+
+.draw-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--nr-radius-md);
+  background: transparent;
+  color: var(--nr-text-secondary);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.draw-toolbar-btn:hover {
+  background: var(--nr-bg-raised);
+  color: var(--nr-text-primary);
+}
+
+.draw-toolbar-btn.active {
+  background: var(--nr-accent);
+  color: #fff;
+}
+
+.draw-toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--nr-border-default);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* Color swatch in toolbar */
+.draw-color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--nr-border-default);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.12s;
+}
+
+.draw-color-swatch:hover {
+  border-color: var(--nr-text-primary);
+}
+
+/* Stroke width display */
+.draw-stroke-display {
+  font-size: 0.7rem;
+  color: var(--nr-text-tertiary);
+  min-width: 20px;
+  text-align: center;
+  cursor: pointer;
+}
+
+/* ── Color picker popover ── */
+.draw-color-popover {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-default);
+  border-radius: var(--nr-radius-lg);
+  box-shadow: var(--nr-shadow-md);
+  z-index: 20;
+  max-width: 200px;
+}
+
+.draw-color-popover .draw-color-option {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.12s;
+}
+
+.draw-color-popover .draw-color-option:hover {
+  transform: scale(1.15);
+}
+
+.draw-color-popover .draw-color-option.active {
+  border-color: var(--nr-text-primary);
+}
+
+/* ── Stroke width popover ── */
+.draw-stroke-popover {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  padding: 12px 16px;
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-default);
+  border-radius: var(--nr-radius-lg);
+  box-shadow: var(--nr-shadow-md);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.draw-stroke-popover input[type="range"] {
+  width: 100px;
+  accent-color: var(--nr-accent);
+}
+
+.draw-stroke-popover .draw-stroke-label {
+  font-size: 0.7rem;
+  color: var(--nr-text-tertiary);
+  min-width: 24px;
+  text-align: right;
+}

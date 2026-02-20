@@ -7,7 +7,7 @@
  * Pattern: Extract pure/testable versions of functions and test them.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // ──────────────────────────────────────────────────────────
 // Dynamic Island Activity Manager
