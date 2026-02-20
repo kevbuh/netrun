@@ -1450,6 +1450,7 @@ export function _browseUrlHideHistory() {
   if (pillWrap) pillWrap.classList.remove('pill-dropdown-open');
   _browseUrlHistIdx = -1;
 }
+window._browseUrlHideHistory = _browseUrlHideHistory;
 
 document.addEventListener('mousedown', (e) => {
   const { input, dd, island } = _getOmniInput();

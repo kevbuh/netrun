@@ -9,10 +9,10 @@ import { FEED_CATALOG } from '/js/core/core-views.js';
 import { _annotationsEnabled, _hideAnnotationTooltip, _showAnnotateOfferPill, _showAnnotationTooltip, _updateAnnotateButtonState } from '/js/browse/browse-annotations.js';
 import { _browseApplyAdaptiveColor, _browseSetUrlDisplay, _browseUpdateAdBlockBadge, _browseUrlDomain, _saveBrowseVisit } from '/js/browse-urlbar.js';
 import { _browseCollapseEmptyWindows, browseNewTab } from '/js/browse/browse-windows.js';
-import { _browseFaviconUrl, _browseNavDirection, _browseRenderTabs, _browseTitleFromUrl, _updateIslandNavButtons } from '/js/browse/browse-island.js';
+import { _browseFaviconUrl, _browseNavDirection, _clearBrowseNavDirection, _browseRenderTabs, _browseTitleFromUrl, _updateIslandNavButtons } from '/js/browse/browse-island.js';
 import { _browseToggleFindBar, _browseUpdateSaveBtn, _swipeCommit, _switchTabLeft, _switchTabRight } from '/js/browse/browse-features.js';
 import { _browseUpdateScrollPill, _browseUpdateTokenCount, _updateAudioIndicator } from '/js/browse/browse-audio.js';
-import { _ccPillDismissed, stopCaptions } from '/js/browse/browse-captions.js';
+import { _ccPillDismissed, _resetCcPillDismissed, stopCaptions } from '/js/browse/browse-captions.js';
 import { _hideBrowseContextMenu, _pwCheckAutofill, _pwHideSavePrompt, _pwShowSavePrompt, _showBrowseContextMenu, browseCloseTab } from '/js/browse/browse-passwords.js';
 import { _iframeRectToParent, _positionAtCursor, _showPanel } from '/js/panel.js';
 import { _paperHandleMeta, _paperHideRefTooltip, _paperOnPageLoad, _paperShowRefTooltip } from '/js/browse/browse-paper.js';
@@ -476,7 +476,7 @@ export function _browseHandleNavigation(tab, frame) {
         tab.forwardStack.length = 0;
       }
     }
-    if (typeof _browseNavDirection !== 'undefined') _browseNavDirection = null;
+    if (typeof _browseNavDirection !== 'undefined') _clearBrowseNavDirection();
 
     tab.url = navUrl;
     tab.title = _browseTitleFromUrl(navUrl);
@@ -546,7 +546,7 @@ export function _browseHandleNavigation(tab, frame) {
         tab.forwardStack.length = 0;
       }
     }
-    if (typeof _browseNavDirection !== 'undefined') _browseNavDirection = null;
+    if (typeof _browseNavDirection !== 'undefined') _clearBrowseNavDirection();
 
     tab.url = e.url;
     // Keep real title for same-origin in-page navigations (hash/pushState)
@@ -602,7 +602,7 @@ export function _browseHandleNavigation(tab, frame) {
   });
   frame.addEventListener('media-paused', () => {
     window._browseAudioTabs.delete(tab.id);
-    _ccPillDismissed = false;
+    _resetCcPillDismissed();
     if (window._ccTabId === tab.id) stopCaptions();
     _browseRenderTabs();
     _updateAudioIndicator();

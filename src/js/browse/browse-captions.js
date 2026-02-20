@@ -9,7 +9,8 @@ import { toggleTabMute } from '/js/browse/browse-audio.js';
 
 // ── Closed Captions ──
 
-export const _ccPillDismissed = false;
+export let _ccPillDismissed = false;
+export function _resetCcPillDismissed() { _ccPillDismissed = false; }
 
 export function _updateCCButton() {
   const hasAudio = window._browseIsElectron && window._browseAudioTabs.size > 0;

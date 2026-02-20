@@ -4,7 +4,7 @@ import Settings from '/js/core/core-settings.js';
 import { escapeAttr, escapeHtml } from '/js/core/core-utils.js';
 import { islandRemove } from '/js/core/core-ui.js';
 import { _clearAudioUnified, _renderAudioPill, _updateAudioUnified } from '/js/core/core-audio.js';
-import { _annotationsEnabled, _updateAnnotateButtonState } from '/js/browse/browse-annotations.js';
+import { _annotationsEnabled, _updateAnnotateButtonState, scrollToAnnotation, toggleAnnotations } from '/js/browse/browse-annotations.js';
 import { _browseApplyAdaptiveColor, _browseSetUrlDisplay, _browseUpdateAdBlockBadge, _browseUpdateAdBlockBtn, _browseUrlHideHistory, _browseUrlKeydown, _saveBrowseVisit, _saveWebSearch, openHelpPage, openSearchHistoryPage } from '/js/browse-urlbar.js';
 import { _browseBindFrame } from '/js/browse/browse-downloads.js';
 import { _browseCreateFrame, _browseProxyUrl, _browseSetFrameAllow } from '/js/browse/browse-ntp.js';
@@ -51,6 +51,7 @@ export function _applyBrowseTabLayout() {
       if (pillTabs) pillTabs.innerHTML = '';
       _islandSyncTabs();
       _islandSyncBookmark();
+      _syncAIPill();
     } else {
       if (pill) { pill.classList.remove('browse-mode', 'island-mode', 'ntp-active'); }
       islandRemove('tabs');
@@ -1153,6 +1154,8 @@ export function browseNavigate(input) {
   }
 }
 
+window.browseNavigate = browseNavigate;
+
 export const _BANGS = {
   g:        'https://www.google.com/search?q=%s',
   ddg:      'https://duckduckgo.com/?q=%s',
@@ -1213,6 +1216,7 @@ export function _browseActiveEl() {
 
 // Direction flag read by did-navigate handler to distinguish back/forward from normal nav
 export let _browseNavDirection = null;
+export function _clearBrowseNavDirection() { _browseNavDirection = null; }
 
 // Hide/restore active webview so DOM popups can render on top (Electron GPU compositing fix)
 
@@ -1373,6 +1377,161 @@ export function _browseApplyZoom(focalX, focalY) {
   if (label) label.textContent = Math.round(_browseZoomLevel * 100) + '%';
   _browseShowZoomControls();
 }
+
+// ── Unified AI Pill — sync + click ──
+
+function _syncAIPill() {
+  const pill = document.getElementById('pill-ai-inline');
+  if (!pill) return;
+
+  const activities = window._islandActivities ? window._islandActivities.value : {};
+  const indicator = pill.querySelector('.pill-ai-indicator');
+  const label = pill.querySelector('.pill-ai-label');
+  const tray = pill.querySelector('.island-ctx-tray');
+
+  // 1. Check for active AI operation (aether, ai-lucky, ai-summary, etc.)
+  let aiActivity = null;
+  const aiIds = ['aether', 'ai-lucky', 'ai-summary', 'ai-transcribe', 'ai-train'];
+  for (let i = 0; i < aiIds.length; i++) {
+    const a = activities[aiIds[i]];
+    if (a && a.type === 'ai') { aiActivity = a; break; }
+  }
+  // Also check any activity with type === 'ai'
+  if (!aiActivity) {
+    const allIds = Object.keys(activities);
+    for (let i = 0; i < allIds.length; i++) {
+      const a = activities[allIds[i]];
+      if (a && a.type === 'ai') { aiActivity = a; break; }
+    }
+  }
+
+  // 2. Check insight state for active tab
+  const insightActivity = activities['insight'];
+
+  // 3. Priority: ai-active/ai-done > analyzing > annotated > offer > idle
+  let state = 'idle';
+  let labelText = '';
+  let trayHtml = '';
+
+  if (aiActivity) {
+    if (aiActivity.done || (aiActivity.label && aiActivity.label.indexOf('\u2713') !== -1)) {
+      state = 'ai-done';
+      labelText = aiActivity.label || 'Done';
+    } else {
+      state = 'ai-active';
+      labelText = aiActivity.label || '';
+    }
+  } else if (insightActivity) {
+    if (insightActivity.loading) {
+      state = 'analyzing';
+      labelText = insightActivity.label || 'Analyzing\u2026';
+    } else if (insightActivity.offer) {
+      state = 'offer';
+      labelText = 'Annotate';
+    } else if (insightActivity.items && insightActivity.items.length) {
+      state = 'annotated';
+      labelText = insightActivity.label || (insightActivity.items.length + ' annotations');
+      // Build tray from insight data
+      const isBrowse = true;
+      trayHtml = window._islandBuildTray(insightActivity, isBrowse);
+    } else if (insightActivity.done) {
+      state = 'idle';
+    } else {
+      // Has insight data but no items (e.g. just insight text)
+      state = 'annotated';
+      labelText = insightActivity.label || 'Insight';
+      trayHtml = window._islandBuildTray ? window._islandBuildTray(insightActivity, true) : '';
+    }
+  }
+
+  // If both AI and insight are active, append insight info
+  if (aiActivity && insightActivity && insightActivity.items && insightActivity.items.length) {
+    trayHtml = window._islandBuildTray ? window._islandBuildTray(insightActivity, true) : '';
+  }
+
+  pill.setAttribute('data-ai-state', state);
+  if (label) label.textContent = labelText;
+  if (tray && tray._lastHtml !== trayHtml) {
+    tray.innerHTML = trayHtml;
+    tray._lastHtml = trayHtml;
+  }
+}
+
+// Expose globally so core-audio.js can call it after _islandRender
+window._syncAIPill = _syncAIPill;
+
+// Click handler
+(function _initAIPillClick() {
+  function _attach() {
+    const pill = document.getElementById('pill-ai-inline');
+    if (!pill || pill._aiClickBound) return;
+    pill._aiClickBound = true;
+
+    pill.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const state = pill.getAttribute('data-ai-state');
+
+      if (state === 'offer') {
+        // Trigger annotation
+        toggleAnnotations();
+      } else if (state === 'annotated') {
+        // Toggle tray
+        pill.classList.toggle('ai-tray-open');
+        if (pill.classList.contains('ai-tray-open')) {
+          // Close tray on outside click
+          setTimeout(function() {
+            document.addEventListener('mousedown', function _closeTray(ev) {
+              if (!pill.contains(ev.target)) {
+                pill.classList.remove('ai-tray-open');
+                document.removeEventListener('mousedown', _closeTray);
+              }
+            });
+          }, 10);
+        }
+      } else if (state === 'ai-done') {
+        // Reopen panel with response
+        const activities = window._islandActivities ? window._islandActivities.value : {};
+        const aiIds = ['aether', 'ai-lucky', 'ai-summary', 'ai-transcribe', 'ai-train'];
+        for (let i = 0; i < aiIds.length; i++) {
+          const a = activities[aiIds[i]];
+          if (a && a.action) { a.action(); return; }
+        }
+        _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 }, trackCursor: false });
+      } else if (state === 'idle' || state === 'ai-active') {
+        // Open Aether chat panel
+        _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 }, trackCursor: false });
+      }
+      // analyzing — do nothing
+    });
+
+    // Delegate annotation tray clicks
+    pill.addEventListener('click', function(e) {
+      const annItem = e.target.closest('[data-island-ann]');
+      if (annItem) {
+        const idx = parseInt(annItem.getAttribute('data-island-ann'), 10);
+        if (!isNaN(idx)) {
+          scrollToAnnotation(idx);
+        }
+        // Handle linked URL for CONNECTION annotations
+        const linkedUrl = annItem.getAttribute('data-island-ann-url');
+        if (linkedUrl) {
+          if (typeof browseNewTab === 'function') browseNewTab(linkedUrl);
+        }
+      }
+      // Rate buttons
+      const rateGood = e.target.closest('[data-ann-rate-good]');
+      const rateBad = e.target.closest('[data-ann-rate-bad]');
+      if (rateGood || rateBad) {
+        e.stopPropagation();
+        const btn = rateGood || rateBad;
+        btn.style.opacity = '1';
+        btn.style.color = rateGood ? '#22c55e' : '#ef4444';
+      }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _attach);
+  else setTimeout(_attach, 0);
+})();
 
 // ── Action registry ──
 registerActions({

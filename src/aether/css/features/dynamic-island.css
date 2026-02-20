@@ -23,6 +23,123 @@
       left: auto;
       right: 8px;
     }
+
+    /* ── AI Inline Pill — unified insight + AI status ── */
+    #pill-ai-inline {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      height: 24px;
+      border-radius: 12px;
+      background: var(--pill-surface, var(--aether-hover));
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 0 8px;
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 1;
+      cursor: pointer;
+      white-space: nowrap;
+      font-size: 0.65rem;
+      color: var(--aether-text);
+      -webkit-app-region: no-drag;
+      transition: background 0.2s ease, box-shadow 0.25s ease, padding 0.3s ease, opacity 0.25s ease;
+      overflow: visible;
+    }
+    .browse-mode.island-mode #pill-ai-inline {
+      display: flex;
+    }
+    #pill-ai-inline:hover {
+      background: var(--pill-surface-hover, rgba(255,255,255,0.18));
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+    #pill-ai-inline:active { transform: translateY(-50%) scale(0.95); transition: transform 0.06s ease; }
+    [data-aether-theme="midnight"] #pill-ai-inline { background: rgba(255,255,255,0.12); }
+    [data-aether-theme="midnight"] #pill-ai-inline:hover { background: rgba(255,255,255,0.18); }
+    [data-aether-theme="match"] #pill-ai-inline { background: rgba(255,255,255,0.12); }
+    [data-aether-theme="match"] #pill-ai-inline:hover { background: rgba(255,255,255,0.18); }
+    [data-aether-theme="aether"] #pill-ai-inline { background: rgba(0,0,0,0.08); }
+    [data-aether-theme="aether"] #pill-ai-inline:hover { background: rgba(0,0,0,0.12); }
+
+    /* Indicator dot/icon area */
+    #pill-ai-inline .pill-ai-indicator {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+      transition: background 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+    }
+    /* Label area */
+    #pill-ai-inline .pill-ai-label {
+      transition: opacity 0.2s ease, max-width 0.3s var(--motion-snappy, ease);
+      overflow: hidden; text-overflow: ellipsis; max-width: 200px;
+    }
+    #pill-ai-inline .pill-ai-label:empty { display: none; }
+
+    /* ── AI pill states ── */
+    /* idle: dim purple dot, no label */
+    #pill-ai-inline[data-ai-state="idle"] .pill-ai-indicator {
+      background: #a78bfa; opacity: 0.35;
+    }
+    #pill-ai-inline[data-ai-state="idle"] { padding: 0 6px; }
+
+    /* offer: grey comment icon + "Annotate" */
+    #pill-ai-inline[data-ai-state="offer"] .pill-ai-indicator {
+      background: var(--nr-text-secondary, #888); opacity: 0.6;
+    }
+
+    /* analyzing: animated annotate dot */
+    #pill-ai-inline[data-ai-state="analyzing"] .pill-ai-indicator {
+      background: #ffc107;
+      animation: island-pulse 1.5s ease-in-out infinite;
+    }
+
+    /* annotated: colored dot */
+    #pill-ai-inline[data-ai-state="annotated"] .pill-ai-indicator {
+      background: #4caf50; opacity: 1;
+    }
+
+    /* ai-active: breathing purple dot */
+    #pill-ai-inline[data-ai-state="ai-active"] .pill-ai-indicator {
+      background: #a78bfa;
+      animation: island-pulse 1.5s ease-in-out infinite, ai-dot-ring 2s ease-in-out infinite;
+      box-shadow: 0 0 0 0 rgba(167,139,250,0);
+    }
+
+    /* ai-done: green dot */
+    #pill-ai-inline[data-ai-state="ai-done"] .pill-ai-indicator {
+      background: #22c55e; opacity: 1;
+    }
+
+    /* Tray — reuses .island-ctx-tray from the regular pill system */
+    #pill-ai-inline .island-ctx-tray {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      min-width: 280px;
+      max-width: 380px;
+      max-height: 400px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      border-radius: 12px;
+      background: var(--aether-dropdown-bg, var(--pill-surface));
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+      z-index: 100;
+      opacity: 0;
+      transform: scaleY(0.9) translateY(-4px);
+      transform-origin: top right;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s var(--motion-snappy, ease);
+      padding: 4px 0;
+    }
+    #pill-ai-inline.ai-tray-open .island-ctx-tray {
+      display: block;
+      opacity: 1;
+      transform: scaleY(1) translateY(0);
+      pointer-events: auto;
+    }
+
     .pill-island {
       display: flex;
       align-items: center;
