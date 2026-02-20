@@ -3,25 +3,11 @@ import Settings from '../core/core-settings.js';
 // ─── Feed Settings ──────────────────────────────────────
 if (window.AetherUI) AetherUI.globals();
 
-export function _feedTabBtn(key, label) {
-  var active = _settingsFeedTab === key;
-  var b = new View('button');
-  b.el.textContent = label;
-  b.className('px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' +
-    (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'));
-  b.onTap(function() { _setSettingsFeedTab(key); });
-  return b;
-}
-
 export function _renderFeedSettings() {
-  var tabs = HStack(
-    _feedTabBtn('insights', 'Insights'),
-    _feedTabBtn('algorithm', 'Algorithm')
-  ).spacing(1).className('mb-6');
-  var content;
-  if (_settingsFeedTab === 'algorithm') content = _renderFeedAlgorithmTab();
-  else content = _renderFeedInsightsTab();
-  return VStack(tabs, content);
+  return TabView(_settingsFeedTab, [
+    { label: 'Insights', content: _renderFeedInsightsTab },
+    { label: 'Algorithm', content: _renderFeedAlgorithmTab }
+  ]).underlined().padding(0);
 }
 
 export function _renderFeedInsightsTab() {
@@ -151,7 +137,6 @@ export function _renderFeedAlgorithmTab() {
   );
 }
 
-window._feedTabBtn = _feedTabBtn;
 window._renderFeedSettings = _renderFeedSettings;
 window._renderFeedInsightsTab = _renderFeedInsightsTab;
 window._renderFeedAlgorithmTab = _renderFeedAlgorithmTab;

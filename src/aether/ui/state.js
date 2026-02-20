@@ -306,6 +306,19 @@ function Store(initial) {
       _notifyPath(parts);
     },
 
+    // delete('user') — remove a key and notify
+    delete: function(path) {
+      var parts = _parsePath(path);
+      var parent = parts.length > 1 ? _getByPath(_data, parts.slice(0, -1)) : _data;
+      if (parent != null) {
+        delete parent[parts[parts.length - 1]];
+        // Clean up any cached signal for this path
+        var pathStr = parts.join('.');
+        delete _signals[pathStr];
+        _notifyPath(parts);
+      }
+    },
+
     // peek() — untracked full read
     peek: function() { return _data; }
   };

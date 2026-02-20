@@ -190,9 +190,7 @@ export function _setIslandActivity(id, data) {
   });
 }
 export function _clearIslandActivity(id) {
-  var acts = Object.assign({}, _islandActivities.peek());
-  delete acts[id];
-  _islandActivities.value = acts;
+  _islandActivities.delete(id);
 }
 
 export function islandUpdate(id, data) {

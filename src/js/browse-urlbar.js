@@ -530,7 +530,7 @@ export function _browseUrlShowHistory() {
   const projects = (filter && typeof allExperiments !== 'undefined') ?
     allExperiments.filter(exp => exp.title.toLowerCase().includes(filter) || (exp.desc || '').toLowerCase().includes(filter)).slice(0, 5) : [];
 
-  // Chat thread matches (only when there's a filter)
+  // Chat thread matches — also fetch recent threads for NTP with no filter
   let chatThreads = [];
   if (filter && filter.length >= 2 && typeof electronAPI !== 'undefined') {
     electronAPI.dbQuery('chat-thread-list', 50, 0).then(threads => {
@@ -539,6 +539,15 @@ export function _browseUrlShowHistory() {
         (t.title || '').toLowerCase().includes(filter)
       ).slice(0, 4);
       // Re-render dropdown with thread results
+      const { dd: dd2, input: input2 } = _getOmniInput();
+      if (dd2 && dd2.style.display !== 'none') {
+        _browseUrlRenderDropdown(dd2, input2, projects, showHist, filter, showBrowse);
+      }
+    });
+  } else if (!filter && ntp && typeof electronAPI !== 'undefined') {
+    electronAPI.dbQuery('chat-thread-list', 10, 0).then(threads => {
+      if (!threads) return;
+      _currentChatThreads = threads.slice(0, 6);
       const { dd: dd2, input: input2 } = _getOmniInput();
       if (dd2 && dd2.style.display !== 'none') {
         _browseUrlRenderDropdown(dd2, input2, projects, showHist, filter, showBrowse);
@@ -788,6 +797,42 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
       return _instantAnswer.html;
     },
     recent: () => {
+      // On NTP with no filter, merge browse history and recent chat threads sorted by recency
+      if (ntp && !filter) {
+        const merged = [
+          ...showBrowse.map(bh => ({ type: 'browse', data: bh, ts: bh.ts || 0 })),
+          ..._currentChatThreads.map(t => ({ type: 'thread', data: t, ts: (t.updated_at || 0) * 1000 })),
+        ].sort((a, b) => b.ts - a.ts).slice(0, 8);
+        if (!merged.length) return '';
+        const iconSize = '16px';
+        const navFn = (url) => `event.preventDefault(); _browseUrlHideHistory(); browseNavigate('${url}');`;
+        return merged.map(item => {
+          if (item.type === 'browse') {
+            const bh = item.data;
+            const favicon = _browseFaviconUrl(bh.url);
+            let domain = '';
+            try { domain = new URL(bh.url).hostname.replace('www.', ''); } catch {}
+            const safeUrl = escapeHtml(bh.url).replace(/"/g, '&quot;');
+            const displayTitle = escapeHtml(bh.title || domain);
+            return `<div data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${navFn(escapeHtml(bh.url).replace(/'/g, "\\'"))}">
+              <img src="${escapeHtml(favicon)}" style="width:${iconSize};height:${iconSize};flex-shrink:0;border-radius:3px;" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
+              <svg style="width:${iconSize};height:${iconSize};flex-shrink:0;color:var(--nr-text-quaternary);display:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displayTitle}</span>
+              <span style="font-size:0.75rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
+            </div>`;
+          } else {
+            const t = item.data;
+            const safeId = escapeHtml(t.id).replace(/'/g, "\\'");
+            const title = escapeHtml(t.title || 'Untitled');
+            const time = _relativeTime(t.updated_at * 1000);
+            return `<div data-histq="thread:${escapeHtml(t.id)}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof openChatPage==='function') openChatPage('${safeId}');">
+              <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title} <span style="color:var(--nr-text-secondary);">\u2014 Chat</span></span>
+              <span style="font-size:0.75rem;color:var(--nr-text-quaternary);flex-shrink:0;">${escapeHtml(time)}</span>
+            </div>`;
+          }
+        }).join('');
+      }
       if (!showBrowse.length) return '';
       const iconSize = ntp ? '16px' : '14px';
       const navFn = ntp
@@ -858,6 +903,7 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
     },
     threads: () => {
       if (!_currentChatThreads.length || !ntp) return '';
+      if (!filter) return ''; // no-filter threads are mixed into 'recent' section
       const iconSize = '16px';
       let h = '';
       h += _currentChatThreads.map(t => {

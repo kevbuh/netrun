@@ -26,7 +26,7 @@ export const _SETTINGS_SECTIONS = [
   { key: 'help', label: 'Help', icon: icon('help', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
 ];
 
-export let _settingsFeedTab = 'insights';
+export var _settingsFeedTab = State(0); // 0=insights, 1=algorithm
 
 export function _setSettingsSection(section) {
   _settingsSection = section;
@@ -35,8 +35,7 @@ export function _setSettingsSection(section) {
 }
 
 export function _setSettingsFeedTab(tab) {
-  _settingsFeedTab = tab;
-  renderSettingsView();
+  _settingsFeedTab.value = tab;
 }
 
 export async function openSettings() {
@@ -100,8 +99,6 @@ export function renderSettingsView() {
   // Section-specific post-render hooks
   if (_settingsSection === 'appearance') {
     updateSpinnerPreview(getSelectedSpinner());
-  } else if (_settingsSection === 'feed') {
-    // No post-render hooks needed for feed section
   } else if (_settingsSection === 'ai') {
     _loadSettingsModels();
   } else if (_settingsSection === 'browser') {

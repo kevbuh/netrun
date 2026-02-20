@@ -109,6 +109,15 @@ const ASYNC_ACTION_TOOLS = new Set([
   'browser-get-storage',
 ]);
 
+/** All action tools handled locally (not via registry) — must run sequentially */
+const LOCAL_ACTION_TOOLS = new Set([
+  'navigate', 'open-tab', 'save-to-reading-list', 'browser-read-page',
+  'browser-click', 'browser-type', 'browser-scroll', 'browser-navigate',
+  'browser-screenshot', 'browser-query-selector', 'browser-wait-for',
+  'browser-get-url', 'browser-get-tabs', 'browser-switch-tab',
+  'browser-back', 'browser-forward', 'browser-press-key', 'browser-get-storage',
+]);
+
 /**
  * Execute a single tool and return the result along with any actions.
  */
@@ -337,7 +346,7 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
         response = await provider.chat({ messages: flattenToolMessages(messages), model, signal });
       }
 
-      let toolCalls = response.message.tool_calls;
+      let toolCalls: ToolCall[] | undefined = response.message.tool_calls;
 
       // Fallback: try extracting tool calls from text content
       if (!toolCalls?.length && response.message.content) {
@@ -371,37 +380,52 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
       // Add assistant message with tool calls to history
       messages.push(response.message);
 
-      // Execute each tool call
-      for (const tc of toolCalls) {
-        const toolName = tc.function.name;
+      // Parse all tool calls upfront
+      type ParsedToolCall = { tc: ToolCall; toolName: string; toolArgs: Record<string, unknown> };
+      const parsed: ParsedToolCall[] = toolCalls.map(tc => {
         let toolArgs: Record<string, unknown>;
-        try {
-          toolArgs = JSON.parse(tc.function.arguments);
-        } catch {
-          toolArgs = {};
-        }
+        try { toolArgs = JSON.parse(tc.function.arguments); } catch { toolArgs = {}; }
+        return { tc, toolName: tc.function.name, toolArgs };
+      });
 
-        // Emit tool_call event
+      // Emit all tool_call events immediately so the UI shows them
+      for (const { toolName, toolArgs } of parsed) {
         yield { type: 'tool_call', name: toolName, args: toolArgs };
+      }
 
-        // Execute the tool
-        const { result, actions } = await executeTool(
-          toolName,
-          toolArgs,
-          {
-            googleId: context.googleId,
-            documentText: context.documentText,
-            browserDom: context.browserDom,
-          },
-          config.onAction,
-        );
+      // Split into parallel-safe tools and sequential action tools
+      const parallelBatch: ParsedToolCall[] = [];
+      const sequentialBatch: ParsedToolCall[] = [];
+      for (const entry of parsed) {
+        if (LOCAL_ACTION_TOOLS.has(entry.toolName)) {
+          sequentialBatch.push(entry);
+        } else {
+          parallelBatch.push(entry);
+        }
+      }
 
-        // Emit actions
+      // Execute parallel-safe tools concurrently
+      const toolCtx = {
+        googleId: context.googleId,
+        documentText: context.documentText,
+        browserDom: context.browserDom,
+      };
+
+      const parallelResults = await Promise.all(
+        parallelBatch.map(({ toolName, toolArgs }) =>
+          executeTool(toolName, toolArgs, toolCtx, config.onAction)
+        )
+      );
+
+      // Emit events and add results to messages for parallel tools
+      for (let j = 0; j < parallelBatch.length; j++) {
+        const { tc, toolName } = parallelBatch[j];
+        const { result, actions } = parallelResults[j];
+
         for (const action of actions) {
           yield { type: 'action', action };
         }
 
-        // Emit web sources for search results
         if (toolName === 'web-search' && result.success && result.data) {
           const data = result.data as any;
           if (data.results?.length) {
@@ -409,10 +433,27 @@ export async function* runAgent(config: AgentSessionConfig): AsyncGenerator<Agen
           }
         }
 
-        // Emit tool result
         yield { type: 'tool_result', name: toolName, result: result.data ?? result.error };
 
-        // Add tool result to messages
+        messages.push({
+          role: 'tool',
+          content: JSON.stringify(result.data ?? { error: result.error }),
+          tool_call_id: tc.id,
+        });
+      }
+
+      // Execute sequential (async action) tools one at a time
+      for (const { tc, toolName, toolArgs } of sequentialBatch) {
+        const { result, actions } = await executeTool(
+          toolName, toolArgs, toolCtx, config.onAction,
+        );
+
+        for (const action of actions) {
+          yield { type: 'action', action };
+        }
+
+        yield { type: 'tool_result', name: toolName, result: result.data ?? result.error };
+
         messages.push({
           role: 'tool',
           content: JSON.stringify(result.data ?? { error: result.error }),

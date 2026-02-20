@@ -2,7 +2,7 @@ export { toolRegistry, ToolRegistry } from './registry.js';
 export type { Tool, ToolResult, ToolContext, ToolAccess, ToolDefinition } from './types.js';
 
 // Search tools
-export { webSearch, paperSearch } from './search/index.js';
+export { webSearch, paperSearch, webResearch } from './search/index.js';
 
 // Content tools
 export { extractText } from './content/index.js';
