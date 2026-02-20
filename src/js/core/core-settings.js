@@ -259,9 +259,6 @@ var Settings = (function() {
   // Terminal
   define('terminalState', { default: null, sync: false }); // @local
 
-  // Whiteboard
-  define('whiteboardBoards', { default: '[]', sync: false }); // @local
-
   // Neuralook
   define('nlRefinementHistory', { default: '[]', sync: false }); // @local
 

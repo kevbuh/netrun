@@ -75,7 +75,6 @@ export const _HELP_DATA = {
     ['\u2318S', 'Save'],
     ['\u2318Z', 'Undo'],
     ['\u2318\u21e7Z', 'Redo'],
-    ['\u21e7Enter', 'Run cell (notebook)'],
   ],
   chatTools: [
     ['web_search', 'Search the web via DuckDuckGo'],
