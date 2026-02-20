@@ -14,11 +14,13 @@
 
 /* Search box slides from center (margin-top:40vh) to bottom (margin-top:auto) */
 .browse-ntp.chat-mode .browse-ntp-center {
-  margin-top: 0;
+  margin-top: auto;
   flex-shrink: 0;
-  padding-bottom: 8px;
+  padding-bottom: 16px;
+  max-width: 720px;
   width: 100%;
-  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
   padding-left: var(--nr-space-4);
   padding-right: var(--nr-space-4);
   box-sizing: border-box;

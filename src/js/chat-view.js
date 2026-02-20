@@ -921,11 +921,12 @@ function _chatViewRenderTreeRail(msgList) {
       }
     });
 
-    // Tooltip with snippet on hover (AI responses only)
-    if (!isUser && m.content) {
+    // Tooltip with snippet on hover
+    const tooltipContent = isUser ? (m._display || m.content) : m.content;
+    if (tooltipContent) {
       const tooltip = document.createElement('div');
       tooltip.className = 'chat-tree-rail-tooltip';
-      const snippet = m.content.replace(/[#*_`>\[\]]/g, '').replace(/\s+/g, ' ').trim();
+      const snippet = tooltipContent.replace(/[#*_`>\[\]]/g, '').replace(/\s+/g, ' ').trim();
       tooltip.textContent = snippet.length > 100 ? snippet.slice(0, 97) + '\u2026' : snippet;
       bar.appendChild(tooltip);
     }
