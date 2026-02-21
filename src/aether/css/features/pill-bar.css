@@ -326,9 +326,12 @@
     .browse-mode.menu-expanded #pill-browse-hamburger {
     }
     .browse-mode.island-mode.ntp-active #pill-browse-hamburger {
-      max-width: 0;
-      opacity: 0;
+      max-width: 28px;
+      opacity: 1;
       padding: 0;
+      position: static !important;
+      transform: none !important;
+      margin-left: auto;
     }
     .browse-mode.island-mode.menu-expanded #pill-browse-hamburger {
       max-width: 28px;
@@ -339,6 +342,11 @@
       justify-content: center;
       padding-left: 0;
     }
+    .pill-bar.browse-mode.island-mode.ntp-active {
+      justify-content: space-between;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
     .browse-mode.ntp-active #pill-browse-back {
       position: static;
       transform: none;
@@ -348,7 +356,7 @@
     }
     /* NTP: hide all browse chrome, show only island + nav icons */
     .browse-mode.ntp-active #pill-menu-btn,
-    .browse-mode.ntp-active #pill-browse-hamburger,
+    .browse-mode.ntp-active:not(.island-mode) #pill-browse-hamburger,
     .browse-mode.ntp-active #pill-browse-url,
     .browse-mode.ntp-active #pill-browse-url-input,
     .browse-mode.ntp-active #pill-browse-reload,
@@ -357,7 +365,8 @@
     .browse-mode.ntp-active #pill-browse-more,
     .browse-mode.ntp-active #pill-newtab-btn,
     .browse-mode.ntp-active .pill-url-divider,
-    .browse-mode.ntp-active #pill-ai-unified {
+    .browse-mode.ntp-active #pill-ai-unified,
+    .browse-mode.island-mode.ntp-active #pill-url-wrap {
       display: none !important;
     }
     .browse-mode.ntp-active #pill-nav-icons {
@@ -373,6 +382,30 @@
       pointer-events: auto;
       padding: 0;
       color: inherit;
+    }
+    /* Island NTP: keep nav icons collapsed — only hamburger visible */
+    .browse-mode.island-mode.ntp-active #pill-nav-icons {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+      padding: 0;
+      position: absolute;
+    }
+    /* Island NTP + menu open: show nav icons dropdown */
+    .browse-mode.island-mode.ntp-active.menu-expanded #pill-nav-icons {
+      max-height: none;
+      overflow: visible;
+      opacity: 1;
+      pointer-events: auto;
+      padding: 6px;
+      background: var(--aether-dropdown-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      right: 0;
+      top: 100%;
     }
     .pill-bar.browse-mode.ntp-active .pill-island-container {
       position: static;

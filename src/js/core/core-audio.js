@@ -696,8 +696,9 @@ export function _islandAttachHandlers(pill, a, hasTray) {
 function _islandHandleTap(pill, a, hasTray) {
   if (hasTray) {
     if (a.type === 'tabs') {
-      // Tabs pill in island mode: use connected pill dropdown
-      if (typeof _showTabsInPillDropdown === 'function') {
+      // Tabs pill in island mode: use connected pill dropdown (not on NTP — capsule is hidden)
+      var isNtp = document.getElementById('sidebar-nav') && document.getElementById('sidebar-nav').classList.contains('ntp-active');
+      if (!isNtp && typeof _showTabsInPillDropdown === 'function') {
         const pillDd = document.getElementById('pill-url-dropdown');
         const pillWrap = document.getElementById('pill-url-wrap');
         if (pillDd && pillWrap && pillWrap.classList.contains('pill-dropdown-open') && pillDd.querySelector('[data-pill-tab-switch]')) {
@@ -1080,7 +1081,8 @@ export function _islandRender() {
   const isIslandNow = document.getElementById('sidebar-nav') && document.getElementById('sidebar-nav').classList.contains('island-mode');
   // Trigger unified AI pill render
   if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
-  if (urlWrap && isIslandNow && rightContainer) {
+  var islandMerged = container.closest('#pill-url-wrap') !== null;
+  if (urlWrap && isIslandNow && rightContainer && !islandMerged) {
     const urlRect = urlWrap.getBoundingClientRect();
     const contRect = container.getBoundingClientRect();
     // 12px gap between pills and URL capsule

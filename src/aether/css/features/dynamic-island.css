@@ -1712,6 +1712,29 @@
     .browse-mode.island-mode.ntp-active #pill-island-right {
       display: none;
     }
+    /* NTP + island: center the island pills in the pill bar */
+    .browse-mode.island-mode.ntp-active #pill-island {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+    /* When #pill-island is merged inside the capsule (non-NTP island mode) */
+    #pill-url-wrap > #pill-island {
+      position: relative;
+      left: auto;
+      top: auto;
+      transform: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    /* Hide right-side overflow when merged — pills are inside capsule */
+    #pill-url-wrap > #pill-island ~ #pill-island-right,
+    .browse-mode.island-mode:not(.ntp-active) #pill-island-right {
+      display: none;
+    }
     /* NTP: tabs pill sits to the left of the centered nav icons */
     .browse-mode.island-mode #pill-url-wrap > * {
       margin: 0;

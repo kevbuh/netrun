@@ -24,6 +24,49 @@ import { chatViewCleanupMorph, chatViewUnmorph, openChatPage } from '/js/chat-vi
 import { openDrawPage } from '/js/draw-view.js';
 import { renderAIPanelContent } from '/js/browse/browse-ai-pill.js';
 
+// ── Island pill position sync ──
+// Move #pill-island into #pill-url-wrap (non-NTP) or back to pill bar (NTP / non-island)
+function _syncIslandPillPosition() {
+  const pill = document.getElementById('sidebar-nav');
+  const island = document.getElementById('pill-island');
+  const urlWrap = document.getElementById('pill-url-wrap');
+  if (!pill || !island || !urlWrap) return;
+  const isIsland = pill.classList.contains('island-mode');
+  const isNtp = pill.classList.contains('ntp-active');
+  const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
+  const tabsPill = tabsAnchor ? tabsAnchor.querySelector('.pill-island[data-island-id="tabs"]') : null;
+  if (isIsland && !isNtp) {
+    // Merge: prepend #pill-island into #pill-url-wrap
+    if (island.parentElement !== urlWrap) {
+      urlWrap.insertBefore(island, urlWrap.firstChild);
+    }
+    // Tabs pill stays in the anchor (inside capsule)
+    if (tabsPill && tabsPill.parentElement !== tabsAnchor) {
+      tabsAnchor.insertBefore(tabsPill, tabsAnchor.firstChild);
+    }
+  } else if (isIsland && isNtp) {
+    // NTP: move island back to pill bar, move tabs pill into island container
+    const navIcons = document.getElementById('pill-nav-icons');
+    if (island.parentElement === urlWrap) {
+      pill.insertBefore(island, navIcons);
+    }
+    // Move tabs pill from anchor into #pill-island so it's visible (capsule is hidden on NTP)
+    if (tabsPill && tabsPill.parentElement !== island) {
+      island.insertBefore(tabsPill, island.firstChild);
+    }
+  } else {
+    // Non-island: restore island to pill bar
+    const navIcons = document.getElementById('pill-nav-icons');
+    if (island.parentElement === urlWrap) {
+      pill.insertBefore(island, navIcons);
+    }
+    // Restore tabs pill to anchor
+    if (tabsPill && tabsAnchor && tabsPill.parentElement !== tabsAnchor) {
+      tabsAnchor.insertBefore(tabsPill, tabsAnchor.firstChild);
+    }
+  }
+}
+
 // ── Island mode tab renderer ──
 
 export function toggleBrowseTabLayout() {
@@ -53,12 +96,14 @@ export function _applyBrowseTabLayout() {
     if (browseOpen) {
       if (pill) { pill.classList.add('browse-mode'); pill.classList.add('island-mode'); }
       _pillSyncUrl();
+      _syncIslandPillPosition();
       const pillTabs = document.getElementById('pill-browse-tabs');
       if (pillTabs) pillTabs.innerHTML = '';
       _islandSyncTabs();
       _islandSyncBookmark();
     } else {
       if (pill) { pill.classList.remove('browse-mode', 'island-mode', 'ntp-active'); }
+      _syncIslandPillPosition();
       _collapseIsland();
       islandRemove('tabs');
       islandRemove('bookmark');
@@ -66,6 +111,7 @@ export function _applyBrowseTabLayout() {
   } else {
     // Restore everything
     _collapseIsland();
+    _syncIslandPillPosition();
     if (bar) bar.style.display = '';
     if (window._pillBrowseMode) {
       if (tabRow) tabRow.style.display = 'none';
@@ -423,7 +469,8 @@ export function _pillSyncUrl() {
   _browseSetUrlDisplay(input, (!isBlankNtp && tab && tab.url) ? tab.url : '');
   if (Settings.get('browseTabLayout') === 'island') {
     const pill = document.getElementById('sidebar-nav');
-    if (pill) pill.classList.remove('ntp-active');
+    if (pill) pill.classList.toggle('ntp-active', !!isBlankNtp);
+    _syncIslandPillPosition();
     // Update title element (visible in expanded mode)
     const titleEl = document.getElementById('pill-island-title');
     if (titleEl) titleEl.textContent = (!isBlankNtp && tab && tab.title) ? tab.title : '';
