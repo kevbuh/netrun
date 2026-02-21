@@ -20,9 +20,15 @@ function renderMessageHTML(msg, index, total, isFinal) {
   if (msg._userResults?.length) return _renderUserResults(msg._userResults);
 
   const isLast = index === total - 1;
+  // Check for API key error — add settings button
+  let settingsBtn = '';
+  if (msg.content && msg.content.includes('API key not set')) {
+    settingsBtn = '<button class="doc-msg-settings-btn" title="Open AI Settings" style="display:inline-flex;align-items:center;gap:4px;margin-top:8px;padding:4px 12px;border-radius:8px;border:1px solid var(--nr-accent,#b4451a);background:rgba(var(--nr-accent-rgb,180,69,26),0.1);color:var(--nr-accent,#b4451a);font-size:0.78rem;cursor:pointer;font-weight:500;">Open Settings</button>';
+  }
   let content = (isFinal || !isLast) && typeof marked !== 'undefined'
     ? marked.parse(msg.content)
     : escapeHtml(msg.content);
+  if (settingsBtn) content += settingsBtn;
   // Linkify [1], [2] citations if web sources exist
   if (msg._webSources?.length) content = _linkifyCitations(content, msg._webSources);
   const sourcesBlock = _renderWebSources(msg._webSources);
@@ -315,6 +321,16 @@ function attachMessageHandlers(container, opts) {
       if (opts.onFollowUp) opts.onFollowUp(btn.textContent);
     });
     btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+  });
+
+  // Settings button (e.g. "Open Settings" for API key errors)
+  container.querySelectorAll('.doc-msg-settings-btn').forEach(btn => {
+    btn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      if (typeof window._openSettingsToAI === 'function') window._openSettingsToAI();
+      if (opts.onNavigate) opts.onNavigate();
+    });
   });
 
   // Copy button handlers

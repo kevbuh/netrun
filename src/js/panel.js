@@ -19,8 +19,14 @@ import { allPapers, getSavedPosts, lastFilteredPapers, markPostAsRead } from '/j
 import { openBrowseWithPaper } from '/js/browse/browse-ntp.js';
 import { openChatPage } from '/js/chat-view.js';
 import { openHelpPage } from '/js/browse-urlbar.js';
-import { openSettings } from '/js/settings/settings-core.js';
+import { openSettings, _setSettingsSection } from '/js/settings/settings-core.js';
 import { _getActiveBrowseTab, _saveTabPanelState } from '/js/panel-state.js';
+
+// Global helper for chat error buttons to open Settings > AI
+window._openSettingsToAI = function() {
+  _setSettingsSection('ai');
+  openSettings();
+};
 
 export function _positionAtCursor(cx, cy, w, h, preferLeft) {
   const bounds = _popupSafeBounds();

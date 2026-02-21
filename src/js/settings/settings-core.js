@@ -65,11 +65,10 @@ var _hooksRegistered = false;
 
 export function renderSettingsView() {
   // ── Sidebar (built once, active state is reactive) ──
-  if (!_sidebarMounted) {
+  const sidebar = document.getElementById('settings-sidebar');
+  if (sidebar && !sidebar.hasChildNodes()) {
     _sidebarMounted = true;
-    const sidebar = document.getElementById('settings-sidebar');
-    if (sidebar) {
-      const sbViews = [
+    const sbViews = [
         window.RawHTML('<div style="padding:0 12px 12px;"><span class="text-[1.1rem] font-semibold text-primary">Settings</span></div>')
       ];
       const base = 'w-full flex items-center gap-2.5 px-3 py-2 text-left text-[0.8rem] rounded-md transition-colors ';
@@ -91,7 +90,6 @@ export function renderSettingsView() {
       });
       sbViews.push(window.RawHTML('<div style="margin-top:auto;padding:12px 16px;"><div id="settings-version" style="color:var(--nr-text-quaternary);font-size:0.65rem;"></div></div>'));
       AetherUI.mount(window.VStack(sbViews), sidebar);
-    }
   }
 
   // ── Content pane (reactive title + reactive Switch) ──
