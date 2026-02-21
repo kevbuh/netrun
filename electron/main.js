@@ -18,6 +18,38 @@ let _adblockEngine = null;
 let _adblockEnabled = true;
 const _blockedCounts = {};
 
+// ── Tracking Parameter Stripping ──
+let _trackingStripEnabled = true;
+const _strippedCounts = {};
+
+// ── HTTPS-Only Mode ──
+let _httpsOnlyEnabled = true;
+const _httpsUpgradeCounts = {};
+
+// ── Third-Party Cookie Blocking ──
+let _cookieBlockEnabled = true;
+const _cookieBlockedCounts = {};
+
+const _TRACKING_PARAMS = new Set([
+  'utm_source','utm_medium','utm_campaign','utm_term','utm_content','utm_id',
+  'fbclid','gclid','gclsrc','dclid','gbraid','wbraid',
+  'mc_eid','mc_cid','twclid','msclkid',
+  '_hsenc','_hsmi','igshid',
+  'si','feature',
+  'oly_enc_id','oly_anon_id','__s','vero_id',
+  '_bta_tid','_bta_c','wickedid','mkt_tok',
+]);
+const _TRACKING_PARAM_PREFIXES = ['hsa_', 'ref_'];
+
+const _MULTI_PART_TLDS = new Set(['co.uk','co.jp','co.kr','com.au','com.br','co.nz','co.in','org.uk','net.au']);
+function _extractRootDomain(hostname) {
+  const h = (hostname || '').toLowerCase().replace(/^\.+/, '');
+  const parts = h.split('.');
+  if (parts.length <= 2) return h;
+  const last2 = parts.slice(-2).join('.');
+  return (_MULTI_PART_TLDS.has(last2) && parts.length >= 3) ? parts.slice(-3).join('.') : last2;
+}
+
 // ── DNS-over-HTTPS (DoH) ──
 
 const DOH_PROVIDERS = {
@@ -485,12 +517,53 @@ app.on('web-contents-created', (event, contents) => {
       sessionsWithAdblock.add(ses);
       const _ytAdPatterns = ['/api/stats/ads', '/pagead/', '/get_midroll_', 'doubleclick.net/pagead/', 'googlesyndication.com/pagead/'];
       ses.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (details, cb) => {
+        const url = details.url;
+        const wcId = details.webContentsId;
+
+        // 1. HTTPS-Only: upgrade http → https for main-frame navigations
+        if (_httpsOnlyEnabled && details.resourceType === 'mainFrame' && url.startsWith('http://')) {
+          try {
+            const u = new URL(url);
+            const host = u.hostname;
+            if (host !== 'localhost' && host !== '127.0.0.1' && !host.endsWith('.local')) {
+              u.protocol = 'https:';
+              _httpsUpgradeCounts[wcId] = (_httpsUpgradeCounts[wcId] || 0) + 1;
+              return cb({ redirectURL: u.toString() });
+            }
+          } catch {}
+        }
+
+        // 2. Tracking param strip: remove tracking params from main-frame URLs
+        if (_trackingStripEnabled && details.resourceType === 'mainFrame') {
+          try {
+            const u = new URL(url);
+            if (u.search) {
+              const params = u.searchParams;
+              const toDelete = [];
+              for (const key of params.keys()) {
+                if (_TRACKING_PARAMS.has(key)) { toDelete.push(key); continue; }
+                for (const prefix of _TRACKING_PARAM_PREFIXES) {
+                  if (key.startsWith(prefix)) { toDelete.push(key); break; }
+                }
+              }
+              if (toDelete.length > 0) {
+                for (const k of toDelete) params.delete(k);
+                const clean = u.toString();
+                if (clean !== url) {
+                  _strippedCounts[wcId] = (_strippedCounts[wcId] || 0) + toDelete.length;
+                  return cb({ redirectURL: clean });
+                }
+              }
+            }
+          } catch {}
+        }
+
+        // 3. Ad blocking
         if (!_adblockEnabled) return cb({});
         // Fast-path: YouTube ad URL patterns
-        const url = details.url;
         for (let i = 0; i < _ytAdPatterns.length; i++) {
           if (url.includes(_ytAdPatterns[i])) {
-            _blockedCounts[details.webContentsId] = (_blockedCounts[details.webContentsId] || 0) + 1;
+            _blockedCounts[wcId] = (_blockedCounts[wcId] || 0) + 1;
             return cb({ cancel: true });
           }
         }
@@ -499,11 +572,43 @@ app.on('web-contents-created', (event, contents) => {
         try {
           const result = _adblockEngine.check(details.url, details.referrer || details.url, type);
           if (result.matched) {
-            _blockedCounts[details.webContentsId] = (_blockedCounts[details.webContentsId] || 0) + 1;
+            _blockedCounts[wcId] = (_blockedCounts[wcId] || 0) + 1;
             return cb({ cancel: true });
           }
         } catch {}
         cb({});
+      });
+
+      // ── Third-party cookie blocking via response header filtering ──
+      ses.webRequest.onHeadersReceived({ urls: ['http://*/*', 'https://*/*'] }, (details, cb) => {
+        if (!_cookieBlockEnabled || !details.responseHeaders) return cb({});
+        const wcId = details.webContentsId;
+        // Determine page domain from the referrer or frame URL
+        let pageDomain = '';
+        try {
+          const ref = details.referrer || details.frame?.url || '';
+          if (ref) pageDomain = _extractRootDomain(new URL(ref).hostname);
+        } catch {}
+        if (!pageDomain) return cb({});
+
+        let cookieDomain = '';
+        try { cookieDomain = _extractRootDomain(new URL(details.url).hostname); } catch {}
+        if (!cookieDomain || cookieDomain === pageDomain) return cb({});
+
+        // Filter out Set-Cookie headers from third-party domains
+        const headers = Object.assign({}, details.responseHeaders);
+        const cookieKeys = Object.keys(headers).filter(k => k.toLowerCase() === 'set-cookie');
+        if (cookieKeys.length === 0) return cb({});
+
+        let blocked = 0;
+        for (const key of cookieKeys) {
+          blocked += (headers[key] || []).length;
+          delete headers[key];
+        }
+        if (blocked > 0) {
+          _cookieBlockedCounts[wcId] = (_cookieBlockedCounts[wcId] || 0) + blocked;
+        }
+        cb({ responseHeaders: headers });
       });
     }
     // Intercept Cmd+click / target=_blank in webviews → open in browse tabs
@@ -769,6 +874,31 @@ app.whenReady().then(() => {
   applyDoH(true, 'cloudflare');
   ipcMain.handle('doh-set-config', (_, enabled, provider) => applyDoH(!!enabled, provider || 'cloudflare'));
 
+  // ── Tracking Parameter Stripping ──
+  ipcMain.handle('tracking-strip-get-count', (_, wcId) => _strippedCounts[wcId] || 0);
+  ipcMain.handle('tracking-strip-reset-count', (_, wcId) => { _strippedCounts[wcId] = 0; });
+  ipcMain.handle('tracking-strip-set-enabled', (_, on) => { _trackingStripEnabled = !!on; });
+
+  // ── HTTPS-Only Mode ──
+  ipcMain.handle('https-only-get-count', (_, wcId) => _httpsUpgradeCounts[wcId] || 0);
+  ipcMain.handle('https-only-reset-count', (_, wcId) => { _httpsUpgradeCounts[wcId] = 0; });
+  ipcMain.handle('https-only-set-enabled', (_, on) => { _httpsOnlyEnabled = !!on; });
+
+  // ── Third-Party Cookie Blocking ──
+  ipcMain.handle('cookie-block-get-count', (_, wcId) => _cookieBlockedCounts[wcId] || 0);
+  ipcMain.handle('cookie-block-reset-count', (_, wcId) => { _cookieBlockedCounts[wcId] = 0; });
+  ipcMain.handle('cookie-block-set-enabled', (_, on) => { _cookieBlockEnabled = !!on; });
+
+  // ── Aggregate privacy stats ──
+  ipcMain.handle('privacy-stats', () => {
+    let ads = 0, stripped = 0, upgraded = 0, cookies = 0;
+    for (const k in _blockedCounts) ads += _blockedCounts[k] || 0;
+    for (const k in _strippedCounts) stripped += _strippedCounts[k] || 0;
+    for (const k in _httpsUpgradeCounts) upgraded += _httpsUpgradeCounts[k] || 0;
+    for (const k in _cookieBlockedCounts) cookies += _cookieBlockedCounts[k] || 0;
+    return { ads, stripped, upgraded, cookies };
+  });
+
   ipcMain.handle('print', async (event, options) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return;
@@ -935,6 +1065,19 @@ app.whenReady().then(() => {
     const filePath = path.join(dir, name);
     fs.writeFileSync(filePath, Buffer.from(buffer));
     return shell.openPath(filePath);
+  });
+
+  ipcMain.handle('show-save-dialog', async (_, options) => {
+    const result = await dialog.showSaveDialog(options || {});
+    if (result.canceled) return null;
+    return result.filePath;
+  });
+
+  ipcMain.handle('show-open-dialog-multi', async (_, options) => {
+    const opts = { properties: ['openFile', 'multiSelections'], ...(options || {}) };
+    const result = await dialog.showOpenDialog(opts);
+    if (result.canceled) return [];
+    return result.filePaths;
   });
 
   ipcMain.handle('open-file-dialog', async () => {

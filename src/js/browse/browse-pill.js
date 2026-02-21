@@ -9,6 +9,7 @@ import { isPostSaved } from '/js/feed.js';
 import { browseCloseWindow, browseCreateWindow, browseSelectWindow } from '/js/browse/browse-windows.js';
 import { browsePrintPage, browseShowAIView } from '/js/browse/browse-menu.js';
 import { _nerdModeEnabled, toggleNerdMode } from '/js/browse/browse-nerd-mode.js';
+import { toggleAutoRemoveCSS } from '/js/browse/browse-downloads.js';
 import { browseSaveToReadingList, browseShare } from '/js/browse/browse-features.js';
 import { openSearchHistoryPage, toggleAdBlock, toggleDoH, toggleTrackingStrip, toggleHttpsOnly, toggleCookieBlock } from '/js/browse-urlbar.js';
 import { toggleBrowseSidebar } from '/js/views.js';
@@ -325,6 +326,13 @@ export function _populatePillMenuMoreItems() {
   items.push(_menuBtn(icon('crosshair', {size: 16}),
     pickerEnabled ? 'Exit Element Picker' : 'Pick Element', function() { toggleElementPicker(); _closePillMenu(); },
     { disabled: !hasTab, style: pickerEnabled ? { color: 'var(--nr-accent)' } : {} }));
+
+  // Auto Remove CSS
+  const cssOff = Settings.get('autoRemoveCSS') === 'true';
+  items.push(_menuBtn(icon('code', {size: 16, strokeWidth: '1.5'}),
+    'Auto Remove CSS', function() { toggleAutoRemoveCSS(); _populatePillMenuMoreItems(); },
+    { disabled: !hasTab, style: cssOff ? { color: 'var(--nr-accent)' } : {},
+      trailing: window.Text(cssOff ? 'On' : 'Off').font('caption2').styles({marginLeft:'auto'}).foreground('quaternary') }));
 
   // Search History
   items.push(_menuBtn(icon('clock', {size: 16}),

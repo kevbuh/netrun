@@ -44,6 +44,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pwDelete: (id) => ipcRenderer.invoke('pw-delete', id),
   pwList: () => ipcRenderer.invoke('pw-list'),
   // File handling
+  showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
+  showOpenDialogMulti: (options) => ipcRenderer.invoke('show-open-dialog-multi', options),
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
   openPath: (path) => shell.openPath(path),
   showItemInFolder: (path) => shell.showItemInFolder(path),
@@ -57,6 +59,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   adblockStats: () => ipcRenderer.invoke('adblock-stats'),
   // DNS-over-HTTPS
   dohSetConfig: (enabled, provider) => ipcRenderer.invoke('doh-set-config', enabled, provider),
+  // Tracking Parameter Stripping
+  trackingStripGetCount: (wcId) => ipcRenderer.invoke('tracking-strip-get-count', wcId),
+  trackingStripResetCount: (wcId) => ipcRenderer.invoke('tracking-strip-reset-count', wcId),
+  trackingStripSetEnabled: (on) => ipcRenderer.invoke('tracking-strip-set-enabled', on),
+  // HTTPS-Only Mode
+  httpsOnlyGetCount: (wcId) => ipcRenderer.invoke('https-only-get-count', wcId),
+  httpsOnlyResetCount: (wcId) => ipcRenderer.invoke('https-only-reset-count', wcId),
+  httpsOnlySetEnabled: (on) => ipcRenderer.invoke('https-only-set-enabled', on),
+  // Third-Party Cookie Blocking
+  cookieBlockGetCount: (wcId) => ipcRenderer.invoke('cookie-block-get-count', wcId),
+  cookieBlockResetCount: (wcId) => ipcRenderer.invoke('cookie-block-reset-count', wcId),
+  cookieBlockSetEnabled: (on) => ipcRenderer.invoke('cookie-block-set-enabled', on),
+  // Aggregate privacy stats
+  privacyStats: () => ipcRenderer.invoke('privacy-stats'),
 
   // ── Terminal (node-pty via IPC) ──
   terminalStart: (cwd) => ipcRenderer.invoke('terminal:start', cwd),
@@ -107,6 +123,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeInsightResultListener: (cb) => ipcRenderer.removeListener('insight:result', cb),
   onInsightPartial: (cb) => ipcRenderer.on('insight:partial', cb),
   removeInsightPartialListener: (cb) => ipcRenderer.removeListener('insight:partial', cb),
+
+  // ── PDF convert ──
+  pdfParse: (inputPath) => ipcRenderer.invoke('pdf:parse', inputPath),
+  pdfExtract: (inputPath) => ipcRenderer.invoke('pdf:extract', inputPath),
+  pdfSplit: (inputPath, pages, outputPath) => ipcRenderer.invoke('pdf:split', inputPath, pages, outputPath),
+  pdfMerge: (inputPaths, outputPath) => ipcRenderer.invoke('pdf:merge', inputPaths, outputPath),
+  pdfCompress: (inputPath, outputPath) => ipcRenderer.invoke('pdf:compress', inputPath, outputPath),
+  pdfToPng: (inputPath, outputDir) => ipcRenderer.invoke('pdf:to-png', inputPath, outputDir),
+  pdfToJpeg: (inputPath, outputDir) => ipcRenderer.invoke('pdf:to-jpeg', inputPath, outputDir),
+  pdfFromImages: (inputPaths, outputPath) => ipcRenderer.invoke('pdf:from-images', inputPaths, outputPath),
+  pdfMdToPdf: (inputPath, outputPath) => ipcRenderer.invoke('pdf:md-to-pdf', inputPath, outputPath),
+  pdfToMd: (inputPath, outputPath) => ipcRenderer.invoke('pdf:to-md', inputPath, outputPath),
 
   // ── DB query shortcuts (direct IPC, no Flask) ──
   dbQuery: (channel, ...args) => ipcRenderer.invoke('db:' + channel, ...args),

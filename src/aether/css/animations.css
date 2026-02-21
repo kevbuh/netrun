@@ -144,14 +144,11 @@
   78%  { transform: translateY(-0.5px) scale(1.06); filter: drop-shadow(0 0 4px rgba(180,120,40,0.25)); }
   100% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 2px rgba(180,120,40,0.1)); }
 }
-@keyframes bookmark-glow {
-  0%   { box-shadow: 0 0 0 0 rgba(180,120,40,0); }
-  35%  { box-shadow: 0 0 14px 2px rgba(180,120,40,0.35); }
-  100% { box-shadow: 0 0 0 0 rgba(180,120,40,0); }
-}
-@keyframes bookmark-ring {
-  0%   { box-shadow: 0 0 0 0 rgba(180,120,40,0.45); opacity: 1; }
-  100% { box-shadow: 0 0 0 14px rgba(180,120,40,0); opacity: 0; }
+@keyframes bookmark-burst {
+  0%   { box-shadow: 0 0 0 0 rgba(180,120,40,0), 0 0 0 0 rgba(180,120,40,0.5); }
+  30%  { box-shadow: 0 0 16px 3px rgba(180,120,40,0.5), 0 0 0 4px rgba(180,120,40,0.3); }
+  65%  { box-shadow: 0 0 8px 1px rgba(180,120,40,0.15), 0 0 0 10px rgba(180,120,40,0.05); }
+  100% { box-shadow: 0 0 0 0 rgba(180,120,40,0), 0 0 0 14px rgba(180,120,40,0); }
 }
 
 @keyframes pw-bar-slide-down {

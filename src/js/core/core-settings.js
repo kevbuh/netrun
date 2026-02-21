@@ -208,6 +208,7 @@ const Settings = (function() {
 
   // Browser
   define('adBlockEnabled',          { default: 'true', sync: true  }); // @persisted
+  define('autoRemoveCSS',           { default: 'false', sync: false }); // @local
   define('dohEnabled',              { default: 'true',       sync: false }); // @local
   define('dohProvider',             { default: 'cloudflare', sync: false }); // @local
   define('urlBarSections',          { default: null,   sync: true  }); // @persisted
@@ -220,6 +221,9 @@ const Settings = (function() {
   define('browseClosedTabs',        { default: '[]',   sync: false }); // @local
   define('browseDownloads',         { default: '[]',   sync: false }); // @local
   define('browseDownloadsLastSeen', { default: '0',    sync: false }); // @local
+  define('trackingStripEnabled',     { default: 'true', sync: false }); // @local
+  define('httpsOnlyEnabled',         { default: 'true', sync: false }); // @local
+  define('thirdPartyCookiesBlocked', { default: 'true', sync: false }); // @local
 
   // Annotations/Insights
   define('insightEnabled', { default: 'on', sync: false }); // @local

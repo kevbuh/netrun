@@ -1517,7 +1517,7 @@ export function _browseUpdateRssPill(tab) {
       // Refresh pill to show unsubscribed state
       _browseUpdateRssPill(tab);
       // Reload feeds if available
-      if (typeof loadAllFeeds === 'function') { allPapers = []; loadAllFeeds(); }
+      if (typeof loadAllFeeds === 'function') { allPapers.length = 0; loadAllFeeds(); }
     } : function() {
       // Subscribe to feed
       let feeds = [];
@@ -1530,7 +1530,7 @@ export function _browseUpdateRssPill(tab) {
       // Refresh pill to show subscribed state
       _browseUpdateRssPill(tab);
       // Reload feeds if available
-      if (typeof loadAllFeeds === 'function') { allPapers = []; loadAllFeeds(); }
+      if (typeof loadAllFeeds === 'function') { allPapers.length = 0; loadAllFeeds(); }
     }
   });
 }
