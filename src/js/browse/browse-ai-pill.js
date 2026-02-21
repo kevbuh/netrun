@@ -596,5 +596,22 @@ function _initUnifiedPill() {
   }
 }
 
+// ── Exported: render AI panel content into an arbitrary container ──
+export function renderAIPanelContent(container, onAction) {
+  _actionCounter = 0;
+  for (const k in _actionMap) delete _actionMap[k];
+  const state = _resolveIndicatorState();
+  _renderDropdown(container, state);
+  container.addEventListener('click', function(e) {
+    const actionEl = e.target.closest('[data-ai-action]');
+    if (actionEl) {
+      e.stopPropagation();
+      const actionId = actionEl.getAttribute('data-ai-action');
+      if (_actionMap[actionId]) _actionMap[actionId]();
+      if (onAction) onAction();
+    }
+  });
+}
+
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _initUnifiedPill);
 else setTimeout(_initUnifiedPill, 0);

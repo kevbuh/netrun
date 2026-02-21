@@ -314,6 +314,14 @@
       max-width: 28px;
       opacity: 1;
       padding: 0;
+      margin-left: auto;
+    }
+    .browse-mode.island-mode #pill-browse-hamburger {
+      position: absolute;
+      right: var(--island-hamburger-right, 0px);
+      top: 50%;
+      transform: translateY(-50%);
+      margin-left: 0;
     }
     .browse-mode.menu-expanded #pill-browse-hamburger {
     }

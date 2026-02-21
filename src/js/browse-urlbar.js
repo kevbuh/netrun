@@ -36,6 +36,14 @@ export function _browseAutoSizeUrlInput(input) {
   if (!input || input.id !== 'pill-browse-url-input') return;
   const pill = document.getElementById('sidebar-nav');
   if (!pill || !pill.classList.contains('island-mode')) return;
+  // When island is expanded, URL input is full-width via CSS grid — don't override
+  const wrap = document.getElementById('pill-url-wrap');
+  if (wrap && wrap.classList.contains('island-expanded')) {
+    input.style.width = '';
+    input.style.maxWidth = '';
+    input.style.opacity = '';
+    return;
+  }
   const canvas = _browseAutoSizeUrlInput._c || (_browseAutoSizeUrlInput._c = document.createElement('canvas'));
   const ctx = canvas.getContext('2d');
   ctx.font = getComputedStyle(input).font;

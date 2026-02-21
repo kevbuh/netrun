@@ -1093,12 +1093,19 @@ export function _islandRender() {
     const navRect = navBar ? navBar.getBoundingClientRect() : { right: window.innerWidth };
     // Measure width of right-side buttons so pills sit to their left
     let rightBtnsW = 0;
-    ['pill-ai-unified', 'pill-browse-more'].forEach(function(bid) {
+    ['pill-ai-unified', 'pill-browse-more', 'pill-browse-hamburger'].forEach(function(bid) {
       const b = document.getElementById(bid);
       if (b && b.offsetWidth > 0) rightBtnsW += b.offsetWidth + 2; // + gap
     });
     rightBtnsW += 8; // right padding
     rightContainer.style.setProperty('--island-right-offset', rightBtnsW + 'px');
+    var hamburgerEl = document.getElementById('pill-browse-hamburger');
+    var hamburgerW = (hamburgerEl && hamburgerEl.offsetWidth > 0) ? hamburgerEl.offsetWidth : 0;
+    var pillBar = document.getElementById('sidebar-nav');
+    if (pillBar) {
+      pillBar.style.setProperty('--island-hamburger-right', '0px');
+      pillBar.style.setProperty('--island-ai-right', (hamburgerW + 4) + 'px');
+    }
     const rightAvail = navRect.right - urlRect.right - 20; // 12px gap + 8px right padding
     if (rightAvail > 0) {
       rightContainer.style.setProperty('--island-pills-right-max-w', Math.floor(rightAvail - rightBtnsW) + 'px');
@@ -1123,7 +1130,7 @@ export function _islandRender() {
     });
     // Find the left edge of the first visible right-side button
     let rightBoundary = navRect.right - 4;
-    ['pill-ai-unified', 'pill-browse-more'].forEach(function(bid) {
+    ['pill-ai-unified', 'pill-browse-more', 'pill-browse-hamburger'].forEach(function(bid) {
       const b = document.getElementById(bid);
       if (b && b.offsetWidth > 0) {
         const br = b.getBoundingClientRect();
