@@ -810,18 +810,13 @@ export function _panelBuildLinkContextMenu(popup, config) {
       addItem('Open Image in New Tab', () => { if (typeof browseNewTab === 'function') browseNewTab(imgUrl); });
       addItem('Copy Image Address', () => navigator.clipboard.writeText(imgUrl).then(() => { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(() => {}));
       addItem('Copy Image', () => {
-        // Route through our image proxy so it's always same-origin
-        const proxyUrl = imgUrl.startsWith('/api/') ? imgUrl : '/api/image-proxy?url=' + encodeURIComponent(imgUrl);
-        const img = new window.Image();
-        img.onload = () => {
-          const c = document.createElement('canvas');
-          c.width = img.naturalWidth; c.height = img.naturalHeight;
-          c.getContext('2d').drawImage(img, 0, 0);
-          c.toBlob(b => {
-            if (b) navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]).catch(() => {});
-          }, 'image/png');
-        };
-        img.src = proxyUrl;
+        // Use Electron's native clipboard to avoid user-gesture expiry
+        const targetUrl = imgUrl.startsWith('/api/') ? 'http://localhost:8000' + imgUrl : imgUrl;
+        if (window.electronAPI && electronAPI.copyImageToClipboard) {
+          electronAPI.copyImageToClipboard(targetUrl).then(r => {
+            if (r && r.ok && window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
+          }).catch(() => {});
+        }
       });
       addItem('Save Image As…', () => {
         const proxyUrl = imgUrl.startsWith('/api/') ? imgUrl : '/api/image-proxy?url=' + encodeURIComponent(imgUrl);

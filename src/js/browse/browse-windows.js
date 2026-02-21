@@ -342,6 +342,7 @@ export async function openLocalPdfDialog() {
 }
 
 // ── Action registry ──
+window.browseNewTab = browseNewTab;
 registerActions({
   browseCreateWindow: () => browseCreateWindow(),
   browseNewTab: () => browseNewTab(),

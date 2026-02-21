@@ -559,6 +559,7 @@ registerActions({
 });
 
 window.wmOpen = wmOpen;
+window.openResearch = openResearch;
 
 
 // ── Navigation history stack (survives Cmd+Shift+R via localStorage) ──

@@ -1837,4 +1837,5 @@ export function _browseBindFrame(tab) {
 registerActions({
   toggleBrowseDownloads: (e) => toggleBrowseDownloads(e),
 });
+window.toggleBrowseDownloads = toggleBrowseDownloads;
 

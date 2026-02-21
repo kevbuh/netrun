@@ -985,6 +985,20 @@ app.whenReady().then(() => {
     return image.toPNG().toString('base64');
   });
 
+  ipcMain.handle('copy-image-to-clipboard', async (_event, url) => {
+    try {
+      const { clipboard, nativeImage } = require('electron');
+      const { net } = require('electron');
+      const resp = await net.fetch(url, { bypassCustomProtocolHandlers: false });
+      if (!resp.ok) return { error: `HTTP ${resp.status}` };
+      const buf = Buffer.from(await resp.arrayBuffer());
+      const img = nativeImage.createFromBuffer(buf);
+      if (img.isEmpty()) return { error: 'Could not decode image' };
+      clipboard.writeImage(img);
+      return { ok: true };
+    } catch (e) { return { error: e.message || String(e) }; }
+  });
+
   ipcMain.handle('capture-webview', async (event, webContentsId) => {
     try {
       const { webContents } = require('electron');

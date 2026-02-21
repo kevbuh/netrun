@@ -158,4 +158,5 @@ export function renderSettingsView() {
 registerActions({
   openSettings: () => openSettings(),
 });
+window._setSettingsSection = _setSettingsSection;
 

@@ -84,6 +84,7 @@ export function initNetrunner() {
 }
 
 // ── Start game ──
+window.startNetrunner = startNetrunner;
 export function startNetrunner() {
   if (_nrRunning) return;
   _nrRunning = true;

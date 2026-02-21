@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Screen capture
   captureScreen: (rect) => ipcRenderer.invoke('capture-screen', rect),
   captureWebview: (webContentsId) => ipcRenderer.invoke('capture-webview', webContentsId),
+  copyImageToClipboard: (url) => ipcRenderer.invoke('copy-image-to-clipboard', url),
   // Agent browser automation
   agentExecJs: (wcId, code) => ipcRenderer.invoke('agent-exec-js', wcId, code),
   // Closed captions

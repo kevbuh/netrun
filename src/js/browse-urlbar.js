@@ -233,6 +233,7 @@ export const _URL_BAR_SECTIONS = [
 ];
 
 const _QUICK_OPEN_VIEWS = [
+  // ── Main views ──
   { key: 'feed',      label: 'Feed',      aliases: ['feed'],               icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>' },
   { key: 'chat',      label: 'Chat',      aliases: ['chat', 'ai'],         icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>' },
   { key: 'browse',    label: 'Browse',    aliases: ['browse', 'web'],      icon: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-linecap="round" stroke-linejoin="round"/>' },
@@ -241,8 +242,21 @@ const _QUICK_OPEN_VIEWS = [
   { key: 'dashboard', label: 'Dashboard', aliases: ['dashboard', 'home'],  icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>' },
   { key: 'inbox',     label: 'Inbox',     aliases: ['inbox', 'notifications', 'messages'], icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859M12 3v8.25m0 0l-3-3m3 3l3-3"/>' },
   { key: 'draw',      label: 'Draw',      aliases: ['draw', 'canvas', 'sketch'], icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.764m3.42 3.42a6.776 6.776 0 00-3.42-3.42"/>' },
+  { key: 'neuralook', label: 'Neuralook', aliases: ['neuralook', 'neural', 'ml', 'machine learning'], icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/>' },
   { key: 'dev',       label: 'Dev Stats',  aliases: ['dev', 'developer', 'stats'], icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/>' },
-  { key: 'history',   label: 'History',   aliases: ['history', 'recent'], action: 'history', icon: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/>' },
+  { key: 'history',   label: 'History',   aliases: ['history'], action: 'history', icon: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/>' },
+  // ── Features ──
+  { key: 'terminal',  label: 'Terminal',  aliases: ['terminal', 'console', 'shell'], action: 'terminal', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"/>' },
+  { key: 'research',  label: 'Research',  aliases: ['research', 'search'], action: 'research', icon: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/>' },
+  { key: 'downloads', label: 'Downloads', aliases: ['downloads'], action: 'downloads', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>' },
+  { key: 'newtab',    label: 'New Tab',   aliases: ['new tab', 'newtab', 'tab'], action: 'newtab', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>' },
+  // ── Settings sub-sections ──
+  { key: 'appearance', label: 'Appearance', aliases: ['appearance', 'theme', 'themes', 'colors'], action: 'settings:appearance', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z"/>' },
+  { key: 'ai-settings', label: 'AI Settings', aliases: ['ai settings', 'llm', 'models', 'providers'], action: 'settings:ai', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/>' },
+  { key: 'browser-settings', label: 'Browser Settings', aliases: ['browser settings', 'bookmarks', 'passwords'], action: 'settings:browser', icon: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-linecap="round" stroke-linejoin="round"/>' },
+  // ── Fun ──
+  { key: 'pixelpet',  label: 'Pixel Pet', aliases: ['pixel pet', 'pixelpet', 'pet'], action: 'pixelpet', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z"/>' },
+  { key: 'netrunner', label: 'Netrunner', aliases: ['netrunner', 'game', 'konami'], action: 'netrunner', icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 01-.657.643 48.39 48.39 0 01-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 01-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 00-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 01-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 00.657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 01-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 005.427-.63 48.05 48.05 0 00.582-4.717.532.532 0 00-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 00.658-.663 48.422 48.422 0 00-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 01-.61-.58v0z"/>' },
 ];
 
 export function _getUrlBarSections() {
@@ -776,6 +790,21 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
         let action;
         if (v.action === 'history') {
           action = `event.preventDefault(); var _i=_getOmniInput().input; if(_i){_i.value='/history';} _browseUrlShowHistory();`;
+        } else if (v.action === 'terminal') {
+          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof toggleBottomTerminal==='function') toggleBottomTerminal();`;
+        } else if (v.action === 'research') {
+          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof openResearch==='function') openResearch();`;
+        } else if (v.action === 'downloads') {
+          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof toggleBrowseDownloads==='function') toggleBrowseDownloads();`;
+        } else if (v.action === 'newtab') {
+          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof browseNewTab==='function') browseNewTab();`;
+        } else if (v.action === 'pixelpet') {
+          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof togglePixelPet==='function') togglePixelPet(true);`;
+        } else if (v.action === 'netrunner') {
+          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof startNetrunner==='function') startNetrunner();`;
+        } else if (v.action && v.action.startsWith('settings:')) {
+          const section = v.action.split(':')[1];
+          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof wmOpen==='function') wmOpen('settings'); if(typeof _setSettingsSection==='function') setTimeout(function(){_setSettingsSection('${section}');},50);`;
         } else if (v.key === 'draw') {
           action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof openDrawPage==='function') openDrawPage();`;
         } else {

@@ -1069,4 +1069,5 @@ registerActions({
   clearBottomTerminal: () => clearBottomTerminal(),
   toggleBottomTerminal: () => toggleBottomTerminal(),
 });
+window.toggleBottomTerminal = toggleBottomTerminal;
 

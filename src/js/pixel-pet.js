@@ -1040,4 +1040,6 @@ export function _renderPetThumb(type, size) {
   return canvas;
 }
 
+window.togglePixelPet = togglePixelPet;
+
 export const _PET_TYPE_KEYS = Object.keys(PET_TYPES);
