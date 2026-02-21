@@ -1966,6 +1966,14 @@ export function _showPanel(config) {
     // Don't stop propagation — let clicks dismiss the panel
   });
 
+  // Prevent wheel events from leaking to the webview underneath
+  popup.addEventListener('wheel', (ev) => {
+    const msgs = popup.querySelector('.doc-popup-chat-messages');
+    if (msgs && msgs.scrollHeight > msgs.clientHeight) {
+      ev.stopPropagation();
+    }
+  });
+
   document.body.appendChild(popup);
 
   // Hide cursor while panel is open

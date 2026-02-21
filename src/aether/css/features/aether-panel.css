@@ -1008,6 +1008,7 @@
       flex-direction: column;
       max-height: 200px;
       overflow-y: auto;
+      overscroll-behavior: contain;
       padding: 4px 8px;
       gap: 4px;
       scrollbar-width: thin;
