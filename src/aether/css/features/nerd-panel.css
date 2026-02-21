@@ -62,9 +62,8 @@
 }
 
 /* ── Section cards (Abstract, Cite) ── */
-/* Panel bg is --nr-bg-surface, so cards use --nr-bg-raised for contrast */
 .nerd-section {
-  background: var(--nr-bg-raised);
+  background: transparent;
   border: 1px solid var(--nr-border-subtle);
   border-radius: var(--nr-radius-lg);
   padding: var(--nr-space-3) var(--nr-space-4);
@@ -107,7 +106,7 @@
 .nerd-cite-box {
   font-size: 0.72rem;
   color: var(--nr-text-secondary);
-  background: var(--nr-bg-sunken);
+  background: transparent;
   border: 1px solid var(--nr-border-subtle);
   border-radius: var(--nr-radius-sm);
   padding: var(--nr-space-2) var(--nr-space-3);
@@ -118,22 +117,23 @@
 }
 
 .nerd-cite-box:hover {
-  background: var(--nr-bg-body);
+  background: var(--nr-bg-raised);
   border-color: var(--nr-border-default);
 }
 
 /* ── Paper items (References, Related, Search results) ── */
 .nerd-paper-item {
-  background: var(--nr-bg-raised);
+  background: transparent;
   border: 1px solid var(--nr-border-subtle);
   border-radius: var(--nr-radius-md);
   padding: 10px var(--nr-space-3);
   margin-bottom: 6px;
   cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .nerd-paper-item:hover {
+  background: var(--nr-bg-raised);
   border-color: var(--nr-border-strong);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px var(--nr-shadow-card);
@@ -159,7 +159,7 @@
 
 /* ── Author cards ── */
 .nerd-author-card {
-  background: var(--nr-bg-raised);
+  background: transparent;
   border: 1px solid var(--nr-border-subtle);
   border-radius: var(--nr-radius-lg);
   padding: var(--nr-space-3);
@@ -168,10 +168,11 @@
   display: flex;
   align-items: flex-start;
   gap: var(--nr-space-3);
-  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .nerd-author-card:hover {
+  background: var(--nr-bg-raised);
   border-color: var(--nr-border-strong);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px var(--nr-shadow-card);
@@ -196,16 +197,17 @@
 
 /* ── Code tab repo cards ── */
 .nerd-repo-card {
-  background: var(--nr-bg-raised);
+  background: transparent;
   border: 1px solid var(--nr-border-subtle);
   border-radius: var(--nr-radius-md);
   padding: 10px var(--nr-space-3);
   margin-bottom: 6px;
   cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .nerd-repo-card:hover {
+  background: var(--nr-bg-raised);
   border-color: var(--nr-border-strong);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px var(--nr-shadow-card);
@@ -243,7 +245,7 @@
 
 .nerd-search-input {
   width: 100%;
-  background: var(--nr-bg-raised);
+  background: transparent;
   border: 1px solid var(--nr-border-default);
   border-radius: var(--nr-radius-md);
   padding: 8px 12px;

@@ -5,19 +5,11 @@
       align-items: center;
       gap: 8px;
       padding: 6px 12px;
-      background: rgba(21, 21, 21, 0.82);
-      backdrop-filter: blur(var(--nr-material-blur-regular)) saturate(140%);
-      -webkit-backdrop-filter: blur(var(--nr-material-blur-regular)) saturate(140%);
+      background: transparent;
       border-bottom: 1px solid var(--nr-border-dim);
       flex-shrink: 0;
       position: relative;
       z-index: 3;
-    }
-    [data-theme="light"] .pdf-toolbar {
-      background: rgba(250, 250, 250, 0.82);
-    }
-    [data-theme="daylight"] .pdf-toolbar {
-      background: rgba(253, 250, 245, 0.82);
     }
     .pdf-tb-btn {
       width: 28px;
@@ -44,15 +36,7 @@
       align-items: center;
       gap: 12px;
       padding: 16px 0;
-      background: rgba(13, 13, 13, 0.75);
-      backdrop-filter: blur(var(--nr-material-blur-thin)) saturate(120%);
-      -webkit-backdrop-filter: blur(var(--nr-material-blur-thin)) saturate(120%);
-    }
-    [data-theme="light"] .pdf-pages-container {
-      background: rgba(240, 240, 240, 0.75);
-    }
-    [data-theme="daylight"] .pdf-pages-container {
-      background: rgba(245, 240, 230, 0.75);
+      background: transparent;
     }
 
     .pdf-page-wrapper {
@@ -622,20 +606,12 @@
     .pdf-left-panel {
       width: 160px;
       flex-shrink: 0;
-      background: rgba(21, 21, 21, 0.82);
-      backdrop-filter: blur(var(--nr-material-blur-regular)) saturate(140%);
-      -webkit-backdrop-filter: blur(var(--nr-material-blur-regular)) saturate(140%);
+      background: transparent;
       border-right: 1px solid var(--nr-border-dim);
       position: relative;
       z-index: 3;
       display: flex;
       flex-direction: column;
-    }
-    [data-theme="light"] .pdf-left-panel {
-      background: rgba(250, 250, 250, 0.82);
-    }
-    [data-theme="daylight"] .pdf-left-panel {
-      background: rgba(253, 250, 245, 0.82);
     }
     .pdf-left-panel-tabs {
       display: flex;
