@@ -3,7 +3,10 @@
 import Settings from '/js/core/core-settings.js';
 import { islandRemove } from '/js/core/core-ui.js';
 import { _clearAudioUnified, _renderAudioPill, _updateAudioUnified } from '/js/core/core-audio.js';
-import { _annotationsEnabled, _updateAnnotateButtonState } from '/js/browse/browse-annotations.js';
+import { _annotationsEnabled, _updateAnnotateButtonState, toggleAnnotations, _readPageAloud } from '/js/browse/browse-annotations.js';
+import { icon } from '/js/core/icons.js';
+import { browseShowAIView } from '/js/browse/browse-menu.js';
+import { startRain } from '/js/core/core-sounds.js';
 import { _browseApplyAdaptiveColor, _browseSetUrlDisplay, _browseUpdateAdBlockBadge, _browseUpdateAdBlockBtn, _browseUrlHideHistory, _browseUrlKeydown, _saveBrowseVisit, _saveWebSearch, openHelpPage, openSearchHistoryPage } from '/js/browse-urlbar.js';
 import { openNetrunPage } from '/js/netrun-page.js';
 import { openDocs } from '/js/docs.js';
@@ -74,7 +77,7 @@ export function _applyBrowseTabLayout() {
   _browseRenderTabs();
 }
 
-/* Move back/reload/fwd into capsule nav-row, AI pill into right-col */
+/* Move back/reload/fwd into capsule nav-row, hide AI pill */
 function _moveElementsIntoIsland() {
   const navRow = document.getElementById('pill-island-nav-row');
   const rightCol = document.getElementById('pill-island-right-col');
@@ -86,10 +89,9 @@ function _moveElementsIntoIsland() {
     if (reload && reload.parentElement !== navRow) navRow.appendChild(reload);
     if (fwd && fwd.parentElement !== navRow) navRow.appendChild(fwd);
   }
-  if (rightCol) {
-    const aiPill = document.getElementById('pill-ai-unified');
-    if (aiPill && aiPill.parentElement !== rightCol) rightCol.appendChild(aiPill);
-  }
+  // Hide AI pill when expanded — we render individual action icons instead
+  const aiPill = document.getElementById('pill-ai-unified');
+  if (aiPill) aiPill.style.display = 'none';
 }
 
 /* Restore back/reload/fwd and AI pill to their original positions in the pill bar */
@@ -118,13 +120,98 @@ function _restoreElementsFromIsland() {
     if (closeBtn) urlWrap.insertBefore(reload, closeBtn);
     else urlWrap.appendChild(reload);
   }
-  // Move AI pill back to pill bar (after pill-island-right)
+  // Show AI pill again
   const aiPill = document.getElementById('pill-ai-unified');
-  const islandRight = document.getElementById('pill-island-right');
-  if (aiPill && rightCol && rightCol.contains(aiPill)) {
-    if (islandRight && islandRight.nextSibling) pillBar.insertBefore(aiPill, islandRight.nextSibling);
-    else pillBar.appendChild(aiPill);
-  }
+  if (aiPill) aiPill.style.display = '';
+  // Clear rendered island content
+  const leftCol = document.getElementById('pill-island-left');
+  if (leftCol) { leftCol.querySelectorAll('.island-expanded-tab').forEach(function(el) { el.remove(); }); }
+  if (rightCol) { rightCol.innerHTML = ''; }
+}
+
+/* ── Render vertical tab list in expanded left column ── */
+function _renderIslandTabs() {
+  const leftCol = document.getElementById('pill-island-left');
+  if (!leftCol) return;
+  // Remove old rendered tabs
+  leftCol.querySelectorAll('.island-expanded-tab').forEach(function(el) { el.remove(); });
+  // Hide the collapsed-mode tabs anchor
+  const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
+  if (tabsAnchor) tabsAnchor.style.display = 'none';
+
+  const win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
+  if (!win || !win.tabs || !win.tabs.length) return;
+  const activeTabId = win.activeTab;
+
+  win.tabs.forEach(function(t) {
+    const row = document.createElement('div');
+    row.className = 'island-expanded-tab' + (t.id === activeTabId ? ' active' : '');
+    // Favicon
+    if (t.favicon) {
+      const img = document.createElement('img');
+      img.src = t.favicon;
+      img.onerror = function() { img.style.display = 'none'; };
+      row.appendChild(img);
+    } else {
+      const globe = document.createElement('span');
+      globe.innerHTML = '<svg style="width:14px;height:14px;opacity:0.4;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+      row.appendChild(globe);
+    }
+    // Site name
+    const name = document.createElement('span');
+    const title = (t.title || 'New Tab');
+    name.textContent = title.length > 24 ? title.slice(0, 22) + '\u2026' : title;
+    name.style.cssText = 'overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0';
+    row.appendChild(name);
+    // Click to switch tab
+    row.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (typeof browseSelectTab === 'function') browseSelectTab(t.id);
+      // Re-render tabs after switch
+      setTimeout(_renderIslandTabs, 50);
+    });
+    leftCol.appendChild(row);
+  });
+}
+
+/* ── Render AI action icons in expanded right column ── */
+function _renderIslandActions() {
+  const rightCol = document.getElementById('pill-island-right-col');
+  if (!rightCol) return;
+  rightCol.innerHTML = '';
+
+  const actions = [
+    { iconName: 'chatBubble', title: 'Ask AI', handler: function() { _collapseIsland(); _showPanel({ anchor: _islandActionAnchor(), trackCursor: false }); } },
+    { iconName: 'annotate', title: 'Annotate', handler: function() { toggleAnnotations(); } },
+    { iconName: 'speaker', title: 'Read Aloud', handler: function() { _collapseIsland(); _readPageAloud(); } },
+    { iconName: 'eye', title: 'AI View', handler: function() { _collapseIsland(); browseShowAIView(); } },
+    { iconName: 'microphone', title: 'Voice', handler: function() { _collapseIsland(); _pillMicClick(); } },
+    { iconName: 'rain', title: 'White Noise', handler: function() { startRain(); } },
+  ];
+
+  actions.forEach(function(a) {
+    var btn = document.createElement('button');
+    btn.className = 'island-expanded-action';
+    btn.title = a.title;
+    btn.innerHTML = icon(a.iconName, { size: 16 });
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      a.handler();
+    });
+    // Check if annotate is active
+    if (a.iconName === 'annotate') {
+      var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+      if (tab && _annotationsEnabled.get(tab.id)) btn.classList.add('active');
+    }
+    rightCol.appendChild(btn);
+  });
+}
+
+function _islandActionAnchor() {
+  var wrap = document.getElementById('pill-url-wrap');
+  if (!wrap) return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  var rect = wrap.getBoundingClientRect();
+  return { x: rect.x + rect.width / 2, y: rect.bottom + 4 };
 }
 
 /* ── Island expand/collapse on click ── */
@@ -135,6 +222,8 @@ export function _expandIsland() {
   if (!wrap || wrap.classList.contains('island-expanded')) return;
   wrap.classList.add('island-expanded');
   _moveElementsIntoIsland();
+  _renderIslandTabs();
+  _renderIslandActions();
   _pillSyncUrl();
   // Close on outside click
   _collapseIslandCleanup();
@@ -153,6 +242,9 @@ export function _collapseIsland() {
   wrap.classList.remove('island-expanded');
   _collapseIslandCleanup();
   _restoreElementsFromIsland();
+  // Restore collapsed-mode tabs anchor
+  const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
+  if (tabsAnchor) tabsAnchor.style.display = '';
 }
 
 function _collapseIslandCleanup() {

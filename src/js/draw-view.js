@@ -96,11 +96,13 @@ export function openDrawPage(drawingId) {
   // Morph the NTP
   _morphNTP(ntp, id);
 
-  // Update URL bar and tabs
+  // Update URL bar and tabs (must re-force NTP visible after setting tab.blank=false,
+  // since _browseRenderTabs may trigger _browseUpdateNewTabPage which hides non-blank NTPs)
   const urlInput = document.getElementById('browse-url-input');
   if (urlInput) _browseSetUrlDisplay(urlInput, tab.url);
   _browseRenderTabs();
   _updateIslandNavButtons();
+  ntp.style.display = '';
 }
 
 export function drawViewCleanupMorph() {
@@ -145,6 +147,9 @@ async function _morphNTP(ntp, drawingId) {
 
   // Wait a frame so the container has layout dimensions before fabric init
   await new Promise(r => requestAnimationFrame(r));
+
+  // Force NTP visible — it may have been hidden by _browseUpdateNewTabPage during the yield
+  ntp.style.display = '';
 
   // Init fabric canvas
   _drawCanvas = new fabric.Canvas(canvasEl, {
