@@ -897,7 +897,7 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
       h += projects.map(exp => {
         const safeId = escapeHtml(exp.id);
         const updated = exp.lastUpdated ? _relativeTime(exp.lastUpdated) : '';
-        return `<div data-histq="project:${safeId}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); openExperimentDetail('${safeId}');">
+        return `<div data-histq="project:${safeId}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof openExperimentDetail==='function') openExperimentDetail('${safeId}');">
           <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(exp.title)}</span>
           ${updated ? `<span style="font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;">${escapeHtml(updated)}</span>` : ''}
@@ -1458,6 +1458,9 @@ export function _browseUrlHideHistory() {
   _browseUrlHistIdx = -1;
 }
 window._browseUrlHideHistory = _browseUrlHideHistory;
+window._browseUrlShowHistory = _browseUrlShowHistory;
+window.submitSearch = submitSearch;
+window.openUserProfile = openUserProfile;
 
 document.addEventListener('mousedown', (e) => {
   const { input, dd, island } = _getOmniInput();
@@ -1859,6 +1862,7 @@ export function toggleAdBlock() {
     window.electronAPI.adblockSetEnabled(newState);
   }
   _browseUpdateAdBlockBtn();
+  if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('var(--nr-text-secondary)');
   // Reload current tab to apply/remove blocking
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (tab && tab.url && !tab.blank && tab.el) {
@@ -1890,6 +1894,7 @@ export function toggleDoH() {
     window.electronAPI.dohSetConfig(newState, Settings.get('dohProvider') || 'cloudflare');
   }
   _browseUpdateDohBtn();
+  if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('var(--nr-text-secondary)');
 }
 
 export function _browseUpdateDohBtn() {
@@ -2241,6 +2246,7 @@ export function toggleTrackingStrip() {
   if (window.electronAPI && window.electronAPI.trackingStripSetEnabled) {
     window.electronAPI.trackingStripSetEnabled(newState);
   }
+  if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('var(--nr-text-secondary)');
 }
 
 export function toggleHttpsOnly() {
@@ -2250,6 +2256,7 @@ export function toggleHttpsOnly() {
   if (window.electronAPI && window.electronAPI.httpsOnlySetEnabled) {
     window.electronAPI.httpsOnlySetEnabled(newState);
   }
+  if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('var(--nr-text-secondary)');
 }
 
 export function toggleCookieBlock() {
@@ -2259,6 +2266,7 @@ export function toggleCookieBlock() {
   if (window.electronAPI && window.electronAPI.cookieBlockSetEnabled) {
     window.electronAPI.cookieBlockSetEnabled(newState);
   }
+  if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('var(--nr-text-secondary)');
 }
 
 // ── Action registry ──

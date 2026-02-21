@@ -21,8 +21,6 @@ import { browseCloseWindow, browseNewPaperTab, browseNewTab } from '/js/browse/b
 import { chatViewCleanupMorph, chatViewNewThread, openChatPage } from '/js/chat-view.js';
 import { drawViewCleanupMorph } from '/js/draw-view.js';
 import { isPostSaved } from '/js/feed.js';
-import { _showPanel } from '/js/panel.js';
-import { _addScreenshotToPanel, _handleImagePaste } from '/js/panel-chat.js';
 import { _saveTabPanelState, _restoreTabPanelState } from '/js/panel-state.js';
 import { onSearchInput, submitSearch } from '/js/search.js';
 import { stopCaptions } from '/js/browse/browse-captions.js';
@@ -195,9 +193,9 @@ export function _showBrowseContextMenu(x, y, data) {
     items.push({ label: 'Open Link Here', handler: function() { browseNavigate(linkUrl); } });
     items.push({ divider: true });
     items.push({ label: 'Save Link As...', handler: function() { _browseSaveLink(linkUrl); } });
-    items.push({ label: 'Copy Link Address', handler: function() { navigator.clipboard.writeText(linkUrl).catch(function() {}); } });
+    items.push({ label: 'Copy Link Address', handler: function() { navigator.clipboard.writeText(linkUrl).then(function() { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(function() {}); } });
     if (linkText) {
-      items.push({ label: 'Copy Link Text', handler: function() { navigator.clipboard.writeText(linkText).catch(function() {}); } });
+      items.push({ label: 'Copy Link Text', handler: function() { navigator.clipboard.writeText(linkText).then(function() { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(function() {}); } });
     }
   }
 
@@ -206,7 +204,7 @@ export function _showBrowseContextMenu(x, y, data) {
     if (linkUrl) items.push({ divider: true });
     items.push({ label: 'Open Image in New Tab', handler: function() { browseNewTab(imgUrl); } });
     items.push({ label: 'Save Image As...', handler: function() { _browseSaveImage(imgUrl); } });
-    items.push({ label: 'Copy Image Address', handler: function() { navigator.clipboard.writeText(imgUrl).catch(function() {}); } });
+    items.push({ label: 'Copy Image Address', handler: function() { navigator.clipboard.writeText(imgUrl).then(function() { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(function() {}); } });
   }
 
   // Search option
@@ -570,26 +568,53 @@ export function _browseUpdateNewTabPage(tab) {
       searchInput.onblur = function() { _browseUrlScheduleHide(); };
       searchInput.onkeydown = function(ev) { _browseUrlKeydown(ev); };
       searchInput.addEventListener('paste', function(ev) {
-        if (!ev.clipboardData || !ev.clipboardData.items) return;
-        for (const item of ev.clipboardData.items) {
-          if (item.type.startsWith('image/')) {
-            ev.preventDefault();
-            const blob = item.getAsFile();
-            if (!blob) return;
-            const reader = new FileReader();
-            reader.onload = function() {
-              const base64 = reader.result.split(',')[1];
-              if (!base64) return;
-              _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 } });
-              requestAnimationFrame(function() {
-                const popup = document.getElementById('doc-chat-ask-float');
-                if (popup) _addScreenshotToPanel(popup, base64);
-              });
-            };
-            reader.readAsDataURL(blob);
-            return;
+        if (!ev.clipboardData) return;
+        var imageFile = null;
+        // Check clipboardData.items for image types
+        var items = ev.clipboardData.items;
+        if (items) {
+          for (var i = 0; i < items.length; i++) {
+            if (items[i].kind === 'file' && items[i].type.startsWith('image/')) {
+              imageFile = items[i].getAsFile();
+              break;
+            }
           }
         }
+        // Fallback: check clipboardData.files
+        if (!imageFile && ev.clipboardData.files) {
+          for (var j = 0; j < ev.clipboardData.files.length; j++) {
+            if (ev.clipboardData.files[j].type.startsWith('image/')) {
+              imageFile = ev.clipboardData.files[j];
+              break;
+            }
+          }
+        }
+        if (!imageFile) return;
+        ev.preventDefault();
+        // Read image as base64, then add to chat
+        var reader = new FileReader();
+        reader.onload = function() {
+          var base64 = reader.result.split(',')[1];
+          if (!base64) return;
+          var ntpEl = document.getElementById('browse-content')?.querySelector('.browse-ntp');
+          if (!ntpEl) return;
+          var addImage = function() {
+            import('/js/panel-chat.js').then(function(mod) {
+              mod._addScreenshotToPanel(ntpEl, base64);
+            });
+          };
+          if (ntpEl.classList.contains('chat-mode')) {
+            // Already in chat mode — add image directly
+            addImage();
+          } else {
+            // Morph NTP into chat mode, then add image
+            chatViewNewThread().then(function() {
+              // Morph is complete, add the image
+              addImage();
+            });
+          }
+        };
+        reader.readAsDataURL(imageFile);
       });
 
       // + button (dropdown menu)
@@ -732,6 +757,7 @@ export function browseCloseTab(id) {
   _nerdModeOnTabClose(id);
   if (tab._nerdViewerEl) { tab._nerdViewerEl.remove(); tab._nerdViewerEl = null; }
   if (tab.el) tab.el.remove();
+  if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('var(--nr-text-tertiary)');
   // Clean up audio tracking
   window._browseAudioTabs.delete(id);
   _updateAudioIndicator();

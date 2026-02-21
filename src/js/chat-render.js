@@ -329,6 +329,7 @@ function attachMessageHandlers(container, opts) {
       navigator.clipboard.writeText(text).then(() => {
         btn.innerHTML = typeof icon === 'function' ? icon('check', { size: 12 }) : '\u2713';
         setTimeout(() => { btn.innerHTML = typeof icon === 'function' ? icon('copy', { size: 12 }) : '\u{1F4CB}'; }, 1000);
+        if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
       }).catch(() => {});
     });
   });

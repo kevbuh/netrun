@@ -193,7 +193,7 @@ function _renderInfoTab(container) {
     citeBox.textContent = citeFormats[fmt];
     citeBox.title = 'Click to copy';
     citeBox.addEventListener('click', function() {
-      navigator.clipboard.writeText(citeFormats[fmt]);
+      navigator.clipboard.writeText(citeFormats[fmt]).then(function() { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(function() {});
       if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Copied ' + fmt);
     });
     row.appendChild(citeBox);

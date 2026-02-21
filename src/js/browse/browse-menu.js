@@ -184,7 +184,7 @@ export function toggleBrowseMoreMenu() {
   items.push(_mBtn(icon('print', {size: 16, strokeWidth: '1.5'}), 'Print page', function() { browsePrintPage(); _closeMenu(); }, { disabled: !hasTab }));
 
   // Convert submenu (PDF only)
-  var isPdf = hasTab && (tab.pdfUrl || tab.localPath || (tab.url && tab.url.toLowerCase().endsWith('.pdf')));
+  var isPdf = hasTab && (tab.pdfUrl || tab.localPath || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
   if (isPdf) {
     var convertBtn = _mBtn(icon('convert', {size: 16, strokeWidth: '1.5'}), 'Convert', function(e) { _toggleConvertInMenu(e || window.event); });
     var convertArrow = document.createElement('span');
@@ -328,7 +328,7 @@ function _renderConvertPanel(panel) {
 
 // ── PDF conversion action handlers ──
 
-function _getPdfPath(tab) {
+export function _getPdfPath(tab) {
   // Get a local file path for the PDF
   if (tab.localPath) return tab.localPath;
   // For pdfUrl like /api/local-file?path=..., extract the path
@@ -345,7 +345,7 @@ function _toast(msg) {
   if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast(msg);
 }
 
-function _pdfParseAction(tab) {
+export function _pdfParseAction(tab) {
   var pdfPath = _getPdfPath(tab);
   if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
   electronAPI.pdfParse(pdfPath).then(function(result) {
@@ -354,7 +354,7 @@ function _pdfParseAction(tab) {
   }).catch(function(e) { _toast('Parse failed: ' + e.message); });
 }
 
-function _pdfExtractAction(tab) {
+export function _pdfExtractAction(tab) {
   var pdfPath = _getPdfPath(tab);
   if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
   electronAPI.pdfExtract(pdfPath).then(function(result) {
@@ -575,6 +575,7 @@ function _showTextOverlay(title, text, subtitle, tab) {
     navigator.clipboard.writeText(text).then(function() {
       copyBtn.el.textContent = 'Copied!';
       setTimeout(function() { copyBtn.el.textContent = 'Copy'; }, 1500);
+      if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
     });
   });
 

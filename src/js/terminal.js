@@ -704,7 +704,9 @@ export function copyTerminal() {
   if (t && t.term) {
     const sel = t.term.getSelection();
     if (sel) {
-      navigator.clipboard.writeText(sel);
+      navigator.clipboard.writeText(sel).then(() => {
+        if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
+      }).catch(() => {});
     }
   }
 }

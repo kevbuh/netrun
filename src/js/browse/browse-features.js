@@ -601,9 +601,12 @@ export function browseShare() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || tab.blank || !tab.url) return;
   if (navigator.share) {
-    navigator.share({ title: tab.title, url: tab.url }).catch(() => {});
+    navigator.share({ title: tab.title, url: tab.url }).then(() => {
+      if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('var(--nr-accent)');
+    }).catch(() => {});
   } else {
     navigator.clipboard.writeText(tab.url).then(() => {
+      if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
       const btn = document.querySelector('#browse-bar button[onclick="browseShare()"]');
       if (btn) {
         const origNodes = Array.from(btn.childNodes).map(function(n) { return n.cloneNode(true); });

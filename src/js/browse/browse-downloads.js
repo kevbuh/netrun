@@ -412,6 +412,7 @@ export function _initBrowseDownloads() {
       _browseUpdateDownloadBadge();
       _browseRenderDownloads();
       _saveBrowseDownloads();
+      if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#22c55e');
     });
   }
 
@@ -542,8 +543,7 @@ export function _browseHandleNavigation(tab, frame) {
           action: function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); islandRemove('pdf-detect'); }
         });
       }
-      // Auto-enable Nerd Mode for PDF URLs
-      setTimeout(function() { if (typeof window.toggleNerdMode === 'function' && (typeof window._isNerdMode !== 'function' || !window._isNerdMode(tab.id))) window.toggleNerdMode(tab); }, 300);
+      // Show PDF detected pill (user can tap to enable Nerd Mode)
     } else {
       islandRemove('pdf-detect');
     }
@@ -922,6 +922,7 @@ export function toggleAutoRemoveCSS() {
   const on = Settings.get('autoRemoveCSS') === 'true';
   const newState = !on;
   Settings.set('autoRemoveCSS', newState ? 'true' : 'false');
+  if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('var(--nr-text-secondary)');
   // Apply/remove on current tab
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (tab && tab.el && !tab.blank) {

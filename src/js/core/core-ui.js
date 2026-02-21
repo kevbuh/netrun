@@ -185,6 +185,7 @@ export function showAchievement(name, description) {
     cssClass: 'nr-glow',
     action: function() { islandRemove('achievement'); }
   });
+  if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#d4a017');
 }
 
 // ── Unified Audio Pill ──

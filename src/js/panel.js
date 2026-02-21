@@ -792,17 +792,17 @@ export function _panelBuildLinkContextMenu(popup, config) {
       addItem('Open Link in New Tab', () => { if (typeof browseNewTab === 'function') browseNewTab(linkUrl); });
       addItem('Open Link Here', () => { if (typeof browseNavigate === 'function') browseNavigate(linkUrl); });
       addSep();
-      addItem('Copy Link Address', () => navigator.clipboard.writeText(linkUrl).catch(() => {}));
+      addItem('Copy Link Address', () => navigator.clipboard.writeText(linkUrl).then(() => { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(() => {}));
       if (linkUrl.startsWith('mailto:')) {
         const email = linkUrl.replace('mailto:', '').split('?')[0];
-        addItem('Copy Email Address', () => navigator.clipboard.writeText(email).catch(() => {}));
+        addItem('Copy Email Address', () => navigator.clipboard.writeText(email).then(() => { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(() => {}));
       }
-      if (linkText) addItem('Copy Link Text', () => navigator.clipboard.writeText(linkText).catch(() => {}));
+      if (linkText) addItem('Copy Link Text', () => navigator.clipboard.writeText(linkText).then(() => { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(() => {}));
     }
     if (imgUrl) {
       if (linkUrl) addSep();
       addItem('Open Image in New Tab', () => { if (typeof browseNewTab === 'function') browseNewTab(imgUrl); });
-      addItem('Copy Image Address', () => navigator.clipboard.writeText(imgUrl).catch(() => {}));
+      addItem('Copy Image Address', () => navigator.clipboard.writeText(imgUrl).then(() => { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(() => {}));
       addItem('Copy Image', () => {
         // Route through our image proxy so it's always same-origin
         const proxyUrl = imgUrl.startsWith('/api/') ? imgUrl : '/api/image-proxy?url=' + encodeURIComponent(imgUrl);
@@ -888,7 +888,7 @@ export function _panelBuildEditableActions(popup, config, capturedText, hasConte
     };
     if (capturedText) {
       addEditItem('Cut', () => {
-        navigator.clipboard.writeText(capturedText).catch(() => {});
+        navigator.clipboard.writeText(capturedText).then(() => { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(() => {});
         _focusCrossFrame(editableTarget);
         if (editableTarget.isContentEditable) {
           (editableTarget.ownerDocument || document).execCommand('delete');
@@ -902,7 +902,7 @@ export function _panelBuildEditableActions(popup, config, capturedText, hasConte
         }
       });
       addEditItem('Copy', () => {
-        navigator.clipboard.writeText(capturedText).catch(() => {});
+        navigator.clipboard.writeText(capturedText).then(() => { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(() => {});
       });
     }
     addEditItem('Paste', () => {
@@ -1015,6 +1015,7 @@ export function _panelBuildSelectionUI(popup, config) {
     navigator.clipboard.writeText(capturedText).then(() => {
       copyBtn.innerHTML = icon('check', { size: 14 });
       setTimeout(() => { if (copyBtn.isConnected) copyBtn.innerHTML = icon('copy', { size: 14 }); }, 1200);
+      if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
     }).catch(() => {});
   });
   btnRow.appendChild(copyBtn);
@@ -1276,6 +1277,7 @@ export function _panelBuildTopBar(popup) {
     navigator.clipboard.writeText(lastAi).then(() => {
       copyChatBtn.textContent = 'Copied';
       setTimeout(() => { if (copyChatBtn.isConnected) copyChatBtn.textContent = 'Copy'; }, 1200);
+      if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
     }).catch(() => {});
   });
   topBar.appendChild(copyChatBtn);
@@ -1748,7 +1750,7 @@ export function _panelBuildCopyKeyHandler(popup) {
     const text = popup._capturedText;
     if (text) {
       e.preventDefault();
-      navigator.clipboard.writeText(text).catch(() => {});
+      navigator.clipboard.writeText(text).then(() => { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(() => {});
     }
     _flashCopyBtn(popup);
   }

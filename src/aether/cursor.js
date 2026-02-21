@@ -204,11 +204,23 @@ function _initCursor() {
     }
   }
 
+  function onMouseDown() {
+    dot.classList.add('is-pressing');
+    ring.classList.add('is-pressing');
+  }
+
+  function onMouseUp() {
+    dot.classList.remove('is-pressing');
+    ring.classList.remove('is-pressing');
+  }
+
   document.addEventListener('mousemove', onMouseMove, { passive: true });
   document.addEventListener('mouseenter', onMouseEnter);
   document.addEventListener('mouseleave', onMouseLeave);
   document.addEventListener('mouseover', onMouseOver, { passive: true });
   document.addEventListener('mouseout', onMouseOut, { passive: true });
+  document.addEventListener('mousedown', onMouseDown, { passive: true });
+  document.addEventListener('mouseup', onMouseUp, { passive: true });
 
   requestAnimationFrame(tick);
 
