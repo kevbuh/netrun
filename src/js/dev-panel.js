@@ -209,7 +209,7 @@ function _devStatCard(value, label, color) {
 
 function _devStatGrid() {
   const items = Array.prototype.slice.call(arguments);
-  return Grid.apply(null, items)
+  return Grid(items)
     .styles({ gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: '12px', marginTop: '8px' });
 }
 
@@ -973,7 +973,7 @@ export async function _devRunFunctionRegistry() {
       detailsHtml += `<div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px"><div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">Most Called Functions</div>${topFuncs.map(([name, info], i) => `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:0.65rem"><span><span style="color:var(--nr-accent);font-weight:600">#${i + 1}</span><code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px;margin-left:8px">${escapeHtml(name)}()</code></span><span style="color:var(--nr-text-quaternary)">${info.callCount} calls</span></div>`).join('')}</div>`;
     }
     if (detailsHtml) parts.push(window.RawHTML(detailsHtml));
-    AetherUI.mount(VStack.apply(null, parts), results);
+    AetherUI.mount(VStack(parts), results);
   } catch (e) {
     status.textContent = 'Error: ' + e.message;
     status.style.color = 'var(--nr-text-error, #ef4444)';
@@ -1029,7 +1029,7 @@ export async function _devRunFeedValidator() {
     } else {
       feedValidatorParts.push(window.RawHTML(`<div style="padding:24px;text-align:center;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px"><div style="width:48px;height:48px;margin:0 auto 12px;border-radius:50%;background:#34d399;display:flex;align-items:center;justify-content:center">${icon('check', {size: 24, stroke: 'white', strokeWidth: '3'})}</div><div style="color:var(--nr-text-primary);font-size:0.85rem;font-weight:600">All ${data.jsCatalogSize} feed entries are in sync!</div><div style="color:var(--nr-text-quaternary);font-size:0.7rem;margin-top:4px">JS and Python catalogs match perfectly.</div></div>`));
     }
-    AetherUI.mount(VStack.apply(null, feedValidatorParts), results);
+    AetherUI.mount(VStack(feedValidatorParts), results);
   } catch (e) {
     status.textContent = 'Error: ' + e.message;
     status.style.color = 'var(--nr-text-error, #ef4444)';
@@ -1158,7 +1158,7 @@ export async function _devRunLoadOrderAnalysis() {
       loadOrderHtml += `<details style="margin-bottom:12px"><summary style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;cursor:pointer;color:var(--nr-text-primary);font-size:0.7rem;font-weight:600">Circular Dependencies (${data.cycles.length})</summary><div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px"><div style="color:var(--nr-text-quaternary);font-size:0.65rem">${data.cycles.slice(0, 10).map(cycle => `<div style="margin-bottom:4px">${cycle.join(' \u2192 ')}</div>`).join('')}${data.cycles.length > 10 ? `<div style="margin-top:8px">...and ${data.cycles.length - 10} more</div>` : ''}</div></div></details>`;
     }
     loadOrderParts.push(window.RawHTML(loadOrderHtml));
-    AetherUI.mount(VStack.apply(null, loadOrderParts), results);
+    AetherUI.mount(VStack(loadOrderParts), results);
   } catch (e) {
     status.textContent = 'Error: ' + e.message;
     status.style.color = 'var(--nr-text-error, #ef4444)';

@@ -1191,9 +1191,9 @@
     /* ── Expanded state (.island-expanded): URL row + 3-col content + utility row ── */
     .browse-mode.island-mode #pill-url-wrap.island-expanded {
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: 1fr 1fr 1fr;
       grid-template-rows: auto auto auto;
-      gap: 8px;
+      gap: 0;
       height: auto;
       min-height: 72px;
       min-width: 480px;
@@ -1241,7 +1241,8 @@
       border-radius: 14px;
       padding: 6px 12px;
       cursor: pointer;
-      max-width: 200px;
+      min-width: 0;
+      overflow: hidden;
       transition: background 0.15s ease;
     }
     .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-left:hover {
@@ -1291,6 +1292,7 @@
       gap: 4px;
       padding: 4px 8px;
       min-width: 0;
+      overflow: hidden;
     }
     /* Title — expanded only */
     .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-title {
@@ -1312,14 +1314,16 @@
     .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-right-col {
       grid-row: 2;
       grid-column: 3;
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      display: flex;
+      flex-wrap: wrap;
       align-content: center;
-      justify-items: center;
+      justify-content: center;
       gap: 4px;
       padding: 4px;
       cursor: pointer;
       border-radius: 14px;
+      min-width: 0;
+      overflow: hidden;
       transition: background 0.15s ease;
     }
     .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-right-col:hover {
@@ -1392,9 +1396,11 @@
       grid-column: 1 / -1;
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 8px;
       padding: 4px 0 0;
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-utility-row > * {
+      flex: 1;
+      justify-content: space-evenly;
     }
     .island-utility-btn {
       display: flex;
@@ -1729,6 +1735,17 @@
       align-items: center;
       gap: 4px;
       flex-shrink: 0;
+    }
+    /* Hide activity pills when capsule is expanded — tab info rendered separately */
+    #pill-url-wrap.island-expanded > #pill-island {
+      display: none;
+    }
+    /* Hide stray children that aren't part of the expanded grid layout */
+    #pill-url-wrap.island-expanded > #pill-close-tab-btn,
+    #pill-url-wrap.island-expanded > #pill-newtab-btn,
+    #pill-url-wrap.island-expanded > #pill-browse-reload,
+    #pill-url-wrap.island-expanded > .pill-url-divider {
+      display: none !important;
     }
     /* Hide right-side overflow when merged — pills are inside capsule */
     #pill-url-wrap > #pill-island ~ #pill-island-right,

@@ -339,7 +339,7 @@ export function _renderBrowserSettings() {
   const adBlockSection = window.VStack(
     adBlockHeader,
     window.Text('Blocks ads and trackers ' + (window.electronAPI ? 'natively at the network level via Electron' : 'via a server-side proxy') + '.').className('text-dim text-[0.8rem] mb-3'),
-    VStack(adBlockChildren)
+    VStack().content(function() { return adBlockChildren; })
   );
 
   // YT Shorts
@@ -516,7 +516,7 @@ function _bmRenderBrowserList(container, browsers) {
     var chevron = window.RawHTML(icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') }));
     var nameView = window.Text(b.name).styles({ flex: '1', fontSize: '0.82rem', color: 'var(--nr-text-primary)', fontWeight: '500' });
     var countView = new window.View('span').id('bm-count-' + b.id).styles({ fontSize: '0.68rem', color: 'var(--nr-text-quaternary)' });
-    if (_bmParsedData[b.id]) countView.el.textContent = _bmParsedData[b.id].length + ' bookmarks';
+    if (_bmParsedData[b.id]) countView.text(_bmParsedData[b.id].length + ' bookmarks');
 
     var header = window.HStack(chevron, nameView, countView)
       .spacing(2).styles({ padding: '8px 12px', cursor: 'pointer' });
@@ -580,7 +580,7 @@ function _bmRenderBookmarkList(container, browserId) {
   // Select all / deselect all
   var allSelected = selectedCount === bookmarks.length;
   var toggleAllBtn = new window.View('button').styles({ fontSize: '0.7rem', color: 'var(--nr-accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '0' });
-  toggleAllBtn.el.textContent = allSelected ? 'Deselect all' : 'Select all';
+  toggleAllBtn.text(allSelected ? 'Deselect all' : 'Select all');
   toggleAllBtn.onTap(function() {
     if (allSelected) {
       _bmSelectedUrls[browserId] = new Set();

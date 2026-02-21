@@ -77,10 +77,7 @@ export function _dashBuildQuickActions() {
     { label: 'Calendar', fn: function() { wmOpen('calendar'); }, iconName: 'calendar' },
   ];
   return Grid(actions.map(function(a) {
-    const btn = window.Button(null).ghost().onTap(a.fn);
-    btn.el.innerHTML = icon(a.iconName, {size: 16, class: 'w-4 h-4 shrink-0'}) +
-                       '<span>' + a.label + '</span>';
-    return btn;
+    return window.Button(a.label).ghost().icon(a.iconName).onTap(a.fn);
   })).columns(2).gap('8px').frame({height: '100%'});
 }
 
@@ -105,7 +102,7 @@ export function _dashBuildTrendingCard(trending) {
 
 export async function renderDashboard() {
   const container = document.getElementById('dashboard-content');
-  AetherUI.mount(window.RawHTML('<div class="text-center py-20 text-dim"><div class="spinner"></div></div>'), container);
+  AetherUI.mount(window.VStack(window.Spinner()).frame({alignment: 'center'}).padding(20), container);
 
   const _uname = window._authUserInfo?.username;
   const [calResp, profileResp, commentsResp, repostsResp, inboxMessages] = await Promise.all([
@@ -323,7 +320,7 @@ export async function renderDashboard() {
       dot.className('w-1.5 h-1.5 rounded-full bg-accent shrink-0');
       const dismissBtn = new window.View('button');
       dismissBtn.className('text-dimmer hover:text-primary text-sm bg-transparent border-none cursor-pointer px-0.5 shrink-0');
-      dismissBtn.el.textContent = '\u00d7';
+      dismissBtn.text('\u00d7');
       dismissBtn.el.title = 'Dismiss';
       dismissBtn.onTap(function(e) { e.stopPropagation(); dismissFeedNotification(n.link, dismissBtn.el); renderDashboard(); });
       const row = window.HStack(
@@ -565,7 +562,7 @@ export async function renderDashboard() {
 
       // Header
       const addBtn = new window.View('button');
-      addBtn.el.textContent = '+';
+      addBtn.text('+');
       addBtn.el.title = 'Add event';
       addBtn.cssText('background:none;border:none;color:var(--nr-accent);cursor:pointer;font-size:13px;font-weight:600;padding:0 2px');
       addBtn.onTap(function() { window._heatmapPopoverAddForm = !window._heatmapPopoverAddForm; window._renderHeatmapPopover(key); });
@@ -592,7 +589,7 @@ export async function renderDashboard() {
 
         const colorLabel = new window.View('span');
         colorLabel.cssText('font-size:11px;color:var(--nr-text-quaternary)');
-        colorLabel.el.textContent = 'Color:';
+        colorLabel.text('Color:');
 
         var colorSwatches = presetColors.map(function(c, i) {
           const radioInput = new window.View('input');
@@ -626,12 +623,12 @@ export async function renderDashboard() {
         colorSwatches.forEach(function(s) { colorRow.el.appendChild(s[2].el); });
 
         const saveEvtBtn = new window.View('button');
-        saveEvtBtn.el.textContent = 'Save';
+        saveEvtBtn.text('Save');
         saveEvtBtn.cssText('padding:3px 10px;border-radius:6px;background:var(--nr-accent);color:white;border:none;font-size:12px;cursor:pointer');
         (function(k) { saveEvtBtn.onTap(function() { _heatmapAddEvent(k); }); })(key);
 
         const cancelEvtBtn = new window.View('button');
-        cancelEvtBtn.el.textContent = 'Cancel';
+        cancelEvtBtn.text('Cancel');
         cancelEvtBtn.cssText('padding:3px 10px;border-radius:6px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);color:var(--nr-text-primary);font-size:12px;cursor:pointer');
         (function(k) { cancelEvtBtn.onTap(function() { window._heatmapPopoverAddForm = false; window._renderHeatmapPopover(k); }); })(key);
 
@@ -753,7 +750,7 @@ export async function renderDashboard() {
     const delBtn = new window.View('button');
     delBtn.className('dash-del shrink-0 bg-transparent border-none cursor-pointer p-0 leading-none');
     delBtn.styles({ color: 'var(--nr-text-quaternary)', fontSize: '1rem' });
-    delBtn.el.textContent = '\u00d7';
+    delBtn.text('\u00d7');
     delBtn.el.title = 'Remove';
     delBtn.onTap(function() { dashRemoveSaved(p.link); });
 

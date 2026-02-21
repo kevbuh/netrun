@@ -55,7 +55,7 @@ export function _renderTabStateDropdown() {
   if (!canSave) nameInput.el.disabled = true;
 
   const saveBtn = new window.View('button');
-  saveBtn.el.textContent = 'Save ' + openTabs.length + ' tab' + (openTabs.length !== 1 ? 's' : '');
+  saveBtn.text('Save ' + openTabs.length + ' tab' + (openTabs.length !== 1 ? 's' : ''));
   saveBtn.cssText('padding:5px 10px;border:none;background:' + (canSave ? 'var(--nr-accent)' : 'var(--nr-bg-raised)') + ';color:' + (canSave ? '#fff' : 'var(--nr-text-quaternary)') + ';font-size:0.78rem;border-radius:6px;cursor:' + (canSave ? 'pointer' : 'default') + ';white-space:nowrap;');
   if (!canSave) saveBtn.el.disabled = true;
   saveBtn.onTap(function() { confirmSaveTabSession(); });
@@ -68,8 +68,7 @@ export function _renderTabStateDropdown() {
   // Session list
   const listItems = [];
   if (!sessions.length) {
-    listItems.push(window.Text('No saved sessions').font('caption1').foreground('quaternary')
-      .padding('12px').textAlign('center'));
+    listItems.push(window.EmptyState({ title: 'No saved sessions', message: 'Save your open tabs as a session to restore later.' }));
   } else {
     sessions.forEach(function(s, i) {
       const count = s.tabs ? s.tabs.length : (s.windows ? s.windows.reduce(function(n, w) { return n + w.tabs.length; }, 0) : 0);
@@ -250,13 +249,13 @@ export function _renderToolbarSessions() {
       const addBtn = new window.View('button');
       addBtn.el.className = 'browse-session-add';
       addBtn.el.title = 'Add to existing';
-      addBtn.el.textContent = '+';
+      addBtn.text('+');
       addBtn.onTap(function() { _loadSessionFromOverview(i, true); });
 
       const delBtn = new window.View('button');
       delBtn.el.className = 'browse-session-delete';
       delBtn.el.title = 'Delete';
-      delBtn.el.textContent = '\u00d7';
+      delBtn.text('\u00d7');
       delBtn.onTap(function() { deleteTabSession(i); });
 
       const item = window.HStack([infoBtn, addBtn, delBtn]).className('browse-session-item');
@@ -290,11 +289,11 @@ export function _promptSaveSessionFromOverview() {
 
   const confirmBtnView = new window.View('button');
   confirmBtnView.el.className = 'save-confirm';
-  confirmBtnView.el.textContent = 'Save';
+  confirmBtnView.text('Save');
 
   const cancelBtnView = new window.View('button');
   cancelBtnView.el.className = 'save-cancel';
-  cancelBtnView.el.textContent = '\u00d7';
+  cancelBtnView.text('\u00d7');
 
   const inputRow = window.HStack([inputView, confirmBtnView, cancelBtnView]).className('browse-session-input-row').build();
   sessionsList.insertBefore(inputRow, sessionsList.firstChild);

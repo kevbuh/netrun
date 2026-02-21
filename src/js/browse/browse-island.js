@@ -345,6 +345,7 @@ function _islandActionAnchor() {
 
 /* ── Island expand/collapse on click ── */
 let _islandExpandedOutsideHandler = null;
+let _islandExpandedBlurHandler = null;
 
 export function _expandIsland() {
   const wrap = document.getElementById('pill-url-wrap');
@@ -370,8 +371,13 @@ export function _expandIsland() {
     if (wrap.contains(e.target)) return;
     _collapseIsland();
   };
+  // Close when webview/iframe steals focus (window blur)
+  _islandExpandedBlurHandler = function() {
+    _collapseIsland();
+  };
   setTimeout(function() {
     document.addEventListener('mousedown', _islandExpandedOutsideHandler, true);
+    window.addEventListener('blur', _islandExpandedBlurHandler);
   }, 0);
 }
 
@@ -398,6 +404,10 @@ function _collapseIslandCleanup() {
   if (_islandExpandedOutsideHandler) {
     document.removeEventListener('mousedown', _islandExpandedOutsideHandler, true);
     _islandExpandedOutsideHandler = null;
+  }
+  if (_islandExpandedBlurHandler) {
+    window.removeEventListener('blur', _islandExpandedBlurHandler);
+    _islandExpandedBlurHandler = null;
   }
 }
 

@@ -614,7 +614,7 @@ export function renderSourceBubbles() {
     }
   });
 
-  const wrap = HStack.apply(null, bubbleViews).className('flex-wrap gap-1.5');
+  const wrap = HStack(bubbleViews).className('flex-wrap gap-1.5');
   AetherUI.mount(wrap, el);
   // Auto-size the arxiv select after rendering
   const arxivSel = el.querySelector('.arxiv-cat-select');
@@ -1534,7 +1534,7 @@ export function _renderPaperCard(p, i, ctx) {
   var badge = _scoreBadge(p);
   if (badge) metaItems.push(badge);
   metaItems.push(_cardActionRow(p, i, ctx));
-  const metaRow = HStack.apply(null, metaItems).spacing(2).className('flex-wrap mt-2');
+  const metaRow = HStack(metaItems).spacing(2).className('flex-wrap mt-2');
 
   const card = window.VStack(titleRow, body, metaRow, _cardCommentContainer(p, i));
   card.className('paper break-inside-avoid bg-card border border-border-card rounded-xl p-4 mb-3.5 cursor-pointer transition-all duration-150' + (isRead ? ' opacity-50' : ''));
@@ -1610,7 +1610,7 @@ export function _renderPaperVerboseCard(p, i, ctx) {
     const catItems = pCats.slice(0, 6).map(function(c) {
       return window.Text(c).className('text-[0.65rem] px-1.5 py-0.5 rounded bg-hover text-dim');
     });
-    catsView = HStack.apply(null, catItems).spacing(0.5).className('flex-wrap mt-1.5');
+    catsView = HStack(catItems).spacing(0.5).className('flex-wrap mt-1.5');
   }
 
   // Meta row
@@ -1626,7 +1626,7 @@ export function _renderPaperVerboseCard(p, i, ctx) {
   var vBadge = _scoreBadge(p);
   if (vBadge) metaItems.push(vBadge);
   metaItems.push(_cardActionRow(p, i, ctx));
-  const metaRow = HStack.apply(null, metaItems).spacing(2).className('flex-wrap mt-3');
+  const metaRow = HStack(metaItems).spacing(2).className('flex-wrap mt-3');
 
   const card = window.VStack(titleRow, authorsView, descView, catsView, metaRow, _cardCommentContainer(p, i));
   card.className('paper bg-card border border-border-card rounded-xl p-5 cursor-pointer transition-all duration-150' + (isRead ? ' opacity-50' : ''));
@@ -1678,7 +1678,7 @@ export function _renderPaperTwitterCard(p, i, ctx) {
   headerItems.push(window.Text(tAgo).className('text-[0.8rem] text-dimmer'));
   var tBadge = _scoreBadge(p);
   if (tBadge) headerItems.push(tBadge);
-  const headerRow = HStack.apply(null, headerItems).spacing(1).className('flex-wrap');
+  const headerRow = HStack(headerItems).spacing(1).className('flex-wrap');
 
   // Title
   const titleEl = window.RawHTML(renderTitle(p.title));
@@ -1690,7 +1690,7 @@ export function _renderPaperTwitterCard(p, i, ctx) {
   bodyChildren.push(actionBar);
   bodyChildren.push(_cardCommentContainer(p, i));
 
-  const content = VStack.apply(null, bodyChildren);
+  const content = VStack(bodyChildren);
   content.className('min-w-0 flex-1');
 
   const card = window.HStack(avatarView, content).spacing(3);
@@ -1724,7 +1724,7 @@ export function _renderPapersNow() {
 
   if (feedViewMode === 'compact' || feedViewMode === 'verbose' || feedViewMode === 'twitter') {
     const wrapClass = feedViewMode === 'twitter' ? 'flex flex-col max-w-[600px] mx-auto' : 'flex flex-col' + (feedViewMode === 'verbose' ? ' gap-3' : '');
-    const wrap = VStack.apply(null, cards).className(wrapClass);
+    const wrap = VStack(cards).className(wrapClass);
     wrap.styles({ columnSpan: 'all' });
     AetherUI.append(wrap, container);
   } else {

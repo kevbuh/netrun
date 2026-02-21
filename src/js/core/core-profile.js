@@ -256,7 +256,7 @@ export async function renderUserProfile(username) {
     }
     statsItems.push(_statLink(comments.length, 'comments', 'profile-section-comments'));
     statsItems.push(_statLink(reposts.length, 'reposts', 'profile-section-reposts'));
-    sections.push(HStack.apply(null, statsItems).spacing(6).className('mb-8 text-[0.82rem]'));
+    sections.push(HStack(statsItems).spacing(6).className('mb-8 text-[0.82rem]'));
 
     // ── Achievements section ──
     if (achievements.length) {
@@ -273,7 +273,7 @@ export async function renderUserProfile(username) {
         return achCard;
       });
       sections.push(_profileSection('Achievements', 'profile-section-achievements',
-        HStack.apply(null, achItems).className('flex flex-wrap gap-2')));
+        HStack(achItems).className('flex flex-wrap gap-2')));
     }
 
     // ── Feeds section ──
@@ -307,7 +307,7 @@ export async function renderUserProfile(username) {
       for (const cf of customFeeds) {
         feedChips.push(window.Text(cf.name || cf.url).className('inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-card bg-card text-sm text-primary'));
       }
-      sections.push(_profileSection('Feeds', null, HStack.apply(null, feedChips).className('flex flex-wrap gap-2')));
+      sections.push(_profileSection('Feeds', null, HStack(feedChips).className('flex flex-wrap gap-2')));
     }
 
     // ── Recent comments section ──
@@ -323,7 +323,7 @@ export async function renderUserProfile(username) {
         card.onTap(function() { location.hash = '#paper/' + encodeURIComponent(c.paperLink); });
         return card;
       });
-      sections.push(_profileSection('Recent Comments', 'profile-section-comments', VStack.apply(null, commentCards).spacing(2)));
+      sections.push(_profileSection('Recent Comments', 'profile-section-comments', VStack(commentCards).spacing(2)));
     }
 
     // ── Reposts section ──
@@ -340,14 +340,14 @@ export async function renderUserProfile(username) {
         card.onTap(function() { location.hash = '#view/' + encodeURIComponent(r.paperLink); });
         return card;
       });
-      sections.push(_profileSection('Reposts', 'profile-section-reposts', VStack.apply(null, repostCards).spacing(2)));
+      sections.push(_profileSection('Reposts', 'profile-section-reposts', VStack(repostCards).spacing(2)));
     }
 
     if (!comments.length && !reposts.length && !catalogFeeds.length && !customFeeds.length) {
       sections.push(window.Text('No shared activity yet.').className('text-dimmer text-sm mt-4'));
     }
 
-    AetherUI.mount(VStack.apply(null, sections), el);
+    AetherUI.mount(VStack(sections), el);
 
     // Render status pet thumbnails
     if (typeof _renderPetThumb === 'function') {

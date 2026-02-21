@@ -506,7 +506,7 @@ function _wizBmRenderList(container) {
       items.push(detail);
     }
 
-    return VStack.apply(null, items).styles({
+    return VStack(items).styles({
       border:'1px solid rgba(255,255,255,0.08)', borderRadius:'10px', marginBottom:'6px', overflow:'hidden',
       background:'rgba(255,255,255,0.02)'
     });
@@ -600,7 +600,7 @@ function _wizBmRenderBookmarks(container, browserId) {
     return row;
   });
 
-  var listWrap = VStack.apply(null, rows);
+  var listWrap = VStack(rows);
   listWrap.styles({maxHeight:'200px', overflowY:'auto'});
 
   // Import button
