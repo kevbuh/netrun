@@ -41,7 +41,9 @@ export function _browseAutoSizeUrlInput(input) {
   ctx.font = getComputedStyle(input).font;
   const text = input.value || input.placeholder || '';
   const w = Math.ceil(ctx.measureText(text).width) + 24; // 24 for padding
-  input.style.width = Math.min(Math.max(w, 80), 320) + 'px';
+  const isFocused = document.activeElement === input;
+  const maxW = isFocused ? 420 : 320;
+  input.style.width = Math.min(Math.max(w, 80), maxW) + 'px';
 }
 
 export function _browseSetUrlDisplay(input, url) {
@@ -2232,12 +2234,69 @@ if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.on
   });
 }
 
+export function toggleTrackingStrip() {
+  const on = Settings.get('trackingStripEnabled') !== 'false';
+  const newState = !on;
+  Settings.set('trackingStripEnabled', newState ? 'true' : 'false');
+  if (window.electronAPI && window.electronAPI.trackingStripSetEnabled) {
+    window.electronAPI.trackingStripSetEnabled(newState);
+  }
+}
+
+export function toggleHttpsOnly() {
+  const on = Settings.get('httpsOnlyEnabled') !== 'false';
+  const newState = !on;
+  Settings.set('httpsOnlyEnabled', newState ? 'true' : 'false');
+  if (window.electronAPI && window.electronAPI.httpsOnlySetEnabled) {
+    window.electronAPI.httpsOnlySetEnabled(newState);
+  }
+}
+
+export function toggleCookieBlock() {
+  const on = Settings.get('thirdPartyCookiesBlocked') !== 'false';
+  const newState = !on;
+  Settings.set('thirdPartyCookiesBlocked', newState ? 'true' : 'false');
+  if (window.electronAPI && window.electronAPI.cookieBlockSetEnabled) {
+    window.electronAPI.cookieBlockSetEnabled(newState);
+  }
+}
+
 // ── Action registry ──
 registerActions({
   toggleAdBlock: () => toggleAdBlock(),
   toggleDoH: () => toggleDoH(),
+  toggleTrackingStrip: () => toggleTrackingStrip(),
+  toggleHttpsOnly: () => toggleHttpsOnly(),
+  toggleCookieBlock: () => toggleCookieBlock(),
   openSearchHistoryPage: () => openSearchHistoryPage(),
 });
+
+// ── Image paste in URL bars → open Aether panel with image ──
+function _urlBarImagePaste(ev) {
+  if (!ev.clipboardData || !ev.clipboardData.items) return;
+  for (const item of ev.clipboardData.items) {
+    if (item.type.startsWith('image/')) {
+      ev.preventDefault();
+      const blob = item.getAsFile();
+      if (!blob) return;
+      const reader = new FileReader();
+      reader.onload = function() {
+        const base64 = reader.result.split(',')[1];
+        if (!base64) return;
+        // Lazy import to avoid circular dependency with panel.js
+        Promise.all([import('/js/panel.js'), import('/js/panel-chat.js')]).then(([panelMod, chatMod]) => {
+          panelMod._showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 } });
+          requestAnimationFrame(function() {
+            const popup = document.getElementById('doc-chat-ask-float');
+            if (popup) chatMod._addScreenshotToPanel(popup, base64);
+          });
+        });
+      };
+      reader.readAsDataURL(blob);
+      return;
+    }
+  }
+}
 
 // ── Bind URL bar events via addEventListener (replaces inline handlers) ──
 function _initUrlBarEvents() {
@@ -2258,6 +2317,7 @@ function _initUrlBarEvents() {
     });
     browseInput.addEventListener('mouseenter', function () { _browseUrlOnMouseEnter(this); });
     browseInput.addEventListener('mouseleave', function () { _browseUrlOnMouseLeave(this); });
+    browseInput.addEventListener('paste', _urlBarImagePaste);
   }
 
   // Pill URL input
@@ -2279,6 +2339,7 @@ function _initUrlBarEvents() {
       _pillSyncUrl();
       _browseUrlScheduleHide();
     });
+    pillInput.addEventListener('paste', _urlBarImagePaste);
   }
 
   // Pill URL wrap hover

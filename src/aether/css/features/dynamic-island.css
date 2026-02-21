@@ -76,7 +76,7 @@
       white-space: nowrap;
       font-size: 0.65rem;
       color: var(--aether-text);
-      transition: opacity 0.18s ease, transform 0.25s var(--motion-snappy);
+      transition: opacity 0.18s ease, transform 0.25s var(--motion-snappy), color 0.3s ease;
     }
     .pill-island .island-dot {
       width: 6px;
@@ -1304,11 +1304,40 @@
     }
 
     /* ── Dynamic Island expansion — focused search capsule ── */
+    /* Override CSS variables to force dark-on-black content inside expanded island */
     .browse-mode.island-mode #pill-url-wrap:focus-within {
       height: 44px;
       background: #000 !important;
       border-radius: 22px;
       box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+      color: #fff;
+      /* Scoped dark-mode variables — all child content inherits */
+      --nr-text-primary: #fff;
+      --nr-text-secondary: rgba(255, 255, 255, 0.6);
+      --nr-text-tertiary: rgba(255, 255, 255, 0.45);
+      --nr-text-quaternary: rgba(255, 255, 255, 0.35);
+      --nr-bg-raised: rgba(255, 255, 255, 0.08);
+      --nr-bg-surface: rgba(255, 255, 255, 0.06);
+      --nr-border-default: rgba(255, 255, 255, 0.1);
+      --nr-border-strong: rgba(255, 255, 255, 0.15);
+      --aether-text: #fff;
+      --aether-text-dim: rgba(255, 255, 255, 0.7);
+      --aether-text-dimmer: rgba(255, 255, 255, 0.5);
+      --aether-text-dimmest: rgba(255, 255, 255, 0.25);
+      --aether-text-muted: rgba(255, 255, 255, 0.4);
+      --aether-hover: rgba(255, 255, 255, 0.08);
+      --aether-hover-subtle: rgba(255, 255, 255, 0.05);
+      --aether-border: rgba(255, 255, 255, 0.1);
+      --aether-dropdown-bg: #000;
+      --aether-placeholder: rgba(255, 255, 255, 0.35);
+    }
+    /* Clear theme: match specificity to override its !important */
+    [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap:focus-within,
+    [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap:focus-within.pill-dropdown-open {
+      background: #000 !important;
+    }
+    [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap:focus-within #pill-url-dropdown {
+      background: #000 !important;
     }
     .browse-mode.island-mode #pill-url-wrap:focus-within.pill-dropdown-open {
       border-radius: 22px 22px 0 0;
@@ -1343,8 +1372,8 @@
       color: #fff;
       background: rgba(255, 255, 255, 0.12);
     }
-    .browse-mode.island-mode #pill-url-wrap:focus-within.pill-dropdown-open #pill-url-dropdown {
-      background: rgba(0, 0, 0, 0.95);
+    .browse-mode.island-mode #pill-url-wrap:focus-within #pill-url-dropdown {
+      background: #000 !important;
       border-radius: 0 0 22px 22px;
     }
 
@@ -1649,18 +1678,10 @@
     .pill-island[data-island-id="bookmark"].island-active:hover { max-width: 200px; padding: 0 6px; }
     /* Phase 6: Bookmark save animation — icon bounce-up + pill glow + ring ripple */
     .pill-island[data-island-id="bookmark"].island-entering.island-compact {
-      animation: pill-enter-compact 0.35s var(--motion-snappy) forwards, bookmark-glow 0.8s ease-out 0.1s;
+      animation: pill-enter-compact 0.35s var(--motion-snappy) forwards, bookmark-burst 0.7s ease-out 0.1s;
     }
     .pill-island[data-island-id="bookmark"].island-entering svg {
       animation: bookmark-save 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-    .pill-island[data-island-id="bookmark"].island-entering::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      pointer-events: none;
-      animation: bookmark-ring 0.6s ease-out 0.15s both;
     }
     .pill-island[data-island-id="annotate"].island-compact.island-active {
       max-width: 34px; padding: 0 5px;
