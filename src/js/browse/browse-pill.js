@@ -296,11 +296,10 @@ export function _populatePillMenuMoreItems() {
         const parts = [];
         if (counts[0] > 0) parts.push(counts[0] + ' ad' + (counts[0] !== 1 ? 's' : '') + ' blocked');
         if (counts[1] > 0) parts.push(counts[1] + ' tracker' + (counts[1] !== 1 ? 's' : '') + ' stripped');
-        if (counts[2] > 0) parts.push(counts[2] + ' upgrade' + (counts[2] !== 1 ? 's' : ''));
+        if (counts[2] > 0) parts.push(counts[2] + ' HTTPS upgrade' + (counts[2] !== 1 ? 's' : ''));
         if (counts[3] > 0) parts.push(counts[3] + ' cookie' + (counts[3] !== 1 ? 's' : '') + ' blocked');
-        if (parts.length > 0) {
-          AetherUI.mount(window.Text(parts.join(' \u00b7 ')).font('caption2').foreground('quaternary'), statsDiv.el);
-        }
+        const text = parts.length > 0 ? parts.join(' \u00b7 ') : 'No threats detected on this page';
+        AetherUI.mount(window.Text(text).font('caption2').foreground('quaternary'), statsDiv.el);
       }).catch(function() {});
     } catch {}
   }

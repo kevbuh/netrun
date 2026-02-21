@@ -17,6 +17,7 @@ import { _ccPillDismissed, _resetCcPillDismissed, stopCaptions } from '/js/brows
 import { _hideBrowseContextMenu, _pwCheckAutofill, _pwHideSavePrompt, _pwShowSavePrompt, _showBrowseContextMenu, browseCloseTab } from '/js/browse/browse-passwords.js';
 import { _iframeRectToParent, _positionAtCursor, _showPanel } from '/js/panel.js';
 import { _paperHandleMeta, _paperHideRefTooltip, _paperOnPageLoad, _paperShowRefTooltip } from '/js/browse/browse-paper.js';
+import { _isNerdAutoEligible } from '/js/browse/browse-nerd-mode.js';
 import { allPapers, loadAllFeeds } from '/js/feed.js';
 
 // ── Doom Scroll Prevention ──
@@ -531,6 +532,21 @@ export function _browseHandleNavigation(tab, frame) {
     _browseInjectRemoveCSS(frame);
     // Reset insight pill to offer state on navigation (don't remove it)
     if (typeof _showAnnotateOfferPill === 'function' && tab.id === _browseActiveTab) _showAnnotateOfferPill(tab);
+    // PDF detection pill + auto-open Nerd Mode
+    if (_isNerdAutoEligible(navUrl)) {
+      if (typeof window._isNerdMode !== 'function' || !window._isNerdMode(tab.id)) {
+        islandUpdate('pdf-detect', {
+          type: 'pdf',
+          label: 'PDF detected',
+          icon: icon('fileText', { size: 14 }),
+          action: function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); islandRemove('pdf-detect'); }
+        });
+      }
+      // Auto-enable Nerd Mode for PDF URLs
+      setTimeout(function() { if (typeof window.toggleNerdMode === 'function' && (typeof window._isNerdMode !== 'function' || !window._isNerdMode(tab.id))) window.toggleNerdMode(tab); }, 300);
+    } else {
+      islandRemove('pdf-detect');
+    }
     // Update nav buttons so back/forward reflect history stacks
     if (typeof _updateIslandNavButtons === 'function') _updateIslandNavButtons();
     // Clear adaptive color on navigation (will re-extract on did-finish-load)

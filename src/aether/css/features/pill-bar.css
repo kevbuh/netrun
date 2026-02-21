@@ -196,7 +196,8 @@
       background: var(--aether-hover);
     }
     .browse-mode.menu-expanded #pill-nav-icons {
-      max-height: 600px;
+      max-height: none;
+      overflow: visible;
       opacity: 1;
       pointer-events: auto;
       padding: 6px;
