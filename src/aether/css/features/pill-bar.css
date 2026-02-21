@@ -483,6 +483,7 @@
     .browse-mode.island-mode .pill-url-divider {
       display: none;
     }
+    /* Island mode collapsed: newtab hidden, shows on hover */
     .browse-mode.island-mode #pill-url-wrap #pill-newtab-btn {
       width: 0;
       height: 16px;
@@ -503,6 +504,13 @@
       background: rgba(255, 255, 255, 0.12);
       color: var(--aether-text);
       transform: none;
+    }
+    /* Island expanded: hide newtab/close/divider entirely */
+    .browse-mode.island-mode #pill-url-wrap.island-expanded > #pill-newtab-btn,
+    .browse-mode.island-mode #pill-url-wrap.island-expanded > .pill-close-tab-btn,
+    .browse-mode.island-mode #pill-url-wrap.island-expanded > .pill-url-divider,
+    .browse-mode.island-mode #pill-url-wrap.island-expanded > #pill-browse-reload {
+      display: none !important;
     }
 
     /* ── Browse bar drag ghost ── */

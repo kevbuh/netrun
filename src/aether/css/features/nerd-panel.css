@@ -1,0 +1,269 @@
+/* Nerd Mode Panel — card-based layouts for paper reader tabs */
+
+/* ── Entry animation ── */
+@keyframes nerd-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Tab content wrapper ── */
+.nerd-tab-wrap {
+  padding: var(--nr-space-3);
+  font-size: 0.78rem;
+  color: var(--nr-text-primary);
+  overflow-y: auto;
+  height: 100%;
+  animation: nerd-fade-in 0.15s ease both;
+}
+
+/* ── Empty states ── */
+.nerd-empty {
+  color: var(--nr-text-quaternary);
+  padding: var(--nr-space-5) 0;
+  text-align: center;
+  font-size: 0.78rem;
+}
+
+/* ── Info tab typography ── */
+.nerd-info-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: var(--nr-space-2);
+}
+
+.nerd-info-meta {
+  font-size: 0.72rem;
+  color: var(--nr-text-secondary);
+  margin-bottom: 10px;
+}
+
+.nerd-info-authors {
+  font-size: 0.75rem;
+  color: var(--nr-text-secondary);
+  margin-bottom: var(--nr-space-3);
+  line-height: 1.5;
+}
+
+/* ── Section cards (Abstract, Cite) ── */
+.nerd-section {
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-subtle);
+  border-radius: var(--nr-radius-lg);
+  padding: var(--nr-space-3);
+  margin-bottom: var(--nr-space-3);
+}
+
+.nerd-section-title {
+  font-size: 0.68rem;
+  color: var(--nr-text-quaternary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  margin-bottom: var(--nr-space-2);
+}
+
+.nerd-section-body {
+  font-size: 0.75rem;
+  color: var(--nr-text-secondary);
+  line-height: 1.55;
+}
+
+/* ── Citation rows ── */
+.nerd-cite-row {
+  margin-bottom: var(--nr-space-2);
+}
+
+.nerd-cite-row:last-child {
+  margin-bottom: 0;
+}
+
+.nerd-cite-label {
+  font-size: 0.68rem;
+  color: var(--nr-text-quaternary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+
+.nerd-cite-box {
+  font-size: 0.72rem;
+  color: var(--nr-text-secondary);
+  background: var(--nr-bg-sunken);
+  border-radius: var(--nr-radius-sm);
+  padding: var(--nr-space-2);
+  line-height: 1.4;
+  cursor: pointer;
+  user-select: all;
+  transition: background 0.15s ease;
+}
+
+.nerd-cite-box:hover {
+  background: var(--nr-bg-raised);
+}
+
+/* ── Paper items (References, Related, Search results) ── */
+.nerd-paper-item {
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-subtle);
+  border-radius: var(--nr-radius-md);
+  padding: var(--nr-space-2) var(--nr-space-3);
+  margin-bottom: var(--nr-space-1);
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.nerd-paper-item:hover {
+  border-color: var(--nr-border-strong);
+  transform: translateY(-1px);
+}
+
+.nerd-paper-item:active {
+  transform: translateY(0);
+}
+
+.nerd-paper-item-title {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--nr-text-primary);
+  line-height: 1.4;
+}
+
+.nerd-paper-item-meta {
+  font-size: 0.68rem;
+  color: var(--nr-text-quaternary);
+  margin-top: 2px;
+}
+
+/* ── Author cards ── */
+.nerd-author-card {
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-subtle);
+  border-radius: var(--nr-radius-lg);
+  padding: var(--nr-space-3);
+  margin-bottom: var(--nr-space-2);
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--nr-space-3);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.nerd-author-card:hover {
+  border-color: var(--nr-border-strong);
+  transform: translateY(-1px);
+}
+
+.nerd-author-card:active {
+  transform: translateY(0);
+}
+
+/* ── h-index badge (unified accent) ── */
+.nerd-badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  padding: 1px 6px;
+  border-radius: var(--nr-radius-full);
+  margin-top: 3px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--nr-accent) 15%, transparent);
+  color: var(--nr-accent);
+}
+
+/* ── Code tab repo cards ── */
+.nerd-repo-card {
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-subtle);
+  border-radius: var(--nr-radius-md);
+  padding: var(--nr-space-2) var(--nr-space-3);
+  margin-bottom: var(--nr-space-1);
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.nerd-repo-card:hover {
+  border-color: var(--nr-border-strong);
+  transform: translateY(-1px);
+}
+
+.nerd-repo-card:active {
+  transform: translateY(0);
+}
+
+.nerd-repo-name {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--nr-text-primary);
+}
+
+.nerd-repo-meta {
+  font-size: 0.68rem;
+  color: var(--nr-text-quaternary);
+  margin-top: 2px;
+}
+
+/* ── Search tab ── */
+.nerd-search-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  animation: nerd-fade-in 0.15s ease both;
+}
+
+.nerd-search-input-row {
+  padding: var(--nr-space-2) var(--nr-space-3);
+  border-bottom: 1px solid var(--nr-border-dim);
+  flex-shrink: 0;
+}
+
+.nerd-search-input {
+  width: 100%;
+  background: var(--nr-bg-input);
+  border: 1px solid var(--nr-border-default);
+  border-radius: var(--nr-radius-sm);
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  color: var(--nr-text-primary);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.nerd-search-input:focus {
+  border-color: var(--nr-accent);
+}
+
+.nerd-search-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--nr-space-2);
+}
+
+.nerd-search-count {
+  font-size: 0.68rem;
+  color: var(--nr-text-quaternary);
+  padding: var(--nr-space-1) var(--nr-space-2) var(--nr-space-2);
+}
+
+.nerd-search-page {
+  font-size: 0.68rem;
+  color: var(--nr-accent);
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+
+.nerd-search-snippet {
+  font-size: 0.75rem;
+  color: var(--nr-text-secondary);
+  line-height: 1.4;
+}
+
+/* ── Nerd Mode header ── */
+.nerd-header-label {
+  padding: var(--nr-space-2) var(--nr-space-3) var(--nr-space-1);
+  font-size: 0.72rem;
+  color: var(--nr-text-quaternary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}

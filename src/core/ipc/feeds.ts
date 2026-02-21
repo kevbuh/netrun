@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import * as feedQueries from '../db/queries/feeds.js';
-import { cachedFetch, ollamaProvider } from './shared.js';
+import { cachedFetch, getActiveProvider } from './shared.js';
 
 export function registerFeedsIPC(): void {
   ipcMain.handle('db:feed-arxiv', async () => {
@@ -289,7 +289,7 @@ export function registerFeedsIPC(): void {
   ipcMain.handle('db:panel-suggest', async (_event, text: string) => {
     if (!text || text.length < 3) return { suggestion: '' };
     try {
-      const result = await ollamaProvider.chat({
+      const result = await getActiveProvider().chat({
         model: 'qwen3:0.6b',
         messages: [
           { role: 'system', content: 'Given some text the user selected or is looking at, suggest ONE short question (under 12 words) they might want to ask about it. Return ONLY the question, nothing else. No quotes.' },
@@ -308,7 +308,7 @@ export function registerFeedsIPC(): void {
   ipcMain.handle('db:search-suggest', async (_event, query: string) => {
     if (!query || query.length < 2) return { suggestions: [] };
     try {
-      const result = await ollamaProvider.chat({
+      const result = await getActiveProvider().chat({
         model: 'qwen3:0.6b',
         messages: [
           { role: 'system', content: 'You are a search autocomplete engine. Given a partial search query, suggest 4 completions. Return ONLY a JSON array of strings, nothing else. Example: ["machine learning basics", "machine learning tutorial"]' },

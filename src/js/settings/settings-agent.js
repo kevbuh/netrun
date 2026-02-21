@@ -5,6 +5,60 @@ import { _settingCard, _settingRow, _settingToggle, _settingToggleLS } from '/js
 // ─── AI Settings (merged from Tools + Lookup Panel + Agent) ──
 
 export function _renderAISettings() {
+  // ── Provider group ──
+  const currentProvider = Settings.get('aiProvider') || 'ollama';
+  const providerBtns = [
+    { value: 'ollama', label: 'Local (Ollama)' },
+    { value: 'openrouter', label: 'Cloud (OpenRouter)' },
+  ].map(function(opt) {
+    const active = opt.value === currentProvider;
+    const b = new window.View('button');
+    b.el.textContent = opt.label;
+    b.className('px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' +
+      (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'));
+    b.el.dataset.provider = opt.value;
+    b.onTap(function() {
+      var name = opt.value;
+      Settings.set('aiProvider', name);
+      if (window.electronAPI && window.electronAPI.providerSetDefault) {
+        window.electronAPI.providerSetDefault(name);
+      }
+      window.dispatchEvent(new CustomEvent('aimode-changed', { detail: { provider: name } }));
+      // Update button styles
+      b.el.parentElement.querySelectorAll('button').forEach(function(btn) {
+        var isActive = btn.dataset.provider === name;
+        btn.className = 'px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' +
+          (isActive ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary');
+      });
+      // Show/hide API key field
+      if (apiKeyRow) apiKeyRow.el.style.display = name === 'openrouter' ? '' : 'none';
+    });
+    return b;
+  });
+  const providerRight = window.HStack.apply(null, providerBtns).spacing(1);
+  const providerRow = _settingRow('Provider', 'Local runs models on your machine. Cloud uses OpenRouter for access to frontier models.', providerRight);
+
+  // API key field (visible only when cloud is selected)
+  var apiKeyInput = new window.View('input');
+  apiKeyInput.el.type = 'password';
+  apiKeyInput.el.placeholder = 'sk-or-...';
+  apiKeyInput.className('px-3 py-1.5 rounded-md text-[0.8rem] border border-border-input bg-card text-primary outline-none focus:border-accent w-[240px] font-mono');
+  if (window.electronAPI && window.electronAPI.providerGetApiKey) {
+    window.electronAPI.providerGetApiKey('openrouter').then(function(res) {
+      if (res && res.key) apiKeyInput.el.value = res.key;
+    });
+  }
+  apiKeyInput.el.addEventListener('change', function() {
+    var key = apiKeyInput.el.value.trim();
+    if (window.electronAPI && window.electronAPI.providerSetApiKey) {
+      window.electronAPI.providerSetApiKey('openrouter', key);
+    }
+  });
+  var apiKeyRow = _settingRow('API Key', 'Your OpenRouter API key. Get one at openrouter.ai/keys.', apiKeyInput);
+  apiKeyRow.el.style.display = currentProvider === 'openrouter' ? '' : 'none';
+
+  const providerGroup = _settingCard('Provider', [providerRow, apiKeyRow]);
+
   // ── Models group ──
   function _modelRow(label, desc, lsKey, fallback) {
     const currentVal = Settings.get(lsKey) || fallback;
@@ -94,6 +148,7 @@ export function _renderAISettings() {
   );
 
   return window.VStack(
+    providerGroup,
     modelsGroup,
     behaviorGroup,
     insightGroup,

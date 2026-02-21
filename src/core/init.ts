@@ -1,13 +1,14 @@
 import { registerAllTools, toolRegistry } from './tools/index.js';
 import { registerAllAgents, agentRegistry } from './agents/index.js';
 import { providerRegistry } from './providers/registry.js';
-import { OllamaProvider } from './providers/ollama.js';
 import { registerToolIPC } from './ipc-handlers.js';
 import { initInsight } from './ambient/index.js';
 import { contextManager } from './context/manager.js';
 import { contextIntake } from './context/intake.js';
 import { parakeetManager } from './parakeet-manager.js';
 import { loggingMiddleware, timeoutMiddleware } from './tools/middleware/index.js';
+import { ollamaProvider, openrouterProvider, setActiveProviderName } from './ipc/shared.js';
+import * as settingsQueries from './db/queries/settings.js';
 
 /**
  * Initialize the core system: tools, providers, agents, IPC handlers.
@@ -24,9 +25,22 @@ export function initCore(): void {
   // Register all built-in agents
   registerAllAgents();
 
-  // Register default LLM provider (Ollama)
-  const ollama = new OllamaProvider();
-  providerRegistry.register(ollama);
+  // Register LLM providers
+  providerRegistry.register(ollamaProvider);
+  providerRegistry.register(openrouterProvider);
+
+  // Restore active provider and API key from settings DB
+  try {
+    const providerSetting = settingsQueries.getSetting('aiProvider');
+    if (providerSetting?.value === 'openrouter') {
+      setActiveProviderName('openrouter');
+      providerRegistry.setDefault('openrouter');
+    }
+    const apiKeySetting = settingsQueries.getSetting('openrouterApiKey');
+    if (apiKeySetting?.value) {
+      openrouterProvider.setApiKey(apiKeySetting.value);
+    }
+  } catch { /* DB may not be ready yet */ }
 
   // Set up IPC handlers
   registerToolIPC();

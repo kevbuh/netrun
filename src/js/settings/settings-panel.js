@@ -5,8 +5,13 @@ import { escapeHtml, escapeAttr } from '/js/core/core-utils.js';
 // ─── Panel Settings (utilities — render merged into AI section) ──
 
 export function _loadSettingsModels() {
-  apiGet('/api/models').then(data => {
-    const models = data.models || [];
+  const provider = Settings.get('aiProvider') || 'ollama';
+  const fetchModels = (window.electronAPI && window.electronAPI.providerModels)
+    ? window.electronAPI.providerModels(provider)
+    : apiGet('/api/models').then(data => data.models || []);
+
+  fetchModels.then(models => {
+    models = models || [];
     document.querySelectorAll('.settings-model-select').forEach(sel => {
       const key = sel.dataset.key;
       const fallback = sel.dataset.fallback;

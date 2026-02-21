@@ -134,6 +134,165 @@ export function getHiddenPosts() {
 export function getReadPosts() {
   return getLS('readPosts', []);
 }
+
+// ── Source Affinity ──
+export function getSourceAffinity() {
+  const readSet = new Set(getReadPosts());
+  const savedPosts = getSavedPosts();
+  const savedSet = new Set(Object.keys(savedPosts));
+  const hiddenSet = new Set(getHiddenPosts());
+  const ratings = getPaperRatings();
+
+  // Count per-source totals and engagement
+  const sourceCounts = {}; // source -> { total, read, saved, rated, hidden }
+  for (const p of allPapers) {
+    if (!sourceCounts[p.source]) sourceCounts[p.source] = { total: 0, read: 0, saved: 0, rated: 0, hidden: 0 };
+    const c = sourceCounts[p.source];
+    c.total++;
+    if (readSet.has(p.link)) c.read++;
+    if (savedSet.has(p.link)) c.saved++;
+    const nLink = typeof _normalizeRatingKey === 'function' ? _normalizeRatingKey(p.link) : p.link;
+    if (ratings[nLink] || ratings[p.link]) c.rated++;
+    if (hiddenSet.has(p.link)) c.hidden++;
+  }
+
+  const affinity = {};
+  for (const source of Object.keys(sourceCounts)) {
+    const c = sourceCounts[source];
+    if (c.total < 3) { affinity[source] = 0.5; continue; }
+    const engagement = (c.read + c.saved * 2 + c.rated * 3) / c.total;
+    const penalty = (c.hidden / c.total) * 0.5;
+    affinity[source] = Math.max(0.1, Math.min(1.0, engagement - penalty));
+  }
+  return affinity;
+}
+
+// ── Interest Profile ──
+const _STOP_WORDS = new Set(['the','a','an','and','or','but','in','on','at','to','for','of','with','by','from','is','it','that','this','are','was','were','be','been','has','have','had','not','no','do','does','did','will','would','can','could','should','may','might','shall','into','as','if','its','than','so','very','just','about','also','more','other','some','only','over','such','after','before','between','each','all','both','through','during','up','out','then','them','these','those','own','same','how','our','new','using','via','based','we','i','you','he','she','they','what','which','who','when','where','why','how','two','one','three','first','second','third','most','many','any','few','large','small','high','low','long','short','old']);
+
+export function getInterestProfile() {
+  const readPosts = getReadPosts();
+  const savedPosts = getSavedPosts();
+  const hiddenPosts = getHiddenPosts();
+  const ratings = getPaperRatings();
+
+  const topicScores = {};  // keyword -> score
+  const catScores = {};    // category -> score
+
+  function addTitle(title, weight) {
+    if (!title) return;
+    const words = title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').split(/\s+/).filter(function(w) { return w.length > 2 && !_STOP_WORDS.has(w); });
+    for (const w of words) {
+      topicScores[w] = (topicScores[w] || 0) + weight;
+    }
+  }
+
+  function addCategories(cats, weight) {
+    if (!Array.isArray(cats)) return;
+    for (const c of cats) {
+      catScores[c] = (catScores[c] || 0) + weight;
+    }
+  }
+
+  // Read posts: weight 1
+  const readSet = new Set(readPosts);
+  for (const p of allPapers) {
+    if (readSet.has(p.link)) {
+      addTitle(p.title, 1);
+      addCategories(p.categories, 1);
+    }
+  }
+
+  // Saved posts: weight 3
+  const savedSet = new Set(Object.keys(savedPosts));
+  for (const p of allPapers) {
+    if (savedSet.has(p.link)) {
+      addTitle(p.title, 3);
+      addCategories(p.categories, 3);
+    }
+  }
+
+  // Rated posts: weight = rating value
+  for (const p of allPapers) {
+    const nLink = typeof _normalizeRatingKey === 'function' ? _normalizeRatingKey(p.link) : p.link;
+    const rating = ratings[nLink] || ratings[p.link] || 0;
+    if (rating > 0) {
+      addTitle(p.title, rating);
+      addCategories(p.categories, rating);
+    }
+  }
+
+  // Hidden posts: negative weight
+  const hiddenSet = new Set(hiddenPosts);
+  for (const p of allPapers) {
+    if (hiddenSet.has(p.link)) {
+      addTitle(p.title, -0.5);
+      addCategories(p.categories, -0.5);
+    }
+  }
+
+  // Extract top topics and categories
+  const topTopics = Object.entries(topicScores)
+    .filter(function(e) { return e[1] > 0; })
+    .sort(function(a, b) { return b[1] - a[1]; })
+    .slice(0, 15)
+    .map(function(e) { return e[0]; });
+
+  const topCategories = Object.entries(catScores)
+    .filter(function(e) { return e[1] > 0; })
+    .sort(function(a, b) { return b[1] - a[1]; })
+    .slice(0, 10)
+    .map(function(e) { return e[0]; });
+
+  const profile = { topTopics, topCategories };
+  Settings.set('interestProfile', JSON.stringify(profile));
+  return profile;
+}
+
+// ── Content Score (replaces LLM) ──
+export function _computeContentScore(paper, profile) {
+  var score = 30; // baseline
+  if (!profile) return score;
+
+  var titleWords = (paper.title || '').toLowerCase().replace(/[^a-z0-9\s-]/g, '').split(/\s+/).filter(function(w) { return w.length > 2; });
+  var topTopics = profile.topTopics || [];
+  var topCategories = profile.topCategories || [];
+
+  // Topic match bonus: up to +40
+  var topicMatches = 0;
+  var topTopicSet = new Set(topTopics);
+  for (var j = 0; j < titleWords.length; j++) {
+    if (topTopicSet.has(titleWords[j])) topicMatches++;
+  }
+  score += Math.min(40, topicMatches * 15);
+
+  // Category match bonus: up to +30
+  var paperCats = Array.isArray(paper.categories) ? paper.categories : [];
+  var topCatSet = new Set(topCategories);
+  var catMatches = 0;
+  for (var k = 0; k < paperCats.length; k++) {
+    if (topCatSet.has(paperCats[k])) catMatches++;
+  }
+  score += Math.min(30, catMatches * 15);
+
+  return Math.min(100, score);
+}
+
+// ── Reset Personalization ──
+export function resetPersonalization() {
+  setLS('readPosts', []);
+  setLS('hiddenPosts', []);
+  setLS('savedPosts', {});
+  Settings.set('paperRatings', '{}');
+  Settings.set('interestProfile', '');
+  Settings.set('fyWeightBase', '0.70');
+  Settings.set('fyWeightAffinity', '0.30');
+  Settings.set('fyWeightRecency', '1.00');
+  Settings.set('fyWeightExploration', '0.10');
+  Settings.set('maxPerCategoryRun', '3');
+  renderPapers();
+}
+
 export function markPostAsRead(link) {
   const read = getReadPosts();
   if (!read.includes(link)) { read.push(link); setLS('readPosts', read); }
@@ -1235,22 +1394,26 @@ export function getFilteredPapers(ctx) {
 
   const effectiveSort = sortOverride === 'cited' || sortOverride === 'popular' ? 'citations' : sortOverride === 'latest' ? 'latest' : currentSort;
   if (effectiveSort === 'foryou') {
-    const affinity = typeof getSourceAffinity === 'function' ? getSourceAffinity() : {};
+    const affinity = getSourceAffinity();
+    const profile = getInterestProfile();
     const now = Date.now();
     const wBase = parseFloat(Settings.get('fyWeightBase') || '0.7');
     const wAff = parseFloat(Settings.get('fyWeightAffinity') || '0.3');
     const wRecency = parseFloat(Settings.get('fyWeightRecency') || '1.0');
+    const wExplore = parseFloat(Settings.get('fyWeightExploration') || '0.10');
     filtered = [...filtered].sort((a, b) => {
-      const aLlm = 50;
-      const bLlm = 50;
+      const aContent = _computeContentScore(a, profile);
+      const bContent = _computeContentScore(b, profile);
       const aAff = affinity[a.source] ?? 0.5;
       const bAff = affinity[b.source] ?? 0.5;
       const aAge = a.pubDate ? Math.max(0, (now - new Date(a.pubDate).getTime()) / 3600000) : 24;
       const bAge = b.pubDate ? Math.max(0, (now - new Date(b.pubDate).getTime()) / 3600000) : 24;
       const aRecency = Math.max(0, 10 - aAge * 0.5) * wRecency;
       const bRecency = Math.max(0, 10 - bAge * 0.5) * wRecency;
-      a._compositeScore = aLlm * (wBase + aAff * wAff) + aRecency;
-      b._compositeScore = bLlm * (wBase + bAff * wAff) + bRecency;
+      const aExplore = (aAff <= 0.5 ? 1 : 0) * wExplore * 10;
+      const bExplore = (bAff <= 0.5 ? 1 : 0) * wExplore * 10;
+      a._compositeScore = aContent * (wBase + aAff * wAff) + aRecency + aExplore;
+      b._compositeScore = bContent * (wBase + bAff * wAff) + bRecency + bExplore;
       return b._compositeScore - a._compositeScore;
     });
   } else if (effectiveSort === 'citations') {
@@ -1300,6 +1463,11 @@ export function getFilteredPapers(ctx) {
   return filtered;
 }
 
+function _scoreBadge(p) {
+  if (p._compositeScore == null) return null;
+  return window.Text(String(Math.round(p._compositeScore))).className('text-[0.6rem] text-dimmer tabular-nums opacity-60 shrink-0');
+}
+
 export function _renderPaperCompactRow(p, i, ctx) {
   const readSet = ctx.readSet;
   const sourceChip = getSourceChip(p.source, p.arxivId);
@@ -1312,6 +1480,7 @@ export function _renderPaperCompactRow(p, i, ctx) {
     window.RawHTML(sourceChip),
     window.RawHTML('<span class="text-[0.82rem] ' + (isRead ? 'text-muted' : 'text-primary') + ' truncate">' + renderTitle(p.title) + '</span>'),
     actionWrap,
+    _scoreBadge(p),
     p.date ? window.Text(p.date).className('text-[0.68rem] text-dim shrink-0') : null
   ).spacing(2).className('py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors')
     .onTap(function(e) { openPaper(i, e); });
@@ -1357,6 +1526,8 @@ export function _renderPaperCard(p, i, ctx) {
   }
   if (userRating > 0) metaItems.push(window.RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
   if (p.date) metaItems.push(window.Text(p.date).className('text-[0.68rem] text-dim'));
+  var badge = _scoreBadge(p);
+  if (badge) metaItems.push(badge);
   metaItems.push(_cardActionRow(p, i, ctx));
   const metaRow = HStack.apply(null, metaItems).spacing(2).className('flex-wrap mt-2');
 

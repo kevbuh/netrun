@@ -18,6 +18,7 @@ import { _sendPopupChatMessage } from '/js/panel-chat.js';
 import { _showPanel } from '/js/panel.js';
 import { browseNewTab, openLocalPdf } from '/js/browse/browse-windows.js';
 import { chatViewCleanupMorph, chatViewUnmorph, openChatPage } from '/js/chat-view.js';
+import { openDrawPage } from '/js/draw-view.js';
 
 // ── Island mode tab renderer ──
 
@@ -54,11 +55,13 @@ export function _applyBrowseTabLayout() {
       _islandSyncBookmark();
     } else {
       if (pill) { pill.classList.remove('browse-mode', 'island-mode', 'ntp-active'); }
+      _collapseIsland();
       islandRemove('tabs');
       islandRemove('bookmark');
     }
   } else {
     // Restore everything
+    _collapseIsland();
     if (bar) bar.style.display = '';
     if (window._pillBrowseMode) {
       if (tabRow) tabRow.style.display = 'none';
@@ -71,6 +74,107 @@ export function _applyBrowseTabLayout() {
   _browseRenderTabs();
 }
 
+/* Move back/reload/fwd into capsule nav-row, AI pill into right-col */
+function _moveElementsIntoIsland() {
+  const navRow = document.getElementById('pill-island-nav-row');
+  const rightCol = document.getElementById('pill-island-right-col');
+  if (navRow) {
+    const back = document.getElementById('pill-browse-back');
+    const reload = document.getElementById('pill-browse-reload');
+    const fwd = document.getElementById('pill-browse-fwd');
+    if (back && back.parentElement !== navRow) navRow.appendChild(back);
+    if (reload && reload.parentElement !== navRow) navRow.appendChild(reload);
+    if (fwd && fwd.parentElement !== navRow) navRow.appendChild(fwd);
+  }
+  if (rightCol) {
+    const aiPill = document.getElementById('pill-ai-unified');
+    if (aiPill && aiPill.parentElement !== rightCol) rightCol.appendChild(aiPill);
+  }
+}
+
+/* Restore back/reload/fwd and AI pill to their original positions in the pill bar */
+function _restoreElementsFromIsland() {
+  const pillBar = document.getElementById('sidebar-nav');
+  if (!pillBar) return;
+  const navRow = document.getElementById('pill-island-nav-row');
+  const rightCol = document.getElementById('pill-island-right-col');
+  // Move back/fwd back to pill bar (before pill-browse-url)
+  const back = document.getElementById('pill-browse-back');
+  const fwd = document.getElementById('pill-browse-fwd');
+  const pillUrl = document.getElementById('pill-browse-url');
+  if (back && navRow && navRow.contains(back)) {
+    if (pillUrl) pillBar.insertBefore(back, pillUrl);
+    else pillBar.appendChild(back);
+  }
+  if (fwd && navRow && navRow.contains(fwd)) {
+    if (pillUrl) pillBar.insertBefore(fwd, pillUrl.nextSibling);
+    else pillBar.appendChild(fwd);
+  }
+  // Move reload back into pill-url-wrap (before close-tab-btn)
+  const reload = document.getElementById('pill-browse-reload');
+  const urlWrap = document.getElementById('pill-url-wrap');
+  const closeBtn = document.getElementById('pill-close-tab-btn');
+  if (reload && navRow && navRow.contains(reload) && urlWrap) {
+    if (closeBtn) urlWrap.insertBefore(reload, closeBtn);
+    else urlWrap.appendChild(reload);
+  }
+  // Move AI pill back to pill bar (after pill-island-right)
+  const aiPill = document.getElementById('pill-ai-unified');
+  const islandRight = document.getElementById('pill-island-right');
+  if (aiPill && rightCol && rightCol.contains(aiPill)) {
+    if (islandRight && islandRight.nextSibling) pillBar.insertBefore(aiPill, islandRight.nextSibling);
+    else pillBar.appendChild(aiPill);
+  }
+}
+
+/* ── Island expand/collapse on click ── */
+let _islandExpandedOutsideHandler = null;
+
+export function _expandIsland() {
+  const wrap = document.getElementById('pill-url-wrap');
+  if (!wrap || wrap.classList.contains('island-expanded')) return;
+  wrap.classList.add('island-expanded');
+  _moveElementsIntoIsland();
+  _pillSyncUrl();
+  // Close on outside click
+  _collapseIslandCleanup();
+  _islandExpandedOutsideHandler = function(e) {
+    if (wrap.contains(e.target)) return;
+    _collapseIsland();
+  };
+  setTimeout(function() {
+    document.addEventListener('mousedown', _islandExpandedOutsideHandler, true);
+  }, 0);
+}
+
+export function _collapseIsland() {
+  const wrap = document.getElementById('pill-url-wrap');
+  if (!wrap) return;
+  wrap.classList.remove('island-expanded');
+  _collapseIslandCleanup();
+  _restoreElementsFromIsland();
+}
+
+function _collapseIslandCleanup() {
+  if (_islandExpandedOutsideHandler) {
+    document.removeEventListener('mousedown', _islandExpandedOutsideHandler, true);
+    _islandExpandedOutsideHandler = null;
+  }
+}
+
+// Attach click handler to pill-url-wrap for expanding
+document.addEventListener('click', function(e) {
+  if (Settings.get('browseTabLayout') !== 'island') return;
+  const wrap = document.getElementById('pill-url-wrap');
+  if (!wrap) return;
+  // If already expanded, don't toggle — let the outside-click handler collapse
+  if (wrap.classList.contains('island-expanded')) return;
+  // Only expand if clicking on the capsule itself (not when already focused for URL input)
+  if (wrap.contains(e.target) && !e.target.closest('input')) {
+    _expandIsland();
+  }
+});
+
 /* Sync the pill URL input with the active tab */
 export function _pillSyncUrl() {
   const input = document.getElementById('pill-browse-url-input');
@@ -81,12 +185,13 @@ export function _pillSyncUrl() {
   if (Settings.get('browseTabLayout') === 'island') {
     const pill = document.getElementById('sidebar-nav');
     if (pill) pill.classList.remove('ntp-active');
+    // Update title element (visible in expanded mode)
+    const titleEl = document.getElementById('pill-island-title');
+    if (titleEl) titleEl.textContent = (!isBlankNtp && tab && tab.title) ? tab.title : '';
     // Hide URL input on NTP, show only tabs pill
     input.style.display = isBlankNtp ? 'none' : '';
     const reload = document.getElementById('pill-browse-reload');
     if (reload) reload.style.display = isBlankNtp ? 'none' : '';
-    const divider = document.getElementById('pill-url-wrap')?.querySelector('.pill-url-divider');
-    if (divider) divider.style.display = isBlankNtp ? 'none' : '';
     const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
     if (tabsAnchor) tabsAnchor.classList.toggle('ntp-hide-divider', !!isBlankNtp);
     const newtab = document.getElementById('pill-newtab-btn');
@@ -113,11 +218,18 @@ export function _updateIslandNavButtons() {
     try { hasElFwd = window._browseIsElectron && tab && tab.el && tab.el.canGoForward && tab.el.canGoForward(); } catch(e) {}
     const showBack = hasBackHistory || hasElBack;
     const showFwd = hasFwdHistory || hasElFwd;
+    const isIsland = Settings.get('browseTabLayout') === 'island';
     // Pill bar buttons
     const pillBack = document.getElementById('pill-browse-back');
     const pillFwd = document.getElementById('pill-browse-fwd');
-    if (pillBack) pillBack.style.display = showBack ? '' : 'none';
-    if (pillFwd) pillFwd.style.display = showFwd ? '' : 'none';
+    if (isIsland) {
+      // In island mode: always visible, dim when unavailable
+      if (pillBack) { pillBack.style.display = ''; pillBack.classList.toggle('nav-disabled', !showBack); }
+      if (pillFwd) { pillFwd.style.display = ''; pillFwd.classList.toggle('nav-disabled', !showFwd); }
+    } else {
+      if (pillBack) { pillBack.style.display = showBack ? '' : 'none'; pillBack.classList.remove('nav-disabled'); }
+      if (pillFwd) { pillFwd.style.display = showFwd ? '' : 'none'; pillFwd.classList.remove('nav-disabled'); }
+    }
     // Browse bar buttons
     const barBack = document.getElementById('browse-bar-back');
     const barFwd = document.getElementById('browse-bar-fwd');
@@ -1064,6 +1176,12 @@ export function browseNavigate(input) {
   if (/^chat:\/\//i.test(cmd)) {
     const threadId = cmd.replace(/^chat:\/\//i, '').replace(/\/$/, '');
     if (typeof openChatPage === 'function') openChatPage(threadId || null);
+    return;
+  }
+  // Intercept draw:// URLs — open drawing whiteboard
+  if (/^draw:\/\//i.test(cmd)) {
+    const drawId = cmd.replace(/^draw:\/\//i, '').replace(/\/$/, '');
+    if (typeof openDrawPage === 'function') openDrawPage(drawId || undefined);
     return;
   }
   const url = _browseResolveUrl(input);

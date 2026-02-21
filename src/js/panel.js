@@ -1725,6 +1725,31 @@ export function _panelBuildChatInput(popup, config) {
   modelLabel.title = 'Current model';
   buttonRow.appendChild(modelLabel);
 
+  // AI mode chip (Local/Cloud toggle)
+  const aiModeChip = document.createElement('span');
+  aiModeChip.className = 'ai-mode-chip';
+  const isCloud = Settings.get('aiProvider') === 'openrouter';
+  aiModeChip.innerHTML = (isCloud ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5h4.5l-3.5 2.5 1.5 4.5-4-3-4 3 1.5-4.5-3.5-2.5h4.5z"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>') + '<span>' + (isCloud ? 'Cloud' : 'Local') + '</span>';
+  if (isCloud) aiModeChip.classList.add('ai-mode-cloud');
+  aiModeChip.title = 'Toggle Local/Cloud AI';
+  aiModeChip.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var cur = Settings.get('aiProvider') || 'ollama';
+    var next = cur === 'openrouter' ? 'ollama' : 'openrouter';
+    Settings.set('aiProvider', next);
+    if (window.electronAPI && window.electronAPI.providerSetDefault) window.electronAPI.providerSetDefault(next);
+    window.dispatchEvent(new CustomEvent('aimode-changed', { detail: { provider: next } }));
+  });
+  buttonRow.appendChild(aiModeChip);
+
+  // Listen for mode changes to update this chip
+  function _updateAiModeChip() {
+    var cloud = Settings.get('aiProvider') === 'openrouter';
+    aiModeChip.innerHTML = (cloud ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5h4.5l-3.5 2.5 1.5 4.5-4-3-4 3 1.5-4.5-3.5-2.5h4.5z"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>') + '<span>' + (cloud ? 'Cloud' : 'Local') + '</span>';
+    aiModeChip.classList.toggle('ai-mode-cloud', cloud);
+  }
+  window.addEventListener('aimode-changed', _updateAiModeChip);
+
   // Spacer to push buttons right
   const spacer = document.createElement('span');
   spacer.style.flex = '1';

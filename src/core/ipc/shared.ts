@@ -3,11 +3,33 @@ import * as path from 'path';
 import { createHash } from 'crypto';
 
 import { OllamaProvider } from '../providers/ollama.js';
+import { OpenRouterProvider } from '../providers/openrouter.js';
+import type { LLMProvider } from '../providers/types.js';
 
 // ── Ollama provider (singleton) ──
 
 export const OLLAMA_HOST = process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434';
 export const ollamaProvider = new OllamaProvider({ baseURL: OLLAMA_HOST });
+
+// ── OpenRouter provider (singleton) ──
+
+export const openrouterProvider = new OpenRouterProvider();
+
+// ── Active provider (switchable) ──
+
+let _activeProviderName: 'ollama' | 'openrouter' = 'ollama';
+
+export function getActiveProvider(): LLMProvider {
+  return _activeProviderName === 'openrouter' ? openrouterProvider : ollamaProvider;
+}
+
+export function getActiveProviderName(): string {
+  return _activeProviderName;
+}
+
+export function setActiveProviderName(name: 'ollama' | 'openrouter'): void {
+  _activeProviderName = name;
+}
 
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
   ?? '856091829253-1n5fu44j867fu88larg1vvnqds4pmkh4.apps.googleusercontent.com';

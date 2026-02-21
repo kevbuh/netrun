@@ -1132,6 +1132,35 @@
       color: var(--aether-text-dim);
       opacity: 1;
     }
+    .ai-mode-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.65rem;
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+      border: 1px solid var(--nr-border-subtle, rgba(255,255,255,0.08));
+      background: var(--nr-bg-elevated, rgba(255,255,255,0.04));
+      color: var(--nr-text-tertiary, rgba(255,255,255,0.5));
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      line-height: 1;
+    }
+    .ai-mode-chip:hover {
+      border-color: var(--nr-accent, #b4451a);
+      color: var(--nr-text-secondary, rgba(255,255,255,0.7));
+    }
+    .ai-mode-chip.ai-mode-cloud {
+      border-color: var(--nr-accent, #b4451a);
+      color: var(--nr-accent, #b4451a);
+      background: rgba(var(--nr-accent-rgb, 180,69,26), 0.1);
+    }
+    .ai-mode-chip svg {
+      flex-shrink: 0;
+    }
     .aether-input-btn {
       display: flex;
       align-items: center;

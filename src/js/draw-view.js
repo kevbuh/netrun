@@ -48,12 +48,29 @@ export function openDrawPage(drawingId) {
   if (!tab) return;
 
   const container = document.getElementById('browse-content');
-  const ntp = container?.querySelector('.browse-ntp');
-  if (!ntp) return;
+
+  // Tear down any special page (netrun, history, help, chat) so the NTP can appear
+  if (tab._historyPage || tab._helpPage || tab._netrunPage || tab._chatPage) {
+    if (tab.el) { tab.el.remove(); tab.el = null; }
+    delete tab._historyPage;
+    delete tab._helpPage;
+    delete tab._netrunPage;
+    delete tab._chatPage;
+    delete tab._chatThreadId;
+  }
 
   // If already in draw mode, tear down first
   if (tab._drawPage) {
     _drawViewCleanupMorph();
+  }
+
+  // Ensure NTP is showing (needed after tearing down special pages)
+  let ntp = container?.querySelector('.browse-ntp');
+  if (!ntp || ntp.style.display === 'none') {
+    tab.blank = true;
+    _browseUpdateNewTabPage(tab);
+    ntp = container?.querySelector('.browse-ntp');
+    if (!ntp) return;
   }
 
   const id = drawingId || _genId();
@@ -125,6 +142,9 @@ async function _morphNTP(ntp, drawingId) {
   _drawContainer.appendChild(canvasEl);
 
   ntp.appendChild(_drawContainer);
+
+  // Wait a frame so the container has layout dimensions before fabric init
+  await new Promise(r => requestAnimationFrame(r));
 
   // Init fabric canvas
   _drawCanvas = new fabric.Canvas(canvasEl, {

@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DATA_DIR, activeDocChatSessions, ollamaProvider } from './shared.js';
+import { DATA_DIR, activeDocChatSessions, getActiveProvider } from './shared.js';
 import * as chatDb from '../db/queries/chat.js';
 
 const CHAT_MEMORY_DIR = path.join(DATA_DIR, 'chat-memories');
@@ -103,7 +103,7 @@ export function registerChatIPC(): void {
           ollamaMessages = [{ role: 'system', content: systemMsg }, ...messages];
         }
 
-        for await (const ev of ollamaProvider.chatStream({
+        for await (const ev of getActiveProvider().chatStream({
           model,
           messages: ollamaMessages,
           signal: abortController.signal,

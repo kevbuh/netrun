@@ -195,6 +195,9 @@ const Settings = (function() {
   define('browseHistory',    { default: '[]', sync: true }); // @persisted
   define('webSearchHistory', { default: '[]', sync: true }); // @persisted
 
+  // AI Provider
+  define('aiProvider',             { default: 'ollama',       sync: false }); // @local
+
   // AI Models
   define('chatModel',              { default: 'qwen2.5:3b',  sync: true  }); // @persisted
   define('chatTools',              { default: 'on',           sync: true  }); // @persisted

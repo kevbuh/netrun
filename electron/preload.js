@@ -101,6 +101,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Provider system ──
   providerList: () => ipcRenderer.invoke('providers:list'),
   providerModels: (providerName) => ipcRenderer.invoke('providers:models', providerName),
+  providerSetDefault: (name) => ipcRenderer.invoke('providers:set-default', name),
+  providerGetDefault: () => ipcRenderer.invoke('providers:get-default'),
+  providerSetApiKey: (provider, key) => ipcRenderer.invoke('providers:set-api-key', provider, key),
+  providerGetApiKey: (provider) => ipcRenderer.invoke('providers:get-api-key', provider),
 
   // ── Agent system ──
   agentStart: (options) => ipcRenderer.invoke('agent:start', options),

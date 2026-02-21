@@ -1111,6 +1111,7 @@
     #pill-url-wrap {
       display: contents;
     }
+    /* ── Island capsule: slim by default, expands on focus ── */
     .browse-mode.island-mode #pill-url-wrap {
       display: flex;
       align-items: center;
@@ -1127,15 +1128,6 @@
       height: 24px;
       overflow: visible;
     }
-    /* Phase 5: Proximity glow — pills near URL capsule get shared aura */
-    .browse-mode.island-mode .pill-island.near-url-bar::after {
-      content: '';
-      position: absolute; right: -8px; top: 2px; bottom: 2px; width: 16px;
-      background: radial-gradient(ellipse at left, var(--pill-surface) 0%, transparent 100%);
-      opacity: 0; pointer-events: none;
-      transition: opacity 0.4s ease;
-    }
-    .browse-mode.island-mode .pill-island.near-url-bar:hover::after { opacity: 0.5; }
     [data-aether-theme="midnight"] .browse-mode.island-mode #pill-url-wrap {
       background: rgba(255,255,255,0.12);
     }
@@ -1148,12 +1140,7 @@
     body.electron-app .browse-mode.island-mode #pill-url-wrap {
       left: calc(50vw - 80px);
     }
-    .pill-close-tab-btn {
-      display: none;
-    }
-    .browse-mode.island-mode #pill-url-wrap .pill-close-tab-btn {
-      display: none;
-    }
+    /* Reload button: hidden by default in island collapsed, shown on hover */
     .browse-mode.island-mode #pill-url-wrap #pill-browse-reload {
       width: 0;
       height: 16px;
@@ -1173,6 +1160,156 @@
       color: var(--aether-text);
       transform: none;
     }
+    /* ── Collapsed state: wrapper divs transparent, extra elements hidden ── */
+    #pill-island-left { display: contents; }
+    #pill-island-center { display: contents; }
+    #pill-island-right-col { display: none; }
+    #pill-island-title { display: none; }
+    #pill-island-nav-row { display: none; }
+    /* In collapsed island mode, wrappers use display:contents to be transparent */
+    .browse-mode.island-mode #pill-island-left {
+      display: contents;
+    }
+    .browse-mode.island-mode #pill-island-center {
+      display: contents;
+    }
+    .browse-mode.island-mode #pill-island-title {
+      display: none;
+    }
+    .browse-mode.island-mode #pill-island-nav-row {
+      display: none;
+    }
+    .browse-mode.island-mode #pill-island-right-col {
+      display: none;
+    }
+
+    /* ── Expanded state (.island-expanded): 3-column grid ── */
+    .browse-mode.island-mode #pill-url-wrap.island-expanded {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      height: auto;
+      min-height: 72px;
+      padding: 10px;
+      border-radius: 24px;
+      background: #000;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.45);
+      /* Scoped dark vars */
+      --nr-text-primary: #fff;
+      --nr-text-secondary: rgba(255,255,255,0.6);
+      --nr-text-tertiary: rgba(255,255,255,0.45);
+      --nr-text-quaternary: rgba(255,255,255,0.35);
+      --nr-bg-raised: rgba(255,255,255,0.08);
+      --nr-bg-surface: rgba(255,255,255,0.06);
+      --nr-border-default: rgba(255,255,255,0.1);
+      --aether-text: #fff;
+      --aether-text-dim: rgba(255,255,255,0.7);
+      --aether-text-dimmer: rgba(255,255,255,0.5);
+      --aether-text-dimmest: rgba(255,255,255,0.25);
+      --aether-hover: rgba(255,255,255,0.08);
+      --aether-placeholder: rgba(255,255,255,0.35);
+      --aether-dropdown-bg: #000;
+      --aether-border: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+    /* Override theme backgrounds in expanded state — always black */
+    [data-aether-theme="midnight"] .browse-mode.island-mode #pill-url-wrap.island-expanded,
+    [data-aether-theme="match"] .browse-mode.island-mode #pill-url-wrap.island-expanded,
+    [data-aether-theme="aether"] .browse-mode.island-mode #pill-url-wrap.island-expanded {
+      background: #000;
+    }
+    /* Left column — expanded only */
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-left {
+      grid-row: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 8px;
+      min-width: 54px;
+      min-height: 54px;
+    }
+    /* Center column — expanded layout */
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 2px 12px;
+      min-width: 0;
+    }
+    /* Title — expanded only */
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-title {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 280px;
+      line-height: 1.2;
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-title:empty {
+      display: none;
+    }
+    /* Right column — expanded only */
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-right-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 0 4px;
+      min-width: 28px;
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-right-col:empty {
+      display: none;
+    }
+    /* Nav row — expanded only */
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 2px;
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button {
+      color: rgba(255,255,255,0.7);
+      background: none;
+      border: none;
+      padding: 4px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button:hover {
+      color: #fff;
+      background: rgba(255,255,255,0.12);
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button:disabled,
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button.nav-disabled {
+      opacity: 0.25;
+      pointer-events: none;
+    }
+    /* Phase 5: Proximity glow — pills near URL capsule get shared aura */
+    .browse-mode.island-mode .pill-island.near-url-bar::after {
+      content: '';
+      position: absolute; right: -8px; top: 2px; bottom: 2px; width: 16px;
+      background: radial-gradient(ellipse at left, rgba(255,255,255,0.08) 0%, transparent 100%);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    .browse-mode.island-mode .pill-island.near-url-bar:hover::after { opacity: 0.5; }
+    .pill-close-tab-btn {
+      display: none;
+    }
     #pill-island-tabs-anchor {
       display: none;
     }
@@ -1181,14 +1318,13 @@
       align-items: center;
       transition: width 0.35s var(--motion-snappy);
     }
-    /* Tabs pill inside the unified bar — remove its own bg/radius */
+    /* Collapsed: tabs pill inline — remove bg, use left-side radius */
     .browse-mode.island-mode #pill-island-tabs-anchor > .pill-island {
       background: transparent !important;
       border-radius: 0;
       border-top-left-radius: 12px;
       border-bottom-left-radius: 12px;
     }
-    /* Hover effect via overlay since bg is transparent in island mode */
     .browse-mode.island-mode #pill-island-tabs-anchor > .pill-island.island-active:hover {
       background: var(--pill-surface-hover, rgba(255,255,255,0.08)) !important;
       scale: 1;
@@ -1198,7 +1334,7 @@
       border-top-right-radius: 12px;
       border-bottom-right-radius: 12px;
     }
-    /* Divider between tabs pill and URL input */
+    /* Divider between tabs pill and URL input (collapsed) */
     .browse-mode.island-mode #pill-island-tabs-anchor::after {
       content: '';
       width: 1px;
@@ -1206,15 +1342,29 @@
       background: var(--aether-text-dimmest, rgba(255,255,255,0.15));
       flex-shrink: 0;
     }
-    /* Hide divider when no tabs pill is present */
     .browse-mode.island-mode #pill-island-tabs-anchor:empty::after {
       display: none;
     }
-    /* Hide divider in NTP mode */
     .browse-mode.island-mode.ntp-active #pill-island-tabs-anchor::after,
     #pill-island-tabs-anchor.ntp-hide-divider::after {
       display: none;
     }
+    /* Expanded: tabs pill inside left column — wrap, centered */
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-tabs-anchor {
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-tabs-anchor > .pill-island {
+      border-radius: 8px;
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-tabs-anchor > .pill-island.island-active:hover {
+      background: rgba(255,255,255,0.12) !important;
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-tabs-anchor::after {
+      display: none;
+    }
+    /* Collapsed: standard URL input in slim capsule */
     .browse-mode.island-mode #pill-browse-url-input {
       width: auto;
       max-width: 320px;
@@ -1241,6 +1391,20 @@
     .browse-mode.island-mode #pill-browse-url-input:focus {
       cursor: text;
     }
+    /* Expanded: smaller dim URL beneath the title */
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input {
+      font-size: 0.68rem;
+      color: rgba(255,255,255,0.5);
+      padding: 2px 8px;
+      border-radius: 8px;
+      max-width: 280px;
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:hover {
+      color: rgba(255,255,255,0.7);
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:focus {
+      color: #fff;
+    }
     #pill-browse-url-input::placeholder {
       color: var(--aether-placeholder);
     }
@@ -1251,13 +1415,17 @@
     }
     .browse-mode.island-mode #pill-url-wrap {
       transition: height 0.4s var(--motion-snappy, cubic-bezier(0.4, 0, 0.2, 1)),
+                  min-height 0.4s var(--motion-snappy, cubic-bezier(0.4, 0, 0.2, 1)),
                   background 0.3s ease,
                   border-radius 0.4s var(--motion-snappy, cubic-bezier(0.4, 0, 0.2, 1)),
+                  padding 0.3s var(--motion-snappy, cubic-bezier(0.4, 0, 0.2, 1)),
                   box-shadow 0.3s ease;
     }
     .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open {
       border-radius: 12px 12px 0 0;
-      background: var(--aether-dropdown-bg);
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded.pill-dropdown-open {
+      border-radius: 24px 24px 0 0;
     }
     .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown {
       display: block;
@@ -1282,21 +1450,7 @@
       transition: transform 0.25s var(--motion-snappy, cubic-bezier(0.4, 0, 0.2, 1)),
                   opacity 0.2s ease;
     }
-    [data-aether-theme="midnight"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown {
-      background: var(--aether-dropdown-bg);
-    }
-    [data-aether-theme="aether"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown {
-      background: var(--aether-dropdown-bg);
-    }
-    [data-aether-theme="match"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown {
-      background: var(--aether-dropdown-bg);
-    }
-    [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open {
-      background: rgba(235, 233, 231, 0.97) !important;
-    }
-    [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown {
-      background: rgba(235, 233, 231, 0.97) !important;
-    }
+    /* Always solid black capsule regardless of theme */
     .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open #pill-url-dropdown {
       opacity: 1;
       transform: scaleY(1);
@@ -1304,39 +1458,25 @@
     }
 
     /* ── Dynamic Island expansion — focused search capsule ── */
-    /* Override CSS variables to force dark-on-black content inside expanded island */
+    /* Collapsed + focus: grow to 44px, black bg, dark vars */
     .browse-mode.island-mode #pill-url-wrap:focus-within {
       height: 44px;
       background: #000 !important;
       border-radius: 22px;
-      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
       color: #fff;
-      /* Scoped dark-mode variables — all child content inherits */
       --nr-text-primary: #fff;
-      --nr-text-secondary: rgba(255, 255, 255, 0.6);
-      --nr-text-tertiary: rgba(255, 255, 255, 0.45);
-      --nr-text-quaternary: rgba(255, 255, 255, 0.35);
-      --nr-bg-raised: rgba(255, 255, 255, 0.08);
-      --nr-bg-surface: rgba(255, 255, 255, 0.06);
-      --nr-border-default: rgba(255, 255, 255, 0.1);
-      --nr-border-strong: rgba(255, 255, 255, 0.15);
+      --nr-text-secondary: rgba(255,255,255,0.6);
+      --nr-bg-raised: rgba(255,255,255,0.08);
       --aether-text: #fff;
-      --aether-text-dim: rgba(255, 255, 255, 0.7);
-      --aether-text-dimmer: rgba(255, 255, 255, 0.5);
-      --aether-text-dimmest: rgba(255, 255, 255, 0.25);
-      --aether-text-muted: rgba(255, 255, 255, 0.4);
-      --aether-hover: rgba(255, 255, 255, 0.08);
-      --aether-hover-subtle: rgba(255, 255, 255, 0.05);
-      --aether-border: rgba(255, 255, 255, 0.1);
+      --aether-text-dim: rgba(255,255,255,0.7);
+      --aether-text-dimmest: rgba(255,255,255,0.25);
+      --aether-hover: rgba(255,255,255,0.08);
       --aether-dropdown-bg: #000;
-      --aether-placeholder: rgba(255, 255, 255, 0.35);
+      --aether-placeholder: rgba(255,255,255,0.35);
+      --aether-border: rgba(255,255,255,0.1);
     }
-    /* Clear theme: match specificity to override its !important */
-    [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap:focus-within,
-    [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap:focus-within.pill-dropdown-open {
-      background: #000 !important;
-    }
-    [data-theme="clear"] .browse-mode.island-mode #pill-url-wrap:focus-within #pill-url-dropdown {
+    [data-aether-theme] .browse-mode.island-mode #pill-url-wrap:focus-within {
       background: #000 !important;
     }
     .browse-mode.island-mode #pill-url-wrap:focus-within.pill-dropdown-open {
@@ -1350,31 +1490,42 @@
       border-radius: 0 22px 22px 0;
     }
     .browse-mode.island-mode #pill-url-wrap:focus-within #pill-browse-url-input::placeholder {
-      color: rgba(255, 255, 255, 0.4);
-    }
-    .browse-mode.island-mode #pill-url-wrap:focus-within #pill-island-tabs-anchor::after {
-      background: rgba(255, 255, 255, 0.2);
+      color: rgba(255,255,255,0.4);
     }
     .browse-mode.island-mode #pill-url-wrap:focus-within #pill-island-tabs-anchor > .pill-island {
       border-top-left-radius: 22px;
       border-bottom-left-radius: 22px;
       color: #fff;
     }
-    .browse-mode.island-mode #pill-url-wrap:focus-within #pill-island-tabs-anchor > .pill-island.island-active:hover {
-      background: rgba(255, 255, 255, 0.1) !important;
-    }
-    .browse-mode.island-mode #pill-url-wrap:focus-within #pill-browse-reload,
-    .browse-mode.island-mode #pill-url-wrap:focus-within #pill-newtab-btn {
-      color: rgba(255, 255, 255, 0.7);
-    }
-    .browse-mode.island-mode #pill-url-wrap:focus-within #pill-browse-reload:hover,
-    .browse-mode.island-mode #pill-url-wrap:focus-within #pill-newtab-btn:hover {
-      color: #fff;
-      background: rgba(255, 255, 255, 0.12);
+    .browse-mode.island-mode #pill-url-wrap:focus-within #pill-island-tabs-anchor::after {
+      background: rgba(255,255,255,0.2);
     }
     .browse-mode.island-mode #pill-url-wrap:focus-within #pill-url-dropdown {
       background: #000 !important;
       border-radius: 0 0 22px 22px;
+    }
+    /* Expanded + focus: accent bg instead of black */
+    .browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within {
+      height: auto;
+      background: var(--nr-accent) !important;
+      border-radius: 24px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1);
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within.pill-dropdown-open {
+      border-radius: 24px 24px 0 0;
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within #pill-island-left {
+      background: rgba(255,255,255,0.15);
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within #pill-browse-url-input {
+      font-size: 0.82rem;
+      max-width: 380px;
+      padding: 4px 12px;
+      border-radius: 8px;
+    }
+    .browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within #pill-url-dropdown {
+      background: #000 !important;
+      border-radius: 0 0 24px 24px;
     }
 
     /* NTP: no overflow needed — URL wrap is inline */
@@ -1416,6 +1567,7 @@
       display: flex;
       margin-left: auto;
     }
+    /* Island collapsed: absolute right side */
     .browse-mode.island-mode #pill-ai-unified {
       position: absolute;
       right: 8px;
@@ -1426,6 +1578,13 @@
     body.electron-app .browse-mode.island-mode #pill-ai-unified {
       right: 8px;
     }
+    /* Island expanded: moved into right-col by JS — static positioning */
+    .browse-mode.island-mode #pill-url-wrap.island-expanded ~ #pill-ai-unified,
+    #pill-island-right-col > #pill-ai-unified {
+      position: static;
+      transform: none;
+      margin-left: 0;
+    }
     #pill-ai-unified:hover {
       background: var(--pill-surface-hover, rgba(255,255,255,0.12));
     }
@@ -1435,6 +1594,9 @@
     }
     .browse-mode.island-mode #pill-ai-unified:active {
       transform: translateY(-50%) scale(0.92);
+    }
+    #pill-island-right-col > #pill-ai-unified:active {
+      transform: scale(0.92) !important;
     }
 
     /* ── Inline labels (model + annotate) ── */

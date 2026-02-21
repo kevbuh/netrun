@@ -5,73 +5,38 @@ import type {
   ChatOptions,
   ChatResponse,
   StreamEvent,
-  ChatMessage,
   ToolCall,
 } from './types.js';
 import type { ToolDefinition } from '../tools/types.js';
 import { toAIMessages } from './utils.js';
 
-export class OllamaProvider implements LLMProvider {
-  name = 'ollama';
-  private baseURL: string;
-  private preferredModel: string;
-  private resolvedDefault: string | null = null;
-  private resolving: Promise<string> | null = null;
+export class OpenRouterProvider implements LLMProvider {
+  name = 'openrouter';
+  private baseURL = 'https://openrouter.ai/api/v1';
+  private defaultModel = 'google/gemini-2.0-flash-001';
+  private _apiKey: string | null = null;
 
-  /** Preferred chat models in order of preference */
-  private static readonly MODEL_PREFERENCE = [
-    'qwen2.5:7b', 'qwen2.5:3b', 'qwen3:8b', 'qwen2.5:1.5b', 'qwen3:0.6b',
-  ];
-
-  constructor(options?: { baseURL?: string; model?: string }) {
-    this.baseURL = options?.baseURL ?? 'http://127.0.0.1:11434';
-    this.preferredModel = options?.model ?? 'qwen2.5:7b';
+  setApiKey(key: string | null): void {
+    this._apiKey = key;
   }
 
-  /** Resolve the default model: use preferred if available, otherwise pick best installed */
-  private async resolveDefaultModel(): Promise<string> {
-    if (this.resolvedDefault) return this.resolvedDefault;
-    if (this.resolving) return this.resolving;
-    this.resolving = (async () => {
-      try {
-        const models = await this.listModels();
-        const installed = new Set(models.map(m => m.replace(/:latest$/, '')));
-        // Check preferred first
-        if (installed.has(this.preferredModel) || installed.has(this.preferredModel.replace(/:latest$/, ''))) {
-          this.resolvedDefault = this.preferredModel;
-          return this.preferredModel;
-        }
-        // Fall back to preference list
-        for (const candidate of OllamaProvider.MODEL_PREFERENCE) {
-          const base = candidate.replace(/:latest$/, '');
-          if (installed.has(candidate) || installed.has(base)) {
-            console.debug(`[ollama] Preferred model ${this.preferredModel} not found, using ${candidate}`);
-            this.resolvedDefault = candidate;
-            return candidate;
-          }
-        }
-      } catch {}
-      // Last resort: use preferred and let it fail visibly
-      this.resolvedDefault = this.preferredModel;
-      return this.preferredModel;
-    })();
-    const result = await this.resolving;
-    this.resolving = null;
-    return result;
+  getApiKey(): string | null {
+    return this._apiKey;
   }
 
-  /** Create an OpenAI-compatible provider pointing at Ollama's /v1 endpoint */
   private getProvider() {
+    if (!this._apiKey) {
+      throw new Error('OpenRouter API key not set. Configure it in Settings > AI.');
+    }
     return createOpenAI({
-      baseURL: this.baseURL + '/v1',
-      apiKey: 'ollama',
-      compatibility: 'compatible',
+      baseURL: this.baseURL,
+      apiKey: this._apiKey,
     } as any);
   }
 
   async chat(options: ChatOptions): Promise<ChatResponse> {
     const provider = this.getProvider();
-    const modelName = options.model ?? await this.resolveDefaultModel();
+    const modelName = options.model || this.defaultModel;
     const model = provider.chat(modelName);
 
     const aiMsgs = toAIMessages(options.messages);
@@ -112,7 +77,7 @@ export class OllamaProvider implements LLMProvider {
 
   async *chatStream(options: ChatOptions): AsyncIterable<StreamEvent> {
     const provider = this.getProvider();
-    const modelName = options.model ?? await this.resolveDefaultModel();
+    const modelName = options.model || this.defaultModel;
     const model = provider.chat(modelName);
 
     const convertedTools = options.tools ? this.convertTools(options.tools) : undefined;
@@ -155,16 +120,19 @@ export class OllamaProvider implements LLMProvider {
   }
 
   async listModels(): Promise<string[]> {
+    if (!this._apiKey) return [];
     try {
-      const resp = await fetch(`${this.baseURL}/api/tags`);
+      const resp = await fetch(`${this.baseURL}/models`, {
+        headers: { Authorization: `Bearer ${this._apiKey}` },
+        signal: AbortSignal.timeout(15_000),
+      });
       const data = await resp.json() as any;
-      return (data.models ?? []).map((m: any) => m.name);
+      return (data.data ?? []).map((m: any) => m.id).sort();
     } catch {
       return [];
     }
   }
 
-  /** Convert our ToolDefinition[] to Vercel AI SDK tools format */
   private convertTools(tools: ToolDefinition[]): any {
     const result: Record<string, any> = {};
     for (const tool of tools) {

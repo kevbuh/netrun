@@ -658,10 +658,29 @@ export function _browseUpdateNewTabPage(tab) {
         if (typeof openChatPage === 'function') openChatPage();
       });
 
-      // Single-row search bar: [+] [input] [chat-history] [mic] [send]
+      // AI mode chip for NTP
+      const ntpAiChip = new window.View('button').className('ai-mode-chip').attr('type', 'button').attr('title', 'Toggle Local/Cloud AI');
+      function _updateNtpAiChip() {
+        var cloud = Settings.get('aiProvider') === 'openrouter';
+        ntpAiChip.el.innerHTML = (cloud ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5h4.5l-3.5 2.5 1.5 4.5-4-3-4 3 1.5-4.5-3.5-2.5h4.5z"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>') + '<span>' + (cloud ? 'Cloud' : 'Local') + '</span>';
+        ntpAiChip.el.classList.toggle('ai-mode-cloud', cloud);
+      }
+      _updateNtpAiChip();
+      ntpAiChip.on('mousedown', function(e) { e.preventDefault(); });
+      ntpAiChip.onTap(function() {
+        var cur = Settings.get('aiProvider') || 'ollama';
+        var next = cur === 'openrouter' ? 'ollama' : 'openrouter';
+        Settings.set('aiProvider', next);
+        if (window.electronAPI && window.electronAPI.providerSetDefault) window.electronAPI.providerSetDefault(next);
+        window.dispatchEvent(new CustomEvent('aimode-changed', { detail: { provider: next } }));
+      });
+      window.addEventListener('aimode-changed', _updateNtpAiChip);
+
+      // Single-row search bar: [+] [input] [ai-mode] [chat-history] [mic] [send]
       const searchRow = new window.View('div').className('ntp-search-row');
       searchRow.el.appendChild(addBtn.el);
       searchRow.el.appendChild(searchInput);
+      searchRow.el.appendChild(ntpAiChip.el);
       searchRow.el.appendChild(chatHistBtn.el);
       searchRow.el.appendChild(micBtn.el);
       searchRow.el.appendChild(submitBtn.el);

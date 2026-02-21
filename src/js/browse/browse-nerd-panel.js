@@ -29,7 +29,7 @@ export function _nerdPanelRegister() {
     ],
     header: function(el) {
       var h = document.createElement('div');
-      h.style.cssText = 'padding:8px 12px 4px;font-size:0.72rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;';
+      h.className = 'nerd-header-label';
       h.textContent = 'Nerd Mode';
       el.appendChild(h);
     }
@@ -123,12 +123,11 @@ function _renderInfoTab(container) {
   var state = _getState();
 
   var wrap = document.createElement('div');
-  wrap.style.cssText = 'padding:12px;font-size:0.78rem;color:var(--nr-text-primary);overflow-y:auto;height:100%;';
+  wrap.className = 'nerd-tab-wrap';
 
   if (!state || !state.s2Data) {
-    wrap.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;">Loading paper info...</div>';
+    wrap.innerHTML = '<div class="nerd-empty">Loading paper info...</div>';
     container.appendChild(wrap);
-    // Retry after a delay
     if (tab) {
       setTimeout(function() { _renderInfoTab(container); }, 2000);
     }
@@ -139,7 +138,7 @@ function _renderInfoTab(container) {
 
   // Title
   var title = document.createElement('div');
-  title.style.cssText = 'font-size:0.9rem;font-weight:600;line-height:1.4;margin-bottom:8px;';
+  title.className = 'nerd-info-title';
   title.textContent = s2.title || state.meta.title || 'Unknown Title';
   wrap.appendChild(title);
 
@@ -150,7 +149,7 @@ function _renderInfoTab(container) {
   if (s2.citationCount != null) meta.push(s2.citationCount + ' citations');
   if (meta.length) {
     var metaEl = document.createElement('div');
-    metaEl.style.cssText = 'font-size:0.72rem;color:var(--nr-text-secondary);margin-bottom:10px;';
+    metaEl.className = 'nerd-info-meta';
     metaEl.textContent = meta.join(' \u00b7 ');
     wrap.appendChild(metaEl);
   }
@@ -159,47 +158,60 @@ function _renderInfoTab(container) {
   var authors = s2.authors || [];
   if (authors.length) {
     var authorsEl = document.createElement('div');
-    authorsEl.style.cssText = 'font-size:0.75rem;color:var(--nr-text-secondary);margin-bottom:12px;line-height:1.5;';
+    authorsEl.className = 'nerd-info-authors';
     authorsEl.textContent = authors.map(function(a) { return a.name; }).join(', ');
     wrap.appendChild(authorsEl);
   }
 
   // Abstract
   if (s2.abstract) {
-    var secTitle = _sectionTitle('Abstract');
-    wrap.appendChild(secTitle);
-    var absEl = document.createElement('div');
-    absEl.style.cssText = 'font-size:0.75rem;color:var(--nr-text-secondary);line-height:1.55;margin-bottom:12px;';
-    absEl.textContent = s2.abstract;
-    wrap.appendChild(absEl);
+    var abstractSection = document.createElement('div');
+    abstractSection.className = 'nerd-section';
+    var absTitle = document.createElement('div');
+    absTitle.className = 'nerd-section-title';
+    absTitle.textContent = 'Abstract';
+    abstractSection.appendChild(absTitle);
+    var absBody = document.createElement('div');
+    absBody.className = 'nerd-section-body';
+    absBody.textContent = s2.abstract;
+    abstractSection.appendChild(absBody);
+    wrap.appendChild(abstractSection);
   }
 
   // Citation formats
-  var citeTitle = _sectionTitle('Cite');
-  wrap.appendChild(citeTitle);
+  var citeSection = document.createElement('div');
+  citeSection.className = 'nerd-section';
+  var citeSectionTitle = document.createElement('div');
+  citeSectionTitle.className = 'nerd-section-title';
+  citeSectionTitle.textContent = 'Cite';
+  citeSection.appendChild(citeSectionTitle);
 
   var citeFormats = _generateCiteFormats(s2);
   Object.keys(citeFormats).forEach(function(fmt) {
     var row = document.createElement('div');
-    row.style.cssText = 'margin-bottom:8px;';
+    row.className = 'nerd-cite-row';
 
     var label = document.createElement('div');
-    label.style.cssText = 'font-size:0.68rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;font-weight:600;';
+    label.className = 'nerd-cite-label';
     label.textContent = fmt;
     row.appendChild(label);
 
     var citeBox = document.createElement('div');
-    citeBox.style.cssText = 'font-size:0.72rem;color:var(--nr-text-secondary);background:var(--nr-bg-sunken);border-radius:6px;padding:8px;line-height:1.4;cursor:pointer;user-select:all;';
+    citeBox.className = 'nerd-cite-box';
     citeBox.textContent = citeFormats[fmt];
     citeBox.title = 'Click to copy';
     citeBox.addEventListener('click', function() {
-      navigator.clipboard.writeText(citeFormats[fmt]).then(function() { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(function() {});
+      navigator.clipboard.writeText(citeFormats[fmt]).then(function() {
+        var accent = getComputedStyle(document.documentElement).getPropertyValue('--nr-accent').trim();
+        if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse(accent || '#3b82f6');
+      }).catch(function() {});
       if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Copied ' + fmt);
     });
     row.appendChild(citeBox);
-    wrap.appendChild(row);
+    citeSection.appendChild(row);
   });
 
+  wrap.appendChild(citeSection);
   container.appendChild(wrap);
 }
 
@@ -208,24 +220,20 @@ function _renderRefsTab(container) {
   var state = _getState();
 
   var wrap = document.createElement('div');
-  wrap.style.cssText = 'padding:8px;overflow-y:auto;height:100%;';
+  wrap.className = 'nerd-tab-wrap';
 
   if (!state || !state.refs || !state.refs.length) {
-    wrap.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">No references available</div>';
+    wrap.innerHTML = '<div class="nerd-empty">No references available</div>';
     container.appendChild(wrap);
     return;
   }
 
   state.refs.forEach(function(ref) {
     var item = document.createElement('div');
-    item.className = 'reference-item';
-    item.style.cssText = 'padding:8px 10px;cursor:pointer;transition:background 0.15s;border-radius:6px;margin-bottom:2px;';
-    item.addEventListener('mouseenter', function() { item.style.background = 'var(--nr-bg-raised)'; });
-    item.addEventListener('mouseleave', function() { item.style.background = ''; });
+    item.className = 'nerd-paper-item';
 
     var refTitle = document.createElement('div');
-    refTitle.className = 'line-clamp-2';
-    refTitle.style.cssText = 'font-size:0.78rem;font-weight:500;color:var(--nr-text-primary);line-height:1.4;';
+    refTitle.className = 'nerd-paper-item-title line-clamp-2';
     refTitle.textContent = ref.title || 'Untitled';
     item.appendChild(refTitle);
 
@@ -237,13 +245,12 @@ function _renderRefsTab(container) {
     if (ref.citationCount != null) refMeta.push(ref.citationCount + ' cit.');
     if (refMeta.length) {
       var metaDiv = document.createElement('div');
-      metaDiv.style.cssText = 'font-size:0.68rem;color:var(--nr-text-quaternary);margin-top:2px;';
+      metaDiv.className = 'nerd-paper-item-meta';
       metaDiv.textContent = refMeta.join(' \u00b7 ');
       item.appendChild(metaDiv);
     }
 
     item.addEventListener('click', function() {
-      // Open reference in new tab via S2 link
       var query = encodeURIComponent(ref.title);
       var url = 'https://scholar.google.com/scholar?q=' + query;
       if (typeof window.browseNewTab === 'function') window.browseNewTab(url);
@@ -260,10 +267,10 @@ function _renderAuthorsTab(container) {
   var state = _getState();
 
   var wrap = document.createElement('div');
-  wrap.style.cssText = 'padding:12px;overflow-y:auto;height:100%;';
+  wrap.className = 'nerd-tab-wrap';
 
   if (!state || !state.s2Data || !state.s2Data.authors || !state.s2Data.authors.length) {
-    wrap.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">No author data available</div>';
+    wrap.innerHTML = '<div class="nerd-empty">No author data available</div>';
     container.appendChild(wrap);
     return;
   }
@@ -275,8 +282,7 @@ function _renderAuthorsTab(container) {
 
   authors.forEach(function(author) {
     var card = document.createElement('div');
-    card.className = 'author-card';
-    card.style.cssText = 'margin-bottom:12px;cursor:pointer;';
+    card.className = 'nerd-author-card';
     card.addEventListener('click', function() {
       if (author.authorId) {
         var url = 'https://www.semanticscholar.org/author/' + author.authorId;
@@ -320,27 +326,14 @@ function _renderAuthorsTab(container) {
         info.appendChild(statsEl);
       }
 
-      // h-index reputation badge
+      // h-index badge — unified accent color
       if (detail.hIndex != null) {
         var badge = document.createElement('span');
-        badge.style.cssText = 'display:inline-block;font-size:0.62rem;padding:1px 6px;border-radius:8px;margin-top:3px;font-weight:600;';
-        if (detail.hIndex >= 50) {
-          badge.style.background = 'rgba(76,175,80,0.15)';
-          badge.style.color = '#4caf50';
-          badge.textContent = 'Highly cited';
-        } else if (detail.hIndex >= 20) {
-          badge.style.background = 'rgba(66,165,245,0.15)';
-          badge.style.color = '#42a5f5';
-          badge.textContent = 'Established';
-        } else if (detail.hIndex >= 5) {
-          badge.style.background = 'rgba(255,183,77,0.15)';
-          badge.style.color = '#ffb74d';
-          badge.textContent = 'Active';
-        } else {
-          badge.style.background = 'rgba(158,158,158,0.15)';
-          badge.style.color = '#9e9e9e';
-          badge.textContent = 'Early career';
-        }
+        badge.className = 'nerd-badge';
+        if (detail.hIndex >= 50) badge.textContent = 'Highly cited';
+        else if (detail.hIndex >= 20) badge.textContent = 'Established';
+        else if (detail.hIndex >= 5) badge.textContent = 'Active';
+        else badge.textContent = 'Early career';
         info.appendChild(badge);
       }
     }
@@ -357,34 +350,31 @@ function _renderRelatedTab(container) {
   var state = _getState();
 
   var wrap = document.createElement('div');
-  wrap.style.cssText = 'padding:8px;overflow-y:auto;height:100%;';
+  wrap.className = 'nerd-tab-wrap';
 
   if (!state || !state.s2Data || !state.s2Data.paperId) {
-    wrap.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">No paper identified</div>';
+    wrap.innerHTML = '<div class="nerd-empty">No paper identified</div>';
     container.appendChild(wrap);
     return;
   }
 
-  wrap.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">Loading recommendations...</div>';
+  wrap.innerHTML = '<div class="nerd-empty">Loading recommendations...</div>';
   container.appendChild(wrap);
 
   _s2Fetch('/recommendations/v1/papers/forpaper/' + state.s2Data.paperId + '?limit=10&fields=title,authors,year,citationCount,venue').then(function(data) {
     wrap.innerHTML = '';
     var papers = data && data.recommendedPapers ? data.recommendedPapers : [];
     if (!papers.length) {
-      wrap.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">No recommendations found</div>';
+      wrap.innerHTML = '<div class="nerd-empty">No recommendations found</div>';
       return;
     }
 
     papers.forEach(function(paper) {
       var item = document.createElement('div');
-      item.style.cssText = 'padding:8px 10px;cursor:pointer;transition:background 0.15s;border-radius:6px;margin-bottom:2px;';
-      item.addEventListener('mouseenter', function() { item.style.background = 'var(--nr-bg-raised)'; });
-      item.addEventListener('mouseleave', function() { item.style.background = ''; });
+      item.className = 'nerd-paper-item';
 
       var t = document.createElement('div');
-      t.className = 'line-clamp-2';
-      t.style.cssText = 'font-size:0.78rem;font-weight:500;color:var(--nr-text-primary);line-height:1.4;';
+      t.className = 'nerd-paper-item-title line-clamp-2';
       t.textContent = paper.title || 'Untitled';
       item.appendChild(t);
 
@@ -397,7 +387,7 @@ function _renderRelatedTab(container) {
       if (paper.venue) m.push(paper.venue);
       if (m.length) {
         var metaDiv = document.createElement('div');
-        metaDiv.style.cssText = 'font-size:0.68rem;color:var(--nr-text-quaternary);margin-top:2px;';
+        metaDiv.className = 'nerd-paper-item-meta';
         metaDiv.textContent = m.join(' \u00b7 ');
         item.appendChild(metaDiv);
       }
@@ -410,7 +400,7 @@ function _renderRelatedTab(container) {
       wrap.appendChild(item);
     });
   }).catch(function() {
-    wrap.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">Failed to load recommendations</div>';
+    wrap.innerHTML = '<div class="nerd-empty">Failed to load recommendations</div>';
   });
 }
 
@@ -419,10 +409,10 @@ function _renderHighlightsTab(container) {
   var tab = _getTab();
 
   var wrap = document.createElement('div');
-  wrap.style.cssText = 'padding:8px;overflow-y:auto;height:100%;';
+  wrap.className = 'nerd-tab-wrap';
 
   if (!tab || !tab._pdfHighlights || !tab._pdfHighlights.length) {
-    wrap.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">No highlights yet. Select text in the PDF to highlight.</div>';
+    wrap.innerHTML = '<div class="nerd-empty">No highlights yet. Select text in the PDF to highlight.</div>';
     container.appendChild(wrap);
     return;
   }
@@ -510,22 +500,22 @@ function _renderSearchTab(container) {
   var tab = _getTab();
 
   var wrap = document.createElement('div');
-  wrap.style.cssText = 'display:flex;flex-direction:column;height:100%;';
+  wrap.className = 'nerd-search-wrap';
 
   // Search input
   var inputRow = document.createElement('div');
-  inputRow.style.cssText = 'padding:8px 12px;border-bottom:1px solid var(--nr-border-dim);flex-shrink:0;';
+  inputRow.className = 'nerd-search-input-row';
   var input = document.createElement('input');
   input.type = 'text';
   input.placeholder = 'Search document text...';
-  input.style.cssText = 'width:100%;background:var(--nr-bg-input);border:1px solid var(--nr-border-default);border-radius:6px;padding:6px 10px;font-size:0.78rem;color:var(--nr-text-primary);outline:none;';
+  input.className = 'nerd-search-input';
   inputRow.appendChild(input);
   wrap.appendChild(inputRow);
 
   // Results area
   var results = document.createElement('div');
-  results.style.cssText = 'flex:1;overflow-y:auto;padding:8px;';
-  results.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">Type to search the full document</div>';
+  results.className = 'nerd-search-results';
+  results.innerHTML = '<div class="nerd-empty">Type to search the full document</div>';
   wrap.appendChild(results);
 
   container.appendChild(wrap);
@@ -536,10 +526,10 @@ function _renderSearchTab(container) {
     searchTimer = setTimeout(function() {
       var query = input.value.trim();
       if (!query || !tab || !tab._pdfDoc) {
-        results.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">Type to search the full document</div>';
+        results.innerHTML = '<div class="nerd-empty">Type to search the full document</div>';
         return;
       }
-      results.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:12px;font-size:0.78rem;">Searching...</div>';
+      results.innerHTML = '<div class="nerd-empty">Searching...</div>';
       _searchFullText(tab, query, results);
     }, 400);
   });
@@ -576,28 +566,26 @@ function _searchFullText(tab, query, results) {
   Promise.all(promises).then(function() {
     results.innerHTML = '';
     if (!matches.length) {
-      results.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">No matches found</div>';
+      results.innerHTML = '<div class="nerd-empty">No matches found</div>';
       return;
     }
 
     var countEl = document.createElement('div');
-    countEl.style.cssText = 'font-size:0.68rem;color:var(--nr-text-quaternary);padding:4px 8px 8px;';
+    countEl.className = 'nerd-search-count';
     countEl.textContent = matches.length + ' match' + (matches.length !== 1 ? 'es' : '') + ' found';
     results.appendChild(countEl);
 
     matches.forEach(function(m) {
       var item = document.createElement('div');
-      item.style.cssText = 'padding:8px 10px;cursor:pointer;transition:background 0.15s;border-radius:6px;margin-bottom:2px;';
-      item.addEventListener('mouseenter', function() { item.style.background = 'var(--nr-bg-raised)'; });
-      item.addEventListener('mouseleave', function() { item.style.background = ''; });
+      item.className = 'nerd-paper-item';
 
       var page = document.createElement('div');
-      page.style.cssText = 'font-size:0.68rem;color:var(--nr-accent);margin-bottom:2px;font-weight:600;';
+      page.className = 'nerd-search-page';
       page.textContent = 'Page ' + m.pageNum;
       item.appendChild(page);
 
       var snippet = document.createElement('div');
-      snippet.style.cssText = 'font-size:0.75rem;color:var(--nr-text-secondary);line-height:1.4;';
+      snippet.className = 'nerd-search-snippet';
       snippet.textContent = m.snippet;
       item.appendChild(snippet);
 
@@ -616,15 +604,15 @@ function _renderCodeTab(container) {
   container.innerHTML = '';
   var state = _getState();
   var wrap = document.createElement('div');
-  wrap.style.cssText = 'padding:12px;overflow-y:auto;height:100%;';
+  wrap.className = 'nerd-tab-wrap';
 
   if (!state || !state.s2Data || !state.s2Data.title) {
-    wrap.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">No paper identified</div>';
+    wrap.innerHTML = '<div class="nerd-empty">No paper identified</div>';
     container.appendChild(wrap);
     return;
   }
 
-  wrap.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:12px;font-size:0.78rem;">Searching for implementations...</div>';
+  wrap.innerHTML = '<div class="nerd-empty">Searching for implementations...</div>';
   container.appendChild(wrap);
 
   var query = encodeURIComponent(state.s2Data.title);
@@ -634,7 +622,7 @@ function _renderCodeTab(container) {
       wrap.innerHTML = '';
       var results = data && data.results ? data.results : [];
       if (!results.length) {
-        wrap.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">No implementations found</div>';
+        wrap.innerHTML = '<div class="nerd-empty">No implementations found</div>';
         return;
       }
       var foundAny = false;
@@ -647,17 +635,15 @@ function _renderCodeTab(container) {
             repos.forEach(function(repo) {
               foundAny = true;
               var card = document.createElement('div');
-              card.style.cssText = 'padding:8px 10px;cursor:pointer;border-radius:6px;margin-bottom:4px;transition:background 0.15s;';
-              card.addEventListener('mouseenter', function() { card.style.background = 'var(--nr-bg-raised)'; });
-              card.addEventListener('mouseleave', function() { card.style.background = ''; });
+              card.className = 'nerd-repo-card';
 
               var name = document.createElement('div');
-              name.style.cssText = 'font-size:0.78rem;font-weight:500;color:var(--nr-text-primary);';
+              name.className = 'nerd-repo-name';
               name.textContent = repo.url ? repo.url.split('/').slice(-2).join('/') : 'Repository';
               card.appendChild(name);
 
               var meta = document.createElement('div');
-              meta.style.cssText = 'font-size:0.68rem;color:var(--nr-text-quaternary);margin-top:2px;';
+              meta.className = 'nerd-repo-meta';
               var parts = [];
               if (repo.stars != null) parts.push(repo.stars + ' stars');
               if (repo.framework) parts.push(repo.framework);
@@ -672,14 +658,14 @@ function _renderCodeTab(container) {
             });
             pending--;
             if (pending <= 0 && !foundAny) {
-              wrap.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">No implementations found</div>';
+              wrap.innerHTML = '<div class="nerd-empty">No implementations found</div>';
             }
           })
           .catch(function() { pending--; });
       });
     })
     .catch(function() {
-      wrap.innerHTML = '<div style="color:var(--nr-text-quaternary);padding:20px 0;text-align:center;font-size:0.78rem;">Failed to search implementations</div>';
+      wrap.innerHTML = '<div class="nerd-empty">Failed to search implementations</div>';
     });
 }
 
@@ -702,13 +688,6 @@ function _parseRefNums(str) {
     }
   });
   return nums;
-}
-
-function _sectionTitle(text) {
-  var el = document.createElement('div');
-  el.className = 'insight-section-title';
-  el.textContent = text;
-  return el;
 }
 
 function _generateCiteFormats(s2) {

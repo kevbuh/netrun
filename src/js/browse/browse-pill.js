@@ -65,6 +65,7 @@ export function _setPillBrowseMode(enabled) {
     if (sidebarToggle) sidebarToggle.style.display = 'none';
     _pillSyncTabs();
   } else {
+    // Exiting horizontal pill mode — remove classes, restore layout
     if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('island-mode'); }
     const pillTabs = document.getElementById('pill-browse-tabs');
     if (pillTabs) pillTabs.innerHTML = '';
