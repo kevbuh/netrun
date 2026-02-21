@@ -55,6 +55,7 @@
   letter-spacing: 0.05em;
   color: var(--nr-text-quaternary);
   margin-top: 8px;
+  flex-shrink: 0;
 }
 
 .docs-nav-category:first-child {
@@ -71,6 +72,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 
 .docs-nav-item:hover {
