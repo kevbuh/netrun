@@ -769,7 +769,7 @@ export function _islandRender() {
   // ── Auto-stack grouping ──
   // Eligible pills: non-tabs, non-nowplaying pills destined for left container
   const isIslandModeCheck = document.getElementById('sidebar-nav') && document.getElementById('sidebar-nav').classList.contains('island-mode');
-  const stackEligible = ids.filter(function(id) { return id !== 'tabs' && id !== 'nowplaying'; });
+  const stackEligible = ids.filter(function(id) { return id !== 'tabs' && id !== 'nowplaying' && id !== 'bookmark'; });
   const shouldStack = stackEligible.length >= 3 && !window._islandStackExpanded;
   // IDs to actually render (if stacked, only show top pill as stack + hide others)
   let stackedIds = null; // set of IDs hidden in stack
