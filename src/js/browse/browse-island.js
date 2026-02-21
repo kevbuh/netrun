@@ -26,7 +26,7 @@ import { renderAIPanelContent } from '/js/browse/browse-ai-pill.js';
 
 // ── Island pill position sync ──
 // Move #pill-island into #pill-url-wrap (non-NTP) or back to pill bar (NTP / non-island)
-function _syncIslandPillPosition() {
+export function _syncIslandPillPosition() {
   const pill = document.getElementById('sidebar-nav');
   const island = document.getElementById('pill-island');
   const urlWrap = document.getElementById('pill-url-wrap');
@@ -34,25 +34,21 @@ function _syncIslandPillPosition() {
   const isIsland = pill.classList.contains('island-mode');
   const isNtp = pill.classList.contains('ntp-active');
   const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
-  const tabsPill = tabsAnchor ? tabsAnchor.querySelector('.pill-island[data-island-id="tabs"]') : null;
-  if (isIsland && !isNtp) {
-    // Merge: prepend #pill-island into #pill-url-wrap
+  const tabsPill = tabsAnchor ? tabsAnchor.querySelector('.pill-island[data-island-id="tabs"]') :
+    island.querySelector('.pill-island[data-island-id="tabs"]');
+  if (isIsland) {
+    // Always keep #pill-island inside #pill-url-wrap in island mode
+    // On NTP, the capsule becomes transparent+centered via CSS
     if (island.parentElement !== urlWrap) {
       urlWrap.insertBefore(island, urlWrap.firstChild);
     }
-    // Tabs pill stays in the anchor (inside capsule)
-    if (tabsPill && tabsPill.parentElement !== tabsAnchor) {
-      tabsAnchor.insertBefore(tabsPill, tabsAnchor.firstChild);
-    }
-  } else if (isIsland && isNtp) {
-    // NTP: move island back to pill bar, move tabs pill into island container
-    const navIcons = document.getElementById('pill-nav-icons');
-    if (island.parentElement === urlWrap) {
-      pill.insertBefore(island, navIcons);
-    }
-    // Move tabs pill from anchor into #pill-island so it's visible (capsule is hidden on NTP)
-    if (tabsPill && tabsPill.parentElement !== island) {
+    // On NTP, move tabs pill from anchor into #pill-island (anchor children are hidden)
+    if (isNtp && tabsPill && tabsPill.parentElement !== island) {
       island.insertBefore(tabsPill, island.firstChild);
+    }
+    // On non-NTP, tabs pill stays in the anchor
+    if (!isNtp && tabsPill && tabsAnchor && tabsPill.parentElement !== tabsAnchor) {
+      tabsAnchor.insertBefore(tabsPill, tabsAnchor.firstChild);
     }
   } else {
     // Non-island: restore island to pill bar

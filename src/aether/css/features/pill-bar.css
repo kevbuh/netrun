@@ -365,9 +365,21 @@
     .browse-mode.ntp-active #pill-browse-more,
     .browse-mode.ntp-active #pill-newtab-btn,
     .browse-mode.ntp-active .pill-url-divider,
-    .browse-mode.ntp-active #pill-ai-unified,
-    .browse-mode.island-mode.ntp-active #pill-url-wrap {
+    .browse-mode.ntp-active #pill-ai-unified {
       display: none !important;
+    }
+    /* Island NTP: capsule becomes transparent centered container for island pills */
+    .browse-mode.island-mode.ntp-active #pill-url-wrap {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      height: auto;
+      min-width: 0;
+      padding: 0;
     }
     .browse-mode.ntp-active #pill-nav-icons {
       position: static;

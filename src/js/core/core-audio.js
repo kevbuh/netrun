@@ -8,7 +8,7 @@ import { islandRemove } from '/js/core/core-ui.js';
 import { NOISE_PRESETS, setRainNoiseType, startRain, stopRain } from '/js/core/core-sounds.js';
 import { _browseUrlHideHistory } from '/js/browse-urlbar.js';
 import { _paperState } from '/js/browse/browse-paper.js';
-import { _pillMicClick, _pillMicRecorder, _showTabsInPillDropdown } from '/js/browse/browse-island.js';
+import { _pillMicClick, _pillMicRecorder, _showTabsInPillDropdown, _syncIslandPillPosition } from '/js/browse/browse-island.js';
 import { _readPageAloud, scrollToAnnotation } from '/js/browse/browse-annotations.js';
 import { _ttsStopAll } from '/js/panel-tts.js';
 import { browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
@@ -1205,6 +1205,9 @@ export function _islandRender() {
       }, 10);
     }
   }
+
+  // Sync pill-island position (inside capsule vs pill bar) after all pills placed
+  if (typeof _syncIslandPillPosition === 'function') _syncIslandPillPosition();
 }
 
 // Re-check right-side pill clipping on resize

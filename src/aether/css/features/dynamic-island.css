@@ -1712,12 +1712,12 @@
     .browse-mode.island-mode.ntp-active #pill-island-right {
       display: none;
     }
-    /* NTP + island: center the island pills in the pill bar */
+    /* NTP + island: island pills inherit centering from the capsule wrapper */
     .browse-mode.island-mode.ntp-active #pill-island {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
+      position: relative;
+      left: auto;
+      top: auto;
+      transform: none;
     }
     /* When #pill-island is merged inside the capsule (non-NTP island mode) */
     #pill-url-wrap > #pill-island {
