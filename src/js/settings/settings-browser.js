@@ -363,6 +363,33 @@ export function _renderBrowserSettings() {
       }
     });
 
+  // HTTPS-Only Mode
+  const httpsOnlyToggle = _settingToggle('HTTPS-Only Mode', 'Automatically upgrade insecure HTTP connections to HTTPS.',
+    Settings.get('httpsOnlyEnabled') !== 'false', function(on) {
+      Settings.set('httpsOnlyEnabled', on ? 'true' : 'false');
+      if (window.electronAPI && window.electronAPI.httpsOnlySetEnabled) {
+        window.electronAPI.httpsOnlySetEnabled(on);
+      }
+    });
+
+  // Tracking Protection
+  const trackingStripToggle = _settingToggle('Tracking Protection', 'Strip tracking parameters (UTM, fbclid, etc.) from URLs.',
+    Settings.get('trackingStripEnabled') !== 'false', function(on) {
+      Settings.set('trackingStripEnabled', on ? 'true' : 'false');
+      if (window.electronAPI && window.electronAPI.trackingStripSetEnabled) {
+        window.electronAPI.trackingStripSetEnabled(on);
+      }
+    });
+
+  // Block Third-Party Cookies
+  const cookieBlockToggle = _settingToggle('Block Third-Party Cookies', 'Block cookies set by domains other than the site you are visiting.',
+    Settings.get('thirdPartyCookiesBlocked') !== 'false', function(on) {
+      Settings.set('thirdPartyCookiesBlocked', on ? 'true' : 'false');
+      if (window.electronAPI && window.electronAPI.cookieBlockSetEnabled) {
+        window.electronAPI.cookieBlockSetEnabled(on);
+      }
+    });
+
   // Focus mode
   const focusToggle = _settingToggle('Focus Mode', 'Block or limit time on distracting sites to prevent doom scrolling.',
     Settings.get('doomScrollEnabled') !== 'false', function(on) { Settings.set('doomScrollEnabled', on ? 'true' : 'false'); });
@@ -432,6 +459,9 @@ export function _renderBrowserSettings() {
       ytSection,
       dohToggle,
       _settingGroupContent([dohProvider]),
+      httpsOnlyToggle,
+      trackingStripToggle,
+      cookieBlockToggle,
       focusToggle,
       _settingGroupContent([focusSites]),
     ]),
@@ -446,7 +476,215 @@ export function _renderBrowserSettings() {
         window.Text('Passwords are encrypted via your system keychain.').className('text-dim text-[0.8rem] mb-3'),
         pwContent,
       ]),
+    ]),
+    _settingCard('Import Bookmarks', [
+      _settingGroupContent([
+        window.Text('Import bookmarks from other browsers into your reading list.').className('text-dim text-[0.8rem] mb-3'),
+        window.RawHTML('<div id="bookmark-import-browsers"><div class="text-dimmer text-[0.75rem]">Loading...</div></div>'),
+      ]),
     ])
   );
+}
+
+// ── Bookmark Import (Settings) ──
+
+var _bmSelectedUrls = {};  // browserId → Set of selected URLs
+var _bmParsedData = {};    // browserId → array of bookmarks
+var _bmExpandedId = null;  // currently expanded browser
+
+export function _loadBookmarkImport() {
+  var container = document.getElementById('bookmark-import-browsers');
+  if (!container) return;
+  if (!window.electronAPI || !window.electronAPI.dbQuery) {
+    container.innerHTML = '<div class="text-dimmer text-[0.75rem]">Bookmark import requires the desktop app.</div>';
+    return;
+  }
+  window.electronAPI.dbQuery('bookmark-detect').then(function(result) {
+    if (!result || !result.browsers || !result.browsers.length) {
+      container.innerHTML = '<div class="text-dimmer text-[0.75rem]">No browsers detected.</div>';
+      return;
+    }
+    _bmRenderBrowserList(container, result.browsers);
+  }).catch(function() {
+    container.innerHTML = '<div class="text-dimmer text-[0.75rem]">Failed to detect browsers.</div>';
+  });
+}
+
+function _bmRenderBrowserList(container, browsers) {
+  var cards = browsers.map(function(b) {
+    var isExpanded = _bmExpandedId === b.id;
+    var chevron = window.RawHTML(icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') }));
+    var nameView = window.Text(b.name).styles({ flex: '1', fontSize: '0.82rem', color: 'var(--nr-text-primary)', fontWeight: '500' });
+    var countView = new window.View('span').id('bm-count-' + b.id).styles({ fontSize: '0.68rem', color: 'var(--nr-text-quaternary)' });
+    if (_bmParsedData[b.id]) countView.el.textContent = _bmParsedData[b.id].length + ' bookmarks';
+
+    var header = window.HStack(chevron, nameView, countView)
+      .spacing(2).styles({ padding: '8px 12px', cursor: 'pointer' });
+    header.onTap(function() { _bmToggleExpand(b.id, container, browsers); });
+
+    var items = [header];
+    if (isExpanded) {
+      var detail = new window.View('div').id('bm-detail-' + b.id).styles({ padding: '0 12px 10px', borderTop: '1px solid var(--nr-border-subtle)' });
+      if (_bmParsedData[b.id]) {
+        _bmRenderBookmarkList(detail.el, b.id);
+      } else {
+        detail.el.innerHTML = '<div class="text-dimmer text-[0.72rem]" style="padding:10px 0;">Loading bookmarks...</div>';
+      }
+      items.push(detail);
+    }
+
+    return VStack.apply(null, items).styles({ border: '1px solid var(--nr-border-strong)', borderRadius: '8px', marginBottom: '6px', overflow: 'hidden' });
+  });
+  AetherUI.mount(VStack.apply(null, cards), container);
+}
+
+function _bmToggleExpand(browserId, container, browsers) {
+  if (_bmExpandedId === browserId) {
+    _bmExpandedId = null;
+    _bmRenderBrowserList(container, browsers);
+    return;
+  }
+  _bmExpandedId = browserId;
+  _bmRenderBrowserList(container, browsers);
+
+  // Parse if not cached
+  if (!_bmParsedData[browserId]) {
+    window.electronAPI.dbQuery('bookmark-parse', browserId).then(function(result) {
+      var bookmarks = (result && result.bookmarks) || [];
+      _bmParsedData[browserId] = bookmarks;
+      // Select all by default
+      _bmSelectedUrls[browserId] = new Set(bookmarks.map(function(bm) { return bm.url; }));
+      // Update count
+      var countEl = document.getElementById('bm-count-' + browserId);
+      if (countEl) countEl.textContent = bookmarks.length + ' bookmarks';
+      // Render list
+      var detail = document.getElementById('bm-detail-' + browserId);
+      if (detail) _bmRenderBookmarkList(detail, browserId);
+    }).catch(function() {
+      var detail = document.getElementById('bm-detail-' + browserId);
+      if (detail) detail.innerHTML = '<div class="text-dimmer text-[0.72rem]" style="padding:10px 0;">Failed to load bookmarks.</div>';
+    });
+  }
+}
+
+function _bmRenderBookmarkList(container, browserId) {
+  var bookmarks = _bmParsedData[browserId] || [];
+  var selected = _bmSelectedUrls[browserId] || new Set();
+  var selectedCount = selected.size;
+
+  if (!bookmarks.length) {
+    AetherUI.mount(window.Text('No bookmarks found.').className('text-dimmer text-[0.72rem]').styles({ padding: '10px 0' }), container);
+    return;
+  }
+
+  // Select all / deselect all
+  var allSelected = selectedCount === bookmarks.length;
+  var toggleAllBtn = new window.View('button').styles({ fontSize: '0.7rem', color: 'var(--nr-accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '0' });
+  toggleAllBtn.el.textContent = allSelected ? 'Deselect all' : 'Select all';
+  toggleAllBtn.onTap(function() {
+    if (allSelected) {
+      _bmSelectedUrls[browserId] = new Set();
+    } else {
+      _bmSelectedUrls[browserId] = new Set(bookmarks.map(function(bm) { return bm.url; }));
+    }
+    _bmRenderBookmarkList(container, browserId);
+  });
+
+  var headerRow = window.HStack(
+    window.Text(selectedCount + ' of ' + bookmarks.length + ' selected').styles({ flex: '1', fontSize: '0.7rem', color: 'var(--nr-text-quaternary)' }),
+    toggleAllBtn
+  ).styles({ padding: '8px 0 6px' });
+
+  // Bookmark rows (scrollable)
+  var rows = bookmarks.map(function(bm) {
+    var isSel = selected.has(bm.url);
+    var hostname = '';
+    try { hostname = new URL(bm.url).hostname; } catch(e) {}
+    var favicon = hostname ? 'https://www.google.com/s2/favicons?domain=' + hostname + '&sz=32' : '';
+
+    var checkSvg = isSel ? icon('check', { size: 10, stroke: '#fff', strokeWidth: '3' }) : '';
+    var checkCircle = new window.View('div').styles({
+      width: '16px', height: '16px', borderRadius: '4px', flexShrink: '0',
+      border: '1.5px solid ' + (isSel ? 'var(--nr-accent)' : 'rgba(255,255,255,0.15)'),
+      background: isSel ? 'var(--nr-accent)' : 'transparent',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s'
+    });
+    if (checkSvg) checkCircle.add(window.RawHTML(checkSvg));
+
+    var faviconView = favicon
+      ? window.RawHTML('<img src="' + favicon + '" style="width:14px;height:14px;border-radius:2px;flex-shrink:0;" onerror="this.style.display=\'none\'">')
+      : window.RawHTML('<span style="width:14px;"></span>');
+
+    var titleView = window.Text(bm.title || bm.url).styles({ fontSize: '0.78rem', color: 'var(--nr-text-primary)', flex: '1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+    var hostView = window.Text(hostname).styles({ fontSize: '0.65rem', color: 'var(--nr-text-quaternary)', flexShrink: '0' });
+
+    var row = window.HStack(checkCircle, faviconView, titleView, hostView)
+      .spacing(2).styles({ padding: '4px 2px', cursor: 'pointer', borderRadius: '4px', transition: 'background 0.1s' });
+    row.el.addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.04)'; });
+    row.el.addEventListener('mouseleave', function() { this.style.background = 'transparent'; });
+    (function(url) {
+      row.el.addEventListener('click', function() {
+        if (selected.has(url)) selected.delete(url);
+        else selected.add(url);
+        _bmRenderBookmarkList(container, browserId);
+      });
+    })(bm.url);
+    return row;
+  });
+
+  var listWrap = VStack.apply(null, rows);
+  listWrap.styles({ maxHeight: '240px', overflowY: 'auto' });
+
+  // Import button
+  var statusView = new window.View('span').id('bm-import-status-' + browserId).styles({ fontSize: '0.72rem', color: 'var(--nr-text-quaternary)' });
+  var importBtn = window.Button('Import ' + selectedCount + ' bookmarks').id('bm-import-btn-' + browserId).styles({
+    padding: '6px 16px', borderRadius: '6px', border: 'none', flex: '1',
+    background: selectedCount > 0 ? 'var(--nr-accent)' : 'var(--nr-bg-surface)',
+    color: selectedCount > 0 ? '#fff' : 'var(--nr-text-quaternary)',
+    fontSize: '0.78rem', fontWeight: '500', cursor: selectedCount > 0 ? 'pointer' : 'default',
+    opacity: selectedCount > 0 ? '1' : '0.5'
+  });
+  importBtn.el.disabled = selectedCount === 0;
+  importBtn.onTap(function() { _bmDoImport(browserId, container); });
+
+  var footer = window.HStack(importBtn, statusView).spacing(2).styles({ paddingTop: '8px', borderTop: '1px solid var(--nr-border-subtle)', marginTop: '4px' });
+
+  AetherUI.mount(window.VStack(headerRow, listWrap, footer), container);
+}
+
+function _bmDoImport(browserId, container) {
+  var btn = document.getElementById('bm-import-btn-' + browserId);
+  var status = document.getElementById('bm-import-status-' + browserId);
+  if (btn) { btn.textContent = 'Importing...'; btn.disabled = true; }
+
+  var googleId = window._authUserInfo && window._authUserInfo.google_id;
+  if (!googleId) {
+    if (status) status.textContent = 'Not signed in';
+    if (btn) { btn.textContent = 'Import'; btn.disabled = false; }
+    return;
+  }
+
+  var selected = _bmSelectedUrls[browserId];
+  var selectedUrls = selected ? Array.from(selected) : [];
+
+  window.electronAPI.dbQuery('bookmark-import', browserId, googleId, selectedUrls).then(function(result) {
+    if (result && result.ok) {
+      if (status) status.textContent = result.imported + ' imported' + (result.skipped ? ', ' + result.skipped + ' skipped' : '');
+      if (btn) { btn.textContent = 'Done'; btn.disabled = true; btn.style.background = 'var(--nr-bg-surface)'; btn.style.color = 'var(--nr-text-secondary)'; }
+      // Sync localStorage
+      window.electronAPI.dbQuery('user-data-get', googleId, 'savedPosts').then(function(data) {
+        if (data && data.value) {
+          var val = typeof data.value === 'string' ? data.value : JSON.stringify(data.value);
+          localStorage.setItem('savedPosts', val);
+        }
+      }).catch(function() {});
+    } else {
+      if (status) status.textContent = result && result.error ? result.error : 'Import failed';
+      if (btn) { btn.textContent = 'Retry'; btn.disabled = false; }
+    }
+  }).catch(function() {
+    if (status) status.textContent = 'Error';
+    if (btn) { btn.textContent = 'Retry'; btn.disabled = false; }
+  });
 }
 

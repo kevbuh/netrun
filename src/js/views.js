@@ -1,5 +1,6 @@
 // ── arXiv category labels ──
 import { togglePanel } from '/js/core/core-nav.js';
+import { registerActions } from '/js/core/core-actions.js';
 export const ARXIV_CAT_NAMES = {
   'cs.AI':'Artificial Intelligence','cs.AR':'Hardware Architecture','cs.CC':'Computational Complexity',
   'cs.CE':'Computational Engineering','cs.CG':'Computational Geometry','cs.CL':'Computation and Language',

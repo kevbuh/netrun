@@ -10,6 +10,8 @@ import { registerDevIPC } from './ipc/dev.js';
 import { registerNeuralookIPC } from './ipc/neuralook.js';
 import { registerTerminalIPC } from './ipc/terminal.js';
 import { registerSettingsIPC } from './ipc/settings.js';
+import { registerPdfConvertIPC } from './ipc/pdf-convert.js';
+import { registerBookmarkImportIPC } from './ipc/bookmark-import.js';
 
 /**
  * Register all IPC handlers for the tool system and agent runtime.
@@ -27,4 +29,6 @@ export function registerToolIPC(): void {
   registerNeuralookIPC();
   registerTerminalIPC();
   registerSettingsIPC();
+  registerPdfConvertIPC();
+  registerBookmarkImportIPC();
 }

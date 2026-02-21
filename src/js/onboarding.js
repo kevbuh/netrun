@@ -1,5 +1,5 @@
-// onboarding.js — Onboarding wizard (standalone page)
-// Steps: 0=Welcome, 1=Username, 2=Accent Color, 3=Theme, 4=Tab Layout, 5=Feed Selection, 6=Chat Model, 7=Pixel Pet, 8=Neuralook, 9=Finale
+// onboarding.js — Onboarding wizard (SPA overlay or standalone page)
+// Steps: 0=Welcome, 1=Username, 2=Accent Color, 3=Theme, 4=Tab Layout, 5=Bookmark Import, 6=Feed Selection, 7=Chat Model, 8=Pixel Pet, 9=Neuralook, 10=Finale
 
 import Settings from '/js/core/core-settings.js';
 import { apiPost, apiGet } from '/js/api.js';
@@ -10,15 +10,19 @@ import { applyAccentColor, setAccentColor } from '/js/settings/settings-colors.j
 import { setTheme } from '/js/settings/settings-theme.js';
 import { logger } from '/js/logger.js';
 
-// Auth guard: no token → redirect to login
+// Auth guard: standalone page only (SPA handles its own auth)
 (function() {
-  if (!localStorage.getItem('authToken')) {
+  if (_isStandalonePage() && !localStorage.getItem('authToken')) {
     window.location.href = '/login.html';
   }
 })();
 
+function _isStandalonePage() {
+  return !document.getElementById('app-bezel');
+}
+
 let _wizardStep = 0;
-const _wizardTotalSteps = 10;
+const _wizardTotalSteps = 11;
 
 const _wizardAccentColors = [
   { color: '#b4451a', name: 'Orange' },
@@ -53,6 +57,17 @@ let _wizardPendingUsername = null;
 let _wizardModelList = [];
 
 function openOnboarding() {
+  // If no onboarding-container exists (SPA mode), create a full-viewport overlay
+  if (!document.getElementById('onboarding-container')) {
+    const overlay = document.createElement('div');
+    overlay.id = 'onboarding-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:var(--nr-bg-body, #0a0a0a);';
+    const container = document.createElement('div');
+    container.id = 'onboarding-container';
+    container.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;height:100%;';
+    overlay.appendChild(container);
+    document.body.appendChild(overlay);
+  }
   _renderOnboardingWizard();
 }
 
@@ -79,11 +94,16 @@ function _wizardUpdateAccentGlow() {
 function _wizardAnimateHeight(wizard, step) {
   const prevHeight = wizard.offsetHeight;
   wizard.style.height = 'auto';
-  const newHeight = step.scrollHeight;
+  const newHeight = wizard.scrollHeight;
+  if (prevHeight === newHeight) { wizard.style.height = ''; return; }
   wizard.style.height = prevHeight + 'px';
   void wizard.offsetHeight;
   wizard.style.height = newHeight + 'px';
-  const onEnd = function() { wizard.style.height = 'auto'; wizard.removeEventListener('transitionend', onEnd); };
+  const onEnd = function(e) {
+    if (e.target !== wizard || e.propertyName !== 'height') return;
+    wizard.style.height = '';
+    wizard.removeEventListener('transitionend', onEnd);
+  };
   wizard.addEventListener('transitionend', onEnd);
 }
 
@@ -92,7 +112,7 @@ function _wizardBackView(stepIndex) {
   const prevStep = stepIndex - 1;
   const btn = new window.View('button').className('wizard-back');
   btn.el.title = 'Back';
-  btn.el.appendChild(window.RawHTML(icon('chevronLeft', {strokeWidth: '2'})).build());
+  btn.add(window.RawHTML(icon('chevronLeft', {strokeWidth: '2'})));
   btn.onTap(function() { _renderWizardStep(prevStep, 'back'); });
   return btn;
 }
@@ -106,6 +126,48 @@ function _wizardDotsView(stepIndex) {
   return window.HStack(dots).className('wizard-dots');
 }
 
+function _buildWizardStep(wizard, stepIndex) {
+  _wizardStep = stepIndex;
+
+  const contentView = window.Switch(stepIndex, {
+    0: function() { return _wizardWelcomeView(); },
+    1: function() { return _wizardUsernameView(); },
+    2: function() { return _wizardAccentView(); },
+    3: function() { return _wizardThemeView(); },
+    4: function() { return _wizardTabLayoutView(); },
+    5: function() { return _wizardBookmarkImportView(); },
+    6: function() { return _wizardFeedsView(); },
+    7: function() { return _wizardChatModelView(); },
+    8: function() { return _wizardPixelPetView(); },
+    9: function() { return _wizardNeuralookView(); },
+    10: function() { return _wizardFinaleView(); },
+  });
+
+  const stepView = new window.View('div').className('wizard-step');
+  stepView.styles({ position: 'relative' });
+  const step = stepView.el;
+  const backView = _wizardBackView(stepIndex);
+  if (backView) AetherUI.append(backView, step);
+  AetherUI.append(_wizardDotsView(stepIndex), step);
+  if (contentView) AetherUI.append(contentView, step);
+  wizard.appendChild(step);
+
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      step.classList.add('active');
+      _wizardAnimateHeight(wizard, step);
+    });
+  });
+
+  if (stepIndex === 1) _wizardUsernameInit();
+  else if (stepIndex === 2) _wizardAccentInit();
+  else if (stepIndex === 3) _wizardThemeInit();
+  else if (stepIndex === 5) _wizardBookmarkImportInit();
+  else if (stepIndex === 6) _wizardFeedsInit();
+  else if (stepIndex === 7) _wizardChatModelInit();
+  else if (stepIndex === 8) _wizardPixelPetInit();
+}
+
 function _renderWizardStep(stepIndex, direction) {
   const wizard = document.getElementById('onboarding-wizard');
   if (!wizard) return;
@@ -115,48 +177,10 @@ function _renderWizardStep(stepIndex, direction) {
     prev.classList.remove('active');
     prev.classList.add('exit-left');
     setTimeout(function() { if (prev.parentNode) prev.remove(); }, 350);
+    setTimeout(function() { _buildWizardStep(wizard, stepIndex); }, 350);
+  } else {
+    _buildWizardStep(wizard, stepIndex);
   }
-
-  const delay = prev ? 350 : 0;
-  setTimeout(function() {
-    _wizardStep = stepIndex;
-
-    const contentView = window.Switch(stepIndex, {
-      0: function() { return _wizardWelcomeView(); },
-      1: function() { return _wizardUsernameView(); },
-      2: function() { return _wizardAccentView(); },
-      3: function() { return _wizardThemeView(); },
-      4: function() { return _wizardTabLayoutView(); },
-      5: function() { return _wizardFeedsView(); },
-      6: function() { return _wizardChatModelView(); },
-      7: function() { return _wizardPixelPetView(); },
-      8: function() { return _wizardNeuralookView(); },
-      9: function() { return _wizardFinaleView(); },
-    });
-
-    const stepView = new window.View('div').className('wizard-step');
-    stepView.styles({ position: 'relative' });
-    const step = stepView.el;
-    const backView = _wizardBackView(stepIndex);
-    if (backView) step.appendChild(backView.build());
-    step.appendChild(_wizardDotsView(stepIndex).build());
-    if (contentView) step.appendChild(contentView.build());
-    wizard.appendChild(step);
-
-    requestAnimationFrame(function() {
-      requestAnimationFrame(function() {
-        step.classList.add('active');
-        _wizardAnimateHeight(wizard, step);
-      });
-    });
-
-    if (stepIndex === 1) _wizardUsernameInit();
-    else if (stepIndex === 2) _wizardAccentInit();
-    else if (stepIndex === 3) _wizardThemeInit();
-    else if (stepIndex === 5) _wizardFeedsInit();
-    else if (stepIndex === 6) _wizardChatModelInit();
-    else if (stepIndex === 7) _wizardPixelPetInit();
-  }, delay);
 }
 
 // ── Step 0: Welcome ──
@@ -320,10 +344,10 @@ function _wizardThemeView() {
   const options = _wizardThemes.map(function(t) {
     const btn = new window.View('button').className('wizard-theme-option' + (t.id === current ? ' selected' : ''));
     btn.el.dataset.theme = t.id;
-    btn.el.appendChild(window.RawHTML(_wizardThemePreviewHTML(t)).build());
+    btn.add(window.RawHTML(_wizardThemePreviewHTML(t)));
     const labelWrap = new window.View('div').flex(1).textAlign('left').styles({marginLeft:'12px'});
-    labelWrap.el.appendChild(window.RawHTML('<span class="wizard-theme-name">' + t.name + '</span><br/><span class="wizard-theme-desc">' + t.desc + '</span>').build());
-    btn.el.appendChild(labelWrap.el);
+    labelWrap.add(window.RawHTML('<span class="wizard-theme-name">' + t.name + '</span><br/><span class="wizard-theme-desc">' + t.desc + '</span>'));
+    btn.add(labelWrap);
     btn.onTap(function() { _wizardPickTheme(t.id, btn.el); });
     return btn;
   });
@@ -370,9 +394,9 @@ function _wizardTabLayoutView() {
   function _layoutOption(layout, name, desc, previewHTML, selected) {
     const btn = new window.View('button').className('wizard-tab-layout-option' + (selected ? ' selected' : ''));
     btn.el.dataset.layout = layout;
-    btn.el.appendChild(window.RawHTML('<div class="wizard-tab-layout-preview">' + previewHTML + '</div>').build());
-    btn.el.appendChild(window.RawHTML('<span class="wizard-tab-layout-name">' + name + '</span>').build());
-    btn.el.appendChild(window.RawHTML('<span class="wizard-tab-layout-desc">' + desc + '</span>').build());
+    btn.add(window.RawHTML('<div class="wizard-tab-layout-preview">' + previewHTML + '</div>'));
+    btn.add(window.RawHTML('<span class="wizard-tab-layout-name">' + name + '</span>'));
+    btn.add(window.RawHTML('<span class="wizard-tab-layout-desc">' + desc + '</span>'));
     btn.onTap(function() { _wizardPickTabLayout(layout, btn.el); });
     return btn;
   }
@@ -414,7 +438,224 @@ function _wizardPickTabLayout(layout, el) {
   if (el) el.classList.add('selected');
 }
 
-// ── Step 5: Feed Selection ──
+// ── Step 5: Bookmark Import ──
+
+let _wizBmParsed = {};    // browserId → bookmarks array
+let _wizBmSelected = {};  // browserId → Set of selected URLs
+let _wizBmExpandedId = null;
+let _wizBmBrowsers = [];
+
+function _wizardBookmarkImportView() {
+  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  continueBtn.el.textContent = 'Continue';
+  continueBtn.onTap(function() { _renderWizardStep(6, 'forward'); });
+  const skipBtn = new window.View('button').className('nr-btn nr-btn-ghost');
+  skipBtn.el.textContent = 'Skip';
+  skipBtn.onTap(function() { _renderWizardStep(6, 'forward'); });
+  return window.VStack(
+    window.Text('Import bookmarks').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    window.Text('Bring your bookmarks from other browsers into your reading list.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
+    new window.View('div').id('wiz-bookmark-browsers').styles({marginBottom:'20px', textAlign:'left'}),
+    continueBtn,
+    skipBtn
+  ).textAlign('center');
+}
+
+function _wizardBookmarkImportInit() {
+  var container = document.getElementById('wiz-bookmark-browsers');
+  if (!container) return;
+  if (!window.electronAPI || !window.electronAPI.dbQuery) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;text-align:center;">Bookmark import requires the desktop app.</div>';
+    return;
+  }
+  container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;text-align:center;">Detecting browsers...</div>';
+  window.electronAPI.dbQuery('bookmark-detect').then(function(result) {
+    if (!result || !result.browsers || !result.browsers.length) {
+      container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;text-align:center;">No other browsers detected.</div>';
+      return;
+    }
+    _wizBmBrowsers = result.browsers;
+    _wizBmRenderList(container);
+  }).catch(function() {
+    container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;text-align:center;">Could not detect browsers.</div>';
+  });
+}
+
+function _wizBmRenderList(container) {
+  var cards = _wizBmBrowsers.map(function(b) {
+    var isExpanded = _wizBmExpandedId === b.id;
+    var chevron = window.RawHTML(icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') }));
+    var nameView = window.Text(b.name).styles({fontSize:'0.85rem', fontWeight:'500', color:'var(--nr-text-primary,#e0e0e0)', flex:'1'});
+    var countView = new window.View('span').id('wiz-bm-count-' + b.id).styles({fontSize:'0.68rem', color:'var(--nr-text-quaternary)'});
+    if (_wizBmParsed[b.id]) countView.el.textContent = _wizBmParsed[b.id].length + ' bookmarks';
+
+    var header = window.HStack(
+      window.RawHTML('<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;">' + icon('globe', {size: 18, stroke: 'var(--nr-text-secondary,#999)'}) + '</div>'),
+      nameView, countView, chevron
+    ).spacing(2).styles({padding:'8px 12px', cursor:'pointer'});
+    header.onTap(function() { _wizBmToggle(b.id, container); });
+
+    var items = [header];
+    if (isExpanded) {
+      var detail = new window.View('div').id('wiz-bm-detail-' + b.id).styles({padding:'0 12px 10px', borderTop:'1px solid rgba(255,255,255,0.06)'});
+      if (_wizBmParsed[b.id]) {
+        _wizBmRenderBookmarks(detail.el, b.id);
+      } else {
+        detail.el.innerHTML = '<div style="font-size:0.72rem;color:var(--nr-text-quaternary);padding:10px 0;">Loading bookmarks...</div>';
+      }
+      items.push(detail);
+    }
+
+    return VStack.apply(null, items).styles({
+      border:'1px solid rgba(255,255,255,0.08)', borderRadius:'10px', marginBottom:'6px', overflow:'hidden',
+      background:'rgba(255,255,255,0.02)'
+    });
+  });
+  AetherUI.mount(window.VStack(cards), container);
+}
+
+function _wizBmToggle(browserId, container) {
+  if (_wizBmExpandedId === browserId) {
+    _wizBmExpandedId = null;
+    _wizBmRenderList(container);
+    return;
+  }
+  _wizBmExpandedId = browserId;
+  _wizBmRenderList(container);
+
+  if (!_wizBmParsed[browserId]) {
+    window.electronAPI.dbQuery('bookmark-parse', browserId).then(function(result) {
+      var bookmarks = (result && result.bookmarks) || [];
+      _wizBmParsed[browserId] = bookmarks;
+      _wizBmSelected[browserId] = new Set(bookmarks.map(function(bm) { return bm.url; }));
+      var countEl = document.getElementById('wiz-bm-count-' + browserId);
+      if (countEl) countEl.textContent = bookmarks.length + ' bookmarks';
+      var detail = document.getElementById('wiz-bm-detail-' + browserId);
+      if (detail) _wizBmRenderBookmarks(detail, browserId);
+    }).catch(function() {
+      var detail = document.getElementById('wiz-bm-detail-' + browserId);
+      if (detail) detail.innerHTML = '<div style="font-size:0.72rem;color:var(--nr-text-quaternary);padding:10px 0;">Failed to load bookmarks.</div>';
+    });
+  }
+}
+
+function _wizBmRenderBookmarks(container, browserId) {
+  var bookmarks = _wizBmParsed[browserId] || [];
+  var selected = _wizBmSelected[browserId] || new Set();
+  var selectedCount = selected.size;
+
+  if (!bookmarks.length) {
+    AetherUI.mount(window.Text('No bookmarks found.').styles({fontSize:'0.72rem', color:'var(--nr-text-quaternary)', padding:'10px 0'}), container);
+    return;
+  }
+
+  // Select all / deselect all
+  var allSelected = selectedCount === bookmarks.length;
+  var toggleAllBtn = new window.View('button').styles({fontSize:'0.7rem', color:'var(--accent,#b4451a)', background:'none', border:'none', cursor:'pointer', padding:'0'});
+  toggleAllBtn.el.textContent = allSelected ? 'Deselect all' : 'Select all';
+  toggleAllBtn.onTap(function() {
+    if (allSelected) _wizBmSelected[browserId] = new Set();
+    else _wizBmSelected[browserId] = new Set(bookmarks.map(function(bm) { return bm.url; }));
+    _wizBmRenderBookmarks(container, browserId);
+  });
+
+  var headerRow = window.HStack(
+    window.Text(selectedCount + ' of ' + bookmarks.length + ' selected').styles({flex:'1', fontSize:'0.7rem', color:'var(--nr-text-quaternary)'}),
+    toggleAllBtn
+  ).styles({padding:'8px 0 6px'});
+
+  var rows = bookmarks.map(function(bm) {
+    var isSel = selected.has(bm.url);
+    var hostname = '';
+    try { hostname = new URL(bm.url).hostname; } catch(e) {}
+    var favicon = hostname ? 'https://www.google.com/s2/favicons?domain=' + hostname + '&sz=32' : '';
+
+    var checkSvg = isSel ? icon('check', {size: 10, stroke: '#fff', strokeWidth: '3'}) : '';
+    var checkCircle = new window.View('div').styles({
+      width:'16px', height:'16px', borderRadius:'4px', flexShrink:'0',
+      border:'1.5px solid ' + (isSel ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.15)'),
+      background: isSel ? 'var(--accent,#b4451a)' : 'transparent',
+      display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s'
+    });
+    if (checkSvg) checkCircle.add(window.RawHTML(checkSvg));
+
+    var faviconView = favicon
+      ? window.RawHTML('<img src="' + favicon + '" style="width:14px;height:14px;border-radius:2px;flex-shrink:0;" onerror="this.style.display=\'none\'">')
+      : window.RawHTML('<span style="width:14px;"></span>');
+
+    var titleView = window.Text(bm.title || bm.url).styles({fontSize:'0.78rem', color:'var(--nr-text-primary,#e0e0e0)', flex:'1', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'});
+    var hostView = window.Text(hostname).styles({fontSize:'0.62rem', color:'var(--nr-text-quaternary)', flexShrink:'0'});
+
+    var row = window.HStack(checkCircle, faviconView, titleView, hostView)
+      .spacing(2).styles({padding:'4px 2px', cursor:'pointer', borderRadius:'4px', transition:'background 0.1s'});
+    row.el.addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.04)'; });
+    row.el.addEventListener('mouseleave', function() { this.style.background = 'transparent'; });
+    (function(url) {
+      row.el.addEventListener('click', function() {
+        if (selected.has(url)) selected.delete(url);
+        else selected.add(url);
+        _wizBmRenderBookmarks(container, browserId);
+      });
+    })(bm.url);
+    return row;
+  });
+
+  var listWrap = VStack.apply(null, rows);
+  listWrap.styles({maxHeight:'200px', overflowY:'auto'});
+
+  // Import button
+  var statusView = new window.View('span').id('wiz-bm-import-status-' + browserId).styles({fontSize:'0.72rem', color:'var(--nr-text-quaternary)'});
+  var importBtn = window.Button('Import ' + selectedCount + ' bookmarks').id('wiz-bm-import-btn-' + browserId).styles({
+    padding:'6px 16px', borderRadius:'6px', border:'none', flex:'1',
+    background: selectedCount > 0 ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.05)',
+    color: selectedCount > 0 ? '#fff' : 'var(--nr-text-quaternary,#666)',
+    fontSize:'0.78rem', fontWeight:'500', cursor: selectedCount > 0 ? 'pointer' : 'default',
+    opacity: selectedCount > 0 ? '1' : '0.5'
+  });
+  importBtn.el.disabled = selectedCount === 0;
+  importBtn.onTap(function() { _wizBmDoImport(browserId, container); });
+
+  var footer = window.HStack(importBtn, statusView).spacing(2).styles({paddingTop:'8px', borderTop:'1px solid rgba(255,255,255,0.06)', marginTop:'4px'});
+
+  AetherUI.mount(window.VStack(headerRow, listWrap, footer), container);
+}
+
+function _wizBmDoImport(browserId, container) {
+  var btn = document.getElementById('wiz-bm-import-btn-' + browserId);
+  var status = document.getElementById('wiz-bm-import-status-' + browserId);
+  if (btn) { btn.textContent = 'Importing...'; btn.disabled = true; }
+
+  var googleId = window._authUserInfo && window._authUserInfo.google_id;
+  if (!googleId) {
+    if (status) status.textContent = 'Sign in first';
+    if (btn) { btn.textContent = 'Import'; btn.disabled = false; }
+    return;
+  }
+
+  var selected = _wizBmSelected[browserId];
+  var selectedUrls = selected ? Array.from(selected) : [];
+
+  window.electronAPI.dbQuery('bookmark-import', browserId, googleId, selectedUrls).then(function(result) {
+    if (result && result.ok) {
+      if (status) status.textContent = result.imported + ' imported' + (result.skipped ? ', ' + result.skipped + ' skipped' : '');
+      if (btn) { btn.textContent = 'Done'; btn.disabled = true; btn.style.background = 'rgba(255,255,255,0.05)'; btn.style.color = 'var(--nr-text-secondary,#999)'; }
+      window.electronAPI.dbQuery('user-data-get', googleId, 'savedPosts').then(function(data) {
+        if (data && data.value) {
+          var val = typeof data.value === 'string' ? data.value : JSON.stringify(data.value);
+          localStorage.setItem('savedPosts', val);
+        }
+      }).catch(function() {});
+    } else {
+      if (status) status.textContent = result && result.error ? result.error : 'Import failed';
+      if (btn) { btn.textContent = 'Retry'; btn.disabled = false; }
+    }
+  }).catch(function() {
+    if (status) status.textContent = 'Error';
+    if (btn) { btn.textContent = 'Retry'; btn.disabled = false; }
+  });
+}
+
+// ── Step 6: Feed Selection ──
 
 const _wizardFeedSelected = new Set();
 let _wizardFeedCategory = null;
@@ -422,7 +663,7 @@ let _wizardFeedCategory = null;
 function _wizardFeedsView() {
   const continueBtn = new window.View('button').id('wiz-feed-continue').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
-  continueBtn.onTap(function() { _renderWizardStep(6, 'forward'); });
+  continueBtn.onTap(function() { _renderWizardStep(7, 'forward'); });
   return window.VStack(
     window.Text('Choose your feeds').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
     window.Text('Pick RSS feeds to follow. You can change these later.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'16px'}),
@@ -506,7 +747,7 @@ function _wizardFeedRenderGrid() {
       const textCol = window.VStack(nameView, descView).flex(1).styles({minWidth:'0'});
       const checkSvg = sel ? icon('check', {size: 12, stroke: '#fff', strokeWidth: '3'}) : '';
       const checkCircle = new window.View('div').styles({width:'20px', height:'20px', borderRadius:'50%', border:'2px solid ' + (sel ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.15)'), background: sel ? 'var(--accent,#b4451a)' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:'0', transition:'all 0.15s'});
-      if (checkSvg) checkCircle.el.appendChild(window.RawHTML(checkSvg).build());
+      if (checkSvg) checkCircle.add(window.RawHTML(checkSvg));
       const row = window.HStack(faviconView, textCol, checkCircle).spacing(2.5).styles({padding:'6px 10px', borderRadius:'8px', transition:'background 0.15s', background: sel ? 'rgba(255,255,255,0.04)' : 'transparent'}).cursor();
       (function(key, isSel) {
         row.el.addEventListener('click', function() { _wizardFeedToggle(key); });
@@ -540,12 +781,12 @@ function _wizardFeedToggleCategory(cat) {
   _wizardFeedRenderGrid();
 }
 
-// ── Step 6: Chat Model ──
+// ── Step 7: Chat Model ──
 
 function _wizardChatModelView() {
   const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
-  continueBtn.onTap(function() { _renderWizardStep(7, 'forward'); });
+  continueBtn.onTap(function() { _renderWizardStep(8, 'forward'); });
   return window.VStack(
     window.Text('Choose a model').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
     window.Text('Pick the default Ollama model for chat and tools.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
@@ -591,7 +832,7 @@ function _wizardPickModel(model, el) {
   if (el) el.classList.add('selected');
 }
 
-// ── Step 7: Pixel Pet ──
+// ── Step 8: Pixel Pet ──
 
 function _wizardPixelPetView() {
   const petOn = Settings.get('pixelPet') === 'on';
@@ -600,8 +841,8 @@ function _wizardPixelPetView() {
     const sel = petOn && currentType === p.id;
     const btn = new window.View('button').className('wizard-pet-option' + (sel ? ' selected' : '')).styles({display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', padding:'10px 12px'});
     btn.el.dataset.pet = p.id;
-    btn.el.appendChild(window.RawHTML('<canvas class="wiz-pet-sprite" data-pet-id="' + p.id + '" width="48" height="48" style="image-rendering:pixelated;width:48px;height:48px;"></canvas>').build());
-    btn.el.appendChild(window.Text(p.name).styles({fontSize:'11px'}).build());
+    btn.add(window.RawHTML('<canvas class="wiz-pet-sprite" data-pet-id="' + p.id + '" width="48" height="48" style="image-rendering:pixelated;width:48px;height:48px;"></canvas>'));
+    btn.add(window.Text(p.name).styles({fontSize:'11px'}));
     (function(petId) {
       btn.onTap(function() { _wizardPickPet(petId, btn.el); });
     })(p.id);
@@ -610,14 +851,14 @@ function _wizardPixelPetView() {
   // "None" option
   const noneBtn = new window.View('button').className('wizard-pet-option' + (!petOn ? ' selected' : '')).styles({display:'flex', flexDirection:'column', alignItems:'center', gap:'6px', padding:'10px 12px'});
   noneBtn.el.dataset.pet = 'none';
-  noneBtn.el.appendChild(window.RawHTML('<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;">' + icon('close', {size: 24, stroke: 'var(--nr-text-secondary,#999)'}) + '</div>').build());
-  noneBtn.el.appendChild(window.Text('None').styles({fontSize:'11px'}).build());
+  noneBtn.add(window.RawHTML('<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;">' + icon('close', {size: 24, stroke: 'var(--nr-text-secondary,#999)'}) + '</div>'));
+  noneBtn.add(window.Text('None').styles({fontSize:'11px'}));
   noneBtn.onTap(function() { _wizardPickPet('none', noneBtn.el); });
   petBtns.push(noneBtn);
 
   const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
-  continueBtn.onTap(function() { _renderWizardStep(8, 'forward'); });
+  continueBtn.onTap(function() { _renderWizardStep(9, 'forward'); });
   return window.VStack(
     window.Text('Pick a companion').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
     window.Text('A pixel pet that lives on your screen. Or go solo.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
@@ -762,7 +1003,7 @@ function _wizardPetSprites() {
   };
 }
 
-// ── Step 8: Neuralook (optional) ──
+// ── Step 9: Neuralook (optional) ──
 
 function _wizardNeuralookView() {
   const calibrateBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
@@ -770,7 +1011,7 @@ function _wizardNeuralookView() {
   calibrateBtn.onTap(function() { _wizardStartNeuralook(); });
   const skipBtn = new window.View('button').className('nr-btn nr-btn-ghost');
   skipBtn.el.textContent = 'Set up later';
-  skipBtn.onTap(function() { _renderWizardStep(9, 'forward'); });
+  skipBtn.onTap(function() { _renderWizardStep(10, 'forward'); });
   return window.VStack(
     window.Text('Eye tracking').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
     window.Text('Neuralook uses your camera for gaze-based navigation. A quick calibration is needed.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
@@ -792,10 +1033,20 @@ async function _wizardStartNeuralook() {
     Settings.setJSON('feedSources', sources);
     Settings.setJSON('feedNotifSources', notifSources);
   }
-  window.location.href = '/#neuralook';
+  const overlay = document.getElementById('onboarding-overlay');
+  if (overlay) {
+    overlay.remove();
+    if (typeof window._onOnboardingComplete === 'function') {
+      window._onOnboardingComplete();
+      window._onOnboardingComplete = null;
+    }
+    setTimeout(function() { window.location.hash = '#neuralook'; }, 100);
+  } else {
+    window.location.href = '/#neuralook';
+  }
 }
 
-// ── Step 9: Finale ──
+// ── Step 10: Finale ──
 
 function _wizardFinaleView() {
   const username = _wizardPendingUsername || (window._authUserInfo && window._authUserInfo.username) || 'you';
@@ -826,10 +1077,26 @@ async function _wizardFinish() {
 }
 
 function _wizardComplete() {
-  window.location.href = '/';
+  const overlay = document.getElementById('onboarding-overlay');
+  if (overlay) {
+    // SPA mode — remove overlay and trigger auth success callback
+    overlay.remove();
+    if (typeof window._onOnboardingComplete === 'function') {
+      window._onOnboardingComplete();
+      window._onOnboardingComplete = null;
+    }
+  } else {
+    // Standalone page — redirect
+    window.location.href = '/';
+  }
 }
 
-// Auto-start wizard on page load
-document.addEventListener('DOMContentLoaded', function() {
-  openOnboarding();
-});
+// Expose for SPA usage
+window.openOnboarding = openOnboarding;
+
+// Auto-start wizard on standalone page only
+if (_isStandalonePage()) {
+  document.addEventListener('DOMContentLoaded', function() {
+    openOnboarding();
+  });
+}
