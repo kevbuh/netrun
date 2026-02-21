@@ -6,7 +6,7 @@ import { escapeHtml } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { islandUpdate, islandRemove, _showLinkPreview, _hideLinkPreview } from '/js/core/core-ui.js';
 import { FEED_CATALOG } from '/js/core/core-views.js';
-import { _annotationsEnabled, _hideAnnotationTooltip, _showAnnotateOfferPill, _showAnnotationTooltip, _updateAnnotateButtonState } from '/js/browse/browse-annotations.js';
+import { _annotationsEnabled, _hideAnnotationTooltip, _showAnnotateOfferPill, _showAnnotationTooltip, _updateAnnotateButtonState, _pickerEnabled } from '/js/browse/browse-annotations.js';
 import { _browseApplyAdaptiveColor, _browseSetUrlDisplay, _browseUpdateAdBlockBadge, _browseUrlDomain, _saveBrowseVisit } from '/js/browse-urlbar.js';
 import { _browseCollapseEmptyWindows, browseNewTab } from '/js/browse/browse-windows.js';
 import { _browseFaviconUrl, _browseNavDirection, _clearBrowseNavDirection, _browseRenderTabs, _browseTitleFromUrl, _updateIslandNavButtons } from '/js/browse/browse-island.js';
@@ -269,7 +269,7 @@ export function _browseRenderDownloads() {
       ];
       if (dl.state === 'progressing') {
         const bar = new window.View('div').className('browse-download-item-progress-bar').styles({ width: pct + '%' });
-        infoChildren.push(new window.View('div').className('browse-download-item-progress')._appendChildren([bar]));
+        infoChildren.push(new window.View('div').className('browse-download-item-progress').add(bar));
       }
       const info = window.VStack(infoChildren).className('browse-download-item-info');
 
@@ -278,13 +278,13 @@ export function _browseRenderDownloads() {
         actionChildren.push(
           new window.View('button').className('nr-btn nr-btn-ghost nr-btn-sm').attr('title', 'Show in folder')
             .onTap(function(e) { e.stopPropagation(); showDownloadInFolder(dl.id); })
-            ._appendChildren([window.RawHTML(folderSvg)])
+            .add(window.RawHTML(folderSvg))
         );
       }
       actionChildren.push(
         new window.View('button').className('nr-btn nr-btn-ghost nr-btn-sm').attr('title', 'Remove')
           .onTap(function(e) { e.stopPropagation(); removeBrowseDownload(dl.id); })
-          ._appendChildren([window.RawHTML(closeSvg)])
+          .add(window.RawHTML(closeSvg))
       );
       const actions = window.HStack(actionChildren).className('browse-download-item-actions');
 
@@ -517,10 +517,18 @@ export function _browseHandleNavigation(tab, frame) {
     if (typeof _paperOnPageLoad === 'function') _paperOnPageLoad(tab, frame);
     // Adblock: reset count for this webview on navigation
     if (window.electronAPI && window.electronAPI.adblockResetCount && typeof frame.getWebContentsId === 'function') {
-      try { window.electronAPI.adblockResetCount(frame.getWebContentsId()); } catch {}
+      try {
+        const _wcId = frame.getWebContentsId();
+        window.electronAPI.adblockResetCount(_wcId);
+        if (window.electronAPI.trackingStripResetCount) window.electronAPI.trackingStripResetCount(_wcId);
+        if (window.electronAPI.httpsOnlyResetCount) window.electronAPI.httpsOnlyResetCount(_wcId);
+        if (window.electronAPI.cookieBlockResetCount) window.electronAPI.cookieBlockResetCount(_wcId);
+      } catch {}
     }
     // YouTube: inject ad-block CSS immediately on navigation (before dom-ready / first paint)
     _browseInjectYouTubeCSS(frame, navUrl);
+    // Auto remove CSS if enabled
+    _browseInjectRemoveCSS(frame);
     // Reset insight pill to offer state on navigation (don't remove it)
     if (typeof _showAnnotateOfferPill === 'function' && tab.id === _browseActiveTab) _showAnnotateOfferPill(tab);
     // Update nav buttons so back/forward reflect history stacks
@@ -888,6 +896,47 @@ export function _browseInjectYouTubeCSS(frame, url) {
     };
     // Also watch for video elements being added
     var obs=new MutationObserver(function(){muteAds();});
+    obs.observe(document.documentElement,{childList:true,subtree:true});
+  })();`).catch(function(){});
+}
+
+// ── Auto Remove CSS ──
+
+export function toggleAutoRemoveCSS() {
+  const on = Settings.get('autoRemoveCSS') === 'true';
+  const newState = !on;
+  Settings.set('autoRemoveCSS', newState ? 'true' : 'false');
+  // Apply/remove on current tab
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (tab && tab.el && !tab.blank) {
+    if (newState) {
+      _browseInjectRemoveCSS(tab.el);
+    } else if (tab.el.reload) {
+      tab.el.reload();
+    }
+  }
+}
+
+export function _browseInjectRemoveCSS(frame) {
+  if (Settings.get('autoRemoveCSS') !== 'true') return;
+  frame.executeJavaScript(`(function(){
+    if(window.__aetherCSSRemoved) return;
+    window.__aetherCSSRemoved=true;
+    // Remove all stylesheets
+    document.querySelectorAll('link[rel="stylesheet"], style').forEach(function(el){ el.remove(); });
+    // Remove inline styles
+    document.querySelectorAll('[style]').forEach(function(el){ el.removeAttribute('style'); });
+    // Block future stylesheet additions
+    var obs=new MutationObserver(function(muts){
+      muts.forEach(function(m){
+        m.addedNodes.forEach(function(n){
+          if(n.nodeType===1){
+            if(n.tagName==='LINK'&&n.rel==='stylesheet') n.remove();
+            if(n.tagName==='STYLE') n.remove();
+          }
+        });
+      });
+    });
     obs.observe(document.documentElement,{childList:true,subtree:true});
   })();`).catch(function(){});
 }
@@ -1394,6 +1443,22 @@ export function _browseInjectContentScripts(tab, frame) {
       _hideAnnotationTooltip(true);
     } else if (e.message === '__AETHER_ANN_LEAVE__') {
       _hideAnnotationTooltip();
+    } else if (e.message && e.message.startsWith('__AETHER_PICKER_SELECT__')) {
+      try {
+        const data = JSON.parse(e.message.slice('__AETHER_PICKER_SELECT__'.length));
+        _pickerEnabled.set(tab.id, false);
+        // Open chat panel and add element context
+        let aetherPanel = document.getElementById('doc-chat-ask-float');
+        if (!aetherPanel) {
+          _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 } });
+          aetherPanel = document.getElementById('doc-chat-ask-float');
+        }
+        if (aetherPanel && typeof window._addElementContextToPanel === 'function') {
+          window._addElementContextToPanel(aetherPanel, data);
+        }
+      } catch (err) {}
+    } else if (e.message === '__AETHER_PICKER_CANCEL__') {
+      _pickerEnabled.set(tab.id, false);
     } else if (e.message === '__AETHER_PW_FIELDS__') {
       _pwCheckAutofill(tab, frame);
     } else if (e.message && e.message.startsWith('__AETHER_PW_SUBMIT__')) {

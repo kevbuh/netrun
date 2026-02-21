@@ -280,6 +280,8 @@ export function _sendPopupChatMessage(popup, capturedText) {
   window._pendingTabContexts = [];
   const fileContexts = window._pendingFileContexts.slice();
   window._pendingFileContexts = [];
+  const elementContexts = window._pendingElementContexts.slice();
+  window._pendingElementContexts = [];
   const strip = popup.querySelector('.doc-screenshot-attachments');
   if (strip) { strip.innerHTML = ''; strip.style.display = 'none'; }
 
@@ -353,6 +355,7 @@ export function _sendPopupChatMessage(popup, capturedText) {
         images,
         tabContexts,
         fileContexts,
+        elementContexts,
         documentText: _docText || '',
         pageUrl,
         pageTitle,
@@ -766,6 +769,41 @@ export function _addTabContextToPanel(popup, tabInfo) {
   _updateContextBar(popup);
 }
 
+export function _addElementContextToPanel(popup, elementData) {
+  // Dedupe by selector
+  if (window._pendingElementContexts.some(e => e.selector === elementData.selector && e.url === elementData.url)) return;
+  window._pendingElementContexts.push({ html: elementData.html, tagName: elementData.tagName, id: elementData.id || '', classes: elementData.classes || '', selector: elementData.selector, url: elementData.url });
+
+  const strip = popup.querySelector('.doc-screenshot-attachments');
+  if (!strip) return;
+  strip.style.display = 'flex';
+
+  const chipView = new window.View('div').className('doc-tab-context-chip');
+  const chip = chipView.el;
+  const tag = elementData.tagName || 'element';
+  var label = '<' + tag + '>';
+  if (elementData.id) label = '<' + tag + '#' + elementData.id + '>';
+  else if (elementData.classes) label = '<' + tag + '.' + elementData.classes.split(/\s+/)[0] + '>';
+  chip.appendChild(window.RawHTML(icon('crosshair', { size: 12, class: 'w-3 h-3 flex-shrink-0' })).el);
+  chip.appendChild(window.Text(label).className('truncate').el);
+
+  const removeBtn = window.Button('\u00d7').className('doc-note-context-remove');
+  removeBtn.on('mousedown', function(ev) { ev.stopPropagation(); });
+  removeBtn.onTap(function(ev) {
+    ev.stopPropagation();
+    window._pendingElementContexts = window._pendingElementContexts.filter(e => !(e.selector === elementData.selector && e.url === elementData.url));
+    chip.remove();
+    if (window._pendingElementContexts.length === 0 && window._pendingTabContexts.length === 0 && window._pendingScreenshots.length === 0) strip.style.display = 'none';
+  });
+  chip.appendChild(removeBtn.el);
+  strip.appendChild(chip);
+
+  const input = popup.querySelector('.doc-ask-inline-input');
+  if (input) input.focus();
+  _updateContextBar(popup);
+}
+window._addElementContextToPanel = _addElementContextToPanel;
+
 export function _showTabContextMenu(e, tabEl) {
   const tid = tabEl.dataset.tabId || (() => { const m = (tabEl.getAttribute('onclick') || '').match(/browseSelectTab\((\d+)\)/); return m ? m[1] : null; })();
   if (!tid) return;
@@ -887,6 +925,30 @@ export function _addScreenshotToPanel(popup, base64) {
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.focus();
   _updateContextBar(popup);
+}
+
+/**
+ * Handle image paste from clipboard. Returns true if an image was handled.
+ * @param {ClipboardEvent} event
+ * @param {HTMLElement} popup - The Aether panel element
+ */
+export function _handleImagePaste(event, popup) {
+  if (!event.clipboardData || !event.clipboardData.items) return false;
+  for (const item of event.clipboardData.items) {
+    if (item.type.startsWith('image/')) {
+      event.preventDefault();
+      const blob = item.getAsFile();
+      if (!blob) return false;
+      const reader = new FileReader();
+      reader.onload = function() {
+        const base64 = reader.result.split(',')[1];
+        if (base64) _addScreenshotToPanel(popup, base64);
+      };
+      reader.readAsDataURL(blob);
+      return true;
+    }
+  }
+  return false;
 }
 
 // Web search from aether panel (Shift+Enter)

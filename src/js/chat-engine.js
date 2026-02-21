@@ -211,6 +211,14 @@ function _makeSession(thread, messages, allMessages) {
           ctx = ctx ? ctx + '\n\n' + tabCtx : tabCtx;
         }
 
+        if (opts.elementContexts?.length) {
+          const elCtx = opts.elementContexts.map(el =>
+            `--- Element: <${el.tagName}> from ${el.url} ---\n${el.html}`
+          ).join('\n\n');
+          _ctxSources.push({ label: opts.elementContexts.length + ' element' + (opts.elementContexts.length > 1 ? 's' : ''), content: elCtx });
+          ctx = ctx ? ctx + '\n\n' + elCtx : elCtx;
+        }
+
         if (opts.fileContexts?.length) {
           const fileCtx = opts.fileContexts.map(f =>
             `--- File: ${f.name} ---\n${f.content}`

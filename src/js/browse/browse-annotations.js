@@ -465,7 +465,7 @@ export function _showAnnotationTooltip(data, frame, pinned) {
 
   function _makeRateBtn(svgHtml, rating, title, hoverColor) {
     const btn = new window.View('button').attr('title', title).styles(rateBtnStyle);
-    btn._appendChildren([window.RawHTML(svgHtml)]);
+    btn.add(window.RawHTML(svgHtml));
     btn.onHover(
       function() { btn.el.style.opacity = '1'; btn.el.style.color = hoverColor; },
       function() { btn.el.style.opacity = '0.5'; btn.el.style.color = 'rgba(255,255,255,0.7)'; }
@@ -841,8 +841,138 @@ export function _updateAnnotateButtonState() {
   btn.classList.toggle('text-dimmer', !enabled);
 }
 
+// ── Element Picker ──
+
+export const _pickerEnabled = new Map(); // tabId → bool
+
+export function toggleElementPicker() {
+  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (!tab || tab.blank) return;
+  const enabled = !_pickerEnabled.get(tab.id);
+  _pickerEnabled.set(tab.id, enabled);
+  if (enabled) {
+    _injectElementPicker(tab);
+  } else {
+    _removeElementPicker(tab);
+  }
+}
+
+function _injectElementPicker(tab) {
+  if (!tab || !tab.el) return;
+  const frame = tab.el;
+  const script = `(function() {
+    if (window.__aetherPickerActive) return;
+    window.__aetherPickerActive = true;
+    var overlay = document.createElement('div');
+    overlay.id = '__aether_picker_overlay';
+    overlay.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;border:2px solid rgba(59,130,246,0.8);background:rgba(59,130,246,0.12);border-radius:3px;transition:all 0.08s ease;display:none;';
+    var label = document.createElement('div');
+    label.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;background:rgba(59,130,246,0.9);color:#fff;font:11px/1.3 -apple-system,system-ui,sans-serif;padding:2px 6px;border-radius:3px;white-space:nowrap;display:none;';
+    document.documentElement.appendChild(overlay);
+    document.documentElement.appendChild(label);
+    document.body.style.cursor = 'crosshair';
+
+    function _buildSelector(el) {
+      var parts = [];
+      var cur = el;
+      while (cur && cur !== document.body && cur !== document.documentElement && parts.length < 5) {
+        var tag = cur.tagName.toLowerCase();
+        if (cur.id) { parts.unshift(tag + '#' + cur.id); break; }
+        var parent = cur.parentElement;
+        if (parent) {
+          var siblings = Array.from(parent.children).filter(function(c) { return c.tagName === cur.tagName; });
+          if (siblings.length > 1) {
+            var idx = siblings.indexOf(cur) + 1;
+            tag += ':nth-child(' + idx + ')';
+          }
+        }
+        parts.unshift(tag);
+        cur = parent;
+      }
+      return parts.join(' > ');
+    }
+
+    function _onMove(e) {
+      var t = e.target;
+      if (t === overlay || t === label || t === document.documentElement) return;
+      var r = t.getBoundingClientRect();
+      overlay.style.left = r.left + 'px';
+      overlay.style.top = r.top + 'px';
+      overlay.style.width = r.width + 'px';
+      overlay.style.height = r.height + 'px';
+      overlay.style.display = 'block';
+      var tag = t.tagName.toLowerCase();
+      var info = tag;
+      if (t.id) info += '#' + t.id;
+      if (t.className && typeof t.className === 'string') {
+        var cls = t.className.trim().split(/\\s+/).slice(0, 3).join('.');
+        if (cls) info += '.' + cls;
+      }
+      var dims = Math.round(r.width) + '×' + Math.round(r.height);
+      label.textContent = info + '  ' + dims;
+      label.style.left = Math.max(0, r.left) + 'px';
+      label.style.top = Math.max(0, r.top - 22) + 'px';
+      label.style.display = 'block';
+    }
+
+    function _onClick(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      var t = e.target;
+      if (t === overlay || t === label) return;
+      var html = t.outerHTML || '';
+      if (html.length > 51200) html = html.slice(0, 51200) + '<!-- truncated -->';
+      var tag = t.tagName.toLowerCase();
+      var id = t.id || '';
+      var classes = t.className && typeof t.className === 'string' ? t.className.trim() : '';
+      var selector = _buildSelector(t);
+      console.log('__AETHER_PICKER_SELECT__' + JSON.stringify({ html: html, tagName: tag, id: id, classes: classes, selector: selector, url: location.href }));
+      _cleanup();
+    }
+
+    function _onKeydown(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        console.log('__AETHER_PICKER_CANCEL__');
+        _cleanup();
+      }
+    }
+
+    function _cleanup() {
+      window.__aetherPickerActive = false;
+      document.body.style.cursor = '';
+      document.removeEventListener('mouseover', _onMove, true);
+      document.removeEventListener('click', _onClick, true);
+      document.removeEventListener('keydown', _onKeydown, true);
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      if (label.parentNode) label.parentNode.removeChild(label);
+    }
+
+    document.addEventListener('mouseover', _onMove, true);
+    document.addEventListener('click', _onClick, true);
+    document.addEventListener('keydown', _onKeydown, true);
+  })()`;
+  _execInFrame(frame, script);
+}
+
+export function _removeElementPicker(tab) {
+  if (!tab || !tab.el) return;
+  const frame = tab.el;
+  const script = `(function() {
+    window.__aetherPickerActive = false;
+    document.body.style.cursor = '';
+    var ov = document.getElementById('__aether_picker_overlay');
+    if (ov) ov.parentNode.removeChild(ov);
+    var els = document.querySelectorAll('[style*="z-index:2147483647"]');
+    els.forEach(function(el) { if (el.id === '__aether_picker_overlay' || el.textContent.match(/^[a-z].*×/)) el.remove(); });
+  })()`;
+  _execInFrame(frame, script);
+}
+
 // ── Action registry ──
 registerActions({
   toggleAnnotations: () => toggleAnnotations(),
+  toggleElementPicker: () => toggleElementPicker(),
 });
 

@@ -868,6 +868,10 @@ async function _chatViewSend(text) {
     sendOpts.tabContexts = window._pendingTabContexts.slice();
     window._pendingTabContexts.length = 0;
   }
+  if (typeof window._pendingElementContexts !== 'undefined' && window._pendingElementContexts.length) {
+    sendOpts.elementContexts = window._pendingElementContexts.slice();
+    window._pendingElementContexts.length = 0;
+  }
   // Clear attachment strip UI
   if (_chatViewCmdPopup) {
     const strip = _chatViewCmdPopup.querySelector('.doc-screenshot-attachments');
