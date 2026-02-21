@@ -6,6 +6,7 @@ import { icon } from '/js/core/icons.js';
 import { showPanelForView, hidePanel, _invalidatePanelRender, ensurePanelVisible } from '/js/core/core-nav.js';
 import { _pdfViewerInit, _pdfViewerDestroy, _pdfViewerGetText } from '/js/browse/browse-pdf-viewer.js';
 import { _nerdPanelRegister, _nerdPanelRefresh } from '/js/browse/browse-nerd-panel.js';
+import { _browseResetAdaptiveColor, _browseApplyAdaptiveColor } from '/js/browse-urlbar.js';
 
 // ── Per-tab state ──
 export const _nerdModeEnabled = new Map(); // tabId → bool
@@ -58,6 +59,9 @@ function _nerdModeEnable(tab) {
   }
 
   _nerdModeEnabled.set(tab.id, true);
+
+  // Reset adaptive color so glass surfaces use native theme colors
+  _browseResetAdaptiveColor();
 
   // Register panel if not done already
   _nerdPanelRegister();
@@ -117,6 +121,9 @@ function _nerdModeDisable(tab) {
   // Restore webview
   if (tab.el) tab.el.style.display = '';
 
+  // Re-apply adaptive color for the restored webview
+  _browseApplyAdaptiveColor(tab);
+
   // Hide panel
   hidePanel();
 
@@ -139,6 +146,9 @@ export function _nerdModeOnTabSelect(tab) {
   });
 
   if (_nerdModeEnabled.get(tab.id)) {
+    // Reset adaptive color so glass surfaces use native theme colors
+    _browseResetAdaptiveColor();
+
     // Show this tab's nerd viewer
     if (tab._nerdViewerEl) {
       tab._nerdViewerEl.style.display = 'flex';

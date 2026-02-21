@@ -527,19 +527,20 @@
     </div>
     <div id="pill-browse-tabs"></div>
     <div id="pill-url-wrap">
-      <!-- Left: tab favicons -->
+      <!-- URL input — top row spanning full width in expanded mode -->
+      <input id="pill-browse-url-input" type="text" placeholder="Search or enter URL…">
+      <!-- Left: tab list -->
       <div id="pill-island-left">
         <div id="pill-island-tabs-anchor"></div>
       </div>
-      <!-- Center: page info + nav -->
+      <!-- Center: title + nav -->
       <div id="pill-island-center">
         <div id="pill-island-title"></div>
-        <input id="pill-browse-url-input" type="text" placeholder="Search or enter URL…">
         <div id="pill-island-nav-row">
           <!-- Back/Reload/Forward buttons moved here dynamically by JS in island mode -->
         </div>
       </div>
-      <!-- Right: audio/AI -->
+      <!-- Right: action icons -->
       <div id="pill-island-right-col"></div>
       <!-- Reload + Close tab + new tab (visible in horizontal pill, moved by JS in island mode) -->
       <button id="pill-browse-reload" class="sidebar-icon pill-island-nav" data-action-click="browseReload" title="Refresh">

@@ -58,6 +58,54 @@
 }
 
 
+/* Clear theme: universal panel — frosted glass surface */
+[data-theme="clear"] #universal-panel {
+  background: rgba(235, 233, 231, 0.92);
+  border-left-color: rgba(255, 255, 255, 0.4);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow:
+    -8px 0 32px rgba(0, 0, 0, 0.08),
+    inset 0.5px 0 0 rgba(255, 255, 255, 0.6);
+}
+[data-theme="clear"] #universal-panel-tabs {
+  border-bottom-color: var(--nr-tint);
+}
+[data-theme="clear"] #universal-panel .nerd-section,
+[data-theme="clear"] #universal-panel .nerd-paper-item,
+[data-theme="clear"] #universal-panel .nerd-author-card,
+[data-theme="clear"] #universal-panel .nerd-repo-card {
+  background: var(--nr-tint);
+  border-color: var(--nr-tint-strong);
+}
+[data-theme="clear"] #universal-panel .nerd-cite-box {
+  background: var(--nr-tint);
+  border-color: var(--nr-tint);
+}
+[data-theme="clear"] #universal-panel .nerd-search-input {
+  background: var(--nr-tint);
+  border-color: var(--nr-tint-strong);
+}
+
+/* Clear theme: PDF viewer — frosted glass surfaces */
+[data-theme="clear"] .pdf-toolbar {
+  background: rgba(235, 233, 231, 0.88);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom-color: var(--nr-tint);
+}
+[data-theme="clear"] .pdf-left-panel {
+  background: rgba(235, 233, 231, 0.88);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-right-color: var(--nr-tint);
+}
+[data-theme="clear"] .pdf-pages-container {
+  background: rgba(235, 233, 231, 0.6);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 /* Clear theme: pill bar strips should be transparent —
    backdrop-filter can't blur webview content anyway */
 [data-theme="clear"] .pill-bar {
@@ -265,6 +313,26 @@
   }
   [data-theme="clear"] .nr-material-chrome {
     background: rgba(30, 30, 30, 0.98);
+  }
+
+  /* Universal panel — dark frosted surface */
+  [data-theme="clear"] #universal-panel {
+    background: rgba(30, 30, 30, 0.92);
+    border-left-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      -8px 0 32px rgba(0, 0, 0, 0.2),
+      inset 0.5px 0 0 rgba(255, 255, 255, 0.08);
+  }
+
+  /* PDF viewer — dark frosted surfaces */
+  [data-theme="clear"] .pdf-toolbar {
+    background: rgba(30, 30, 30, 0.88);
+  }
+  [data-theme="clear"] .pdf-left-panel {
+    background: rgba(30, 30, 30, 0.88);
+  }
+  [data-theme="clear"] .pdf-pages-container {
+    background: rgba(20, 20, 20, 0.6);
   }
 
   /* Nav icons — dark frosted surface */

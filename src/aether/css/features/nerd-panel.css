@@ -2,9 +2,17 @@
 
 /* ── Entry animation ── */
 @keyframes nerd-fade-in {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* Staggered children */
+.nerd-tab-wrap > :nth-child(1) { animation-delay: 0s; }
+.nerd-tab-wrap > :nth-child(2) { animation-delay: 0.03s; }
+.nerd-tab-wrap > :nth-child(3) { animation-delay: 0.06s; }
+.nerd-tab-wrap > :nth-child(4) { animation-delay: 0.09s; }
+.nerd-tab-wrap > :nth-child(5) { animation-delay: 0.12s; }
+.nerd-tab-wrap > :nth-child(n+6) { animation-delay: 0.15s; }
 
 /* ── Tab content wrapper ── */
 .nerd-tab-wrap {
@@ -13,65 +21,74 @@
   color: var(--nr-text-primary);
   overflow-y: auto;
   height: 100%;
-  animation: nerd-fade-in 0.15s ease both;
+}
+
+.nerd-tab-wrap > * {
+  animation: nerd-fade-in 0.25s ease both;
 }
 
 /* ── Empty states ── */
 .nerd-empty {
   color: var(--nr-text-quaternary);
-  padding: var(--nr-space-5) 0;
+  padding: var(--nr-space-8) var(--nr-space-4);
   text-align: center;
   font-size: 0.78rem;
+  line-height: 1.5;
 }
 
 /* ── Info tab typography ── */
 .nerd-info-title {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.35;
   margin-bottom: var(--nr-space-2);
+  letter-spacing: -0.01em;
 }
 
 .nerd-info-meta {
   font-size: 0.72rem;
   color: var(--nr-text-secondary);
-  margin-bottom: 10px;
+  margin-bottom: var(--nr-space-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .nerd-info-authors {
   font-size: 0.75rem;
   color: var(--nr-text-secondary);
-  margin-bottom: var(--nr-space-3);
+  margin-bottom: var(--nr-space-4);
   line-height: 1.5;
 }
 
 /* ── Section cards (Abstract, Cite) ── */
+/* Panel bg is --nr-bg-surface, so cards use --nr-bg-raised for contrast */
 .nerd-section {
-  background: var(--nr-bg-surface);
+  background: var(--nr-bg-raised);
   border: 1px solid var(--nr-border-subtle);
   border-radius: var(--nr-radius-lg);
-  padding: var(--nr-space-3);
+  padding: var(--nr-space-3) var(--nr-space-4);
   margin-bottom: var(--nr-space-3);
 }
 
 .nerd-section-title {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: var(--nr-text-quaternary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
+  letter-spacing: 0.06em;
+  font-weight: 700;
   margin-bottom: var(--nr-space-2);
 }
 
 .nerd-section-body {
   font-size: 0.75rem;
   color: var(--nr-text-secondary);
-  line-height: 1.55;
+  line-height: 1.6;
 }
 
 /* ── Citation rows ── */
 .nerd-cite-row {
-  margin-bottom: var(--nr-space-2);
+  margin-bottom: var(--nr-space-3);
 }
 
 .nerd-cite-row:last-child {
@@ -79,11 +96,11 @@
 }
 
 .nerd-cite-label {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: var(--nr-text-quaternary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
   font-weight: 600;
 }
 
@@ -91,36 +108,40 @@
   font-size: 0.72rem;
   color: var(--nr-text-secondary);
   background: var(--nr-bg-sunken);
+  border: 1px solid var(--nr-border-subtle);
   border-radius: var(--nr-radius-sm);
-  padding: var(--nr-space-2);
-  line-height: 1.4;
+  padding: var(--nr-space-2) var(--nr-space-3);
+  line-height: 1.45;
   cursor: pointer;
   user-select: all;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .nerd-cite-box:hover {
-  background: var(--nr-bg-raised);
+  background: var(--nr-bg-body);
+  border-color: var(--nr-border-default);
 }
 
 /* ── Paper items (References, Related, Search results) ── */
 .nerd-paper-item {
-  background: var(--nr-bg-surface);
+  background: var(--nr-bg-raised);
   border: 1px solid var(--nr-border-subtle);
   border-radius: var(--nr-radius-md);
-  padding: var(--nr-space-2) var(--nr-space-3);
-  margin-bottom: var(--nr-space-1);
+  padding: 10px var(--nr-space-3);
+  margin-bottom: 6px;
   cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .nerd-paper-item:hover {
   border-color: var(--nr-border-strong);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--nr-shadow-card);
 }
 
 .nerd-paper-item:active {
   transform: translateY(0);
+  box-shadow: none;
 }
 
 .nerd-paper-item-title {
@@ -133,39 +154,41 @@
 .nerd-paper-item-meta {
   font-size: 0.68rem;
   color: var(--nr-text-quaternary);
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 /* ── Author cards ── */
 .nerd-author-card {
-  background: var(--nr-bg-surface);
+  background: var(--nr-bg-raised);
   border: 1px solid var(--nr-border-subtle);
   border-radius: var(--nr-radius-lg);
   padding: var(--nr-space-3);
-  margin-bottom: var(--nr-space-2);
+  margin-bottom: 10px;
   cursor: pointer;
   display: flex;
   align-items: flex-start;
   gap: var(--nr-space-3);
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .nerd-author-card:hover {
   border-color: var(--nr-border-strong);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--nr-shadow-card);
 }
 
 .nerd-author-card:active {
   transform: translateY(0);
+  box-shadow: none;
 }
 
 /* ── h-index badge (unified accent) ── */
 .nerd-badge {
   display: inline-block;
   font-size: 0.62rem;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: var(--nr-radius-full);
-  margin-top: 3px;
+  margin-top: 4px;
   font-weight: 600;
   background: color-mix(in srgb, var(--nr-accent) 15%, transparent);
   color: var(--nr-accent);
@@ -173,22 +196,24 @@
 
 /* ── Code tab repo cards ── */
 .nerd-repo-card {
-  background: var(--nr-bg-surface);
+  background: var(--nr-bg-raised);
   border: 1px solid var(--nr-border-subtle);
   border-radius: var(--nr-radius-md);
-  padding: var(--nr-space-2) var(--nr-space-3);
-  margin-bottom: var(--nr-space-1);
+  padding: 10px var(--nr-space-3);
+  margin-bottom: 6px;
   cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .nerd-repo-card:hover {
   border-color: var(--nr-border-strong);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--nr-shadow-card);
 }
 
 .nerd-repo-card:active {
   transform: translateY(0);
+  box-shadow: none;
 }
 
 .nerd-repo-name {
@@ -200,7 +225,7 @@
 .nerd-repo-meta {
   font-size: 0.68rem;
   color: var(--nr-text-quaternary);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 /* ── Search tab ── */
@@ -208,41 +233,41 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  animation: nerd-fade-in 0.15s ease both;
 }
 
 .nerd-search-input-row {
-  padding: var(--nr-space-2) var(--nr-space-3);
-  border-bottom: 1px solid var(--nr-border-dim);
+  padding: var(--nr-space-3);
+  border-bottom: 1px solid var(--nr-border-subtle);
   flex-shrink: 0;
 }
 
 .nerd-search-input {
   width: 100%;
-  background: var(--nr-bg-input);
+  background: var(--nr-bg-raised);
   border: 1px solid var(--nr-border-default);
-  border-radius: var(--nr-radius-sm);
-  padding: 6px 10px;
+  border-radius: var(--nr-radius-md);
+  padding: 8px 12px;
   font-size: 0.78rem;
   color: var(--nr-text-primary);
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .nerd-search-input:focus {
   border-color: var(--nr-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--nr-accent) 20%, transparent);
 }
 
 .nerd-search-results {
   flex: 1;
   overflow-y: auto;
-  padding: var(--nr-space-2);
+  padding: var(--nr-space-3);
 }
 
 .nerd-search-count {
   font-size: 0.68rem;
   color: var(--nr-text-quaternary);
-  padding: var(--nr-space-1) var(--nr-space-2) var(--nr-space-2);
+  padding: 0 var(--nr-space-1) var(--nr-space-2);
 }
 
 .nerd-search-page {
@@ -255,7 +280,7 @@
 .nerd-search-snippet {
   font-size: 0.75rem;
   color: var(--nr-text-secondary);
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 /* ── Nerd Mode header ── */
