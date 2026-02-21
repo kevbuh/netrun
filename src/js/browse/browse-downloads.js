@@ -883,13 +883,17 @@ export var _ytAdBlockCSS =
   '.ytd-rich-item-renderer[is-ad],' +
   'ytd-promoted-video-renderer,' +
   'tp-yt-paper-dialog.ytd-enforcement-message-view-model,' +
+  'ytd-enforcement-message-view-model,' +
+  '#enforcement-message-container,' +
+  'ytd-popup-container tp-yt-paper-dialog:has(ytd-enforcement-message-view-model),' +
+  'yt-playability-error-supported-renderers:has(.yt-playability-error-supported-renderers),' +
   'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]' +
   '{display:none!important}' +
   '#movie_player.ad-showing video,#movie_player.ad-interrupting video{opacity:0!important}' +
   '#movie_player.ad-showing .ytp-chrome-bottom{opacity:0!important}' +
   '.ytp-ad-text,.ytp-ad-preview-container,.ytp-ad-badge,.ytp-ad-visit-advertiser-button{display:none!important}';
 
-// Inject YouTube ad-block CSS + early mute (before JS runs, hides from first paint)
+// Inject YouTube ad-block CSS + early mute + anti-adblock bypass
 export function _browseInjectYouTubeCSS(frame, url) {
   if (!url || !url.includes('youtube.com')) return;
   if (Settings.get('adBlockEnabled') !== 'true') return;
@@ -913,6 +917,65 @@ export function _browseInjectYouTubeCSS(frame, url) {
     // Also watch for video elements being added
     var obs=new MutationObserver(function(){muteAds();});
     obs.observe(document.documentElement,{childList:true,subtree:true});
+  })();`).catch(function(){});
+  // Anti-adblock bypass: dismiss enforcement popups and skip ads
+  frame.executeJavaScript(`(function(){
+    if(window.__aetherYtAntiAdblock) return;
+    window.__aetherYtAntiAdblock=true;
+
+    // Dismiss enforcement/adblock-detected popups
+    function dismissEnforcement(){
+      // Remove enforcement message dialogs
+      document.querySelectorAll(
+        'tp-yt-paper-dialog.ytd-enforcement-message-view-model,'+
+        'ytd-enforcement-message-view-model,'+
+        '#enforcement-message-container,'+
+        'ytd-popup-container tp-yt-paper-dialog'
+      ).forEach(function(el){
+        // Check if it's an adblock enforcement popup
+        if(el.querySelector('ytd-enforcement-message-view-model')||
+           el.classList.contains('ytd-enforcement-message-view-model')||
+           el.tagName.toLowerCase()==='ytd-enforcement-message-view-model'){
+          el.remove();
+        }
+      });
+      // Close any overlay that blocks playback
+      var overlay=document.querySelector('.yt-playability-error-supported-renderers');
+      if(overlay)overlay.remove();
+      // Remove the backdrop/overlay
+      document.querySelectorAll('tp-yt-iron-overlay-backdrop').forEach(function(el){
+        if(el.style.display!=='none')el.remove();
+      });
+      // Restore body scroll
+      document.body.style.overflow='';
+      document.documentElement.style.overflow='';
+    }
+
+    // Skip video ads by seeking to end
+    function skipAds(){
+      var p=document.getElementById('movie_player');
+      if(!p)return;
+      var isAd=p.classList.contains('ad-showing')||p.classList.contains('ad-interrupting');
+      if(!isAd)return;
+      // Click skip button if available
+      var skipBtn=p.querySelector('.ytp-skip-ad-button,.ytp-ad-skip-button,.ytp-ad-skip-button-modern');
+      if(skipBtn){skipBtn.click();return;}
+      // Speed through unskippable ads
+      var v=p.querySelector('video');
+      if(v&&v.duration&&isFinite(v.duration)){
+        v.currentTime=v.duration;
+        v.muted=true;
+      }
+    }
+
+    // Watch for popups and ads via MutationObserver
+    var obs=new MutationObserver(function(){
+      dismissEnforcement();
+      skipAds();
+    });
+    obs.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+    // Also run periodically as fallback
+    setInterval(function(){dismissEnforcement();skipAds();},1000);
   })();`).catch(function(){});
 }
 
