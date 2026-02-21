@@ -368,7 +368,7 @@ export function wmOpen(key) {
   const meta = _wmViewMeta[key];
   if (!meta) return;
   const existIdx = _wmWindows.findIndex(w => w.key === key);
-  if (existIdx >= 0 && existIdx === window._wmFocusIndex && window._wmMode === 'fullscreen') {
+  if (existIdx >= 0 && existIdx === window._wmFocusIndex && window._wmMode === 'fullscreen' && window._wmLastNavTime > 0) {
     // Skip if this is a re-entrant call from the hash router after a recent navigation
     if (Date.now() - window._wmLastNavTime < 500) return;
     // Already on browse NTP — toggle the nowplaying context pill tray
