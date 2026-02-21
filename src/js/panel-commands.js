@@ -1070,18 +1070,18 @@ Type in the browser URL bar:
   document.addEventListener('mouseup', hUp);
 
   const titleSpanView = new window.View('span').className('aether-note-editor-title')._bindText('Help');
-  titleBar.appendChild(titleSpanView.build());
+  AetherUI.append(titleSpanView, titleBar);
 
   const closeBtnView = new window.View('button').className('aether-note-editor-close').attr('title', 'Close');
   closeBtnView.el.textContent = '\u00d7';
   closeBtnView.onTap((ev) => { ev.stopPropagation(); panel.remove(); document.removeEventListener('mousemove', hMove); document.removeEventListener('mouseup', hUp); });
-  titleBar.appendChild(closeBtnView.build());
+  AetherUI.append(closeBtnView, titleBar);
   panel.appendChild(titleBar);
 
   // Rendered markdown content
   const contentView = new window.View('div').className('aether-help-preview-content nb-rendered-md');
   contentView.el.innerHTML = typeof marked !== 'undefined' ? marked.parse(helpMd) : helpMd.replace(/\n/g, '<br>');
-  panel.appendChild(contentView.build());
+  AetherUI.append(contentView, panel);
 
   document.body.appendChild(panel);
 

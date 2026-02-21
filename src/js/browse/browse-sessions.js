@@ -63,7 +63,7 @@ export function _renderTabStateDropdown() {
   const saveRow = window.HStack([nameInput, saveBtn]).spacing(1).alignment('center').id('tab-session-save-row');
   const saveSection = new window.View('div');
   saveSection.cssText('padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);');
-  saveSection.el.appendChild(saveRow.build());
+  saveSection.add(saveRow);
 
   // Session list
   const listItems = [];
@@ -220,14 +220,14 @@ export function _renderToolbarSessions() {
   // Save current button
   const saveCurrentBtn = new window.View('button');
   saveCurrentBtn.el.className = 'browse-save-session-btn';
-  saveCurrentBtn.el.appendChild(window.RawHTML(icon('plus', {size: 14})).build());
+  saveCurrentBtn.add(window.RawHTML(icon('plus', {size: 14})));
   saveCurrentBtn.el.appendChild(document.createTextNode(' Save current'));
   if (!canSave) saveCurrentBtn.el.disabled = true;
   saveCurrentBtn.onTap(function() { _promptSaveSessionFromOverview(); });
 
   const header = new window.View('div');
   header.el.className = 'browse-sessions-menu-header';
-  header.el.appendChild(saveCurrentBtn.build());
+  header.add(saveCurrentBtn);
 
   // Session list items
   const listChildren = [];
@@ -243,8 +243,8 @@ export function _renderToolbarSessions() {
       const infoBtn = new window.View('button');
       infoBtn.el.className = 'browse-session-info';
       infoBtn.el.title = 'Replace current tabs';
-      infoBtn.el.appendChild(window.Text(s.name).className('browse-session-name').build());
-      infoBtn.el.appendChild(window.Text(subtitle + ' \u00b7 ' + date).className('browse-session-meta').build());
+      infoBtn.add(window.Text(s.name).className('browse-session-name'));
+      infoBtn.add(window.Text(subtitle + ' \u00b7 ' + date).className('browse-session-meta'));
       infoBtn.onTap(function() { _loadSessionFromOverview(i); });
 
       const addBtn = new window.View('button');

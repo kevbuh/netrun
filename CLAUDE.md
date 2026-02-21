@@ -72,6 +72,35 @@ Overlays: `Sheet`, `Alert`, `Popover`, `Menu`
 
 Modifiers resolve to tokens: `.padding(4)` → `var(--nr-space-4)`, `.background('surface')` → `var(--nr-bg-surface)`
 
+Adding children after construction: use `view.add(child1, child2)` (public API, returns `this`). For appending a View into a raw DOM element: `AetherUI.append(view, domEl)`. Never call `._appendChildren()` or `.build()` directly in consumer code.
+
+Menu API supports anchor-toggle (`Menu(anchor, items)`), context-menu positioning (`Menu(null, items)` + `menu.showAt(x, y)`), icon items (`{ icon, label, handler }`), custom view rows (`{ view: fn }`), trailing content (`{ trailing: fn }`), and dividers (`{ divider: true }`).
+
+Settings navigation is reactive: `_settingsSection` is a `State()` signal driving `Switch` for section content, reactive sidebar active state, and reactive title. Other settings files can still call `renderSettingsView()` to refresh within-section content.
+
+### Browse Features
+
+**Nerd Mode** — academic paper reader for PDFs and arXiv links:
+- `src/js/browse/browse-nerd-mode.js` (orchestrator), `browse-nerd-panel.js` (lookup panel), `browse-pdf-viewer.js` (PDF.js renderer)
+- Auto-eligible for `.pdf` URLs and arXiv links via `_isNerdAutoEligible(url)`
+- Panel tabs: Info, References, Authors, Related, Highlights, Code, Search
+- Uses Semantic Scholar + Papers With Code APIs for metadata
+- Per-tab state stored on `tab._pdfDoc`, `tab._pdfHighlights`, etc.
+- First 20 pages injected into `window._pendingTabContexts` for AI chat context
+
+**PDF Conversion** — IPC subsystem for PDF operations via Python subprocess:
+- `src/core/ipc/pdf-convert.ts` + `src/core/python/pdf-convert.py`
+- Handlers: `pdf:parse`, `pdf:extract`, `pdf:split`, `pdf:merge`, `pdf:compress`, `pdf:to-png`, `pdf:to-jpeg`, `pdf:from-images`, `pdf:md-to-pdf`, `pdf:to-md`
+- Dependencies: PyMuPDF (fitz), Pillow
+
+### Feeds
+
+- Catalog system in `src/core/ipc/feeds.ts` — multi-source feed aggregator
+- Sources: `{ key, url?, special? }` where special can be `'arxiv'`, `'hn'`, `'polymarket'`
+- Freshness: 10-minute stale threshold per source, on-demand fetching
+- Custom RSS/Atom XML parsing (no external lib)
+- API route: `POST /api/feed-items/catalog` with `{ entries: [...], limit? }`
+
 ### Tool & Agent System
 
 - Tools registered in `src/core/tools/` by category (browser, feed, calendar, search, content, system, media, social, context)
@@ -90,5 +119,6 @@ better-sqlite3 with WAL mode. Connection singleton in `src/core/db/connection.ts
 - IIFE + `var` pattern for Aether JS files (matches existing conventions)
 - Guard Aether calls: `if (window.Aether && Aether.materials) { ... }`
 - `.onAppear()` and `.animation()` stack (array-based), never overwrite
+- Use `view.add(child)` to append children, never `view._appendChildren()` or `parent.el.appendChild(child.build())`
 - `TabView` caches rendered tabs via `display:none`, not rebuild
 - `Store` is deep reactive: use `store.get('path')`, `store.set('path', val)`, `store.update('path', fn)`

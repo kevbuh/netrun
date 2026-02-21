@@ -6,6 +6,7 @@ import { _clearAudioUnified, _renderAudioPill, _updateAudioUnified } from '/js/c
 import { _annotationsEnabled, _updateAnnotateButtonState } from '/js/browse/browse-annotations.js';
 import { _browseApplyAdaptiveColor, _browseSetUrlDisplay, _browseUpdateAdBlockBadge, _browseUpdateAdBlockBtn, _browseUrlHideHistory, _browseUrlKeydown, _saveBrowseVisit, _saveWebSearch, openHelpPage, openSearchHistoryPage } from '/js/browse-urlbar.js';
 import { openNetrunPage } from '/js/netrun-page.js';
+import { openDocs } from '/js/docs.js';
 import { _browseBindFrame } from '/js/browse/browse-downloads.js';
 import { _browseCreateFrame, _browseProxyUrl, _browseSetFrameAllow } from '/js/browse/browse-ntp.js';
 import { _browseFocusPane, _browseGetSplitPanes, browseUnsplitPane } from '/js/browse/browse-split-panes.js';
@@ -751,9 +752,10 @@ export function _browseStartRenameGroup(groupId, nameEl) {
   });
 }
 
+var _browseGroupMenu = null;
+
 export function _browseDismissTabContextMenu() {
-  const m = document.querySelector('.browse-ctx-menu');
-  if (m) m.remove();
+  if (_browseGroupMenu) { _browseGroupMenu.dismiss(); _browseGroupMenu = null; }
 }
 
 export function _browseCloseOtherTabs(keepId) {
@@ -770,58 +772,32 @@ export function _browseShowGroupContextMenu(e, groupId) {
   const group = (win.groups || []).find(g => g.id === groupId);
   if (!group) return;
 
-  // Color dots
-  const dots = window._BROWSE_GROUP_COLORS.map(function(c) {
-    const hex = window._BROWSE_GROUP_COLOR_MAP[c];
-    const dot = new window.View('span').className('browse-ctx-color-dot' + (c === group.color ? ' browse-ctx-color-selected' : ''));
-    dot.el.style.background = hex;
-    dot.onTap(function(ev) {
-      ev.stopPropagation();
-      _browseDismissTabContextMenu();
-      _browseChangeGroupColor(groupId, c);
-    });
-    return dot;
-  });
-
-  const menuItems = [
-    // Rename
-    new window.View('div').className('browse-ctx-item')
-      ._bindText('Rename')
-      .onTap(function(ev) {
-        ev.stopPropagation();
-        _browseDismissTabContextMenu();
-        setTimeout(function() {
-          const c = document.querySelector('.browse-tab-group-chip[data-group-id="' + groupId + '"] .browse-tab-group-name');
-          if (c) _browseStartRenameGroup(groupId, c);
-        }, 50);
-      }),
-    // Color dots row
-    window.HStack(dots).className('browse-ctx-colors'),
-    // Separator
-    new window.View('div').className('browse-ctx-sep'),
-    // Ungroup all
-    new window.View('div').className('browse-ctx-item')
-      ._bindText('Ungroup all')
-      .onTap(function() { _browseDismissTabContextMenu(); _browseUngroupAll(groupId); }),
-    // Close group
-    new window.View('div').className('browse-ctx-item')
-      ._bindText('Close group')
-      .onTap(function() { _browseDismissTabContextMenu(); _browseCloseGroup(groupId); })
-  ];
-
-  const menuView = window.VStack(menuItems).className('browse-ctx-menu nr-menu').material('thick')
-    .position('fixed').styles({left: e.clientX + 'px', top: e.clientY + 'px'}).zIndex('max');
-
-  const menu = menuView.build();
-  document.body.appendChild(menu);
-
-  const rect = menu.getBoundingClientRect();
-  if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 4) + 'px';
-  if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 4) + 'px';
-
-  setTimeout(function() {
-    document.addEventListener('mousedown', _browseDismissTabContextMenu, { once: true });
-  }, 0);
+  _browseGroupMenu = Menu(null, [
+    { label: 'Rename', handler: function() {
+      setTimeout(function() {
+        const c = document.querySelector('.browse-tab-group-chip[data-group-id="' + groupId + '"] .browse-tab-group-name');
+        if (c) _browseStartRenameGroup(groupId, c);
+      }, 50);
+    }},
+    { view: function() {
+      var dots = window._BROWSE_GROUP_COLORS.map(function(c) {
+        var hex = window._BROWSE_GROUP_COLOR_MAP[c];
+        var dot = new window.View('span').className('browse-ctx-color-dot' + (c === group.color ? ' browse-ctx-color-selected' : ''));
+        dot.el.style.background = hex;
+        dot.onTap(function(ev) {
+          ev.stopPropagation();
+          _browseDismissTabContextMenu();
+          _browseChangeGroupColor(groupId, c);
+        });
+        return dot;
+      });
+      return window.HStack(dots).className('browse-ctx-colors');
+    }},
+    { divider: true },
+    { label: 'Ungroup all', handler: function() { _browseUngroupAll(groupId); } },
+    { label: 'Close group', handler: function() { _browseCloseGroup(groupId); } }
+  ]);
+  _browseGroupMenu.showAt(e.clientX, e.clientY);
 }
 
 // ── Tab hover tooltip ──
@@ -1071,6 +1047,10 @@ export function browseNavigate(input) {
     openNetrunPage();
     return;
   }
+  if (cmd === '/docs' || cmd === 'netrun://docs' || cmd === 'netrun://docs/') {
+    openDocs();
+    return;
+  }
   if (cmd === '/upload') {
     const fi = document.getElementById('browse-pdf-file-input');
     if (fi) { fi.click(); return; }
@@ -1222,6 +1202,12 @@ export function _clearBrowseNavDirection() { _browseNavDirection = null; }
 // Hide/restore active webview so DOM popups can render on top (Electron GPU compositing fix)
 
 export function browseBack() {
+  // Intercept back nav when in Nerd Mode — disable Nerd Mode instead
+  const tab0Nerd = _browseTabs.find(t => t.id === _browseActiveTab);
+  if (tab0Nerd && typeof window._isNerdMode === 'function' && window._isNerdMode(tab0Nerd.id)) {
+    if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab0Nerd);
+    return;
+  }
   // Intercept back nav when in chat mode — return to NTP
   const tab0 = _browseTabs.find(t => t.id === _browseActiveTab);
   if (tab0 && tab0._chatPage) {

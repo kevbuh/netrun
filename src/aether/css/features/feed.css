@@ -3,33 +3,7 @@
       column-span: all;
     }
 
-    /* ── Card three-dot menu ── */
-    .card-menu {
-      position: fixed;
-      background: var(--nr-bg-overlay);
-      border: 1px solid var(--nr-border-default);
-      border-radius: 8px;
-      box-shadow: 0 4px 16px var(--nr-shadow-popup);
-      min-width: 200px;
-      z-index: 9999;
-      overflow: hidden;
-    }
-    .card-menu.hidden { display: none; }
-    .card-menu button {
-      display: block;
-      width: 100%;
-      text-align: left;
-      padding: 8px 14px;
-      border: none;
-      background: none;
-      color: var(--nr-text-primary);
-      font-size: 0.78rem;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .card-menu button:hover {
-      background: var(--nr-bg-raised);
-    }
+    /* ── Card three-dot menu — now uses AetherUI Menu overlay (.nr-menu / .nr-menu-item) ── */
 
     /* ── Paper card hover effects ── */
     .paper:hover {

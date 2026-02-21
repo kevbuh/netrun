@@ -569,6 +569,14 @@ VP._appendChildren = function(children) {
   }
 };
 
+// Public API for adding children after construction
+VP.add = function() {
+  var children = arguments.length === 1 && Array.isArray(arguments[0])
+    ? arguments[0] : Array.prototype.slice.call(arguments);
+  this._appendChildren(children);
+  return this;
+};
+
 // ─── Export ───────────────────────────────────────────────
 
 window._AetherUIView = View;

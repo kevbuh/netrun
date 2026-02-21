@@ -23,10 +23,27 @@ export async function handleNtpFileUpload(file) {
   try { if (typeof electronAPI !== 'undefined' && electronAPI.getPathForFile) localPath = electronAPI.getPathForFile(file); } catch {}
   const entry = { name: file.name, content: '', file, localPath };
   window._ntpUploadedFiles.push(entry);
+
+  // Image files: read as base64 for vision
+  const lower = file.name.toLowerCase();
+  if (file.type && file.type.startsWith('image/')) {
+    entry.isImage = true;
+    try {
+      const dataUrl = await new Promise(function(resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function() { resolve(reader.result); };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      entry.base64 = dataUrl.split(',')[1] || '';
+    } catch (e) { /* ignore */ }
+    _renderNtpFileChips();
+    return;
+  }
+
   _renderNtpFileChips();
 
   // Extract text
-  const lower = file.name.toLowerCase();
   const TEXT_EXTS = ['.txt','.md','.csv','.py','.js','.ts','.json','.html','.css','.xml',
     '.yaml','.yml','.toml','.ini','.cfg','.sh','.r','.sql','.java','.c','.cpp',
     '.h','.go','.rs','.rb','.php','.swift','.kt','.lua'];
@@ -60,17 +77,26 @@ export function _renderNtpFileChips() {
     const ext = dotIdx >= 0 ? f.name.substring(dotIdx + 1).toUpperCase() : 'FILE';
     const baseName = dotIdx >= 0 ? f.name.substring(0, dotIdx) : f.name;
 
-    const icon = window.RawHTML(fileSvg);
-    const info = new window.View('div').className('ntp-file-card-info')._appendChildren([
-      new window.View('span').className('ntp-file-card-name')._bindText(escapeHtml(baseName)),
-      new window.View('span').className('ntp-file-card-type')._bindText(escapeHtml(ext))
-    ]);
     const removeBtn = new window.View('span').className('ntp-file-card-remove')._bindText('\u00d7')
       .onTap(function(e) { e.stopPropagation(); removeNtpFile(i); });
 
+    if (f.isImage && f.base64) {
+      // Image thumbnail
+      const thumb = new window.View('img').className('ntp-file-card-thumb');
+      thumb.el.src = 'data:image/png;base64,' + f.base64;
+      return new window.View('button').className('ntp-file-card ntp-file-card-image').attr('title', escapeHtml(f.name))
+        .add(thumb, removeBtn);
+    }
+
+    const iconEl = window.RawHTML(fileSvg);
+    const info = new window.View('div').className('ntp-file-card-info').add(
+      new window.View('span').className('ntp-file-card-name')._bindText(escapeHtml(baseName)),
+      new window.View('span').className('ntp-file-card-type')._bindText(escapeHtml(ext))
+    );
+
     return new window.View('button').className('ntp-file-card').attr('title', escapeHtml(f.name))
       .onTap(function() { openNtpFile(i); })
-      ._appendChildren([icon, info, removeBtn]);
+      .add(iconEl, info, removeBtn);
   });
 
   AetherUI.mount(window.HStack(chips), container);

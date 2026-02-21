@@ -51,3 +51,35 @@
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
 }
+
+.nr-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--nr-space-2);
+  padding: var(--nr-space-2) var(--nr-space-3);
+  cursor: pointer;
+  font-size: 0.875rem;
+  border-radius: var(--nr-radius-sm);
+  white-space: nowrap;
+}
+
+.nr-menu-item-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--nr-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nr-menu-item-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.nr-menu-item-trailing {
+  color: var(--nr-text-tertiary);
+  font-size: 0.75rem;
+  margin-left: auto;
+}

@@ -347,6 +347,8 @@ function Popover(anchorView, isPresented, contentFn) {
 }
 
 // ─── Menu ─────────────────────────────────────────────────
+// Supports: anchor-click toggle, context-menu at (x,y), icon items,
+// custom view rows, trailing content, dividers.
 
 function Menu(anchorView, menuItems) {
   var isOpen = S.State(false);
@@ -354,7 +356,7 @@ function Menu(anchorView, menuItems) {
   var _cleanup = null;
   var _escCleanup = null;
 
-  function _show() {
+  function _show(posX, posY) {
     if (menuEl) return;
 
     menuEl = document.createElement('div');
@@ -373,14 +375,52 @@ function Menu(anchorView, menuItems) {
           menuEl.appendChild(hr);
           return;
         }
+
+        // Custom view row (e.g. color picker)
+        if (item.view) {
+          var customView = typeof item.view === 'function' ? item.view() : item.view;
+          if (customView instanceof View) {
+            menuEl.appendChild(customView.build());
+            for (var k = 0; k < customView._onAppearFns.length; k++) customView._onAppearFns[k]();
+          } else if (customView instanceof HTMLElement) {
+            menuEl.appendChild(customView);
+          }
+          return;
+        }
+
         var row = document.createElement('div');
         row.className = 'nr-menu-item';
-        row.style.padding = 'var(--nr-space-2) var(--nr-space-3)';
-        row.style.cursor = 'pointer';
-        row.style.fontSize = '0.875rem';
         row.style.color = item.destructive ? '#dc2626' : 'var(--nr-text-primary)';
-        row.style.borderRadius = 'var(--nr-radius-sm)';
-        row.textContent = item.label;
+
+        // Icon
+        if (item.icon) {
+          var iconSpan = document.createElement('span');
+          iconSpan.className = 'nr-menu-item-icon';
+          iconSpan.innerHTML = item.icon;
+          row.appendChild(iconSpan);
+        }
+
+        // Label
+        var labelSpan = document.createElement('span');
+        labelSpan.style.flex = '1';
+        labelSpan.textContent = item.label;
+        row.appendChild(labelSpan);
+
+        // Trailing content
+        if (item.trailing) {
+          var trailingContent = typeof item.trailing === 'function' ? item.trailing() : item.trailing;
+          var trailingEl = document.createElement('span');
+          trailingEl.className = 'nr-menu-item-trailing';
+          if (trailingContent instanceof View) {
+            trailingEl.appendChild(trailingContent.build());
+          } else if (trailingContent instanceof HTMLElement) {
+            trailingEl.appendChild(trailingContent);
+          } else if (typeof trailingContent === 'string') {
+            trailingEl.textContent = trailingContent;
+          }
+          row.appendChild(trailingEl);
+        }
+
         row.addEventListener('mouseenter', function() {
           row.style.background = 'var(--nr-bg-raised)';
         });
@@ -395,12 +435,28 @@ function Menu(anchorView, menuItems) {
       })(items[i]);
     }
 
-    var anchor = anchorView instanceof View ? anchorView.el : anchorView;
     document.body.appendChild(menuEl);
-    _positionBelow(menuEl, anchor);
 
+    // Position: at (x, y) for context menus, or below anchor
+    if (posX != null && posY != null) {
+      menuEl.style.position = 'fixed';
+      menuEl.style.left = posX + 'px';
+      menuEl.style.top = posY + 'px';
+      requestAnimationFrame(function() {
+        if (!menuEl) return;
+        var r = menuEl.getBoundingClientRect();
+        if (r.right > window.innerWidth) menuEl.style.left = Math.max(4, window.innerWidth - r.width - 4) + 'px';
+        if (r.bottom > window.innerHeight) menuEl.style.top = Math.max(4, window.innerHeight - r.height - 4) + 'px';
+      });
+    } else if (anchorView) {
+      var anchorEl = anchorView instanceof View ? anchorView.el : anchorView;
+      _positionBelow(menuEl, anchorEl);
+    }
+
+    // Click-outside dismiss
     function onDocClick(e) {
-      if (!menuEl.contains(e.target) && !anchor.contains(e.target)) {
+      var anchorEl = anchorView ? (anchorView instanceof View ? anchorView.el : anchorView) : null;
+      if (!menuEl.contains(e.target) && (!anchorEl || !anchorEl.contains(e.target))) {
         _dismiss();
       }
     }
@@ -416,6 +472,8 @@ function Menu(anchorView, menuItems) {
         to: { y: 0, opacity: 1 }
       });
     }
+
+    isOpen.value = true;
   }
 
   function _dismiss() {
@@ -437,16 +495,19 @@ function Menu(anchorView, menuItems) {
     isOpen.value = false;
   }
 
-  // Wire anchor click to toggle
-  var anchor = anchorView instanceof View ? anchorView.el : anchorView;
-  anchor.addEventListener('click', function(e) {
-    e.stopPropagation();
-    if (menuEl) _dismiss();
-    else _show();
-  });
+  // Wire anchor click to toggle (only when anchor provided)
+  if (anchorView) {
+    var anchor = anchorView instanceof View ? anchorView.el : anchorView;
+    anchor.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (menuEl) _dismiss();
+      else _show();
+    });
+  }
 
   return {
-    show: _show,
+    show: function() { _show(); },
+    showAt: function(x, y) { _show(x, y); },
     dismiss: _dismiss,
     isOpen: isOpen,
     dispose: function() {

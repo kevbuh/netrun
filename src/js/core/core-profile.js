@@ -44,7 +44,7 @@ function _profileUserCard(u, size) {
 
   if (size === 'grid') {
     const card = window.VStack(avatar, window.Text(u.username).className('text-primary text-sm font-medium'));
-    if (joinDate) card._appendChildren([window.Text('Joined ' + joinDate).className('text-dimmer text-[0.7rem]')]);
+    if (joinDate) card.add(window.Text('Joined ' + joinDate).className('text-dimmer text-[0.7rem]'));
     card.spacing(2).className('flex items-center px-4 py-4 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors cursor-pointer');
     card.onTap(function() { location.hash = '#profile/' + encodeURIComponent(u.username); });
     return card;
@@ -165,14 +165,14 @@ export async function renderUserProfile(username) {
       : 'background:linear-gradient(135deg, ' + accentColor + '33, ' + accentColor + '11)'));
     const bannerGrad = new window.View('div');
     bannerGrad.cssText('position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(to top,var(--nr-bg-body),transparent)');
-    banner._appendChildren([bannerGrad]);
+    banner.add(bannerGrad);
     if (isOwnProfile) {
       const bgBtn = new window.View('button');
       bgBtn.className('absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center bg-black/40 text-white/70 hover:text-white border-none cursor-pointer transition-colors');
       bgBtn.el.title = 'Change background';
       bgBtn.el.innerHTML = icon('camera', { size: 14 });
       bgBtn.onTap(function() { _uploadProfileBg(); });
-      banner._appendChildren([bgBtn]);
+      banner.add(bgBtn);
     }
     sections.push(banner);
 
@@ -187,14 +187,14 @@ export async function renderUserProfile(username) {
     });
     const avatarWrap = new window.View('div');
     avatarWrap.className('relative group');
-    avatarWrap._appendChildren([avatar]);
+    avatarWrap.add(avatar);
     if (isOwnProfile) {
       const picBtn = new window.View('button');
       picBtn.className('absolute inset-0 w-full h-full rounded-full bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border-none');
       picBtn.el.title = 'Change picture';
       picBtn.el.innerHTML = icon('camera', { size: 20, stroke: '#fff' });
       picBtn.onTap(function() { _uploadProfilePic(); });
-      avatarWrap._appendChildren([picBtn]);
+      avatarWrap.add(picBtn);
     }
 
     // Name + status
@@ -218,12 +218,12 @@ export async function renderUserProfile(username) {
         petCanvas.el.width = 18; petCanvas.el.height = 18;
         petCanvas.attr('data-type', profile.status_emoji);
         petCanvas.styles({ imageRendering: 'pixelated' });
-        statusRow._appendChildren([petCanvas]);
+        statusRow.add(petCanvas);
       }
-      if (profile.status_text) statusRow._appendChildren([window.Text(profile.status_text).className('text-dim text-[0.78rem]')]);
-      nameCol._appendChildren([statusRow]);
+      if (profile.status_text) statusRow.add(window.Text(profile.status_text).className('text-dim text-[0.78rem]'));
+      nameCol.add(statusRow);
     }
-    if (joinDate) nameCol._appendChildren([window.Text('Joined ' + joinDate).className('text-dimmer text-[0.78rem] mt-0.5')]);
+    if (joinDate) nameCol.add(window.Text('Joined ' + joinDate).className('text-dimmer text-[0.78rem] mt-0.5'));
 
     let actionBtn;
     if (isOwnProfile) {
@@ -299,7 +299,7 @@ export async function renderUserProfile(username) {
               window._profileSubscribeFeed(k, btn.el);
             });
           })(key, subBtn);
-          feedEl._appendChildren([subBtn]);
+          feedEl.add(subBtn);
         }
         feedEl.className('inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-card bg-card text-sm');
         feedChips.push(feedEl);

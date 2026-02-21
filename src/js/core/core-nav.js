@@ -48,6 +48,10 @@ export function registerPanelTabs(viewKey, config) {
   _panelRegistry[viewKey] = config;
 }
 
+export function ensurePanelVisible() {
+  _panelVisible = true;
+}
+
 export function showPanelForView(viewKey) {
   const reg = _panelRegistry[viewKey];
   if (!reg || !reg.tabs || !reg.tabs.length) { hidePanel(); return; }
@@ -73,8 +77,8 @@ export function showPanelForView(viewKey) {
       .attr('data-tab-id', t.id)
       .attr('title', t.label)
       .onTap(function() { switchPanelTab(t.id); });
-    if (t.icon) btn._appendChildren([window.RawHTML(t.icon)]);
-    btn._appendChildren([new window.View('span').className('panel-tab-label')._bindText(t.label)]);
+    if (t.icon) btn.add(window.RawHTML(t.icon));
+    btn.add(new window.View('span').className('panel-tab-label')._bindText(t.label));
     return btn;
   });
   AetherUI.mount(window.HStack(tabBtns), tabBar);

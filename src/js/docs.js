@@ -419,7 +419,7 @@ function _buildComponentCard(item) {
       body.className = 'docs-preview-body';
       const view = PREVIEWS[item.name]();
       if (view instanceof View) {
-        body.appendChild(view.build());
+        AetherUI.append(view, body);
         for (let k = 0; k < view._onAppearFns.length; k++) view._onAppearFns[k]();
       }
       preview.appendChild(body);
@@ -540,7 +540,7 @@ export async function openDocs() {
   view.classList.add('active');
   view.style.display = 'block';
   if (window.location.hash !== '#docs') window.location.hash = '#docs';
-  setSidebarActive('sb-docs');
+  setSidebarActive(null);
   renderDocs();
 }
 
@@ -556,7 +556,7 @@ async function renderDocs() {
 
   // Sidebar
   const sidebar = _buildSidebar(data);
-  container.appendChild(sidebar.build());
+  AetherUI.append(sidebar, container);
 
   // Main content area
   const main = document.createElement('div');
