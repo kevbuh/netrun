@@ -7,7 +7,7 @@ import { _browseGetSplitPanes } from '/js/browse/browse-split-panes.js';
 import { _browseRenderSplitPillView, _browseRenderTabView } from '/js/browse/browse-captions.js';
 import { isPostSaved } from '/js/feed.js';
 import { browseCloseWindow, browseCreateWindow, browseSelectWindow } from '/js/browse/browse-windows.js';
-import { browsePrintPage, browseShowAIView } from '/js/browse/browse-menu.js';
+import { browsePrintPage, browseShowAIView, _pdfParseAction, _pdfExtractAction, _pdfSplitAction, _pdfMergeAction, _pdfCompressAction, _pdfToPngAction, _pdfToJpegAction, _pdfFromImagesAction, _pdfToMdAction, _pdfMdToPdfAction } from '/js/browse/browse-menu.js';
 import { _nerdModeEnabled, toggleNerdMode } from '/js/browse/browse-nerd-mode.js';
 import { toggleAutoRemoveCSS } from '/js/browse/browse-downloads.js';
 import { browseSaveToReadingList, browseShare } from '/js/browse/browse-features.js';
@@ -378,6 +378,28 @@ export function _populatePillMenuMoreItems() {
   items.push(_menuBtn(icon('print', {size: 16, strokeWidth: '1.5'}),
     'Print Page', function() { browsePrintPage(); _closePillMenu(); }, { disabled: !hasTab }));
 
+  // Convert submenu (PDF only)
+  var isPdf = hasTab && (tab.pdfUrl || tab.localPath || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
+  if (isPdf) {
+    var convertBtn = _menuBtn(icon('convert', {size: 16, strokeWidth: '1.5'}), 'Convert', function() {
+      var panel = document.getElementById('pill-menu-convert-panel');
+      var arrow = document.getElementById('pill-menu-convert-arrow');
+      if (!panel) return;
+      var open = panel.style.display !== 'none';
+      panel.style.display = open ? 'none' : '';
+      if (arrow) arrow.style.transform = open ? '' : 'rotate(90deg)';
+      if (!open) _renderPillConvertPanel(panel, tab);
+    });
+    var convertArrow = document.createElement('span');
+    convertArrow.innerHTML = icon('chevronRightSmall', {size: 12, style: 'margin-left:auto;color:var(--aether-text-dimmest);transition:transform .15s;'});
+    convertArrow.firstChild.id = 'pill-menu-convert-arrow';
+    convertBtn.el.appendChild(convertArrow);
+    items.push(convertBtn);
+
+    var convertPanel = new window.View('div').id('pill-menu-convert-panel').styles({display:'none'});
+    items.push(convertPanel);
+  }
+
   // AI View
   items.push(_menuBtn(icon('eye', {size: 16, strokeWidth: '1.5'}),
     'AI View', function() { browseShowAIView(); _closePillMenu(); }, { disabled: !hasTab }));
@@ -388,6 +410,41 @@ export function _populatePillMenuMoreItems() {
     isIsland ? 'Horizontal Tabs' : 'Island Mode', function() { toggleBrowseTabLayout(); _closePillMenu(); }));
 
   AetherUI.mount(window.VStack(items), container);
+}
+
+function _renderPillConvertPanel(panel, tab) {
+  panel.innerHTML = '';
+  var _close = function() { _closePillMenu(); };
+
+  function _cBtn(svgHtml, label, action) {
+    var btn = new window.View('button');
+    var row = window.HStack([window.RawHTML(svgHtml), window.Text(label).flex(1)]).spacing(2).alignment('center');
+    btn.add(row);
+    btn.onTap(function() { action(); });
+    return btn;
+  }
+
+  // Parse / Extract
+  panel.appendChild(_cBtn(icon('fileText', {size: 14, strokeWidth: '1.5'}), 'Parse PDF', function() { _close(); _pdfParseAction(tab); }).el);
+  panel.appendChild(_cBtn(icon('documentSearch', {size: 14, strokeWidth: '1.5'}), 'Extract PDF', function() { _close(); _pdfExtractAction(tab); }).el);
+  panel.appendChild(_cBtn(icon('scissors', {size: 14, strokeWidth: '1.5'}), 'Split PDF', function() { _close(); _pdfSplitAction(tab); }).el);
+  panel.appendChild(_cBtn(icon('fileMerge', {size: 14, strokeWidth: '1.5'}), 'Merge PDFs', function() { _close(); _pdfMergeAction(); }).el);
+  panel.appendChild(_cBtn(icon('compress', {size: 14, strokeWidth: '1.5'}), 'Compress PDF', function() { _close(); _pdfCompressAction(tab); }).el);
+
+  var div1 = document.createElement('div');
+  div1.style.cssText = 'height:1px;background:var(--aether-border);margin:2px 0;';
+  panel.appendChild(div1);
+
+  panel.appendChild(_cBtn(icon('imagePlus', {size: 14, strokeWidth: '1.5'}), 'PDF to PNG', function() { _close(); _pdfToPngAction(tab); }).el);
+  panel.appendChild(_cBtn(icon('imagePlus', {size: 14, strokeWidth: '1.5'}), 'PDF to JPEG', function() { _close(); _pdfToJpegAction(tab); }).el);
+  panel.appendChild(_cBtn(icon('filePlus', {size: 14, strokeWidth: '1.5'}), 'Images to PDF', function() { _close(); _pdfFromImagesAction(); }).el);
+
+  var div2 = document.createElement('div');
+  div2.style.cssText = 'height:1px;background:var(--aether-border);margin:2px 0;';
+  panel.appendChild(div2);
+
+  panel.appendChild(_cBtn(icon('markdown', {size: 14, strokeWidth: '1.5'}), 'PDF to Markdown', function() { _close(); _pdfToMdAction(tab); }).el);
+  panel.appendChild(_cBtn(icon('markdown', {size: 14, strokeWidth: '1.5'}), 'Markdown to PDF', function() { _close(); _pdfMdToPdfAction(); }).el);
 }
 
 export function _openPillMenuHover() {

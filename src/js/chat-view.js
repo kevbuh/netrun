@@ -24,7 +24,7 @@ let _chatViewCmdPopup = null;      // the "popup" adapter element for command ha
 // ── Morph NTP into chat mode ──
 
 export function chatViewNewThread(initialMessage) {
-  _chatViewNewThread(initialMessage);
+  return _chatViewNewThread(initialMessage);
 }
 
 async function _chatViewNewThread(initialMessage) {
@@ -716,10 +716,14 @@ async function _chatListDelete(id) {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (tab && tab.el) _chatViewRenderThreadList(tab.el);
 }
-
 function _chatListNewChat() {
   _chatViewNewThread();
 }
+// Expose for inline onclick/onmousedown handlers in dynamically generated HTML
+window.openChatPage = openChatPage;
+window.chatViewNewThread = chatViewNewThread;
+window._chatListDelete = _chatListDelete;
+window._chatListNewChat = _chatListNewChat;
 
 // ── Chat conversation (load existing thread into morphed NTP) ──
 

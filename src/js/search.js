@@ -20,9 +20,10 @@ export function submitSearch() {
   const query = (document.getElementById('search-query')?.value || '').trim();
   if (!query) return;
 
-  // If files are uploaded on NTP, open Aether panel with file context
+  // If files are uploaded on NTP, open Aether panel with file/image context
   if (typeof window._ntpUploadedFiles !== 'undefined' && window._ntpUploadedFiles.length > 0) {
-    const fileEntries = window._ntpUploadedFiles.map(f => ({ name: f.name, content: f.content || '' }));
+    const imageEntries = window._ntpUploadedFiles.filter(f => f.isImage && f.base64);
+    const fileEntries = window._ntpUploadedFiles.filter(f => !f.isImage).map(f => ({ name: f.name, content: f.content || '' }));
     window._ntpUploadedFiles = [];
     _renderNtpFileChips();
     if (typeof _showPanel === 'function') {
@@ -30,6 +31,10 @@ export function submitSearch() {
       // Set file contexts AFTER _showPanel (which clears them during reset)
       if (typeof window._pendingFileContexts !== 'undefined') {
         for (const f of fileEntries) window._pendingFileContexts.push(f);
+      }
+      // Add images as screenshots for vision
+      if (typeof window._pendingScreenshots !== 'undefined') {
+        for (const img of imageEntries) window._pendingScreenshots.push(img.base64);
       }
       // Auto-send the query
       setTimeout(() => {

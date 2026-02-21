@@ -329,16 +329,25 @@ function _renderConvertPanel(panel) {
 // ── PDF conversion action handlers ──
 
 export function _getPdfPath(tab) {
-  // Get a local file path for the PDF
-  if (tab.localPath) return tab.localPath;
+  // Returns a Promise<string|null> — resolves to a local file path
+  // For local files, resolves immediately; for remote PDFs, downloads to temp first
+  if (tab.localPath) return Promise.resolve(tab.localPath);
   // For pdfUrl like /api/local-file?path=..., extract the path
   if (tab.pdfUrl) {
     try {
       var m = tab.pdfUrl.match(/[?&]path=([^&]+)/);
-      if (m) return decodeURIComponent(m[1]);
+      if (m) return Promise.resolve(decodeURIComponent(m[1]));
     } catch(e) {}
   }
-  return null;
+  // Remote PDF — download to temp file via IPC
+  var url = tab.url;
+  if (url && (url.toLowerCase().endsWith('.pdf') || (url.includes('/pdf/') && url.includes('arxiv.org')))) {
+    return electronAPI.pdfDownloadTemp(url).then(function(result) {
+      if (result && result.ok && result.path) return result.path;
+      return null;
+    });
+  }
+  return Promise.resolve(null);
 }
 
 function _toast(msg) {
@@ -346,48 +355,52 @@ function _toast(msg) {
 }
 
 export function _pdfParseAction(tab) {
-  var pdfPath = _getPdfPath(tab);
-  if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
-  electronAPI.pdfParse(pdfPath).then(function(result) {
-    if (result.error) { _toast('Parse failed: ' + result.error); return; }
-    _showTextOverlay('Parse PDF', result.text, result.pageCount + ' pages', tab);
-  }).catch(function(e) { _toast('Parse failed: ' + e.message); });
+  _toast('Parsing PDF\u2026');
+  _getPdfPath(tab).then(function(pdfPath) {
+    if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
+    electronAPI.pdfParse(pdfPath).then(function(result) {
+      if (result.error) { _toast('Parse failed: ' + result.error); return; }
+      _showTextOverlay('Parse PDF', result.text, result.pageCount + ' pages', tab);
+    }).catch(function(e) { _toast('Parse failed: ' + e.message); });
+  });
 }
 
 export function _pdfExtractAction(tab) {
-  var pdfPath = _getPdfPath(tab);
-  if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
-  electronAPI.pdfExtract(pdfPath).then(function(result) {
-    if (result.error) { _toast('Extract failed: ' + result.error); return; }
-    var extra = result.pageCount + ' pages';
-    if (result.images && result.images.length) extra += ' \u00b7 ' + result.images.length + ' images extracted';
-    _showTextOverlay('Extract PDF', result.text, extra, tab);
-  }).catch(function(e) { _toast('Extract failed: ' + e.message); });
+  _toast('Extracting PDF\u2026');
+  _getPdfPath(tab).then(function(pdfPath) {
+    if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
+    electronAPI.pdfExtract(pdfPath).then(function(result) {
+      if (result.error) { _toast('Extract failed: ' + result.error); return; }
+      var extra = result.pageCount + ' pages';
+      if (result.images && result.images.length) extra += ' \u00b7 ' + result.images.length + ' images extracted';
+      _showTextOverlay('Extract PDF', result.text, extra, tab);
+    }).catch(function(e) { _toast('Extract failed: ' + e.message); });
+  });
 }
 
-function _pdfSplitAction(tab) {
-  var pdfPath = _getPdfPath(tab);
-  if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
-  // Prompt for page range
+export function _pdfSplitAction(tab) {
   var input = prompt('Enter page numbers to extract (e.g. 1,2,5-8):');
   if (!input) return;
   var pages = _parsePageRange(input);
   if (!pages.length) { _toast('Invalid page range'); return; }
 
-  electronAPI.showSaveDialog({
-    title: 'Save Split PDF',
-    defaultPath: (tab.title || 'split') + '.pdf',
-    filters: [{ name: 'PDF', extensions: ['pdf'] }]
-  }).then(function(outPath) {
-    if (!outPath) return;
-    electronAPI.pdfSplit(pdfPath, pages, outPath).then(function(result) {
-      if (result.error) { _toast('Split failed: ' + result.error); return; }
-      _toast('Split PDF saved (' + result.pageCount + ' pages)');
-    }).catch(function(e) { _toast('Split failed: ' + e.message); });
+  _getPdfPath(tab).then(function(pdfPath) {
+    if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
+    electronAPI.showSaveDialog({
+      title: 'Save Split PDF',
+      defaultPath: (tab.title || 'split') + '.pdf',
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    }).then(function(outPath) {
+      if (!outPath) return;
+      electronAPI.pdfSplit(pdfPath, pages, outPath).then(function(result) {
+        if (result.error) { _toast('Split failed: ' + result.error); return; }
+        _toast('Split PDF saved (' + result.pageCount + ' pages)');
+      }).catch(function(e) { _toast('Split failed: ' + e.message); });
+    });
   });
 }
 
-function _pdfMergeAction() {
+export function _pdfMergeAction() {
   electronAPI.showOpenDialogMulti({
     title: 'Select PDFs to Merge',
     filters: [{ name: 'PDF', extensions: ['pdf'] }]
@@ -407,61 +420,61 @@ function _pdfMergeAction() {
   });
 }
 
-function _pdfCompressAction(tab) {
-  var pdfPath = _getPdfPath(tab);
-  if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
-
-  electronAPI.showSaveDialog({
-    title: 'Save Compressed PDF',
-    defaultPath: (tab.title || 'compressed') + '.pdf',
-    filters: [{ name: 'PDF', extensions: ['pdf'] }]
-  }).then(function(outPath) {
-    if (!outPath) return;
-    electronAPI.pdfCompress(pdfPath, outPath).then(function(result) {
-      if (result.error) { _toast('Compress failed: ' + result.error); return; }
-      var saved = Math.round((1 - result.newSize / result.originalSize) * 100);
-      _toast('Compressed: ' + _formatBytes(result.originalSize) + ' \u2192 ' + _formatBytes(result.newSize) + ' (' + saved + '% smaller)');
-    }).catch(function(e) { _toast('Compress failed: ' + e.message); });
+export function _pdfCompressAction(tab) {
+  _getPdfPath(tab).then(function(pdfPath) {
+    if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
+    electronAPI.showSaveDialog({
+      title: 'Save Compressed PDF',
+      defaultPath: (tab.title || 'compressed') + '.pdf',
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    }).then(function(outPath) {
+      if (!outPath) return;
+      electronAPI.pdfCompress(pdfPath, outPath).then(function(result) {
+        if (result.error) { _toast('Compress failed: ' + result.error); return; }
+        var saved = Math.round((1 - result.newSize / result.originalSize) * 100);
+        _toast('Compressed: ' + _formatBytes(result.originalSize) + ' \u2192 ' + _formatBytes(result.newSize) + ' (' + saved + '% smaller)');
+      }).catch(function(e) { _toast('Compress failed: ' + e.message); });
+    });
   });
 }
 
-function _pdfToPngAction(tab) {
-  var pdfPath = _getPdfPath(tab);
-  if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
-
-  electronAPI.showSaveDialog({
-    title: 'Save PNGs to Folder',
-    defaultPath: (tab.title || 'pages') + '_png',
-    properties: ['createDirectory']
-  }).then(function(outDir) {
-    if (!outDir) return;
-    electronAPI.pdfToPng(pdfPath, outDir).then(function(result) {
-      if (result.error) { _toast('Conversion failed: ' + result.error); return; }
-      _toast('Saved ' + result.pageCount + ' PNG files');
-      if (electronAPI.showItemInFolder) electronAPI.showItemInFolder(result.files[0]);
-    }).catch(function(e) { _toast('Conversion failed: ' + e.message); });
+export function _pdfToPngAction(tab) {
+  _getPdfPath(tab).then(function(pdfPath) {
+    if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
+    electronAPI.showSaveDialog({
+      title: 'Save PNGs to Folder',
+      defaultPath: (tab.title || 'pages') + '_png',
+      properties: ['createDirectory']
+    }).then(function(outDir) {
+      if (!outDir) return;
+      electronAPI.pdfToPng(pdfPath, outDir).then(function(result) {
+        if (result.error) { _toast('Conversion failed: ' + result.error); return; }
+        _toast('Saved ' + result.pageCount + ' PNG files');
+        if (electronAPI.showItemInFolder) electronAPI.showItemInFolder(result.files[0]);
+      }).catch(function(e) { _toast('Conversion failed: ' + e.message); });
+    });
   });
 }
 
-function _pdfToJpegAction(tab) {
-  var pdfPath = _getPdfPath(tab);
-  if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
-
-  electronAPI.showSaveDialog({
-    title: 'Save JPEGs to Folder',
-    defaultPath: (tab.title || 'pages') + '_jpeg',
-    properties: ['createDirectory']
-  }).then(function(outDir) {
-    if (!outDir) return;
-    electronAPI.pdfToJpeg(pdfPath, outDir).then(function(result) {
-      if (result.error) { _toast('Conversion failed: ' + result.error); return; }
-      _toast('Saved ' + result.pageCount + ' JPEG files');
-      if (electronAPI.showItemInFolder) electronAPI.showItemInFolder(result.files[0]);
-    }).catch(function(e) { _toast('Conversion failed: ' + e.message); });
+export function _pdfToJpegAction(tab) {
+  _getPdfPath(tab).then(function(pdfPath) {
+    if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
+    electronAPI.showSaveDialog({
+      title: 'Save JPEGs to Folder',
+      defaultPath: (tab.title || 'pages') + '_jpeg',
+      properties: ['createDirectory']
+    }).then(function(outDir) {
+      if (!outDir) return;
+      electronAPI.pdfToJpeg(pdfPath, outDir).then(function(result) {
+        if (result.error) { _toast('Conversion failed: ' + result.error); return; }
+        _toast('Saved ' + result.pageCount + ' JPEG files');
+        if (electronAPI.showItemInFolder) electronAPI.showItemInFolder(result.files[0]);
+      }).catch(function(e) { _toast('Conversion failed: ' + e.message); });
+    });
   });
 }
 
-function _pdfFromImagesAction() {
+export function _pdfFromImagesAction() {
   electronAPI.showOpenDialogMulti({
     title: 'Select Images',
     filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'bmp', 'webp', 'gif'] }]
@@ -481,24 +494,24 @@ function _pdfFromImagesAction() {
   });
 }
 
-function _pdfToMdAction(tab) {
-  var pdfPath = _getPdfPath(tab);
-  if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
-
-  electronAPI.showSaveDialog({
-    title: 'Save Markdown',
-    defaultPath: (tab.title || 'document') + '.md',
-    filters: [{ name: 'Markdown', extensions: ['md'] }]
-  }).then(function(outPath) {
-    if (!outPath) return;
-    electronAPI.pdfToMd(pdfPath, outPath).then(function(result) {
-      if (result.error) { _toast('Conversion failed: ' + result.error); return; }
-      _toast('Saved Markdown (' + result.pageCount + ' pages)');
-    }).catch(function(e) { _toast('Conversion failed: ' + e.message); });
+export function _pdfToMdAction(tab) {
+  _getPdfPath(tab).then(function(pdfPath) {
+    if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
+    electronAPI.showSaveDialog({
+      title: 'Save Markdown',
+      defaultPath: (tab.title || 'document') + '.md',
+      filters: [{ name: 'Markdown', extensions: ['md'] }]
+    }).then(function(outPath) {
+      if (!outPath) return;
+      electronAPI.pdfToMd(pdfPath, outPath).then(function(result) {
+        if (result.error) { _toast('Conversion failed: ' + result.error); return; }
+        _toast('Saved Markdown (' + result.pageCount + ' pages)');
+      }).catch(function(e) { _toast('Conversion failed: ' + e.message); });
+    });
   });
 }
 
-function _pdfMdToPdfAction() {
+export function _pdfMdToPdfAction() {
   electronAPI.showOpenDialogMulti({
     title: 'Select Markdown File',
     filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }]
@@ -548,7 +561,7 @@ function _formatBytes(bytes) {
   return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
-function _showTextOverlay(title, text, subtitle, tab) {
+export function _showTextOverlay(title, text, subtitle, tab) {
   // Full-screen overlay to display extracted text, similar to AI View
   var existing = document.getElementById('pdf-text-overlay');
   if (existing) existing.remove();

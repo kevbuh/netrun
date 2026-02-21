@@ -327,8 +327,14 @@ export function exitGuestMode() {
         localStorage.setItem('authUser', _authUser);
         localStorage.setItem('authUserInfo', JSON.stringify(window._authUserInfo));
         if (!data.username) {
-          // No username set — redirect to onboarding
-          window.location.href = '/onboarding.html';
+          // No username set — show onboarding wizard in-page (avoids compositor flicker from full-page nav in transparent window)
+          window._onOnboardingComplete = function() {
+            _onLoginSuccess();
+            syncFromServer();
+          };
+          if (typeof window.openOnboarding === 'function') {
+            window.openOnboarding();
+          }
           return;
         }
         _onLoginSuccess();

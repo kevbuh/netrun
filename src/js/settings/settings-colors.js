@@ -438,6 +438,7 @@ export function setAccentColor(color) {
 }
 
 export let _spinnerPreviewInterval = null;
+export function clearSpinnerPreview() { if (_spinnerPreviewInterval) { clearInterval(_spinnerPreviewInterval); _spinnerPreviewInterval = null; } }
 
 export function cycleSpinner(dir) {
   if (!window._spinnerData || !window._spinnerNames.length) return;

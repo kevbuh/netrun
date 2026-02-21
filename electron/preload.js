@@ -127,6 +127,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeInsightPartialListener: (cb) => ipcRenderer.removeListener('insight:partial', cb),
 
   // ── PDF convert ──
+  pdfDownloadTemp: (url) => ipcRenderer.invoke('pdf:download-temp', url),
   pdfParse: (inputPath) => ipcRenderer.invoke('pdf:parse', inputPath),
   pdfExtract: (inputPath) => ipcRenderer.invoke('pdf:extract', inputPath),
   pdfSplit: (inputPath, pages, outputPath) => ipcRenderer.invoke('pdf:split', inputPath, pages, outputPath),

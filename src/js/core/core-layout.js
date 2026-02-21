@@ -233,7 +233,7 @@ export function setSidebarActive(id) {
 }
 
 export function setSidebarLoading(id) {
-  Motion.retrigger(document.getElementById(id), 'sb-loading', 350);
+  if (typeof Motion !== 'undefined') Motion.retrigger(document.getElementById(id), 'sb-loading', 350);
 }
 
 // ── Sidebar Keyboard Navigation ──
