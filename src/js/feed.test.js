@@ -36,19 +36,67 @@ function parseSearchQuery(raw) {
 
 /**
  * Calculate composite score for "For You" sort
- * Formula: llmScore * (base + sourceAffinity * affinityWeight) + recencyBoost * recencyWeight
+ * Formula: contentScore * (base + sourceAffinity * affinityWeight) + recencyBoost + explorationBoost
  */
-function compositeScore(llmScore, sourceAffinity, recencyBoost, weights) {
-  const { base = 0.7, affinityWeight = 0.3, recencyWeight = 1.0 } = weights || {};
-  return llmScore * (base + sourceAffinity * affinityWeight) + recencyBoost * recencyWeight;
+function compositeScore(contentScore, sourceAffinity, recencyBoost, weights) {
+  const { base = 0.7, affinityWeight = 0.3, recencyWeight = 1.0, explorationWeight = 0.1 } = weights || {};
+  const exploration = (sourceAffinity <= 0.5 ? 1 : 0) * explorationWeight * 10;
+  return contentScore * (base + sourceAffinity * affinityWeight) + recencyBoost * recencyWeight + exploration;
 }
 
 /**
  * Calculate recency boost from age in hours
- * Formula: max(0, 10 - age * 0.5) * recencyWeight
+ * Formula: max(0, 10 - age * 0.5)
  */
-function calculateRecencyBoost(ageInHours, recencyWeight = 1.0) {
-  return Math.max(0, 10 - ageInHours * 0.5) * recencyWeight;
+function calculateRecencyBoost(ageInHours) {
+  return Math.max(0, 10 - ageInHours * 0.5);
+}
+
+/**
+ * Compute content score based on interest profile match
+ * Formula: baseline(30) + topic_match_bonus(up to 40) + category_match_bonus(up to 30)
+ */
+function computeContentScore(paper, profile) {
+  var score = 30;
+  if (!profile) return score;
+
+  var STOP_WORDS = new Set(['the','a','an','and','or','but','in','on','at','to','for','of','with','by','from','is','it','that','this','are','was','were','be','been','has','have','had','not','no','do','does','did','will','would','can','could','should','may','might','shall','into','as','if','its','than','so','very','just','about','also','more','other','some','only','over','such','after','before','between','each','all','both','through','during','up','out','then','them','these','those','own','same','how','our','new','using','via','based','we','i','you','he','she','they','what','which','who','when','where','why','how','two','one','three','first','second','third','most','many','any','few','large','small','high','low','long','short','old']);
+
+  var titleWords = (paper.title || '').toLowerCase().replace(/[^a-z0-9\s-]/g, '').split(/\s+/).filter(function(w) { return w.length > 2 && !STOP_WORDS.has(w); });
+  var topTopics = profile.topTopics || [];
+  var topCategories = profile.topCategories || [];
+
+  var topicMatches = 0;
+  var topTopicSet = new Set(topTopics);
+  for (var j = 0; j < titleWords.length; j++) {
+    if (topTopicSet.has(titleWords[j])) topicMatches++;
+  }
+  score += Math.min(40, topicMatches * 15);
+
+  var paperCats = Array.isArray(paper.categories) ? paper.categories : [];
+  var topCatSet = new Set(topCategories);
+  var catMatches = 0;
+  for (var k = 0; k < paperCats.length; k++) {
+    if (topCatSet.has(paperCats[k])) catMatches++;
+  }
+  score += Math.min(30, catMatches * 15);
+
+  return Math.min(100, score);
+}
+
+/**
+ * Compute source affinity from engagement data
+ */
+function computeSourceAffinity(sourceCounts) {
+  const affinity = {};
+  for (const source of Object.keys(sourceCounts)) {
+    const c = sourceCounts[source];
+    if (c.total < 3) { affinity[source] = 0.5; continue; }
+    const engagement = (c.read + c.saved * 2 + c.rated * 3) / c.total;
+    const penalty = (c.hidden / c.total) * 0.5;
+    affinity[source] = Math.max(0.1, Math.min(1.0, engagement - penalty));
+  }
+  return affinity;
 }
 
 /**
@@ -166,10 +214,10 @@ function applyDiversityInterleaving(papers, maxPerCategoryRun = 3, categoryMap =
 /**
  * Sort papers by "For You" composite score
  */
-function sortByForYou(papers, sourceAffinity, weights, now = Date.now()) {
+function sortByForYou(papers, sourceAffinity, weights, now = Date.now(), profile = null) {
   return [...papers].sort((a, b) => {
-    const aLlm = 50;
-    const bLlm = 50;
+    const aContent = computeContentScore(a, profile);
+    const bContent = computeContentScore(b, profile);
 
     const aAff = sourceAffinity[a.source] ?? 0.5;
     const bAff = sourceAffinity[b.source] ?? 0.5;
@@ -177,11 +225,11 @@ function sortByForYou(papers, sourceAffinity, weights, now = Date.now()) {
     const aAge = a.pubDate ? Math.max(0, (now - new Date(a.pubDate).getTime()) / 3600000) : 24;
     const bAge = b.pubDate ? Math.max(0, (now - new Date(b.pubDate).getTime()) / 3600000) : 24;
 
-    const aRecency = calculateRecencyBoost(aAge, weights.recencyWeight);
-    const bRecency = calculateRecencyBoost(bAge, weights.recencyWeight);
+    const aRecency = calculateRecencyBoost(aAge);
+    const bRecency = calculateRecencyBoost(bAge);
 
-    const aScore = compositeScore(aLlm, aAff, aRecency, weights);
-    const bScore = compositeScore(bLlm, bAff, bRecency, weights);
+    const aScore = compositeScore(aContent, aAff, aRecency, weights);
+    const bScore = compositeScore(bContent, bAff, bRecency, weights);
 
     return bScore - aScore;
   });
@@ -450,61 +498,158 @@ describe('Feed Sorting', () => {
 
   describe('compositeScore', () => {
     it('should calculate score with default weights', () => {
-      const score = compositeScore(80, 0.8, 5, {});
-      // 80 * (0.7 + 0.8 * 0.3) + 5 * 1.0
-      // 80 * (0.7 + 0.24) + 5
-      // 80 * 0.94 + 5 = 75.2 + 5 = 80.2
-      expect(score).toBeCloseTo(80.2, 1);
+      const score = compositeScore(65, 0.8, 5, {});
+      // 65 * (0.7 + 0.8 * 0.3) + 5 * 1.0 + 0 (affinity > 0.5, no exploration)
+      // 65 * (0.7 + 0.24) + 5
+      // 65 * 0.94 + 5 = 61.1 + 5 = 66.1
+      expect(score).toBeCloseTo(66.1, 1);
     });
 
     it('should calculate score with custom weights', () => {
-      const score = compositeScore(80, 0.8, 5, {
+      const score = compositeScore(65, 0.8, 5, {
         base: 0.5,
         affinityWeight: 0.5,
-        recencyWeight: 2.0
+        recencyWeight: 2.0,
+        explorationWeight: 0.0
       });
-      // 80 * (0.5 + 0.8 * 0.5) + 5 * 2.0
-      // 80 * (0.5 + 0.4) + 10
-      // 80 * 0.9 + 10 = 72 + 10 = 82
-      expect(score).toBeCloseTo(82, 1);
+      // 65 * (0.5 + 0.8 * 0.5) + 5 * 2.0 + 0
+      // 65 * (0.5 + 0.4) + 10
+      // 65 * 0.9 + 10 = 58.5 + 10 = 68.5
+      expect(score).toBeCloseTo(68.5, 1);
     });
 
     it('should handle zero affinity', () => {
-      const score = compositeScore(80, 0, 5, {});
-      // 80 * (0.7 + 0 * 0.3) + 5 * 1.0
-      // 80 * 0.7 + 5 = 56 + 5 = 61
-      expect(score).toBeCloseTo(61, 1);
+      const score = compositeScore(65, 0, 5, {});
+      // 65 * (0.7 + 0 * 0.3) + 5 * 1.0 + 1 (affinity <= 0.5, exploration = 0.1 * 10 = 1)
+      // 65 * 0.7 + 5 + 1 = 45.5 + 5 + 1 = 51.5
+      expect(score).toBeCloseTo(51.5, 1);
     });
 
     it('should handle max affinity', () => {
-      const score = compositeScore(80, 1.0, 5, {});
-      // 80 * (0.7 + 1.0 * 0.3) + 5 * 1.0
-      // 80 * 1.0 + 5 = 85
-      expect(score).toBeCloseTo(85, 1);
+      const score = compositeScore(65, 1.0, 5, {});
+      // 65 * (0.7 + 1.0 * 0.3) + 5 * 1.0 + 0
+      // 65 * 1.0 + 5 = 70
+      expect(score).toBeCloseTo(70, 1);
+    });
+
+    it('should add exploration bonus for low-affinity sources', () => {
+      // Same affinity (0.5 = threshold) but one gets explore bonus
+      const withExplore = compositeScore(65, 0.5, 0, { explorationWeight: 0.2 });
+      const withoutExplore = compositeScore(65, 0.5, 0, { explorationWeight: 0.0 });
+      // explorationWeight 0.2 * 10 = 2 point bonus for affinity <= 0.5
+      expect(withExplore - withoutExplore).toBeCloseTo(2, 1);
+
+      // High affinity (> 0.5) gets no exploration bonus
+      const highAff = compositeScore(65, 0.8, 0, { explorationWeight: 0.2 });
+      const highAffNoExplore = compositeScore(65, 0.8, 0, { explorationWeight: 0.0 });
+      expect(highAff - highAffNoExplore).toBeCloseTo(0, 1);
     });
   });
 
   describe('calculateRecencyBoost', () => {
     it('should give max boost for very recent posts', () => {
-      const boost = calculateRecencyBoost(0, 1.0);
-      // max(0, 10 - 0 * 0.5) * 1.0 = 10
+      const boost = calculateRecencyBoost(0);
+      // max(0, 10 - 0 * 0.5) = 10
       expect(boost).toBe(10);
     });
 
     it('should decrease boost with age', () => {
-      expect(calculateRecencyBoost(4, 1.0)).toBe(8); // 10 - 4*0.5 = 8
-      expect(calculateRecencyBoost(10, 1.0)).toBe(5); // 10 - 10*0.5 = 5
-      expect(calculateRecencyBoost(16, 1.0)).toBe(2); // 10 - 16*0.5 = 2
+      expect(calculateRecencyBoost(4)).toBe(8); // 10 - 4*0.5 = 8
+      expect(calculateRecencyBoost(10)).toBe(5); // 10 - 10*0.5 = 5
+      expect(calculateRecencyBoost(16)).toBe(2); // 10 - 16*0.5 = 2
     });
 
     it('should floor at zero for old posts', () => {
-      expect(calculateRecencyBoost(20, 1.0)).toBe(0); // 10 - 20*0.5 = 0
-      expect(calculateRecencyBoost(100, 1.0)).toBe(0);
+      expect(calculateRecencyBoost(20)).toBe(0); // 10 - 20*0.5 = 0
+      expect(calculateRecencyBoost(100)).toBe(0);
+    });
+  });
+
+  describe('computeContentScore', () => {
+    it('should return baseline 30 when no profile', () => {
+      const score = computeContentScore({ title: 'Some Paper' }, null);
+      expect(score).toBe(30);
     });
 
-    it('should scale by recencyWeight', () => {
-      expect(calculateRecencyBoost(4, 2.0)).toBe(16); // (10 - 4*0.5) * 2.0 = 16
-      expect(calculateRecencyBoost(4, 0.5)).toBe(4); // (10 - 4*0.5) * 0.5 = 4
+    it('should return baseline 30 when no matches', () => {
+      const score = computeContentScore(
+        { title: 'Quantum Computing Advances' },
+        { topTopics: ['machine', 'learning', 'vision'], topCategories: ['cs.CV'] }
+      );
+      expect(score).toBe(30);
+    });
+
+    it('should add topic match bonus', () => {
+      const score = computeContentScore(
+        { title: 'Deep Learning for Vision Systems' },
+        { topTopics: ['deep', 'learning', 'vision'], topCategories: [] }
+      );
+      // baseline(30) + 3 topic matches * 15 = 30 + 45 → capped at 40 bonus = 70
+      expect(score).toBe(70);
+    });
+
+    it('should add category match bonus', () => {
+      const score = computeContentScore(
+        { title: 'Some Paper', categories: ['cs.CV', 'cs.LG'] },
+        { topTopics: [], topCategories: ['cs.CV', 'cs.LG'] }
+      );
+      // baseline(30) + 0 topic + 2 cat matches * 15 = 30 + 30 = 60
+      expect(score).toBe(60);
+    });
+
+    it('should cap at 100', () => {
+      const score = computeContentScore(
+        { title: 'Deep Learning Vision Neural Networks', categories: ['cs.CV', 'cs.LG', 'cs.AI'] },
+        { topTopics: ['deep', 'learning', 'vision', 'neural', 'networks'], topCategories: ['cs.CV', 'cs.LG', 'cs.AI'] }
+      );
+      expect(score).toBe(100);
+    });
+
+    it('should ignore stopwords in title', () => {
+      const score = computeContentScore(
+        { title: 'The and for with' },
+        { topTopics: ['the', 'and', 'for', 'with'], topCategories: [] }
+      );
+      // All words are stopwords or too short, no matches
+      expect(score).toBe(30);
+    });
+  });
+
+  describe('computeSourceAffinity', () => {
+    it('should default to 0.5 for sources with < 3 posts', () => {
+      const affinity = computeSourceAffinity({
+        'arxiv': { total: 2, read: 2, saved: 1, rated: 1, hidden: 0 }
+      });
+      expect(affinity['arxiv']).toBe(0.5);
+    });
+
+    it('should compute engagement-based affinity', () => {
+      const affinity = computeSourceAffinity({
+        'arxiv': { total: 10, read: 5, saved: 2, rated: 1, hidden: 0 }
+      });
+      // engagement = (5 + 2*2 + 1*3) / 10 = 12/10 = 1.2
+      // penalty = 0
+      // affinity = clamp(1.2, 0.1, 1.0) = 1.0
+      expect(affinity['arxiv']).toBe(1.0);
+    });
+
+    it('should apply hidden penalty', () => {
+      const affinity = computeSourceAffinity({
+        'hn': { total: 10, read: 0, saved: 0, rated: 0, hidden: 8 }
+      });
+      // engagement = 0
+      // penalty = (8/10) * 0.5 = 0.4
+      // affinity = clamp(0 - 0.4, 0.1, 1.0) = 0.1
+      expect(affinity['hn']).toBe(0.1);
+    });
+
+    it('should clamp between 0.1 and 1.0', () => {
+      const affinity = computeSourceAffinity({
+        'a': { total: 5, read: 5, saved: 5, rated: 5, hidden: 0 },
+        'b': { total: 5, read: 0, saved: 0, rated: 0, hidden: 5 }
+      });
+      expect(affinity['a']).toBe(1.0);
+      expect(affinity['b']).toBe(0.1);
     });
   });
 
@@ -518,35 +663,35 @@ describe('Feed Sorting', () => {
       const sorted = sortByForYou(mockPapers, sourceAffinity, {
         base: 0.7,
         affinityWeight: 0.3,
-        recencyWeight: 1.0
+        recencyWeight: 1.0,
+        explorationWeight: 0.0
       }, now);
 
-      // All LLM scores are 50 (constant)
-      // arxiv papers: score = 50*(0.7+0.8*0.3) = 47, recency = 0 (age > 20h)
-      // HN Post: score = 50*(0.7+0.5*0.3) = 42.5, recency = 0
-      // HN Post sorts last due to lower source affinity
-
+      // All content scores are 30 (baseline, no profile)
+      // arxiv: 30*(0.7+0.8*0.3) = 28.2, recency = 0 (age > 20h)
+      // HN: 30*(0.7+0.5*0.3) = 25.5, recency = 0
       expect(sorted[2].title).toBe('HN Post'); // Lowest score due to lower affinity
     });
 
-    it('should boost recent papers with recency weight', () => {
-      const sorted = sortByForYou(mockPapers, sourceAffinity, {
-        base: 0.7,
-        affinityWeight: 0.3,
-        recencyWeight: 5.0
-      }, now);
-
-      // All LLM scores are 50, all ages > 20h so recency = 0
-      // HN Post sorts last due to lower source affinity
-      expect(sorted[2].title).toBe('HN Post');
-    });
-
-    it('should use default score of 50 for uncached papers', () => {
+    it('should use default content score of 30 without profile', () => {
       const sorted = sortByForYou([
         { title: 'Uncached', source: 'arxiv', pubDate: '2023-03-14', link: 'link4' }
       ], { 'arxiv': 0.5 }, {}, now);
 
       expect(sorted).toHaveLength(1);
+    });
+
+    it('should boost papers matching interest profile', () => {
+      const profile = { topTopics: ['learning', 'deep'], topCategories: ['cs.LG'] };
+      const papers = [
+        { title: 'Deep Learning Advances', source: 'arxiv', pubDate: '2023-03-14T12:00:00Z', categories: ['cs.LG'], link: 'a' },
+        { title: 'Quantum Computing Overview', source: 'arxiv', pubDate: '2023-03-14T12:00:00Z', categories: ['quant-ph'], link: 'b' }
+      ];
+      const sorted = sortByForYou(papers, { 'arxiv': 0.5 }, {
+        base: 0.7, affinityWeight: 0.3, recencyWeight: 0, explorationWeight: 0
+      }, now, profile);
+
+      expect(sorted[0].title).toBe('Deep Learning Advances');
     });
   });
 

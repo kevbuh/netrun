@@ -951,24 +951,33 @@ export function renderAlgorithmView() {
   const container = document.getElementById('algorithm-view-content');
   if (!container) return;
 
-  const profile = typeof getInterestProfile === 'function' ? getInterestProfile() : null;
+  const profile = getInterestProfile();
   const readCount = getReadPosts().length;
   const savedCount = Object.keys(getSavedPosts()).length;
   const hiddenCount = getHiddenPosts().length;
   const topTopics = profile ? (profile.topTopics || []) : [];
   const topCats = profile ? (profile.topCategories || []) : [];
+  const affinityMap = getSourceAffinity();
 
   const wBase = parseFloat(Settings.get('fyWeightBase') || '0.7');
   const wAff = parseFloat(Settings.get('fyWeightAffinity') || '0.3');
   const wRec = parseFloat(Settings.get('fyWeightRecency') || '1.0');
+  const wExplore = parseFloat(Settings.get('fyWeightExploration') || '0.10');
   const maxRun = parseInt(Settings.get('maxPerCategoryRun') || '3', 10);
 
-  const exampleLlm = 72, exampleAff = 0.8, exampleAge = 3;
+  const exampleContent = 65, exampleAff = 0.8, exampleAge = 3;
   const exampleRecency = Math.max(0, 10 - exampleAge * 0.5) * wRec;
-  const exampleScore = (exampleLlm * (wBase + exampleAff * wAff) + exampleRecency).toFixed(1);
+  const exampleScore = (exampleContent * (wBase + exampleAff * wAff) + exampleRecency).toFixed(1);
 
   const topicsHtml = topTopics.length ? topTopics.map(function(t) { return '<span class="bg-hover text-dim text-[0.68rem] px-1.5 py-0.5 rounded">' + escapeHtml(t) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>';
   const catsHtml = topCats.length ? topCats.map(function(c) { return '<span class="bg-accent/10 text-accent text-[0.68rem] px-1.5 py-0.5 rounded border border-accent/20">' + escapeHtml(c) + '</span>'; }).join('') : '<span class="text-dimmer text-[0.68rem]">Not enough data yet</span>';
+
+  // Build affinity table rows
+  const affinityRows = Object.keys(affinityMap).sort(function(a, b) { return affinityMap[b] - affinityMap[a]; }).map(function(src) {
+    var name = SOURCE_NAMES[src] || src;
+    var val = affinityMap[src];
+    return '<div class="flex justify-between"><span class="text-dim">' + escapeHtml(name) + '</span><span class="text-primary font-mono">' + val.toFixed(2) + '</span></div>';
+  }).join('');
 
   function _algoSlider(label, id, min, max, value, onInput, onChange) {
     const slider = new window.View('input');
@@ -989,23 +998,16 @@ export function renderAlgorithmView() {
 
   const view = window.VStack(
     window.RawHTML('<h2 class="text-[1.3rem] font-semibold text-white_ mb-1">How the Algorithm Works</h2>'),
-    window.Text('Your feed is ranked using a personalized composite score that combines LLM relevance scoring, source affinity from your reading habits, and recency.').className('text-dim text-[0.8rem] mb-6'),
+    window.Text('Your feed is ranked using a personalized composite score that combines content relevance scoring from your interest profile, source affinity from your reading habits, recency, and exploration.').className('text-dim text-[0.8rem] mb-6'),
 
-    // 1. LLM Relevance
-    window.VStack(
-      window.RawHTML('<h3 class="text-muted text-[0.85rem] font-medium mb-2">1. LLM Relevance Score</h3>'),
-      window.Text('Every post that passes the verdict filter (KEEP/SKIP) is scored 0\u2013100 by a local LLM (qwen3:8b). The scoring prompt asks the model to rate how interesting and relevant the post title is.').className('text-dim text-[0.78rem] leading-relaxed mb-2'),
-      window.Text('When you have an interest profile, your top topics and categories are appended to the scoring prompt, so the LLM boosts scores for content matching your interests while still scoring objectively.').className('text-dim text-[0.78rem] leading-relaxed')
-    ).className('mb-6'),
+    // 1. Interest Profile
+    window.RawHTML('<div class="mb-6"><h3 class="text-muted text-[0.85rem] font-medium mb-2">1. Interest Profile</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">Built automatically from your reading behavior. Keyword matching scores each post 0\u2013100 based on topic and category overlap with your interests.</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.75rem] space-y-2 mb-3"><div class="flex justify-between"><span class="text-dim">Posts read</span><span class="text-primary font-mono">' + readCount + '</span></div><div class="flex justify-between"><span class="text-dim">Posts saved</span><span class="text-primary font-mono">' + savedCount + '</span></div><div class="flex justify-between"><span class="text-dim">Posts hidden</span><span class="text-primary font-mono">' + hiddenCount + '</span></div></div><div class="space-y-2 text-[0.75rem]"><div><span class="text-dimmer text-[0.68rem]">Signal weights for topic extraction:</span><div class="text-dim mt-1">Read = <span class="text-primary">1x</span> &middot; Saved = <span class="text-primary">3x</span> &middot; Rated = <span class="text-primary">rating value</span> &middot; Hidden = negative signal</div></div><div><span class="text-dimmer text-[0.68rem]">Content score:</span><div class="text-dim mt-1">baseline(30) + topic_match(up to 40) + category_match(up to 30) = <span class="text-primary">0\u2013100</span></div></div><div><span class="text-dimmer text-[0.68rem]">Your top topics:</span><div class="flex flex-wrap gap-1 mt-1">' + topicsHtml + '</div></div><div><span class="text-dimmer text-[0.68rem]">Your top categories:</span><div class="flex flex-wrap gap-1 mt-1">' + catsHtml + '</div></div></div></div>'),
 
-    // 2. Interest Profile
-    window.RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">2. Interest Profile</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">Built automatically from your reading behavior. Recomputed every 5 minutes.</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.75rem] space-y-2 mb-3"><div class="flex justify-between"><span class="text-dim">Posts read</span><span class="text-primary font-mono">' + readCount + '</span></div><div class="flex justify-between"><span class="text-dim">Posts saved</span><span class="text-primary font-mono">' + savedCount + '</span></div><div class="flex justify-between"><span class="text-dim">Posts hidden</span><span class="text-primary font-mono">' + hiddenCount + '</span></div></div><div class="space-y-2 text-[0.75rem]"><div><span class="text-dimmer text-[0.68rem]">Signal weights for topic extraction:</span><div class="text-dim mt-1">Read = <span class="text-primary">1x</span> &middot; Saved = <span class="text-primary">3x</span> &middot; Rated = <span class="text-primary">rating value</span> &middot; Hidden = negative signal</div></div><div><span class="text-dimmer text-[0.68rem]">Your top topics:</span><div class="flex flex-wrap gap-1 mt-1">' + topicsHtml + '</div></div><div><span class="text-dimmer text-[0.68rem]">Your top categories:</span><div class="flex flex-wrap gap-1 mt-1">' + catsHtml + '</div></div></div></div>'),
+    // 2. Source Affinity
+    window.RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">2. Source Affinity</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">Each feed source gets an affinity score (0.1\u20131.0) based on how often you engage with its posts. Sources you read, save, and rate highly get boosted. Sources you frequently hide get penalized.</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.72rem] font-mono mb-3"><div class="text-dim mb-1">engagement = (read + saved\u00d72 + rated\u00d73) / total</div><div class="text-dim mb-1">penalty = (hidden / total) \u00d7 0.5</div><div class="text-primary">affinity = clamp(engagement \u2212 penalty, 0.1, 1.0)</div><div class="text-dimmer text-[0.65rem] mt-1">Sources with &lt;3 posts default to 0.5</div></div>' + (affinityRows ? '<div class="bg-input border border-border-input rounded-lg p-3 text-[0.72rem] space-y-1">' + affinityRows + '</div>' : '') + '</div>'),
 
-    // 3. Source Affinity
-    window.RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">3. Source Affinity</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">Each feed source gets an affinity score (0.1\u20131.0) based on how often you engage with its posts. Sources you read, save, and rate highly get boosted. Sources you frequently hide get penalized.</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.72rem] font-mono mb-3"><div class="text-dim mb-1">engagement = (read + saved\u00d72 + rated\u00d73) / total</div><div class="text-dim mb-1">penalty = (hidden / total) \u00d7 0.5</div><div class="text-primary">affinity = clamp(engagement \u2212 penalty, 0.1, 1.0)</div><div class="text-dimmer text-[0.65rem] mt-1">Sources with &lt;3 posts default to 0.5</div></div></div>'),
-
-    // 4. Composite Score
-    window.RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">4. Composite Score</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">When you use the &quot;For You&quot; sort, each post is ranked by a composite score combining all signals:</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.78rem] font-mono mb-3"><div class="text-accent">score = LLM \u00d7 (base + affinity \u00d7 aff_weight) + recency_boost \u00d7 rec_weight</div></div><div class="space-y-1.5 text-[0.75rem] text-dim mb-4"><div><span class="text-dimmer">LLM:</span> Quality score from local model (0\u2013100)</div><div><span class="text-dimmer">base:</span> Baseline multiplier \u2014 how much the LLM score matters on its own</div><div><span class="text-dimmer">affinity \u00d7 aff_weight:</span> Bonus for sources you engage with often</div><div><span class="text-dimmer">recency_boost:</span> max(0, 10 \u2212 age_hours \u00d7 0.5) \u2014 decays over 20h, max +10</div><div><span class="text-dimmer">rec_weight:</span> How much recency matters relative to quality</div></div><div class="bg-input border border-border-input rounded-lg p-3 mb-4"><div class="text-dimmer text-[0.68rem] mb-2">Example: LLM=' + exampleLlm + ', affinity=' + exampleAff + ', age=' + exampleAge + 'h</div><div class="text-[0.75rem] font-mono text-dim">' + exampleLlm + ' \u00d7 (' + wBase.toFixed(2) + ' + ' + exampleAff + ' \u00d7 ' + wAff.toFixed(2) + ') + ' + exampleRecency.toFixed(1) + ' = <span class="text-accent font-semibold">' + exampleScore + '</span></div></div></div>'),
+    // 3. Composite Score
+    window.RawHTML('<div class="mb-6 pt-5 border-t border-border-subtle"><h3 class="text-muted text-[0.85rem] font-medium mb-2">3. Composite Score</h3><p class="text-dim text-[0.78rem] leading-relaxed mb-3">When you use the &quot;For You&quot; sort, each post is ranked by a composite score combining all signals:</p><div class="bg-input border border-border-input rounded-lg p-3 text-[0.78rem] font-mono mb-3"><div class="text-accent">score = content \u00d7 (base + affinity \u00d7 aff_weight) + recency + exploration</div></div><div class="space-y-1.5 text-[0.75rem] text-dim mb-4"><div><span class="text-dimmer">content:</span> Interest-based relevance score (0\u2013100)</div><div><span class="text-dimmer">base:</span> Baseline multiplier</div><div><span class="text-dimmer">affinity \u00d7 aff_weight:</span> Bonus for sources you engage with</div><div><span class="text-dimmer">recency:</span> max(0, 10 \u2212 age_hours \u00d7 0.5) \u00d7 rec_weight</div><div><span class="text-dimmer">exploration:</span> Bonus for low-affinity sources to surface new content</div></div><div class="bg-input border border-border-input rounded-lg p-3 mb-4"><div class="text-dimmer text-[0.68rem] mb-2">Example: content=' + exampleContent + ', affinity=' + exampleAff + ', age=' + exampleAge + 'h</div><div class="text-[0.75rem] font-mono text-dim">' + exampleContent + ' \u00d7 (' + wBase.toFixed(2) + ' + ' + exampleAff + ' \u00d7 ' + wAff.toFixed(2) + ') + ' + exampleRecency.toFixed(1) + ' = <span class="text-accent font-semibold">' + exampleScore + '</span></div></div></div>'),
 
     // Weight sliders
     window.VStack(
@@ -1018,12 +1020,15 @@ export function renderAlgorithmView() {
         function() { Settings.set('fyWeightAffinity', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); }),
       _algoSlider('Recency', 'algo-rec-val', 0, 200, Math.round(wRec * 100),
         function() { document.getElementById('algo-rec-val').textContent = (this.value / 100).toFixed(2); },
-        function() { Settings.set('fyWeightRecency', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); })
+        function() { Settings.set('fyWeightRecency', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); }),
+      _algoSlider('Explore', 'algo-exp-val', 0, 100, Math.round(wExplore * 100),
+        function() { document.getElementById('algo-exp-val').textContent = (this.value / 100).toFixed(2); },
+        function() { Settings.set('fyWeightExploration', (this.value / 100).toFixed(2)); renderPapers(); renderAlgorithmView(); })
     ).spacing(2),
 
-    // 5. Category Diversity
+    // 4. Category Diversity
     window.VStack(
-      window.RawHTML('<h3 class="text-muted text-[0.85rem] font-medium mb-2">5. Category Diversity</h3>'),
+      window.RawHTML('<h3 class="text-muted text-[0.85rem] font-medium mb-2">4. Category Diversity</h3>'),
       window.RawHTML('<p class="text-dim text-[0.78rem] leading-relaxed mb-3">After scoring, posts are reordered to prevent any single category from dominating a run. If more than <span class="text-primary">' + maxRun + '</span> consecutive posts come from the same category, a post from a different category is pulled forward.</p>'),
       (function() {
         const s = new window.View('input');
@@ -1618,6 +1623,8 @@ export function _renderPaperVerboseCard(p, i, ctx) {
   }
   if (userRating > 0) metaItems.push(window.RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
   if (p.date) metaItems.push(window.Text(p.date).className('text-[0.72rem] text-dim'));
+  var vBadge = _scoreBadge(p);
+  if (vBadge) metaItems.push(vBadge);
   metaItems.push(_cardActionRow(p, i, ctx));
   const metaRow = HStack.apply(null, metaItems).spacing(2).className('flex-wrap mt-3');
 
@@ -1669,6 +1676,8 @@ export function _renderPaperTwitterCard(p, i, ctx) {
   headerItems.push(window.Text('@' + handle).className('text-[0.8rem] text-dimmer'));
   headerItems.push(window.Text('\u00b7').className('text-dimmer'));
   headerItems.push(window.Text(tAgo).className('text-[0.8rem] text-dimmer'));
+  var tBadge = _scoreBadge(p);
+  if (tBadge) headerItems.push(tBadge);
   const headerRow = HStack.apply(null, headerItems).spacing(1).className('flex-wrap');
 
   // Title
