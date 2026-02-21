@@ -593,6 +593,7 @@ export function browseSaveToReadingList() {
       const r = btn.getBoundingClientRect();
       _showBookmarkFly({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 });
     }
+    if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('var(--nr-accent)');
   }
 }
 

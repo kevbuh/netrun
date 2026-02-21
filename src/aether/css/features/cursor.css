@@ -89,6 +89,18 @@
   border-radius: 1px;
 }
 
+/* Pulse burst — triggered via AetherCursor.pulse() */
+.nr-cursor-ring.is-pulse {
+  animation: cursor-pulse 0.5s ease-out forwards;
+  mix-blend-mode: normal;
+}
+
+@keyframes cursor-pulse {
+  0%   { opacity: 0.8; width: 36px; height: 36px; border-width: 2.5px; }
+  50%  { opacity: 0.5; width: 64px; height: 64px; border-width: 2px; }
+  100% { opacity: 0;   width: 80px; height: 80px; border-width: 1px; }
+}
+
 /* Hidden when cursor leaves window */
 .nr-cursor-dot.is-hidden,
 .nr-cursor-ring.is-hidden {

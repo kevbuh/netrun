@@ -478,7 +478,23 @@ function _initCursor() {
       running ? api.disable() : api.enable();
     },
     injectWebview: injectWebview,
-    injectIframe: injectIframe
+    injectIframe: injectIframe,
+    /**
+     * Momentary burst animation on the cursor ring.
+     * @param {string} [color] — CSS color for the burst (defaults to accent)
+     */
+    pulse: function (color) {
+      if (!running) return;
+      ring.style.borderColor = color || 'var(--nr-accent)';
+      ring.classList.remove('is-pulse');
+      void ring.offsetWidth; // reflow to restart animation
+      ring.classList.add('is-pulse');
+      ring.addEventListener('animationend', function onEnd() {
+        ring.removeEventListener('animationend', onEnd);
+        ring.classList.remove('is-pulse');
+        ring.style.borderColor = '';
+      });
+    }
   };
 
   if (window.Aether) {
