@@ -77,25 +77,58 @@ export function toggleBrowseMoreMenu() {
       })(_privFeatures[pi]);
     }
 
-    // Privacy stats (async)
-    var _privStatsDiv = new window.View('div').styles({padding:'2px 12px', minHeight:'14px'});
+    // Privacy stats + details (async)
+    var _privStatsDiv = new window.View('div').styles({
+      padding:'6px 12px', margin:'2px 8px', borderRadius:'6px',
+      background:'color-mix(in srgb, var(--nr-accent) 8%, transparent)',
+      minHeight:'22px'
+    });
     items.push(_privStatsDiv);
     if (window.electronAPI && tab && tab.el && typeof tab.el.getWebContentsId === 'function') {
       try {
         var _wc = tab.el.getWebContentsId();
+        var detailsP = window.electronAPI.privacyDetails ? window.electronAPI.privacyDetails(_wc) : Promise.resolve({});
         Promise.all([
           window.electronAPI.adblockGetCount(_wc),
           window.electronAPI.trackingStripGetCount ? window.electronAPI.trackingStripGetCount(_wc) : Promise.resolve(0),
           window.electronAPI.httpsOnlyGetCount ? window.electronAPI.httpsOnlyGetCount(_wc) : Promise.resolve(0),
           window.electronAPI.cookieBlockGetCount ? window.electronAPI.cookieBlockGetCount(_wc) : Promise.resolve(0),
+          detailsP,
         ]).then(function(c) {
+          var details = c[4] || {};
+          var rows = [];
+
+          // Summary line
           var parts = [];
           if (c[0] > 0) parts.push(c[0] + ' ad' + (c[0] !== 1 ? 's' : '') + ' blocked');
           if (c[1] > 0) parts.push(c[1] + ' tracker' + (c[1] !== 1 ? 's' : '') + ' stripped');
           if (c[2] > 0) parts.push(c[2] + ' HTTPS upgrade' + (c[2] !== 1 ? 's' : ''));
           if (c[3] > 0) parts.push(c[3] + ' cookie' + (c[3] !== 1 ? 's' : '') + ' blocked');
-          var text = parts.length > 0 ? parts.join(' \u00b7 ') : 'No threats detected on this page';
-          AetherUI.mount(window.Text(text).font('caption2').foreground('quaternary'), _privStatsDiv.el);
+          var summaryText = parts.length > 0 ? parts.join(' \u00b7 ') : 'No threats detected on this page';
+          rows.push(window.Text(summaryText).font('caption2').styles({color:'var(--nr-accent)', fontWeight:'500'}));
+
+          // Domain breakdown helper
+          function _domainRows(map, label) {
+            var entries = Object.entries(map || {}).sort(function(a, b) { return b[1] - a[1]; });
+            if (!entries.length) return;
+            rows.push(window.Text(label).font('caption2').foreground('quaternary').styles({marginTop:'4px', fontWeight:'600', textTransform:'uppercase', letterSpacing:'0.04em'}));
+            var shown = entries.slice(0, 5);
+            for (var i = 0; i < shown.length; i++) {
+              rows.push(window.HStack([
+                window.Text(shown[i][0]).font('caption2').foreground('secondary').flex(1).styles({overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}),
+                window.Text(String(shown[i][1])).font('caption2').foreground('quaternary')
+              ]).spacing(2));
+            }
+            if (entries.length > 5) {
+              rows.push(window.Text('+ ' + (entries.length - 5) + ' more').font('caption2').foreground('quaternary'));
+            }
+          }
+
+          _domainRows(details.ads, 'Blocked domains');
+          _domainRows(details.trackers, 'Stripped params');
+          _domainRows(details.cookies, 'Cookies blocked from');
+
+          AetherUI.mount(window.VStack(rows).spacing(1), _privStatsDiv.el);
         }).catch(function() {});
       } catch {}
     }

@@ -281,25 +281,56 @@ export function _populatePillMenuMoreItems() {
 
   // Privacy stats (async) — placeholder div filled after Promise resolves
   const statsDiv = new window.View('div');
-  statsDiv.styles({padding:'2px 12px', minHeight:'16px'});
+  statsDiv.styles({
+    padding:'6px 12px', margin:'2px 8px', borderRadius:'6px',
+    background:'color-mix(in srgb, var(--nr-accent) 8%, transparent)',
+    minHeight:'22px'
+  });
   items.push(statsDiv);
 
   if (window.electronAPI && tab && tab.el && typeof tab.el.getWebContentsId === 'function') {
     try {
       const _wcId = tab.el.getWebContentsId();
+      const detailsP = window.electronAPI.privacyDetails ? window.electronAPI.privacyDetails(_wcId) : Promise.resolve({});
       Promise.all([
         window.electronAPI.adblockGetCount(_wcId),
         window.electronAPI.trackingStripGetCount ? window.electronAPI.trackingStripGetCount(_wcId) : Promise.resolve(0),
         window.electronAPI.httpsOnlyGetCount ? window.electronAPI.httpsOnlyGetCount(_wcId) : Promise.resolve(0),
         window.electronAPI.cookieBlockGetCount ? window.electronAPI.cookieBlockGetCount(_wcId) : Promise.resolve(0),
-      ]).then(function(counts) {
+        detailsP,
+      ]).then(function(c) {
+        const details = c[4] || {};
+        const rows = [];
+
         const parts = [];
-        if (counts[0] > 0) parts.push(counts[0] + ' ad' + (counts[0] !== 1 ? 's' : '') + ' blocked');
-        if (counts[1] > 0) parts.push(counts[1] + ' tracker' + (counts[1] !== 1 ? 's' : '') + ' stripped');
-        if (counts[2] > 0) parts.push(counts[2] + ' HTTPS upgrade' + (counts[2] !== 1 ? 's' : ''));
-        if (counts[3] > 0) parts.push(counts[3] + ' cookie' + (counts[3] !== 1 ? 's' : '') + ' blocked');
-        const text = parts.length > 0 ? parts.join(' \u00b7 ') : 'No threats detected on this page';
-        AetherUI.mount(window.Text(text).font('caption2').foreground('quaternary'), statsDiv.el);
+        if (c[0] > 0) parts.push(c[0] + ' ad' + (c[0] !== 1 ? 's' : '') + ' blocked');
+        if (c[1] > 0) parts.push(c[1] + ' tracker' + (c[1] !== 1 ? 's' : '') + ' stripped');
+        if (c[2] > 0) parts.push(c[2] + ' HTTPS upgrade' + (c[2] !== 1 ? 's' : ''));
+        if (c[3] > 0) parts.push(c[3] + ' cookie' + (c[3] !== 1 ? 's' : '') + ' blocked');
+        const summaryText = parts.length > 0 ? parts.join(' \u00b7 ') : 'No threats detected on this page';
+        rows.push(window.Text(summaryText).font('caption2').styles({color:'var(--nr-accent)', fontWeight:'500'}));
+
+        function _domainRows(map, label) {
+          const entries = Object.entries(map || {}).sort(function(a, b) { return b[1] - a[1]; });
+          if (!entries.length) return;
+          rows.push(window.Text(label).font('caption2').foreground('quaternary').styles({marginTop:'4px', fontWeight:'600', textTransform:'uppercase', letterSpacing:'0.04em'}));
+          const shown = entries.slice(0, 5);
+          for (let i = 0; i < shown.length; i++) {
+            rows.push(window.HStack([
+              window.Text(shown[i][0]).font('caption2').foreground('secondary').flex(1).styles({overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}),
+              window.Text(String(shown[i][1])).font('caption2').foreground('quaternary')
+            ]).spacing(2));
+          }
+          if (entries.length > 5) {
+            rows.push(window.Text('+ ' + (entries.length - 5) + ' more').font('caption2').foreground('quaternary'));
+          }
+        }
+
+        _domainRows(details.ads, 'Blocked domains');
+        _domainRows(details.trackers, 'Stripped params');
+        _domainRows(details.cookies, 'Cookies blocked from');
+
+        AetherUI.mount(window.VStack(rows).spacing(1), statsDiv.el);
       }).catch(function() {});
     } catch {}
   }

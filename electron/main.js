@@ -17,10 +17,12 @@ let _coreInitialized = false;
 let _adblockEngine = null;
 let _adblockEnabled = true;
 const _blockedCounts = {};
+const _blockedDetails = {}; // wcId → { domain: count }
 
 // ── Tracking Parameter Stripping ──
 let _trackingStripEnabled = true;
 const _strippedCounts = {};
+const _strippedDetails = {}; // wcId → { param: count }
 
 // ── HTTPS-Only Mode ──
 let _httpsOnlyEnabled = true;
@@ -29,6 +31,12 @@ const _httpsUpgradeCounts = {};
 // ── Third-Party Cookie Blocking ──
 let _cookieBlockEnabled = true;
 const _cookieBlockedCounts = {};
+const _cookieBlockedDetails = {}; // wcId → { domain: count }
+
+function _trackDetail(map, wcId, key) {
+  if (!map[wcId]) map[wcId] = {};
+  map[wcId][key] = (map[wcId][key] || 0) + 1;
+}
 
 const _TRACKING_PARAMS = new Set([
   'utm_source','utm_medium','utm_campaign','utm_term','utm_content','utm_id',
@@ -551,6 +559,7 @@ app.on('web-contents-created', (event, contents) => {
                 const clean = u.toString();
                 if (clean !== url) {
                   _strippedCounts[wcId] = (_strippedCounts[wcId] || 0) + toDelete.length;
+                  for (const k of toDelete) _trackDetail(_strippedDetails, wcId, k);
                   return cb({ redirectURL: clean });
                 }
               }
@@ -564,6 +573,7 @@ app.on('web-contents-created', (event, contents) => {
         for (let i = 0; i < _ytAdPatterns.length; i++) {
           if (url.includes(_ytAdPatterns[i])) {
             _blockedCounts[wcId] = (_blockedCounts[wcId] || 0) + 1;
+            try { _trackDetail(_blockedDetails, wcId, new URL(url).hostname); } catch {}
             return cb({ cancel: true });
           }
         }
@@ -573,6 +583,7 @@ app.on('web-contents-created', (event, contents) => {
           const result = _adblockEngine.check(details.url, details.referrer || details.url, type);
           if (result.matched) {
             _blockedCounts[wcId] = (_blockedCounts[wcId] || 0) + 1;
+            try { _trackDetail(_blockedDetails, wcId, new URL(url).hostname); } catch {}
             return cb({ cancel: true });
           }
         } catch {}
@@ -607,6 +618,7 @@ app.on('web-contents-created', (event, contents) => {
         }
         if (blocked > 0) {
           _cookieBlockedCounts[wcId] = (_cookieBlockedCounts[wcId] || 0) + blocked;
+          _trackDetail(_cookieBlockedDetails, wcId, cookieDomain);
         }
         cb({ responseHeaders: headers });
       });
@@ -853,7 +865,7 @@ app.whenReady().then(() => {
 
   // ── Ad block IPC handlers ──
   ipcMain.handle('adblock-get-count', (_, wcId) => _blockedCounts[wcId] || 0);
-  ipcMain.handle('adblock-reset-count', (_, wcId) => { _blockedCounts[wcId] = 0; });
+  ipcMain.handle('adblock-reset-count', (_, wcId) => { _blockedCounts[wcId] = 0; delete _blockedDetails[wcId]; });
   ipcMain.handle('adblock-set-enabled', (_, on) => { _adblockEnabled = !!on; });
   ipcMain.handle('adblock-cosmetic', (_, url) => {
     if (!_adblockEngine) return { selectors: [] };
@@ -876,7 +888,7 @@ app.whenReady().then(() => {
 
   // ── Tracking Parameter Stripping ──
   ipcMain.handle('tracking-strip-get-count', (_, wcId) => _strippedCounts[wcId] || 0);
-  ipcMain.handle('tracking-strip-reset-count', (_, wcId) => { _strippedCounts[wcId] = 0; });
+  ipcMain.handle('tracking-strip-reset-count', (_, wcId) => { _strippedCounts[wcId] = 0; delete _strippedDetails[wcId]; });
   ipcMain.handle('tracking-strip-set-enabled', (_, on) => { _trackingStripEnabled = !!on; });
 
   // ── HTTPS-Only Mode ──
@@ -886,8 +898,15 @@ app.whenReady().then(() => {
 
   // ── Third-Party Cookie Blocking ──
   ipcMain.handle('cookie-block-get-count', (_, wcId) => _cookieBlockedCounts[wcId] || 0);
-  ipcMain.handle('cookie-block-reset-count', (_, wcId) => { _cookieBlockedCounts[wcId] = 0; });
+  ipcMain.handle('cookie-block-reset-count', (_, wcId) => { _cookieBlockedCounts[wcId] = 0; delete _cookieBlockedDetails[wcId]; });
   ipcMain.handle('cookie-block-set-enabled', (_, on) => { _cookieBlockEnabled = !!on; });
+
+  // ── Privacy details (per-tab breakdown) ──
+  ipcMain.handle('privacy-details', (_, wcId) => ({
+    ads: _blockedDetails[wcId] || {},
+    trackers: _strippedDetails[wcId] || {},
+    cookies: _cookieBlockedDetails[wcId] || {},
+  }));
 
   // ── Aggregate privacy stats ──
   ipcMain.handle('privacy-stats', () => {

@@ -71,6 +71,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cookieBlockGetCount: (wcId) => ipcRenderer.invoke('cookie-block-get-count', wcId),
   cookieBlockResetCount: (wcId) => ipcRenderer.invoke('cookie-block-reset-count', wcId),
   cookieBlockSetEnabled: (on) => ipcRenderer.invoke('cookie-block-set-enabled', on),
+  // Privacy details (per-tab breakdown)
+  privacyDetails: (wcId) => ipcRenderer.invoke('privacy-details', wcId),
   // Aggregate privacy stats
   privacyStats: () => ipcRenderer.invoke('privacy-stats'),
 
