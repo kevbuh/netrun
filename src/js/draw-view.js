@@ -104,6 +104,7 @@ export function openDrawPage(drawingId) {
   _updateIslandNavButtons();
   ntp.style.display = '';
 }
+window.openDrawPage = openDrawPage;
 
 export function drawViewCleanupMorph() {
   _drawViewCleanupMorph();

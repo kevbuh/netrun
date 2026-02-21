@@ -216,6 +216,7 @@ function _browseResetAdaptiveText() {
 // ── Browse URL Bar History Dropdown ──
 
 export const _URL_BAR_SECTIONS = [
+  { key: 'quickopen',  label: 'Quick Open' },
   { key: 'chat',       label: 'Chat' },
   { key: 'search',     label: 'Search' },
   { key: 'bangs',      label: 'Bangs' },
@@ -229,6 +230,19 @@ export const _URL_BAR_SECTIONS = [
   { key: 'notes',      label: 'Notes' },
   { key: 'history',    label: 'Search History' },
   { key: 'lucky',      label: 'Feeling Lucky' },
+];
+
+const _QUICK_OPEN_VIEWS = [
+  { key: 'feed',      label: 'Feed',      aliases: ['feed'],               icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>' },
+  { key: 'chat',      label: 'Chat',      aliases: ['chat', 'ai'],         icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>' },
+  { key: 'browse',    label: 'Browse',    aliases: ['browse', 'web'],      icon: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-linecap="round" stroke-linejoin="round"/>' },
+  { key: 'docs',      label: 'Docs',      aliases: ['docs', 'documents'],  icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>' },
+  { key: 'settings',  label: 'Settings',  aliases: ['settings', 'prefs', 'preferences'], icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>' },
+  { key: 'dashboard', label: 'Dashboard', aliases: ['dashboard', 'home'],  icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>' },
+  { key: 'inbox',     label: 'Inbox',     aliases: ['inbox', 'notifications', 'messages'], icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859M12 3v8.25m0 0l-3-3m3 3l3-3"/>' },
+  { key: 'draw',      label: 'Draw',      aliases: ['draw', 'canvas', 'sketch'], icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.764m3.42 3.42a6.776 6.776 0 00-3.42-3.42"/>' },
+  { key: 'dev',       label: 'Dev Stats',  aliases: ['dev', 'developer', 'stats'], icon: '<path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/>' },
+  { key: 'history',   label: 'History',   aliases: ['history', 'recent'], action: 'history', icon: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/>' },
 ];
 
 export function _getUrlBarSections() {
@@ -702,10 +716,15 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
     ? Object.keys(_BANGS).filter(k => k.startsWith(bangFilter)).slice(0, 8)
     : [];
 
+  // Quick open: match view keywords
+  const quickOpenMatches = filter && filter.length >= 2
+    ? _QUICK_OPEN_VIEWS.filter(v => v.aliases.some(a => a.startsWith(filter)) || v.label.toLowerCase().startsWith(filter))
+    : [];
+
   const pillWrap = document.getElementById('pill-url-wrap');
   const isIsland = dd.id === 'pill-url-dropdown';
 
-  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length && !matchedBangs.length && !(ntp && filter)) {
+  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length && !matchedBangs.length && !quickOpenMatches.length && !(ntp && filter)) {
     dd.style.display = 'none'; dd.classList.add('hidden');
     if (isIsland && pillWrap) pillWrap.classList.remove('pill-dropdown-open');
     return;
@@ -749,6 +768,27 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
 
   // Section renderers — each returns HTML string or '' if nothing to show
   const _urlBarRenderers = {
+    quickopen: () => {
+      if (!quickOpenMatches.length) return '';
+      const iconSize = ntp ? '16px' : '14px';
+      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Open</div>';
+      h += quickOpenMatches.map(v => {
+        let action;
+        if (v.action === 'history') {
+          action = `event.preventDefault(); var _i=_getOmniInput().input; if(_i){_i.value='/history';} _browseUrlShowHistory();`;
+        } else if (v.key === 'draw') {
+          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof openDrawPage==='function') openDrawPage();`;
+        } else {
+          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof wmOpen==='function') wmOpen('${v.key}');`;
+        }
+        return `<div data-histq="open:${v.key}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${action}">
+          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-accent);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">${v.icon}</svg>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;">Open ${escapeHtml(v.label)}</span>
+          <span style="font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;">View</span>
+        </div>`;
+      }).join('');
+      return h;
+    },
     chat: () => {
       if (!filter || !ntp) return '';
       const safeFilter = escapeHtml(filter).replace(/'/g, "\\'");
@@ -1467,6 +1507,7 @@ export function _browseUrlHideHistory() {
 }
 window._browseUrlHideHistory = _browseUrlHideHistory;
 window._browseUrlShowHistory = _browseUrlShowHistory;
+window._getOmniInput = _getOmniInput;
 window.submitSearch = submitSearch;
 window.openUserProfile = openUserProfile;
 

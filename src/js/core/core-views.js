@@ -558,5 +558,7 @@ registerActions({
   wmOpen: (_e, arg) => wmOpen(arg),
 });
 
+window.wmOpen = wmOpen;
+
 
 // ── Navigation history stack (survives Cmd+Shift+R via localStorage) ──

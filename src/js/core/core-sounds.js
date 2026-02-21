@@ -273,7 +273,13 @@ if (Settings.get('rainOn') === '1') {
 
 export {
   toggleClickSound, setClickSoundType, playClickSound, CLICK_SOUND_PRESETS,
-  toggleRain, startRain, stopRain, setRainNoiseType, setRainFreq, setRainVolume, NOISE_PRESETS
+  toggleRain, startRain, stopRain, setRainNoiseType, setRainFreq, setRainVolume, NOISE_PRESETS,
+  getRainNoiseType, getRainVolume, getRainFreq, getRainOn
 };
+
+function getRainNoiseType() { return _rainNoiseType; }
+function getRainVolume() { return _rainVolume; }
+function getRainFreq() { return _rainFreq; }
+function getRainOn() { return _rainOn; }
 
 // ── User accounts & sync ──
