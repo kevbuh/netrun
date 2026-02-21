@@ -81,6 +81,27 @@ function _scheduleRender() {
 
 window._renderUnifiedPill = _scheduleRender;
 
+// ── Gather inline content from island activities ──
+function _getInlineContent() {
+  if (!window._islandActivities) return { modelLabel: '', annotateOffer: false, annotateLabel: '', insightLoading: false };
+  const acts = window._islandActivities.value;
+  let modelLabel = '';
+  let annotateOffer = false;
+  let annotateLabel = '';
+  let insightLoading = false;
+  for (const id in acts) {
+    const a = acts[id];
+    if (!a) continue;
+    if (a.type === 'ai' && a.label) modelLabel = a.label;
+    if (a.type === 'insight') {
+      if (a.offer) { annotateOffer = true; annotateLabel = a.label || 'Annotate'; }
+      else if (a.loading) { insightLoading = true; annotateLabel = a.label || 'Analyzing\u2026'; }
+      else if (a.label) { annotateLabel = a.label; }
+    }
+  }
+  return { modelLabel, annotateOffer, annotateLabel, insightLoading };
+}
+
 // ── Main render ──
 function _renderUnifiedPill() {
   const el = document.getElementById('pill-ai-unified');
@@ -88,12 +109,23 @@ function _renderUnifiedPill() {
 
   const state = _resolveIndicatorState();
   const { primary, secondary, audioState, pulseState } = state;
+  const inline = _getInlineContent();
 
   // ── Indicator ──
   const indicator = el.querySelector('.ai-unified-indicator');
   if (indicator) {
     _renderIndicator(indicator, primary, pulseState);
   }
+
+  // ── Inline labels (model + annotate) ──
+  const labelContainer = el.querySelector('.ai-unified-labels');
+  if (labelContainer) {
+    _renderInlineLabels(labelContainer, inline);
+  }
+
+  // Toggle expanded class when there's inline content
+  const hasInline = !!(inline.modelLabel || inline.annotateLabel);
+  el.classList.toggle('ai-unified-expanded', hasInline);
 
   // ── Secondary dots ──
   const secContainer = el.querySelector('.ai-unified-secondary');
@@ -105,6 +137,25 @@ function _renderUnifiedPill() {
   if (_dropdownOpen) {
     const dropdown = el.querySelector('.ai-unified-dropdown');
     if (dropdown) _renderDropdown(dropdown, state);
+  }
+}
+
+// ── Inline labels rendering ──
+function _renderInlineLabels(container, inline) {
+  let html = '';
+  if (inline.modelLabel) {
+    html += '<span class="ai-unified-model-label">' + escapeHtml(inline.modelLabel) + '</span>';
+  }
+  if (inline.annotateLabel) {
+    const annIcon = inline.annotateOffer
+      ? icon('comment', { size: 12, stroke: 'var(--nr-text-secondary)' })
+      : (inline.insightLoading ? '<span class="island-annotate-dot"></span>' : icon('comment', { size: 12 }));
+    const cls = inline.annotateOffer ? ' ai-unified-annotate-offer' : '';
+    html += '<span class="ai-unified-annotate-label' + cls + '" data-ai-inline-annotate="1">' + annIcon + '<span>' + escapeHtml(inline.annotateLabel) + '</span></span>';
+  }
+  if (container._lastHtml !== html) {
+    container.innerHTML = html;
+    container._lastHtml = html;
   }
 }
 
@@ -504,6 +555,12 @@ function _initUnifiedPill() {
       e.stopPropagation();
       const actionId = actionEl.getAttribute('data-ai-action');
       if (_actionMap[actionId]) _actionMap[actionId]();
+      return;
+    }
+    // Inline annotate label click → toggle annotations directly
+    if (e.target.closest('[data-ai-inline-annotate]')) {
+      e.stopPropagation();
+      toggleAnnotations();
       return;
     }
     // Don't toggle if clicking a button inside dropdown

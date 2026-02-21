@@ -160,6 +160,8 @@ export function islandRemove(id) {
   }
   if (window._islandDismissTimers[id]) { clearTimeout(window._islandDismissTimers[id]); delete window._islandDismissTimers[id]; }
   _clearIslandActivity(id);
+  // Re-render unified AI pill so it picks up removed ai/insight data
+  if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
   if (el && !el.classList.contains('island-exiting')) {
     const parentCont = el.parentNode;
     _islandSnapshotRects(parentCont);

@@ -746,6 +746,18 @@ export function _islandRender() {
   const rightContainer = document.getElementById('pill-island-right');
 
   let ids = Object.keys(window._islandActivities.value);
+
+  // Filter out 'ai' and 'insight' types — they render inside the unified AI pill now
+  ids = ids.filter(function(id) {
+    const a = window._islandActivities.value[id];
+    if (!a) return false;
+    if (a.type === 'ai') return false;
+    if (a.type === 'insight') return false;
+    return true;
+  });
+  // Trigger unified pill re-render so it picks up the ai/insight data
+  if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
+
   if (!ids.length) {
     container.innerHTML = '';
     if (rightContainer) rightContainer.innerHTML = '';
