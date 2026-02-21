@@ -1,7 +1,7 @@
 import Settings from '/js/core/core-settings.js';
 import { ipcRoute } from '/js/api-ipc.js';
 import { apiPost, apiGet, apiDelete } from '/js/api.js';
-import { escapeHtml, escapeAttr, getPaperRatings } from '/js/core/core-utils.js';
+import { escapeHtml, escapeAttr, getPaperRatings, getPaperRating, truncate, _normalizeRatingKey, renderTitle, renderStarRating } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { islandUpdate, islandRemove, showAchievement } from '/js/core/core-ui.js';
 import { _updateNowPlayingContext } from '/js/core/core-audio.js';
@@ -951,15 +951,15 @@ export async function loadAllFeeds() {
     AetherUI.mount(window.RawHTML('<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>'), container);
   }
 
-  // Build list of enabled catalog source keys
-  const enabledKeys = FEED_CATALOG.filter(f => sources[f.key]).map(f => f.key);
+  // Build list of enabled catalog entries with metadata for on-demand fetching
+  const enabledEntries = FEED_CATALOG.filter(f => sources[f.key]).map(f => ({ key: f.key, url: f.url || null, special: f.special || null }));
   const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
   const promises = [];
 
-  // 1) Fetch catalog sources from the central poller DB
-  if (enabledKeys.length > 0) {
+  // 1) Fetch catalog sources (on-demand: backend fetches stale/missing)
+  if (enabledEntries.length > 0) {
     promises.push(
-      apiGet(`/api/feed-items?sources=${enabledKeys.join(',')}&limit=500`)
+      apiPost('/api/feed-items/catalog', { entries: enabledEntries, limit: 500 })
         .catch(() => [])
     );
   } else {

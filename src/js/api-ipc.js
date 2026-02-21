@@ -418,6 +418,9 @@ export async function ipcRoute(path, opts = {}) {
     if (result && result._proxy) return { _proxy: true, data: result.data, mime: result.mime };
     return result;
   }
+  if (pathOnly === '/api/feed-items/catalog' && method === 'POST') {
+    return await window.electronAPI.dbQuery('feed-items-catalog', body.entries || [], body.limit || 500);
+  }
   if (pathOnly === '/api/feed-items/custom' && method === 'POST') {
     return await window.electronAPI.dbQuery('feed-items-custom', body.feeds || []);
   }

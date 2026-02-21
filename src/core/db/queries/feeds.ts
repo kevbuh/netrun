@@ -38,8 +38,12 @@ function parseJsonField<T>(value: unknown, fallback: T): T {
 export function upsertFeedItems(items: Omit<FeedItem, 'id'>[]): number {
   const db = getDb();
   const stmt = prepare(`
-    INSERT OR IGNORE INTO feed_items (source, title, link, authors, categories, description, pub_date, display_date, arxiv_id, extra, fetched_at)
+    INSERT INTO feed_items (source, title, link, authors, categories, description, pub_date, display_date, arxiv_id, extra, fetched_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(source, link) DO UPDATE SET
+      title = excluded.title, authors = excluded.authors, categories = excluded.categories,
+      description = excluded.description, pub_date = excluded.pub_date, display_date = excluded.display_date,
+      arxiv_id = excluded.arxiv_id, extra = excluded.extra, fetched_at = excluded.fetched_at
   `);
   let inserted = 0;
   const tx = db.transaction(() => {
@@ -55,6 +59,18 @@ export function upsertFeedItems(items: Omit<FeedItem, 'id'>[]): number {
   });
   tx();
   return inserted;
+}
+
+export function getSourceFreshness(sources: string[]): Record<string, number> {
+  if (sources.length === 0) return {};
+  const db = getDb();
+  const placeholders = sources.map(() => '?').join(', ');
+  const rows = db.prepare(
+    `SELECT source, MAX(fetched_at) as last_fetched FROM feed_items WHERE source IN (${placeholders}) GROUP BY source`
+  ).all(...sources) as Array<{ source: string; last_fetched: number }>;
+  const result: Record<string, number> = {};
+  for (const row of rows) result[row.source] = row.last_fetched;
+  return result;
 }
 
 // ── Blocked titles (file-based in Python, we use user_data) ──
