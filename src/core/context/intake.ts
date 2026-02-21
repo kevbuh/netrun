@@ -1,7 +1,7 @@
 import { contextManager } from './manager.js';
 import { scheduleCompaction } from './compaction.js';
 
-export type ContextSource = 'chat' | 'search' | 'feed' | 'browse' | 'dashboard' | 'agent';
+export type ContextSource = 'chat' | 'search' | 'feed' | 'browse' | 'agent';
 
 export interface IntakeEntry {
   source: ContextSource;
@@ -16,7 +16,6 @@ const SOURCE_ROUTES: Record<string, { file: string; description: string }> = {
   search: { file: 'research.md', description: 'Web search results and research findings' },
   browse: { file: 'browsing.md', description: 'Browsing history and page notes' },
   feed: { file: 'reading.md', description: 'Feed articles and reading notes' },
-  dashboard: { file: 'stats.md', description: 'Dashboard snapshots and statistics' },
 };
 
 /** Identity sections that should stay in main.md */

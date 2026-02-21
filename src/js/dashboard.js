@@ -259,7 +259,7 @@ export async function renderDashboard() {
     el.id('dash-day-summary').className('text-[0.8rem] text-dim leading-relaxed ' + (cls || 'mb-3'));
     el.styles({ minHeight: '1.2em' });
     const inner = window.Text('Summarizing your day...').className('text-dimmest text-[0.75rem]');
-    el.el.appendChild(inner.build());
+    el.add(inner);
     return el;
   }
 
@@ -685,7 +685,7 @@ export async function renderDashboard() {
 
       const view = VStack.apply(null, children);
       pop.innerHTML = '';
-      pop.appendChild(view.build());
+      AetherUI.append(view, pop);
     };
 
     window._heatmapAddEvent = async function(key) {
@@ -775,7 +775,7 @@ export async function renderDashboard() {
       const viewAllBtn = window.Button('View all ' + savedEntries.length + ' saved posts').ghost()
         .className('text-[0.78rem] text-dimmer hover:text-primary bg-transparent border-none cursor-pointer mt-2 px-2')
         .onTap(function() { openAllSaved(); });
-      readingContainer.el.appendChild(viewAllBtn.build());
+      readingContainer.add(viewAllBtn);
     }
     readingView = readingContainer;
   } else {
@@ -801,13 +801,13 @@ export async function renderDashboard() {
   });
   const bgGrad = new window.View('div');
   bgGrad.styles({ position: 'absolute', bottom: '0', left: '0', right: '0', height: '60px', background: 'linear-gradient(to top,var(--nr-bg-body),transparent)' });
-  bgBanner.el.appendChild(bgGrad.build());
+  bgBanner.add(bgGrad);
   const bgBtn = new window.View('button');
   bgBtn.className('absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center bg-black/40 text-white/70 hover:text-white border-none cursor-pointer transition-colors');
   bgBtn.el.title = 'Change background';
   bgBtn.el.innerHTML = icon('camera', {class: 'w-3.5 h-3.5'});
   bgBtn.onTap(function() { _uploadProfileBg(); });
-  bgBanner.el.appendChild(bgBtn.build());
+  bgBanner.add(bgBtn);
 
   // Avatar
   const avatarHtml = profile.picture
@@ -881,7 +881,7 @@ export async function renderDashboard() {
       window.Text(preview).className('text-[0.75rem] text-primary leading-snug truncate'),
       window.Text(timeAgo).className('text-dimmest text-[0.65rem] mt-0.5')
     );
-    link.el.appendChild(inner.build());
+    link.add(inner);
     return link;
   })) : null;
 
@@ -897,7 +897,7 @@ export async function renderDashboard() {
       window.Text(r.paperTitle || r.paperLink).className('text-[0.75rem] text-primary truncate flex-1'),
       window.Text(timeAgo).className('text-[0.65rem] text-dimmest shrink-0')
     );
-    link.el.appendChild(inner.build());
+    link.add(inner);
     return link;
   })) : null;
 
@@ -908,7 +908,7 @@ export async function renderDashboard() {
   function _bentoCard(view, cls) {
     const card = new window.View('div');
     card.className('nr-card ' + cls);
-    card._appendChildren([view]);
+    card.add(view);
     return card;
   }
 
@@ -926,37 +926,37 @@ export async function renderDashboard() {
   bentoGrid.className('bento-grid');
 
   // Daily Overview (3x1)
-  bentoGrid.el.appendChild(_bentoCard(overviewView, 'bento-3x1').build());
+  bentoGrid.add(_bentoCard(overviewView, 'bento-3x1'));
 
   // Quick Actions (1x1)
   const qaCard = _bentoCard(_dashBuildQuickActions(), 'bento-1x1');
   qaCard.styles({ padding: '10px' });
-  bentoGrid.el.appendChild(qaCard.build());
+  bentoGrid.add(qaCard);
 
   // Inbox (2x1) — conditional
   if (inboxView) {
-    bentoGrid.el.appendChild(_bentoCard(inboxView, 'bento-2x1').build());
+    bentoGrid.add(_bentoCard(inboxView, 'bento-2x1'));
   }
 
   // Activity Heatmap (4x1)
   const heatmapCard = new window.View('div');
   heatmapCard.className('nr-card bento-4x1');
   const heatmapHeader = _cardHeader('Activity', window.Text(String(now.getFullYear())).className('text-[0.68rem] text-dimmest'));
-  heatmapCard.el.appendChild(heatmapHeader.build());
+  heatmapCard.add(heatmapHeader);
   const heatmapWrap = window.RawHTML(heatmapHtml);
-  heatmapCard.el.appendChild(heatmapWrap.build());
+  heatmapCard.add(heatmapWrap);
   const popoverView = new window.View('div').attr('id', 'heatmap-popover');
   popoverView.cssText('display:none;position:fixed;z-index:10001;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;padding:8px 0;min-width:220px;max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,.35);font-size:12px');
   const popoverEl = popoverView.el;
   heatmapCard.el.appendChild(popoverEl);
-  bentoGrid.el.appendChild(heatmapCard.build());
+  bentoGrid.add(heatmapCard);
 
   // Trending
   const trendCard = _bentoCard(window.VStack(
     _cardHeader('Trending', null),
     _dashBuildTrendingCard(_trending)
   ), 'bento-4x1');
-  bentoGrid.el.appendChild(trendCard.build());
+  bentoGrid.add(trendCard);
 
   // Reading window.List(2x2)
   const readingScroll = window.VStack(readingView).className('scrollbar-hide').styles({maxHeight:'320px', overflowY:'auto'});
@@ -964,7 +964,7 @@ export async function renderDashboard() {
     _cardHeader('Reading List', window.Text(String(savedEntries.length)).className('text-[0.68rem] text-dimmest')),
     readingScroll
   ), 'bento-2x2');
-  bentoGrid.el.appendChild(readingCard.build());
+  bentoGrid.add(readingCard);
 
   // Bottom row: comments, reposts
   if (myComments.length || myReposts.length) {
@@ -974,7 +974,7 @@ export async function renderDashboard() {
         _cardHeader('Recent Comments', window.Text(String(myComments.length)).className('text-[0.68rem] text-dimmest')),
         _bentoCommentsView
       ), commentsCls);
-      bentoGrid.el.appendChild(commentsCard.build());
+      bentoGrid.add(commentsCard);
     }
     if (myReposts.length) {
       const repostsCls = !myComments.length ? 'bento-4x1' : 'bento-2x1';
@@ -982,7 +982,7 @@ export async function renderDashboard() {
         _cardHeader('Reposts', window.Text(String(myReposts.length)).className('text-[0.68rem] text-dimmest')),
         _bentoRepostsView
       ), repostsCls);
-      bentoGrid.el.appendChild(repostsCard.build());
+      bentoGrid.add(repostsCard);
     }
   }
 
@@ -1693,7 +1693,7 @@ export function _renderDevDependencyGraph() {
   unusedCb.id('dev-graph-show-unused');
   unusedCb.onChange(function() { _devGraphToggleUnused(unusedCb.el.checked); });
   const unusedLabel = window.RawHTML('<label style="display:flex;align-items:center;gap:4px;font-size:0.75rem;color:var(--nr-text-quaternary)"></label>');
-  unusedLabel.el.firstChild.appendChild(unusedCb.build());
+  AetherUI.append(unusedCb, unusedLabel.el.firstChild);
   unusedLabel.el.firstChild.appendChild(document.createTextNode('Show unused'));
   const controlsRow2 = window.HStack(searchInput, fileFilter, unusedLabel)
     .id('dev-graph-function-controls')
@@ -2123,7 +2123,7 @@ export async function _renderDevGitLog() {
         _devGitLogState = window.State(log);
         _devGitLogOffset = log.length;
         const logList = new window.View('div').id('dev-git-log-list').className('dev-git-log-list');
-        logList._appendChildren([window.ForEach(_devGitLogState, function(c) { return c.sha; }, _devCommitRow)]);
+        logList.add(window.ForEach(_devGitLogState, function(c) { return c.sha; }, _devCommitRow));
         return logList;
       },
       function() { return window.Text('No commits found').className('text-sm').foreground('quaternary'); }
@@ -2477,7 +2477,7 @@ export function _devAppendLoadMoreBtn() {
   if (old) old.remove();
   const btnView = window.Button('Load more commits').className('dev-git-load-more-btn').attr('id', 'dev-git-load-more');
   btnView.onTap(function() { _devLoadMoreCommits(btnView.el); });
-  container.appendChild(btnView.build());
+  AetherUI.append(btnView, container);
 }
 
 export async function _devLoadMoreCommits(btn) {

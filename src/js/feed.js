@@ -1,7 +1,7 @@
 import Settings from '/js/core/core-settings.js';
 import { ipcRoute } from '/js/api-ipc.js';
 import { apiPost, apiGet, apiDelete } from '/js/api.js';
-import { escapeHtml, escapeAttr } from '/js/core/core-utils.js';
+import { escapeHtml, escapeAttr, getPaperRatings } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { islandUpdate, islandRemove, showAchievement } from '/js/core/core-ui.js';
 import { _updateNowPlayingContext } from '/js/core/core-audio.js';
@@ -17,6 +17,7 @@ import { logger } from '/js/logger.js';
 // ── Auto-refresh timer ──
 export let _refreshTimer = null;
 export let _refreshSecondsLeft = 300;
+export function clearRefreshTimer() { if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; } }
 export let _previousPostLinks = new Set();
 export let _renderedLinks = new Set();
 
@@ -145,12 +146,7 @@ export function markPostAsRead(link) {
   }
 }
 
-export function _menuBtn(label, fn) {
-  const b = new window.View('button');
-  b.el.textContent = label;
-  b.el.addEventListener('mousedown', function(e) { e.stopPropagation(); fn(); });
-  return b;
-}
+var _feedCardMenu = null;
 
 export function openCardMenu(btn, ev, index) {
   ev.stopPropagation();
@@ -161,37 +157,16 @@ export function openCardMenu(btn, ev, index) {
   const sourceKey = p.source;
   const sourceName = SOURCE_NAMES[p.source] || p.source;
 
-  const menuView = new window.View('div').attr('id', 'card-menu-portal').className('card-menu');
-  const menu = menuView.el;
-  const menuItems = window.VStack(
-    _menuBtn('Block post', function() { hidePost(p.link, p.title); closeCardMenu(); }),
-    _menuBtn('Unsubscribe from ' + sourceName, function() { unsubscribeSource(sourceKey); closeCardMenu(); })
-  );
-  menu.appendChild(menuItems.build());
-  document.body.appendChild(menu);
-
+  _feedCardMenu = Menu(null, [
+    { label: 'Block post', handler: function() { hidePost(p.link, p.title); } },
+    { label: 'Unsubscribe from ' + sourceName, handler: function() { unsubscribeSource(sourceKey); } }
+  ]);
   const rect = btn.getBoundingClientRect();
-  menu.style.top = (rect.bottom + 4) + 'px';
-  let left = rect.right - menu.offsetWidth;
-  if (left < 8) left = 8;
-  menu.style.left = left + 'px';
-
-  setTimeout(() => {
-    document.addEventListener('mousedown', _cardMenuOutsideClick);
-    window.addEventListener('scroll', closeCardMenu, true);
-  }, 0);
-}
-
-export function _cardMenuOutsideClick(e) {
-  const menu = document.getElementById('card-menu-portal');
-  if (menu && !menu.contains(e.target)) closeCardMenu();
+  _feedCardMenu.showAt(Math.max(8, rect.right - 200), rect.bottom + 4);
 }
 
 export function closeCardMenu() {
-  const menu = document.getElementById('card-menu-portal');
-  if (menu) menu.remove();
-  document.removeEventListener('mousedown', _cardMenuOutsideClick);
-  window.removeEventListener('scroll', closeCardMenu, true);
+  if (_feedCardMenu) { _feedCardMenu.dismiss(); _feedCardMenu = null; }
 }
 
 export function hidePost(link, title, event) {
@@ -256,7 +231,7 @@ export function renderBlockedWordsList() {
   });
   const wrap = new window.View('div');
   wrap.el.className = 'flex flex-wrap gap-1.5';
-  chips.forEach(function(c) { wrap.el.appendChild(c.build()); });
+  chips.forEach(function(c) { wrap.add(c); });
   AetherUI.mount(wrap, el);
 }
 
@@ -338,7 +313,7 @@ export function toggleSavePost(paper, event) {
 
 export function _showBookmarkFly(event) {
   // Flying bookmark icon from click position to pill island
-  const target = document.getElementById('pill-island') || document.getElementById('sb-dashboard');
+  const target = document.getElementById('pill-island') || document.getElementById('sb-home');
   if (target) {
     const iconEl = document.createElement('div');
     iconEl.innerHTML = window.icon('bookmark', {size: 24, fill: 'var(--nr-accent)', stroke: 'var(--nr-accent)'});
@@ -1331,7 +1306,7 @@ export function _renderPaperCompactRow(p, i, ctx) {
   const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
   const isRead = readSet.has(p.link);
   const actionWrap = new window.View('span').className('ml-auto flex items-center gap-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity');
-  actionWrap.el.appendChild(_cardActionRow(p, i, ctx).build());
+  actionWrap.add(_cardActionRow(p, i, ctx));
   const row = window.HStack(
     isNew && !isRead ? new window.View('span').className('inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0') : null,
     window.RawHTML(sourceChip),
@@ -1413,8 +1388,14 @@ export function _buildRenderCtx() {
   return { hiddenSet, readSet, blockedWords, savedPosts, repostedSet, ratings };
 }
 
-export function _renderFeedEmptyState(container) {
-  const children = [ window.Text('No papers match your filter').className('text-dim').styles({fontSize:'0.9rem'}) ];
+export function _renderFeedEmptyState(container, hasUnfilteredPapers) {
+  const msg = hasUnfilteredPapers ? 'No recommendations match your filter' : 'No recommendations';
+  const children = [ window.Text(msg).className('text-dim').styles({fontSize:'0.9rem'}) ];
+  if (!hasUnfilteredPapers) {
+    const selectBtn = window.Button('Select sources').onTap(function() { showOnboarding(); });
+    const refreshBtn = window.Button('Refresh feeds').onTap(function() { loadAllFeeds(); });
+    children.push(window.HStack(selectBtn, refreshBtn).spacing(3));
+  }
   const v = window.VStack(children).alignment('center').styles({justifyContent:'center', columnSpan:'all', padding:'5rem 0'}).spacing(4);
   AetherUI.mount(v, container);
 }
@@ -1545,10 +1526,10 @@ export function _renderPapersNow() {
   const filtered = getFilteredPapers(ctx);
   lastFilteredPapers = filtered;
   const visible = filtered.slice(0, visibleCount);
-  document.getElementById('stats').textContent = 'Showing ' + visible.length + ' of ' + filtered.length + ' papers';
+  document.getElementById('stats').textContent = 'Showing ' + visible.length + ' of ' + filtered.length;
   const container = document.getElementById('papers');
   if (!filtered.length) {
-    _renderFeedEmptyState(container);
+    _renderFeedEmptyState(container, allPapers.length > 0);
     return;
   }
 
@@ -1565,10 +1546,10 @@ export function _renderPapersNow() {
     const wrapClass = feedViewMode === 'twitter' ? 'flex flex-col max-w-[600px] mx-auto' : 'flex flex-col' + (feedViewMode === 'verbose' ? ' gap-3' : '');
     const wrap = VStack.apply(null, cards).className(wrapClass);
     wrap.styles({ columnSpan: 'all' });
-    container.appendChild(wrap.build());
+    AetherUI.append(wrap, container);
   } else {
     // Block view: cards are direct children of container for CSS columns
-    cards.forEach(function(c) { container.appendChild(c.build()); });
+    cards.forEach(function(c) { AetherUI.append(c, container); });
   }
 
   // Animate cards that are new since the last render
@@ -1748,16 +1729,16 @@ export function _renderTweetComments(container, comments, link, idx) {
 
     threadEl.el.appendChild(rowDiv.el);
 
-    replies.forEach(function(r) { threadEl.el.appendChild(renderThread(r, depth + 1).build()); });
+    replies.forEach(function(r) { threadEl.add(renderThread(r, depth + 1)); });
     return threadEl;
   }
 
   const wrap = new window.View('div');
   wrap.el.className = 'mt-2 pt-2 border-t border-border-card';
   if (topLevel.length) {
-    topLevel.forEach(function(c) { wrap.el.appendChild(renderThread(c, 0).build()); });
+    topLevel.forEach(function(c) { wrap.add(renderThread(c, 0)); });
   } else {
-    wrap.el.appendChild(window.Text('No comments yet').className('text-dim text-[0.75rem] py-1').build());
+    wrap.add(window.Text('No comments yet').className('text-dim text-[0.75rem] py-1'));
   }
 
   const inputRow = new window.View('div');

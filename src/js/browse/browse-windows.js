@@ -3,7 +3,7 @@
 import Settings from '/js/core/core-settings.js';
 import { navBack, hidePanel } from '/js/core/core-nav.js';
 import { setSidebarActive } from '/js/core/core-layout.js';
-import { goHome, hideAllViews, openDashboard, openSearch } from '/js/core/core-views.js';
+import { goHome, hideAllViews, openSearch, wmOpen } from '/js/core/core-views.js';
 import { _applyBrowseTabLayout, _browseFaviconUrl, _browseRenderTabs, _browseResolveUrl, _browseTitleFromUrl } from '/js/browse/browse-island.js';
 import { _browseApplyAdaptiveColor, _saveBrowseVisit, openHelpPage, openSearchHistoryPage } from '/js/browse-urlbar.js';
 import { _browseBindFrame } from '/js/browse/browse-downloads.js';
@@ -169,7 +169,7 @@ export function _browseGoBack() {
     _setBrowseReturnView(null);
     return;
   }
-  const nav = { feed: goHome, dashboard: openDashboard, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, calendar: typeof openDashboard === 'function' ? openDashboard : null, settings: typeof openSettings === 'function' ? openSettings : null, neuralook: typeof openNeuralook === 'function' ? openNeuralook : null };
+  const nav = { feed: goHome, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, settings: typeof openSettings === 'function' ? openSettings : null, neuralook: typeof openNeuralook === 'function' ? openNeuralook : null };
   const fn = nav[Settings.get('_browseReturnView')];
   _setBrowseReturnView(null);
   if (fn) fn(); else goHome();
@@ -248,6 +248,10 @@ export function browseNewTab(url) {
   }
   if (trimUrl === 'netrun://help' || trimUrl === 'netrun://help/') {
     openHelpPage();
+    return;
+  }
+  if (trimUrl === 'netrun://docs' || trimUrl === 'netrun://docs/') {
+    wmOpen('docs');
     return;
   }
   if (/^chat:\/\//i.test(trimUrl)) {

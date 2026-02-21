@@ -86,7 +86,7 @@ window._spinnerNames = _spinnerNames;
 _bridge('_spinnerInterval', () => _spinnerInterval, v => { _spinnerInterval = v; });
 
 // ── Views ── (@settings — backed by Settings.get('_lastActiveView'))
-export const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'dashboard', 'sb-browse': 'browse', 'sb-settings': 'settings', 'sb-neuralook': 'neuralook', 'sb-docs': 'docs' };
+export const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'browse', 'sb-browse': 'browse', 'sb-settings': 'settings', 'sb-neuralook': 'neuralook' };
 window._sidebarToView = _sidebarToView;
 
 // ── Sidebar navigation ──
@@ -121,7 +121,7 @@ window.SUBSTACK_LOGO_INLINE = SUBSTACK_LOGO_INLINE;
 let _wmMode = 'fullscreen';   // 'tiling' | 'fullscreen'
 let _wmFocusIndex = 0;
 export const _wmPreviews = {};          // { viewKey: 'data:image/png;base64,...' }
-export const _wmDefaultOrder = ['dashboard','feed','browse','neuralook','dev','docs','settings'];
+export const _wmDefaultOrder = ['browse','feed','neuralook','dev','docs','settings'];
 let _wmLastNavTime = 0;
 export function getWmMode() { return _wmMode; }
 export function setWmMode(v) { _wmMode = v; }

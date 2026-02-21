@@ -6,26 +6,26 @@ import { _updateNowPlayingContext } from '/js/core/core-audio.js';
 import { openUserProfile } from '/js/core/core-profile.js';
 import { openResearch, wmOpen } from '/js/core/core-views.js';
 import { _settingsFeedTab, _settingsSection } from '/js/settings/settings-core.js';
-import { openAllSaved } from '/js/dashboard.js';
+import { openNetrunPage } from '/js/netrun-page.js';
 
 // ── Route table — exact hash → action ──
 const _ROUTE_TABLE = {
   '#research':    () => { openResearch(); },
   '#settings':    () => wmOpen('settings'),
-  '#quality':     () => { _settingsSection = 'feed'; _settingsFeedTab = 'quality'; Settings.set('settingsSection', 'feed'); wmOpen('settings'); },
-  '#algorithm':   () => { _settingsSection = 'feed'; _settingsFeedTab = 'algorithm'; Settings.set('settingsSection', 'feed'); wmOpen('settings'); },
-  '#calendar':    () => wmOpen('dashboard'),
+  '#quality':     () => { _settingsSection.value = 'feed'; _settingsFeedTab.value = 0; Settings.set('settingsSection', 'feed'); wmOpen('settings'); },
+  '#algorithm':   () => { _settingsSection.value = 'feed'; _settingsFeedTab.value = 1; Settings.set('settingsSection', 'feed'); wmOpen('settings'); },
+  '#calendar':    () => wmOpen('browse'),
   '#inbox':       () => wmOpen('inbox'),
   '#profile':     () => openUserProfile(''),
-  '#saved-all':   () => openAllSaved(),
-  '#saved':       () => wmOpen('dashboard'),
+  '#saved-all':   () => { openNetrunPage(); },
+  '#saved':       () => { openNetrunPage(); },
   '#browse':      () => wmOpen('browse'),
   '#search':      () => { openResearch('search'); },
   '#terminal':    () => { openTerminal(); },
   '#neuralook':   () => wmOpen('neuralook'),
   '#dev':         () => wmOpen('dev'),
   '#docs':        () => wmOpen('docs'),
-  '#vibe':        () => wmOpen('dashboard'),
+  '#vibe':        () => wmOpen('browse'),
   '#feed':        () => wmOpen('feed'),
 };
 
@@ -51,8 +51,8 @@ export function routeFromHash() {
     if (hash.startsWith(prefix)) { handler(hash.slice(prefix.length)); return; }
   }
 
-  // Default
-  wmOpen('dashboard');
+  // Default — open browse with netrun:// hub
+  wmOpen('browse');
 }
 
 // Save hash to localStorage for "remember where we left off"

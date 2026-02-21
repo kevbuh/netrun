@@ -120,7 +120,6 @@
   <link rel="stylesheet" href="/aether/css/features/electron.css">
   <link rel="stylesheet" href="/aether/css/features/scrollbar.css">
   <link rel="stylesheet" href="/aether/css/features/reader.css">
-  <link rel="stylesheet" href="/aether/css/features/dashboard.css">
   <link rel="stylesheet" href="/aether/css/features/pill-bar.css">
   <link rel="stylesheet" href="/aether/css/features/dynamic-island.css">
   <link rel="stylesheet" href="/aether/css/features/browse.css">
@@ -337,6 +336,21 @@
   <!-- Lazy-loaded views mount here -->
   <div id="view-mount"></div>
 
+  <!-- Motion no-op stub — replaced by real motion.js once it loads -->
+  <script>
+    (function(){
+      var noop = function(){};
+      var chain = { onFinish: function(fn){ if(fn) setTimeout(fn,0); return chain; } };
+      var anim = function(){ return chain; };
+      window.Motion = {
+        animate: anim, fadeIn: anim, fadeOut: anim, swap: function(_,__,cb){ if(cb) cb(); },
+        sequence: noop, retrigger: noop,
+        pulse: { emit: noop, on: noop, recent: [], rate: 0 },
+        stagger: { tight: 0.02, normal: 0.04, loose: 0.08 }
+      };
+    })();
+  </script>
+
   <script type="module" src="/js/core/core-settings.js"></script>
   <script type="module" src="/js/core/core-actions.js"></script>
   <script type="module" src="/js/logger.js"></script>
@@ -388,7 +402,7 @@
   <script type="module" src="/js/settings/settings-help.js"></script>
   <script type="module" src="/js/settings/settings-core.js"></script>
   <script type="module" src="/js/settings/settings-init.js"></script>
-  <script type="module" src="/js/dashboard.js"></script>
+  <script type="module" src="/js/dev-panel.js"></script>
   <script type="module" src="/js/views.js"></script>
   <script type="module" src="/js/chat-threads.js"></script>
   <script type="module" src="/js/chat-engine.js"></script>
@@ -421,6 +435,9 @@
   <script type="module" src="/js/browse/browse-pageinfo.js"></script>
   <script type="module" src="/js/browse/browse-ai-pill.js"></script>
   <script type="module" src="/js/browse/browse-paper.js"></script>
+  <script type="module" src="/js/browse/browse-pdf-viewer.js"></script>
+  <script type="module" src="/js/browse/browse-nerd-mode.js"></script>
+  <script type="module" src="/js/browse/browse-nerd-panel.js"></script>
   <script type="module" src="/js/browse/browse-agent.js"></script>
   <script type="module" src="/js/browse-urlbar.js"></script>
   <script type="module" src="/js/search.js"></script>
@@ -429,6 +446,7 @@
   <script type="module" src="/js/vibe.js"></script>
   <script type="module" src="/js/neuralook.js"></script>
   <script type="module" src="/js/docs.js"></script>
+  <script type="module" src="/js/onboarding.js"></script>
   <script type="module">
     import { FaceLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.mjs';
     window.FaceLandmarker = FaceLandmarker;
@@ -473,7 +491,7 @@
     <div id="pill-browse-url"></div>
     <div id="pill-island" class="pill-island-container"></div>
     <div id="pill-nav-icons">
-      <button class="sidebar-icon active" id="sb-dashboard" data-action-click="wmOpen" data-action-arg="dashboard" title="Home">
+      <button class="sidebar-icon active" id="sb-dashboard" data-action-click="wmOpen" data-action-arg="browse" title="Home">
         <span id="sb-dashboard-avatar"></span>
         <svg id="sb-dashboard-icon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
       </button>
@@ -489,9 +507,6 @@
 
       <button class="sidebar-icon" id="sb-dev" data-action-click="wmOpen" data-action-arg="dev" title="Dev Stats">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5"/></svg>
-      </button>
-      <button class="sidebar-icon" id="sb-docs" data-action-click="wmOpen" data-action-arg="docs" title="Docs">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/></svg>
       </button>
       <button class="sidebar-icon" id="sb-settings" data-action-click="openSettings" title="Settings">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 0 1 1.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.559.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.894.149c-.424.07-.764.383-.929.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 0 1-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.398.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 0 1-.12-1.45l.527-.737c.25-.35.272-.806.108-1.204-.165-.397-.506-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.526-.738a1.125 1.125 0 0 1 .12-1.45l.773-.773a1.125 1.125 0 0 1 1.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>

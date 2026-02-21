@@ -5,10 +5,10 @@ import { hidePanel } from '/js/core/core-nav.js';
 import { _invalidateBoundsCache, setSidebarActive, setSidebarLoading } from '/js/core/core-layout.js';
 import { _browseRemoveKeyGuard } from '/js/browse/browse-features.js';
 import { _browseResetAdaptiveColor } from '/js/browse-urlbar.js';
-import { _devFpsRaf, renderDashboard, renderDevPanel } from '/js/dashboard.js';
-import { _refreshTimer, getCustomFeeds, hiddenSourceFilters, loadAllFeeds, renderSourceBubbles } from '/js/feed.js';
+import { clearDevFpsRaf, renderDevPanel } from '/js/dev-panel.js';
+import { clearRefreshTimer, getCustomFeeds, hiddenSourceFilters, loadAllFeeds, renderSourceBubbles } from '/js/feed.js';
 import { _setPillBrowseMode } from '/js/browse/browse-pill.js';
-import { _spinnerPreviewInterval } from '/js/settings/settings-colors.js';
+import { clearSpinnerPreview } from '/js/settings/settings-colors.js';
 import { browseNewTab, openBrowse } from '/js/browse/browse-windows.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
 import { openNeuralook } from '/js/neuralook.js';
@@ -266,7 +266,6 @@ const _viewTemplateCache = {};   // { viewId: htmlString }
 const _mountedViews = new Set(); // currently injected view IDs
 
 export const VIEW_REGISTRY = {
-  'dashboard-view':      { template: '/views/dashboard.html', tier: 2 },
   'research-view':       { template: '/views/research.html',  tier: 2 },
   'settings-view':       { template: '/views/settings.html',  tier: 2 },
   'algorithm-view':      { template: '/views/algorithm.html', tier: 2 },
@@ -295,8 +294,6 @@ export async function ensureView(viewId) {
   const div = document.createElement('div');
   div.id = viewId;
   div.className = 'hidden view';
-  // Preserve extra styles for specific views
-  if (viewId === 'dashboard-view') div.classList.add('overflow-x-hidden');
   div.innerHTML = _viewTemplateCache[viewId];
   document.getElementById('view-mount').appendChild(div);
   _mountedViews.add(viewId);
@@ -319,17 +316,14 @@ export function hideAllViews() {
     if (config && config.tier === 2) unmountView(viewId);
   }
   // Stop feed refresh timer and any in-flight loading when leaving home
-  if (typeof _refreshTimer !== 'undefined' && _refreshTimer) {
-    clearInterval(_refreshTimer);
-    _refreshTimer = null;
-  }
+  clearRefreshTimer();
   if (typeof stopFeedLoading === 'function') stopFeedLoading();
   if (typeof _stopScrollTracker === 'function') _stopScrollTracker();
-  if (typeof _spinnerPreviewInterval !== 'undefined' && _spinnerPreviewInterval) { clearInterval(_spinnerPreviewInterval); _spinnerPreviewInterval = null; }
+  clearSpinnerPreview();
   if (typeof _setPillBrowseMode === 'function') _setPillBrowseMode(false);
   if (typeof _browseRemoveKeyGuard === 'function') _browseRemoveKeyGuard();
   if (typeof _browseResetAdaptiveColor === 'function') _browseResetAdaptiveColor();
-  if (typeof _devFpsRaf !== 'undefined' && _devFpsRaf) { cancelAnimationFrame(_devFpsRaf); _devFpsRaf = null; }
+  clearDevFpsRaf();
   // Hide universal panel (next view's open function will re-show if it has registered tabs)
   hidePanel();
 }
@@ -352,15 +346,15 @@ async function _wmCapturePreview() {
 }
 
 const _wmViewMeta = {
-  dashboard:  { sidebarId: 'sb-dashboard', label: 'Home',       openFn() { openDashboard(); } },
+  dashboard:  { sidebarId: 'sb-dashboard', label: 'Home',       openFn() { openBrowse('netrun://'); } },
   feed:       { sidebarId: 'sb-home',      label: 'Feed',       openFn() { goHome(); } },
   browse:     { sidebarId: 'sb-browse',    label: 'Browse',     openFn() { openBrowse(); } },
   inbox:      { sidebarId: 'sb-inbox',     label: 'Inbox',      openFn() { openInbox(); } },
   neuralook:  { sidebarId: 'sb-neuralook', label: 'Neuralook',  openFn() { openNeuralook(); } },
   dev:        { sidebarId: 'sb-dev',       label: 'Dev Stats',  openFn() { openDevStats(); } },
-  docs:       { sidebarId: 'sb-docs',     label: 'Docs',       openFn() { openDocs(); } },
+  docs:       { sidebarId: null,           label: 'Docs',       openFn() { openDocs(); } },
   settings:   { sidebarId: 'sb-settings',  label: 'Settings',   openFn() { openSettings(); } },
-  calendar:   { sidebarId: 'sb-dashboard',  label: 'Dashboard',  openFn() { openDashboard(); } },
+  calendar:   { sidebarId: 'sb-dashboard',  label: 'Home',       openFn() { openBrowse('netrun://'); } },
 };
 
 // Pre-populate all views (pill bar order)
@@ -389,7 +383,7 @@ export function wmOpen(key) {
     // Already on this view — wiggle the sidebar icon
     const btn = document.getElementById(meta.sidebarId);
     if (btn) {
-      Motion.retrigger(btn, 'sb-wiggle', 400);
+      if (typeof Motion !== 'undefined') Motion.retrigger(btn, 'sb-wiggle', 400);
     }
     setSidebarLoading(meta.sidebarId);
     return;
@@ -545,14 +539,8 @@ export function openSearch() {
   openResearch();
 }
 
-export async function openDashboard() {
-  hideAllViews();
-  const view = await ensureView('dashboard-view');
-  view.classList.add('active');
-  view.style.display = 'block';
-  window.location.hash = '';
-  setSidebarActive('sb-dashboard');
-  renderDashboard();
+export function openDashboard() {
+  openBrowse('netrun://');
 }
 
 export async function openDevStats() {
