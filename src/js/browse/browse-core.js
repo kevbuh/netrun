@@ -97,6 +97,19 @@ export function _browseRestoreTabs() {
           win.tabs.push(tab);
           if (el) _browseBindFrame(tab);
         }
+        // Per-tab AI: rehydrate _aiPanel from saved threadIds
+        for (const saved of savedWin.tabs) {
+          if (saved._aiPanelThreadId) {
+            const tab = win.tabs.find(t => t.id === saved.id);
+            if (tab) {
+              tab._aiPanel = {
+                threadId: saved._aiPanelThreadId, messages: [], session: null,
+                pendingScreenshots: [], pendingTabContexts: [], pendingFileContexts: [],
+                backgroundStreaming: false, pinned: false, hasChat: true
+              };
+            }
+          }
+        }
         window._browseWindows.push(win);
       }
       if (!window._browseWindows.length) return false;

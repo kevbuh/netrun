@@ -61,6 +61,21 @@ if (_browseIsElectron && window.electronAPI.dohSetConfig) {
   );
 }
 
+// Sync tracking strip state to main process
+if (_browseIsElectron && window.electronAPI.trackingStripSetEnabled) {
+  window.electronAPI.trackingStripSetEnabled(Settings.get('trackingStripEnabled') !== 'false');
+}
+
+// Sync HTTPS-only state to main process
+if (_browseIsElectron && window.electronAPI.httpsOnlySetEnabled) {
+  window.electronAPI.httpsOnlySetEnabled(Settings.get('httpsOnlyEnabled') !== 'false');
+}
+
+// Sync third-party cookie blocking state to main process
+if (_browseIsElectron && window.electronAPI.cookieBlockSetEnabled) {
+  window.electronAPI.cookieBlockSetEnabled(Settings.get('thirdPartyCookiesBlocked') !== 'false');
+}
+
 // Audio tracking: { tabId: { windowId, muted } }
 export const _browseAudioTabs = new Map();
 let _pillBrowseMode = false;
@@ -191,6 +206,7 @@ export function _browseSaveTabsNow() {
       if (t.groupId != null) saved.groupId = t.groupId;
       if (t.backStack && t.backStack.length) saved.backStack = t.backStack.slice(-50);
       if (t.forwardStack && t.forwardStack.length) saved.forwardStack = t.forwardStack.slice(-50);
+      if (t._aiPanel && t._aiPanel.threadId) saved._aiPanelThreadId = t._aiPanel.threadId;
       return saved;
     })
   }));

@@ -21,8 +21,12 @@ import { browseCloseWindow, browseNewPaperTab, browseNewTab } from '/js/browse/b
 import { chatViewCleanupMorph, chatViewNewThread, openChatPage } from '/js/chat-view.js';
 import { drawViewCleanupMorph } from '/js/draw-view.js';
 import { isPostSaved } from '/js/feed.js';
+import { _showPanel } from '/js/panel.js';
+import { _addScreenshotToPanel, _handleImagePaste } from '/js/panel-chat.js';
+import { _saveTabPanelState, _restoreTabPanelState } from '/js/panel-state.js';
 import { onSearchInput, submitSearch } from '/js/search.js';
 import { stopCaptions } from '/js/browse/browse-captions.js';
+import { _nerdModeOnTabSelect, _nerdModeOnTabClose, _isNerdMode } from '/js/browse/browse-nerd-mode.js';
 
 // ── Password Manager ──
 
@@ -167,14 +171,11 @@ export function _pwHideSavePrompt(clearPending) {
 }
 
 // Context menu for Browse view (links and images)
-export let _browseContextMenu = null;
+var _browseCtxMenu = null;
 export let _browseContextData = null;
 
 export function _hideBrowseContextMenu() {
-  if (_browseContextMenu) {
-    _browseContextMenu.remove();
-    _browseContextMenu = null;
-  }
+  if (_browseCtxMenu) { _browseCtxMenu.dismiss(); _browseCtxMenu = null; }
   _browseContextData = null;
 }
 
@@ -186,53 +187,39 @@ export function _showBrowseContextMenu(x, y, data) {
   const linkText = data.linkText || '';
   const imgUrl = data.imgUrl || '';
 
-  function _ctxItem(label, action) {
-    return new window.View('div').className('blm-item')._bindText(label)
-      .onTap(function() { action(); _hideBrowseContextMenu(); });
-  }
-  function _ctxSep() { return new window.View('div').className('blm-sep'); }
-
   const items = [];
 
   // Link options
   if (linkUrl) {
-    items.push(_ctxItem('Open Link in New Tab', function() { browseNewTab(linkUrl); }));
-    items.push(_ctxItem('Open Link Here', function() { browseNavigate(linkUrl); }));
-    items.push(_ctxSep());
-    items.push(_ctxItem('Save Link As...', function() { _browseSaveLink(linkUrl); }));
-    items.push(_ctxItem('Copy Link Address', function() { navigator.clipboard.writeText(linkUrl).catch(function() {}); }));
+    items.push({ label: 'Open Link in New Tab', handler: function() { browseNewTab(linkUrl); } });
+    items.push({ label: 'Open Link Here', handler: function() { browseNavigate(linkUrl); } });
+    items.push({ divider: true });
+    items.push({ label: 'Save Link As...', handler: function() { _browseSaveLink(linkUrl); } });
+    items.push({ label: 'Copy Link Address', handler: function() { navigator.clipboard.writeText(linkUrl).catch(function() {}); } });
     if (linkText) {
-      items.push(_ctxItem('Copy Link Text', function() { navigator.clipboard.writeText(linkText).catch(function() {}); }));
+      items.push({ label: 'Copy Link Text', handler: function() { navigator.clipboard.writeText(linkText).catch(function() {}); } });
     }
   }
 
   // Image options
   if (imgUrl) {
-    if (linkUrl) items.push(_ctxSep());
-    items.push(_ctxItem('Open Image in New Tab', function() { browseNewTab(imgUrl); }));
-    items.push(_ctxItem('Save Image As...', function() { _browseSaveImage(imgUrl); }));
-    items.push(_ctxItem('Copy Image Address', function() { navigator.clipboard.writeText(imgUrl).catch(function() {}); }));
+    if (linkUrl) items.push({ divider: true });
+    items.push({ label: 'Open Image in New Tab', handler: function() { browseNewTab(imgUrl); } });
+    items.push({ label: 'Save Image As...', handler: function() { _browseSaveImage(imgUrl); } });
+    items.push({ label: 'Copy Image Address', handler: function() { navigator.clipboard.writeText(imgUrl).catch(function() {}); } });
   }
 
   // Search option
   if (linkText && linkUrl) {
     const truncatedText = linkText.length > 25 ? linkText.slice(0, 22) + '...' : linkText;
-    items.push(_ctxSep());
-    items.push(_ctxItem('Search Google for "' + truncatedText + '"', function() {
+    items.push({ divider: true });
+    items.push({ label: 'Search Google for "' + truncatedText + '"', handler: function() {
       browseNewTab('https://www.google.com/search?q=' + encodeURIComponent(linkText));
-    }));
+    }});
   }
 
-  const menuView = window.VStack(items).className('browse-link-menu')
-    .styles({left: x + 'px', top: y + 'px'});
-  const menu = menuView.build();
-  document.body.appendChild(menu);
-  _browseContextMenu = menu;
-
-  // Adjust if off screen
-  const rect = menu.getBoundingClientRect();
-  if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 8) + 'px';
-  if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 8) + 'px';
+  _browseCtxMenu = Menu(null, items);
+  _browseCtxMenu.showAt(x, y);
 }
 
 // Helper to trigger download
@@ -287,15 +274,6 @@ export function _browseSaveLink(url) {
   _browseDownloadFile(url, 'download');
 }
 
-// Close menu on click outside or escape
-document.addEventListener('mousedown', (e) => {
-  if (_browseContextMenu && !_browseContextMenu.contains(e.target)) {
-    _hideBrowseContextMenu();
-  }
-});
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') _hideBrowseContextMenu();
-});
 // Close menu when webview gets focus (user clicked inside it)
 window.addEventListener('blur', () => {
   _hideBrowseContextMenu();
@@ -315,6 +293,9 @@ export function browseSelectTab(id) {
   if (_browseIsSplitMode()) {
     const panes = _browseGetSplitPanes();
     const paneWithTab = panes.find(p => p.tabId === id);
+    // Per-tab AI: save outgoing tab's panel state
+    const splitPrevTab = win.tabs.find(t => t.id === win.activeTab);
+    if (splitPrevTab && splitPrevTab.id !== id) _saveTabPanelState(splitPrevTab);
     win.activeTab = id;
     const splitTab = win.tabs.find(t => t.id === id);
     if (splitTab) splitTab.lastVisited = Date.now();
@@ -349,6 +330,12 @@ export function browseSelectTab(id) {
     // Show annotate offer pill (restores cache or shows clickable "Annotate" pill)
     if (tab && !tab.blank && tab.url && typeof _showAnnotateOfferPill === 'function') _showAnnotateOfferPill(tab);
     if (tab && !tab.blank && tab.url) _pageInfoRestoreForTab(tab);
+    // Per-tab AI: restore incoming tab's panel state
+    if (splitPrevTab && splitPrevTab.id !== id) {
+      const existing = document.getElementById('doc-chat-ask-float');
+      if (existing) existing.remove();
+      _restoreTabPanelState(tab);
+    }
     return;
   }
 
@@ -368,8 +355,15 @@ export function browseSelectTab(id) {
   // Clear pageinfo pill when switching tabs (will restore from cache for new tab)
   _pageInfoCleanup();
 
-  // Clean up chat morph DOM if switching away from a chat tab (keep tab flags for restore)
+  // Per-tab AI: save outgoing tab's panel state and dismiss panel DOM
   const prevTab = win.tabs.find(t => t.id === win.activeTab);
+  if (prevTab && prevTab.id !== id) {
+    _saveTabPanelState(prevTab);
+    const existingPanel = document.getElementById('doc-chat-ask-float');
+    if (existingPanel) existingPanel.remove();
+  }
+
+  // Clean up chat morph DOM if switching away from a chat tab (keep tab flags for restore)
   if (prevTab && prevTab._chatPage && prevTab.id !== id) {
     const ntpMorphed = document.getElementById('browse-content')?.querySelector('.browse-ntp.chat-mode');
     if (ntpMorphed && typeof chatViewCleanupMorph === 'function') chatViewCleanupMorph();
@@ -498,6 +492,12 @@ export function browseSelectTab(id) {
   }
   // Restore page info pill from cache for the selected tab
   if (tab && !tab.blank && tab.url) _pageInfoRestoreForTab(tab);
+
+  // Per-tab AI: restore incoming tab's panel state
+  if (prevTab && prevTab.id !== id) _restoreTabPanelState(tab);
+
+  // Nerd mode: sync viewer/panel visibility when switching tabs
+  _nerdModeOnTabSelect(tab);
 }
 
 export function _browseUpdateBarForTab(tab) {
@@ -569,73 +569,50 @@ export function _browseUpdateNewTabPage(tab) {
       searchInput.onfocus = function() { _browseUrlCancelHide(); searchInput.select(); _browseUrlShowHistory(); };
       searchInput.onblur = function() { _browseUrlScheduleHide(); };
       searchInput.onkeydown = function(ev) { _browseUrlKeydown(ev); };
+      searchInput.addEventListener('paste', function(ev) {
+        if (!ev.clipboardData || !ev.clipboardData.items) return;
+        for (const item of ev.clipboardData.items) {
+          if (item.type.startsWith('image/')) {
+            ev.preventDefault();
+            const blob = item.getAsFile();
+            if (!blob) return;
+            const reader = new FileReader();
+            reader.onload = function() {
+              const base64 = reader.result.split(',')[1];
+              if (!base64) return;
+              _showPanel({ anchor: { x: window.innerWidth / 2, y: window.innerHeight / 2 } });
+              requestAnimationFrame(function() {
+                const popup = document.getElementById('doc-chat-ask-float');
+                if (popup) _addScreenshotToPanel(popup, base64);
+              });
+            };
+            reader.readAsDataURL(blob);
+            return;
+          }
+        }
+      });
 
       // + button (dropdown menu)
       const addBtn = new window.View('button').className('ntp-add-btn').attr('type', 'button').attr('title', 'More options');
       addBtn.el.innerHTML = plusSvg;
-      addBtn.on('mousedown', function(e) { e.preventDefault(); });
-      addBtn.onTap(function() {
-        _browseUrlCancelHide();
-        // Dismiss existing menu if any
-        const existing = document.querySelector('.ntp-plus-menu');
-        if (existing) { existing.remove(); return; }
-
-        const icons = {
-          file: icon('attachment', {strokeWidth: '1.5'}),
-          chat: icon('chatDots', {strokeWidth: '1.5'}),
-          research: icon('documentSearch', {strokeWidth: '1.5'}),
-          terminal: icon('terminal', {strokeWidth: '1.5'}),
-        };
-
-        function _menuRow(iconHtml, label, action) {
-          const iconView = window.RawHTML(iconHtml);
-          iconView.el.style.cssText = 'width:20px;height:20px;flex-shrink:0;color:var(--nr-text-secondary);';
-          const row = window.HStack([iconView, window.Text(label)]).alignment('center').gap(3)
-            .className('ntp-plus-menu-item');
-          row.onTap(function() {
-            const m = document.querySelector('.ntp-plus-menu');
-            if (m) m.remove();
-            action();
-          });
-          return row;
-        }
-
-        const rows = [
-          _menuRow(icons.file, 'Add files', function() { fileInput.click(); }),
-          new window.View('div').className('ntp-plus-menu-divider'),
-          _menuRow(icons.chat, 'Chat', function() {
-            const input = document.getElementById('search-query');
-            const text = input ? input.value.trim() : '';
+      addBtn.on('mousedown', function(e) { e.preventDefault(); _browseUrlCancelHide(); });
+      Menu(addBtn, function() {
+        return [
+          { icon: icon('attachment', {strokeWidth: '1.5'}), label: 'Add files', handler: function() { fileInput.click(); } },
+          { divider: true },
+          { icon: icon('chatDots', {strokeWidth: '1.5'}), label: 'Chat', handler: function() {
+            var input = document.getElementById('search-query');
+            var text = input ? input.value.trim() : '';
             if (text && typeof chatViewNewThread === 'function') chatViewNewThread(text);
             else if (typeof openChatPage === 'function') openChatPage();
-          }),
-          _menuRow(icons.research, 'Research', function() {
+          }},
+          { icon: icon('documentSearch', {strokeWidth: '1.5'}), label: 'Research', handler: function() {
             if (typeof openResearch === 'function') openResearch();
-          }),
-          _menuRow(icons.terminal, 'Terminal', function() {
+          }},
+          { icon: icon('terminal', {strokeWidth: '1.5'}), label: 'Terminal', handler: function() {
             if (typeof wmOpen === 'function') wmOpen('terminal');
-          }),
+          }}
         ];
-
-        const menuView = window.VStack(rows).className('ntp-plus-menu nr-menu').material('thin');
-        const menu = menuView.build();
-        document.body.appendChild(menu);
-
-        // Position above the + button
-        const rect = addBtn.el.getBoundingClientRect();
-        menu.style.position = 'fixed';
-        menu.style.left = rect.left + 'px';
-        menu.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
-        menu.style.zIndex = '10001';
-
-        // Close on outside click
-        setTimeout(function() {
-          document.addEventListener('mousedown', function _dismiss(e) {
-            if (menu.contains(e.target) || addBtn.el.contains(e.target)) return;
-            menu.remove();
-            document.removeEventListener('mousedown', _dismiss, true);
-          }, true);
-        }, 0);
       });
 
       // Mic button
@@ -751,6 +728,9 @@ export function browseCloseTab(id) {
   if (window._ccTabId === id) stopCaptions();
   window._pwAutofillOffered.delete(id);
   _annotationsEnabled.delete(id);
+  // Clean up nerd mode state and viewer
+  _nerdModeOnTabClose(id);
+  if (tab._nerdViewerEl) { tab._nerdViewerEl.remove(); tab._nerdViewerEl = null; }
   if (tab.el) tab.el.remove();
   // Clean up audio tracking
   window._browseAudioTabs.delete(id);

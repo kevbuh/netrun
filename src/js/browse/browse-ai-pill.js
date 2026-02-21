@@ -8,6 +8,7 @@ import { browseShowAIView } from '/js/browse/browse-menu.js';
 import { _pillMicClick, _pillMicRecorder } from '/js/browse/browse-island.js';
 import { _ttsStopAll } from '/js/panel-tts.js';
 import { _showPanel } from '/js/panel.js';
+import { browseSelectTab } from '/js/browse/browse-passwords.js';
 import { goToAudioTab } from '/js/browse/browse-audio.js';
 import { toggleCaptions } from '/js/browse/browse-captions.js';
 import { NOISE_PRESETS, startRain, stopRain, setRainNoiseType } from '/js/core/core-sounds.js';
@@ -177,6 +178,30 @@ function _renderDropdown(dropdown, state) {
     function() { _closeDropdown(); _showPanel({ anchor: _pillAnchor(), trackCursor: false }); },
     { highlight: true }
   ));
+
+  // Conversations section — tabs with active AI chats
+  const _convTabs = _collectConversationTabs();
+  if (_convTabs.length > 0) {
+    items.push('<div class="ai-unified-divider"></div>');
+    items.push('<div class="ai-unified-section-label">Conversations</div>');
+    for (let ci = 0; ci < _convTabs.length; ci++) {
+      (function(ct) {
+        const isActive = ct.active;
+        const streaming = ct.streaming;
+        const preview = ct.preview ? escapeHtml(ct.preview) : '';
+        const title = escapeHtml(ct.title || 'New Tab');
+        const streamDot = streaming ? '<span class="ai-unified-conv-stream nr-breathe"></span>' : '';
+        const activeCls = isActive ? ' ai-unified-conv-active' : '';
+        const id = '_aia_' + (++_actionCounter);
+        _actionMap[id] = function() { _closeDropdown(); browseSelectTab(ct.tabId); };
+        items.push('<div class="ai-unified-conv-item' + activeCls + '" data-ai-action="' + id + '">'
+          + '<div class="ai-unified-conv-title">' + title + '</div>'
+          + '<div class="ai-unified-conv-preview">' + preview + '</div>'
+          + streamDot
+          + '</div>');
+      })(_convTabs[ci]);
+    }
+  }
 
   items.push('<div class="ai-unified-divider"></div>');
 
@@ -375,6 +400,42 @@ function _pillNoiseCycle() {
 // ── TTS pause/resume (global) ──
 function _ttsPauseResume() {
   if (typeof window._ttsPauseResume === 'function') window._ttsPauseResume();
+}
+
+// ── Collect tabs with active AI conversations ──
+function _collectConversationTabs() {
+  if (typeof window._browseWindows === 'undefined') return [];
+  const results = [];
+  const activeTabId = typeof window._browseActiveTab !== 'undefined' ? window._browseActiveTab : null;
+  for (let wi = 0; wi < window._browseWindows.length; wi++) {
+    const win = window._browseWindows[wi];
+    for (let ti = 0; ti < win.tabs.length; ti++) {
+      const t = win.tabs[ti];
+      const isActive = t.id === activeTabId;
+      // Check saved _aiPanel state
+      if (t._aiPanel && t._aiPanel.hasChat) {
+        const msgs = t._aiPanel.messages || [];
+        const lastAssistant = _lastAssistantPreview(msgs);
+        results.push({ tabId: t.id, title: t.title || 'New Tab', preview: lastAssistant, active: isActive, streaming: !!(t._aiPanel.backgroundStreaming) });
+      }
+      // Also check if active tab has messages in globals (not yet saved to _aiPanel)
+      else if (isActive && window._popupChatMessages && window._popupChatMessages.length > 0) {
+        const lastAssistant = _lastAssistantPreview(window._popupChatMessages);
+        results.push({ tabId: t.id, title: t.title || 'New Tab', preview: lastAssistant, active: true, streaming: !!window._aetherBackgroundStreaming });
+      }
+    }
+  }
+  return results;
+}
+
+function _lastAssistantPreview(messages) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'assistant' && messages[i].content) {
+      const text = messages[i].content.replace(/[#*_`~\[\]]/g, '').trim();
+      return text.length > 60 ? text.slice(0, 57) + '\u2026' : text;
+    }
+  }
+  return '';
 }
 
 // ── Helpers ──

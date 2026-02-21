@@ -102,9 +102,11 @@ _bridge('_aetherTrackModeVal', () => _aetherTrackModeVal, v => { _aetherTrackMod
 export const _pendingScreenshots = [];
 export const _pendingTabContexts = []; // {tabId, title, url, content} — browser tabs attached to chat
 export const _pendingFileContexts = []; // {name, content} — uploaded files attached to chat
+export const _pendingElementContexts = []; // {html, tagName, selector, url} — picked elements attached to chat
 window._pendingScreenshots = _pendingScreenshots;
 window._pendingTabContexts = _pendingTabContexts;
 window._pendingFileContexts = _pendingFileContexts;
+window._pendingElementContexts = _pendingElementContexts;
 
 // ── TTS State ──
 let _ttsAudio = null; // current Kokoro TTS audio element
@@ -193,3 +195,79 @@ window._aetherModelList = _aetherModelList;
 _bridge('_aetherAgentIdx', () => _aetherAgentIdx, v => { _aetherAgentIdx = v; });
 window._aetherAgentList = _aetherAgentList;
 _bridge('_aetherTabAutoAdding', () => _aetherTabAutoAdding, v => { _aetherTabAutoAdding = v; });
+
+// ── Per-Tab AI Panel State ──
+
+// Get the currently active browse tab object
+export function _getActiveBrowseTab() {
+  if (typeof window._getCurrentWindow !== 'function') return null;
+  const win = window._getCurrentWindow();
+  if (!win) return null;
+  return win.tabs.find(t => t.id === win.activeTab) || null;
+}
+
+// Snapshot global panel state onto tab._aiPanel
+// NOTE: must read arrays via window._ because _showPanel replaces them with new arrays
+export function _saveTabPanelState(tab) {
+  if (!tab) return;
+  const msgs = window._popupChatMessages || [];
+  const hasState = window._panelSession || msgs.length > 0 || window._panelThreadId;
+  if (!hasState) { tab._aiPanel = null; return; }
+  tab._aiPanel = {
+    threadId: window._panelThreadId,
+    messages: msgs.slice(),
+    session: window._panelSession,
+    pendingScreenshots: (window._pendingScreenshots || []).slice(),
+    pendingTabContexts: (window._pendingTabContexts || []).slice(),
+    pendingFileContexts: (window._pendingFileContexts || []).slice(),
+    backgroundStreaming: window._aetherBackgroundStreaming,
+    pinned: window._aetherPinned,
+    hasChat: msgs.length > 0
+  };
+}
+
+// Restore tab._aiPanel back into globals
+// NOTE: must assign arrays via window._ to replace the current reference
+export function _restoreTabPanelState(tab) {
+  if (!tab || !tab._aiPanel) {
+    // Clear globals to fresh state
+    window._popupChatMessages = [];
+    window._panelSession = null;
+    window._panelThreadId = null;
+    window._aetherBackgroundStreaming = false;
+    window._aetherPinned = false;
+    window._pendingScreenshots = [];
+    window._pendingTabContexts = [];
+    window._pendingFileContexts = [];
+    return;
+  }
+  const s = tab._aiPanel;
+  window._popupChatMessages = s.messages.slice();
+  window._panelSession = s.session;
+  window._panelThreadId = s.threadId;
+  window._aetherBackgroundStreaming = s.backgroundStreaming;
+  window._aetherPinned = s.pinned;
+  window._pendingScreenshots = s.pendingScreenshots.slice();
+  window._pendingTabContexts = s.pendingTabContexts.slice();
+  window._pendingFileContexts = s.pendingFileContexts.slice();
+
+  // If threadId exists but session was lost (app restart), lazily reload
+  if (s.threadId && !s.session) {
+    ChatEngine.loadSession(s.threadId).then(session => {
+      if (session && tab._aiPanel && tab._aiPanel.threadId === s.threadId) {
+        tab._aiPanel.session = session;
+        tab._aiPanel.messages = session.messages;
+        // If this tab is still active, sync globals
+        const active = _getActiveBrowseTab();
+        if (active && active.id === tab.id) {
+          window._panelSession = session;
+          window._popupChatMessages = session.messages;
+        }
+      }
+    }).catch(() => {});
+  }
+}
+
+window._getActiveBrowseTab = _getActiveBrowseTab;
+window._saveTabPanelState = _saveTabPanelState;
+window._restoreTabPanelState = _restoreTabPanelState;

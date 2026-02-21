@@ -8,7 +8,7 @@ import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
 import { _doLogout } from '/js/core/core-auth.js';
 import { _isNewTabClick, _openInNewTab, _popupSafeBounds } from '/js/core/core-layout.js';
 import { openUserProfile } from '/js/core/core-profile.js';
-import { _addScreenshotToPanel, _browserCaptureRect, _maybeDismissToIsland, _renderPopupChat, _saveChatMemory, _savePopupChatToHighlight, _screenshotRestoreIframes, _sendPopupChatMessage, _showTabContextMenu, _updateContextBar } from '/js/panel-chat.js';
+import { _addScreenshotToPanel, _browserCaptureRect, _handleImagePaste, _maybeDismissToIsland, _renderPopupChat, _saveChatMemory, _savePopupChatToHighlight, _screenshotRestoreIframes, _sendPopupChatMessage, _showTabContextMenu, _updateContextBar } from '/js/panel-chat.js';
 import { _aetherExecCommand, _aetherFilterCommands, _aetherHideAgentDropdown, _aetherHideCmdDropdown, _aetherHideCursorOverlay, _aetherHideHistoryDropdown, _aetherHideModelDropdown, _aetherHideTabDropdown, _aetherRenderAgentDropdown, _aetherRenderCmdDropdown, _aetherRenderHistoryDropdown, _aetherRenderModelDropdown, _aetherRestoreFocus, _aetherSelectAgent, _aetherSelectHistory, _aetherSelectModel, _aetherSelectTab, _aetherShowCursor, _aetherSwitchToTab, _doAetherAgent, _doAetherCapture, _doAetherHelp, _doAetherHistory, _doAetherLinks, _doAetherModel, _doAetherTab, _doAetherTabs, _doAetherWebSearch, _fetchAuthorPreview, _fetchWikipediaPreview, _isAetherEligible, _isAuthorEligible } from '/js/panel-commands.js';
 import { _browseToggleFindBar, _switchTabLeft, _switchTabRight } from '/js/browse/browse-features.js';
 import { _extractTextFromFrame, injectSingleAnnotation } from '/js/browse/browse-annotations.js';
@@ -20,6 +20,7 @@ import { openBrowseWithPaper } from '/js/browse/browse-ntp.js';
 import { openChatPage } from '/js/chat-view.js';
 import { openHelpPage } from '/js/browse-urlbar.js';
 import { openSettings } from '/js/settings/settings-core.js';
+import { _getActiveBrowseTab, _saveTabPanelState } from '/js/panel-state.js';
 
 export function _positionAtCursor(cx, cy, w, h, preferLeft) {
   const bounds = _popupSafeBounds();
@@ -118,6 +119,9 @@ document.addEventListener('mousedown', function(e) {
   }
   // If NOT in track mode and not pinned, remove existing panel
   if (existing && !window._aetherTrackMode && !_screenshotCapturing && !window._aetherPinned) {
+    // Per-tab AI: save state to active tab before dismiss
+    const _dismissTab = _getActiveBrowseTab();
+    if (_dismissTab) _saveTabPanelState(_dismissTab);
     window._aetherBackgroundStreaming = false; islandRemove('aether');
     if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
     _savePopupChatToHighlight(existing);
@@ -330,6 +334,9 @@ document.addEventListener('keydown', function(e) {
     }
     const popup = document.getElementById('doc-chat-ask-float');
     if (popup) {
+      // Per-tab AI: save state to active tab before ESC dismiss
+      const _escTab = _getActiveBrowseTab();
+      if (_escTab) _saveTabPanelState(_escTab);
       _maybeDismissToIsland(popup);
       if (!window._aetherBackgroundStreaming && window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
       window._aetherTrackMode = false;
@@ -337,6 +344,7 @@ document.addEventListener('keydown', function(e) {
       window._pendingScreenshots = [];
       window._pendingTabContexts = [];
       window._pendingFileContexts = [];
+      window._pendingElementContexts = [];
       popup.remove();
       _aetherShowCursor();
       _aetherRestoreFocus();
@@ -1401,6 +1409,7 @@ export function _panelBuildChatInput(popup, config) {
   askInput.type = 'text';
   askInput.placeholder = 'Ask anything…';
   askInput.className = 'doc-ask-inline-input';
+  askInput.addEventListener('paste', (ev) => _handleImagePaste(ev, popup));
 
   const sendBtn = document.createElement('button');
   sendBtn.className = 'aether-input-btn doc-ask-inline-send';
@@ -1596,6 +1605,7 @@ export function _panelBuildChatInput(popup, config) {
       window._pendingScreenshots = [];
       window._pendingTabContexts = [];
       window._pendingFileContexts = [];
+      window._pendingElementContexts = [];
       _savePopupChatToHighlight(popup);
       popup.remove();
       _aetherShowCursor();
@@ -1912,13 +1922,17 @@ export function _showPanel(config) {
   popup._capturedText = capturedText || '';
 
   // Reset shared state for new panel (unless preview)
-  if (finalized) {
+  // Per-tab AI: if globals already have a restored session (from tab switch), preserve it
+  // But if opening with selection text, always start fresh
+  const _hasRestoredState = !!(window._panelSession || window._panelThreadId) && !selectionText;
+  if (finalized && !_hasRestoredState) {
     _saveChatMemory();
     window._popupChatMessages = [];
     window._chatMemoryRetrieved = false;
     window._pendingScreenshots = [];
     window._pendingTabContexts = [];
     window._pendingFileContexts = [];
+    window._pendingElementContexts = [];
     window._aetherDragging = false;
     window._aetherDragPopup = null;
     window._aetherBackgroundStreaming = false; islandRemove('aether');
@@ -1926,6 +1940,13 @@ export function _showPanel(config) {
     // Reset engine session for new panel
     window._panelSession = null;
     window._panelThreadId = null;
+    // Per-tab AI: clear active tab's saved panel state (starting fresh)
+    const _freshTab = _getActiveBrowseTab();
+    if (_freshTab) _freshTab._aiPanel = null;
+  } else if (finalized && _hasRestoredState) {
+    // Restored state — keep globals, just clean up drag/UI state
+    window._aetherDragging = false;
+    window._aetherDragPopup = null;
   }
 
   // ── Build panel sections via helpers ──
@@ -1950,6 +1971,22 @@ export function _showPanel(config) {
   // Hide cursor while panel is open
   if (isCursorAnchor && finalized && window._aetherTrackMode) {
     _aetherHideCursorOverlay();
+  }
+
+  // Per-tab AI: if restoring a previous conversation, render existing messages
+  if (_hasRestoredState && window._popupChatMessages.length > 0) {
+    popup.classList.add('has-chat');
+    const chatArea = popup.querySelector('.doc-popup-chat-area');
+    if (chatArea) chatArea.classList.add('visible');
+    _renderPopupChat(popup, true);
+    // Re-register session onUpdate for live streaming
+    if (window._panelSession && window._panelSession.onUpdate) {
+      window._panelSession.onUpdate((type) => {
+        window._popupChatMessages = window._panelSession.messages;
+        if (type === 'stream') { const p = document.getElementById('doc-chat-ask-float'); if (p) _renderPopupChat(p, false); }
+        else if (type === 'done' || type === 'message') { const p = document.getElementById('doc-chat-ask-float'); if (p) _renderPopupChat(p, true); }
+      });
+    }
   }
 
   // ── Cmd+C handler + positioning ──
