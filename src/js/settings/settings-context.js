@@ -127,7 +127,7 @@ export function _loadContextFiles() {
           window.Text(totalKb + ' KB total').className('text-dimmer text-[0.7rem]')
         ];
         if (_contextDir) infoChildren.push(window.Text(_contextDir).className('text-dimmer text-[0.65rem]').fontMono());
-        AetherUI.mount(HStack.apply(null, infoChildren).spacing(3), infoBar);
+        AetherUI.mount(HStack(infoChildren).spacing(3), infoBar);
       }
       _renderContextFileList();
     }).catch(function(e) { logger.warn('loadContextFiles:', e); });

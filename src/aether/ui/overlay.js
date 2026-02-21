@@ -3,15 +3,10 @@
 
 'use strict';
 
-import { View } from '/aether/ui/view.js';
+import { View, _spaceToken } from '/aether/ui/view.js';
 import { isSignal, resolve, Effect, State } from '/aether/ui/state.js';
 
 var S = { isSignal, resolve, Effect, State };
-
-function _spaceToken(v) {
-  if (typeof v === 'number') return 'var(--nr-space-' + v + ')';
-  return v;
-}
 
 // ─── Shared: position below anchor with collision detection ──
 
@@ -265,6 +260,7 @@ function Popover(anchorView, isPresented, contentFn) {
   var _cleanup = null;
   var _effect = null;
   var _escCleanup = null;
+  var _timeoutId = null;
 
   function _show() {
     if (popEl) return;
@@ -296,7 +292,7 @@ function Popover(anchorView, isPresented, contentFn) {
         _dismiss();
       }
     }
-    setTimeout(function() { document.addEventListener('click', onDocClick); }, 0);
+    _timeoutId = setTimeout(function() { document.addEventListener('click', onDocClick); }, 0);
     _cleanup = function() { document.removeEventListener('click', onDocClick); };
 
     _escCleanup = _escHandler(_dismiss);
@@ -312,6 +308,7 @@ function Popover(anchorView, isPresented, contentFn) {
 
   function _dismiss() {
     if (!popEl) return;
+    if (_timeoutId) { clearTimeout(_timeoutId); _timeoutId = null; }
     if (_cleanup) { _cleanup(); _cleanup = null; }
     if (_escCleanup) { _escCleanup(); _escCleanup = null; }
     var el = popEl;
@@ -516,13 +513,69 @@ function Menu(anchorView, menuItems) {
   };
 }
 
+// ─── Toast — ephemeral notification ────────────────────────
+
+var _toastContainer = null;
+
+function _ensureToastContainer() {
+  if (_toastContainer && _toastContainer.parentNode) return _toastContainer;
+  _toastContainer = document.createElement('div');
+  _toastContainer.style.cssText = 'position:fixed;bottom:0;left:50%;transform:translateX(-50%);z-index:8000;display:flex;flex-direction:column-reverse;align-items:center;gap:var(--nr-space-2);padding:var(--nr-space-4);pointer-events:none;';
+  document.body.appendChild(_toastContainer);
+  return _toastContainer;
+}
+
+function Toast(message, opts) {
+  opts = opts || {};
+  var duration = opts.duration || 3000;
+
+  var container = _ensureToastContainer();
+
+  var el = document.createElement('div');
+  el.style.cssText = 'background:var(--nr-bg-overlay);color:var(--nr-text-primary);border:1px solid var(--nr-border-subtle);border-radius:var(--nr-radius-lg);padding:var(--nr-space-3) var(--nr-space-4);font-size:0.875rem;box-shadow:0 8px 32px var(--nr-shadow-popup);pointer-events:auto;max-width:400px;text-align:center;';
+  el.textContent = message;
+  container.appendChild(el);
+
+  if (window.Motion) {
+    window.Motion.animate(el, {
+      spring: 'snappy',
+      from: { y: 8, opacity: 0 },
+      to: { y: 0, opacity: 1 }
+    });
+  }
+
+  var timeoutId = setTimeout(function() {
+    if (window.Motion) {
+      window.Motion.animate(el, {
+        spring: 'snappy',
+        from: { opacity: 1, y: 0 },
+        to: { opacity: 0, y: 8 },
+        onFinish: function() { el.remove(); }
+      });
+    } else {
+      el.remove();
+    }
+  }, duration);
+
+  return {
+    dismiss: function() {
+      clearTimeout(timeoutId);
+      el.remove();
+    }
+  };
+}
+
+// Global showToast alias
+window.showToast = function(message, opts) { return Toast(message, opts); };
+
 // ─── Export ───────────────────────────────────────────────
 
 window._AetherUIOverlay = {
   Sheet: Sheet,
   Alert: Alert,
   Popover: Popover,
-  Menu: Menu
+  Menu: Menu,
+  Toast: Toast
 };
 
-export { Sheet, Alert, Popover, Menu };
+export { Sheet, Alert, Popover, Menu, Toast };

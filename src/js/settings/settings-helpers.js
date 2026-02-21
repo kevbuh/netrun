@@ -101,10 +101,10 @@ export function _settingRow(label, desc, control) {
   const leftChildren = [];
   if (label) leftChildren.push(window.Text(label).className('nr-settings-row-label'));
   if (desc) leftChildren.push(window.Text(desc).className('nr-settings-row-desc'));
-  const left = VStack.apply(null, leftChildren).className('nr-settings-row-left');
+  const left = VStack(leftChildren).className('nr-settings-row-left');
   const rowChildren = [left];
   if (control) rowChildren.push(control);
-  const row = HStack.apply(null, rowChildren).className('nr-settings-group-row');
+  const row = HStack(rowChildren).className('nr-settings-group-row');
   return row;
 }
 
@@ -141,13 +141,13 @@ export function _settingBtnGroup(label, options, currentValue, onSelect) {
     const text = typeof opt === 'object' ? opt.label : (value.charAt(0).toUpperCase() + value.slice(1));
     const active = value === currentValue;
     const b = new window.View('button');
-    b.el.textContent = text;
+    b.text(text);
     b.className('px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' +
       (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'));
     b.onTap(function() { onSelect(value); });
     return b;
   });
-  const right = HStack.apply(null, btns).spacing(1);
+  const right = HStack(btns).spacing(1);
   const row = window.HStack(
     window.Text(label).className('nr-settings-row-label'),
     right
@@ -161,13 +161,13 @@ export function _settingPillGroup(label, options, currentValue, onSelect) {
     const text = typeof opt === 'object' ? opt.label : value;
     const active = value === currentValue;
     const b = new window.View('button');
-    b.el.textContent = text;
+    b.text(text);
     b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
       (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
     b.onTap(function() { onSelect(value); });
     return b;
   });
-  return HStack.apply(null, btns).spacing(0.5);
+  return HStack(btns).spacing(0.5);
 }
 
 export function _settingSlider(label, desc, value, opts, onInput, onChange) {
@@ -191,7 +191,7 @@ export function _settingSlider(label, desc, value, opts, onInput, onChange) {
   const leftChildren = [];
   if (label) leftChildren.push(window.Text(label).className('nr-settings-row-label'));
   if (desc) leftChildren.push(window.Text(desc).className('nr-settings-row-desc'));
-  const left = VStack.apply(null, leftChildren).className('nr-settings-row-left');
+  const left = VStack(leftChildren).className('nr-settings-row-left');
   const row = window.HStack(left, right).className('nr-settings-group-row');
   return row;
 }
@@ -202,18 +202,18 @@ export function _settingSection(title, children, opts) {
   if (title) {
     const titleEl = new window.View('div');
     titleEl.el.className = 'nr-settings-section-title';
-    titleEl.el.textContent = title;
+    titleEl.text(title);
     items.push(titleEl);
   }
   if (opts.desc) {
     const descEl = new window.View('div');
     descEl.el.className = 'nr-settings-section-desc';
-    descEl.el.textContent = opts.desc;
+    descEl.text(opts.desc);
     items.push(descEl);
   }
   const childArr = [].concat(children).filter(Boolean);
   items = items.concat(childArr);
-  const section = VStack.apply(null, items);
+  const section = VStack(items);
   section.className('mb-8' + (opts.borderTop ? ' pt-5 border-t border-border-subtle' : ''));
   return section;
 }
@@ -230,9 +230,9 @@ export function _settingCard(title, children) {
   const items = [];
   if (title) items.push(window.Text(title).className('nr-settings-group-header'));
   const childArr = [].concat(children).filter(Boolean);
-  const group = VStack.apply(null, childArr).className('nr-settings-group');
+  const group = VStack(childArr).className('nr-settings-group');
   items.push(group);
-  const wrapper = VStack.apply(null, items).className('mb-4');
+  const wrapper = VStack(items).className('mb-4');
   return wrapper;
 }
 

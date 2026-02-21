@@ -198,41 +198,31 @@ function _setIslandSubState(state) {
 function _renderIslandTabPill() {
   const leftCol = document.getElementById('pill-island-left');
   if (!leftCol) return;
-  leftCol.innerHTML = '';
   // Hide the collapsed-mode tabs anchor
   const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
   if (tabsAnchor) tabsAnchor.style.display = 'none';
 
   const win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
-  if (!win || !win.tabs || !win.tabs.length) return;
+  if (!win || !win.tabs || !win.tabs.length) { leftCol.innerHTML = ''; return; }
   const activeTabId = win.activeTab;
   const activeTab = win.tabs.find(function(t) { return t.id === activeTabId; });
 
-  // Favicon
+  var globeSvg = '<svg style="width:14px;height:14px;opacity:0.4;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+  var favView;
   if (activeTab && activeTab.favicon) {
-    const img = document.createElement('img');
-    img.src = activeTab.favicon;
-    img.style.cssText = 'width:14px;height:14px;border-radius:3px;flex-shrink:0';
-    img.onerror = function() { img.style.display = 'none'; };
-    leftCol.appendChild(img);
+    favView = window.Image(activeTab.favicon).frame({ width: 14, height: 14 }).cornerRadius('xs').styles({ flexShrink: '0' })
+      .on('error', function() { this.style.display = 'none'; });
   } else {
-    const globe = document.createElement('span');
-    globe.innerHTML = '<svg style="width:14px;height:14px;opacity:0.4;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-    leftCol.appendChild(globe);
+    favView = window.RawHTML(globeSvg);
   }
-  // Truncated title
-  const name = document.createElement('span');
-  const title = (activeTab && activeTab.title) ? activeTab.title : 'New Tab';
-  name.textContent = title.length > 20 ? title.slice(0, 18) + '\u2026' : title;
-  name.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.7rem;color:rgba(255,255,255,0.7);min-width:0';
-  leftCol.appendChild(name);
-  // Tab count badge
+  var title = (activeTab && activeTab.title) ? activeTab.title : 'New Tab';
+  var nameView = window.Text(title.length > 20 ? title.slice(0, 18) + '\u2026' : title)
+    .truncate().styles({ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', minWidth: '0' });
+  var children = [favView, nameView];
   if (win.tabs.length > 1) {
-    const badge = document.createElement('span');
-    badge.textContent = String(win.tabs.length);
-    badge.style.cssText = 'font-size:0.6rem;color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.08);border-radius:6px;padding:1px 5px;flex-shrink:0';
-    leftCol.appendChild(badge);
+    children.push(window.Text(String(win.tabs.length)).styles({ fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.08)', borderRadius: '6px', padding: '1px 5px', flexShrink: '0' }));
   }
+  AetherUI.mount(window.HStack(children), leftCol);
   // Click → toggle tabs sub-state
   leftCol.onclick = function(e) {
     e.stopPropagation();
@@ -244,52 +234,34 @@ function _renderIslandTabPill() {
 function _renderIslandTabsFull() {
   const container = document.getElementById('pill-island-tabs-full');
   if (!container) return;
-  container.innerHTML = '';
 
   const win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
-  if (!win || !win.tabs || !win.tabs.length) return;
+  if (!win || !win.tabs || !win.tabs.length) { container.innerHTML = ''; return; }
   const activeTabId = win.activeTab;
+  var globeSvg = '<svg style="width:14px;height:14px;opacity:0.4;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
 
-  win.tabs.forEach(function(t) {
-    const row = document.createElement('div');
-    row.className = 'island-tabs-full-item' + (t.id === activeTabId ? ' active' : '');
-    // Favicon
-    if (t.favicon) {
-      const img = document.createElement('img');
-      img.src = t.favicon;
-      img.onerror = function() { img.style.display = 'none'; };
-      row.appendChild(img);
-    } else {
-      const globe = document.createElement('span');
-      globe.innerHTML = '<svg style="width:14px;height:14px;opacity:0.4;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-      row.appendChild(globe);
-    }
-    // Title
-    const name = document.createElement('span');
-    const title = (t.title || 'New Tab');
-    name.textContent = title.length > 32 ? title.slice(0, 30) + '\u2026' : title;
-    row.appendChild(name);
-    // Close button
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'island-tabs-full-close';
-    closeBtn.textContent = '\u00d7';
-    closeBtn.title = 'Close tab';
-    closeBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      if (typeof browseCloseTab === 'function') browseCloseTab(t.id);
-      setTimeout(_renderIslandTabsFull, 50);
-    });
-    row.appendChild(closeBtn);
-    // Click to switch tab and return to default
-    row.addEventListener('click', function(e) {
-      e.stopPropagation();
-      if (typeof browseSelectTab === 'function') browseSelectTab(t.id);
-      _setIslandSubState('default');
-      // Re-render the pill with the new active tab
-      setTimeout(_renderIslandTabPill, 50);
-    });
-    container.appendChild(row);
+  var rows = win.tabs.map(function(t) {
+    var favView = t.favicon
+      ? window.Image(t.favicon).on('error', function() { this.style.display = 'none'; })
+      : window.RawHTML(globeSvg);
+    var title = (t.title || 'New Tab');
+    var nameView = window.Text(title.length > 32 ? title.slice(0, 30) + '\u2026' : title);
+    var closeBtn = window.Text('\u00d7').className('island-tabs-full-close').attr('title', 'Close tab')
+      .onTap(function(e) {
+        e.stopPropagation();
+        if (typeof browseCloseTab === 'function') browseCloseTab(t.id);
+        setTimeout(_renderIslandTabsFull, 50);
+      });
+    return window.HStack([favView, nameView, closeBtn])
+      .className('island-tabs-full-item' + (t.id === activeTabId ? ' active' : ''))
+      .onTap(function(e) {
+        e.stopPropagation();
+        if (typeof browseSelectTab === 'function') browseSelectTab(t.id);
+        _setIslandSubState('default');
+        setTimeout(_renderIslandTabPill, 50);
+      });
   });
+  AetherUI.mount(window.VStack(rows), container);
 }
 
 /* ── Render full AI panel into ai-full container ── */
@@ -307,22 +279,19 @@ function _renderIslandAIFull() {
 function _renderIslandActions() {
   const rightCol = document.getElementById('pill-island-right-col');
   if (!rightCol) return;
-  rightCol.innerHTML = '';
 
   const iconNames = ['chatBubble', 'annotate', 'speaker', 'eye', 'microphone', 'rain'];
 
-  iconNames.forEach(function(name) {
-    const btn = document.createElement('button');
-    btn.className = 'island-expanded-action';
-    btn.innerHTML = icon(name, { size: 16 });
-    btn.style.pointerEvents = 'none'; // Visual only — parent area handles click
-    // Check if annotate is active
+  var btns = iconNames.map(function(name) {
+    var btn = new window.View('button').className('island-expanded-action').html(icon(name, { size: 16 }))
+      .styles({ pointerEvents: 'none' });
     if (name === 'annotate') {
       const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
-      if (tab && _annotationsEnabled.get(tab.id)) btn.classList.add('active');
+      if (tab && _annotationsEnabled.get(tab.id)) btn.className('active');
     }
-    rightCol.appendChild(btn);
+    return btn;
   });
+  AetherUI.mount(window.HStack(btns), rightCol);
 
   // Whole right-col is clickable → toggle AI sub-state
   rightCol.onclick = function(e) {
@@ -335,7 +304,6 @@ function _renderIslandActions() {
 function _renderIslandUtilityRow() {
   const row = document.getElementById('pill-island-utility-row');
   if (!row) return;
-  row.innerHTML = '';
 
   const buttons = [
     { iconName: 'plus', label: 'New Tab', handler: function() { _collapseIsland(); browseNewTab(); } },
@@ -344,17 +312,14 @@ function _renderIslandUtilityRow() {
     { iconName: 'moreVertical', label: 'More', handler: function() { /* future: more options menu */ } },
   ];
 
-  buttons.forEach(function(b) {
-    const btn = document.createElement('button');
-    btn.className = 'island-utility-btn';
-    if (b.id) btn.id = b.id;
-    btn.innerHTML = icon(b.iconName, { size: 14 }) + '<span>' + b.label + '</span>';
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      b.handler();
-    });
-    row.appendChild(btn);
+  var btnViews = buttons.map(function(b) {
+    var view = new window.View('button').className('island-utility-btn')
+      .add(window.RawHTML(icon(b.iconName, { size: 14 })), window.Text(b.label))
+      .onTap(function(e) { e.stopPropagation(); b.handler(); });
+    if (b.id) view.el.id = b.id;
+    return view;
   });
+  AetherUI.mount(window.HStack(btnViews), row);
 
   // Sync bookmark active state
   _syncUtilityBookmark();
@@ -443,6 +408,9 @@ document.addEventListener('click', function(e) {
   if (!wrap) return;
   // If already expanded, don't toggle — let the outside-click handler collapse
   if (wrap.classList.contains('island-expanded')) return;
+  // Don't expand on NTP — the pill dropdown handles tab switching there
+  const pill = document.getElementById('sidebar-nav');
+  if (pill && pill.classList.contains('ntp-active')) return;
   if (wrap.contains(e.target)) {
     _expandIsland();
   }
@@ -1130,11 +1098,11 @@ export function _browseStartRenameGroup(groupId, nameEl) {
   if (!win) return;
   const group = (win.groups || []).find(g => g.id === groupId);
   if (!group) return;
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'browse-tab-group-rename';
-  input.value = group.name;
-  input.style.cssText = 'width:60px;font-size:0.65rem;font-weight:600;background:transparent;border:1px solid var(--nr-border-default);border-radius:3px;color:inherit;padding:0 3px;outline:none;';
+  var inputView = new window.View('input').className('browse-tab-group-rename')
+    .cssText('width:60px;font-size:0.65rem;font-weight:600;background:transparent;border:1px solid var(--nr-border-default);border-radius:3px;color:inherit;padding:0 3px;outline:none;');
+  inputView.el.type = 'text';
+  inputView.el.value = group.name;
+  var input = inputView.build();
   nameEl.replaceWith(input);
   input.focus();
   input.select();

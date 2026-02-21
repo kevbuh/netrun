@@ -3,16 +3,11 @@
 
 'use strict';
 
-import { View } from '/aether/ui/view.js';
+import { View, _spaceToken, _colorToken } from '/aether/ui/view.js';
 import { isSignal, isBinding, resolve, Effect, Computed, State } from '/aether/ui/state.js';
-import { HStack, Text } from '/aether/ui/primitives.js';
+import { HStack, VStack, Text, Icon } from '/aether/ui/primitives.js';
 
 var S = { isSignal, isBinding, resolve, Effect, Computed, State };
-
-function _spaceToken(v) {
-  if (typeof v === 'number') return 'var(--nr-space-' + v + ')';
-  return v;
-}
 
 // ─── Button ───────────────────────────────────────────────
 
@@ -40,6 +35,20 @@ function Button(label) {
     if (iconName && window.icon) {
       v.el.innerHTML = window.icon(iconName, { size: 14 });
     }
+    return v;
+  };
+  v.icon = function(name, position) {
+    if (!window.icon) return v;
+    var iconHtml = window.icon(name, { size: 14 });
+    var labelText = v.el.textContent;
+    if (position === 'trailing') {
+      v.el.innerHTML = '<span>' + labelText + '</span> ' + iconHtml;
+    } else {
+      v.el.innerHTML = iconHtml + ' <span>' + labelText + '</span>';
+    }
+    v.el.style.display = 'inline-flex';
+    v.el.style.alignItems = 'center';
+    v.el.style.gap = 'var(--nr-space-2)';
     return v;
   };
 
@@ -574,6 +583,119 @@ function Pill(textOrBinding) {
   return v;
 }
 
+// ─── FormField — label + control + description wrapper ────
+
+function FormField(label, control, opts) {
+  opts = opts || {};
+  var v = VStack(
+    Text(label).font('subhead').foreground('secondary'),
+    opts.description ? Text(opts.description).font('caption1').foreground('tertiary') : null,
+    control,
+    opts.error ? Text(opts.error).font('caption1').foreground(_colorToken('#dc2626')) : null
+  ).spacing(1);
+  v._viewType = 'FormField';
+  return v;
+}
+
+// ─── SearchField — TextField with search icon + clear ─────
+
+function SearchField(binding, placeholder) {
+  var v = new View('div');
+  v._viewType = 'SearchField';
+  v.el.style.position = 'relative';
+  v.el.style.display = 'flex';
+  v.el.style.alignItems = 'center';
+
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'nr-input';
+  input.placeholder = placeholder || 'Search\u2026';
+  input.style.paddingLeft = 'var(--nr-space-8)';
+  input.style.paddingRight = 'var(--nr-space-8)';
+  input.style.width = '100%';
+
+  // Search icon
+  var searchIcon = document.createElement('span');
+  searchIcon.style.cssText = 'position:absolute;left:var(--nr-space-2);pointer-events:none;color:var(--nr-text-tertiary);display:inline-flex;align-items:center;';
+  if (window.icon) searchIcon.innerHTML = window.icon('search', { size: 14 });
+  else searchIcon.textContent = '\uD83D\uDD0D';
+
+  // Clear button
+  var clearBtn = document.createElement('span');
+  clearBtn.style.cssText = 'position:absolute;right:var(--nr-space-2);cursor:pointer;color:var(--nr-text-tertiary);display:none;align-items:center;';
+  if (window.icon) clearBtn.innerHTML = window.icon('x', { size: 14 });
+  else clearBtn.textContent = '\u2715';
+
+  v.el.appendChild(searchIcon);
+  v.el.appendChild(input);
+  v.el.appendChild(clearBtn);
+
+  var _debounceTimer = null;
+  var _debounceMs = 200;
+
+  function updateClear() {
+    clearBtn.style.display = input.value ? 'inline-flex' : 'none';
+  }
+
+  if (binding) {
+    input.value = S.resolve(binding);
+    updateClear();
+    input.addEventListener('input', function() {
+      updateClear();
+      if (_debounceTimer) clearTimeout(_debounceTimer);
+      _debounceTimer = setTimeout(function() {
+        if (S.isSignal(binding)) binding.value = input.value;
+        else if (S.isBinding(binding)) binding.value = input.value;
+      }, _debounceMs);
+    });
+    v._effects.push(S.Effect(function() {
+      var val = S.resolve(binding);
+      if (input.value !== val) { input.value = val; updateClear(); }
+    }));
+  } else {
+    input.addEventListener('input', updateClear);
+  }
+
+  clearBtn.addEventListener('click', function() {
+    input.value = '';
+    updateClear();
+    if (binding) {
+      if (S.isSignal(binding)) binding.value = '';
+      else if (S.isBinding(binding)) binding.value = '';
+    }
+    input.focus();
+  });
+
+  v.debounce = function(ms) { _debounceMs = ms; return v; };
+
+  return v;
+}
+
+// ─── Spinner — CSS loading indicator ──────────────────────
+
+function Spinner(size) {
+  var v = new View('span');
+  v._viewType = 'Spinner';
+  var s = size || 20;
+  v.el.style.cssText = 'display:inline-block;width:' + s + 'px;height:' + s + 'px;border:2px solid var(--nr-border-default);border-top-color:var(--nr-accent);border-radius:50%;animation:nr-spin 0.6s linear infinite;';
+
+  // Inject keyframes if not already present
+  if (!document.getElementById('nr-spin-keyframes')) {
+    var style = document.createElement('style');
+    style.id = 'nr-spin-keyframes';
+    style.textContent = '@keyframes nr-spin { to { transform: rotate(360deg); } }';
+    document.head.appendChild(style);
+  }
+
+  v.size = function(sz) {
+    v.el.style.width = sz + 'px';
+    v.el.style.height = sz + 'px';
+    return v;
+  };
+
+  return v;
+}
+
 // ─── Export ───────────────────────────────────────────────
 
 window._AetherUIControls = {
@@ -588,10 +710,14 @@ window._AetherUIControls = {
   RadioGroup: RadioGroup,
   TabView: TabView,
   ProgressBar: ProgressBar,
-  Pill: Pill
+  Pill: Pill,
+  FormField: FormField,
+  SearchField: SearchField,
+  Spinner: Spinner
 };
 
 export {
   Button, TextField, Toggle, Slider, Picker, Stepper,
-  Textarea, Checkbox, RadioGroup, TabView, ProgressBar, Pill
+  Textarea, Checkbox, RadioGroup, TabView, ProgressBar, Pill,
+  FormField, SearchField, Spinner
 };

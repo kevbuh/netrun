@@ -66,7 +66,7 @@ export function _renderDoomScrollSites() {
   resetRow.el.appendChild(resetLink.el);
 
   const all = siteRows.concat([inputRow, resetRow]);
-  return VStack.apply(null, all);
+  return VStack(all);
 }
 
 export function _addDoomScrollSite() {
@@ -137,18 +137,18 @@ export function _renderSettingsSitePermissions() {
           b.onTap(function() { _setSitePermission(domain, key, val); _remountSitePermissions(); });
           return b;
         });
-        const btnGroup = HStack.apply(null, valBtns).styles({ borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--nr-border-strong)' });
+        const btnGroup = HStack(valBtns).styles({ borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--nr-border-strong)' });
         return window.HStack(window.RawHTML('<span style="color:var(--nr-text-quaternary);flex-shrink:0;">' + permIcon + '</span>'),
           window.Text(label).styles({ flex: '1', fontSize: '0.78rem', color: 'var(--nr-text-primary)' }), btnGroup)
           .spacing(2).styles({ padding: '5px 0' });
       });
-      const detail = VStack.apply(null, permRows).styles({ padding: '0 12px 8px', borderTop: '1px solid var(--nr-border-subtle)' });
+      const detail = VStack(permRows).styles({ padding: '0 12px 8px', borderTop: '1px solid var(--nr-border-subtle)' });
       items.push(detail);
     }
 
-    return VStack.apply(null, items).styles({ border: '1px solid var(--nr-border-strong)', borderRadius: '8px', marginBottom: '6px', overflow: 'hidden' });
+    return VStack(items).styles({ border: '1px solid var(--nr-border-strong)', borderRadius: '8px', marginBottom: '6px', overflow: 'hidden' });
   });
-  return VStack.apply(null, domainCards);
+  return VStack(domainCards);
 }
 
 export function _remountSitePermissions() {
@@ -174,7 +174,7 @@ export function _renderUrlBarSectionsSettings() {
     row.attr('data-seckey', s.key);
     return row;
   });
-  const list = VStack.apply(null, rows);
+  const list = VStack(rows);
   list.el.id = 'urlbar-section-list';
   return list;
 }
@@ -303,14 +303,14 @@ export function _renderPasswordsList(container, entries) {
         ];
         if (entry.createdAt) rowItems.push(window.Text(new Date(entry.createdAt).toLocaleDateString()).styles({ fontSize: '0.65rem', color: 'var(--nr-text-quaternary)' }));
         rowItems.push(delBtn);
-        return HStack.apply(null, rowItems).spacing(2).styles({ padding: '5px 0' });
+        return HStack(rowItems).spacing(2).styles({ padding: '5px 0' });
       });
-      const detail = VStack.apply(null, entryRows).styles({ padding: '0 12px 8px', borderTop: '1px solid var(--nr-border-subtle)' });
+      const detail = VStack(entryRows).styles({ padding: '0 12px 8px', borderTop: '1px solid var(--nr-border-subtle)' });
       cardItems.push(detail);
     }
-    return VStack.apply(null, cardItems).styles({ border: '1px solid var(--nr-border-strong)', borderRadius: '8px', marginBottom: '6px', overflow: 'hidden' });
+    return VStack(cardItems).styles({ border: '1px solid var(--nr-border-strong)', borderRadius: '8px', marginBottom: '6px', overflow: 'hidden' });
   });
-  AetherUI.mount(VStack.apply(null, cards), container);
+  AetherUI.mount(VStack(cards), container);
 }
 
 export function _pwDeleteEntry(id) {
@@ -327,7 +327,7 @@ export function _renderBrowserSettings() {
   ];
   if (window.electronAPI) {
     const updateBtn = new window.View('button');
-    updateBtn.el.textContent = 'Update filter lists';
+    updateBtn.text('Update filter lists');
     updateBtn.className('text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors');
     updateBtn.onTap(function() { resetAdBlockRules(); });
     adBlockChildren.push(updateBtn);
@@ -339,7 +339,7 @@ export function _renderBrowserSettings() {
   const adBlockSection = window.VStack(
     adBlockHeader,
     window.Text('Blocks ads and trackers ' + (window.electronAPI ? 'natively at the network level via Electron' : 'via a server-side proxy') + '.').className('text-dim text-[0.8rem] mb-3'),
-    VStack.apply(null, adBlockChildren)
+    VStack(adBlockChildren)
   );
 
   // YT Shorts
@@ -533,9 +533,9 @@ function _bmRenderBrowserList(container, browsers) {
       items.push(detail);
     }
 
-    return VStack.apply(null, items).styles({ border: '1px solid var(--nr-border-strong)', borderRadius: '8px', marginBottom: '6px', overflow: 'hidden' });
+    return VStack(items).styles({ border: '1px solid var(--nr-border-strong)', borderRadius: '8px', marginBottom: '6px', overflow: 'hidden' });
   });
-  AetherUI.mount(VStack.apply(null, cards), container);
+  AetherUI.mount(VStack(cards), container);
 }
 
 function _bmToggleExpand(browserId, container, browsers) {
@@ -632,7 +632,7 @@ function _bmRenderBookmarkList(container, browserId) {
     return row;
   });
 
-  var listWrap = VStack.apply(null, rows);
+  var listWrap = VStack(rows);
   listWrap.styles({ maxHeight: '240px', overflowY: 'auto' });
 
   // Import button

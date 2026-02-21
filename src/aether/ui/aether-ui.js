@@ -6,9 +6,9 @@
 import { State, Computed, Effect, Binding, Store, batch, untrack, Context } from '/aether/ui/state.js';
 import { View } from '/aether/ui/view.js';
 import { VStack, HStack, ZStack, Grid, Spacer, Divider, ScrollView, Text, Label, Link, Image, Icon, RawHTML } from '/aether/ui/primitives.js';
-import { Button, TextField, Textarea, Toggle, Checkbox, RadioGroup, Slider, Picker, Stepper, TabView, ProgressBar, Pill } from '/aether/ui/controls.js';
-import { ForEach, List, Group, Section, Show, Switch } from '/aether/ui/containers.js';
-import { Sheet, Alert, Popover, Menu } from '/aether/ui/overlay.js';
+import { Button, TextField, Textarea, Toggle, Checkbox, RadioGroup, Slider, Picker, Stepper, TabView, ProgressBar, Pill, FormField, SearchField, Spinner } from '/aether/ui/controls.js';
+import { ForEach, List, Group, Section, Show, Switch, EmptyState } from '/aether/ui/containers.js';
+import { Sheet, Alert, Popover, Menu, Toast } from '/aether/ui/overlay.js';
 import { defineComponent, getComponent, listComponents } from '/aether/ui/component.js';
 
 // ─── Mount / Append ───────────────────────────────────────
@@ -170,6 +170,9 @@ var AetherUI = {
   TabView: TabView,
   ProgressBar: ProgressBar,
   Pill: Pill,
+  FormField: FormField,
+  SearchField: SearchField,
+  Spinner: Spinner,
 
   // Containers
   ForEach: ForEach,
@@ -178,12 +181,14 @@ var AetherUI = {
   Section: Section,
   Show: Show,
   Switch: Switch,
+  EmptyState: EmptyState,
 
   // Overlays
   Sheet: Sheet,
   Alert: Alert,
   Popover: Popover,
   Menu: Menu,
+  Toast: Toast,
 
   // Component
   defineComponent: defineComponent,
@@ -204,8 +209,9 @@ var AetherUI = {
       'Text', 'Label', 'Link', 'Image', 'Icon', 'RawHTML',
       'Button', 'TextField', 'Textarea', 'Toggle', 'Checkbox', 'RadioGroup',
       'Slider', 'Picker', 'Stepper', 'TabView', 'ProgressBar', 'Pill',
-      'ForEach', 'List', 'Group', 'Section', 'Show', 'Switch',
-      'Sheet', 'Alert', 'Popover', 'Menu',
+      'FormField', 'SearchField', 'Spinner',
+      'ForEach', 'List', 'Group', 'Section', 'Show', 'Switch', 'EmptyState',
+      'Sheet', 'Alert', 'Popover', 'Menu', 'Toast',
       'defineComponent'
     ];
     for (var i = 0; i < names.length; i++) {

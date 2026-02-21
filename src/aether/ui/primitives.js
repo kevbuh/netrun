@@ -3,7 +3,7 @@
 
 'use strict';
 
-import { View } from '/aether/ui/view.js';
+import { View, _spaceToken, _colorToken } from '/aether/ui/view.js';
 import { isSignal, resolve, Effect } from '/aether/ui/state.js';
 
 var S = { isSignal, resolve, Effect };
@@ -15,11 +15,6 @@ function _extend(tag) {
   V.prototype = Object.create(View.prototype);
   V.prototype.constructor = V;
   return V;
-}
-
-function _spaceToken(v) {
-  if (typeof v === 'number') return 'var(--nr-space-' + v + ')';
-  return v;
 }
 
 // ─── Stack Base ───────────────────────────────────────────
@@ -160,6 +155,15 @@ function Text(content) {
       ? window.AetherTokens.typography.fontMono : 'monospace';
     return v;
   };
+  v.code = function() {
+    v.el.style.fontFamily = (window.AetherTokens && window.AetherTokens.typography)
+      ? window.AetherTokens.typography.fontMono : 'monospace';
+    v.el.style.background = 'var(--nr-bg-sunken)';
+    v.el.style.padding = 'var(--nr-space-1) var(--nr-space-2)';
+    v.el.style.borderRadius = 'var(--nr-radius-sm)';
+    v.el.style.fontSize = '0.875em';
+    return v;
+  };
   v.align = function(a) { v.el.style.textAlign = a; return v; };
   v.lineLimit = function(n) {
     v.el.style.display = '-webkit-box';
@@ -233,6 +237,10 @@ function Icon(name, size) {
   }
   v.size = function(s) {
     if (window.icon) v.el.innerHTML = window.icon(name, { size: s });
+    return v;
+  };
+  v.tint = function(color) {
+    v.el.style.color = _colorToken(color);
     return v;
   };
   return v;

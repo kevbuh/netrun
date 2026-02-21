@@ -13,7 +13,7 @@ export function _renderAISettings() {
   ].map(function(opt) {
     const active = opt.value === currentProvider;
     const b = new window.View('button');
-    b.el.textContent = opt.label;
+    b.text(opt.label);
     b.className('px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' +
       (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'));
     b.el.dataset.provider = opt.value;
@@ -35,7 +35,7 @@ export function _renderAISettings() {
     });
     return b;
   });
-  const providerRight = window.HStack.apply(null, providerBtns).spacing(1);
+  const providerRight = window.HStack(providerBtns).spacing(1);
   const providerRow = _settingRow('Provider', 'Local runs models on your machine. Cloud uses OpenRouter for access to frontier models.', providerRight);
 
   // API key field (visible only when cloud is selected)

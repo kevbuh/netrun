@@ -3,15 +3,10 @@
 
 'use strict';
 
-import { View } from '/aether/ui/view.js';
+import { View, _spaceToken } from '/aether/ui/view.js';
 import { isSignal, resolve, Effect } from '/aether/ui/state.js';
 
 var S = { isSignal, resolve, Effect };
-
-function _spaceToken(v) {
-  if (typeof v === 'number') return 'var(--nr-space-' + v + ')';
-  return v;
-}
 
 // ─── ForEach — reactive list rendering ────────────────────
 
@@ -312,6 +307,48 @@ function Switch(signal, cases) {
   return v;
 }
 
+// ─── EmptyState — placeholder for empty lists ──────────────
+
+function EmptyState(opts) {
+  opts = opts || {};
+  var v = new View('div');
+  v._viewType = 'EmptyState';
+  v.el.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;padding:var(--nr-space-8);gap:var(--nr-space-3);text-align:center;';
+
+  if (opts.icon) {
+    var iconEl = document.createElement('span');
+    iconEl.style.cssText = 'color:var(--nr-text-quaternary);display:inline-flex;';
+    if (window.icon) iconEl.innerHTML = window.icon(opts.icon, { size: 32 });
+    else iconEl.textContent = opts.icon;
+    v.el.appendChild(iconEl);
+  }
+
+  if (opts.title) {
+    var titleEl = document.createElement('div');
+    titleEl.style.cssText = 'font-weight:600;color:var(--nr-text-primary);font-size:1rem;';
+    titleEl.textContent = opts.title;
+    v.el.appendChild(titleEl);
+  }
+
+  if (opts.message) {
+    var msgEl = document.createElement('div');
+    msgEl.style.cssText = 'color:var(--nr-text-tertiary);font-size:0.875rem;max-width:280px;';
+    msgEl.textContent = opts.message;
+    v.el.appendChild(msgEl);
+  }
+
+  if (opts.action) {
+    var btn = document.createElement('button');
+    btn.className = 'nr-btn nr-btn-secondary nr-btn-sm';
+    btn.textContent = opts.action.label || 'Action';
+    if (opts.action.handler) btn.addEventListener('click', opts.action.handler);
+    btn.style.marginTop = 'var(--nr-space-2)';
+    v.el.appendChild(btn);
+  }
+
+  return v;
+}
+
 // ─── Export ───────────────────────────────────────────────
 
 window._AetherUIContainers = {
@@ -320,7 +357,8 @@ window._AetherUIContainers = {
   Group: Group,
   Section: Section,
   Show: Show,
-  Switch: Switch
+  Switch: Switch,
+  EmptyState: EmptyState
 };
 
-export { ForEach, List, Group, Section, Show, Switch };
+export { ForEach, List, Group, Section, Show, Switch, EmptyState };

@@ -818,6 +818,111 @@
   text-align: center;
 }
 
+/* ══════════════════════════════════════════════════
+   Send / Stop button in chat-view
+   ══════════════════════════════════════════════════ */
+
+.browse-ntp.chat-mode .chat-view-send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--nr-text-tertiary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  margin-left: 4px;
+}
+
+.browse-ntp.chat-mode .chat-view-send-btn:hover {
+  color: var(--nr-accent);
+  background: var(--nr-bg-hover);
+}
+
+.browse-ntp.chat-mode .chat-view-send-btn.doc-ask-inline-stop {
+  color: var(--nr-text-quaternary);
+}
+
+.browse-ntp.chat-mode .chat-view-send-btn.doc-ask-inline-stop:hover {
+  color: var(--nr-text-primary);
+}
+
+/* ══════════════════════════════════════════════════
+   Model label row
+   ══════════════════════════════════════════════════ */
+
+.chat-view-model-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 0;
+}
+
+.chat-view-model-label {
+  font-size: 0.7rem;
+  color: var(--nr-text-quaternary);
+  cursor: pointer;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: var(--nr-radius-sm);
+  transition: color 0.15s, background 0.15s;
+}
+
+.chat-view-model-label:hover {
+  color: var(--nr-text-secondary);
+  background: var(--nr-bg-hover);
+}
+
+/* ══════════════════════════════════════════════════
+   Thread list search
+   ══════════════════════════════════════════════════ */
+
+.chat-list-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--nr-radius-md);
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-subtle);
+  margin-bottom: 16px;
+  transition: border-color 0.15s;
+}
+
+.chat-list-search-wrap:focus-within {
+  border-color: var(--nr-accent);
+}
+
+.chat-list-search-icon {
+  display: flex;
+  align-items: center;
+  color: var(--nr-text-quaternary);
+  flex-shrink: 0;
+}
+
+.chat-list-search-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 0.82rem;
+  color: var(--nr-text-primary);
+  font-family: inherit;
+}
+
+.chat-list-search-input::placeholder {
+  color: var(--nr-text-quaternary);
+}
+
 /* ── NTP Chat Row (dropdown) ── */
 .ntp-chat-row {
   background: color-mix(in srgb, var(--nr-accent) 20%, transparent);

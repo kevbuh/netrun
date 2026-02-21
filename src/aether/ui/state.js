@@ -53,7 +53,8 @@ function State(initial, opts) {
       _notify(signal);
     },
     peek: function() { return _value; },
-    binding: function() { return Binding(signal); }
+    binding: function() { return Binding(signal); },
+    dispose: function() { signal._subscribers.clear(); }
   };
   return signal;
 }
@@ -251,12 +252,12 @@ function Store(initial) {
     return _signals[pathStr];
   }
 
-  // Notify a path and all ancestor paths
+  // Notify a path and all ancestor paths (skip paths without subscribers)
   function _notifyPath(parts) {
     for (var i = parts.length; i >= 0; i--) {
       var key = parts.slice(0, i).join('.');
       var sig = key ? _signals[key] : _rootSignal;
-      if (sig) _notify(sig);
+      if (sig && sig._subscribers.size > 0) _notify(sig);
     }
   }
 

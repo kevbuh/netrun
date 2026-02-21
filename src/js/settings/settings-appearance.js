@@ -141,14 +141,14 @@ export function _renderAppearanceSettings() {
     const t = pair[0], label = pair[1];
     const sel = petOn && curPetType === t;
     const b = new window.View('button');
-    b.el.textContent = label;
+    b.text(label);
     b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
       (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
     b.onTap(function() { togglePixelPet(true); setPixelPetType(t); renderSettingsView(); });
     return b;
   });
   const petNone = new window.View('button');
-  petNone.el.textContent = 'none';
+  petNone.text('none');
   petNone.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
     (!petOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
   petNone.onTap(function() { togglePixelPet(false); renderSettingsView(); });
@@ -158,13 +158,13 @@ export function _renderAppearanceSettings() {
     const key = pair[0], p = pair[1];
     const sel = _rainNoiseType === key;
     const b = new window.View('button');
-    b.el.textContent = p.label;
+    b.text(p.label);
     b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
       (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
     b.onTap(function() { setRainNoiseType(key); renderSettingsView(); });
     return b;
   });
-  const noiseWrap = HStack.apply(null, noiseBtns).className('flex flex-wrap gap-1 mt-2');
+  const noiseWrap = HStack(noiseBtns).className('flex flex-wrap gap-1 mt-2');
 
   const volSlider = new window.View('input');
   volSlider.el.type = 'range'; volSlider.el.min = '0'; volSlider.el.max = '100';
@@ -185,7 +185,7 @@ export function _renderAppearanceSettings() {
   freqLabel.el.id = 'rain-freq-label';
   freqSlider.el.addEventListener('input', function() { setRainFreq(this.value); freqLabel.el.textContent = this.value + ' Hz'; });
   const freqAutoBtn = new window.View('button');
-  freqAutoBtn.el.textContent = 'Auto';
+  freqAutoBtn.text('Auto');
   freqAutoBtn.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
     (_rainFreq === 0 ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
   freqAutoBtn.onTap(function() {
@@ -204,14 +204,14 @@ export function _renderAppearanceSettings() {
     const key = pair[0], p = pair[1];
     const sel = _clickSoundOn && (Settings.get('clickSoundType') || 'thud') === key;
     const b = new window.View('button');
-    b.el.textContent = p.label;
+    b.text(p.label);
     b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
       (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
     b.onTap(function() { toggleClickSound(true); setClickSoundType(key); renderSettingsView(); });
     return b;
   });
   const soundNone = new window.View('button');
-  soundNone.el.textContent = 'none';
+  soundNone.text('none');
   soundNone.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
     (!_clickSoundOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
   soundNone.onTap(function() { toggleClickSound(false); renderSettingsView(); });
@@ -236,7 +236,7 @@ export function _renderAppearanceSettings() {
 
   // Sidebar icons
   const resetBtn = new window.View('button');
-  resetBtn.el.textContent = 'Reset';
+  resetBtn.text('Reset');
   resetBtn.className('text-[0.72rem] text-dimmer hover:text-primary cursor-pointer');
   resetBtn.styles({ background: 'none', border: 'none' });
   resetBtn.onTap(function() { resetSidebarIcons(); });
@@ -261,7 +261,7 @@ export function _renderAppearanceSettings() {
     row.styles({ touchAction: 'none' });
     return row;
   });
-  const iconList = VStack.apply(null, iconRows);
+  const iconList = VStack(iconRows);
   iconList.el.id = 'sb-icon-list';
   iconList.el.addEventListener('pointerdown', function(e) { _sbDragDown(e); });
   iconList.el.addEventListener('pointermove', function(e) { _sbDragMove(e); });
@@ -277,19 +277,19 @@ export function _renderAppearanceSettings() {
   ).className('mb-8');
 
   // Accent color row
-  const accentRow = _settingRow('Accent Color', null, HStack.apply(null, accentSwatches).spacing(2));
+  const accentRow = _settingRow('Accent Color', null, HStack(accentSwatches).spacing(2));
 
   // Spinner row in group-row format
   const spinnerGroupRow = _settingRow('Loading Spinner', null, window.HStack(prevBtn, spinnerCenter, nextBtn).spacing(2));
 
   // Pet row in group-row format
-  const petGroupRow = _settingRow('Pixel Pet', null, HStack.apply(null, petBtns).spacing(0.5));
+  const petGroupRow = _settingRow('Pixel Pet', null, HStack(petBtns).spacing(0.5));
 
   // Noise as freeform content
   const noiseContent = _settingGroupContent([noiseSection]);
 
   // Sound row in group-row format
-  const soundGroupRow = _settingRow('Button Sounds', null, HStack.apply(null, soundBtns).spacing(0.5));
+  const soundGroupRow = _settingRow('Button Sounds', null, HStack(soundBtns).spacing(0.5));
 
   return window.VStack(
     _settingCard('Visual', [

@@ -2,7 +2,6 @@
 // Extracted from core.js
 import Settings from '/js/core/core-settings.js';
 import { apiPost } from '/js/api.js';
-import { escapeHtml } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { islandRemove } from '/js/core/core-ui.js';
 import { NOISE_PRESETS, setRainNoiseType, startRain, stopRain } from '/js/core/core-sounds.js';
@@ -84,160 +83,184 @@ export function _renderAudioPill() {
 }
 
 export function _islandRenderPill(a) {
+  var V = window.View, T = window.Text, R = window.RawHTML, H = window.HStack;
   if (a.type === 'feed-notif') {
-    return icon('bell', { size: 14, stroke: 'var(--nr-accent)' }) + '<span style="color:var(--nr-accent)">' + escapeHtml(a.label || '') + '</span>';
+    return H([R(icon('bell', { size: 14, stroke: 'var(--nr-accent)' })), T(a.label || '').foreground('var(--nr-accent)')]);
   } else if (a.done) {
-    return '<span class="island-dot-done"></span><span style="color:#22c55e">' + escapeHtml(a.label || 'Done') + '</span>';
+    return H([new V('span').className('island-dot-done'), T(a.label || 'Done').foreground('#22c55e')]);
   } else if (a.type === 'download') {
     const pct = a.progress || 0;
     const circ = 2 * Math.PI * 6;
     const offset = circ * (1 - pct / 100);
-    const ring = pct > 0 ? '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg>' : icon('download', { size: 14 });
-    return ring + '<span>' + escapeHtml(a.label || pct + '%') + '</span><span class="island-dismiss" data-island-dismiss="download" style="margin-left:4px;opacity:0.4;font-size:15px;line-height:1;padding:0 2px;cursor:pointer">&times;</span>';
+    const ringHtml = pct > 0 ? '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg>' : icon('download', { size: 14 });
+    var dismiss = new V('span').className('island-dismiss').attr('data-island-dismiss', 'download')
+      .styles({ marginLeft: '4px', opacity: '0.4', fontSize: '15px', lineHeight: '1', padding: '0 2px', cursor: 'pointer' });
+    dismiss.el.textContent = '\u00d7';
+    return H([R(ringHtml), T(a.label || pct + '%'), dismiss]);
   } else if (a.type === 'tts') {
-    const ttsIconC = a.paused
-      ? icon('play', { size: 14 })
-      : window._islandWaveformBars;
+    const ttsIconHtml = a.paused ? icon('play', { size: 14 }) : window._islandWaveformBars;
     const spd = parseFloat(Settings.get('ttsSpeed')) || 1;
-    const spdBadge = '<span class="island-tts-speed" onclick="event.stopPropagation();_ttsCycleSpeed()" title="Click to change speed">' + spd.toFixed(1).replace(/\.0$/, '') + 'x</span>';
-    return ttsIconC + '<span>' + escapeHtml(a.label || '') + '</span>' + spdBadge;
+    var spdBadge = T(spd.toFixed(1).replace(/\.0$/, '') + 'x').className('island-tts-speed').attr('title', 'Click to change speed')
+      .onTap(function(e) { e.stopPropagation(); _ttsCycleSpeed(); });
+    return H([R(ttsIconHtml), T(a.label || ''), spdBadge]);
   } else if (a.type === 'audio') {
-    return window._islandAudioBars + '<span>' + escapeHtml(a.label || '') + '</span>';
+    return H([R(window._islandAudioBars), T(a.label || '')]);
   } else if (a.type === 'ai') {
-    return '<span class="island-ai-dot nr-breathe"></span><span>' + escapeHtml(a.label || '') + '</span>';
+    return H([new V('span').className('island-ai-dot nr-breathe'), T(a.label || '')]);
   } else if (a.type === 'achievement') {
-    return icon('help', { size: 14, stroke: '#caa12a' });
+    return R(icon('help', { size: 14, stroke: '#caa12a' }));
   } else if (a.type === 'rss') {
-    const rssIcon = a.subscribed
+    const rssIconHtml = a.subscribed
       ? icon('check', { size: 14, stroke: '#22c55e' })
       : icon('rssFeed', { size: 14, stroke: '#f97316' });
-    return rssIcon + '<span style="color:' + (a.subscribed ? '#22c55e' : 'var(--aether-text)') + '">' + escapeHtml(a.label || '') + '</span>';
+    return H([R(rssIconHtml), T(a.label || '').foreground(a.subscribed ? '#22c55e' : 'var(--aether-text)')]);
   } else if (a.type === 'tabs') {
     const tabItems = a.items || [];
-    function _globeIcon(cls, attrs) {
-      const opts = { size: 16, strokeWidth: '1.5' };
-      if (cls) opts.class = cls;
-      // attrs should be parsed, but for simplicity we'll ignore complex attribute merging
-      return icon('globe', opts);
-    }
-    const tabIcon = icon('browserTab', { size: 14, strokeWidth: '1.5' });
-    const ellIcon = window._ELL_SVG;
-    // Collect non-blank tabs sorted by lastVisited desc
     const nonBlank = [];
     for (let si = 0; si < tabItems.length; si++) {
       if (!tabItems[si].blank) nonBlank.push(tabItems[si]);
     }
     nonBlank.sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
-    // If no non-blank tabs (all NTP), show stacked-pages icon
     if (nonBlank.length === 0) {
-      return icon('windows', { size: 14 }) + '<span style="opacity:0.4">0 tabs</span>';
+      return H([R(icon('windows', { size: 14 })), T('0 tabs').opacity(0.4)]);
     }
-    // Pick up to 2 most recently visited non-blank tabs for favicon strip
     const visible = nonBlank.slice(0, 3);
-    const overflow = tabItems.length - visible.length;
-    let html = '<span class="island-favicon-strip">';
+    var stripChildren = [];
     for (let ti = 0; ti < visible.length; ti++) {
       const t = visible[ti];
       const cls = 'island-strip-fav' + (t.active ? ' island-strip-fav-active' : '');
-      const tipAttr = ' title="' + escapeHtml(t.title || 'Tab') + '"';
-      var favHtml;
       if (t.favicon) {
-        const fallbackSvg = icon('globe', { size: 16, strokeWidth: '1.5', class: cls }).replace(/"/g, '&quot;');
-        favHtml = '<img class="' + cls + '" src="' + escapeHtml(t.favicon) + '"' + tipAttr + ' data-island-tab="' + t.id + '" onerror="this.outerHTML=\'' + fallbackSvg.replace('>', ' data-island-tab=&quot;' + t.id + '&quot;>') + '\'">';
+        var favImg = new V('img').className(cls).attr('title', t.title || 'Tab').attr('data-island-tab', t.id);
+        favImg.el.src = t.favicon;
+        var _cls = cls;
+        favImg.on('error', function() {
+          var globe = R(icon('globe', { size: 16, strokeWidth: '1.5', class: _cls }));
+          globe.attr('data-island-tab', t.id);
+          this.replaceWith(globe.build());
+        });
+        if (t.active) {
+          var wrap = new V('span').className('island-strip-fav-wrap').attr('data-island-tab', t.id);
+          var closeBtn = new V('button').className('island-strip-fav-close').attr('data-island-tab-close', t.id).attr('title', 'Close tab');
+          closeBtn.el.textContent = '\u00d7';
+          wrap.add(favImg, closeBtn);
+          stripChildren.push(wrap);
+        } else {
+          stripChildren.push(favImg);
+        }
       } else {
-        favHtml = icon('globe', { size: 16, strokeWidth: '1.5', class: cls }).replace('>', tipAttr + ' data-island-tab="' + t.id + '">');
-      }
-      if (t.active) {
-        html += '<span class="island-strip-fav-wrap" data-island-tab="' + t.id + '">' + favHtml + '<button class="island-strip-fav-close" data-island-tab-close="' + t.id + '" title="Close tab">&times;</button></span>';
-      } else {
-        html += favHtml;
+        var globeView = R(icon('globe', { size: 16, strokeWidth: '1.5', class: cls })).attr('title', t.title || 'Tab').attr('data-island-tab', t.id);
+        if (t.active) {
+          var wrap = new V('span').className('island-strip-fav-wrap').attr('data-island-tab', t.id);
+          var closeBtn = new V('button').className('island-strip-fav-close').attr('data-island-tab-close', t.id).attr('title', 'Close tab');
+          closeBtn.el.textContent = '\u00d7';
+          wrap.add(globeView, closeBtn);
+          stripChildren.push(wrap);
+        } else {
+          stripChildren.push(globeView);
+        }
       }
     }
-    html += '<span class="island-strip-overflow">' + nonBlank.length + ' tab' + (nonBlank.length !== 1 ? 's' : '') + '</span>';
-    html += '</span>';
-    return html;
+    stripChildren.push(T(nonBlank.length + ' tab' + (nonBlank.length !== 1 ? 's' : '')).className('island-strip-overflow'));
+    return new V('span').className('island-favicon-strip').add(stripChildren);
   } else if (a.type === 'insight') {
     if (a.offer) {
-      // Clickable offer pill — user clicks to trigger annotation
-      const offerIcon = icon('comment', { size: 14, stroke: 'var(--nr-text-secondary)' });
-      return offerIcon + '<span style="color:var(--nr-text-secondary)">' + escapeHtml(a.label || 'Annotate') + '</span>';
+      return H([R(icon('comment', { size: 14, stroke: 'var(--nr-text-secondary)' })), T(a.label || 'Annotate').foreground('var(--nr-text-secondary)')]);
     }
     if (a.loading) {
-      return '<span class="island-annotate-dot"></span><span>' + escapeHtml(a.label || 'Analyzing\u2026') + '</span>';
+      return H([new V('span').className('island-annotate-dot'), T(a.label || 'Analyzing\u2026')]);
     }
     const _annModeColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', EXAGGERATION: '#ffc107', AD: '#ff9800', CONNECTION: '#2196f3' };
     const annColor = _annModeColors[a.modeType] || '#4caf50';
-    const annIcon = icon('comment', { size: 14, stroke: annColor });
-    // Paper mode — append citation badge after the normal label
-    let paperBadge = '';
+    var children = [R(icon('comment', { size: 14, stroke: annColor })), T(a.label || '').foreground('var(--aether-text)')];
     if (a._paper && a._paperState && a._paperState.s2Data) {
       const cc = a._paperState.s2Data.citationCount;
-      if (cc != null) paperBadge = '<span style="margin-left:6px;font-size:10px;padding:1px 5px;border-radius:8px;background:rgba(139,92,246,0.15);color:#8b5cf6">' + cc + ' cit.</span>';
+      if (cc != null) children.push(T(cc + ' cit.').styles({ marginLeft: '6px', fontSize: '10px', padding: '1px 5px', borderRadius: '8px', background: 'rgba(139,92,246,0.15)', color: '#8b5cf6' }));
     }
-    return annIcon + '<span style="color:var(--aether-text)">' + escapeHtml(a.label || '') + '</span>' + paperBadge;
+    return H(children);
   } else if (a.type === 'pageinfo') {
-    const piIcon = icon('clock', { size: 14, stroke: 'var(--nr-text-secondary)' });
-    let html = piIcon;
-    if (a.label) html += '<span>' + escapeHtml(a.label) + '</span>';
-    if (a.badges) html += '<span class="island-pageinfo-badges">' + escapeHtml(a.badges) + '</span>';
-    return html;
+    var children = [R(icon('clock', { size: 14, stroke: 'var(--nr-text-secondary)' }))];
+    if (a.label) children.push(T(a.label));
+    if (a.badges) children.push(T(a.badges).className('island-pageinfo-badges'));
+    return H(children);
   } else if (a.type === 'calendar') {
-    return icon('calendar', { size: 14, stroke: '#3b82f6' }) + '<span style="color:#3b82f6">' + escapeHtml(a.label || '') + '</span>';
+    return H([R(icon('calendar', { size: 14, stroke: '#3b82f6' })), T(a.label || '').foreground('#3b82f6')]);
   } else if (a.type === 'bookmark') {
-    return icon('bookmark', { size: 14, fill: 'var(--nr-accent)', stroke: 'var(--nr-accent)' });
+    return R(icon('bookmark', { size: 14, fill: 'var(--nr-accent)', stroke: 'var(--nr-accent)' }));
   } else if (a.type === 'pulse') {
     const pulseIntensity = (typeof Motion !== 'undefined') ? Math.min(Motion.pulse.rate / 5, 1) : 0;
     const pulseClass = pulseIntensity > 0.3 ? 'island-pulse-dot-active' : 'island-pulse-dot-idle';
-    return '<span class="island-pulse-dot ' + pulseClass + '" style="--pulse-intensity:' + pulseIntensity.toFixed(2) + '"></span>';
+    return new V('span').className('island-pulse-dot ' + pulseClass).cssVar('--pulse-intensity', pulseIntensity.toFixed(2));
   } else if (a.type === 'context') {
-    return '<span style="opacity:0.5">\u25CF</span><span style="opacity:0.7">' + escapeHtml(a.label || '') + '</span>';
+    return H([T('\u25CF').opacity(0.5), T(a.label || '').opacity(0.7)]);
   }
-  return '<span class="island-dot"></span><span>' + escapeHtml(a.label || '') + '</span>';
+  return H([new V('span').className('island-dot'), T(a.label || '')]);
 }
 
-// Build tray HTML for context/download/annotate/achievement/tabs pills
+// Build tray content as a View for context/download/annotate/achievement/tabs pills
 export function _islandBuildTray(a, isBrowse) {
+  var V = window.View, T = window.Text, R = window.RawHTML, H = window.HStack, VS = window.VStack;
+
+  function _divider() { return new V('div').styles({ height: '1px', background: 'var(--aether-border)', margin: '4px 0' }); }
+  function _borderDivider() { return new V('div').styles({ height: '1px', background: 'var(--aether-border, var(--nr-border-default))', margin: '2px 0' }); }
+  function _favImg(src) {
+    var img = new V('img').frame({ width: 14, height: 14 }).cornerRadius('xs').styles({ flexShrink: '0' });
+    img.el.src = src;
+    img.on('error', function() { this.style.display = 'none'; });
+    return img;
+  }
+  function _tabRow(item, showClose) {
+    var title = item.title || 'New Tab';
+    if (title.length > 36) title = title.slice(0, 34) + '\u2026';
+    var children = [];
+    if (item.favicon) children.push(_favImg(item.favicon));
+    children.push(T(title).flex(1).styles({ minWidth: '0' }).truncate());
+    if (showClose) {
+      var cb = new V('button').className('island-tab-item-close').attr('data-island-tab-close', item.id).attr('title', 'Close');
+      cb.el.textContent = '\u00d7';
+      children.push(cb);
+    }
+    return H(children).className('island-ctx-item' + (item.active ? ' active' : '')).attr('data-island-tab', item.id);
+  }
+
   if (a.type === 'context' && a.items && a.items.length) {
-    var trayHtml = '';
+    var rows = [];
     if (isBrowse) {
-      trayHtml += '<div class="island-tab-newtab" data-island-tab-new="1">' + icon('plus', { size: 12 }) + '<span>New tab</span></div>';
-      trayHtml += '<div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
+      rows.push(H([R(icon('plus', { size: 12 })), T('New tab')]).className('island-tab-newtab').attr('data-island-tab-new', '1'));
+      rows.push(_divider());
     }
     for (var ti = 0; ti < a.items.length; ti++) {
-      var item = a.items[ti];
-      var t = item.title || 'New Tab';
-      if (t.length > 36) t = t.slice(0, 34) + '\u2026';
-      var fav = item.favicon ? '<img src="' + escapeHtml(item.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
-      const closeBtn = isBrowse ? '<button class="island-tab-item-close" data-island-tab-close="' + item.id + '" title="Close">&times;</button>' : '';
-      trayHtml += '<div class="island-ctx-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(t) + '</span>' + closeBtn + '</div>';
+      rows.push(_tabRow(a.items[ti], isBrowse));
     }
-    return trayHtml;
+    return VS(rows);
   } else if (a.type === 'download' && a.items && a.items.length) {
-    var trayHtml = '<div class="island-dl-header"><span>Downloads</span><span class="island-dl-clear" data-island-dl-clear="1">Clear all</span></div>';
+    var rows = [];
+    rows.push(H([T('Downloads'), T('Clear all').className('island-dl-clear').attr('data-island-dl-clear', '1')]).className('island-dl-header'));
     for (var ti = 0; ti < a.items.length; ti++) {
       var item = a.items[ti];
       let fname = item.filename || 'Download';
       if (fname.length > 40) fname = fname.slice(0, 38) + '\u2026';
-      const dlIcon = item.state === 'completed'
+      const dlIconHtml = item.state === 'completed'
         ? icon('fileCheckmark', { size: 14, fill: '#22c55e', stroke: 'none' })
         : icon('filePlain', { size: 14 });
-      const dlStatus = item.state === 'completed' ? 'Done' + (item.size ? ' · ' + item.size : '')
+      const dlStatus = item.state === 'completed' ? 'Done' + (item.size ? ' \u00b7 ' + item.size : '')
         : item.state === 'cancelled' ? 'Cancelled'
-        : item.pct + '% · ' + item.received + (item.size ? ' / ' + item.size : '');
-      const progressHtml = item.state === 'progressing'
-        ? '<div class="island-dl-progress"><div class="island-dl-progress-bar" style="width:' + item.pct + '%"></div></div>'
-        : '';
-      trayHtml += '<div class="island-dl-item" data-island-dl="' + escapeHtml(item.id) + '">'
-        + '<div class="island-dl-icon">' + dlIcon + '</div>'
-        + '<div class="island-dl-info"><div class="island-dl-name">' + escapeHtml(fname) + '</div><div class="island-dl-status">' + escapeHtml(dlStatus) + '</div>' + progressHtml + '</div>'
-        + '<button class="island-dl-remove" data-island-dl-remove="' + escapeHtml(item.id) + '" title="Remove">&times;</button>'
-        + '</div>';
+        : item.pct + '% \u00b7 ' + item.received + (item.size ? ' / ' + item.size : '');
+      var infoView = new V('div').className('island-dl-info').add(
+        T(fname).className('island-dl-name'),
+        T(dlStatus).className('island-dl-status')
+      );
+      if (item.state === 'progressing') {
+        var bar = new V('div').className('island-dl-progress-bar').styles({ width: item.pct + '%' });
+        infoView.add(new V('div').className('island-dl-progress').add(bar));
+      }
+      var removeBtn = new V('button').className('island-dl-remove').attr('data-island-dl-remove', item.id).attr('title', 'Remove');
+      removeBtn.el.textContent = '\u00d7';
+      rows.push(H([R(dlIconHtml).className('island-dl-icon'), infoView, removeBtn]).className('island-dl-item').attr('data-island-dl', item.id));
     }
-    return trayHtml;
+    return VS(rows);
   } else if (a.type === 'insight' && ((a.items && a.items.length) || (a._paper && a._paperState))) {
     const annColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
     const annLabels = { ALPHA: 'Alpha', CONTRADICTION: 'Contradiction', AD: 'Ad', CONNECTION: 'Connection' };
-    // Extend with custom categories
     if (typeof window._customAnnotationCategories !== 'undefined') {
       for (let ci = 0; ci < window._customAnnotationCategories.length; ci++) {
         const cc = window._customAnnotationCategories[ci];
@@ -245,15 +268,15 @@ export function _islandBuildTray(a, isBrowse) {
         annLabels[cc.key] = cc.name;
       }
     }
-    var trayHtml = '';
-    // Paper metadata at top of tray (when on an academic paper page)
+    var rows = [];
+    // Paper metadata at top of tray
     if (a._paper && a._paperState) {
       const ps = a._paperState;
       const s2 = ps.s2Data;
       const meta = ps.meta || {};
       const paperTitle = (s2 && s2.title) || meta.title || '';
       if (paperTitle) {
-        trayHtml += '<div style="padding:8px 10px 4px;font-size:13px;font-weight:600;color:var(--nr-text-primary);line-height:1.4">' + escapeHtml(paperTitle) + '</div>';
+        rows.push(T(paperTitle).styles({ padding: '8px 10px 4px', fontSize: '13px', fontWeight: '600', color: 'var(--nr-text-primary)', lineHeight: '1.4' }));
       }
       if (s2) {
         const paperDetails = [];
@@ -261,13 +284,13 @@ export function _islandBuildTray(a, isBrowse) {
         if (s2.venue) paperDetails.push(s2.venue);
         if (s2.citationCount != null) paperDetails.push(s2.citationCount + ' citation' + (s2.citationCount !== 1 ? 's' : ''));
         if (paperDetails.length) {
-          trayHtml += '<div style="padding:2px 10px 4px;font-size:11px;color:var(--nr-text-secondary)">' + escapeHtml(paperDetails.join(' \u00b7 ')) + '</div>';
+          rows.push(T(paperDetails.join(' \u00b7 ')).styles({ padding: '2px 10px 4px', fontSize: '11px', color: 'var(--nr-text-secondary)' }));
         }
       }
       const paperAuthors = (s2 && s2.authors) || [];
       const authorDetails = ps.authorDetails || [];
       if (paperAuthors.length || (meta.authors && meta.authors.length)) {
-        trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 0"></div>';
+        rows.push(_borderDivider());
         const displayAuthors = paperAuthors.length ? paperAuthors.slice(0, 5) : meta.authors.slice(0, 5).map(function(n) { return { name: n }; });
         for (let pai = 0; pai < displayAuthors.length; pai++) {
           const pAuthor = displayAuthors[pai];
@@ -276,36 +299,31 @@ export function _islandBuildTray(a, isBrowse) {
           for (let pdi = 0; pdi < authorDetails.length; pdi++) {
             if (authorDetails[pdi] && authorDetails[pdi].name === pName) { pDetail = authorDetails[pdi]; break; }
           }
-          const hBadge = pDetail && pDetail.hIndex != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:auto">h-index: ' + pDetail.hIndex + '</span>' : '';
-          const citBadge = pDetail && pDetail.citationCount != null ? '<span style="font-size:10px;color:var(--nr-text-quaternary);margin-left:6px">' + pDetail.citationCount.toLocaleString() + ' cit.</span>' : '';
-          trayHtml += '<div style="padding:4px 10px;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--nr-text-primary)">';
-          trayHtml += '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(pName) + '</span>';
-          trayHtml += hBadge + citBadge;
-          trayHtml += '</div>';
+          var authorChildren = [T(pName).flex(1).styles({ minWidth: '0' }).truncate()];
+          if (pDetail && pDetail.hIndex != null) authorChildren.push(T('h-index: ' + pDetail.hIndex).styles({ fontSize: '10px', color: 'var(--nr-text-quaternary)', marginLeft: 'auto' }));
+          if (pDetail && pDetail.citationCount != null) authorChildren.push(T(pDetail.citationCount.toLocaleString() + ' cit.').styles({ fontSize: '10px', color: 'var(--nr-text-quaternary)', marginLeft: '6px' }));
+          rows.push(H(authorChildren).styles({ padding: '4px 10px', gap: '6px', fontSize: '12px', color: 'var(--nr-text-primary)' }));
         }
         if ((paperAuthors.length > 5) || (meta.authors && meta.authors.length > 5)) {
           const pExtra = (paperAuthors.length || meta.authors.length) - 5;
-          trayHtml += '<div style="padding:2px 10px 4px;font-size:11px;color:var(--nr-text-quaternary)">+' + pExtra + ' more</div>';
+          rows.push(T('+' + pExtra + ' more').styles({ padding: '2px 10px 4px', fontSize: '11px', color: 'var(--nr-text-quaternary)' }));
         }
       }
       if (a.items && a.items.length) {
-        trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:4px 0"></div>';
+        rows.push(new V('div').styles({ height: '1px', background: 'var(--aether-border, var(--nr-border-default))', margin: '4px 0' }));
       }
     }
-    // Insight text
     if (a.insight) {
-      trayHtml += '<div style="padding:8px 10px;font-size:12px;color:var(--aether-text, var(--nr-text-primary));line-height:1.5">' + escapeHtml(a.insight) + '</div>';
+      rows.push(T(a.insight).styles({ padding: '8px 10px', fontSize: '12px', color: 'var(--aether-text, var(--nr-text-primary))', lineHeight: '1.5' }));
     }
-    // OCR text
     if (a.ocrText) {
-      trayHtml += '<div style="padding:6px 10px;font-size:11px;color:var(--aether-text-dim, var(--nr-text-secondary));line-height:1.4;border-top:1px solid var(--aether-border, var(--nr-border-default))">';
-      trayHtml += '<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--aether-text-dim, var(--nr-text-secondary))">OCR</span><br>';
-      trayHtml += escapeHtml(a.ocrText.length > 300 ? a.ocrText.slice(0, 297) + '\u2026' : a.ocrText);
-      trayHtml += '</div>';
+      var ocrLabel = T('OCR').styles({ fontSize: '10px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--aether-text-dim, var(--nr-text-secondary))' });
+      var ocrContent = T(a.ocrText.length > 300 ? a.ocrText.slice(0, 297) + '\u2026' : a.ocrText);
+      rows.push(VS([ocrLabel, ocrContent]).styles({ padding: '6px 10px', fontSize: '11px', color: 'var(--aether-text-dim, var(--nr-text-secondary))', lineHeight: '1.4', borderTop: '1px solid var(--aether-border, var(--nr-border-default))' }));
     }
-    if ((a.insight || a.ocrText) && a.items && a.items.length) trayHtml += '<div style="height:1px;background:var(--aether-border, var(--nr-border-default));margin:2px 0"></div>';
+    if ((a.insight || a.ocrText) && a.items && a.items.length) rows.push(_borderDivider());
     if (a.items && a.items.length) {
-      trayHtml += '<div class="island-ann-header">Annotations</div>';
+      rows.push(T('Annotations').className('island-ann-header'));
     }
     const thumbUpSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>';
     const thumbDownSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>';
@@ -313,84 +331,94 @@ export function _islandBuildTray(a, isBrowse) {
       const ann = a.items[ai];
       const ac = annColors[ann.type] || '#888';
       const al = annLabels[ann.type] || ann.type;
-      const quote = ann.quote || '';
       const isConnection = ann.type === 'CONNECTION';
-      const displayText = isConnection ? ('Linked: ' + (ann.linkedTitle || 'Related content')) : (ann.explanation || quote);
+      const displayText = isConnection ? ('Linked: ' + (ann.linkedTitle || 'Related content')) : (ann.explanation || ann.quote || '');
       const confStr = ann.confidence != null ? ann.confidence + '%' : '';
-      trayHtml += '<div class="island-ann-item" data-island-ann="' + ai + '"' + (isConnection && ann.linkedUrl ? ' data-island-ann-url="' + escapeHtml(ann.linkedUrl) + '"' : '') + '>';
-      trayHtml += '<span class="island-ann-dot" style="background:' + ac + '"></span>';
-      trayHtml += '<span class="island-ann-type" style="color:' + ac + '">' + escapeHtml(al) + '</span>';
-      trayHtml += '<span class="island-ann-text">' + escapeHtml(displayText) + '</span>';
-      if (confStr) trayHtml += '<span class="island-ann-conf">' + confStr + '</span>';
-      trayHtml += '<span class="island-ann-actions">';
-      trayHtml += '<button data-ann-rate-good="' + ai + '" title="Good annotation">' + thumbUpSvg + '</button>';
-      trayHtml += '<button data-ann-rate-bad="' + ai + '" title="Bad annotation">' + thumbDownSvg + '</button>';
-      trayHtml += '</span>';
-      trayHtml += '</div>';
+      var annChildren = [
+        new V('span').className('island-ann-dot').styles({ background: ac }),
+        T(al).className('island-ann-type').foreground(ac),
+        T(displayText).className('island-ann-text')
+      ];
+      if (confStr) annChildren.push(T(confStr).className('island-ann-conf'));
+      var goodBtn = new V('button').attr('data-ann-rate-good', ai).attr('title', 'Good annotation').html(thumbUpSvg);
+      var badBtn = new V('button').attr('data-ann-rate-bad', ai).attr('title', 'Bad annotation').html(thumbDownSvg);
+      annChildren.push(new V('span').className('island-ann-actions').add(goodBtn, badBtn));
+      var annRow = new V('div').className('island-ann-item').attr('data-island-ann', ai).add(annChildren);
+      if (isConnection && ann.linkedUrl) annRow.attr('data-island-ann-url', ann.linkedUrl);
+      rows.push(annRow);
     }
-    return trayHtml;
+    return VS(rows);
   } else if (a.type === 'pageinfo') {
-    var trayHtml = '';
+    var rows = [];
     var m = a.meta || {};
     function _piRow(label, value) {
-      if (!value) return '';
-      return '<div class="island-pageinfo-row"><span class="island-pageinfo-label">' + escapeHtml(label) + '</span><span class="island-pageinfo-value">' + escapeHtml(value) + '</span></div>';
+      if (!value) return null;
+      return H([T(label).className('island-pageinfo-label'), T(value).className('island-pageinfo-value')]).className('island-pageinfo-row');
     }
     if (m.published) {
-      try { var pd = new Date(m.published); trayHtml += _piRow('Published', pd.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })); } catch(e) { trayHtml += _piRow('Published', m.published); }
+      try { var pd = new Date(m.published); rows.push(_piRow('Published', pd.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }))); } catch(e) { rows.push(_piRow('Published', m.published)); }
     }
     if (m.modified) {
-      try { var md = new Date(m.modified); trayHtml += _piRow('Modified', md.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })); } catch(e) { trayHtml += _piRow('Modified', m.modified); }
+      try { var md = new Date(m.modified); rows.push(_piRow('Modified', md.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }))); } catch(e) { rows.push(_piRow('Modified', m.modified)); }
     }
-    if (m.author) trayHtml += _piRow('Author', m.author);
-    if (m.type) trayHtml += _piRow('Type', m.type);
+    if (m.author) rows.push(_piRow('Author', m.author));
+    if (m.type) rows.push(_piRow('Type', m.type));
     if (m.wordCount) {
       var mins = Math.max(1, Math.round(m.wordCount / 238));
-      trayHtml += _piRow('Reading time', mins + ' min (' + m.wordCount.toLocaleString() + ' words)');
+      rows.push(_piRow('Reading time', mins + ' min (' + m.wordCount.toLocaleString() + ' words)'));
     }
-    if (a.badges) trayHtml += _piRow('Position', a.badges);
+    if (a.badges) rows.push(_piRow('Position', a.badges));
     if (m.description) {
       var desc = m.description.length > 200 ? m.description.slice(0, 197) + '\u2026' : m.description;
-      trayHtml += '<div class="island-pageinfo-desc">' + escapeHtml(desc) + '</div>';
+      rows.push(T(desc).className('island-pageinfo-desc'));
     }
-    return trayHtml || '<div style="padding:8px 10px;opacity:0.4;font-size:0.72rem">No metadata available</div>';
+    rows = rows.filter(Boolean);
+    if (!rows.length) return T('No metadata available').styles({ padding: '8px 10px', opacity: '0.4', fontSize: '0.72rem' });
+    return VS(rows);
   } else if (a.type === 'achievement') {
-    return '<div class="island-ach-tray-content">'
-      + '<div class="island-ach-tray-icon">' + icon('help', { size: 18, stroke: '#caa12a', strokeWidth: '1.5' }) + '</div>'
-      + '<div class="island-ach-tray-info">'
-      + '<div class="island-ach-tray-subtitle">Achievement Unlocked</div>'
-      + '<div class="island-ach-tray-name">' + escapeHtml(a.label || 'Unlocked!') + '</div>'
-      + '<div class="island-ach-tray-desc">' + escapeHtml(a.detail || '') + '</div>'
-      + '</div></div>';
+    return H([
+      R(icon('help', { size: 18, stroke: '#caa12a', strokeWidth: '1.5' })).className('island-ach-tray-icon'),
+      VS([
+        T('Achievement Unlocked').className('island-ach-tray-subtitle'),
+        T(a.label || 'Unlocked!').className('island-ach-tray-name'),
+        T(a.detail || '').className('island-ach-tray-desc')
+      ]).className('island-ach-tray-info')
+    ]).className('island-ach-tray-content');
   } else if (a.type === 'tabs' && a.items && a.items.length) {
-    var trayHtml = '<div class="island-tab-newtab" data-island-tab-new="1">' + icon('plus', { size: 12 }) + '<span>New tab</span></div><div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
+    var rows = [];
+    rows.push(H([R(icon('plus', { size: 12 })), T('New tab')]).className('island-tab-newtab').attr('data-island-tab-new', '1'));
+    rows.push(_divider());
     const pinnedItems = a.items.filter(function(it) { return it.pinned; });
     const unpinnedItems = a.items.filter(function(it) { return !it.pinned; }).slice().sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
+    function _trayTabItem(item, showClose) {
+      var title = item.title || 'New Tab';
+      if (title.length > 32) title = title.slice(0, 30) + '\u2026';
+      var children = [];
+      if (item.favicon) children.push(_favImg(item.favicon));
+      if (item.hasAudio) children.push(R(icon('speakerSmall', { size: 12, style: 'flex-shrink:0;opacity:0.6' })));
+      children.push(T(title).flex(1).styles({ minWidth: '0' }).truncate());
+      if (showClose) {
+        var cb = new V('button').className('island-tab-item-close' + (item.active ? ' island-tab-close-hover' : '')).attr('data-island-tab-close', item.id).attr('title', 'Close');
+        cb.el.textContent = '\u00d7';
+        children.push(cb);
+      }
+      return H(children).className('island-tab-item' + (item.active ? ' active' : '')).attr('data-island-tab', item.id);
+    }
     if (pinnedItems.length) {
       for (let pi = 0; pi < pinnedItems.length; pi++) {
-        const pItem = pinnedItems[pi];
-        let pTitle = pItem.title || 'New Tab';
-        if (pTitle.length > 32) pTitle = pTitle.slice(0, 30) + '\u2026';
-        const pFav = pItem.favicon ? '<img src="' + escapeHtml(pItem.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
-        const pAudio = pItem.hasAudio ? icon('speakerSmall', { size: 12, style: 'flex-shrink:0;opacity:0.6' }) : '';
-        const pClose = pItem.active ? '<button class="island-tab-item-close island-tab-close-hover" data-island-tab-close="' + pItem.id + '" title="Close">&times;</button>' : '';
-        trayHtml += '<div class="island-tab-item' + (pItem.active ? ' active' : '') + '" data-island-tab="' + pItem.id + '">' + pFav + pAudio + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(pTitle) + '</span>' + pClose + '</div>';
+        rows.push(_trayTabItem(pinnedItems[pi], pinnedItems[pi].active));
       }
-      if (unpinnedItems.length) trayHtml += '<div style="height:1px;background:var(--aether-border);margin:4px 0"></div>';
+      if (unpinnedItems.length) rows.push(_divider());
     }
     for (var ti = 0; ti < unpinnedItems.length; ti++) {
-      var item = unpinnedItems[ti];
-      var t = item.title || 'New Tab';
-      if (t.length > 32) t = t.slice(0, 30) + '\u2026';
-      var fav = item.favicon ? '<img src="' + escapeHtml(item.favicon) + '" width="14" height="14" style="border-radius:2px;flex-shrink:0" onerror="this.style.display=\'none\'">' : '';
-      const audioIcon = item.hasAudio ? icon('speakerSmall', { size: 12, style: 'flex-shrink:0;opacity:0.6' }) : '';
-      trayHtml += '<div class="island-tab-item' + (item.active ? ' active' : '') + '" data-island-tab="' + item.id + '">' + fav + audioIcon + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(t) + '</span><button class="island-tab-item-close" data-island-tab-close="' + item.id + '" title="Close">&times;</button></div>';
+      rows.push(_trayTabItem(unpinnedItems[ti], true));
     }
-    return trayHtml;
+    return VS(rows);
   }
   if (a.type === 'pulse') {
     const recent = (typeof Motion !== 'undefined') ? Motion.pulse.recent : [];
-    var trayHtml = '<div style="padding:6px 8px;font-size:0.6rem;color:#fff;opacity:0.6;text-transform:uppercase;letter-spacing:0.5px">Live Pulse</div>';
+    var rows = [];
+    rows.push(T('Live Pulse').styles({ padding: '6px 8px', fontSize: '0.6rem', color: '#fff', opacity: '0.6', textTransform: 'uppercase', letterSpacing: '0.5px' }));
     const start = Math.max(0, recent.length - 30);
     for (let ri = recent.length - 1; ri >= start; ri--) {
       const ev = recent[ri];
@@ -399,12 +427,17 @@ export function _islandBuildTray(a, isBrowse) {
       const age = Math.round((Date.now() - ev.timestamp) / 1000);
       const ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
       const statusDot = ev.ok === true ? '#22c55e' : ev.ok === false ? '#ef4444' : '#94a3b8';
-      trayHtml += '<div class="island-ctx-item" style="font-size:0.65rem;gap:6px;padding:3px 8px"><span style="width:4px;height:4px;border-radius:50%;background:' + statusDot + ';flex-shrink:0"></span><span style="color:' + col + ';min-width:36px">' + escapeHtml(ev.category) + '</span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:0.7">' + escapeHtml(ev.label) + '</span><span style="opacity:0.35;flex-shrink:0">' + ageStr + '</span></div>';
+      rows.push(H([
+        new V('span').styles({ width: '4px', height: '4px', borderRadius: '50%', background: statusDot, flexShrink: '0' }),
+        T(ev.category).foreground(col).styles({ minWidth: '36px' }),
+        T(ev.label).flex(1).styles({ minWidth: '0' }).truncate().opacity(0.7),
+        T(ageStr).opacity(0.35).styles({ flexShrink: '0' })
+      ]).className('island-ctx-item').styles({ fontSize: '0.65rem', gap: '6px', padding: '3px 8px' }));
     }
-    if (!recent.length) trayHtml += '<div style="padding:8px;opacity:0.3;font-size:0.65rem;text-align:center">No events yet</div>';
-    return trayHtml;
+    if (!recent.length) rows.push(T('No events yet').styles({ padding: '8px', opacity: '0.3', fontSize: '0.65rem', textAlign: 'center' }));
+    return VS(rows);
   }
-  return '';
+  return null;
 }
 window._islandBuildTray = _islandBuildTray;
 
@@ -422,15 +455,23 @@ export function _islandCloseDetailCard() {
 
 export function _islandShowDetailCard(pill, activity) {
   _islandCloseDetailCard();
-  const card = document.createElement('div');
-  card.className = 'island-detail-card';
-  // Header with type label
+  var V = window.View, T = window.Text, R = window.RawHTML;
   const typeLabels = { context: 'Context', download: 'Downloads', tabs: 'Tabs', insight: 'Annotations', achievement: 'Achievement', ai: 'AI', nowplaying: 'Now Playing', tts: 'Text to Speech', cc: 'Captions', audio: 'Audio', rss: 'Feed', bookmark: 'Bookmarked', 'feed-notif': 'Feed', pulse: 'Activity', qf: 'Quick Find', calendar: 'Calendar' };
-  const headerHtml = '<div class="island-detail-card-header">' + _islandRenderPill(activity) + '</div>';
-  // Tray content in larger format
+  // Header
+  var headerView = new V('div').className('island-detail-card-header').add(_islandRenderPill(activity));
+  // Tray content
   const isBrowse = ((window._currentRouteHash || window.location.hash || '').match(/^#(browse|research|search)$/));
-  const trayContent = _islandBuildTray(activity, isBrowse);
-  card.innerHTML = headerHtml + '<div class="island-ctx-tray">' + (trayContent || '<div style="padding:8px;opacity:0.4;font-size:0.72rem">' + (typeLabels[activity.type] || activity.type) + (activity.label ? ' — ' + activity.label : '') + (activity.detail ? '<br>' + activity.detail : '') + '</div>') + '</div>';
+  const trayContentView = _islandBuildTray(activity, isBrowse);
+  var trayWrapView = new V('div').className('island-ctx-tray');
+  if (trayContentView) {
+    trayWrapView.add(trayContentView);
+  } else {
+    var fallbackText = (typeLabels[activity.type] || activity.type) + (activity.label ? ' \u2014 ' + activity.label : '');
+    if (activity.detail) fallbackText += '\n' + activity.detail;
+    trayWrapView.add(T(fallbackText).styles({ padding: '8px', opacity: '0.4', fontSize: '0.72rem', whiteSpace: 'pre-line' }));
+  }
+  var cardView = new V('div').className('island-detail-card').add(headerView, trayWrapView);
+  const card = cardView.build();
   document.body.appendChild(card);
   // Position below pill, clamped to viewport edges
   const pillRect = pill.getBoundingClientRect();
@@ -696,9 +737,8 @@ export function _islandAttachHandlers(pill, a, hasTray) {
 function _islandHandleTap(pill, a, hasTray) {
   if (hasTray) {
     if (a.type === 'tabs') {
-      // Tabs pill in island mode: use connected pill dropdown (not on NTP — capsule is hidden)
-      var isNtp = document.getElementById('sidebar-nav') && document.getElementById('sidebar-nav').classList.contains('ntp-active');
-      if (!isNtp && typeof _showTabsInPillDropdown === 'function') {
+      // Tabs pill in island mode: use connected pill dropdown
+      if (typeof _showTabsInPillDropdown === 'function') {
         const pillDd = document.getElementById('pill-url-dropdown');
         const pillWrap = document.getElementById('pill-url-wrap');
         if (pillDd && pillWrap && pillWrap.classList.contains('pill-dropdown-open') && pillDd.querySelector('[data-pill-tab-switch]')) {
@@ -841,9 +881,9 @@ export function _islandRender() {
     delete existingEls[id];
     const compact = pill.querySelector('.pill-island-content');
     const tray = pill.querySelector('.island-ctx-tray');
-    // Smart content diffing: skip innerHTML if content unchanged
-    const newCompactHtml = _islandRenderPill(a);
-    if (compact._lastHtml !== newCompactHtml) { compact.innerHTML = newCompactHtml; compact._lastHtml = newCompactHtml; }
+    // Render pill as a View and mount into compact container
+    const pillView = _islandRenderPill(a);
+    AetherUI.mount(pillView, compact);
     // Download completion burst
     if (a.type === 'download' && a.progress >= 100 && !pill._dlCompleteFired) {
       pill._dlCompleteFired = true;
@@ -855,7 +895,8 @@ export function _islandRender() {
     // Fill items tray for context / download pills
     if (tray) {
       const isBrowse = ((window._currentRouteHash || window.location.hash || '').match(/^#(browse|research|search)$/));
-      tray.innerHTML = _islandBuildTray(a, isBrowse);
+      const trayView = _islandBuildTray(a, isBrowse);
+      if (trayView) { AetherUI.mount(trayView, tray); } else { tray.innerHTML = ''; }
     }
     const hasItems = !!(a.items && a.items.length);
     const hasTray = (hasItems && (a.type === 'context' || a.type === 'download' || a.type === 'tabs' || a.type === 'insight')) || a.type === 'achievement' || a.type === 'pulse' || a.type === 'pageinfo' || (a.type === 'insight' && a._paper && a._paperState);
@@ -880,8 +921,7 @@ export function _islandRender() {
         // Add or update +N badge
         let badge = pill.querySelector('.island-stack-badge');
         if (!badge) {
-          badge = document.createElement('span');
-          badge.className = 'island-stack-badge';
+          badge = new window.View('span').className('island-stack-badge').build();
           const content = pill.querySelector('.pill-island-content');
           if (content) content.appendChild(badge);
         }

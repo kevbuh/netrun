@@ -65,6 +65,7 @@ function View(tag) {
   this._viewType = null;
   this._onAppearFns = [];
   this._onDisappearFn = null;
+  this._listeners = [];
 }
 
 var VP = View.prototype;
@@ -72,13 +73,17 @@ var VP = View.prototype;
 // Build returns the DOM element
 VP.build = function() { return this.el; };
 
-// Dispose: call onDisappear, recurse into children, then dispose own effects
+// Dispose: call onDisappear, recurse into children, clean up listeners, then dispose own effects
 VP.dispose = function() {
   if (this._onDisappearFn) this._onDisappearFn();
   for (var i = 0; i < this._children.length; i++) {
     if (this._children[i].dispose) this._children[i].dispose();
   }
   this._children.length = 0;
+  for (var k = 0; k < this._listeners.length; k++) {
+    this.el.removeEventListener(this._listeners[k][0], this._listeners[k][1]);
+  }
+  this._listeners.length = 0;
   for (var j = 0; j < this._effects.length; j++) {
     if (this._effects[j].dispose) this._effects[j].dispose();
   }
@@ -106,6 +111,9 @@ VP._bindText = function(content) {
   }
   return this;
 };
+
+// Public reactive text modifier (delegates to _bindText)
+VP.text = function(content) { return this._bindText(content); };
 
 // ─── Reactive helper — DRY signal-aware modifier pattern ──
 
@@ -328,28 +336,33 @@ VP.onDisappear = function(fn) {
 
 VP.onTap = function(fn) {
   this.el.addEventListener('click', fn);
+  this._listeners.push(['click', fn]);
   this.el.style.cursor = 'pointer';
   return this;
 };
 
 VP.onHover = function(enterFn, leaveFn) {
-  if (enterFn) this.el.addEventListener('mouseenter', enterFn);
-  if (leaveFn) this.el.addEventListener('mouseleave', leaveFn);
+  if (enterFn) { this.el.addEventListener('mouseenter', enterFn); this._listeners.push(['mouseenter', enterFn]); }
+  if (leaveFn) { this.el.addEventListener('mouseleave', leaveFn); this._listeners.push(['mouseleave', leaveFn]); }
   return this;
 };
 
 VP.onChange = function(fn) {
   this.el.addEventListener('change', fn);
+  this._listeners.push(['change', fn]);
   return this;
 };
 
 VP.onSubmit = function(fn) {
-  this.el.addEventListener('submit', function(e) { e.preventDefault(); fn(e); });
+  var handler = function(e) { e.preventDefault(); fn(e); };
+  this.el.addEventListener('submit', handler);
+  this._listeners.push(['submit', handler]);
   return this;
 };
 
 VP.on = function(event, fn) {
   this.el.addEventListener(event, fn);
+  this._listeners.push([event, fn]);
   return this;
 };
 
@@ -569,6 +582,14 @@ VP._appendChildren = function(children) {
   }
 };
 
+// Builder pattern: content(fn) returns children array to append
+VP.content = function(fn) {
+  var children = fn();
+  if (Array.isArray(children)) this._appendChildren(children);
+  else if (children != null) this._appendChildren([children]);
+  return this;
+};
+
 // Public API for adding children after construction
 VP.add = function() {
   var children = arguments.length === 1 && Array.isArray(arguments[0])
@@ -580,4 +601,4 @@ VP.add = function() {
 // ─── Export ───────────────────────────────────────────────
 
 window._AetherUIView = View;
-export { View };
+export { View, _spaceToken, _colorToken };

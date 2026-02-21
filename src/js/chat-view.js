@@ -75,6 +75,8 @@ async function _chatViewNewThread(initialMessage) {
 function _chatViewRegisterUpdates(session) {
   session.onUpdate((type) => {
     _chatViewRenderMessages(type === 'done' || type === 'message');
+    // Update send/stop button state
+    _chatViewUpdateSendBtn(session.streaming && type !== 'done');
     // Update tab title from thread
     if (session.thread.title) {
       const tab = _browseTabs.find(t => t.id === _browseActiveTab);
@@ -84,6 +86,20 @@ function _chatViewRegisterUpdates(session) {
       }
     }
   });
+}
+
+function _chatViewUpdateSendBtn(isStreaming) {
+  const btn = document.querySelector('.browse-ntp.chat-mode .chat-view-send-btn');
+  if (!btn) return;
+  if (isStreaming) {
+    btn.innerHTML = icon('stopCircle', { size: 14 });
+    btn.title = 'Stop';
+    btn.classList.add('doc-ask-inline-stop');
+  } else {
+    btn.innerHTML = '\u2191';
+    btn.title = 'Send';
+    btn.classList.remove('doc-ask-inline-stop');
+  }
 }
 
 function _chatViewMorphNTP(ntp) {
@@ -331,6 +347,26 @@ function _chatViewMorphNTP(ntp) {
       }
     };
 
+    // ── Send / Stop button ──
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'aether-input-btn doc-ask-inline-send chat-view-send-btn';
+    sendBtn.innerHTML = '\u2191';
+    sendBtn.title = 'Send';
+    sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    sendBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      if (_chatViewSession && _chatViewSession.streaming) {
+        _chatViewSession.cancel();
+        return;
+      }
+      const text = input ? input.value.trim() : '';
+      if (text && _chatViewSession && !_chatViewSession.streaming) {
+        input.value = '';
+        _chatViewSend(text);
+      }
+    });
+    if (form) form.appendChild(sendBtn);
+
     // Focus after morph
     requestAnimationFrame(() => input.focus());
   }
@@ -347,6 +383,21 @@ function _chatViewMorphNTP(ntp) {
       }
     };
   }
+
+  // ── Model label row ──
+  const modelRow = document.createElement('div');
+  modelRow.className = 'chat-view-model-row';
+  const modelLabel = document.createElement('span');
+  modelLabel.className = 'aether-model-label chat-view-model-label';
+  const currentModel = Settings.get('chatModel') || 'qwen2.5:3b';
+  modelLabel.textContent = currentModel;
+  modelLabel.title = 'Change model';
+  modelLabel.style.cursor = 'pointer';
+  modelLabel.addEventListener('click', () => {
+    if (_chatViewCmdPopup) _doAetherModel(_chatViewCmdPopup);
+  });
+  modelRow.appendChild(modelLabel);
+  center.appendChild(modelRow);
 
   // Add chat-mode class (triggers CSS transitions)
   ntp.classList.add('chat-mode');
@@ -458,6 +509,9 @@ function _chatViewCleanupMorph() {
       form.onsubmit = form._origOnsubmit;
       delete form._origOnsubmit;
     }
+    // Remove send button
+    const sendBtn = form.querySelector('.chat-view-send-btn');
+    if (sendBtn) sendBtn.remove();
   }
 
   // Restore search box width constraints
@@ -466,9 +520,11 @@ function _chatViewCleanupMorph() {
     searchBox.classList.add('max-w-[680px]', 'mx-auto');
   }
 
-  // Remove attachment strip
+  // Remove model row and attachment strip
   const center = ntp.querySelector('.browse-ntp-center');
   if (center) {
+    const modelRow = center.querySelector('.chat-view-model-row');
+    if (modelRow) modelRow.remove();
     const strip = center.querySelector('.doc-screenshot-attachments');
     if (strip) strip.remove();
     // Restore original remove method
@@ -629,11 +685,17 @@ function _openChatListPage(tab) {
 
 // ── Thread list ──
 
-async function _chatViewRenderThreadList(container) {
-  const threads = await electronAPI.dbQuery('chat-thread-list', 50, 0);
+async function _chatViewRenderThreadList(container, searchQuery) {
+  let threads;
+  if (searchQuery) {
+    threads = await electronAPI.dbQuery('chat-thread-search', searchQuery);
+  } else {
+    threads = await electronAPI.dbQuery('chat-thread-list', 50, 0);
+  }
 
   const chatIcon = icon('chatHistory', { size: 18 });
   const plusIcon = icon('plus', { size: 14 });
+  const searchIcon = icon('search', { size: 13 });
 
   // Group threads by date
   const now = Date.now();
@@ -652,16 +714,23 @@ async function _chatViewRenderThreadList(container) {
   let html = '<div style="max-width:680px;margin:0 auto;padding:32px 24px 64px;">';
 
   // Header: back button + icon + title + new chat button
-  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">';
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">';
   html += '<span style="display:flex;align-items:center;color:var(--nr-text-quaternary);">' + chatIcon + '</span>';
   html += '<span style="font-size:1.1rem;font-weight:600;color:var(--nr-text-primary);flex:1;">Chats</span>';
   html += '<button onclick="_chatListNewChat()" style="background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:6px;color:var(--nr-text-secondary);display:flex;align-items:center;gap:4px;font-size:0.75rem;transition:background 0.15s;" onmouseenter="this.style.background=\'var(--nr-bg-raised)\'" onmouseleave="this.style.background=\'none\'">' + plusIcon + ' New</button>';
   html += '</div>';
 
+  // Search input
+  html += '<div class="chat-list-search-wrap">';
+  html += '<span class="chat-list-search-icon">' + searchIcon + '</span>';
+  html += '<input class="chat-list-search-input" type="text" placeholder="Search chats\u2026" value="' + escapeHtml(searchQuery || '') + '" />';
+  html += '</div>';
+
   if (!threads || threads.length === 0) {
-    html += '<div style="text-align:center;padding:48px 0;color:var(--nr-text-secondary);font-size:0.85rem;">No chats yet</div>';
+    html += '<div style="text-align:center;padding:48px 0;color:var(--nr-text-secondary);font-size:0.85rem;">' + (searchQuery ? 'No matching chats' : 'No chats yet') + '</div>';
     html += '</div>';
     container.innerHTML = html;
+    _chatListBindSearch(container);
     return;
   }
 
@@ -698,6 +767,25 @@ async function _chatViewRenderThreadList(container) {
 
   html += '</div>';
   container.innerHTML = html;
+  _chatListBindSearch(container);
+}
+
+let _chatListSearchTimer = null;
+function _chatListBindSearch(container) {
+  const searchInput = container.querySelector('.chat-list-search-input');
+  if (!searchInput) return;
+  searchInput.addEventListener('input', function() {
+    clearTimeout(_chatListSearchTimer);
+    const query = searchInput.value.trim();
+    _chatListSearchTimer = setTimeout(() => {
+      _chatViewRenderThreadList(container, query || undefined);
+    }, 250);
+  });
+  // Focus search if it had a value (re-render from search)
+  if (searchInput.value) {
+    searchInput.focus();
+    searchInput.selectionStart = searchInput.selectionEnd = searchInput.value.length;
+  }
 }
 
 function _chatViewRelativeTime(date) {
