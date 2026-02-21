@@ -219,6 +219,16 @@ function _buildToolbar(tab, toolbar) {
   });
   toolbar.appendChild(hlToggle);
 
+  // HUD mode toggle
+  var hudToggle = _tbBtn(tab, null, icon('crosshair', { size: 16 }), 'HUD mode', function() {
+    tab._pdfHudMode = !tab._pdfHudMode;
+    var viewer = tab._nerdViewerEl || tab._pdfViewerEl;
+    if (viewer) viewer.classList.toggle('nerd-hud-active', tab._pdfHudMode);
+    document.body.classList.toggle('nerd-hud-active', tab._pdfHudMode);
+    hudToggle.classList.toggle('hud-active', tab._pdfHudMode);
+  });
+  toolbar.appendChild(hudToggle);
+
   // Bookmark button
   var bookmarkBtn = _tbBtn(tab, null, icon('bookmark', { size: 16 }), 'Save to Reading List', function() {
     if (typeof window.browseSaveToReadingList === 'function') window.browseSaveToReadingList();

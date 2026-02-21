@@ -1,0 +1,63 @@
+/* nerd-hud.css — HUD Mode for Nerd Mode PDF reader */
+/* Activated by .nerd-hud-active on .pdf-viewer-container and body */
+
+/* Smooth transitions for all HUD-affected elements */
+.pdf-viewer-container .pdf-left-panel,
+.pdf-viewer-container .pdf-toolbar,
+.pdf-viewer-container .pdf-pages-container {
+  transition: transform 0.4s ease, background 0.4s ease, backdrop-filter 0.4s ease;
+}
+body #universal-panel {
+  transition: transform 0.4s ease, background 0.4s ease, backdrop-filter 0.4s ease;
+}
+
+/* ── Left panel: tilt inward from right edge ── */
+.nerd-hud-active .pdf-left-panel {
+  transform: perspective(1200px) rotateY(8deg);
+  transform-origin: right center;
+  background: rgba(20, 20, 25, 0.65) !important;
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ── Right panel: tilt inward from left edge ── */
+body.nerd-hud-active #universal-panel {
+  transform: perspective(1200px) rotateY(-8deg);
+  transform-origin: left center;
+  background: rgba(20, 20, 25, 0.65) !important;
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ── PDF toolbar: glassmorphism + subtle glow ── */
+.nerd-hud-active .pdf-toolbar {
+  background: rgba(20, 20, 25, 0.55) !important;
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 1px 12px rgba(100, 180, 255, 0.08);
+}
+
+/* ── Pages container: slight recessed feel ── */
+.nerd-hud-active .pdf-pages-container {
+  transform: scale(0.97);
+  transform-origin: center center;
+}
+
+/* ── Vignette overlay on the viewer container ── */
+.nerd-hud-active.pdf-viewer-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.25) 100%);
+}
+
+/* ── HUD toggle button active state ── */
+.pdf-tb-btn.hud-active {
+  color: var(--nr-accent) !important;
+  background: color-mix(in srgb, var(--nr-accent) 15%, transparent);
+}

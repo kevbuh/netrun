@@ -111,6 +111,9 @@ function _nerdModeEnable(tab) {
 function _nerdModeDisable(tab) {
   _nerdModeEnabled.delete(tab.id);
 
+  // Remove HUD mode if active
+  document.body.classList.remove('nerd-hud-active');
+
   // Destroy PDF viewer
   _pdfViewerDestroy(tab);
   if (tab._nerdViewerEl) {
@@ -155,6 +158,9 @@ export function _nerdModeOnTabSelect(tab) {
     }
     if (tab.el) tab.el.style.display = 'none';
 
+    // Restore HUD mode class if this tab has it active
+    document.body.classList.toggle('nerd-hud-active', !!tab._pdfHudMode);
+
     // Show nerd pill
     islandUpdate('nerd', {
       type: 'nerd',
@@ -170,7 +176,8 @@ export function _nerdModeOnTabSelect(tab) {
     _invalidatePanelRender('browse');
     showPanelForView('browse');
   } else {
-    // Remove nerd pill if switching to non-nerd tab
+    // Remove nerd pill and HUD mode if switching to non-nerd tab
+    document.body.classList.remove('nerd-hud-active');
     islandRemove('nerd');
   }
 }
