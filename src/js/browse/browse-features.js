@@ -329,6 +329,46 @@ document.addEventListener('gestureend', function(e) {
   _magnifySnapTimer = setTimeout(_magnifySnapBack, 200);
 }, { passive: false, capture: true });
 
+// Magnify from webview — called when pinch events relay from inside an iframe/webview
+// Chrome-style: persistent magnification centered on cursor, no snap-back
+// clientX/clientY are already translated to parent document coordinates by the caller
+
+function _magnifyCancelAnimation(el) {
+  if (el && el.getAnimations) {
+    el.getAnimations().forEach(function(a) { a.cancel(); });
+  }
+}
+
+export function _magnifyFromWebview(el, deltaY, clientX, clientY) {
+  _magnifyCancelAnimation(el);
+  _magnifyEl = el;
+  _magnifyX = clientX;
+  _magnifyY = clientY;
+  clearTimeout(_magnifySnapTimer);
+  const delta = -deltaY * 0.01;
+  _magnifyZoom = Math.min(5, Math.max(1, _magnifyZoom + delta));
+  _magnifyApply();
+}
+
+export function _magnifyFromWebviewGestureStart(el, clientX, clientY) {
+  _magnifyCancelAnimation(el);
+  _magnifyEl = el;
+  _magnifyX = clientX;
+  _magnifyY = clientY;
+  _magnifyGestureStart = _magnifyZoom || 1;
+  clearTimeout(_magnifySnapTimer);
+}
+
+export function _magnifyFromWebviewGestureChange(el, scale) {
+  if (!_magnifyEl) return;
+  _magnifyZoom = Math.min(5, Math.max(1, _magnifyGestureStart * scale));
+  _magnifyApply();
+}
+
+export function _magnifyFromWebviewGestureEnd() {
+  // No snap-back — zoom persists like Chrome
+}
+
 // Escape snaps back from magnify
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape' && _magnifyZoom > 1.01) {

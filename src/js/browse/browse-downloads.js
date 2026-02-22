@@ -10,7 +10,7 @@ import { _annotationsEnabled, _hideAnnotationTooltip, _showAnnotateOfferPill, _s
 import { _browseApplyAdaptiveColor, _browseSetUrlDisplay, _browseUpdateAdBlockBadge, _browseUrlDomain, _saveBrowseVisit } from '/js/browse-urlbar.js';
 import { _browseCollapseEmptyWindows, browseNewTab } from '/js/browse/browse-windows.js';
 import { _browseFaviconUrl, _browseNavDirection, _clearBrowseNavDirection, _browseRenderTabs, _browseTitleFromUrl, _updateIslandNavButtons } from '/js/browse/browse-island.js';
-import { _browseToggleFindBar, _browseUpdateSaveBtn, _swipeCommit, _switchTabLeft, _switchTabRight } from '/js/browse/browse-features.js';
+import { _browseToggleFindBar, _browseUpdateSaveBtn, _swipeCommit, _switchTabLeft, _switchTabRight, _magnifyFromWebview, _magnifyFromWebviewGestureStart, _magnifyFromWebviewGestureChange, _magnifyFromWebviewGestureEnd } from '/js/browse/browse-features.js';
 import { _updateAudioIndicator } from '/js/browse/browse-audio.js';
 import { _pageInfoOnPageLoad, _pageInfoCleanup, _pageInfoUpdateScroll, _pageInfoUpdateTokens } from '/js/browse/browse-pageinfo.js';
 import { _ccPillDismissed, _resetCcPillDismissed, stopCaptions } from '/js/browse/browse-captions.js';
@@ -1219,6 +1219,33 @@ export function _browseInjectContentScripts(tab, frame) {
       })();
     `).catch(()=>{});
 
+    // Pinch-to-magnify — relay raw gesture data + cursor position to parent
+    frame.executeJavaScript(`
+      (function(){
+        if(window.__aetherPinchInjected)return;
+        window.__aetherPinchInjected=true;
+        var mx=0,my=0;
+        document.addEventListener('mousemove',function(e){mx=e.clientX;my=e.clientY;},{passive:true});
+        document.addEventListener('wheel',function(e){
+          if(!e.ctrlKey)return;
+          e.preventDefault();
+          console.log('__AETHER_MAGNIFY_WHEEL__'+e.deltaY+','+e.clientX+','+e.clientY);
+        },{passive:false});
+        document.addEventListener('gesturestart',function(e){
+          e.preventDefault();
+          console.log('__AETHER_MAGNIFY_GSTART__'+mx+','+my);
+        },{passive:false});
+        document.addEventListener('gesturechange',function(e){
+          e.preventDefault();
+          console.log('__AETHER_MAGNIFY_GCHANGE__'+e.scale);
+        },{passive:false});
+        document.addEventListener('gestureend',function(e){
+          e.preventDefault();
+          console.log('__AETHER_MAGNIFY_GEND__');
+        },{passive:false});
+      })();
+    `).catch(()=>{});
+
     // Two-finger horizontal swipe detection — relay to parent for back/forward nav
     frame.executeJavaScript(`
       (function(){
@@ -1430,6 +1457,28 @@ export function _browseInjectContentScripts(tab, frame) {
     } else if (e.message && e.message.startsWith('__AETHER_TOKENS__')) {
       if (tab.id === _browseActiveTab) {
         _pageInfoUpdateTokens(parseInt(e.message.slice('__AETHER_TOKENS__'.length)));
+      }
+    } else if (e.message && e.message.startsWith('__AETHER_MAGNIFY_WHEEL__')) {
+      if (tab.id === _browseActiveTab && tab.el) {
+        var wp = e.message.slice('__AETHER_MAGNIFY_WHEEL__'.length).split(',');
+        var container = document.getElementById('browse-content');
+        var cr = container ? container.getBoundingClientRect() : { left: 0, top: 0 };
+        _magnifyFromWebview(tab.el, parseFloat(wp[0]), cr.left + parseFloat(wp[1]), cr.top + parseFloat(wp[2]));
+      }
+    } else if (e.message && e.message.startsWith('__AETHER_MAGNIFY_GSTART__')) {
+      if (tab.id === _browseActiveTab && tab.el) {
+        var gp = e.message.slice('__AETHER_MAGNIFY_GSTART__'.length).split(',');
+        var gc = document.getElementById('browse-content');
+        var gcr = gc ? gc.getBoundingClientRect() : { left: 0, top: 0 };
+        _magnifyFromWebviewGestureStart(tab.el, gcr.left + parseFloat(gp[0]), gcr.top + parseFloat(gp[1]));
+      }
+    } else if (e.message && e.message.startsWith('__AETHER_MAGNIFY_GCHANGE__')) {
+      if (tab.id === _browseActiveTab && tab.el) {
+        _magnifyFromWebviewGestureChange(tab.el, parseFloat(e.message.slice('__AETHER_MAGNIFY_GCHANGE__'.length)));
+      }
+    } else if (e.message === '__AETHER_MAGNIFY_GEND__') {
+      if (tab.id === _browseActiveTab && tab.el) {
+        _magnifyFromWebviewGestureEnd();
       }
     } else if (e.message && e.message.startsWith('__AETHER_SWIPE__')) {
       if (tab.id === _browseActiveTab && typeof _swipeCommit === 'function') {
@@ -1814,19 +1863,127 @@ export function _browseBindFrame(tab) {
       })();`).catch(() => {});
     };
 
-    // YouTube ad-skipper content script (handles ads from within the page to avoid detection)
+    // YouTube ad-blocker content script — multi-layer approach:
+    // L1: Strip ytInitialPlayerResponse ad fields (cold navigation)
+    // L2: Proxy Object.assign to inject no-ad flag (SPA navigation)
+    // L3: Intercept fetch /player responses and strip ad fields (fallback)
+    // L4: DOM skip button polling + mute/fast-forward (safety net)
+    // L5: Anti-adblock popup dismissal via MutationObserver
     const _injectYTAdSkipper = (url) => {
       if (!url || (!url.includes('youtube.com') && !url.includes('youtu.be'))) return;
       el.executeJavaScript(`(function(){
-        if(window.__ytAdSkipInjected) return;
-        window.__ytAdSkipInjected=true;
-        // Only click skip buttons — no DOM removal/hiding to avoid detection
-        setInterval(function(){
-          var btns = document.querySelectorAll('.ytp-skip-ad-button, .ytp-ad-skip-button-modern, .ytp-ad-skip-button-container button');
-          for(var i=0;i<btns.length;i++){
-            if(btns[i].offsetParent!==null) btns[i].click();
+        if(window.__ytAdBlockInjected) return;
+        window.__ytAdBlockInjected=true;
+
+        // Helper: strip ad-related keys from player response objects
+        function stripAds(obj){
+          if(!obj||typeof obj!=='object') return obj;
+          delete obj.playerAds;
+          delete obj.adPlacements;
+          delete obj.adSlots;
+          return obj;
+        }
+
+        // L1: Strip ytInitialPlayerResponse ad data (cold/full page loads)
+        try{
+          if(window.ytInitialPlayerResponse){
+            stripAds(window.ytInitialPlayerResponse);
           }
+          // Define getter/setter to catch late assignments
+          var _initResp=window.ytInitialPlayerResponse;
+          Object.defineProperty(window,'ytInitialPlayerResponse',{
+            configurable:true,
+            get:function(){return _initResp;},
+            set:function(v){_initResp=stripAds(v);}
+          });
+        }catch(e){}
+
+        // L2: Proxy Object.assign to inject no-ad context on SPA navigations
+        try{
+          var _origAssign=Object.assign;
+          Object.assign=function(target){
+            var result=_origAssign.apply(this,arguments);
+            try{
+              if(target&&target.contentPlaybackContext){
+                target.contentPlaybackContext=_origAssign({},target.contentPlaybackContext,{isInlinePlaybackNoAd:true});
+              }
+            }catch(e){}
+            return result;
+          };
+          // Preserve native toString to avoid detection
+          Object.assign.toString=function(){return'function assign() { [native code] }';};
+        }catch(e){}
+
+        // L3: Intercept fetch responses for /player endpoint
+        try{
+          var _origFetch=window.fetch;
+          window.fetch=function(){
+            var args=arguments;
+            var url=(args[0]&&typeof args[0]==='string')?args[0]:(args[0]&&args[0].url)||'';
+            if(url.indexOf('/youtubei/v1/player')!==-1){
+              return _origFetch.apply(this,args).then(function(resp){
+                if(!resp||!resp.ok) return resp;
+                return resp.clone().text().then(function(txt){
+                  try{
+                    var data=JSON.parse(txt);
+                    stripAds(data);
+                    return new Response(JSON.stringify(data),{
+                      status:resp.status,
+                      statusText:resp.statusText,
+                      headers:resp.headers
+                    });
+                  }catch(e){return resp;}
+                }).catch(function(){return resp;});
+              });
+            }
+            return _origFetch.apply(this,args);
+          };
+          window.fetch.toString=function(){return'function fetch() { [native code] }';};
+        }catch(e){}
+
+        // L4: Enhanced skip button polling + mute/fast-forward as safety net
+        setInterval(function(){
+          try{
+            // Click any visible skip buttons
+            var btns=document.querySelectorAll('.ytp-skip-ad-button,.ytp-ad-skip-button-modern,.ytp-ad-skip-button-container button');
+            for(var i=0;i<btns.length;i++){
+              if(btns[i].offsetParent!==null) btns[i].click();
+            }
+            // If an ad is playing, mute and fast-forward it
+            var player=document.querySelector('.html5-video-player');
+            if(player&&player.classList.contains('ad-showing')){
+              var video=player.querySelector('video');
+              if(video){
+                video.muted=true;
+                if(video.duration&&isFinite(video.duration)) video.currentTime=video.duration;
+              }
+            }
+          }catch(e){}
         },500);
+
+        // L5: Anti-adblock enforcement popup removal
+        (function(){
+          var obs=new MutationObserver(function(mutations){
+            try{
+              // Dismiss "ad blockers are not allowed" popup
+              var popup=document.querySelector('tp-yt-paper-dialog.ytd-enforcement-message-view-model, ytd-popup-container ytd-enforcement-message-view-model');
+              if(popup){
+                // Try clicking dismiss/continue buttons
+                var dismiss=popup.querySelector('button, .yt-spec-button-shape-next');
+                if(dismiss) dismiss.click();
+                // Remove the popup overlay
+                var overlay=document.querySelector('tp-yt-iron-overlay-backdrop');
+                if(overlay) overlay.remove();
+                popup.remove();
+                // Resume playback if paused
+                var video=document.querySelector('.html5-video-player video');
+                if(video&&video.paused) video.play();
+              }
+            }catch(e){}
+          });
+          obs.observe(document.body||document.documentElement,{childList:true,subtree:true});
+          setTimeout(function(){obs.disconnect();},300000);
+        })();
       })();`).catch(() => {});
     };
 
