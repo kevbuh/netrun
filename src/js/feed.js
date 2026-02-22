@@ -41,6 +41,17 @@ function _feedDelete(path, body) {
   }).catch(() => {});
 }
 
+function _feedPut(path, body) {
+  fetch(_FEED_SERVER + path, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(5000)
+  }).catch(() => {});
+}
+
+let _sourcesSynced = false;
+
 function _setFeedServerStatus(online) {
   const wrap = document.getElementById('feed-server-status');
   const dot = document.getElementById('feed-server-dot');
@@ -610,6 +621,8 @@ export function unsubscribeSource(key) {
     custom[idx].enabled = false;
     Settings.setJSON('customFeeds', custom);
   }
+  // Sync disable to feedserver
+  _feedPost('/api/sources/sync', { sources: { [key]: false } });
   // Remove posts from this source and re-render
   allPapers = allPapers.filter(p => p.source !== key);
   renderSourceBubbles();
@@ -907,6 +920,8 @@ export function completeOnboarding() {
   });
   setLS('feedSources', sources);
   setLS('feedNotifSources', notifSources);
+  // Sync source selections to feedserver
+  _feedPost('/api/sources/sync', { sources });
   document.getElementById('onboard-view').style.display = 'none';
   document.getElementById('home-feed-section').style.display = '';
   // Show top pill bar after onboarding
@@ -953,28 +968,34 @@ export async function addCustomFeed() {
   }
   const feeds = getCustomFeeds();
   if (feeds.some(f => f.url === url)) return;
-  // Try to fetch the feed title
+  // Try to fetch the feed title — feedserver proxy first, IPC fallback
   let name = url;
   try { name = new URL(url).hostname.replace(/^www\./, '').replace(/^api\./, ''); } catch (e) { /* fire-and-forget */ }
   try {
-    const result = await apiGet(`/api/rss-proxy?url=${encodeURIComponent(url)}`);
-    const xml = result && result._proxy ? atob(result.data) : '';
-    const doc = new DOMParser().parseFromString(xml, 'text/xml');
-    const feedTitle = (doc.querySelector('channel > title, feed > title')?.textContent || '').trim();
-    if (feedTitle) name = feedTitle;
-  } catch (e) { /* fire-and-forget */ }
+    const resp = await fetch(_FEED_SERVER + '/api/rss-proxy?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(10000) });
+    if (resp.ok) {
+      const xml = await resp.text();
+      const doc = new DOMParser().parseFromString(xml, 'text/xml');
+      const feedTitle = (doc.querySelector('channel > title, feed > title')?.textContent || '').trim();
+      if (feedTitle) name = feedTitle;
+    }
+  } catch (_) { /* feed server unavailable — use hostname as name */ }
   feeds.push({ url, name, enabled: true });
   setLS('customFeeds', feeds);
   input.value = '';
   renderCustomFeedsList();
+  // Register with feedserver
+  _feedPost('/api/sources', { key: 'custom:' + name, name, url, cat: 'Custom' });
   allPapers = [];
   loadAllFeeds();
 }
 
 export function removeCustomFeed(index) {
   const feeds = getCustomFeeds();
-  feeds.splice(index, 1);
+  const removed = feeds.splice(index, 1)[0];
   setLS('customFeeds', feeds);
+  // Sync removal to feedserver (disable the source)
+  if (removed) _feedPost('/api/sources/sync', { sources: { ['custom:' + removed.name]: false } });
   renderCustomFeedsList();
   allPapers = [];
   loadAllFeeds();
@@ -984,6 +1005,9 @@ export function toggleCustomFeed(index, enabled) {
   const feeds = getCustomFeeds();
   feeds[index].enabled = enabled;
   setLS('customFeeds', feeds);
+  // Sync toggle to feedserver
+  const f = feeds[index];
+  _feedPost('/api/sources/sync', { sources: { ['custom:' + f.name]: enabled } });
   allPapers = [];
   loadAllFeeds();
 }
@@ -1153,77 +1177,39 @@ export async function loadAllFeeds() {
   // Show spinner only if we have nothing to show yet
   const container = document.getElementById('papers');
   if (allPapers.length === 0) {
-    AetherUI.mount(window.RawHTML('<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>'), container);
+    AetherUI.mount(window.RawHTML('<div style="grid-column:1/-1" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>'), container);
   }
 
-  // Try Go feed server first (single bulk call), fall back to per-source IPC
-  let usedServer = false;
+  // Fetch from feedserver
   try {
     const result = await _feedFetch('/api/timeline?sort=latest&limit=2000');
     if (abort.signal.aborted) return;
     if (result && result.items) {
       allPapers = result.items;
-      usedServer = true;
       _setFeedServerStatus(true);
       renderPapers();
       if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Loading feeds', detail: 'Feed server OK' });
       // Trigger background refresh so next load has fresher data
       _feedPost('/api/refresh', {});
+      // Sync source prefs + custom feeds to feedserver on first contact
+      if (!_sourcesSynced) {
+        _sourcesSynced = true;
+        _feedPost('/api/sources/sync', { sources: getFeedSources() });
+        const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
+        customFeeds.forEach(f => {
+          _feedPost('/api/sources', { key: 'custom:' + f.name, name: f.name, url: f.url, cat: 'Custom' });
+        });
+      }
     }
-  } catch (_) {
-    // Feed server unavailable — fall back to IPC
-  }
-
-  if (!usedServer) {
+  } catch (e) {
+    if (abort.signal.aborted) return;
     _setFeedServerStatus(false);
-    // Fallback: per-source IPC calls (existing path)
-    const enabledEntries = FEED_CATALOG.filter(f => sources[f.key]).map(f => ({ key: f.key, url: f.url || null, special: f.special || null }));
-    const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
-    const MAX_PER_SOURCE = 100;
-
-    const sourcePromises = enabledEntries.map(entry =>
-      apiPost('/api/feed-items/catalog', { entries: [entry], limit: MAX_PER_SOURCE })
-        .catch(() => [])
-    );
-
-    const customPromise = customFeeds.length > 0
-      ? apiPost('/api/feed-items/custom', { feeds: customFeeds.map(f => ({ url: f.url, name: f.name })) }).catch(() => [])
-      : Promise.resolve([]);
-
-    let loadedCount = 0;
-    const totalSources = sourcePromises.length + (customFeeds.length > 0 ? 1 : 0);
-
-    sourcePromises.forEach(p => p.then(items => {
-      if (abort.signal.aborted) return;
-      if (items.length) {
-        allPapers = allPapers.concat(items);
-        renderPapers();
-      }
-      loadedCount++;
-      if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Loading feeds', detail: loadedCount + '/' + totalSources + ' sources' });
-    }));
-
-    customPromise.then(items => {
-      if (abort.signal.aborted) return;
-      if (items.length) {
-        allPapers = allPapers.concat(items);
-        renderPapers();
-      }
-      loadedCount++;
-      if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Loading feeds', detail: loadedCount + '/' + totalSources + ' sources' });
-    });
-
-    try {
-      await Promise.all([...sourcePromises, customPromise]);
-    } catch (e) {
-      if (abort.signal.aborted) return;
-      if (typeof islandRemove === 'function') islandRemove('feed');
-      AetherUI.mount(window.VStack(
-        window.Text('Failed to load feed: ' + e.message).foreground('red'),
-        window.Text('Try refreshing or check your connection.').className('mt-2 text-[0.85rem] text-muted')
-      ).className('text-center py-20 text-red-400'), container);
-      return;
-    }
+    if (typeof islandRemove === 'function') islandRemove('feed');
+    AetherUI.mount(window.VStack(
+      window.Text('Feed server unavailable').foreground('red'),
+      window.Text('Make sure the feed server is running on port 8400.').className('mt-2 text-[0.85rem] text-muted')
+    ).className('text-center py-20 text-red-400'), container);
+    return;
   }
 
   if (abort.signal.aborted) return;
@@ -1642,7 +1628,7 @@ export function _renderFeedEmptyState(container, hasUnfilteredPapers) {
     const refreshBtn = window.Button('Refresh feeds').onTap(function() { loadAllFeeds(); });
     children.push(window.HStack(selectBtn, refreshBtn).spacing(3));
   }
-  const v = window.VStack(children).alignment('center').styles({justifyContent:'center', columnSpan:'all', padding:'5rem 0'}).spacing(4);
+  const v = window.VStack(children).alignment('center').styles({justifyContent:'center', gridColumn:'1 / -1', padding:'5rem 0'}).spacing(4);
   AetherUI.mount(v, container);
 }
 
@@ -1792,7 +1778,7 @@ export function _renderFilteredPapers(filtered, ctx) {
   if (feedViewMode === 'compact' || feedViewMode === 'verbose' || feedViewMode === 'twitter') {
     const wrapClass = feedViewMode === 'twitter' ? 'flex flex-col max-w-[600px] mx-auto' : 'flex flex-col' + (feedViewMode === 'verbose' ? ' gap-3' : '');
     const wrap = VStack(cards).className(wrapClass);
-    wrap.styles({ columnSpan: 'all' });
+    wrap.styles({ gridColumn: '1 / -1' });
     AetherUI.append(wrap, container);
   } else {
     // Block view: cards are direct children of container for CSS columns
