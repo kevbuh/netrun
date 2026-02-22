@@ -149,16 +149,14 @@ export function _expandIsland() {
 export function _collapseIsland() {
   var wrap = document.getElementById('pill-url-wrap');
   if (!wrap) return;
-  wrap.classList.remove('island-expanded', 'island-tabs-expanded', 'island-ai-expanded');
+  wrap.classList.remove('island-expanded', 'island-ai-expanded');
   islandExpanded.value = false;
   islandSubState.value = 'default';
   _closeIslandTabsDropdown();
   _collapseIslandCleanup();
   _restoreElementsFromIsland();
-  var tabsFull = document.getElementById('pill-island-tabs-full');
   var aiFull = document.getElementById('pill-island-ai-full');
   var utilityRow = document.getElementById('pill-island-utility-row');
-  if (tabsFull) tabsFull.innerHTML = '';
   if (aiFull) aiFull.innerHTML = '';
   if (utilityRow) utilityRow.innerHTML = '';
   var tabsAnchor = document.getElementById('pill-island-tabs-anchor');
@@ -225,16 +223,13 @@ function _restoreElementsFromIsland() {
 function _setIslandSubState(state) {
   var wrap = document.getElementById('pill-url-wrap');
   if (!wrap) return;
-  wrap.classList.remove('island-tabs-expanded', 'island-ai-expanded');
+  wrap.classList.remove('island-ai-expanded');
   if (islandSubState.value === state) {
     islandSubState.value = 'default';
     return;
   }
   islandSubState.value = state;
-  if (state === 'tabs') {
-    wrap.classList.add('island-tabs-expanded');
-    _renderIslandTabsFull();
-  } else if (state === 'ai') {
+  if (state === 'ai') {
     wrap.classList.add('island-ai-expanded');
     _renderIslandAIFull();
   }
@@ -358,38 +353,6 @@ function _closeIslandTabsDropdown() {
     document.removeEventListener('mousedown', _islandTabsOutsideHandler, true);
     _islandTabsOutsideHandler = null;
   }
-}
-
-// Legacy — still used by _setIslandSubState for inline mode
-function _renderIslandTabsFull() {
-  var container = document.getElementById('pill-island-tabs-full');
-  if (!container) return;
-  var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
-  if (!win || !win.tabs || !win.tabs.length) { container.innerHTML = ''; return; }
-  var activeTabId = win.activeTab;
-  var globeSvg = '<svg style="width:14px;height:14px;opacity:0.4;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-  var rows = win.tabs.map(function(t) {
-    var favView = t.favicon
-      ? window.Image(t.favicon).on('error', function() { this.style.display = 'none'; })
-      : window.RawHTML(globeSvg);
-    var title = (t.title || 'New Tab');
-    var nameView = window.Text(title.length > 32 ? title.slice(0, 30) + '\u2026' : title);
-    var closeBtn = window.Text('\u00d7').className('island-tabs-full-close').attr('title', 'Close tab')
-      .onTap(function(e) {
-        e.stopPropagation();
-        if (typeof window.browseCloseTab === 'function') window.browseCloseTab(t.id);
-        setTimeout(_renderIslandTabsFull, 50);
-      });
-    return window.HStack([favView, nameView, closeBtn])
-      .className('island-tabs-full-item' + (t.id === activeTabId ? ' active' : ''))
-      .onTap(function(e) {
-        e.stopPropagation();
-        if (typeof window.browseSelectTab === 'function') window.browseSelectTab(t.id);
-        _setIslandSubState('default');
-        setTimeout(_renderIslandTabPill, 50);
-      });
-  });
-  AetherUI.mount(window.VStack(rows), container);
 }
 
 // ── Render AI panel ──

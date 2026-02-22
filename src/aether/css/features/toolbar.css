@@ -747,7 +747,6 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .browse-mode.island-mode #pill-island-title { display: none; }
 .browse-mode.island-mode #pill-island-nav-row { display: none; }
 .browse-mode.island-mode #pill-island-right-col { display: none; }
-.browse-mode.island-mode #pill-island-tabs-full,
 .browse-mode.island-mode #pill-island-ai-full,
 .browse-mode.island-mode #pill-island-utility-row { display: none; }
 
@@ -926,16 +925,8 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
    15. SUB-STATE: TABS EXPANDED — full tab list replaces rows 2+3
    ══════════════════════════════════════════════════════════════════════════════ */
 
-#pill-island-tabs-full, #pill-island-ai-full { display: none; }
+#pill-island-ai-full { display: none; }
 
-.island-tabs-expanded #pill-island-left,
-.island-tabs-expanded #pill-island-center,
-.island-tabs-expanded #pill-island-right-col,
-.island-tabs-expanded #pill-island-utility-row { display: none !important; }
-.island-tabs-expanded #pill-island-tabs-full {
-  grid-row: 2 / 4; grid-column: 1 / -1;
-  display: flex !important; flex-direction: column; max-height: 280px; overflow-y: auto; gap: 2px;
-}
 .island-tabs-full-item {
   display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px;
   cursor: pointer; transition: background 0.12s; font-size: 0.75rem;
