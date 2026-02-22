@@ -53,27 +53,26 @@ export async function _fetchWikipediaPreview(text, containerDiv) {
     const data = await resp.json();
     if (data.type === 'disambiguation' || !data.extract) { containerDiv.style.display = 'none'; return; }
     const extract = data.extract.length > 200 ? data.extract.slice(0, 200) + '…' : data.extract;
-    let html = '<div class="doc-wiki-result">';
+    const wikiUrl = data.content_urls?.desktop?.page || '#';
+    const children = [];
     if (data.thumbnail && data.thumbnail.source) {
-      html += `<img class="doc-wiki-thumb" src="${data.thumbnail.source}" alt="" />`;
+      children.push(new window.View('img').className('doc-wiki-thumb').attr('src', data.thumbnail.source).attr('alt', ''));
     }
-    html += '<div>';
-    html += `<div class="doc-wiki-title">${escapeHtml(data.title)}</div>`;
-    html += `<div class="doc-wiki-extract">${escapeHtml(extract)}</div>`;
-    html += `<a class="doc-wiki-link" href="${data.content_urls?.desktop?.page || '#'}" data-external-link>Wikipedia →</a>`;
-    html += '</div></div>';
-    containerDiv.innerHTML = html;
-    containerDiv.style.display = '';
-    containerDiv.querySelectorAll('[data-external-link]').forEach(a => {
-      a.addEventListener('mousedown', (ev) => ev.stopPropagation());
-      a.addEventListener('click', (ev) => {
-        ev.preventDefault(); ev.stopPropagation();
-        const href = a.getAttribute('href');
-        if (href && typeof _openInNewTab === 'function') _openInNewTab(href);
-        else window.open(href, '_blank');
-        document.getElementById('doc-chat-ask-float')?.remove();
-      });
+    const linkView = new window.View('a').className('doc-wiki-link').attr('href', wikiUrl).text('Wikipedia →');
+    linkView.on('mousedown', (ev) => ev.stopPropagation());
+    linkView.onTap((ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      if (typeof _openInNewTab === 'function') _openInNewTab(wikiUrl);
+      else window.open(wikiUrl, '_blank');
+      document.getElementById('doc-chat-ask-float')?.remove();
     });
+    children.push(window.VStack(
+      window.Text(data.title).className('doc-wiki-title'),
+      window.Text(extract).className('doc-wiki-extract'),
+      linkView,
+    ));
+    AetherUI.mount(window.HStack(...children).className('doc-wiki-result'), containerDiv);
+    containerDiv.style.display = '';
     _repositionSelectionPopup();
   } catch (e) {
     containerDiv.style.display = 'none';
@@ -99,58 +98,55 @@ export function _findKnownAuthor(text) {
 }
 
 export function _renderAuthorPreviewHtml(data, containerDiv) {
-  let html = '<div class="doc-author-result">';
-  html += `<div class="doc-author-name">${escapeHtml(data.name)}</div>`;
+  const children = [];
+  children.push(window.Text(data.name).className('doc-author-name'));
   const affil = data.affiliations?.length ? data.affiliations[0] : data.affiliation;
   if (affil) {
-    html += `<div class="doc-author-affil">${escapeHtml(affil)}</div>`;
+    children.push(window.Text(affil).className('doc-author-affil'));
   }
-  html += `<div class="doc-author-stats">`;
-  if (data.hIndex) html += `<span>h-index: ${data.hIndex}</span>`;
-  if (data.paperCount) html += `<span>${fmtNum(data.paperCount)} papers</span>`;
-  if (data.citationCount) html += `<span>${fmtNum(data.citationCount)} citations</span>`;
-  html += `</div>`;
+  const stats = [];
+  if (data.hIndex) stats.push(window.Text('h-index: ' + data.hIndex));
+  if (data.paperCount) stats.push(window.Text(fmtNum(data.paperCount) + ' papers'));
+  if (data.citationCount) stats.push(window.Text(fmtNum(data.citationCount) + ' citations'));
+  if (stats.length) children.push(window.HStack(...stats).className('doc-author-stats'));
   if (data.topPapers?.length) {
-    html += `<div class="doc-author-papers">`;
-    for (const p of data.topPapers) {
-      html += `<div class="doc-author-paper">${escapeHtml(p.title)}${p.year ? ` (${p.year})` : ''}${p.citationCount ? ` · ${fmtNum(p.citationCount)}` : ''}</div>`;
-    }
-    html += `</div>`;
+    const papers = data.topPapers.map(p => {
+      let label = p.title;
+      if (p.year) label += ' (' + p.year + ')';
+      if (p.citationCount) label += ' \u00b7 ' + fmtNum(p.citationCount);
+      return window.Text(label).className('doc-author-paper');
+    });
+    children.push(window.VStack(...papers).className('doc-author-papers'));
   }
-  // Author profile link (opens in-app) and Semantic Scholar link (opens in browser)
+
+  const footerLinks = [];
   const authorId = data.authorId;
-  html += `<div class="doc-ref-footer">`;
   if (authorId) {
-    html += `<a class="doc-ref-link" href="#author/${encodeURIComponent(authorId)}" data-author-nav>Profile →</a>`;
+    const profileLink = new window.View('a').className('doc-ref-link')
+      .attr('href', '#author/' + encodeURIComponent(authorId)).text('Profile \u2192');
+    profileLink.on('mousedown', (ev) => ev.stopPropagation());
+    profileLink.onTap((ev) => {
+      ev.stopPropagation();
+      document.getElementById('doc-chat-ask-float')?.remove();
+    });
+    footerLinks.push(profileLink);
   }
   if (data.url) {
-    html += `<a class="doc-ref-link" href="${escapeHtml(data.url)}" data-external-link>Semantic Scholar →</a>`;
-  }
-  html += `</div>`;
-  html += '</div>';
-  containerDiv.innerHTML = html;
-  containerDiv.style.display = '';
-
-  // Wire up link handlers
-  containerDiv.querySelectorAll('[data-external-link]').forEach(a => {
-    a.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    a.addEventListener('click', (ev) => {
+    const extLink = new window.View('a').className('doc-ref-link')
+      .attr('href', data.url).text('Semantic Scholar \u2192');
+    extLink.on('mousedown', (ev) => ev.stopPropagation());
+    extLink.onTap((ev) => {
       ev.preventDefault(); ev.stopPropagation();
-      const href = a.getAttribute('href');
-      if (href && typeof _openInNewTab === 'function') _openInNewTab(href);
-      else window.open(href, '_blank');
+      if (typeof _openInNewTab === 'function') _openInNewTab(data.url);
+      else window.open(data.url, '_blank');
       document.getElementById('doc-chat-ask-float')?.remove();
     });
-  });
-  containerDiv.querySelectorAll('[data-author-nav]').forEach(a => {
-    a.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    a.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      // Remove the popup when navigating to profile
-      document.getElementById('doc-chat-ask-float')?.remove();
-    });
-  });
+    footerLinks.push(extLink);
+  }
+  if (footerLinks.length) children.push(window.HStack(...footerLinks).className('doc-ref-footer'));
 
+  AetherUI.mount(window.VStack(...children).className('doc-author-result'), containerDiv);
+  containerDiv.style.display = '';
   _repositionSelectionPopup();
 }
 
@@ -237,7 +233,7 @@ export const _aetherCommands = [
   { name: 'tab', desc: 'Add a tab to context', _special: true },
   { name: 'tabs', desc: 'Switch to an open tab', _special: true },
   { name: 'define', desc: 'Look up a word definition', hasArgs: true },
-  { name: 'upload', desc: 'Open a local file', fn: () => { const fi = document.getElementById('browse-pdf-file-input'); if (fi) { fi.click(); return; } const tmp = document.createElement('input'); tmp.type = 'file'; tmp.style.display = 'none'; tmp.onchange = function() { if (tmp.files[0] && typeof openLocalPdf === 'function') openLocalPdf(tmp.files[0]); tmp.remove(); }; document.body.appendChild(tmp); tmp.click(); } },
+  { name: 'upload', desc: 'Open a local file', fn: () => { const fi = document.getElementById('browse-pdf-file-input'); if (fi) { fi.click(); return; } const tmpView = new window.View('input').attr('type', 'file').styles({ display: 'none' }); tmpView.el.onchange = function() { if (tmpView.el.files[0] && typeof openLocalPdf === 'function') openLocalPdf(tmpView.el.files[0]); tmpView.el.remove(); }; AetherUI.append(tmpView, document.body); tmpView.el.click(); } },
   { name: 'history', desc: 'Browse visited sites', _special: true },
   { name: 'help', desc: 'Show all commands & features', _special: true },
 ];
@@ -263,7 +259,7 @@ export function _aetherRenderCmdDropdown(popup, query) {
     dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
-    else popup.appendChild(dropdown);
+    else popup.append(dropdown);
   }
   window._aetherCmdIdx = Math.min(window._aetherCmdIdx, matches.length - 1);
   const rows = matches.map(function(c, i) {
@@ -351,7 +347,7 @@ export function _aetherRenderHistoryDropdown(popup, query) {
       dropdown = ddView.el;
       const askWrap = popup.querySelector('.doc-ask-inline-wrap');
       if (askWrap) popup.insertBefore(dropdown, askWrap);
-      else popup.appendChild(dropdown);
+      else popup.append(dropdown);
     }
     const emptyMsg = window.Text('No history found')
       .cssText('padding:10px 12px;font-size:0.8rem;color:var(--nr-text-secondary);text-align:center');
@@ -366,7 +362,7 @@ export function _aetherRenderHistoryDropdown(popup, query) {
     dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
-    else popup.appendChild(dropdown);
+    else popup.append(dropdown);
   }
   if (window._aetherHistoryIdx >= window._aetherHistoryList.length) window._aetherHistoryIdx = window._aetherHistoryList.length - 1;
 
@@ -534,7 +530,7 @@ export function _aetherRenderModelDropdown(popup) {
     dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
-    else popup.appendChild(dropdown);
+    else popup.append(dropdown);
   }
   const currentModel = Settings.get('chatModel') || '';
   const modelRows = window._aetherModelList.map(function(m, i) {
@@ -630,7 +626,7 @@ export function _aetherRenderAgentDropdown(popup) {
     dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
-    else popup.appendChild(dropdown);
+    else popup.append(dropdown);
   }
   const currentAgent = Settings.get('chatAgent') || 'research-assistant';
   const agentRows = window._aetherAgentList.map(function(a, i) {
@@ -810,7 +806,7 @@ export function _renderTabDropdown(popup) {
     dropdown = ddView.el;
     const askWrap = popup.querySelector('.doc-ask-inline-wrap');
     if (askWrap) popup.insertBefore(dropdown, askWrap);
-    else popup.appendChild(dropdown);
+    else popup.append(dropdown);
   }
   window._aetherTabIdx = Math.min(window._aetherTabIdx, window._aetherTabList.length - 1);
   const activeTabId = window._aetherTabSwitchMode && typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : null;

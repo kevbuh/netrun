@@ -588,10 +588,10 @@ export function browseShare() {
       if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
       const btn = document.querySelector('#browse-bar button[onclick="browseShare()"]');
       if (btn) {
-        const origHtml = btn.innerHTML;
+        const origChildren = Array.from(btn.childNodes).map(n => n.cloneNode(true));
         AetherUI.mount(window.RawHTML(icon('check', {size: 20, strokeWidth: '1.5'})), btn);
         btn.classList.add('text-primary');
-        setTimeout(function() { btn.innerHTML = origHtml; btn.classList.remove('text-primary'); }, 1500);
+        setTimeout(function() { btn.replaceChildren(...origChildren); btn.classList.remove('text-primary'); }, 1500);
       }
     });
   }

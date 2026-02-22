@@ -59,14 +59,12 @@ let _wizardModelList = [];
 function openOnboarding() {
   // If no onboarding-container exists (SPA mode), create a full-viewport overlay
   if (!document.getElementById('onboarding-container')) {
-    const overlay = document.createElement('div');
-    overlay.id = 'onboarding-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:var(--nr-bg-body, #0a0a0a);';
-    const container = document.createElement('div');
-    container.id = 'onboarding-container';
-    container.style.cssText = 'display:flex;align-items:center;justify-content:center;width:100%;height:100%;';
-    overlay.appendChild(container);
-    document.body.appendChild(overlay);
+    const containerView = new window.View('div').id('onboarding-container')
+      .cssText('display:flex;align-items:center;justify-content:center;width:100%;height:100%;');
+    const overlayView = new window.View('div').id('onboarding-overlay')
+      .cssText('position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:var(--nr-bg-body, #0a0a0a);')
+      .add(containerView);
+    AetherUI.append(overlayView, document.body);
   }
   _renderOnboardingWizard();
 }
@@ -74,7 +72,7 @@ function openOnboarding() {
 function _renderOnboardingWizard() {
   const container = document.getElementById('onboarding-container');
   if (!container) return;
-  container.innerHTML = '<div id="onboarding-wizard" class="nr-modal wizard-mode" style="position:relative;"></div>';
+  AetherUI.mount(new window.View('div').id('onboarding-wizard').className('nr-modal wizard-mode').styles({ position: 'relative' }), container);
   _wizardStep = 0;
   _renderWizardStep(0, 'forward');
 }
@@ -150,7 +148,7 @@ function _buildWizardStep(wizard, stepIndex) {
   if (backView) AetherUI.append(backView, step);
   AetherUI.append(_wizardDotsView(stepIndex), step);
   if (contentView) AetherUI.append(contentView, step);
-  wizard.appendChild(step);
+  wizard.append(step);
 
   requestAnimationFrame(function() {
     requestAnimationFrame(function() {
@@ -465,23 +463,23 @@ function _wizardBookmarkImportInit() {
   var container = document.getElementById('wiz-bookmark-browsers');
   if (!container) return;
   if (!window.electronAPI || !window.electronAPI.dbQuery) {
-    container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;text-align:center;">Bookmark import requires the desktop app.</div>';
+    AetherUI.mount(window.Text('Bookmark import requires the desktop app.').styles({ fontSize: '12px', color: 'var(--nr-text-secondary,#999)', padding: '16px 0', textAlign: 'center' }), container);
     return;
   }
   if (window.Skeleton) {
     AetherUI.mount(window.Skeleton().lines(2).padding(2), container);
   } else {
-    container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;text-align:center;">Detecting browsers...</div>';
+    AetherUI.mount(window.Text('Detecting browsers...').styles({ fontSize: '12px', color: 'var(--nr-text-secondary,#999)', padding: '16px 0', textAlign: 'center' }), container);
   }
   window.electronAPI.dbQuery('bookmark-detect').then(function(result) {
     if (!result || !result.browsers || !result.browsers.length) {
-      container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;text-align:center;">No other browsers detected.</div>';
+      AetherUI.mount(window.Text('No other browsers detected.').styles({ fontSize: '12px', color: 'var(--nr-text-secondary,#999)', padding: '16px 0', textAlign: 'center' }), container);
       return;
     }
     _wizBmBrowsers = result.browsers;
     _wizBmRenderList(container);
   }).catch(function() {
-    container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;text-align:center;">Could not detect browsers.</div>';
+    AetherUI.mount(window.Text('Could not detect browsers.').styles({ fontSize: '12px', color: 'var(--nr-text-secondary,#999)', padding: '16px 0', textAlign: 'center' }), container);
   });
 }
 
@@ -508,7 +506,7 @@ function _wizBmRenderList(container) {
         if (window.Skeleton) {
           AetherUI.mount(window.Skeleton().lines(2), detail.el);
         } else {
-          detail.el.innerHTML = '<div style="font-size:0.72rem;color:var(--nr-text-quaternary);padding:10px 0;">Loading bookmarks...</div>';
+          AetherUI.mount(window.Text('Loading bookmarks...').styles({ fontSize: '0.72rem', color: 'var(--nr-text-quaternary)', padding: '10px 0' }), detail.el);
         }
       }
       items.push(detail);
@@ -542,7 +540,7 @@ function _wizBmToggle(browserId, container) {
       if (detail) _wizBmRenderBookmarks(detail, browserId);
     }).catch(function() {
       var detail = document.getElementById('wiz-bm-detail-' + browserId);
-      if (detail) detail.innerHTML = '<div style="font-size:0.72rem;color:var(--nr-text-quaternary);padding:10px 0;">Failed to load bookmarks.</div>';
+      if (detail) AetherUI.mount(window.Text('Failed to load bookmarks.').styles({ fontSize: '0.72rem', color: 'var(--nr-text-quaternary)', padding: '10px 0' }), detail);
     });
   }
 }

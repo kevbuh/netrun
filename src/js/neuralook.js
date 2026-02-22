@@ -458,7 +458,7 @@ export function _nlDrawEyeCrops() {
   const infoEl = document.getElementById('nl-train-eye-info');
   if (infoEl && data.headPose) {
     const [yaw, pitch, roll] = data.headPose;
-    infoEl.innerHTML = `<span>${_NL_EYE_W}×${_NL_EYE_H} grayscale</span><span>yaw ${yaw.toFixed(2)} pitch ${pitch.toFixed(2)}</span>`;
+    AetherUI.mount(RawHTML(`<span>${_NL_EYE_W}×${_NL_EYE_H} grayscale</span><span>yaw ${yaw.toFixed(2)} pitch ${pitch.toFixed(2)}</span>`), infoEl);
   }
 }
 
@@ -932,7 +932,7 @@ export function _nlShowTrainPill() {
 
   const spinnerSvg = '<svg width="18" height="18" viewBox="0 0 18 18" style="animation:nl-pill-spin 1s linear infinite"><circle cx="9" cy="9" r="7" fill="none" stroke="var(--nr-accent,#b4451a)" stroke-width="2" stroke-dasharray="30 14" stroke-linecap="round"/></svg>';
   const iconDiv = new window.View('div').attr('id', 'nl-pill-icon').cssText('width:18px;height:18px;flex-shrink:0;');
-  iconDiv.el.appendChild(window.RawHTML(spinnerSvg).el);
+  iconDiv.add(window.RawHTML(spinnerSvg));
 
   const textDiv = window.VStack(
     window.Text('Training ' + _nlModelLabel()).attr('id', 'nl-pill-title').cssText('font-weight:600;font-size:0.8rem;'),
@@ -942,16 +942,14 @@ export function _nlShowTrainPill() {
   const stopSvg = '<svg width="10" height="10" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" rx="1" fill="#f87171"/></svg>';
   const stopBtn = new window.View('div').attr('id', 'nl-pill-stop');
   stopBtn.cssText('width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;border:1px solid var(--border,#333);transition:border-color 0.2s;');
-  stopBtn.el.appendChild(window.RawHTML(stopSvg).el);
+  stopBtn.add(window.RawHTML(stopSvg));
   stopBtn.on('click', function(ev) { ev.stopPropagation(); _nlStopTraining(); });
   stopBtn.on('mouseover', function() { stopBtn.el.style.borderColor = '#f87171'; });
   stopBtn.on('mouseout', function() { stopBtn.el.style.borderColor = 'var(--border,#333)'; });
 
-  pill.appendChild(iconDiv.el);
-  pill.appendChild(textDiv.el);
-  pill.appendChild(stopBtn.el);
+  pillView.add(iconDiv, textDiv, stopBtn);
   pillView.onTap(function() { if (typeof openNeuralook === 'function') openNeuralook(); });
-  document.body.appendChild(pill);
+  document.body.append(pill);
   pillStackAdd('nl-train-pill');
   _nlTrainPill = pill;
   Motion.fadeIn(pill, { y: 10 });
@@ -961,7 +959,7 @@ export function _nlShowTrainPill() {
     const st = document.createElement('style');
     st.id = 'nl-pill-spin-style';
     st.textContent = '@keyframes nl-pill-spin { to { transform: rotate(360deg); } }';
-    document.head.appendChild(st);
+    document.head.append(st);
   }
 }
 
@@ -1004,7 +1002,7 @@ export function _nlUpdateTrainPill(title, detail) {
 export function _nlFinishTrainPill(title, detail, color) {
   const c = color || '#4ade80';
   const icon = document.getElementById('nl-pill-icon');
-  if (icon) icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="${c}"/><path d="M5.5 9.5l2 2 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  if (icon) AetherUI.mount(RawHTML(`<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="${c}"/><path d="M5.5 9.5l2 2 5-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`), icon);
   const stopBtn = document.getElementById('nl-pill-stop');
   if (stopBtn) stopBtn.style.display = 'none';
   _nlUpdateTrainPill(title, detail);
@@ -1025,7 +1023,7 @@ export function _nlFinishTrainPill(title, detail, color) {
 
 export function _nlErrorTrainPill(msg) {
   const icon = document.getElementById('nl-pill-icon');
-  if (icon) icon.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="#f87171"/><path d="M6 6l6 6M12 6l-6 6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+  if (icon) AetherUI.mount(RawHTML(`<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="#f87171"/><path d="M6 6l6 6M12 6l-6 6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>`), icon);
   const stopBtn = document.getElementById('nl-pill-stop');
   if (stopBtn) stopBtn.style.display = 'none';
   _nlUpdateTrainPill('Training Failed', msg);
@@ -1063,7 +1061,8 @@ export async function _nlPredictOnServer(eyeData, headPose, irisFeatures) {
 export async function _nlEnsureVideo() {
   if (_nlVideoEl && _nlVideoEl.srcObject) return _nlVideoEl;
   const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 1280, height: 720 } });
-  _nlVideoEl = document.createElement('video');
+  const vidView = new View('video').attr('autoplay', '').attr('muted', '').attr('playsinline', '');
+  _nlVideoEl = vidView.el;
   _nlVideoEl.srcObject = stream;
   _nlVideoEl.autoplay = true;
   _nlVideoEl.muted = true;
@@ -1090,13 +1089,13 @@ export function _nlAttachCameraPreview() {
   if (vid && vid.srcObject) {
     const placeholder = document.getElementById('nl-camera-placeholder');
     if (placeholder) placeholder.remove();
-    const clone = document.createElement('video');
+    const cloneView = new View('video').styles({ position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
+    const clone = cloneView.el;
     clone.srcObject = vid.srcObject;
     clone.autoplay = true;
     clone.muted = true;
     clone.playsInline = true;
-    Object.assign(clone.style, { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
-    previewBox.appendChild(clone);
+    previewBox.append(clone);
     return;
   }
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -1105,11 +1104,11 @@ export function _nlAttachCameraPreview() {
       if (!box || box.querySelector('video')) { stream.getTracks().forEach(t => t.stop()); return; }
       const ph = document.getElementById('nl-camera-placeholder');
       if (ph) ph.remove();
-      const video = document.createElement('video');
+      const videoView = new View('video').styles({ position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
+      const video = videoView.el;
       video.srcObject = stream;
       video.autoplay = true; video.muted = true; video.playsInline = true;
-      Object.assign(video.style, { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
-      box.appendChild(video);
+      box.append(video);
     }).catch(() => {});
   }
 }
@@ -1126,7 +1125,7 @@ export function _nlToggleCamera() {
       if (vid) vid.remove();
       if (!document.getElementById('nl-camera-placeholder')) {
         const ph = window.Text('Camera off').className('text-dimmer text-[0.75rem]').attr('id', 'nl-camera-placeholder');
-        box.appendChild(ph.el);
+        box.append(ph.el);
       }
     }
   } else {
@@ -1141,11 +1140,11 @@ export function _nlToggleCamera() {
           if (!b || b.querySelector('video')) { stream.getTracks().forEach(t => t.stop()); return; }
           const ph = document.getElementById('nl-camera-placeholder');
           if (ph) ph.remove();
-          const video = document.createElement('video');
+          const videoView = new View('video').styles({ position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
+          const video = videoView.el;
           video.srcObject = stream;
           video.autoplay = true; video.muted = true; video.playsInline = true;
-          Object.assign(video.style, { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
-          b.appendChild(video);
+          b.append(video);
         }).catch(() => {});
       }
     }
@@ -1247,7 +1246,7 @@ export function _nlShowCalibrationOverlay() {
 
   const instrView = new window.View('div').attr('id', 'nl-cal-instr');
   instrView.cssText('position:absolute;top:30px;left:50%;transform:translateX(-50%);font-size:0.9rem;text-align:center;z-index:100000;pointer-events:none;background:rgba(0,0,0,0.7);color:#fff;padding:8px 16px;border-radius:8px;');
-  overlay.appendChild(instrView.el);
+  overlay.append(instrView.el);
 
   // Camera preview in bottom-right corner
   if (_nlVideoEl && _nlVideoEl.srcObject) {
@@ -1258,14 +1257,14 @@ export function _nlShowCalibrationOverlay() {
       border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 4px 16px rgba(0,0,0,0.5)'
     });
     const camBox = camBoxView.el;
-    const camVid = document.createElement('video');
+    const camVidView = new View('video').styles({ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
+    const camVid = camVidView.el;
     camVid.srcObject = _nlVideoEl.srcObject;
     camVid.autoplay = true;
     camVid.muted = true;
     camVid.playsInline = true;
-    Object.assign(camVid.style, { width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' });
-    camBox.appendChild(camVid);
-    overlay.appendChild(camBox);
+    camBox.append(camVid);
+    overlay.append(camBox);
   }
 
   // Progress bar
@@ -1279,10 +1278,10 @@ export function _nlShowCalibrationOverlay() {
     width: '0%', height: '100%', background: 'var(--nr-accent, #b4451a)',
     borderRadius: '2px', transition: 'width 0.3s'
   });
-  progBarView.el.appendChild(progFillView.el);
-  overlay.appendChild(progBarView.el);
+  progBarView.add(progFillView);
+  overlay.append(progBarView.el);
 
-  document.body.appendChild(overlay);
+  document.body.append(overlay);
   _nlCurrentPoint = 0;
   _nlShowNextCalibrationDot();
 }
@@ -1305,7 +1304,7 @@ export function _nlShowNextCalibrationDot() {
 
   const instr = document.getElementById('nl-cal-instr');
   if (instr) {
-    instr.innerHTML = `<strong>Calibration</strong> &mdash; Point ${_nlCurrentPoint + 1}/${_NL_CAL_POSITIONS.length}, look at the dot`;
+    AetherUI.mount(RawHTML(`<strong>Calibration</strong> &mdash; Point ${_nlCurrentPoint + 1}/${_NL_CAL_POSITIONS.length}, look at the dot`), instr);
   }
 
   const progFill = document.getElementById('nl-cal-progfill');
@@ -1325,8 +1324,7 @@ export function _nlShowNextCalibrationDot() {
   const dot = dotView.el;
 
   // Shrinking ring
-  const ringView = new window.View('div').attr('id', 'nl-cal-ring');
-  Object.assign(ringView.el.style, {
+  const ringView = new window.View('div').attr('id', 'nl-cal-ring').styles({
     position: 'absolute', left: xPct + '%', top: yPct + '%',
     width: '44px', height: '44px', borderRadius: '50%',
     border: '2px solid var(--nr-accent, #b4451a)',
@@ -1336,8 +1334,8 @@ export function _nlShowNextCalibrationDot() {
   });
 
   const ring = ringView.el;
-  overlay.appendChild(ring);
-  overlay.appendChild(dot);
+  overlay.append(ring);
+  overlay.append(dot);
 
   const screenX = window.innerWidth * xPct / 100;
   const screenY = window.innerHeight * yPct / 100;
@@ -1605,7 +1603,7 @@ export function _nlShowClickFeedback(x, y, accepted, detail) {
   });
   const el = elView.el;
   el.textContent = accepted ? '+' + detail : detail;
-  document.body.appendChild(el);
+  document.body.append(el);
   Motion.fadeOut(el, { y: -16, duration: 800, spring: 'gentle', remove: true });
 }
 
@@ -1628,14 +1626,14 @@ export function _nlShowModelUpdatedPill(version, valErrorPx) {
   else { pill.style.backdropFilter = 'blur(12px)'; pill.style.WebkitBackdropFilter = 'blur(12px)'; }
 
   const updatedSvg = '<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="8" fill="#60a5fa"/><path d="M9 5v4l3 2" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  pill.appendChild(window.RawHTML(updatedSvg).el);
+  const svgView = RawHTML(updatedSvg);
   const textDiv = window.VStack(
     window.Text('Tracking model updated to v' + version).cssText('font-weight:600;font-size:0.8rem;'),
     window.Text('Val error: ' + valErrorPx + 'px').cssText('font-size:0.7rem;color:var(--text-secondary,#888);')
   ).cssText('line-height:1.4;');
-  pill.appendChild(textDiv.el);
+  pillView.add(svgView, textDiv);
   pillView.onTap(function() { if (typeof openNeuralook === 'function') openNeuralook(); pillStackRemove('nl-model-updated-pill'); pill.remove(); });
-  document.body.appendChild(pill);
+  document.body.append(pill);
   pillStackAdd('nl-model-updated-pill');
   Motion.fadeIn(pill, { y: 10 });
   pill.animate([
@@ -1851,7 +1849,7 @@ export function _nlCreateDot() {
     transform: 'translate(-50%, -50%)', transition: 'left 0.05s linear, top 0.05s linear',
     boxShadow: '0 0 8px ' + savedColor + '80', left: '-100px', top: '-100px'
   });
-  document.body.appendChild(dotView.el);
+  document.body.append(dotView.el);
   _nlGazeDot = dotView.el;
 }
 
@@ -2205,7 +2203,7 @@ export function _nlRefreshDashboard() {
     const valStr = _nlValError !== null ? `${_nlValError}px val` : 'no val';
     const calStr = `${_nlCalibData.length} cal`;
     const autoStr = _nlAutoRefineEnabled ? 'Auto \u2713' : 'Auto off';
-    miEl.innerHTML = `<span class="text-primary">${_nlModelLabel()} v${_nlModelVersion} \u00b7 ${valStr}</span><span class="text-dimmer">${calStr} \u00b7 ${autoStr}</span>`;
+    AetherUI.mount(RawHTML(`<span class="text-primary">${_nlModelLabel()} v${_nlModelVersion} \u00b7 ${valStr}</span><span class="text-dimmer">${calStr} \u00b7 ${autoStr}</span>`), miEl);
   }
 
   _nlRefreshBanner();

@@ -15,7 +15,7 @@ export function _renderDoomScrollSites() {
     const pillLabel = s.mode === 'block' ? 'Block' : s.minutes + ' min';
     const removeBtn = window.Button('').className('text-dimmer hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity')
       .styles({ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' });
-    removeBtn.el.innerHTML = icon('close', {size: 14});
+    AetherUI.mount(window.RawHTML(icon('close', {size: 14})), removeBtn.el);
     removeBtn.onTap(function() { _removeDoomScrollSite(i); });
     return window.HStack(
       window.Text(s.domain).className('text-primary text-[0.8rem] flex-1'),
@@ -36,7 +36,10 @@ export function _renderDoomScrollSites() {
   modeSelect.el.id = 'doom-scroll-new-mode';
   modeSelect.className('text-[0.78rem] px-2 py-1.5 rounded-md bg-card border border-border-input text-primary focus:outline-none focus:border-accent');
   modeSelect.styles({ color: 'var(--nr-text-primary)', background: 'var(--nr-bg-surface)' });
-  modeSelect.el.innerHTML = '<option value="nudge">Nudge</option><option value="block">Block</option>';
+  modeSelect.add(
+    new window.View('option').attr('value', 'nudge').text('Nudge'),
+    new window.View('option').attr('value', 'block').text('Block'),
+  );
   modeSelect.el.addEventListener('change', function() {
     const minEl = document.getElementById('doom-scroll-new-minutes');
     if (minEl) minEl.style.display = this.value === 'block' ? 'none' : '';
@@ -63,7 +66,7 @@ export function _renderDoomScrollSites() {
   resetLink.onTap(function() { _resetDoomScrollSites(); });
   const resetRow = new window.View('div');
   resetRow.className('mt-2');
-  resetRow.el.appendChild(resetLink.el);
+  resetRow.add(resetLink);
 
   const all = siteRows.concat([inputRow, resetRow]);
   return VStack(all);
@@ -212,7 +215,7 @@ export function _urlBarSectionDragSetup() {
       dragEl.style.opacity = '0.3';
       dragGhost = dragEl.cloneNode(true);
       dragGhost.style.cssText = 'position:fixed;left:' + dragEl.getBoundingClientRect().left + 'px;width:' + dragEl.offsetWidth + 'px;pointer-events:none;z-index:999;opacity:0.85;box-shadow:0 4px 16px rgba(0,0,0,0.3);border-radius:8px;';
-      document.body.appendChild(dragGhost);
+      document.body.append(dragGhost);
     }
     dragGhost.style.top = (e.clientY - 18) + 'px';
     const rows = Array.from(list.querySelectorAll('.urlbar-sec-row'));
@@ -498,17 +501,17 @@ export function _loadBookmarkImport() {
   var container = document.getElementById('bookmark-import-browsers');
   if (!container) return;
   if (!window.electronAPI || !window.electronAPI.dbQuery) {
-    container.innerHTML = '<div class="text-dimmer text-[0.75rem]">Bookmark import requires the desktop app.</div>';
+    AetherUI.mount(window.Text('Bookmark import requires the desktop app.').className('text-dimmer text-[0.75rem]'), container);
     return;
   }
   window.electronAPI.dbQuery('bookmark-detect').then(function(result) {
     if (!result || !result.browsers || !result.browsers.length) {
-      container.innerHTML = '<div class="text-dimmer text-[0.75rem]">No browsers detected.</div>';
+      AetherUI.mount(window.Text('No browsers detected.').className('text-dimmer text-[0.75rem]'), container);
       return;
     }
     _bmRenderBrowserList(container, result.browsers);
   }).catch(function() {
-    container.innerHTML = '<div class="text-dimmer text-[0.75rem]">Failed to detect browsers.</div>';
+    AetherUI.mount(window.Text('Failed to detect browsers.').className('text-dimmer text-[0.75rem]'), container);
   });
 }
 
@@ -530,7 +533,7 @@ function _bmRenderBrowserList(container, browsers) {
       if (_bmParsedData[b.id]) {
         _bmRenderBookmarkList(detail.el, b.id);
       } else {
-        detail.el.innerHTML = '<div class="text-dimmer text-[0.72rem]" style="padding:10px 0;">Loading bookmarks...</div>';
+        AetherUI.mount(window.Text('Loading bookmarks...').className('text-dimmer text-[0.72rem]').styles({ padding: '10px 0' }), detail.el);
       }
       items.push(detail);
     }
@@ -564,7 +567,7 @@ function _bmToggleExpand(browserId, container, browsers) {
       if (detail) _bmRenderBookmarkList(detail, browserId);
     }).catch(function() {
       var detail = document.getElementById('bm-detail-' + browserId);
-      if (detail) detail.innerHTML = '<div class="text-dimmer text-[0.72rem]" style="padding:10px 0;">Failed to load bookmarks.</div>';
+      if (detail) AetherUI.mount(window.Text('Failed to load bookmarks.').className('text-dimmer text-[0.72rem]').styles({ padding: '10px 0' }), detail);
     });
   }
 }

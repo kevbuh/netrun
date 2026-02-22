@@ -104,7 +104,10 @@ export function _devBindCharts() {
       hdot.style.display = '';
       const tipText = c.tooltipFn ? c.tooltipFn(h) : `${c.vals[i].toLocaleString()}`;
       const lines = tipText.split('\n');
-      tip.innerHTML = `<div style="font-weight:600;margin-bottom:1px">${h.date.slice(5)}</div>` + lines.map(l => `<div>${l}</div>`).join('');
+      // Clear and rebuild tooltip content
+      const dateLine = window.Text(h.date.slice(5)).styles({ fontWeight: '600', marginBottom: '1px' });
+      const lineViews = lines.map(function(l) { return window.Text(l); });
+      AetherUI.mount(window.VStack(dateLine, ...lineViews), tip);
       tip.style.display = 'block';
       // Position tooltip relative to chart container
       const rect = svg.getBoundingClientRect();
@@ -470,8 +473,8 @@ export async function _devLoadDependencyGraph() {
     if (_devGraphLevel === 'function') {
       const fileFilter = document.getElementById('dev-graph-file-filter');
       const files = [...new Set(data.nodes.map(n => n.file))].sort();
-      fileFilter.innerHTML = '<option value="">All Files</option>' +
-        files.map(f => `<option value="${f}">${f}</option>`).join('');
+      AetherUI.mount(window.RawHTML('<option value="">All Files</option>' +
+        files.map(f => `<option value="${f}">${f}</option>`).join('')), fileFilter);
     }
 
     const nodeLabel = _devGraphLevel === 'file' ? 'files' : 'functions';
@@ -1092,7 +1095,7 @@ export function _devAppendLoadMoreBtn() {
   if (old) old.remove();
   const btnView = window.Button('Load more commits').className('dev-git-load-more-btn').attr('id', 'dev-git-load-more');
   btnView.onTap(function() { _devLoadMoreCommits(btnView.el); });
-  container.appendChild(btnView.build());
+  AetherUI.append(btnView, container);
 }
 
 export async function _devLoadMoreCommits(btn) {

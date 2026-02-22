@@ -13,10 +13,9 @@ export function toggleBrowseMoreMenu() {
   if (!dd || (dd.offsetParent === null && dd.parentElement && dd.parentElement.style.display === 'none')) {
     dd = document.getElementById('pill-more-menu-dropdown');
     if (!dd) {
-      dd = document.createElement('div');
-      dd.id = 'pill-more-menu-dropdown';
-      Object.assign(dd.style, { display: 'none', position: 'fixed', zIndex: '10000' });
-      document.body.appendChild(dd);
+      var ddView = new window.View('div').id('pill-more-menu-dropdown').styles({ display: 'none', position: 'fixed', zIndex: '10000' });
+      AetherUI.append(ddView, document.body);
+      dd = ddView.el;
     }
   }
   if (dd.style.display !== 'none') { dd.style.display = 'none'; document.body.classList.remove('island-dropdown-guard'); return; }
@@ -168,10 +167,9 @@ export function toggleBrowseMoreMenu() {
 
   // Permissions
   var permsBtn = _mBtn(icon('lock', {size: 16, strokeWidth: '1.5'}), 'Site Permissions', function(e) { _togglePermissionsInMenu(e || window.event); }, { disabled: !hasTab });
-  var arrowEl = document.createElement('span');
-  arrowEl.innerHTML = icon('chevronRightSmall', {size: 12, style: 'margin-left:auto;color:var(--nr-text-quaternary, var(--aether-text-dimmest));transition:transform .15s;'});
-  arrowEl.firstChild.id = 'browse-menu-perms-arrow';
-  permsBtn.el.appendChild(arrowEl);
+  var arrowView = window.RawHTML(icon('chevronRightSmall', {size: 12, style: 'margin-left:auto;color:var(--nr-text-quaternary, var(--aether-text-dimmest));transition:transform .15s;'}));
+  arrowView.el.firstChild.id = 'browse-menu-perms-arrow';
+  permsBtn.add(arrowView);
   items.push(permsBtn);
 
   var permsPanel = new window.View('div').id('browse-menu-perms-panel').styles({display:'none', borderTop:'1px solid var(--aether-border)'});
@@ -184,10 +182,9 @@ export function toggleBrowseMoreMenu() {
   var isPdf = hasTab && (tab.pdfUrl || tab.localPath || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
   if (isPdf) {
     var convertBtn = _mBtn(icon('convert', {size: 16, strokeWidth: '1.5'}), 'Convert', function(e) { _toggleConvertInMenu(e || window.event); });
-    var convertArrow = document.createElement('span');
-    convertArrow.innerHTML = icon('chevronRightSmall', {size: 12, style: 'margin-left:auto;color:var(--nr-text-quaternary, var(--aether-text-dimmest));transition:transform .15s;'});
-    convertArrow.firstChild.id = 'browse-menu-convert-arrow';
-    convertBtn.el.appendChild(convertArrow);
+    var convertArrowView = window.RawHTML(icon('chevronRightSmall', {size: 12, style: 'margin-left:auto;color:var(--nr-text-quaternary, var(--aether-text-dimmest));transition:transform .15s;'}));
+    convertArrowView.el.firstChild.id = 'browse-menu-convert-arrow';
+    convertBtn.add(convertArrowView);
     items.push(convertBtn);
 
     var convertPanel = new window.View('div').id('browse-menu-convert-panel').styles({display:'none', borderTop:'1px solid var(--aether-border)'});
@@ -274,9 +271,8 @@ export function _toggleConvertInMenu(e) {
 }
 
 function _renderConvertPanel(panel) {
-  panel.innerHTML = '';
   var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
-  if (!tab) return;
+  if (!tab) { panel.innerHTML = ''; return; }
 
   function _cBtn(svgHtml, label, action) {
     var btn = new window.View('button');
@@ -295,24 +291,23 @@ function _renderConvertPanel(panel) {
     if (dd) { dd.style.display = 'none'; document.body.classList.remove('island-dropdown-guard'); }
   };
 
-  panel.appendChild(_cBtn(icon('fileText', {size: 14, strokeWidth: '1.5'}), 'Parse PDF', function() { _closeAll(); _pdfParseAction(tab); }).el);
-  panel.appendChild(_cBtn(icon('documentSearch', {size: 14, strokeWidth: '1.5'}), 'Extract PDF', function() { _closeAll(); _pdfExtractAction(tab); }).el);
-  panel.appendChild(_cBtn(icon('scissors', {size: 14, strokeWidth: '1.5'}), 'Split PDF', function() { _closeAll(); _pdfSplitAction(tab); }).el);
-  panel.appendChild(_cBtn(icon('fileMerge', {size: 14, strokeWidth: '1.5'}), 'Merge PDFs', function() { _closeAll(); _pdfMergeAction(tab); }).el);
-  panel.appendChild(_cBtn(icon('compress', {size: 14, strokeWidth: '1.5'}), 'Compress PDF', function() { _closeAll(); _pdfCompressAction(tab); }).el);
-
   var div1 = new window.View('div').styles({ borderTop: '1px solid var(--nr-border-default)', margin: '2px 12px' });
-  panel.appendChild(div1.el);
-
-  panel.appendChild(_cBtn(icon('imagePlus', {size: 14, strokeWidth: '1.5'}), 'PDF to PNG', function() { _closeAll(); _pdfToPngAction(tab); }).el);
-  panel.appendChild(_cBtn(icon('imagePlus', {size: 14, strokeWidth: '1.5'}), 'PDF to JPEG', function() { _closeAll(); _pdfToJpegAction(tab); }).el);
-  panel.appendChild(_cBtn(icon('filePlus', {size: 14, strokeWidth: '1.5'}), 'Images to PDF', function() { _closeAll(); _pdfFromImagesAction(); }).el);
-
   var div2 = new window.View('div').styles({ borderTop: '1px solid var(--nr-border-default)', margin: '2px 12px' });
-  panel.appendChild(div2.el);
 
-  panel.appendChild(_cBtn(icon('markdown', {size: 14, strokeWidth: '1.5'}), 'PDF to Markdown', function() { _closeAll(); _pdfToMdAction(tab); }).el);
-  panel.appendChild(_cBtn(icon('markdown', {size: 14, strokeWidth: '1.5'}), 'Markdown to PDF', function() { _closeAll(); _pdfMdToPdfAction(); }).el);
+  AetherUI.mount(window.VStack([
+    _cBtn(icon('fileText', {size: 14, strokeWidth: '1.5'}), 'Parse PDF', function() { _closeAll(); _pdfParseAction(tab); }),
+    _cBtn(icon('documentSearch', {size: 14, strokeWidth: '1.5'}), 'Extract PDF', function() { _closeAll(); _pdfExtractAction(tab); }),
+    _cBtn(icon('scissors', {size: 14, strokeWidth: '1.5'}), 'Split PDF', function() { _closeAll(); _pdfSplitAction(tab); }),
+    _cBtn(icon('fileMerge', {size: 14, strokeWidth: '1.5'}), 'Merge PDFs', function() { _closeAll(); _pdfMergeAction(tab); }),
+    _cBtn(icon('compress', {size: 14, strokeWidth: '1.5'}), 'Compress PDF', function() { _closeAll(); _pdfCompressAction(tab); }),
+    div1,
+    _cBtn(icon('imagePlus', {size: 14, strokeWidth: '1.5'}), 'PDF to PNG', function() { _closeAll(); _pdfToPngAction(tab); }),
+    _cBtn(icon('imagePlus', {size: 14, strokeWidth: '1.5'}), 'PDF to JPEG', function() { _closeAll(); _pdfToJpegAction(tab); }),
+    _cBtn(icon('filePlus', {size: 14, strokeWidth: '1.5'}), 'Images to PDF', function() { _closeAll(); _pdfFromImagesAction(); }),
+    div2,
+    _cBtn(icon('markdown', {size: 14, strokeWidth: '1.5'}), 'PDF to Markdown', function() { _closeAll(); _pdfToMdAction(tab); }),
+    _cBtn(icon('markdown', {size: 14, strokeWidth: '1.5'}), 'Markdown to PDF', function() { _closeAll(); _pdfMdToPdfAction(); }),
+  ]), panel);
 }
 
 // ── PDF conversion actions ──
@@ -583,13 +578,13 @@ export function browseShowAIView() {
       .replace(/>/g, '<span style="color:#8bdb8b">&gt;</span>')
       .replace(/((?:aria-\w+|role|type|name|placeholder|href|value|title|disabled|checked)(?:="[^"]*")?)/g, '<span style="color:#e8c87a">$1</span>')
       .replace(/(@-?\d+,-?\d+,\d+,\d+)/g, '<span style="color:var(--nr-text-secondary)">$1</span>');
-    contentEl.el.innerHTML = highlighted;
+    AetherUI.mount(window.RawHTML(highlighted), contentEl.el);
 
     var overlayView = window.VStack([headerEl, contentEl]).id('ai-view-overlay')
       .position('fixed').zIndex('modal').background('primary')
       .styles({ inset: '0', paddingTop: '48px' });
 
-    document.body.appendChild(overlayView.el);
+    AetherUI.append(overlayView, document.body);
 
     function onKey(e) { if (e.key === 'Escape') { overlayView.el.remove(); document.removeEventListener('keydown', onKey); } }
     document.addEventListener('keydown', onKey);

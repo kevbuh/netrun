@@ -28,10 +28,7 @@ export function _nerdPanelRegister() {
       { id: 'nerd-search',     label: 'Search',     icon: icon('search', { size: 14 }),    render: _renderSearchTab },
     ],
     header: function(el) {
-      var h = document.createElement('div');
-      h.className = 'nerd-header-label';
-      h.textContent = 'Nerd Mode';
-      el.appendChild(h);
+      AetherUI.append(Text('Nerd Mode').className('nerd-header-label'), el);
     }
   });
 }
@@ -118,20 +115,19 @@ function _getState() {
 }
 
 function _renderInfoTab(container) {
-  container.innerHTML = '';
+  container.replaceChildren();
   var tab = _getTab();
   var state = _getState();
 
-  var wrap = document.createElement('div');
-  wrap.className = 'nerd-tab-wrap';
+  var wrap = new View('div').className('nerd-tab-wrap');
 
   if (!state || !state.s2Data) {
     if (window.Skeleton) {
-      AetherUI.mount(window.Skeleton().lines(3), wrap);
+      wrap.add(window.Skeleton().lines(3));
     } else {
-      wrap.innerHTML = '<div class="nerd-empty">Loading paper info...</div>';
+      wrap.add(Text('Loading paper info...').className('nerd-empty'));
     }
-    container.appendChild(wrap);
+    AetherUI.append(wrap, container);
     if (tab) {
       setTimeout(function() { _renderInfoTab(container); }, 2000);
     }
@@ -141,10 +137,7 @@ function _renderInfoTab(container) {
   var s2 = state.s2Data;
 
   // Title
-  var title = document.createElement('div');
-  title.className = 'nerd-info-title';
-  title.textContent = s2.title || state.meta.title || 'Unknown Title';
-  wrap.appendChild(title);
+  wrap.add(Text(s2.title || state.meta.title || 'Unknown Title').className('nerd-info-title'));
 
   // Meta line (year, venue, citations)
   var meta = [];
@@ -152,94 +145,64 @@ function _renderInfoTab(container) {
   if (s2.venue) meta.push(s2.venue);
   if (s2.citationCount != null) meta.push(s2.citationCount + ' citations');
   if (meta.length) {
-    var metaEl = document.createElement('div');
-    metaEl.className = 'nerd-info-meta';
-    metaEl.textContent = meta.join(' \u00b7 ');
-    wrap.appendChild(metaEl);
+    wrap.add(Text(meta.join(' \u00b7 ')).className('nerd-info-meta'));
   }
 
   // Authors
   var authors = s2.authors || [];
   if (authors.length) {
-    var authorsEl = document.createElement('div');
-    authorsEl.className = 'nerd-info-authors';
-    authorsEl.textContent = authors.map(function(a) { return a.name; }).join(', ');
-    wrap.appendChild(authorsEl);
+    wrap.add(Text(authors.map(function(a) { return a.name; }).join(', ')).className('nerd-info-authors'));
   }
 
   // Abstract
   if (s2.abstract) {
-    var abstractSection = document.createElement('div');
-    abstractSection.className = 'nerd-section';
-    var absTitle = document.createElement('div');
-    absTitle.className = 'nerd-section-title';
-    absTitle.textContent = 'Abstract';
-    abstractSection.appendChild(absTitle);
-    var absBody = document.createElement('div');
-    absBody.className = 'nerd-section-body';
-    absBody.textContent = s2.abstract;
-    abstractSection.appendChild(absBody);
-    wrap.appendChild(abstractSection);
+    wrap.add(
+      new View('div').className('nerd-section').add(
+        Text('Abstract').className('nerd-section-title'),
+        Text(s2.abstract).className('nerd-section-body')
+      )
+    );
   }
 
   // Citation formats
-  var citeSection = document.createElement('div');
-  citeSection.className = 'nerd-section';
-  var citeSectionTitle = document.createElement('div');
-  citeSectionTitle.className = 'nerd-section-title';
-  citeSectionTitle.textContent = 'Cite';
-  citeSection.appendChild(citeSectionTitle);
+  var citeSectionView = new View('div').className('nerd-section').add(
+    Text('Cite').className('nerd-section-title')
+  );
 
   var citeFormats = _generateCiteFormats(s2);
   Object.keys(citeFormats).forEach(function(fmt) {
-    var row = document.createElement('div');
-    row.className = 'nerd-cite-row';
-
-    var label = document.createElement('div');
-    label.className = 'nerd-cite-label';
-    label.textContent = fmt;
-    row.appendChild(label);
-
-    var citeBox = document.createElement('div');
-    citeBox.className = 'nerd-cite-box';
-    citeBox.textContent = citeFormats[fmt];
-    citeBox.title = 'Click to copy';
-    citeBox.addEventListener('click', function() {
-      navigator.clipboard.writeText(citeFormats[fmt]).then(function() {
-        var accent = getComputedStyle(document.documentElement).getPropertyValue('--nr-accent').trim();
-        if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse(accent || '#3b82f6');
-      }).catch(function() {});
-      if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Copied ' + fmt);
-    });
-    row.appendChild(citeBox);
-    citeSection.appendChild(row);
+    var row = new View('div').className('nerd-cite-row').add(
+      Text(fmt).className('nerd-cite-label'),
+      Text(citeFormats[fmt]).className('nerd-cite-box').attr('title', 'Click to copy').onTap(function() {
+        navigator.clipboard.writeText(citeFormats[fmt]).then(function() {
+          var accent = getComputedStyle(document.documentElement).getPropertyValue('--nr-accent').trim();
+          if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse(accent || '#3b82f6');
+        }).catch(function() {});
+        if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Copied ' + fmt);
+      })
+    );
+    citeSectionView.add(row);
   });
 
-  wrap.appendChild(citeSection);
-  container.appendChild(wrap);
+  wrap.add(citeSectionView);
+  AetherUI.append(wrap, container);
 }
 
 function _renderRefsTab(container) {
-  container.innerHTML = '';
+  container.replaceChildren();
   var state = _getState();
 
-  var wrap = document.createElement('div');
-  wrap.className = 'nerd-tab-wrap';
+  var wrap = new View('div').className('nerd-tab-wrap');
 
   if (!state || !state.refs || !state.refs.length) {
-    wrap.innerHTML = '<div class="nerd-empty">No references available</div>';
-    container.appendChild(wrap);
+    wrap.add(Text('No references available').className('nerd-empty'));
+    AetherUI.append(wrap, container);
     return;
   }
 
   state.refs.forEach(function(ref) {
-    var item = document.createElement('div');
-    item.className = 'nerd-paper-item';
-
-    var refTitle = document.createElement('div');
-    refTitle.className = 'nerd-paper-item-title line-clamp-2';
-    refTitle.textContent = ref.title || 'Untitled';
-    item.appendChild(refTitle);
+    var item = new View('div').className('nerd-paper-item');
+    item.add(Text(ref.title || 'Untitled').className('nerd-paper-item-title line-clamp-2'));
 
     var refMeta = [];
     if (ref.authors && ref.authors.length) {
@@ -248,34 +211,30 @@ function _renderRefsTab(container) {
     if (ref.year) refMeta.push(String(ref.year));
     if (ref.citationCount != null) refMeta.push(ref.citationCount + ' cit.');
     if (refMeta.length) {
-      var metaDiv = document.createElement('div');
-      metaDiv.className = 'nerd-paper-item-meta';
-      metaDiv.textContent = refMeta.join(' \u00b7 ');
-      item.appendChild(metaDiv);
+      item.add(Text(refMeta.join(' \u00b7 ')).className('nerd-paper-item-meta'));
     }
 
-    item.addEventListener('click', function() {
+    item.onTap(function() {
       var query = encodeURIComponent(ref.title);
       var url = 'https://scholar.google.com/scholar?q=' + query;
       if (typeof window.browseNewTab === 'function') window.browseNewTab(url);
     });
 
-    wrap.appendChild(item);
+    wrap.add(item);
   });
 
-  container.appendChild(wrap);
+  AetherUI.append(wrap, container);
 }
 
 function _renderAuthorsTab(container) {
-  container.innerHTML = '';
+  container.replaceChildren();
   var state = _getState();
 
-  var wrap = document.createElement('div');
-  wrap.className = 'nerd-tab-wrap';
+  var wrap = new View('div').className('nerd-tab-wrap');
 
   if (!state || !state.s2Data || !state.s2Data.authors || !state.s2Data.authors.length) {
-    wrap.innerHTML = '<div class="nerd-empty">No author data available</div>';
-    container.appendChild(wrap);
+    wrap.add(Text('No author data available').className('nerd-empty'));
+    AetherUI.append(wrap, container);
     return;
   }
 
@@ -285,9 +244,7 @@ function _renderAuthorsTab(container) {
   details.forEach(function(d) { if (d && d.authorId) detailMap[d.authorId] = d; });
 
   authors.forEach(function(author) {
-    var card = document.createElement('div');
-    card.className = 'nerd-author-card';
-    card.addEventListener('click', function() {
+    var card = new View('div').className('nerd-author-card').onTap(function() {
       if (author.authorId) {
         var url = 'https://www.semanticscholar.org/author/' + author.authorId;
         if (typeof window.browseNewTab === 'function') window.browseNewTab(url);
@@ -295,96 +252,72 @@ function _renderAuthorsTab(container) {
     });
 
     // Avatar with initials
-    var avatar = document.createElement('div');
-    avatar.className = 'author-card-avatar';
     var initials = (author.name || '').split(' ').map(function(w) { return w.charAt(0); }).join('').slice(0, 2).toUpperCase();
-    avatar.textContent = initials;
-    card.appendChild(avatar);
+    card.add(Text(initials).className('author-card-avatar'));
 
-    var info = document.createElement('div');
-    info.className = 'author-card-info';
-
-    var name = document.createElement('div');
-    name.className = 'author-card-name';
-    name.textContent = author.name || 'Unknown';
-    info.appendChild(name);
+    var info = new View('div').className('author-card-info');
+    info.add(Text(author.name || 'Unknown').className('author-card-name'));
 
     // Detailed stats
     var detail = detailMap[author.authorId];
     if (detail) {
       // Affiliations
       if (detail.affiliations && detail.affiliations.length) {
-        var affEl = document.createElement('div');
-        affEl.style.cssText = 'font-size:0.68rem;color:var(--nr-text-tertiary);margin-top:1px;';
-        affEl.textContent = detail.affiliations.join(', ');
-        info.appendChild(affEl);
+        info.add(Text(detail.affiliations.join(', ')).cssText('font-size:0.68rem;color:var(--nr-text-tertiary);margin-top:1px;'));
       }
       var stats = [];
       if (detail.hIndex != null) stats.push('h-index: ' + detail.hIndex);
       if (detail.citationCount != null) stats.push(detail.citationCount.toLocaleString() + ' citations');
       if (detail.paperCount != null) stats.push(detail.paperCount + ' papers');
       if (stats.length) {
-        var statsEl = document.createElement('div');
-        statsEl.className = 'author-card-stats';
-        statsEl.textContent = stats.join(' \u00b7 ');
-        info.appendChild(statsEl);
+        info.add(Text(stats.join(' \u00b7 ')).className('author-card-stats'));
       }
 
       // h-index badge — unified accent color
       if (detail.hIndex != null) {
-        var badge = document.createElement('span');
-        badge.className = 'nerd-badge';
-        if (detail.hIndex >= 50) badge.textContent = 'Highly cited';
-        else if (detail.hIndex >= 20) badge.textContent = 'Established';
-        else if (detail.hIndex >= 5) badge.textContent = 'Active';
-        else badge.textContent = 'Early career';
-        info.appendChild(badge);
+        var badgeText = detail.hIndex >= 50 ? 'Highly cited' : detail.hIndex >= 20 ? 'Established' : detail.hIndex >= 5 ? 'Active' : 'Early career';
+        info.add(new View('span').className('nerd-badge').text(badgeText));
       }
     }
 
-    card.appendChild(info);
-    wrap.appendChild(card);
+    card.add(info);
+    wrap.add(card);
   });
 
-  container.appendChild(wrap);
+  AetherUI.append(wrap, container);
 }
 
 function _renderRelatedTab(container) {
-  container.innerHTML = '';
+  container.replaceChildren();
   var state = _getState();
 
-  var wrap = document.createElement('div');
-  wrap.className = 'nerd-tab-wrap';
+  var wrap = new View('div').className('nerd-tab-wrap');
+  var wrapEl = wrap.el;
 
   if (!state || !state.s2Data || !state.s2Data.paperId) {
-    wrap.innerHTML = '<div class="nerd-empty">No paper identified</div>';
-    container.appendChild(wrap);
+    wrap.add(Text('No paper identified').className('nerd-empty'));
+    AetherUI.append(wrap, container);
     return;
   }
 
   if (window.Skeleton) {
-    AetherUI.mount(window.Skeleton().lines(3), wrap);
+    wrap.add(window.Skeleton().lines(3));
   } else {
-    wrap.innerHTML = '<div class="nerd-empty">Loading recommendations...</div>';
+    wrap.add(Text('Loading recommendations...').className('nerd-empty'));
   }
-  container.appendChild(wrap);
+  AetherUI.append(wrap, container);
 
   _s2Fetch('https://api.semanticscholar.org/recommendations/v1/papers/forpaper/' + state.s2Data.paperId + '?limit=10&fields=title,authors,year,citationCount,venue').then(function(data) {
-    wrap.innerHTML = '';
+    wrapEl.replaceChildren();
     var papers = data && data.recommendedPapers ? data.recommendedPapers : [];
     if (!papers.length) {
-      wrap.innerHTML = '<div class="nerd-empty">No recommendations found</div>';
+      AetherUI.mount(Text('No recommendations found').className('nerd-empty'), wrapEl);
       return;
     }
 
     papers.forEach(function(paper) {
-      var item = document.createElement('div');
-      item.className = 'nerd-paper-item';
-
-      var t = document.createElement('div');
-      t.className = 'nerd-paper-item-title line-clamp-2';
-      t.textContent = paper.title || 'Untitled';
-      item.appendChild(t);
+      var item = new View('div').className('nerd-paper-item');
+      item.add(Text(paper.title || 'Untitled').className('nerd-paper-item-title line-clamp-2'));
 
       var m = [];
       if (paper.authors && paper.authors.length) {
@@ -394,76 +327,54 @@ function _renderRelatedTab(container) {
       if (paper.citationCount != null) m.push(paper.citationCount + ' cit.');
       if (paper.venue) m.push(paper.venue);
       if (m.length) {
-        var metaDiv = document.createElement('div');
-        metaDiv.className = 'nerd-paper-item-meta';
-        metaDiv.textContent = m.join(' \u00b7 ');
-        item.appendChild(metaDiv);
+        item.add(Text(m.join(' \u00b7 ')).className('nerd-paper-item-meta'));
       }
 
-      item.addEventListener('click', function() {
+      item.onTap(function() {
         var url = 'https://www.semanticscholar.org/paper/' + paper.paperId;
         if (typeof window.browseNewTab === 'function') window.browseNewTab(url);
       });
 
-      wrap.appendChild(item);
+      AetherUI.append(item, wrapEl);
     });
   }).catch(function() {
-    wrap.innerHTML = '<div class="nerd-empty">Failed to load recommendations</div>';
+    AetherUI.mount(Text('Failed to load recommendations').className('nerd-empty'), wrapEl);
   });
 }
 
 function _renderHighlightsTab(container) {
-  container.innerHTML = '';
+  container.replaceChildren();
   var tab = _getTab();
 
-  var wrap = document.createElement('div');
-  wrap.className = 'nerd-tab-wrap';
+  var wrap = new View('div').className('nerd-tab-wrap');
 
   if (!tab || !tab._pdfHighlights || !tab._pdfHighlights.length) {
-    wrap.innerHTML = '<div class="nerd-empty">No highlights yet. Select text in the PDF to highlight.</div>';
-    container.appendChild(wrap);
+    wrap.add(Text('No highlights yet. Select text in the PDF to highlight.').className('nerd-empty'));
+    AetherUI.append(wrap, container);
     return;
   }
 
   tab._pdfHighlights.forEach(function(hl, idx) {
-    var card = document.createElement('div');
-    card.className = 'pdf-hl-card';
+    var card = new View('div').className('pdf-hl-card');
 
-    var header = document.createElement('div');
-    header.className = 'pdf-hl-card-header';
-    header.addEventListener('click', function() {
+    var header = new View('div').className('pdf-hl-card-header').onTap(function() {
       if (tab && hl.pageNum) _pdfViewerScrollToPage(tab, hl.pageNum);
     });
 
-    var badge = document.createElement('div');
-    badge.className = 'pdf-hl-card-badge';
-    badge.style.background = hl.color || 'rgba(255,235,59,0.6)';
-    badge.textContent = String(idx + 1);
-    header.appendChild(badge);
+    header.add(
+      Text(String(idx + 1)).className('pdf-hl-card-badge').styles({ background: hl.color || 'rgba(255,235,59,0.6)' }),
+      Text(hl.text || '').className('pdf-hl-card-text'),
+      Text('p. ' + hl.pageNum).className('pdf-hl-card-page'),
+      new View('button').className('pdf-hl-card-del').text('\u00d7').onTap(function(e) {
+        e.stopPropagation();
+        if (typeof window._pdfViewerRemoveHighlight === 'function') {
+          window._pdfViewerRemoveHighlight(tab, idx);
+        }
+        _renderHighlightsTab(container);
+      })
+    );
 
-    var text = document.createElement('div');
-    text.className = 'pdf-hl-card-text';
-    text.textContent = hl.text || '';
-    header.appendChild(text);
-
-    var page = document.createElement('div');
-    page.className = 'pdf-hl-card-page';
-    page.textContent = 'p. ' + hl.pageNum;
-    header.appendChild(page);
-
-    var del = document.createElement('button');
-    del.className = 'pdf-hl-card-del';
-    del.textContent = '\u00d7';
-    del.addEventListener('click', function(e) {
-      e.stopPropagation();
-      if (typeof window._pdfViewerRemoveHighlight === 'function') {
-        window._pdfViewerRemoveHighlight(tab, idx);
-      }
-      _renderHighlightsTab(container);
-    });
-    header.appendChild(del);
-
-    card.appendChild(header);
+    card.add(header);
 
     // Reference cross-linking: scan for [n] patterns
     var state = _getState();
@@ -473,76 +384,69 @@ function _renderHighlightsTab(container) {
       var refNums = _parseRefNums(match[1]);
       refNums.forEach(function(num) {
         if (state && state.refs && state.refs[num - 1]) {
-          var refLink = document.createElement('div');
-          refLink.style.cssText = 'font-size:0.68rem;color:var(--nr-accent);cursor:pointer;padding:2px 0;';
-          refLink.textContent = '[' + num + '] ' + state.refs[num - 1].title;
-          refLink.addEventListener('click', function(e) {
-            e.stopPropagation();
-            var query = encodeURIComponent(state.refs[num - 1].title);
-            if (typeof window.browseNewTab === 'function') window.browseNewTab('https://scholar.google.com/scholar?q=' + query);
-          });
-          card.appendChild(refLink);
+          card.add(
+            Text('[' + num + '] ' + state.refs[num - 1].title)
+              .cssText('font-size:0.68rem;color:var(--nr-accent);cursor:pointer;padding:2px 0;')
+              .onTap(function(e) {
+                e.stopPropagation();
+                var query = encodeURIComponent(state.refs[num - 1].title);
+                if (typeof window.browseNewTab === 'function') window.browseNewTab('https://scholar.google.com/scholar?q=' + query);
+              })
+          );
         }
       });
     }
 
     // Note textarea
-    var note = document.createElement('textarea');
-    note.className = 'pdf-hl-card-note';
-    note.rows = 1;
-    note.placeholder = 'Add a note...';
-    note.value = hl.note || '';
-    note.addEventListener('input', function() {
-      hl.note = note.value;
+    var note = new View('textarea').className('pdf-hl-card-note').attr('rows', '1').attr('placeholder', 'Add a note...');
+    note.el.value = hl.note || '';
+    note.el.addEventListener('input', function() {
+      hl.note = note.el.value;
     });
-    card.appendChild(note);
+    card.add(note);
 
-    wrap.appendChild(card);
+    wrap.add(card);
   });
 
-  container.appendChild(wrap);
+  AetherUI.append(wrap, container);
 }
 
 function _renderSearchTab(container) {
-  container.innerHTML = '';
+  container.replaceChildren();
   var tab = _getTab();
 
-  var wrap = document.createElement('div');
-  wrap.className = 'nerd-search-wrap';
+  var wrap = new View('div').className('nerd-search-wrap');
 
   // Search input
-  var inputRow = document.createElement('div');
-  inputRow.className = 'nerd-search-input-row';
-  var input = document.createElement('input');
-  input.type = 'text';
-  input.placeholder = 'Search document text...';
-  input.className = 'nerd-search-input';
-  inputRow.appendChild(input);
-  wrap.appendChild(inputRow);
+  var input = new View('input').className('nerd-search-input').attr('type', 'text').attr('placeholder', 'Search document text...');
+  var inputRow = new View('div').className('nerd-search-input-row').add(input);
+  wrap.add(inputRow);
 
   // Results area
-  var results = document.createElement('div');
-  results.className = 'nerd-search-results';
-  results.innerHTML = '<div class="nerd-empty">Type to search the full document</div>';
-  wrap.appendChild(results);
+  var resultsView = new View('div').className('nerd-search-results');
+  resultsView.add(Text('Type to search the full document').className('nerd-empty'));
+  wrap.add(resultsView);
+  var resultsEl = resultsView.el;
 
-  container.appendChild(wrap);
+  AetherUI.append(wrap, container);
 
   var searchTimer = null;
-  input.addEventListener('input', function() {
+  input.el.addEventListener('input', function() {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(function() {
-      var query = input.value.trim();
+      var query = input.el.value.trim();
       if (!query || !tab || !tab._pdfDoc) {
-        results.innerHTML = '<div class="nerd-empty">Type to search the full document</div>';
+        resultsEl.replaceChildren();
+        AetherUI.mount(Text('Type to search the full document').className('nerd-empty'), resultsEl);
         return;
       }
-      results.innerHTML = '<div class="nerd-empty">Searching...</div>';
-      _searchFullText(tab, query, results);
+      resultsEl.replaceChildren();
+      AetherUI.mount(Text('Searching...').className('nerd-empty'), resultsEl);
+      _searchFullText(tab, query, resultsEl);
     }, 400);
   });
 
-  setTimeout(function() { input.focus(); }, 100);
+  setTimeout(function() { input.el.focus(); }, 100);
 }
 
 function _searchFullText(tab, query, results) {
@@ -572,36 +476,23 @@ function _searchFullText(tab, query, results) {
   }
 
   Promise.all(promises).then(function() {
-    results.innerHTML = '';
+    results.replaceChildren();
     if (!matches.length) {
-      results.innerHTML = '<div class="nerd-empty">No matches found</div>';
+      AetherUI.mount(Text('No matches found').className('nerd-empty'), results);
       return;
     }
 
-    var countEl = document.createElement('div');
-    countEl.className = 'nerd-search-count';
-    countEl.textContent = matches.length + ' match' + (matches.length !== 1 ? 'es' : '') + ' found';
-    results.appendChild(countEl);
+    AetherUI.append(Text(matches.length + ' match' + (matches.length !== 1 ? 'es' : '') + ' found').className('nerd-search-count'), results);
 
     matches.forEach(function(m) {
-      var item = document.createElement('div');
-      item.className = 'nerd-paper-item';
-
-      var page = document.createElement('div');
-      page.className = 'nerd-search-page';
-      page.textContent = 'Page ' + m.pageNum;
-      item.appendChild(page);
-
-      var snippet = document.createElement('div');
-      snippet.className = 'nerd-search-snippet';
-      snippet.textContent = m.snippet;
-      item.appendChild(snippet);
-
-      item.addEventListener('click', function() {
+      var item = new View('div').className('nerd-paper-item').add(
+        Text('Page ' + m.pageNum).className('nerd-search-page'),
+        Text(m.snippet).className('nerd-search-snippet')
+      ).onTap(function() {
         _pdfViewerScrollToPage(tab, m.pageNum);
       });
 
-      results.appendChild(item);
+      AetherUI.append(item, results);
     });
   });
 }
@@ -609,28 +500,28 @@ function _searchFullText(tab, query, results) {
 // ── Code Tab (Papers With Code) ──
 
 function _renderCodeTab(container) {
-  container.innerHTML = '';
+  container.replaceChildren();
   var state = _getState();
-  var wrap = document.createElement('div');
-  wrap.className = 'nerd-tab-wrap';
+  var wrap = new View('div').className('nerd-tab-wrap');
+  var wrapEl = wrap.el;
 
   if (!state || !state.s2Data || !state.s2Data.title) {
-    wrap.innerHTML = '<div class="nerd-empty">No paper identified</div>';
-    container.appendChild(wrap);
+    wrap.add(Text('No paper identified').className('nerd-empty'));
+    AetherUI.append(wrap, container);
     return;
   }
 
-  wrap.innerHTML = '<div class="nerd-empty">Searching for implementations...</div>';
-  container.appendChild(wrap);
+  wrap.add(Text('Searching for implementations...').className('nerd-empty'));
+  AetherUI.append(wrap, container);
 
   var query = encodeURIComponent(state.s2Data.title);
   fetch('https://paperswithcode.com/api/v1/papers/?q=' + query + '&items_per_page=5')
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      wrap.innerHTML = '';
+      wrapEl.replaceChildren();
       var results = data && data.results ? data.results : [];
       if (!results.length) {
-        wrap.innerHTML = '<div class="nerd-empty">No implementations found</div>';
+        AetherUI.mount(Text('No implementations found').className('nerd-empty'), wrapEl);
         return;
       }
       var foundAny = false;
@@ -642,38 +533,31 @@ function _renderCodeTab(container) {
             var repos = repoData && repoData.results ? repoData.results : [];
             repos.forEach(function(repo) {
               foundAny = true;
-              var card = document.createElement('div');
-              card.className = 'nerd-repo-card';
-
-              var name = document.createElement('div');
-              name.className = 'nerd-repo-name';
-              name.textContent = repo.url ? repo.url.split('/').slice(-2).join('/') : 'Repository';
-              card.appendChild(name);
-
-              var meta = document.createElement('div');
-              meta.className = 'nerd-repo-meta';
+              var repoName = repo.url ? repo.url.split('/').slice(-2).join('/') : 'Repository';
               var parts = [];
               if (repo.stars != null) parts.push(repo.stars + ' stars');
               if (repo.framework) parts.push(repo.framework);
               if (repo.is_official) parts.push('Official');
-              meta.textContent = parts.join(' \u00b7 ');
-              card.appendChild(meta);
 
-              card.addEventListener('click', function() {
+              var card = new View('div').className('nerd-repo-card').add(
+                Text(repoName).className('nerd-repo-name'),
+                Text(parts.join(' \u00b7 ')).className('nerd-repo-meta')
+              ).onTap(function() {
                 if (typeof window.browseNewTab === 'function') window.browseNewTab(repo.url);
               });
-              wrap.appendChild(card);
+
+              AetherUI.append(card, wrapEl);
             });
             pending--;
             if (pending <= 0 && !foundAny) {
-              wrap.innerHTML = '<div class="nerd-empty">No implementations found</div>';
+              AetherUI.mount(Text('No implementations found').className('nerd-empty'), wrapEl);
             }
           })
           .catch(function() { pending--; });
       });
     })
     .catch(function() {
-      wrap.innerHTML = '<div class="nerd-empty">Failed to search implementations</div>';
+      AetherUI.mount(Text('Failed to search implementations').className('nerd-empty'), wrapEl);
     });
 }
 

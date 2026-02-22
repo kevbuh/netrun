@@ -92,11 +92,11 @@ function _chatViewUpdateSendBtn(isStreaming) {
   const btn = document.querySelector('.browse-ntp.chat-mode .chat-view-send-btn');
   if (!btn) return;
   if (isStreaming) {
-    btn.innerHTML = icon('stopCircle', { size: 14 });
+    AetherUI.mount(RawHTML(icon('stopCircle', { size: 14 })), btn);
     btn.title = 'Stop';
     btn.classList.add('doc-ask-inline-stop');
   } else {
-    btn.innerHTML = '\u2191';
+    btn.textContent = '\u2191';
     btn.title = 'Send';
     btn.classList.remove('doc-ask-inline-stop');
   }
@@ -109,10 +109,9 @@ function _chatViewMorphNTP(ntp) {
   if (!inner || !center) return;
 
   // Insert messages div before the center (which contains the form)
-  const msgList = document.createElement('div');
-  msgList.className = 'chat-view-messages';
-  msgList.id = 'chat-view-msg-list';
-  inner.insertBefore(msgList, center);
+  const msgListView = new View('div').className('chat-view-messages').attr('id', 'chat-view-msg-list');
+  inner.insertBefore(msgListView.el, center);
+  const msgList = msgListView.el;
   _chatViewMsgList = msgList;
 
   // Swap the search input to chat mode
@@ -146,11 +145,9 @@ function _chatViewMorphNTP(ntp) {
     }
 
     // Insert attachment strip (for /capture, /tab context chips) before the form
-    const attachStrip = document.createElement('div');
-    attachStrip.className = 'doc-screenshot-attachments';
-    attachStrip.style.display = 'none';
-    if (form) center.insertBefore(attachStrip, form);
-    else center.appendChild(attachStrip);
+    const attachStripView = new View('div').className('doc-screenshot-attachments').styles({ display: 'none' });
+    if (form) center.insertBefore(attachStripView.el, form);
+    else center.append(attachStripView.el);
 
     // Store center as the command popup adapter
     _chatViewCmdPopup = center;
@@ -348,12 +345,12 @@ function _chatViewMorphNTP(ntp) {
     };
 
     // ── Send / Stop button ──
-    const sendBtn = document.createElement('button');
-    sendBtn.className = 'aether-input-btn doc-ask-inline-send chat-view-send-btn';
-    sendBtn.innerHTML = '\u2191';
-    sendBtn.title = 'Send';
-    sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    sendBtn.addEventListener('click', (ev) => {
+    const sendBtnView = new View('button')
+      .className('aether-input-btn doc-ask-inline-send chat-view-send-btn')
+      .text('\u2191')
+      .attr('title', 'Send');
+    sendBtnView.el.addEventListener('mousedown', (ev) => ev.stopPropagation());
+    sendBtnView.el.addEventListener('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
       if (_chatViewSession && _chatViewSession.streaming) {
         _chatViewSession.cancel();
@@ -365,7 +362,7 @@ function _chatViewMorphNTP(ntp) {
         _chatViewSend(text);
       }
     });
-    if (form) form.appendChild(sendBtn);
+    if (form) form.append(sendBtnView.el);
 
     // Focus after morph
     requestAnimationFrame(() => input.focus());
@@ -385,19 +382,17 @@ function _chatViewMorphNTP(ntp) {
   }
 
   // ── Model label row ──
-  const modelRow = document.createElement('div');
-  modelRow.className = 'chat-view-model-row';
-  const modelLabel = document.createElement('span');
-  modelLabel.className = 'aether-model-label chat-view-model-label';
   const currentModel = Settings.get('chatModel') || 'qwen2.5:3b';
-  modelLabel.textContent = currentModel;
-  modelLabel.title = 'Change model';
-  modelLabel.style.cursor = 'pointer';
-  modelLabel.addEventListener('click', () => {
-    if (_chatViewCmdPopup) _doAetherModel(_chatViewCmdPopup);
-  });
-  modelRow.appendChild(modelLabel);
-  center.appendChild(modelRow);
+  const modelLabel = new View('span')
+    .className('aether-model-label chat-view-model-label')
+    .text(currentModel)
+    .attr('title', 'Change model')
+    .styles({ cursor: 'pointer' })
+    .onTap(() => { if (_chatViewCmdPopup) _doAetherModel(_chatViewCmdPopup); });
+  const modelRow = new View('div')
+    .className('chat-view-model-row')
+    .add(modelLabel);
+  center.append(modelRow.el);
 
   // Add chat-mode class (triggers CSS transitions)
   ntp.classList.add('chat-mode');
@@ -669,10 +664,11 @@ function _openChatListPage(tab) {
   tab.favicon = '';
 
   const container = document.getElementById('browse-content');
-  const el = document.createElement('div');
-  el.id = 'browse-chat-' + tab.id;
-  el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;';
-  container.appendChild(el);
+  const elView = new View('div')
+    .attr('id', 'browse-chat-' + tab.id)
+    .cssText('width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;');
+  container.append(elView.el);
+  const el = elView.el;
   tab.el = el;
 
   _browseUpdateNewTabPage(tab);
@@ -729,7 +725,7 @@ async function _chatViewRenderThreadList(container, searchQuery) {
   if (!threads || threads.length === 0) {
     html += '<div style="text-align:center;padding:48px 0;color:var(--nr-text-secondary);font-size:0.85rem;">' + (searchQuery ? 'No matching chats' : 'No chats yet') + '</div>';
     html += '</div>';
-    container.innerHTML = html;
+    AetherUI.mount(RawHTML(html), container);
     _chatListBindSearch(container);
     return;
   }
@@ -766,7 +762,7 @@ async function _chatViewRenderThreadList(container, searchQuery) {
   }
 
   html += '</div>';
-  container.innerHTML = html;
+  AetherUI.mount(RawHTML(html), container);
   _chatListBindSearch(container);
 }
 
@@ -870,7 +866,7 @@ function _chatViewRenderMessages(isFinal) {
     messagesHtml += `<div class="chat-view-stats">${statsHtml}</div>`;
   }
 
-  list.innerHTML = messagesHtml;
+  AetherUI.mount(RawHTML(messagesHtml), list);
 
   // Render the tree rail alongside the message list
   _chatViewRenderTreeRail(list);
@@ -967,7 +963,7 @@ async function _chatViewSend(text) {
   // Clear attachment strip UI
   if (_chatViewCmdPopup) {
     const strip = _chatViewCmdPopup.querySelector('.doc-screenshot-attachments');
-    if (strip) { strip.innerHTML = ''; strip.style.display = 'none'; }
+    if (strip) { strip.replaceChildren(); strip.style.display = 'none'; }
   }
 
   // Render immediately to show the sending state
@@ -1000,11 +996,11 @@ function _chatViewRenderTreeRail(msgList) {
   const totalContent = messages.reduce((s, m) => s + Math.max((m.content || '').length, 20), 0);
 
   // Build rail
-  const rail = document.createElement('div');
-  rail.className = 'chat-tree-rail';
+  const railView = new View('div').className('chat-tree-rail');
+  const rail = railView.el;
 
-  const track = document.createElement('div');
-  track.className = 'chat-tree-rail-track';
+  const trackView = new View('div').className('chat-tree-rail-track');
+  const track = trackView.el;
 
   for (let i = 0; i < messages.length; i++) {
     const m = messages[i];
@@ -1013,41 +1009,39 @@ function _chatViewRenderTreeRail(msgList) {
     // Height proportional to content length
     const h = Math.max(minH, Math.min(maxH, Math.round((contentLen / totalContent) * messages.length * 24)));
 
-    const bar = document.createElement('div');
-    bar.className = 'chat-tree-rail-bar' + (isUser ? ' user' : ' assistant');
-    bar.style.height = h + 'px';
-    bar.setAttribute('data-idx', String(i));
-
-    // Click scrolls to that message
-    bar.addEventListener('click', () => {
-      const allMsgEls = msgList.querySelectorAll('.chat-view-msg');
-      if (allMsgEls[i]) {
-        allMsgEls[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
-        allMsgEls[i].classList.add('chat-view-msg-flash');
-        setTimeout(() => allMsgEls[i].classList.remove('chat-view-msg-flash'), 800);
-      }
-    });
+    const barView = new View('div')
+      .className('chat-tree-rail-bar' + (isUser ? ' user' : ' assistant'))
+      .styles({ height: h + 'px' })
+      .attr('data-idx', String(i))
+      .onTap(() => {
+        const allMsgEls = msgList.querySelectorAll('.chat-view-msg');
+        if (allMsgEls[i]) {
+          allMsgEls[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+          allMsgEls[i].classList.add('chat-view-msg-flash');
+          setTimeout(() => allMsgEls[i].classList.remove('chat-view-msg-flash'), 800);
+        }
+      });
 
     // Tooltip with snippet on hover
     const tooltipContent = isUser ? (m._display || m.content) : m.content;
     if (tooltipContent) {
-      const tooltip = document.createElement('div');
-      tooltip.className = 'chat-tree-rail-tooltip';
       const snippet = tooltipContent.replace(/[#*_`>\[\]]/g, '').replace(/\s+/g, ' ').trim();
-      tooltip.textContent = snippet.length > 100 ? snippet.slice(0, 97) + '\u2026' : snippet;
-      bar.appendChild(tooltip);
+      const tooltipView = new View('div')
+        .className('chat-tree-rail-tooltip')
+        .text(snippet.length > 100 ? snippet.slice(0, 97) + '\u2026' : snippet);
+      barView.add(tooltipView);
     }
 
-    track.appendChild(bar);
+    track.append(barView.el);
   }
 
-  rail.appendChild(track);
-  msgList.parentElement.appendChild(rail);
+  railView.add(trackView);
+  msgList.parentElement.append(rail);
 
   // Sync scroll indicator: highlight the visible portion on the minimap
-  const viewport = document.createElement('div');
-  viewport.className = 'chat-tree-rail-viewport';
-  track.appendChild(viewport);
+  const viewportView = new View('div').className('chat-tree-rail-viewport');
+  const viewport = viewportView.el;
+  track.append(viewport);
 
   function syncViewport() {
     const scrollH = msgList.scrollHeight;

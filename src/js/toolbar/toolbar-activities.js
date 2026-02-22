@@ -388,10 +388,10 @@ export function _islandRender() {
     var pillEl = existingById[f.id];
     if (!pillEl) {
       // Create new pill
-      pillEl = document.createElement('div');
-      pillEl.className = 'pill-island' + (f.data.cssClass ? ' ' + f.data.cssClass : '');
-      pillEl.dataset.islandId = f.id;
-      container.appendChild(pillEl);
+      var pillView = new window.View('div').className('pill-island' + (f.data.cssClass ? ' ' + f.data.cssClass : ''))
+        .attr('data-island-id', f.id);
+      AetherUI.append(pillView, container);
+      pillEl = pillView.el;
     }
     // Render pill content
     var contentView = _islandRenderPill(f.data);
@@ -505,10 +505,9 @@ function _togglePillTray(pillEl, act) {
   var trayContent = _islandBuildTray(act, isBrowse);
   if (!trayContent) return;
 
-  var tray = document.createElement('div');
-  tray.className = 'island-ctx-tray';
-  AetherUI.mount(trayContent, tray);
-  pillEl.appendChild(tray);
+  var trayView = new window.View('div').className('island-ctx-tray');
+  AetherUI.mount(trayContent, trayView.el);
+  AetherUI.append(trayView, pillEl);
   pillEl.classList.add('island-tray-open');
 
   // Position tray below pill

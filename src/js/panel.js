@@ -115,12 +115,12 @@ document.addEventListener('mousedown', function(e) {
     _screenshotCapturing = true; // protect panel from removal throughout entire drag+capture
     _screenshotDragStart = { x: e.clientX, y: e.clientY };
     // Create selection rect + dim overlay elements
-    _screenshotDim = document.createElement('div');
-    _screenshotDim.className = 'screenshot-dim';
-    document.body.appendChild(_screenshotDim);
-    _screenshotSelection = document.createElement('div');
-    _screenshotSelection.className = 'screenshot-selection';
-    document.body.appendChild(_screenshotSelection);
+    const dimView = new window.View('div').className('screenshot-dim');
+    AetherUI.append(dimView, document.body);
+    _screenshotDim = dimView.el;
+    const selView = new window.View('div').className('screenshot-selection');
+    AetherUI.append(selView, document.body);
+    _screenshotSelection = selView.el;
     return;
   }
   // If NOT in track mode and not pinned, remove existing panel
@@ -684,7 +684,7 @@ export function _injectProfileItems(popup) {
   // Insert before the chat input wrap (or at end)
   const inputWrap = popup.querySelector('.doc-ask-inline-wrap');
   if (inputWrap) popup.insertBefore(ctxDiv.el, inputWrap);
-  else popup.appendChild(ctxDiv.el);
+  else popup.append(ctxDiv.el);
 }
 
 // ── Helper: build generic context menu items (tab, custom items) ──
@@ -719,7 +719,7 @@ export function _panelBuildContextItems(popup, config) {
     }
     ctxDiv.add(item);
   }
-  popup.appendChild(ctxDiv.el);
+  popup.append(ctxDiv.el);
 }
 
 // ── Helper: build link/image context menu + link preview ──
@@ -734,18 +734,21 @@ export function _panelBuildLinkContextMenu(popup, config) {
       .then(data => {
         if (!popup.isConnected) return;
         if (!data.title && !data.description) return;
-        let h = '';
+        const previewChildren = [];
         if (data.image) {
-          h += `<img class="doc-link-preview-img" src="${escapeAttr(data.image)}" onerror="this.remove()">`;
+          const img = new window.View('img').className('doc-link-preview-img').attr('src', data.image);
+          img.el.onerror = function() { this.remove(); };
+          previewChildren.push(img);
         }
-        h += '<div class="doc-link-preview-text">';
-        h += `<div class="doc-link-preview-site">${escapeHtml(data.site || data.domain || '')}</div>`;
-        h += `<div class="doc-link-preview-title">${escapeHtml(data.title)}</div>`;
+        const textChildren = [
+          window.Text(data.site || data.domain || '').className('doc-link-preview-site'),
+          window.Text(data.title).className('doc-link-preview-title'),
+        ];
         if (data.description) {
-          h += `<div class="doc-link-preview-desc">${escapeHtml(data.description)}</div>`;
+          textChildren.push(window.Text(data.description).className('doc-link-preview-desc'));
         }
-        h += '</div>';
-        previewDiv.el.innerHTML = h;
+        previewChildren.push(window.VStack(...textChildren).className('doc-link-preview-text'));
+        AetherUI.mount(window.VStack(...previewChildren), previewDiv.el);
         previewDiv.el.style.cursor = 'pointer';
         previewDiv.on('mousedown', (ev) => ev.stopPropagation())
           .on('click', (ev) => {
@@ -808,12 +811,11 @@ export function _panelBuildLinkContextMenu(popup, config) {
       });
       addItem('Save Image As…', () => {
         const proxyUrl = imgUrl.startsWith('/api/') ? imgUrl : '/api/image-proxy?url=' + encodeURIComponent(imgUrl);
-        const a = document.createElement('a');
-        a.href = proxyUrl;
-        try { a.download = imgUrl.split('/').pop().split('?')[0] || 'image.png'; } catch(_) { a.download = 'image.png'; }
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        const aView = new window.View('a').attr('href', proxyUrl);
+        try { aView.attr('download', imgUrl.split('/').pop().split('?')[0] || 'image.png'); } catch(_) { aView.attr('download', 'image.png'); }
+        AetherUI.append(aView, document.body);
+        aView.el.click();
+        aView.el.remove();
       });
       // "Add to Assistant" keeps the panel open and adds the image as chat context
       const assistItem = new window.View('div').className('doc-aether-ctx-item')
@@ -848,7 +850,7 @@ export function _panelBuildLinkContextMenu(popup, config) {
       });
     }
 
-    popup.appendChild(ctxDiv.el);
+    popup.append(ctxDiv.el);
   }
 }
 
@@ -895,7 +897,7 @@ export function _panelBuildEditableActions(popup, config, capturedText, hasConte
         _pasteIntoElement(editableTarget, text);
       }).catch(() => {});
     });
-    popup.appendChild(editCtx.el);
+    popup.append(editCtx.el);
   }
 
   // Webview editable field (cross-origin) — Cut/Copy/Paste via webview API
@@ -941,7 +943,7 @@ export function _panelBuildEditableActions(popup, config, capturedText, hasConte
     if (flags.canSelectAll) addWvItem('Select All', () => {
       wvExec(`(function(){ var el=window.__aetherLastEditable; if(el){el.focus();el.select();}else document.execCommand('selectAll'); })()`);
     });
-    if (wvCtx.el.children.length) popup.appendChild(wvCtx.el);
+    if (wvCtx.el.children.length) popup.append(wvCtx.el);
   }
 
   // Paste into nearby editable or chat input (only when near an editable field)
@@ -965,7 +967,7 @@ export function _panelBuildEditableActions(popup, config, capturedText, hasConte
         }).catch(() => {});
       });
     pasteCtx.add(pasteItem);
-    popup.appendChild(pasteCtx.el);
+    popup.append(pasteCtx.el);
   }
 }
 
@@ -989,8 +991,8 @@ export function _panelBuildSelectionUI(popup, config) {
     .on('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
       navigator.clipboard.writeText(capturedText).then(() => {
-        copyBtn.el.innerHTML = icon('check', { size: 14 });
-        setTimeout(() => { if (copyBtn.el.isConnected) copyBtn.el.innerHTML = icon('copy', { size: 14 }); }, 1200);
+        AetherUI.mount(window.RawHTML(icon('check', { size: 14 })), copyBtn.el);
+        setTimeout(() => { if (copyBtn.el.isConnected) AetherUI.mount(window.RawHTML(icon('copy', { size: 14 })), copyBtn.el); }, 1200);
         if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
       }).catch(() => {});
     });
@@ -1005,12 +1007,12 @@ export function _panelBuildSelectionUI(popup, config) {
       ev.stopPropagation(); ev.preventDefault();
       if (window._ttsAudio || window._ttsPaused || window._ttsChunks.length > 0) {
         _ttsStopAll();
-        readBtn.el.innerHTML = icon('speaker', { size: 14 });
+        AetherUI.mount(window.RawHTML(icon('speaker', { size: 14 })), readBtn.el);
         readBtn.el.title = 'Read aloud';
         return;
       }
       if (!capturedText || capturedText.length < 2) return;
-      readBtn.el.innerHTML = icon('pauseRect', { size: 14 });
+      AetherUI.mount(window.RawHTML(icon('pauseRect', { size: 14 })), readBtn.el);
       readBtn.el.title = 'Stop';
       window._ttsStopped = false;
       window._ttsPaused = false;
@@ -1024,7 +1026,7 @@ export function _panelBuildSelectionUI(popup, config) {
         if (!window._ttsAudio && !window._ttsPaused && window._ttsChunks.length === 0) {
           clearInterval(checkDone);
           if (readBtn.el.isConnected) {
-            readBtn.el.innerHTML = icon('speaker', { size: 14 });
+            AetherUI.mount(window.RawHTML(icon('speaker', { size: 14 })), readBtn.el);
             readBtn.el.title = 'Read aloud';
           }
         }
@@ -1042,9 +1044,9 @@ export function _panelBuildSelectionUI(popup, config) {
         ev.stopPropagation(); ev.preventDefault();
         if (window._ttsAudio || window._ttsPaused || window._ttsChunks.length > 0) {
           _ttsStopAll();
-          fromHereBtn.el.innerHTML = icon('play', { size: 14 });
+          AetherUI.mount(window.RawHTML(icon('play', { size: 14 })), fromHereBtn.el);
           fromHereBtn.el.title = 'Read from this point to the end of the page';
-          readBtn.el.innerHTML = icon('speaker', { size: 14 });
+          AetherUI.mount(window.RawHTML(icon('speaker', { size: 14 })), readBtn.el);
           readBtn.el.title = 'Read aloud';
           return;
         }
@@ -1052,11 +1054,11 @@ export function _panelBuildSelectionUI(popup, config) {
         if (!win) return;
         const tab = win.tabs.find(t => t.id === win.activeTab);
         if (!tab) return;
-        fromHereBtn.el.innerHTML = icon('pauseRect', { size: 14 });
+        AetherUI.mount(window.RawHTML(icon('pauseRect', { size: 14 })), fromHereBtn.el);
         fromHereBtn.el.title = 'Stop';
         const fullText = await _extractTextFromFrame(tab);
         if (!fullText || fullText.length < 10) {
-          fromHereBtn.el.innerHTML = icon('play', { size: 14 });
+          AetherUI.mount(window.RawHTML(icon('play', { size: 14 })), fromHereBtn.el);
           fromHereBtn.el.title = 'Read from this point to the end of the page';
           return;
         }
@@ -1078,7 +1080,7 @@ export function _panelBuildSelectionUI(popup, config) {
           if (!window._ttsAudio && !window._ttsPaused && window._ttsChunks.length === 0) {
             clearInterval(checkDone2);
             if (fromHereBtn.el.isConnected) {
-              fromHereBtn.el.innerHTML = icon('play', { size: 14 });
+              AetherUI.mount(window.RawHTML(icon('play', { size: 14 })), fromHereBtn.el);
               fromHereBtn.el.title = 'Read from this point to the end of the page';
             }
           }
@@ -1097,9 +1099,9 @@ export function _panelBuildSelectionUI(popup, config) {
       // Toggle dropdown
       let dropdown = btnRow.el.querySelector('.ann-type-dropdown');
       if (dropdown) { dropdown.remove(); return; }
-      dropdown = document.createElement('div');
-      dropdown.className = 'ann-type-dropdown';
-      dropdown.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:var(--aether-dropdown-bg, #1a1a2e);border:1px solid var(--aether-border, rgba(255,255,255,0.1));border-radius:8px;padding:4px;margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;z-index:10;';
+      const ddView = new window.View('div').className('ann-type-dropdown')
+        .cssText('position:absolute;top:100%;left:0;right:0;background:var(--aether-dropdown-bg, #1a1a2e);border:1px solid var(--aether-border, rgba(255,255,255,0.1));border-radius:8px;padding:4px;margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;z-index:10;');
+      dropdown = ddView.el;
       const types = [
         { key: 'ALPHA', name: 'Alpha', color: '#4caf50' },
         { key: 'CONTRADICTION', name: 'Contradiction', color: '#ef5350' },
@@ -1129,13 +1131,13 @@ export function _panelBuildSelectionUI(popup, config) {
               if (hlTab) injectSingleAnnotation(hlTab, { type: t.key, quote: capturedText });
             }
             dropdown.remove();
-            annotateBtn.el.innerHTML = icon('check', { size: 14, stroke: t.color });
+            AetherUI.mount(window.RawHTML(icon('check', { size: 14, stroke: t.color })), annotateBtn.el);
             annotateBtn.el.disabled = true;
           });
-        dropdown.appendChild(chip.el);
+        dropdown.append(chip.el);
       }
       btnRow.el.style.position = 'relative';
-      btnRow.el.appendChild(dropdown);
+      btnRow.el.append(dropdown);
     });
   btnRow.add(annotateBtn);
 
@@ -1152,7 +1154,7 @@ export function _panelBuildSelectionUI(popup, config) {
       window._chatStreamStart = 0;
       if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
       const cm = popup.querySelector('.doc-popup-chat-messages');
-      if (cm) cm.innerHTML = '';
+      if (cm) cm.replaceChildren();
       const ca = popup.querySelector('.doc-popup-chat-area');
       if (ca) ca.classList.remove('visible');
       popup.classList.remove('has-chat');
@@ -1163,18 +1165,18 @@ export function _panelBuildSelectionUI(popup, config) {
   clearBtnIcon.el.style.marginLeft = 'auto';
   btnRow.add(clearBtnIcon);
 
-  popup.appendChild(btnRow.el);
+  popup.append(btnRow.el);
 
   // Author / Wikipedia preview (async)
   if (_isAuthorEligible(capturedText)) {
     const authorDiv = new window.View('div').className('doc-wiki-preview');
     authorDiv.el.style.display = 'none';
-    popup.appendChild(authorDiv.el);
+    popup.append(authorDiv.el);
     _fetchAuthorPreview(capturedText, authorDiv.el);
   } else if (_isAetherEligible(capturedText)) {
     const wikiDiv = new window.View('div').className('doc-wiki-preview');
     wikiDiv.el.style.display = 'none';
-    popup.appendChild(wikiDiv.el);
+    popup.append(wikiDiv.el);
     _fetchWikipediaPreview(capturedText, wikiDiv.el);
   }
 
@@ -1263,7 +1265,7 @@ export function _panelBuildTopBar(popup) {
     window._aetherDragOffset = { x: ev.clientX - r.left, y: ev.clientY - r.top };
   });
 
-  popup.appendChild(topBar.el);
+  popup.append(topBar.el);
 }
 
 // ── Helper: build chat input area (textarea, model selector, send button, mic, dropdowns) ──
@@ -1281,7 +1283,7 @@ export function _panelBuildChatInput(popup, config) {
     chatAreaView.add(new window.View('div').className('doc-popup-chat-context').text(contextTrunc));
   }
   chatAreaView.add(new window.View('div').className('doc-popup-chat-messages'));
-  popup.appendChild(chatAreaView.el);
+  popup.append(chatAreaView.el);
 
   // Context box (appears above chat, like Cursor)
   if (capturedText) {
@@ -1305,11 +1307,11 @@ export function _panelBuildChatInput(popup, config) {
         popup._capturedText = '';
       });
 
-    popup.appendChild(contextBox.el);
+    popup.append(contextBox.el);
   }
 
   // Screenshot / attachment strip (for screenshots/files, not text context)
-  popup.appendChild(new window.View('div').className('doc-screenshot-attachments').el);
+  popup.append(new window.View('div').className('doc-screenshot-attachments').el);
 
   // Ask input + send button
   const askWrap = new window.View('div').className('doc-ask-inline-wrap');
@@ -1600,7 +1602,7 @@ export function _panelBuildChatInput(popup, config) {
     });
 
   askWrap.add(askInput);
-  popup.appendChild(askWrap.el);
+  popup.append(askWrap.el);
 
   // Second row: model label + buttons
   // Agent chip — clickable to switch agents
@@ -1639,7 +1641,7 @@ export function _panelBuildChatInput(popup, config) {
   // Listen for mode changes to update this chip
   function _updateAiModeChip() {
     var cloud = Settings.get('aiProvider') === 'openrouter';
-    aiModeChip.el.innerHTML = (cloud ? cloudSvg : localSvg) + '<span>' + (cloud ? 'Cloud' : 'Local') + '</span>';
+    AetherUI.mount(window.HStack(window.RawHTML(cloud ? cloudSvg : localSvg), window.Text(cloud ? 'Cloud' : 'Local')), aiModeChip.el);
     aiModeChip.el.classList.toggle('ai-mode-cloud', cloud);
   }
   window.addEventListener('aimode-changed', _updateAiModeChip);
@@ -1649,7 +1651,7 @@ export function _panelBuildChatInput(popup, config) {
   const buttonRow = window.HStack([agentChip, modelLabel, aiModeChip, spacer, micBtn, sendBtn])
     .className('aether-button-row');
 
-  popup.appendChild(buttonRow.el);
+  popup.append(buttonRow.el);
 
 }
 
@@ -1813,9 +1815,8 @@ export function _showPanel(config) {
   const existingHelp = document.getElementById('aether-help-panel');
   if (existingHelp) existingHelp.remove();
 
-  const popup = document.createElement('div');
-  popup.id = 'doc-chat-ask-float';
-  popup.className = 'doc-selection-popup';
+  const popupView = new window.View('div').id('doc-chat-ask-float').className('doc-selection-popup');
+  const popup = popupView.el;
   const _origRemove = popup.remove.bind(popup);
   popup.remove = function() { _origRemove(); };
 
@@ -1891,7 +1892,7 @@ export function _showPanel(config) {
     }
   });
 
-  document.body.appendChild(popup);
+  AetherUI.append(popupView, document.body);
 
   // Hide cursor while panel is open
   if (isCursorAnchor && finalized && window._aetherTrackMode) {

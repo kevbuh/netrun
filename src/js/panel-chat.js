@@ -283,7 +283,7 @@ export function _sendPopupChatMessage(popup, capturedText) {
   const elementContexts = window._pendingElementContexts.slice();
   window._pendingElementContexts = [];
   const strip = popup.querySelector('.doc-screenshot-attachments');
-  if (strip) { strip.innerHTML = ''; strip.style.display = 'none'; }
+  if (strip) { strip.replaceChildren(); strip.style.display = 'none'; }
 
   // Show chat area, add has-chat class
   popup.classList.add('has-chat');
@@ -522,9 +522,9 @@ export function _renderPopupChat(popup, final) {
   const container = popup.querySelector('.doc-popup-chat-messages');
   if (!container) return;
   const total = window._popupChatMessages.length;
-  container.innerHTML = window._popupChatMessages.map((m, i) =>
+  AetherUI.mount(window.RawHTML(window._popupChatMessages.map((m, i) =>
     ChatRender.renderMessageHTML(m, i, total, final)
-  ).join('');
+  ).join('')), container);
 
   // Attach all handlers via ChatRender
   ChatRender.attachMessageHandlers(container, {
@@ -611,12 +611,12 @@ export function _renderPopupChat(popup, final) {
   const sendBtn = popup.querySelector('.doc-ask-inline-send');
   if (sendBtn) {
     if (window._popupChatAbort && !final) {
-      sendBtn.innerHTML = icon('stopCircle', { size: 14 });
+      AetherUI.mount(window.RawHTML(icon('stopCircle', { size: 14 })), sendBtn);
       sendBtn.title = 'Stop';
       sendBtn.disabled = false;
       sendBtn.classList.add('doc-ask-inline-stop');
     } else {
-      sendBtn.innerHTML = '\u2191';
+      sendBtn.textContent = '\u2191';
       sendBtn.title = 'Send';
       sendBtn.classList.remove('doc-ask-inline-stop');
     }
@@ -750,8 +750,10 @@ export function _addTabContextToPanel(popup, tabInfo) {
   const favUrl = tabInfo.url ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=16' : '';
   const favHtml = favUrl ? '<img src="' + favUrl + '" class="w-3 h-3 flex-shrink-0 rounded-sm" onerror="this.style.display=\'none\'">' :
     icon('browserTab', { size: 12, class: 'w-3 h-3 flex-shrink-0' });
-  chip.appendChild(window.RawHTML(favHtml).el);
-  chip.appendChild(window.Text(tabInfo.title || domain || 'Tab').className('truncate').el);
+  chipView.add(
+    window.RawHTML(favHtml),
+    window.Text(tabInfo.title || domain || 'Tab').className('truncate'),
+  );
 
   const removeBtn = window.Button('\u00d7').className('doc-note-context-remove');
   removeBtn.on('mousedown', function(ev) { ev.stopPropagation(); });
@@ -761,8 +763,8 @@ export function _addTabContextToPanel(popup, tabInfo) {
     chip.remove();
     if (window._pendingTabContexts.length === 0 && window._pendingScreenshots.length === 0) strip.style.display = 'none';
   });
-  chip.appendChild(removeBtn.el);
-  strip.appendChild(chip);
+  chipView.add(removeBtn);
+  strip.append(chip);
 
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.focus();
@@ -784,8 +786,10 @@ export function _addElementContextToPanel(popup, elementData) {
   var label = '<' + tag + '>';
   if (elementData.id) label = '<' + tag + '#' + elementData.id + '>';
   else if (elementData.classes) label = '<' + tag + '.' + elementData.classes.split(/\s+/)[0] + '>';
-  chip.appendChild(window.RawHTML(icon('crosshair', { size: 12, class: 'w-3 h-3 flex-shrink-0' })).el);
-  chip.appendChild(window.Text(label).className('truncate').el);
+  chipView.add(
+    window.RawHTML(icon('crosshair', { size: 12, class: 'w-3 h-3 flex-shrink-0' })),
+    window.Text(label).className('truncate'),
+  );
 
   const removeBtn = window.Button('\u00d7').className('doc-note-context-remove');
   removeBtn.on('mousedown', function(ev) { ev.stopPropagation(); });
@@ -795,8 +799,8 @@ export function _addElementContextToPanel(popup, elementData) {
     chip.remove();
     if (window._pendingElementContexts.length === 0 && window._pendingTabContexts.length === 0 && window._pendingScreenshots.length === 0) strip.style.display = 'none';
   });
-  chip.appendChild(removeBtn.el);
-  strip.appendChild(chip);
+  chipView.add(removeBtn);
+  strip.append(chip);
 
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.focus();
@@ -904,23 +908,19 @@ export function _addScreenshotToPanel(popup, base64) {
   if (!strip) return;
   strip.style.display = 'flex';
 
-  const thumbView = new window.View('div').className('doc-screenshot-thumb');
-  const thumb = thumbView.el;
-  const imgView = new window.View('img');
-  imgView.el.src = 'data:image/png;base64,' + base64;
-  thumb.appendChild(imgView.el);
-
+  const imgView = new window.View('img').attr('src', 'data:image/png;base64,' + base64);
   const removeBtn = window.Button('\u00d7').className('doc-screenshot-thumb-remove');
   removeBtn.on('mousedown', function(ev) { ev.stopPropagation(); });
   removeBtn.onTap(function(ev) {
     ev.stopPropagation();
     const idx = window._pendingScreenshots.indexOf(base64);
     if (idx !== -1) window._pendingScreenshots.splice(idx, 1);
-    thumb.remove();
+    thumbView.el.remove();
     if (window._pendingScreenshots.length === 0) strip.style.display = 'none';
   });
-  thumb.appendChild(removeBtn.el);
-  strip.appendChild(thumb);
+  const thumbView = new window.View('div').className('doc-screenshot-thumb').add(imgView, removeBtn);
+  const thumb = thumbView.el;
+  strip.append(thumb);
 
   const input = popup.querySelector('.doc-ask-inline-input');
   if (input) input.focus();

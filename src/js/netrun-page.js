@@ -45,12 +45,10 @@ export function openNetrunPage() {
   if (tab.el) tab.el.remove();
 
   const container = document.getElementById('browse-content');
-  const el = document.createElement('div');
-  el.id = 'browse-netrun-' + tab.id;
-  el.className = 'nr-hub-scroll';
-  el.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;';
-  container.appendChild(el);
-  tab.el = el;
+  const elView = new View('div').id('browse-netrun-' + tab.id).className('nr-hub-scroll')
+    .cssText('position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;');
+  AetherUI.append(elView, container);
+  tab.el = elView.el;
 
   _browseUpdateNewTabPage(tab);
   _browseRenderTabs();
@@ -68,21 +66,17 @@ export function _renderNetrunPage(el) {
   el.innerHTML = '';
   el.className = 'nr-hub-scroll';
 
+  const dashSlot = new View('div');
   const content = VStack(
     _buildHero(),
     _buildFeatureCards(),
+    dashSlot,
   ).className('nr-hub-content');
-
-  // Dashboard slot — async, appended after data loads
-  const dashSlot = document.createElement('div');
 
   // Mount content
   AetherUI.mount(content, el);
 
-  // Append dashboard slot into the content element
-  const contentEl = content.el;
-  contentEl.appendChild(dashSlot);
-  _buildDashboard(dashSlot);
+  _buildDashboard(dashSlot.el);
 
   // Easter egg: Konami code starts the netrunner game
   initNetrunner();
@@ -241,20 +235,10 @@ async function _buildDashboard(slot) {
 // ── Activity Heatmap (GitHub-style) — stays raw ──
 
 function _buildHeatmap(activityItems, now) {
-  const card = document.createElement('div');
-  card.className = 'nr-hub-dash-card';
-
-  const headerRow = document.createElement('div');
-  headerRow.className = 'nr-hub-dash-card-header';
-  const title = document.createElement('div');
-  title.className = 'nr-hub-dash-card-title';
-  title.textContent = 'Activity';
-  headerRow.appendChild(title);
-  const yearLabel = document.createElement('div');
-  yearLabel.className = 'nr-hub-heatmap-year';
-  yearLabel.textContent = String(now.getFullYear());
-  headerRow.appendChild(yearLabel);
-  card.appendChild(headerRow);
+  const headerRow = HStack(
+    Text('Activity').className('nr-hub-dash-card-title'),
+    Text(String(now.getFullYear())).className('nr-hub-heatmap-year'),
+  ).className('nr-hub-dash-card-header');
 
   const year = now.getFullYear();
   const today = new Date(year, now.getMonth(), now.getDate());
@@ -321,33 +305,27 @@ function _buildHeatmap(activityItems, now) {
   }
   svg += '</svg>';
 
-  const scrollWrap = document.createElement('div');
-  scrollWrap.className = 'nr-hub-heatmap-scroll';
-  scrollWrap.innerHTML = svg;
-  card.appendChild(scrollWrap);
-
-  // Tooltip
-  const tipEl = document.createElement('div');
-  tipEl.className = 'nr-hub-heatmap-tip';
-  card.appendChild(tipEl);
+  const scrollWrap = RawHTML(svg).className('nr-hub-heatmap-scroll');
+  const tipEl = new View('div').className('nr-hub-heatmap-tip');
+  const card = VStack(headerRow, scrollWrap, tipEl).className('nr-hub-dash-card');
 
   // Attach tooltip handlers after render
   requestAnimationFrame(() => {
-    const svgEl = card.querySelector('.nr-hub-heatmap-svg');
+    const svgEl = card.el.querySelector('.nr-hub-heatmap-svg');
     if (!svgEl) return;
     svgEl.addEventListener('mouseover', e => {
       const r = e.target.closest('.nr-hub-heatmap-cell');
-      if (!r) { tipEl.style.display = 'none'; return; }
-      tipEl.textContent = r.dataset.tip;
-      tipEl.style.display = 'block';
+      if (!r) { tipEl.el.style.display = 'none'; return; }
+      tipEl.el.textContent = r.dataset.tip;
+      tipEl.el.style.display = 'block';
       const cr = r.getBoundingClientRect();
-      let left = cr.left + cr.width / 2 - tipEl.offsetWidth / 2;
-      left = Math.max(4, Math.min(left, window.innerWidth - tipEl.offsetWidth - 4));
-      tipEl.style.left = left + 'px';
-      tipEl.style.top = (cr.top - tipEl.offsetHeight - 6) + 'px';
+      let left = cr.left + cr.width / 2 - tipEl.el.offsetWidth / 2;
+      left = Math.max(4, Math.min(left, window.innerWidth - tipEl.el.offsetWidth - 4));
+      tipEl.el.style.left = left + 'px';
+      tipEl.el.style.top = (cr.top - tipEl.el.offsetHeight - 6) + 'px';
     });
     svgEl.addEventListener('mouseout', e => {
-      if (e.target.closest('.nr-hub-heatmap-cell')) tipEl.style.display = 'none';
+      if (e.target.closest('.nr-hub-heatmap-cell')) tipEl.el.style.display = 'none';
     });
   });
 
@@ -440,21 +418,15 @@ function _buildReadingList(savedEntries, savedCount) {
       let hostname = '';
       try { hostname = new URL(paper.link).hostname.replace(/^www\./, ''); } catch {}
 
-      const rowChildren = [];
-
-      // Favicon as raw img
-      const fav = document.createElement('img');
-      fav.className = 'nr-hub-saved-favicon';
-      fav.src = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(hostname) + '&sz=32';
-      fav.alt = '';
-      fav.loading = 'lazy';
-
-      rowChildren.push(Text(paper.title || paper.link || 'Untitled').className('nr-hub-saved-title'));
+      const rowChildren = [
+        new View('img').className('nr-hub-saved-favicon')
+          .attr('src', 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(hostname) + '&sz=32')
+          .attr('alt', '').attr('loading', 'lazy'),
+        Text(paper.title || paper.link || 'Untitled').className('nr-hub-saved-title'),
+      ];
       if (hostname) rowChildren.push(Text(hostname).className('nr-hub-saved-host'));
 
       const row = HStack(...rowChildren).className('nr-hub-saved-row').onTap(() => openSavedPaper(paper.link));
-      // Prepend favicon as raw element
-      row.el.insertBefore(fav, row.el.firstChild);
 
       // Delete button
       const del = Text('\u00d7').className('nr-hub-event-del').onTap(function(e) {
@@ -546,69 +518,47 @@ function _buildReposts(reposts) {
 function _showAddEventForm(card) {
   if (card.el.querySelector('.nr-hub-cal-form')) return;
 
-  const form = document.createElement('div');
-  form.className = 'nr-hub-cal-form';
-
-  const titleInput = document.createElement('input');
-  titleInput.className = 'nr-hub-cal-input';
-  titleInput.placeholder = 'Event title';
-  form.appendChild(titleInput);
-
-  const dateInput = document.createElement('input');
-  dateInput.className = 'nr-hub-cal-input';
-  dateInput.type = 'date';
-  dateInput.value = new Date().toISOString().slice(0, 10);
-  form.appendChild(dateInput);
-
-  const descInput = document.createElement('input');
-  descInput.className = 'nr-hub-cal-input';
-  descInput.placeholder = 'Description (optional)';
-  form.appendChild(descInput);
+  const titleInput = new View('input').className('nr-hub-cal-input').attr('placeholder', 'Event title');
+  const dateInput = new View('input').className('nr-hub-cal-input').attr('type', 'date');
+  dateInput.el.value = new Date().toISOString().slice(0, 10);
+  const descInput = new View('input').className('nr-hub-cal-input').attr('placeholder', 'Description (optional)');
 
   const colors = ['#60a5fa', '#34d399', '#f97316', '#a78bfa', '#fb923c', '#f43f5e'];
   let selectedColor = colors[0];
-  const swatches = document.createElement('div');
-  swatches.className = 'nr-hub-cal-swatches';
-  for (const c of colors) {
-    const sw = document.createElement('div');
-    sw.className = 'nr-hub-cal-swatch' + (c === selectedColor ? ' active' : '');
-    sw.style.background = c;
-    sw.addEventListener('click', () => {
-      swatches.querySelectorAll('.nr-hub-cal-swatch').forEach(s => s.classList.remove('active'));
-      sw.classList.add('active');
+  const swatchViews = colors.map(c => {
+    const sw = new View('div').className('nr-hub-cal-swatch' + (c === selectedColor ? ' active' : ''))
+      .style('background', c);
+    sw.onTap(() => {
+      swatchesView.el.querySelectorAll('.nr-hub-cal-swatch').forEach(s => s.classList.remove('active'));
+      sw.el.classList.add('active');
       selectedColor = c;
     });
-    swatches.appendChild(sw);
-  }
-  form.appendChild(swatches);
+    return sw;
+  });
+  const swatchesView = new View('div').className('nr-hub-cal-swatches').add(...swatchViews);
 
-  const actions = document.createElement('div');
-  actions.className = 'nr-hub-cal-actions';
+  const cancelBtn = new View('button').className('nr-hub-cal-btn').text('Cancel');
+  const saveBtn = new View('button').className('nr-hub-cal-btn nr-hub-cal-btn-primary').text('Add');
 
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'nr-hub-cal-btn';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', () => form.remove());
-  actions.appendChild(cancelBtn);
+  const form = VStack(
+    titleInput, dateInput, descInput, swatchesView,
+    new View('div').className('nr-hub-cal-actions').add(cancelBtn, saveBtn),
+  ).className('nr-hub-cal-form');
 
-  const saveBtn = document.createElement('button');
-  saveBtn.className = 'nr-hub-cal-btn nr-hub-cal-btn-primary';
-  saveBtn.textContent = 'Add';
-  saveBtn.addEventListener('click', async () => {
-    const t = titleInput.value.trim();
+  cancelBtn.onTap(() => form.el.remove());
+  saveBtn.onTap(async () => {
+    const t = titleInput.el.value.trim();
     if (!t) return;
-    await addCalendarEvent({ title: t, date: dateInput.value, description: descInput.value.trim() || undefined, color: selectedColor });
-    form.remove();
+    await addCalendarEvent({ title: t, date: dateInput.el.value, description: descInput.el.value.trim() || undefined, color: selectedColor });
+    form.el.remove();
     const hubEl = card.el.closest('.nr-hub-scroll');
     if (hubEl) _renderNetrunPage(hubEl);
   });
-  actions.appendChild(saveBtn);
-  form.appendChild(actions);
 
   const titleRow = card.el.querySelector('.nr-hub-dash-card-header');
-  if (titleRow && titleRow.nextSibling) card.el.insertBefore(form, titleRow.nextSibling);
-  else card.el.appendChild(form);
-  titleInput.focus();
+  if (titleRow && titleRow.nextSibling) card.el.insertBefore(form.el, titleRow.nextSibling);
+  else card.el.appendChild(form.el);
+  titleInput.el.focus();
 }
 
 // ── Helpers ──
