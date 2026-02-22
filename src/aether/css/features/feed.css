@@ -1,6 +1,17 @@
 /* ── Feed & card utilities ── */
+
+    /* ── Feed grid ── */
+    #papers {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+    @media (max-width: 1400px) { #papers { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 900px)  { #papers { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px)  { #papers { grid-template-columns: 1fr; } }
+
     .finder-pagination {
-      column-span: all;
+      grid-column: 1 / -1;
     }
 
     /* ── Card three-dot menu — now uses AetherUI Menu overlay (.nr-menu / .nr-menu-item) ── */

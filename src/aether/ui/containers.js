@@ -8,6 +8,43 @@ import { isSignal, resolve, Effect } from '/aether/ui/state.js';
 
 var S = { isSignal, resolve, Effect };
 
+// ─── Transition Presets ──────────────────────────────────
+
+var _transitions = {
+  fade: {
+    in: { opacity: [0, 1], duration: 200 },
+    out: { opacity: [1, 0], duration: 150 }
+  },
+  slide: {
+    in: { opacity: [0, 1], y: [8, 0], duration: 200 },
+    out: { opacity: [1, 0], y: [0, -8], duration: 150 }
+  },
+  scale: {
+    in: { opacity: [0, 1], scale: [0.95, 1], duration: 200 },
+    out: { opacity: [1, 0], scale: [1, 0.95], duration: 150 }
+  }
+};
+
+function _animateIn(el, config) {
+  var motion = window.Motion;
+  if (!motion || !motion.animate) return;
+  var c = typeof config === 'string' ? _transitions[config] : config;
+  if (c && c.in) motion.animate(el, c.in);
+}
+
+function _animateOut(el, config, onFinish) {
+  var motion = window.Motion;
+  if (!motion || !motion.animate) { if (onFinish) onFinish(); return; }
+  var c = typeof config === 'string' ? _transitions[config] : config;
+  if (c && c.out) {
+    var dur = c.out.duration || 150;
+    motion.animate(el, c.out);
+    setTimeout(onFinish, dur);
+  } else {
+    if (onFinish) onFinish();
+  }
+}
+
 // ─── ForEach — reactive list rendering ────────────────────
 
 function ForEach(items, keyFnOrRenderFn, renderFn) {
@@ -31,8 +68,10 @@ function ForEach(items, keyFnOrRenderFn, renderFn) {
       var child = render(arr[j], j);
       if (child == null) continue;
       if (child instanceof View) {
-        v.el.appendChild(child.build());
+        var el = child.build();
+        v.el.appendChild(el);
         for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
+        if (_itemTrans) _animateIn(el, { in: Object.assign({}, (typeof _itemTrans === 'string' ? _transitions[_itemTrans] : _itemTrans).in, { delay: j * 20 }) });
         _childViews.push(child);
       } else if (child instanceof HTMLElement) {
         v.el.appendChild(child);
@@ -59,8 +98,17 @@ function ForEach(items, keyFnOrRenderFn, renderFn) {
     for (key in _keyedMap) {
       if (!newMap.hasOwnProperty(key)) {
         entry = _keyedMap[key];
-        if (entry.view.dispose) entry.view.dispose();
-        if (entry.el.parentNode) entry.el.parentNode.removeChild(entry.el);
+        if (_itemTrans && entry.el.parentNode) {
+          (function(e, el) {
+            _animateOut(el, _itemTrans, function() {
+              if (e.view && e.view.dispose) e.view.dispose();
+              if (el.parentNode) el.parentNode.removeChild(el);
+            });
+          })(entry, entry.el);
+        } else {
+          if (entry.view && entry.view.dispose) entry.view.dispose();
+          if (entry.el.parentNode) entry.el.parentNode.removeChild(entry.el);
+        }
         delete _keyedMap[key];
       }
     }
@@ -72,10 +120,13 @@ function ForEach(items, keyFnOrRenderFn, renderFn) {
         child = render(newMap[key], i);
         if (child == null) continue;
         if (child instanceof View) {
-          _keyedMap[key] = { view: child, el: child.build() };
+          var builtEl = child.build();
+          _keyedMap[key] = { view: child, el: builtEl };
           for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
+          if (_itemTrans) _animateIn(builtEl, _itemTrans);
         } else if (child instanceof HTMLElement) {
           _keyedMap[key] = { view: null, el: child };
+          if (_itemTrans) _animateIn(child, _itemTrans);
         }
       }
     }
@@ -113,12 +164,22 @@ function ForEach(items, keyFnOrRenderFn, renderFn) {
   }
 
   v._viewType = 'ForEach';
+  var _itemTrans = null;
+
   v.spacing = function(s) {
     v.el.style.display = 'flex';
     v.el.style.flexDirection = 'column';
     v.el.style.gap = _spaceToken(s);
     return v;
   };
+
+  v.itemTransition = function(config) {
+    _itemTrans = config || 'fade';
+    return v;
+  };
+
+  // Expose for internal use by reconciler
+  v._getItemTransition = function() { return _itemTrans; };
 
   return v;
 }
@@ -215,30 +276,54 @@ function Show(condition, thenFn, elseFn) {
   v._viewType = 'Show';
   v.el.style.display = 'contents';
   var _current = null;
+  var _trans = null;
+  var _lazy = false;
+
+  function _removeOld(old) {
+    if (old.dispose) old.dispose();
+    if (old.el && old.el.parentNode) old.el.parentNode.removeChild(old.el);
+    var idx = v._children.indexOf(old);
+    if (idx > -1) v._children.splice(idx, 1);
+  }
+
+  function _mountChild(child) {
+    if (child instanceof View) {
+      v.el.appendChild(child.build());
+      v._children.push(child);
+      for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
+      if (_trans) _animateIn(child.el, _trans);
+      _current = child;
+    } else if (child instanceof HTMLElement) {
+      v.el.appendChild(child);
+      if (_trans) _animateIn(child, _trans);
+    }
+  }
 
   function _update() {
     var val = S.isSignal(condition) ? condition.value : condition;
 
     // Dispose previous subtree
     if (_current) {
-      if (_current.dispose) _current.dispose();
-      if (_current.el && _current.el.parentNode) _current.el.parentNode.removeChild(_current.el);
-      var idx = v._children.indexOf(_current);
-      if (idx > -1) v._children.splice(idx, 1);
+      var old = _current;
       _current = null;
+      if (_trans) {
+        _animateOut(old.el, _trans, function() { _removeOld(old); });
+      } else {
+        _removeOld(old);
+      }
     }
 
     // Mount new subtree
     var factory = val ? thenFn : elseFn;
     if (factory) {
-      var child = factory();
-      if (child instanceof View) {
-        v.el.appendChild(child.build());
-        v._children.push(child);
-        for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
-        _current = child;
-      } else if (child instanceof HTMLElement) {
-        v.el.appendChild(child);
+      if (_lazy && typeof requestIdleCallback === 'function') {
+        requestIdleCallback(function() {
+          var child = factory();
+          if (child) _mountChild(child);
+        });
+      } else {
+        var child = factory();
+        if (child) _mountChild(child);
       }
     }
   }
@@ -252,6 +337,9 @@ function Show(condition, thenFn, elseFn) {
     }));
   }
 
+  v.transition = function(config) { _trans = config || 'fade'; return v; };
+  v.lazy = function() { _lazy = true; return v; };
+
   return v;
 }
 
@@ -263,6 +351,28 @@ function Switch(signal, cases) {
   v.el.style.display = 'contents';
   var _current = null;
   var _currentKey = undefined;
+  var _trans = null;
+  var _lazy = false;
+
+  function _removeOld(old) {
+    if (old.dispose) old.dispose();
+    if (old.el && old.el.parentNode) old.el.parentNode.removeChild(old.el);
+    var idx = v._children.indexOf(old);
+    if (idx > -1) v._children.splice(idx, 1);
+  }
+
+  function _mountChild(child) {
+    if (child instanceof View) {
+      v.el.appendChild(child.build());
+      v._children.push(child);
+      for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
+      if (_trans) _animateIn(child.el, _trans);
+      _current = child;
+    } else if (child instanceof HTMLElement) {
+      v.el.appendChild(child);
+      if (_trans) _animateIn(child, _trans);
+    }
+  }
 
   function _update() {
     var val = S.isSignal(signal) ? signal.value : signal;
@@ -273,24 +383,26 @@ function Switch(signal, cases) {
 
     // Dispose previous subtree
     if (_current) {
-      if (_current.dispose) _current.dispose();
-      if (_current.el && _current.el.parentNode) _current.el.parentNode.removeChild(_current.el);
-      var idx = v._children.indexOf(_current);
-      if (idx > -1) v._children.splice(idx, 1);
+      var old = _current;
       _current = null;
+      if (_trans) {
+        _animateOut(old.el, _trans, function() { _removeOld(old); });
+      } else {
+        _removeOld(old);
+      }
     }
 
     // Find matching case or default
     var factory = cases[val] || cases.default;
     if (factory) {
-      var child = factory();
-      if (child instanceof View) {
-        v.el.appendChild(child.build());
-        v._children.push(child);
-        for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
-        _current = child;
-      } else if (child instanceof HTMLElement) {
-        v.el.appendChild(child);
+      if (_lazy && typeof requestIdleCallback === 'function') {
+        requestIdleCallback(function() {
+          var child = factory();
+          if (child) _mountChild(child);
+        });
+      } else {
+        var child = factory();
+        if (child) _mountChild(child);
       }
     }
   }
@@ -303,6 +415,9 @@ function Switch(signal, cases) {
       _update();
     }));
   }
+
+  v.transition = function(config) { _trans = config || 'fade'; return v; };
+  v.lazy = function() { _lazy = true; return v; };
 
   return v;
 }

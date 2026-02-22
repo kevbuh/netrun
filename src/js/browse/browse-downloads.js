@@ -891,6 +891,9 @@ export var _ytAdBlockCSS =
 
 // Inject YouTube ad-block CSS + early mute (before JS runs, hides from first paint)
 export function _browseInjectYouTubeCSS(frame, url) {
+  // Disabled: CSS hiding of ad elements triggers YouTube's anti-adblock detection.
+  // YouTube ads are now handled by the content-script-based skipper (_injectYTAdSkipper).
+  return;
   if (!url || !url.includes('youtube.com')) return;
   if (Settings.get('adBlockEnabled') !== 'true') return;
   frame.insertCSS(_ytAdBlockCSS).catch(function(){});
@@ -959,6 +962,9 @@ export function _browseInjectRemoveCSS(frame) {
 }
 
 export function _browseInjectYouTubeAdBlock(frame, url) {
+  // Disabled: aggressive ad skipping (currentTime, playbackRate, cancelPlayback, DOM removal)
+  // triggers YouTube's anti-adblock detection. Replaced by _injectYTAdSkipper.
+  return;
   if (!url || !url.includes('youtube.com')) return;
   if (Settings.get('adBlockEnabled') !== 'true') return;
   frame.executeJavaScript(`(function(){
@@ -1703,6 +1709,8 @@ export function _browseBindFrame(tab) {
     const _injectPlaceholderCSS = (url) => {
       if (Settings.get('adBlockEnabled') !== 'true') return;
       if (!url || url.startsWith('about:') || url.startsWith('data:')) return;
+      // Skip YouTube — hiding ad elements via CSS triggers anti-adblock detection
+      if (url.includes('youtube.com') || url.includes('youtu.be')) return;
       try { el.insertCSS(_adPlaceholderCSS); } catch {}
     };
 
@@ -1710,6 +1718,8 @@ export function _browseBindFrame(tab) {
     const _injectCosmetic = (url) => {
       if (Settings.get('adBlockEnabled') !== 'true') return;
       if (!url || url.startsWith('about:') || url.startsWith('data:')) return;
+      // Skip YouTube — cosmetic filtering triggers its anti-adblock detection
+      if (url.includes('youtube.com') || url.includes('youtu.be')) return;
       window.electronAPI.adblockCosmetic(url).then(res => {
         const extraSel = (res && res.selectors && res.selectors.length) ? res.selectors.join(', ') : '';
         // Hide via CSS (both EasyList selectors and generic placeholders)
@@ -1804,6 +1814,22 @@ export function _browseBindFrame(tab) {
       })();`).catch(() => {});
     };
 
+    // YouTube ad-skipper content script (handles ads from within the page to avoid detection)
+    const _injectYTAdSkipper = (url) => {
+      if (!url || (!url.includes('youtube.com') && !url.includes('youtu.be'))) return;
+      el.executeJavaScript(`(function(){
+        if(window.__ytAdSkipInjected) return;
+        window.__ytAdSkipInjected=true;
+        // Only click skip buttons — no DOM removal/hiding to avoid detection
+        setInterval(function(){
+          var btns = document.querySelectorAll('.ytp-skip-ad-button, .ytp-ad-skip-button-modern, .ytp-ad-skip-button-container button');
+          for(var i=0;i<btns.length;i++){
+            if(btns[i].offsetParent!==null) btns[i].click();
+          }
+        },500);
+      })();`).catch(() => {});
+    };
+
     // Doom scroll nudge injection
     const _injectDoomNudge = (url) => {
       const match = _doomScrollMatch(url);
@@ -1814,12 +1840,14 @@ export function _browseBindFrame(tab) {
       _injectPlaceholderCSS(tab.url || '');
       _injectCosmetic(tab.url || '');
       _hideYTShorts(tab.url || '');
+      _injectYTAdSkipper(tab.url || '');
       _injectDoomNudge(tab.url || '');
     });
     el.addEventListener('did-navigate', (e) => {
       _injectPlaceholderCSS(e.url || '');
       _injectCosmetic(e.url || '');
       _hideYTShorts(e.url || '');
+      _injectYTAdSkipper(e.url || '');
       _injectDoomNudge(e.url || '');
     });
     el.addEventListener('did-finish-load', () => {

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, session, safeStorage, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, session, safeStorage, dialog, webContents } = require('electron');
 const path = require('path');
 const http = require('http');
 const https = require('https');
@@ -569,7 +569,24 @@ app.on('web-contents-created', (event, contents) => {
 
         // 3. Ad blocking
         if (!_adblockEnabled) return cb({});
-        // Fast-path: YouTube ad URL patterns
+        // Exempt YouTube from ALL network-level blocking — handled by injected content script
+        // to avoid YouTube's anti-adblock detection of cancelled requests.
+        let _pageIsYouTube = false;
+        // Check page URL via webContents
+        try {
+          const wc = webContents.fromId(wcId);
+          if (wc) {
+            const pageUrl = wc.getURL() || '';
+            _pageIsYouTube = pageUrl.includes('youtube.com') || pageUrl.includes('youtu.be');
+          }
+        } catch {}
+        // Fallback: check request URL and referrer
+        if (!_pageIsYouTube) {
+          _pageIsYouTube = url.includes('youtube.com') || url.includes('googlevideo.com') || url.includes('ytimg.com') ||
+            (details.referrer && details.referrer.includes('youtube.com'));
+        }
+        if (_pageIsYouTube) return cb({});
+        // Fast-path: YouTube ad URL patterns (non-YouTube pages only)
         for (let i = 0; i < _ytAdPatterns.length; i++) {
           if (url.includes(_ytAdPatterns[i])) {
             _blockedCounts[wcId] = (_blockedCounts[wcId] || 0) + 1;
@@ -594,6 +611,13 @@ app.on('web-contents-created', (event, contents) => {
       ses.webRequest.onHeadersReceived({ urls: ['http://*/*', 'https://*/*'] }, (details, cb) => {
         if (!_cookieBlockEnabled || !details.responseHeaders) return cb({});
         const wcId = details.webContentsId;
+        // Exempt YouTube — stripping third-party cookies breaks its ad system and triggers detection
+        let _headerPageIsYT = false;
+        try {
+          const wc = webContents.fromId(wcId);
+          if (wc) { const pu = wc.getURL() || ''; _headerPageIsYT = pu.includes('youtube.com') || pu.includes('youtu.be'); }
+        } catch {}
+        if (_headerPageIsYT) return cb({});
         // Determine page domain from the referrer or frame URL
         let pageDomain = '';
         try {

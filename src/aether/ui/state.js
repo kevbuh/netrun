@@ -6,6 +6,9 @@
 var _currentSubscriber = null;
 var _batchDepth = 0;
 var _batchQueue = [];
+var _errorHandler = null;
+var _autoBatch = false;
+var _microBatchQueue = null;
 
 function _track(signal) {
   if (_currentSubscriber) {
@@ -20,6 +23,16 @@ function _notify(signal) {
     var sub = subs[i];
     if (_batchDepth > 0) {
       if (_batchQueue.indexOf(sub) === -1) _batchQueue.push(sub);
+    } else if (_autoBatch) {
+      if (!_microBatchQueue) {
+        _microBatchQueue = [];
+        queueMicrotask(function() {
+          var q = _microBatchQueue;
+          _microBatchQueue = null;
+          for (var j = 0; j < q.length; j++) q[j]._update();
+        });
+      }
+      if (_microBatchQueue.indexOf(sub) === -1) _microBatchQueue.push(sub);
     } else {
       sub._update();
     }
@@ -35,6 +48,20 @@ function untrack(fn) {
   finally { _currentSubscriber = prev; }
 }
 
+// ─── Dev Mode Counters ───────────────────────────────────
+
+var _effectCount = 0;
+var _signalCount = 0;
+var _allSignals = null; // Set, only in dev mode
+var _allEffects = null; // Set, only in dev mode
+
+function _devInit() {
+  if (window._AETHER_DEV && !_allSignals) {
+    _allSignals = new Set();
+    _allEffects = new Set();
+  }
+}
+
 // ─── State(value, opts) — read/write signal ─────────────
 
 function State(initial, opts) {
@@ -43,6 +70,7 @@ function State(initial, opts) {
   var signal = {
     _subscribers: new Set(),
     _isSignal: true,
+    _name: (opts && opts.name) || null,
     get value() {
       _track(signal);
       return _value;
@@ -54,8 +82,12 @@ function State(initial, opts) {
     },
     peek: function() { return _value; },
     binding: function() { return Binding(signal); },
-    dispose: function() { signal._subscribers.clear(); }
+    dispose: function() {
+      signal._subscribers.clear();
+      if (_allSignals) { _allSignals.delete(signal); _signalCount--; }
+    }
   };
+  if (window._AETHER_DEV) { _devInit(); _signalCount++; if (_allSignals) _allSignals.add(signal); }
   return signal;
 }
 
@@ -87,6 +119,9 @@ function Computed(fn) {
         _currentSubscriber = signal;
         try {
           _value = fn();
+        } catch (err) {
+          if (_errorHandler) _errorHandler(err, 'Computed');
+          else console.error('[AetherUI Computed]', err);
         } finally {
           _currentSubscriber = prev;
         }
@@ -123,6 +158,7 @@ function Computed(fn) {
 function Effect(fn) {
   var effect = {
     _dependencies: new Set(),
+    _isEffect: true,
     _update: function() {
       // Unsubscribe from old deps
       effect._dependencies.forEach(function(dep) {
@@ -134,6 +170,9 @@ function Effect(fn) {
       _currentSubscriber = effect;
       try {
         fn();
+      } catch (err) {
+        if (_errorHandler) _errorHandler(err, 'Effect');
+        else console.error('[AetherUI Effect]', err);
       } finally {
         _currentSubscriber = prev;
       }
@@ -143,8 +182,11 @@ function Effect(fn) {
         dep._subscribers.delete(effect);
       });
       effect._dependencies.clear();
+      if (_allEffects) { _allEffects.delete(effect); _effectCount--; }
     }
   };
+
+  if (window._AETHER_DEV) { _devInit(); _effectCount++; if (_allEffects) _allEffects.add(effect); }
 
   // Run immediately to set up subscriptions
   effect._update();
@@ -356,7 +398,45 @@ window._AetherUIState = {
   Context: Context,
   isSignal: isSignal,
   isBinding: isBinding,
-  resolve: resolve
+  resolve: resolve,
+  _setErrorHandler: function(fn) { _errorHandler = fn; },
+  _setAutoBatch: function(v) { _autoBatch = !!v; },
+  _debug: {
+    get signalCount() { return _signalCount; },
+    get effectCount() { return _effectCount; },
+    signals: function() {
+      if (!_allSignals) return [];
+      var result = [];
+      _allSignals.forEach(function(s) {
+        result.push({ name: s._name || '(anonymous)', subscribers: s._subscribers.size, value: s.peek() });
+      });
+      return result;
+    },
+    effects: function() {
+      if (!_allEffects) return [];
+      var result = [];
+      _allEffects.forEach(function(e) {
+        result.push({ dependencies: e._dependencies.size });
+      });
+      return result;
+    },
+    graph: function() {
+      if (!_allSignals) return {};
+      var adj = {};
+      _allSignals.forEach(function(s) {
+        var name = s._name || '(anonymous)';
+        adj[name] = [];
+        s._subscribers.forEach(function(sub) {
+          adj[name].push(sub._isEffect ? 'Effect' : sub._isComputed ? 'Computed' : 'unknown');
+        });
+      });
+      return adj;
+    },
+    warnLeaks: function() {
+      if (_signalCount > 100) console.warn('[AetherUI] ' + _signalCount + ' live signals — possible leak');
+      if (_effectCount > 100) console.warn('[AetherUI] ' + _effectCount + ' live effects — possible leak');
+    }
+  }
 };
 
 // Expose primitives directly on window so they are available to scripts

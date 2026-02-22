@@ -58,6 +58,8 @@ function _fontToken(name) {
 
 // ─── View Base Class ──────────────────────────────────────
 
+var _viewCount = 0;
+
 function View(tag) {
   this.el = document.createElement(tag || 'div');
   this._effects = [];
@@ -66,6 +68,7 @@ function View(tag) {
   this._onAppearFns = [];
   this._onDisappearFn = null;
   this._listeners = [];
+  if (window._AETHER_DEV) _viewCount++;
 }
 
 var VP = View.prototype;
@@ -75,6 +78,7 @@ VP.build = function() { return this.el; };
 
 // Dispose: call onDisappear, recurse into children, clean up listeners, then dispose own effects
 VP.dispose = function() {
+  if (window._AETHER_DEV) _viewCount--;
   if (this._onDisappearFn) this._onDisappearFn();
   for (var i = 0; i < this._children.length; i++) {
     if (this._children[i].dispose) this._children[i].dispose();
@@ -416,6 +420,20 @@ VP.on = function(event, fn) {
   return this;
 };
 
+VP.contextMenu = function(items) {
+  var self = this;
+  var handler = function(e) {
+    e.preventDefault();
+    if (window.Menu) {
+      var menu = window.Menu(null, items);
+      menu.showAt(e.clientX, e.clientY);
+    }
+  };
+  this.el.addEventListener('contextmenu', handler);
+  this._listeners.push(['contextmenu', handler]);
+  return this;
+};
+
 // ─── Conditional Modifiers ────────────────────────────────
 
 VP.if = function(condOrSignal, thenFn, elseFn) {
@@ -651,4 +669,5 @@ VP.add = function() {
 // ─── Export ───────────────────────────────────────────────
 
 window._AetherUIView = View;
+window._AetherUIViewCount = function() { return _viewCount; };
 export { View, _spaceToken, _colorToken };

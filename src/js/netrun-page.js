@@ -1023,7 +1023,8 @@ function _buildShortcuts() {
       const td = document.createElement('td'); td.colSpan = 2; td.style.cssText = 'padding:12px 12px 4px;'; td.innerHTML = val; tr.appendChild(td);
     } else {
       const tdKey = document.createElement('td'); tdKey.className = 'nr-hub-td-key';
-      const kbd = document.createElement('kbd'); kbd.className = 'nr-hub-kbd'; kbd.textContent = key; tdKey.appendChild(kbd); tr.appendChild(tdKey);
+      if (window.Kbd) { AetherUI.append(window.Kbd(key), tdKey); } else { const kbd = document.createElement('kbd'); kbd.className = 'nr-hub-kbd'; kbd.textContent = key; tdKey.appendChild(kbd); }
+      tr.appendChild(tdKey);
       const tdVal = document.createElement('td'); tdVal.className = 'nr-hub-td-val'; tdVal.textContent = val; tr.appendChild(tdVal);
     }
     table.appendChild(tr);

@@ -696,6 +696,212 @@ function Spinner(size) {
   return v;
 }
 
+// ─── Disclosure / CollapsibleSection ──────────────────────
+
+function Disclosure(title, contentFn) {
+  var v = new View('div');
+  v._viewType = 'Disclosure';
+  v.el.className = 'nr-disclosure';
+
+  var _expanded = S.State(false);
+  var _animate = false;
+  var _childView = null;
+
+  // Header
+  var header = document.createElement('button');
+  header.className = 'nr-disclosure-header';
+  header.type = 'button';
+
+  var chevron = document.createElement('span');
+  chevron.className = 'nr-disclosure-chevron';
+  chevron.innerHTML = '\u25B6';
+
+  var titleSpan = document.createElement('span');
+  titleSpan.className = 'nr-disclosure-title';
+  titleSpan.textContent = typeof title === 'string' ? title : '';
+
+  header.appendChild(chevron);
+  header.appendChild(titleSpan);
+  v.el.appendChild(header);
+
+  // Content wrapper
+  var content = document.createElement('div');
+  content.className = 'nr-disclosure-content';
+  content.style.display = 'none';
+  if (_animate) content.style.overflow = 'hidden';
+  v.el.appendChild(content);
+
+  header.addEventListener('click', function() {
+    _expanded.value = !_expanded.value;
+  });
+  v._listeners.push(['click', header]);
+
+  v._effects.push(S.Effect(function() {
+    var open = _expanded.value;
+    chevron.style.transform = open ? 'rotate(90deg)' : '';
+    if (open) {
+      if (!_childView && contentFn) {
+        var child = contentFn();
+        if (child instanceof View) {
+          content.appendChild(child.build());
+          v._children.push(child);
+          for (var k = 0; k < child._onAppearFns.length; k++) child._onAppearFns[k]();
+          _childView = child;
+        } else if (child instanceof HTMLElement) {
+          content.appendChild(child);
+        }
+      }
+      content.style.display = '';
+      if (_animate && window.Motion && window.Motion.animate) {
+        window.Motion.animate(content, { opacity: [0, 1], duration: 150 });
+      }
+    } else {
+      content.style.display = 'none';
+    }
+  }));
+
+  v.isExpanded = function(signal) {
+    if (S.isSignal(signal)) {
+      _expanded = signal;
+    }
+    return v;
+  };
+
+  v.animates = function() {
+    _animate = true;
+    chevron.style.transition = 'transform 0.15s ease';
+    return v;
+  };
+
+  return v;
+}
+
+// ─── Badge ───────────────────────────────────────────────
+
+function Badge(contentOrSignal) {
+  var v = new View('span');
+  v._viewType = 'Badge';
+  v.el.className = 'nr-badge';
+  var _isDot = false;
+
+  if (S.isSignal(contentOrSignal)) {
+    v._effects.push(S.Effect(function() {
+      var val = contentOrSignal.value;
+      if (_isDot) {
+        v.el.style.display = '';
+        return;
+      }
+      if (val === 0 || val === null || val === undefined || val === '') {
+        v.el.style.display = 'none';
+      } else {
+        v.el.style.display = '';
+        v.el.textContent = val;
+      }
+    }));
+  } else if (contentOrSignal != null) {
+    v.el.textContent = contentOrSignal;
+  }
+
+  v.tint = function(color) {
+    v.el.style.background = color === 'accent' ? 'var(--nr-accent)' :
+      color.startsWith('--') ? 'var(' + color + ')' : color;
+    v.el.style.color = '#fff';
+    return v;
+  };
+
+  v.dot = function() {
+    _isDot = true;
+    v.el.classList.add('nr-badge-dot');
+    v.el.textContent = '';
+    return v;
+  };
+
+  return v;
+}
+
+// ─── SegmentedControl ────────────────────────────────────
+
+function SegmentedControl(binding, options) {
+  var v = new View('div');
+  v._viewType = 'SegmentedControl';
+  v.el.className = 'nr-tab-bar nr-tab-bar-segmented';
+
+  function buildSegments(opts) {
+    v.el.innerHTML = '';
+    for (var i = 0; i < opts.length; i++) {
+      var opt = opts[i];
+      var btn = document.createElement('button');
+      btn.className = 'nr-tab-btn';
+      btn.textContent = typeof opt === 'object' ? opt.label : opt;
+      var val = typeof opt === 'object' ? opt.value : opt;
+      (function(value) {
+        btn.addEventListener('click', function() {
+          if (S.isSignal(binding)) binding.value = value;
+          else if (S.isBinding(binding)) binding.value = value;
+        });
+      })(val);
+      btn.setAttribute('data-value', val);
+      v.el.appendChild(btn);
+    }
+    _syncActive();
+  }
+
+  function _syncActive() {
+    var cur = S.resolve(binding);
+    var btns = v.el.querySelectorAll('.nr-tab-btn');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].classList.toggle('nr-tab-active', btns[i].getAttribute('data-value') === '' + cur);
+    }
+  }
+
+  if (options) buildSegments(options);
+
+  if (binding) {
+    v._effects.push(S.Effect(function() {
+      S.resolve(binding);
+      _syncActive();
+    }));
+  }
+
+  v.options = function(opts) { buildSegments(opts); return v; };
+
+  return v;
+}
+
+// ─── Skeleton — loading placeholder ──────────────────────
+
+function Skeleton() {
+  var v = new View('div');
+  v._viewType = 'Skeleton';
+  v.el.className = 'nr-skeleton';
+
+  v.circle = function(size) {
+    var s = (size || 40) + 'px';
+    v.el.style.width = s;
+    v.el.style.height = s;
+    v.el.style.borderRadius = '50%';
+    return v;
+  };
+
+  v.lines = function(n) {
+    v.el.innerHTML = '';
+    v.el.style.display = 'flex';
+    v.el.style.flexDirection = 'column';
+    v.el.style.gap = 'var(--nr-space-2)';
+    for (var i = 0; i < (n || 3); i++) {
+      var line = document.createElement('div');
+      line.className = 'nr-skeleton';
+      line.style.height = '0.875rem';
+      line.style.borderRadius = 'var(--nr-radius-sm)';
+      if (i === n - 1) line.style.width = '60%';
+      v.el.appendChild(line);
+    }
+    return v;
+  };
+
+  return v;
+}
+
 // ─── Export ───────────────────────────────────────────────
 
 window._AetherUIControls = {
@@ -713,11 +919,16 @@ window._AetherUIControls = {
   Pill: Pill,
   FormField: FormField,
   SearchField: SearchField,
-  Spinner: Spinner
+  Spinner: Spinner,
+  Disclosure: Disclosure,
+  Badge: Badge,
+  SegmentedControl: SegmentedControl,
+  Skeleton: Skeleton
 };
 
 export {
   Button, TextField, Toggle, Slider, Picker, Stepper,
   Textarea, Checkbox, RadioGroup, TabView, ProgressBar, Pill,
-  FormField, SearchField, Spinner
+  FormField, SearchField, Spinner,
+  Disclosure, Badge, SegmentedControl, Skeleton
 };

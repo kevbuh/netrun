@@ -126,7 +126,11 @@ function _renderInfoTab(container) {
   wrap.className = 'nerd-tab-wrap';
 
   if (!state || !state.s2Data) {
-    wrap.innerHTML = '<div class="nerd-empty">Loading paper info...</div>';
+    if (window.Skeleton) {
+      AetherUI.mount(window.Skeleton().lines(3), wrap);
+    } else {
+      wrap.innerHTML = '<div class="nerd-empty">Loading paper info...</div>';
+    }
     container.appendChild(wrap);
     if (tab) {
       setTimeout(function() { _renderInfoTab(container); }, 2000);
@@ -358,7 +362,11 @@ function _renderRelatedTab(container) {
     return;
   }
 
-  wrap.innerHTML = '<div class="nerd-empty">Loading recommendations...</div>';
+  if (window.Skeleton) {
+    AetherUI.mount(window.Skeleton().lines(3), wrap);
+  } else {
+    wrap.innerHTML = '<div class="nerd-empty">Loading recommendations...</div>';
+  }
   container.appendChild(wrap);
 
   _s2Fetch('https://api.semanticscholar.org/recommendations/v1/papers/forpaper/' + state.s2Data.paperId + '?limit=10&fields=title,authors,year,citationCount,venue').then(function(data) {

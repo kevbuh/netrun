@@ -97,7 +97,7 @@ export function _dashBuildTrendingCard(trending) {
       window.location.hash = 'view/' + encodeURIComponent(p.link);
     });
     return row;
-  });
+  }).itemTransition('fade');
 }
 
 export async function renderDashboard() {
@@ -1470,7 +1470,7 @@ export function renderDevSection(sectionId) {
     'tools': _renderDevTools,
   };
 
-  AetherUI.mount(window.Text('Loading\u2026').className('text-sm').foreground('quaternary'), contentPane);
+  AetherUI.mount(window.Skeleton().lines(3), contentPane);
   const render = renderers[sectionId];
   if (render) render();
   else AetherUI.mount(window.Text('Unknown section').className('text-sm').foreground('quaternary'), contentPane);
@@ -1509,7 +1509,7 @@ export async function _renderDevOverview() {
   const cards = document.getElementById('dev-stats-cards');
   const chart = document.getElementById('dev-loc-chart');
 
-  AetherUI.mount(window.Text('Loading\u2026').className('text-sm').foreground('quaternary'), cards);
+  AetherUI.mount(window.Skeleton().lines(4), cards);
 
   let data;
   try {
@@ -2109,7 +2109,7 @@ export async function _renderDevGitLog() {
   AetherUI.mount(window.VStack(header, logContainer), contentPane);
 
   const container = document.getElementById('dev-git-log-container');
-  AetherUI.mount(window.Text('Loading\u2026').className('text-sm').foreground('quaternary'), container);
+  AetherUI.mount(window.Skeleton().lines(5), container);
 
   try {
     const data = await apiGet('/api/dev-stats');

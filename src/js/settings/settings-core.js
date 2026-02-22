@@ -110,7 +110,7 @@ export function renderSettingsView() {
       feed: function() { return _renderFeedSettings(); },
       context: function() { return _renderContextSettings(); },
       help: function() { return _renderHelpSettings(); },
-    });
+    }).transition('fade');
 
     AetherUI.mount(window.VStack([titleView, sectionView]), pane);
   }

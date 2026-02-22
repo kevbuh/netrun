@@ -141,7 +141,7 @@ function _buildWizardStep(wizard, stepIndex) {
     8: function() { return _wizardPixelPetView(); },
     9: function() { return _wizardNeuralookView(); },
     10: function() { return _wizardFinaleView(); },
-  });
+  }).transition('slide');
 
   const stepView = new window.View('div').className('wizard-step');
   stepView.styles({ position: 'relative' });
@@ -468,7 +468,11 @@ function _wizardBookmarkImportInit() {
     container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;text-align:center;">Bookmark import requires the desktop app.</div>';
     return;
   }
-  container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;text-align:center;">Detecting browsers...</div>';
+  if (window.Skeleton) {
+    AetherUI.mount(window.Skeleton().lines(2).padding(2), container);
+  } else {
+    container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;text-align:center;">Detecting browsers...</div>';
+  }
   window.electronAPI.dbQuery('bookmark-detect').then(function(result) {
     if (!result || !result.browsers || !result.browsers.length) {
       container.innerHTML = '<div style="font-size:12px;color:var(--nr-text-secondary,#999);padding:16px 0;text-align:center;">No other browsers detected.</div>';
@@ -501,7 +505,11 @@ function _wizBmRenderList(container) {
       if (_wizBmParsed[b.id]) {
         _wizBmRenderBookmarks(detail.el, b.id);
       } else {
-        detail.el.innerHTML = '<div style="font-size:0.72rem;color:var(--nr-text-quaternary);padding:10px 0;">Loading bookmarks...</div>';
+        if (window.Skeleton) {
+          AetherUI.mount(window.Skeleton().lines(2), detail.el);
+        } else {
+          detail.el.innerHTML = '<div style="font-size:0.72rem;color:var(--nr-text-quaternary);padding:10px 0;">Loading bookmarks...</div>';
+        }
       }
       items.push(detail);
     }

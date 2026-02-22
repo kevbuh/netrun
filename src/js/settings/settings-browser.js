@@ -323,7 +323,9 @@ export function _pwDeleteEntry(id) {
 export function _renderBrowserSettings() {
   // Ad blocker
   const adBlockChildren = [
-    window.RawHTML('<div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">' + (window.electronAPI ? 'Loading filter info...' : 'Filter list management requires Electron.') + '</div>')
+    window.electronAPI
+      ? (function() { var sk = window.Skeleton().lines(2); sk.el.id = 'adblock-rules-info'; sk.el.className += ' mb-3'; return sk; })()
+      : window.RawHTML('<div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">Filter list management requires Electron.</div>')
   ];
   if (window.electronAPI) {
     const updateBtn = new window.View('button');
@@ -441,7 +443,7 @@ export function _renderBrowserSettings() {
   const sitePermContent = sitePermWrap;
 
   // Passwords
-  const pwContent = window.RawHTML('<div id="settings-passwords"><div class="text-dimmer text-[0.75rem]">Loading...</div></div>');
+  const pwContent = (function() { var w = new window.View('div'); w.el.id = 'settings-passwords'; w.add(window.Skeleton().lines(3)); return w; })();
 
   return window.VStack(
     _settingCard('Layout', [
@@ -480,7 +482,7 @@ export function _renderBrowserSettings() {
     _settingCard('Import Bookmarks', [
       _settingGroupContent([
         window.Text('Import bookmarks from other browsers into your reading list.').className('text-dim text-[0.8rem] mb-3'),
-        window.RawHTML('<div id="bookmark-import-browsers"><div class="text-dimmer text-[0.75rem]">Loading...</div></div>'),
+        (function() { var w = window.RawHTML('<div id="bookmark-import-browsers"></div>'); AetherUI.mount(window.Skeleton().lines(2), w.el); return w; })(),
       ]),
     ])
   );

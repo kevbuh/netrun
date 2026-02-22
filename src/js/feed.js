@@ -1945,7 +1945,7 @@ export async function _toggleTweetComments(link, idx) {
   }
   _tweetCommentsOpen.add(link);
   container.style.display = 'block';
-  AetherUI.mount(window.Text('Loading...').className('text-dim text-[0.75rem] py-2'), container);
+  AetherUI.mount(window.Skeleton().lines(2).padding(2), container);
   try {
     const comments = await apiGet('/api/comments?paperLink=' + encodeURIComponent(link));
     _tweetCommentCounts[link] = comments.length;

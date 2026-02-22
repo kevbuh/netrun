@@ -13,7 +13,7 @@ const _contextEditorVisible = window.State(false);
 export function _renderContextSettings() {
   return window.VStack(
     window.VStack(
-      window.Text('Loading context info...').className('text-dimmer text-[0.75rem]')
+      window.Skeleton().lines(2)
     ).id('context-info-bar').className('mb-4 p-3 rounded-lg border border-border-subtle bg-card/50'),
 
     window.HStack(

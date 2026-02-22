@@ -5,11 +5,12 @@
 
 import { State, Computed, Effect, Binding, Store, batch, untrack, Context } from '/aether/ui/state.js';
 import { View } from '/aether/ui/view.js';
-import { VStack, HStack, ZStack, Grid, Spacer, Divider, ScrollView, Text, Label, Link, Image, Icon, RawHTML } from '/aether/ui/primitives.js';
-import { Button, TextField, Textarea, Toggle, Checkbox, RadioGroup, Slider, Picker, Stepper, TabView, ProgressBar, Pill, FormField, SearchField, Spinner } from '/aether/ui/controls.js';
+import { VStack, HStack, ZStack, Grid, Spacer, Divider, ScrollView, Text, Label, Link, Image, Icon, Kbd, RawHTML } from '/aether/ui/primitives.js';
+import { Button, TextField, Textarea, Toggle, Checkbox, RadioGroup, Slider, Picker, Stepper, TabView, ProgressBar, Pill, FormField, SearchField, Spinner, Disclosure, Badge, SegmentedControl, Skeleton } from '/aether/ui/controls.js';
 import { ForEach, List, Group, Section, Show, Switch, EmptyState } from '/aether/ui/containers.js';
 import { Sheet, Alert, Popover, Menu, Toast } from '/aether/ui/overlay.js';
 import { defineComponent, getComponent, listComponents } from '/aether/ui/component.js';
+import { VirtualList } from '/aether/ui/virtual.js';
 
 // ─── Mount / Append ───────────────────────────────────────
 
@@ -155,6 +156,7 @@ var AetherUI = {
   Link: Link,
   Image: Image,
   Icon: Icon,
+  Kbd: Kbd,
   RawHTML: RawHTML,
 
   // Controls
@@ -173,6 +175,10 @@ var AetherUI = {
   FormField: FormField,
   SearchField: SearchField,
   Spinner: Spinner,
+  Disclosure: Disclosure,
+  Badge: Badge,
+  SegmentedControl: SegmentedControl,
+  Skeleton: Skeleton,
 
   // Containers
   ForEach: ForEach,
@@ -182,6 +188,7 @@ var AetherUI = {
   Show: Show,
   Switch: Switch,
   EmptyState: EmptyState,
+  VirtualList: VirtualList,
 
   // Overlays
   Sheet: Sheet,
@@ -200,17 +207,35 @@ var AetherUI = {
   append: append,
   serialize: serialize,
 
+  // Error handling
+  set onError(fn) { window._AetherUIState._setErrorHandler(fn); },
+
+  // Performance
+  scheduleBatching: function(v) { window._AetherUIState._setAutoBatch(v); },
+
+  // Debug (populated in dev mode)
+  debug: {
+    get viewCount() { return window._AetherUIViewCount ? window._AetherUIViewCount() : 0; },
+    get signalCount() { return window._AetherUIState._debug.signalCount; },
+    get effectCount() { return window._AetherUIState._debug.effectCount; },
+    signals: function() { return window._AetherUIState._debug.signals(); },
+    effects: function() { return window._AetherUIState._debug.effects(); },
+    graph: function() { return window._AetherUIState._debug.graph(); },
+    warnLeaks: function() { window._AetherUIState._debug.warnLeaks(); }
+  },
+
   // Put all primitives, controls, containers on window for convenience
   globals: function() {
     var names = [
       'View',
       'State', 'Computed', 'Effect', 'Binding', 'Store', 'batch', 'untrack', 'Context',
       'VStack', 'HStack', 'ZStack', 'Grid', 'Spacer', 'Divider', 'ScrollView',
-      'Text', 'Label', 'Link', 'Image', 'Icon', 'RawHTML',
+      'Text', 'Label', 'Link', 'Image', 'Icon', 'Kbd', 'RawHTML',
       'Button', 'TextField', 'Textarea', 'Toggle', 'Checkbox', 'RadioGroup',
       'Slider', 'Picker', 'Stepper', 'TabView', 'ProgressBar', 'Pill',
       'FormField', 'SearchField', 'Spinner',
-      'ForEach', 'List', 'Group', 'Section', 'Show', 'Switch', 'EmptyState',
+      'Disclosure', 'Badge', 'SegmentedControl', 'Skeleton',
+      'ForEach', 'List', 'Group', 'Section', 'Show', 'Switch', 'EmptyState', 'VirtualList',
       'Sheet', 'Alert', 'Popover', 'Menu', 'Toast',
       'defineComponent'
     ];

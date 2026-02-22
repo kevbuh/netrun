@@ -289,6 +289,28 @@ function Grid() {
   return v;
 }
 
+// ─── Kbd (keyboard shortcut display) ─────────────────────
+
+function Kbd(shortcut) {
+  var v = new View('span');
+  v._viewType = 'Kbd';
+  v.el.style.display = 'inline-flex';
+  v.el.style.alignItems = 'center';
+  v.el.style.gap = 'var(--nr-space-1)';
+
+  var parts = (shortcut || '').split('+').map(function(k) { return k.trim(); });
+  var symbolMap = { Cmd: '\u2318', Ctrl: '\u2303', Alt: '\u2325', Shift: '\u21E7', Enter: '\u21A9', Tab: '\u21E5', Backspace: '\u232B', Delete: '\u2326', Esc: '\u238B', Up: '\u2191', Down: '\u2193', Left: '\u2190', Right: '\u2192' };
+
+  for (var i = 0; i < parts.length; i++) {
+    var kbd = document.createElement('kbd');
+    kbd.className = 'nr-kbd';
+    kbd.textContent = symbolMap[parts[i]] || parts[i];
+    v.el.appendChild(kbd);
+  }
+
+  return v;
+}
+
 // ─── RawHTML (trusted HTML string → View) ─────────────────
 
 function RawHTML(htmlString) {
@@ -304,12 +326,12 @@ window._AetherUIPrimitives = {
   VStack: VStack, HStack: HStack, ZStack: ZStack, Grid: Grid,
   Spacer: Spacer, Divider: Divider, ScrollView: ScrollView,
   Text: Text, Label: Label, Link: Link,
-  Image: Image, Icon: Icon, RawHTML: RawHTML
+  Image: Image, Icon: Icon, Kbd: Kbd, RawHTML: RawHTML
 };
 
 export {
   VStack, HStack, ZStack, Grid,
   Spacer, Divider, ScrollView,
   Text, Label, Link,
-  Image, Icon, RawHTML
+  Image, Icon, Kbd, RawHTML
 };

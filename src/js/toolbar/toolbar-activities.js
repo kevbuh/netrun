@@ -222,7 +222,8 @@ export function _islandRenderPill(a) {
     var children = [R(icon('comment', { size: 14, stroke: annColor })), T(a.label || '').foreground('var(--aether-text)')];
     if (a._paper && a._paperState && a._paperState.s2Data) {
       var cc = a._paperState.s2Data.citationCount;
-      if (cc != null) children.push(T(cc + ' cit.').cornerRadius('sm').padding('1px', '5px')
+      if (cc != null && window.Badge) children.push(window.Badge(cc + ' cit.').tint('#8b5cf6').styles({ marginLeft: '6px' }));
+      else if (cc != null) children.push(T(cc + ' cit.').cornerRadius('sm').padding('1px', '5px')
         .styles({ marginLeft: '6px', fontSize: '10px', background: 'rgba(139,92,246,0.15)', color: '#8b5cf6' }));
     }
     return H(children);

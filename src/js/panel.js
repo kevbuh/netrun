@@ -645,16 +645,14 @@ export function _injectProfileItems(popup) {
   if (popup.querySelector('.aether-profile-items')) return;
   const email = (typeof window._authUserInfo !== 'undefined' && window._authUserInfo?.email) || '';
   const username = (typeof window._authUserInfo !== 'undefined' && (window._authUserInfo?.username || window._authUserInfo?.name)) || '';
-  const ctxDiv = document.createElement('div');
-  ctxDiv.className = 'doc-aether-context-items aether-profile-items';
+  const ctxDiv = new window.View('div').className('doc-aether-context-items aether-profile-items');
 
   // User info header
   if (username || email) {
-    const info = document.createElement('div');
-    info.className = 'doc-aether-ctx-item doc-aether-ctx-info';
-    info.innerHTML = '<span class="doc-aether-ctx-label">' + escapeHtml(username) + '</span>' +
-      (email ? '<span class="doc-aether-ctx-sub">' + escapeHtml(email) + '</span>' : '');
-    ctxDiv.appendChild(info);
+    const info = new window.View('div').className('doc-aether-ctx-item doc-aether-ctx-info')
+      .html('<span class="doc-aether-ctx-label">' + escapeHtml(username) + '</span>' +
+        (email ? '<span class="doc-aether-ctx-sub">' + escapeHtml(email) + '</span>' : ''));
+    ctxDiv.add(info);
   }
 
   const items = [
@@ -667,66 +665,61 @@ export function _injectProfileItems(popup) {
 
   for (const entry of items) {
     if (entry.sep) {
-      const sep = document.createElement('div');
-      sep.className = 'doc-aether-ctx-sep';
-      ctxDiv.appendChild(sep);
+      ctxDiv.add(new window.View('div').className('doc-aether-ctx-sep'));
       continue;
     }
-    const item = document.createElement('div');
-    item.className = 'doc-aether-ctx-item' + (entry.danger ? ' doc-aether-ctx-danger' : '');
-    item.innerHTML = entry.icon + ' ' + escapeHtml(entry.label);
-    item.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    item.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      window._aetherTrackMode = false;
-      popup.remove();
-      entry.fn();
-    });
-    ctxDiv.appendChild(item);
+    const item = new window.View('div')
+      .className('doc-aether-ctx-item' + (entry.danger ? ' doc-aether-ctx-danger' : ''))
+      .html(entry.icon + ' ' + escapeHtml(entry.label))
+      .on('mousedown', (ev) => ev.stopPropagation())
+      .on('click', (ev) => {
+        ev.stopPropagation(); ev.preventDefault();
+        window._aetherTrackMode = false;
+        popup.remove();
+        entry.fn();
+      });
+    ctxDiv.add(item);
   }
 
   // Insert before the chat input wrap (or at end)
   const inputWrap = popup.querySelector('.doc-ask-inline-wrap');
-  if (inputWrap) popup.insertBefore(ctxDiv, inputWrap);
-  else popup.appendChild(ctxDiv);
+  if (inputWrap) popup.insertBefore(ctxDiv.el, inputWrap);
+  else popup.appendChild(ctxDiv.el);
 }
 
 // ── Helper: build generic context menu items (tab, custom items) ──
 export function _panelBuildContextItems(popup, config) {
   const contextMenu = config.contextMenu || null;
   if (!(contextMenu && contextMenu.items)) return;
-  const ctxDiv = document.createElement('div');
-  ctxDiv.className = 'doc-aether-context-items';
+  const ctxDiv = new window.View('div').className('doc-aether-context-items');
   for (const entry of contextMenu.items) {
     if (entry.sep) {
-      const sep = document.createElement('div');
-      sep.className = 'doc-aether-ctx-sep';
-      ctxDiv.appendChild(sep);
+      ctxDiv.add(new window.View('div').className('doc-aether-ctx-sep'));
       continue;
     }
-    const item = document.createElement('div');
-    item.className = 'doc-aether-ctx-item' + (entry.danger ? ' doc-aether-ctx-danger' : '') + (entry.info ? ' doc-aether-ctx-info' : '');
+    const cls = 'doc-aether-ctx-item' + (entry.danger ? ' doc-aether-ctx-danger' : '') + (entry.info ? ' doc-aether-ctx-info' : '');
+    const item = new window.View('div').className(cls);
     if (entry.icon) {
-      item.innerHTML = entry.icon + ' ' + escapeHtml(entry.label);
+      item.html(entry.icon + ' ' + escapeHtml(entry.label));
     } else if (entry.subtext) {
-      item.innerHTML = '<span class="doc-aether-ctx-label">' + escapeHtml(entry.label) + '</span><span class="doc-aether-ctx-sub">' + escapeHtml(entry.subtext) + '</span>';
+      item.html('<span class="doc-aether-ctx-label">' + escapeHtml(entry.label) + '</span><span class="doc-aether-ctx-sub">' + escapeHtml(entry.subtext) + '</span>');
     } else if (entry.colorDot) {
-      item.innerHTML = '<span class="browse-ctx-color-dot" style="background:' + escapeAttr(entry.colorDot) + '"></span>' + escapeHtml(entry.label);
+      item.html('<span class="browse-ctx-color-dot" style="background:' + escapeAttr(entry.colorDot) + '"></span>' + escapeHtml(entry.label));
     } else {
-      item.textContent = entry.label;
+      item.text(entry.label);
     }
     if (!entry.info) {
-      item.addEventListener('mousedown', (ev) => ev.stopPropagation());
-      item.addEventListener('click', (ev) => {
-        ev.stopPropagation(); ev.preventDefault();
-        entry.fn();
-        window._aetherTrackMode = false;
-        popup.remove();
-      });
+      item.on('mousedown', (ev) => ev.stopPropagation())
+        .on('click', (ev) => {
+          ev.stopPropagation(); ev.preventDefault();
+          entry.fn();
+          window._aetherTrackMode = false;
+          popup.remove();
+        });
     }
-    ctxDiv.appendChild(item);
+    ctxDiv.add(item);
   }
-  popup.appendChild(ctxDiv);
+  popup.appendChild(ctxDiv.el);
 }
 
 // ── Helper: build link/image context menu + link preview ──
@@ -736,32 +729,31 @@ export function _panelBuildLinkContextMenu(popup, config) {
 
   // Link preview (async)
   if (contextMenu.linkUrl) {
-    const previewDiv = document.createElement('div');
-    previewDiv.className = 'doc-link-preview';
+    const previewDiv = new window.View('div').className('doc-link-preview');
     apiGet('/api/link-preview?url=' + encodeURIComponent(contextMenu.linkUrl))
       .then(data => {
         if (!popup.isConnected) return;
         if (!data.title && !data.description) return;
-        let html = '';
+        let h = '';
         if (data.image) {
-          html += `<img class="doc-link-preview-img" src="${escapeAttr(data.image)}" onerror="this.remove()">`;
+          h += `<img class="doc-link-preview-img" src="${escapeAttr(data.image)}" onerror="this.remove()">`;
         }
-        html += '<div class="doc-link-preview-text">';
-        html += `<div class="doc-link-preview-site">${escapeHtml(data.site || data.domain || '')}</div>`;
-        html += `<div class="doc-link-preview-title">${escapeHtml(data.title)}</div>`;
+        h += '<div class="doc-link-preview-text">';
+        h += `<div class="doc-link-preview-site">${escapeHtml(data.site || data.domain || '')}</div>`;
+        h += `<div class="doc-link-preview-title">${escapeHtml(data.title)}</div>`;
         if (data.description) {
-          html += `<div class="doc-link-preview-desc">${escapeHtml(data.description)}</div>`;
+          h += `<div class="doc-link-preview-desc">${escapeHtml(data.description)}</div>`;
         }
-        html += '</div>';
-        previewDiv.innerHTML = html;
-        previewDiv.style.cursor = 'pointer';
-        previewDiv.addEventListener('mousedown', (ev) => ev.stopPropagation());
-        previewDiv.addEventListener('click', (ev) => {
-          ev.stopPropagation(); ev.preventDefault();
-          if (typeof browseNewTab === 'function') browseNewTab(contextMenu.linkUrl);
-          else window.open(contextMenu.linkUrl, '_blank');
-        });
-        popup.insertBefore(previewDiv, popup.firstChild);
+        h += '</div>';
+        previewDiv.el.innerHTML = h;
+        previewDiv.el.style.cursor = 'pointer';
+        previewDiv.on('mousedown', (ev) => ev.stopPropagation())
+          .on('click', (ev) => {
+            ev.stopPropagation(); ev.preventDefault();
+            if (typeof browseNewTab === 'function') browseNewTab(contextMenu.linkUrl);
+            else window.open(contextMenu.linkUrl, '_blank');
+          });
+        popup.insertBefore(previewDiv.el, popup.firstChild);
         _repositionSelectionPopup();
       })
       .catch(() => {});
@@ -769,29 +761,25 @@ export function _panelBuildLinkContextMenu(popup, config) {
 
   // Context menu items (links, images) — only when no custom items
   if ((contextMenu.linkUrl || contextMenu.imgUrl) && !contextMenu.items) {
-    const ctxDiv = document.createElement('div');
-    ctxDiv.className = 'doc-aether-context-items';
+    const ctxDiv = new window.View('div').className('doc-aether-context-items');
     const linkUrl = contextMenu.linkUrl || '';
     const linkText = contextMenu.linkText || '';
     const imgUrl = contextMenu.imgUrl || '';
 
     const addItem = (label, fn) => {
-      const item = document.createElement('div');
-      item.className = 'doc-aether-ctx-item';
-      item.textContent = label;
-      item.addEventListener('mousedown', (ev) => ev.stopPropagation());
-      item.addEventListener('click', (ev) => {
-        ev.stopPropagation(); ev.preventDefault();
-        fn();
-        window._aetherTrackMode = false;
-        popup.remove();
-      });
-      ctxDiv.appendChild(item);
+      const item = new window.View('div').className('doc-aether-ctx-item')
+        .text(label)
+        .on('mousedown', (ev) => ev.stopPropagation())
+        .on('click', (ev) => {
+          ev.stopPropagation(); ev.preventDefault();
+          fn();
+          window._aetherTrackMode = false;
+          popup.remove();
+        });
+      ctxDiv.add(item);
     };
     const addSep = () => {
-      const sep = document.createElement('div');
-      sep.className = 'doc-aether-ctx-sep';
-      ctxDiv.appendChild(sep);
+      ctxDiv.add(new window.View('div').className('doc-aether-ctx-sep'));
     };
 
     if (linkUrl) {
@@ -822,37 +810,35 @@ export function _panelBuildLinkContextMenu(popup, config) {
         const proxyUrl = imgUrl.startsWith('/api/') ? imgUrl : '/api/image-proxy?url=' + encodeURIComponent(imgUrl);
         const a = document.createElement('a');
         a.href = proxyUrl;
-        // Extract a filename from the URL, fallback to 'image.png'
         try { a.download = imgUrl.split('/').pop().split('?')[0] || 'image.png'; } catch(_) { a.download = 'image.png'; }
         document.body.appendChild(a);
         a.click();
         a.remove();
       });
       // "Add to Assistant" keeps the panel open and adds the image as chat context
-      const assistItem = document.createElement('div');
-      assistItem.className = 'doc-aether-ctx-item';
-      assistItem.textContent = 'Add to Assistant';
-      assistItem.addEventListener('mousedown', (ev) => ev.stopPropagation());
-      assistItem.addEventListener('click', (ev) => {
-        ev.stopPropagation(); ev.preventDefault();
-        window._aetherTrackMode = false;
-        // Remove context menu items but keep the panel
-        const ctxItems = popup.querySelector('.doc-aether-context-items');
-        if (ctxItems) ctxItems.remove();
-        const preview = popup.querySelector('.doc-link-preview');
-        if (preview) preview.remove();
-        const proxyUrl = imgUrl.startsWith('/api/') ? imgUrl : '/api/image-proxy?url=' + encodeURIComponent(imgUrl);
-        const img = new window.Image();
-        img.onload = () => {
-          const c = document.createElement('canvas');
-          c.width = img.naturalWidth; c.height = img.naturalHeight;
-          c.getContext('2d').drawImage(img, 0, 0);
-          const base64 = c.toDataURL('image/png').split(',')[1];
-          if (base64) _addScreenshotToPanel(popup, base64);
-        };
-        img.src = proxyUrl;
-      });
-      ctxDiv.appendChild(assistItem);
+      const assistItem = new window.View('div').className('doc-aether-ctx-item')
+        .text('Add to Assistant')
+        .on('mousedown', (ev) => ev.stopPropagation())
+        .on('click', (ev) => {
+          ev.stopPropagation(); ev.preventDefault();
+          window._aetherTrackMode = false;
+          // Remove context menu items but keep the panel
+          const ctxItems = popup.querySelector('.doc-aether-context-items');
+          if (ctxItems) ctxItems.remove();
+          const preview = popup.querySelector('.doc-link-preview');
+          if (preview) preview.remove();
+          const proxyUrl = imgUrl.startsWith('/api/') ? imgUrl : '/api/image-proxy?url=' + encodeURIComponent(imgUrl);
+          const img = new window.Image();
+          img.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth; c.height = img.naturalHeight;
+            c.getContext('2d').drawImage(img, 0, 0);
+            const base64 = c.toDataURL('image/png').split(',')[1];
+            if (base64) _addScreenshotToPanel(popup, base64);
+          };
+          img.src = proxyUrl;
+        });
+      ctxDiv.add(assistItem);
     }
     if (linkText && linkUrl) {
       const truncated = linkText.length > 25 ? linkText.slice(0, 22) + '...' : linkText;
@@ -862,7 +848,7 @@ export function _panelBuildLinkContextMenu(popup, config) {
       });
     }
 
-    popup.appendChild(ctxDiv);
+    popup.appendChild(ctxDiv.el);
   }
 }
 
@@ -873,19 +859,16 @@ export function _panelBuildEditableActions(popup, config, capturedText, hasConte
 
   // Native editable field actions (Cut, Copy, Paste)
   if (editableTarget) {
-    const editCtx = document.createElement('div');
-    editCtx.className = 'doc-aether-context-items';
+    const editCtx = new window.View('div').className('doc-aether-context-items');
     const addEditItem = (label, fn) => {
-      const item = document.createElement('div');
-      item.className = 'doc-aether-ctx-item';
-      item.textContent = label;
-      item.addEventListener('mousedown', (ev) => ev.stopPropagation());
-      item.addEventListener('click', (ev) => {
-        ev.stopPropagation(); ev.preventDefault();
-        fn();
-        popup.remove();
-      });
-      editCtx.appendChild(item);
+      editCtx.add(new window.View('div').className('doc-aether-ctx-item')
+        .text(label)
+        .on('mousedown', (ev) => ev.stopPropagation())
+        .on('click', (ev) => {
+          ev.stopPropagation(); ev.preventDefault();
+          fn();
+          popup.remove();
+        }));
     };
     if (capturedText) {
       addEditItem('Cut', () => {
@@ -912,25 +895,22 @@ export function _panelBuildEditableActions(popup, config, capturedText, hasConte
         _pasteIntoElement(editableTarget, text);
       }).catch(() => {});
     });
-    popup.appendChild(editCtx);
+    popup.appendChild(editCtx.el);
   }
 
   // Webview editable field (cross-origin) — Cut/Copy/Paste via webview API
   if (webviewEditable) {
-    const wvCtx = document.createElement('div');
-    wvCtx.className = 'doc-aether-context-items';
+    const wvCtx = new window.View('div').className('doc-aether-context-items');
     const wv = webviewEditable.webview;
     const flags = webviewEditable.editFlags || {};
     const addWvItem = (label, fn) => {
-      const item = document.createElement('div');
-      item.className = 'doc-aether-ctx-item';
-      item.textContent = label;
-      item.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
-      item.addEventListener('mouseup', (ev) => {
-        ev.stopPropagation(); ev.preventDefault();
-        fn();
-      });
-      wvCtx.appendChild(item);
+      wvCtx.add(new window.View('div').className('doc-aether-ctx-item')
+        .text(label)
+        .on('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); })
+        .on('mouseup', (ev) => {
+          ev.stopPropagation(); ev.preventDefault();
+          fn();
+        }));
     };
     const wvExec = (js) => { popup.remove(); wv.focus(); setTimeout(() => wv.executeJavaScript(js).catch(() => {}), 50); };
     if (flags.canCut) addWvItem('Cut', () => {
@@ -947,7 +927,6 @@ export function _panelBuildEditableActions(popup, config, capturedText, hasConte
         navigator.clipboard.writeText(document.getSelection().toString()).catch(function(){}); })()`);
     });
     if (flags.canPaste) addWvItem('Paste', () => {
-      // Read clipboard BEFORE removing popup (document must be focused for clipboard API)
       navigator.clipboard.readText().then(text => {
         if (!text) return;
         popup.remove();
@@ -962,33 +941,31 @@ export function _panelBuildEditableActions(popup, config, capturedText, hasConte
     if (flags.canSelectAll) addWvItem('Select All', () => {
       wvExec(`(function(){ var el=window.__aetherLastEditable; if(el){el.focus();el.select();}else document.execCommand('selectAll'); })()`);
     });
-    if (wvCtx.children.length) popup.appendChild(wvCtx);
+    if (wvCtx.el.children.length) popup.appendChild(wvCtx.el);
   }
 
   // Paste into nearby editable or chat input (only when near an editable field)
   if (!editableTarget && !hasContext && !capturedText && !webviewEditable && config.priorEditable) {
     const priorEditable = config.priorEditable;
-    const pasteCtx = document.createElement('div');
-    pasteCtx.className = 'doc-aether-context-items';
-    const pasteItem = document.createElement('div');
-    pasteItem.className = 'doc-aether-ctx-item';
-    pasteItem.textContent = 'Paste text';
-    pasteItem.addEventListener('mousedown', (ev) => ev.stopPropagation());
-    pasteItem.addEventListener('click', (ev) => {
-      ev.stopPropagation(); ev.preventDefault();
-      navigator.clipboard.readText().then(text => {
-        if (!text) return;
-        if (priorEditable && priorEditable.isConnected) {
-          _pasteIntoElement(priorEditable, text);
-          popup.remove();
-        } else {
-          const input = popup.querySelector('.doc-ask-inline-input');
-          if (input) { input.value = text; input.focus(); }
-        }
-      }).catch(() => {});
-    });
-    pasteCtx.appendChild(pasteItem);
-    popup.appendChild(pasteCtx);
+    const pasteCtx = new window.View('div').className('doc-aether-context-items');
+    const pasteItem = new window.View('div').className('doc-aether-ctx-item')
+      .text('Paste text')
+      .on('mousedown', (ev) => ev.stopPropagation())
+      .on('click', (ev) => {
+        ev.stopPropagation(); ev.preventDefault();
+        navigator.clipboard.readText().then(text => {
+          if (!text) return;
+          if (priorEditable && priorEditable.isConnected) {
+            _pasteIntoElement(priorEditable, text);
+            popup.remove();
+          } else {
+            const input = popup.querySelector('.doc-ask-inline-input');
+            if (input) { input.value = text; input.focus(); }
+          }
+        }).catch(() => {});
+      });
+    pasteCtx.add(pasteItem);
+    popup.appendChild(pasteCtx.el);
   }
 }
 
@@ -1002,326 +979,291 @@ export function _panelBuildSelectionUI(popup, config) {
 
   if (!(finalized && capturedText && !editableTarget)) return;
 
-  const btnRow = document.createElement('div');
-  btnRow.className = 'doc-selection-popup-btns';
+  const btnRow = new window.View('div').className('doc-selection-popup-btns');
 
   // Copy button
-  const copyBtn = document.createElement('button');
-  copyBtn.className = 'doc-selection-copy-btn';
-  copyBtn.title = 'Copy';
-  copyBtn.innerHTML = icon('copy', { size: 14 });
-  copyBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
-  copyBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    navigator.clipboard.writeText(capturedText).then(() => {
-      copyBtn.innerHTML = icon('check', { size: 14 });
-      setTimeout(() => { if (copyBtn.isConnected) copyBtn.innerHTML = icon('copy', { size: 14 }); }, 1200);
-      if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
-    }).catch(() => {});
-  });
-  btnRow.appendChild(copyBtn);
+  const copyBtn = new window.View('button').className('doc-selection-copy-btn')
+    .attr('title', 'Copy')
+    .html(icon('copy', { size: 14 }))
+    .on('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); })
+    .on('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      navigator.clipboard.writeText(capturedText).then(() => {
+        copyBtn.el.innerHTML = icon('check', { size: 14 });
+        setTimeout(() => { if (copyBtn.el.isConnected) copyBtn.el.innerHTML = icon('copy', { size: 14 }); }, 1200);
+        if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
+      }).catch(() => {});
+    });
+  btnRow.add(copyBtn);
 
   // Read Aloud button — uses existing Kokoro TTS system
-  const readBtn = document.createElement('button');
-  readBtn.className = 'doc-selection-copy-btn';
-  readBtn.title = 'Read aloud';
-  readBtn.innerHTML = icon('speaker', { size: 14 });
-  readBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
-  readBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    // If TTS is already active, toggle pause/stop
-    if (window._ttsAudio || window._ttsPaused || window._ttsChunks.length > 0) {
-      _ttsStopAll();
-      readBtn.innerHTML = icon('speaker', { size: 14 });
-      readBtn.title = 'Read aloud';
-      return;
-    }
-    if (!capturedText || capturedText.length < 2) return;
-    readBtn.innerHTML = icon('pauseRect', { size: 14 });
-    readBtn.title = 'Stop';
-    window._ttsStopped = false;
-    window._ttsPaused = false;
-    window._ttsChunks = _ttsChunkText(capturedText);
-    window._ttsChunkIdx = 0;
-    window._ttsPlayedDurations = [];
-    window._ttsRemainingDurations = [];
-    window._ttsQueue = [];
-    _ttsFetchAndQueue();
-    // Reset button when TTS finishes naturally
-    const checkDone = setInterval(() => {
-      if (!window._ttsAudio && !window._ttsPaused && window._ttsChunks.length === 0) {
-        clearInterval(checkDone);
-        if (readBtn.isConnected) {
-          readBtn.innerHTML = icon('speaker', { size: 14 });
-          readBtn.title = 'Read aloud';
-        }
-      }
-    }, 500);
-  });
-  btnRow.appendChild(readBtn);
-
-  // "Read from here" button — reads from selection to end of page
-  if (typeof window._getCurrentWindow === 'function' && typeof _extractTextFromFrame === 'function') {
-    const fromHereBtn = document.createElement('button');
-    fromHereBtn.className = 'doc-selection-copy-btn';
-    fromHereBtn.innerHTML = icon('play', { size: 14 });
-    fromHereBtn.title = 'Read from this point to the end of the page';
-    fromHereBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
-    fromHereBtn.addEventListener('click', async (ev) => {
+  const readBtn = new window.View('button').className('doc-selection-copy-btn')
+    .attr('title', 'Read aloud')
+    .html(icon('speaker', { size: 14 }))
+    .on('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); })
+    .on('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
-      // If TTS is already active, stop it
       if (window._ttsAudio || window._ttsPaused || window._ttsChunks.length > 0) {
         _ttsStopAll();
-        fromHereBtn.innerHTML = icon('play', { size: 14 });
-        fromHereBtn.title = 'Read from this point to the end of the page';
-        readBtn.innerHTML = icon('speaker', { size: 14 });
-        readBtn.title = 'Read aloud';
+        readBtn.el.innerHTML = icon('speaker', { size: 14 });
+        readBtn.el.title = 'Read aloud';
         return;
       }
-      const win = window._getCurrentWindow();
-      if (!win) return;
-      const tab = win.tabs.find(t => t.id === win.activeTab);
-      if (!tab) return;
-      fromHereBtn.innerHTML = icon('pauseRect', { size: 14 });
-      fromHereBtn.title = 'Stop';
-      const fullText = await _extractTextFromFrame(tab);
-      if (!fullText || fullText.length < 10) {
-        fromHereBtn.innerHTML = icon('play', { size: 14 });
-        fromHereBtn.title = 'Read from this point to the end of the page';
-        return;
-      }
-      // Find selection in full text and read from there
-      const needle = capturedText.trim().replace(/\s+/g, ' ');
-      const haystack = fullText.replace(/\s+/g, ' ');
-      const idx = haystack.indexOf(needle);
-      const textFromHere = idx >= 0 ? haystack.slice(idx) : needle + '\n' + haystack;
-      window._ttsTabId = tab.id;
+      if (!capturedText || capturedText.length < 2) return;
+      readBtn.el.innerHTML = icon('pauseRect', { size: 14 });
+      readBtn.el.title = 'Stop';
       window._ttsStopped = false;
       window._ttsPaused = false;
-      window._ttsChunks = _ttsChunkText(textFromHere);
+      window._ttsChunks = _ttsChunkText(capturedText);
       window._ttsChunkIdx = 0;
       window._ttsPlayedDurations = [];
       window._ttsRemainingDurations = [];
       window._ttsQueue = [];
-      _ttsUpdateBtnIcon();
       _ttsFetchAndQueue();
-      const checkDone2 = setInterval(() => {
+      const checkDone = setInterval(() => {
         if (!window._ttsAudio && !window._ttsPaused && window._ttsChunks.length === 0) {
-          clearInterval(checkDone2);
-          if (fromHereBtn.isConnected) {
-            fromHereBtn.innerHTML = icon('play', { size: 14 });
-            fromHereBtn.title = 'Read from this point to the end of the page';
+          clearInterval(checkDone);
+          if (readBtn.el.isConnected) {
+            readBtn.el.innerHTML = icon('speaker', { size: 14 });
+            readBtn.el.title = 'Read aloud';
           }
         }
       }, 500);
     });
-    btnRow.appendChild(fromHereBtn);
+  btnRow.add(readBtn);
+
+  // "Read from here" button — reads from selection to end of page
+  if (typeof window._getCurrentWindow === 'function' && typeof _extractTextFromFrame === 'function') {
+    const fromHereBtn = new window.View('button').className('doc-selection-copy-btn')
+      .html(icon('play', { size: 14 }))
+      .attr('title', 'Read from this point to the end of the page')
+      .on('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); })
+      .on('click', async (ev) => {
+        ev.stopPropagation(); ev.preventDefault();
+        if (window._ttsAudio || window._ttsPaused || window._ttsChunks.length > 0) {
+          _ttsStopAll();
+          fromHereBtn.el.innerHTML = icon('play', { size: 14 });
+          fromHereBtn.el.title = 'Read from this point to the end of the page';
+          readBtn.el.innerHTML = icon('speaker', { size: 14 });
+          readBtn.el.title = 'Read aloud';
+          return;
+        }
+        const win = window._getCurrentWindow();
+        if (!win) return;
+        const tab = win.tabs.find(t => t.id === win.activeTab);
+        if (!tab) return;
+        fromHereBtn.el.innerHTML = icon('pauseRect', { size: 14 });
+        fromHereBtn.el.title = 'Stop';
+        const fullText = await _extractTextFromFrame(tab);
+        if (!fullText || fullText.length < 10) {
+          fromHereBtn.el.innerHTML = icon('play', { size: 14 });
+          fromHereBtn.el.title = 'Read from this point to the end of the page';
+          return;
+        }
+        const needle = capturedText.trim().replace(/\s+/g, ' ');
+        const haystack = fullText.replace(/\s+/g, ' ');
+        const idx = haystack.indexOf(needle);
+        const textFromHere = idx >= 0 ? haystack.slice(idx) : needle + '\n' + haystack;
+        window._ttsTabId = tab.id;
+        window._ttsStopped = false;
+        window._ttsPaused = false;
+        window._ttsChunks = _ttsChunkText(textFromHere);
+        window._ttsChunkIdx = 0;
+        window._ttsPlayedDurations = [];
+        window._ttsRemainingDurations = [];
+        window._ttsQueue = [];
+        _ttsUpdateBtnIcon();
+        _ttsFetchAndQueue();
+        const checkDone2 = setInterval(() => {
+          if (!window._ttsAudio && !window._ttsPaused && window._ttsChunks.length === 0) {
+            clearInterval(checkDone2);
+            if (fromHereBtn.el.isConnected) {
+              fromHereBtn.el.innerHTML = icon('play', { size: 14 });
+              fromHereBtn.el.title = 'Read from this point to the end of the page';
+            }
+          }
+        }, 500);
+      });
+    btnRow.add(fromHereBtn);
   }
 
   // Annotate "+" button — mark selected text as a specific annotation type
-  const annotateBtn = document.createElement('button');
-  annotateBtn.className = 'doc-selection-copy-btn';
-  annotateBtn.title = 'Mark as annotation';
-  annotateBtn.innerHTML = icon('plus', { size: 14 });
-  annotateBtn.addEventListener('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
-  annotateBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    // Toggle dropdown
-    let dropdown = btnRow.querySelector('.ann-type-dropdown');
-    if (dropdown) { dropdown.remove(); return; }
-    dropdown = document.createElement('div');
-    dropdown.className = 'ann-type-dropdown';
-    dropdown.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:var(--aether-dropdown-bg, #1a1a2e);border:1px solid var(--aether-border, rgba(255,255,255,0.1));border-radius:8px;padding:4px;margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;z-index:10;';
-    const types = [
-      { key: 'ALPHA', name: 'Alpha', color: '#4caf50' },
-      { key: 'CONTRADICTION', name: 'Contradiction', color: '#ef5350' },
-      { key: 'AD', name: 'Ad', color: '#ff9800' },
-    ];
-    // Add custom categories
-    if (typeof window._customAnnotationCategories !== 'undefined') {
-      for (const cc of window._customAnnotationCategories) {
-        types.push({ key: cc.key, name: cc.name, color: cc.color });
+  const annotateBtn = new window.View('button').className('doc-selection-copy-btn')
+    .attr('title', 'Mark as annotation')
+    .html(icon('plus', { size: 14 }))
+    .on('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); })
+    .on('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      // Toggle dropdown
+      let dropdown = btnRow.el.querySelector('.ann-type-dropdown');
+      if (dropdown) { dropdown.remove(); return; }
+      dropdown = document.createElement('div');
+      dropdown.className = 'ann-type-dropdown';
+      dropdown.style.cssText = 'position:absolute;top:100%;left:0;right:0;background:var(--aether-dropdown-bg, #1a1a2e);border:1px solid var(--aether-border, rgba(255,255,255,0.1));border-radius:8px;padding:4px;margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;z-index:10;';
+      const types = [
+        { key: 'ALPHA', name: 'Alpha', color: '#4caf50' },
+        { key: 'CONTRADICTION', name: 'Contradiction', color: '#ef5350' },
+        { key: 'AD', name: 'Ad', color: '#ff9800' },
+      ];
+      if (typeof window._customAnnotationCategories !== 'undefined') {
+        for (const cc of window._customAnnotationCategories) {
+          types.push({ key: cc.key, name: cc.name, color: cc.color });
+        }
       }
-    }
-    for (const t of types) {
-      const chip = document.createElement('button');
-      chip.style.cssText = 'background:none;border:1px solid ' + t.color + '40;border-radius:4px;cursor:pointer;padding:2px 8px;font-size:11px;color:' + t.color + ';display:flex;align-items:center;gap:4px;white-space:nowrap;';
-      chip.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:' + t.color + '"></span>' + escapeHtml(t.name);
-      chip.addEventListener('mousedown', (mev) => { mev.stopPropagation(); mev.preventDefault(); });
-      chip.addEventListener('click', (cev) => {
-        cev.stopPropagation(); cev.preventDefault();
-        let feedbackUrl = '';
-        let feedbackTitle = '';
-        if (typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
-          const fTab = _browseTabs.find(tb => tb.id === _browseActiveTab);
-          if (fTab) { feedbackUrl = fTab.url || ''; feedbackTitle = fTab.title || ''; }
-        }
-        apiPost('/api/annotation-feedback', { quote: capturedText, annType: t.key, rating: 'good', url: feedbackUrl, pageTitle: feedbackTitle }).catch(e => logger.warn('[panel] Feedback failed:', e));
-        // Inject highlight on the page
-        if (typeof injectSingleAnnotation === 'function' && typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
-          const hlTab = _browseTabs.find(tb => tb.id === _browseActiveTab);
-          if (hlTab) injectSingleAnnotation(hlTab, { type: t.key, quote: capturedText });
-        }
-        dropdown.remove();
-        annotateBtn.innerHTML = icon('check', { size: 14, stroke: t.color });
-        annotateBtn.disabled = true;
-      });
-      dropdown.appendChild(chip);
-    }
-    btnRow.style.position = 'relative';
-    btnRow.appendChild(dropdown);
-  });
-  btnRow.appendChild(annotateBtn);
+      for (const t of types) {
+        const chip = new window.View('button')
+          .styles({ background: 'none', border: '1px solid ' + t.color + '40', borderRadius: '4px', cursor: 'pointer', padding: '2px 8px', fontSize: '11px', color: t.color, display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' })
+          .html('<span style="width:6px;height:6px;border-radius:50%;background:' + t.color + '"></span>' + escapeHtml(t.name))
+          .on('mousedown', (mev) => { mev.stopPropagation(); mev.preventDefault(); })
+          .on('click', (cev) => {
+            cev.stopPropagation(); cev.preventDefault();
+            let feedbackUrl = '';
+            let feedbackTitle = '';
+            if (typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
+              const fTab = _browseTabs.find(tb => tb.id === _browseActiveTab);
+              if (fTab) { feedbackUrl = fTab.url || ''; feedbackTitle = fTab.title || ''; }
+            }
+            apiPost('/api/annotation-feedback', { quote: capturedText, annType: t.key, rating: 'good', url: feedbackUrl, pageTitle: feedbackTitle }).catch(e => logger.warn('[panel] Feedback failed:', e));
+            if (typeof injectSingleAnnotation === 'function' && typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined') {
+              const hlTab = _browseTabs.find(tb => tb.id === _browseActiveTab);
+              if (hlTab) injectSingleAnnotation(hlTab, { type: t.key, quote: capturedText });
+            }
+            dropdown.remove();
+            annotateBtn.el.innerHTML = icon('check', { size: 14, stroke: t.color });
+            annotateBtn.el.disabled = true;
+          });
+        dropdown.appendChild(chip.el);
+      }
+      btnRow.el.style.position = 'relative';
+      btnRow.el.appendChild(dropdown);
+    });
+  btnRow.add(annotateBtn);
 
   // Clear button — positioned on far right
-  const clearBtnIcon = document.createElement('button');
-  clearBtnIcon.className = 'doc-selection-copy-btn';
-  clearBtnIcon.title = 'Clear conversation';
-  clearBtnIcon.style.marginLeft = 'auto';
-  clearBtnIcon.innerHTML = icon('close', { size: 14 });
-  clearBtnIcon.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  clearBtnIcon.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    _saveChatMemory();
-    window._popupChatMessages = [];
-    window._chatMemoryRetrieved = false;
-    window._chatStreamStart = 0;
-    if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
-    const cm = popup.querySelector('.doc-popup-chat-messages');
-    if (cm) cm.innerHTML = '';
-    const ca = popup.querySelector('.doc-popup-chat-area');
-    if (ca) ca.classList.remove('visible');
-    popup.classList.remove('has-chat');
-    const statsSpan = popup.querySelector('.doc-chat-stats');
-    if (statsSpan) statsSpan.textContent = '';
-    _repositionSelectionPopup();
-  });
-  btnRow.appendChild(clearBtnIcon);
+  const clearBtnIcon = new window.View('button').className('doc-selection-copy-btn')
+    .attr('title', 'Clear conversation')
+    .html(icon('close', { size: 14 }))
+    .on('mousedown', (ev) => ev.stopPropagation())
+    .on('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      _saveChatMemory();
+      window._popupChatMessages = [];
+      window._chatMemoryRetrieved = false;
+      window._chatStreamStart = 0;
+      if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
+      const cm = popup.querySelector('.doc-popup-chat-messages');
+      if (cm) cm.innerHTML = '';
+      const ca = popup.querySelector('.doc-popup-chat-area');
+      if (ca) ca.classList.remove('visible');
+      popup.classList.remove('has-chat');
+      const statsSpan = popup.querySelector('.doc-chat-stats');
+      if (statsSpan) statsSpan.textContent = '';
+      _repositionSelectionPopup();
+    });
+  clearBtnIcon.el.style.marginLeft = 'auto';
+  btnRow.add(clearBtnIcon);
 
-  popup.appendChild(btnRow);
+  popup.appendChild(btnRow.el);
 
   // Author / Wikipedia preview (async)
   if (_isAuthorEligible(capturedText)) {
-    const authorDiv = document.createElement('div');
-    authorDiv.className = 'doc-wiki-preview';
-    authorDiv.style.display = 'none';
-    popup.appendChild(authorDiv);
-    _fetchAuthorPreview(capturedText, authorDiv);
+    const authorDiv = new window.View('div').className('doc-wiki-preview');
+    authorDiv.el.style.display = 'none';
+    popup.appendChild(authorDiv.el);
+    _fetchAuthorPreview(capturedText, authorDiv.el);
   } else if (_isAetherEligible(capturedText)) {
-    const wikiDiv = document.createElement('div');
-    wikiDiv.className = 'doc-wiki-preview';
-    wikiDiv.style.display = 'none';
-    popup.appendChild(wikiDiv);
-    _fetchWikipediaPreview(capturedText, wikiDiv);
+    const wikiDiv = new window.View('div').className('doc-wiki-preview');
+    wikiDiv.el.style.display = 'none';
+    popup.appendChild(wikiDiv.el);
+    _fetchWikipediaPreview(capturedText, wikiDiv.el);
   }
 
 }
 
 // ── Helper: build top actions bar (model label, clear, redo, copy, pin, sidebar, drag) ──
 export function _panelBuildTopBar(popup) {
-  const topBar = document.createElement('div');
-  topBar.className = 'doc-popup-chat-actions aether-top-actions';
-  topBar.style.cursor = 'grab';
-
-  // window.Spacer(model label moved to button row)
-  const spacer = document.createElement('span');
-  spacer.style.flex = '1';
-  topBar.appendChild(spacer);
-
-  // Stats — inline in the top bar after model label
-  const statsSpan = document.createElement('span');
-  statsSpan.className = 'doc-chat-stats';
-  topBar.insertBefore(statsSpan, spacer.nextSibling);
+  const spacer = new window.View('span').styles({ flex: '1' });
+  const statsSpan = new window.View('span').className('doc-chat-stats');
 
   // Redo button — resend last user message
-  const redoBtn = document.createElement('button');
-  redoBtn.className = 'aether-topbar-btn';
-  redoBtn.textContent = 'Redo';
-  redoBtn.style.display = 'none';
-  redoBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  redoBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    // Find last user message
-    let lastUserIdx = -1;
-    for (let i = window._popupChatMessages.length - 1; i >= 0; i--) {
-      if (window._popupChatMessages[i].role === 'user') { lastUserIdx = i; break; }
-    }
-    if (lastUserIdx < 0) return;
-    // Remove the last user message and everything after it
-    const lastUserMsg = window._popupChatMessages[lastUserIdx];
-    window._popupChatMessages = window._popupChatMessages.slice(0, lastUserIdx);
-    if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
-    // Re-insert user message and re-send
-    const input = popup.querySelector('.doc-ask-inline-input');
-    if (input) input.value = lastUserMsg._display || lastUserMsg.content;
-    _sendPopupChatMessage(popup, popup._capturedText || '');
-  });
-  topBar.appendChild(redoBtn);
-  popup._redoBtn = redoBtn;
+  const redoBtn = new window.View('button').className('aether-topbar-btn')
+    .text('Redo')
+    .on('mousedown', (ev) => ev.stopPropagation())
+    .on('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      let lastUserIdx = -1;
+      for (let i = window._popupChatMessages.length - 1; i >= 0; i--) {
+        if (window._popupChatMessages[i].role === 'user') { lastUserIdx = i; break; }
+      }
+      if (lastUserIdx < 0) return;
+      const lastUserMsg = window._popupChatMessages[lastUserIdx];
+      window._popupChatMessages = window._popupChatMessages.slice(0, lastUserIdx);
+      if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
+      const input = popup.querySelector('.doc-ask-inline-input');
+      if (input) input.value = lastUserMsg._display || lastUserMsg.content;
+      _sendPopupChatMessage(popup, popup._capturedText || '');
+    });
+  redoBtn.el.style.display = 'none';
+  popup._redoBtn = redoBtn.el;
 
   // Copy chat button — copy last AI response
-  const copyChatBtn = document.createElement('button');
-  copyChatBtn.className = 'aether-topbar-btn';
-  copyChatBtn.style.display = 'none';
-  copyChatBtn.textContent = 'Copy';
-  copyChatBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  copyChatBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    // Find last assistant message
-    let lastAi = '';
-    for (let i = window._popupChatMessages.length - 1; i >= 0; i--) {
-      if (window._popupChatMessages[i].role === 'assistant' && !window._popupChatMessages[i]._thinking) {
-        lastAi = window._popupChatMessages[i].content; break;
+  const copyChatBtn = new window.View('button').className('aether-topbar-btn')
+    .text('Copy')
+    .on('mousedown', (ev) => ev.stopPropagation())
+    .on('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      let lastAi = '';
+      for (let i = window._popupChatMessages.length - 1; i >= 0; i--) {
+        if (window._popupChatMessages[i].role === 'assistant' && !window._popupChatMessages[i]._thinking) {
+          lastAi = window._popupChatMessages[i].content; break;
+        }
       }
-    }
-    if (!lastAi) return;
-    navigator.clipboard.writeText(lastAi).then(() => {
-      copyChatBtn.textContent = 'Copied';
-      setTimeout(() => { if (copyChatBtn.isConnected) copyChatBtn.textContent = 'Copy'; }, 1200);
-      if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
-    }).catch(() => {});
-  });
-  topBar.appendChild(copyChatBtn);
-  popup._copyChatBtn = copyChatBtn;
+      if (!lastAi) return;
+      navigator.clipboard.writeText(lastAi).then(() => {
+        copyChatBtn.el.textContent = 'Copied';
+        setTimeout(() => { if (copyChatBtn.el.isConnected) copyChatBtn.el.textContent = 'Copy'; }, 1200);
+        if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
+      }).catch(() => {});
+    });
+  copyChatBtn.el.style.display = 'none';
+  popup._copyChatBtn = copyChatBtn.el;
 
   // "Open in tab" button — opens the panel conversation in a dedicated chat tab
-  const openInTabBtn = document.createElement('button');
-  openInTabBtn.className = 'aether-topbar-btn';
-  openInTabBtn.style.display = 'none';
-  openInTabBtn.textContent = 'Open in tab';
-  openInTabBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  openInTabBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    if (window._panelThreadId && typeof openChatPage === 'function') {
-      openChatPage(window._panelThreadId);
-      popup.remove();
-      window._aetherTrackMode = false;
-      window._aetherPinned = false;
-    }
-  });
-  topBar.appendChild(openInTabBtn);
-  popup._openInTabBtn = openInTabBtn;
+  const openInTabBtn = new window.View('button').className('aether-topbar-btn')
+    .text('Open in tab')
+    .on('mousedown', (ev) => ev.stopPropagation())
+    .on('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      if (window._panelThreadId && typeof openChatPage === 'function') {
+        openChatPage(window._panelThreadId);
+        popup.remove();
+        window._aetherTrackMode = false;
+        window._aetherPinned = false;
+      }
+    });
+  openInTabBtn.el.style.display = 'none';
+  popup._openInTabBtn = openInTabBtn.el;
 
-  // Right-side icon group (aligns with mic + send below)
-  const topRightGroup = document.createElement('span');
-  topRightGroup.className = 'aether-topbar-right';
+  const topRightGroup = new window.View('span').className('aether-topbar-right');
 
-  topBar.appendChild(topRightGroup);
+  const topBar = window.HStack([spacer, statsSpan, redoBtn, copyChatBtn, openInTabBtn, topRightGroup])
+    .className('doc-popup-chat-actions aether-top-actions');
+  topBar.el.style.cursor = 'grab';
 
   // Drag to move
-  topBar.addEventListener('mousedown', (ev) => {
+  topBar.on('mousedown', (ev) => {
     if (ev.target.closest('button')) return;
     ev.stopPropagation();
     ev.preventDefault();
     window._aetherDragging = true;
     window._aetherDragPopup = popup;
     window._aetherTrackMode = false;
-    topBar.style.cursor = 'grabbing';
+    topBar.el.style.cursor = 'grabbing';
     const r = popup.getBoundingClientRect();
     window._aetherDragOffset = { x: ev.clientX - r.left, y: ev.clientY - r.top };
   });
 
-  popup.appendChild(topBar);
+  popup.appendChild(topBar.el);
 }
 
 // ── Helper: build chat input area (textarea, model selector, send button, mic, dropdowns) ──
@@ -1332,103 +1274,67 @@ export function _panelBuildChatInput(popup, config) {
   if (!finalized) return;
 
   // Chat area (messages container)
-  const chatArea = document.createElement('div');
-  chatArea.className = 'doc-popup-chat-area';
-  chatArea.style.borderTop = 'none';
+  const chatAreaView = new window.View('div').className('doc-popup-chat-area');
+  chatAreaView.el.style.borderTop = 'none';
   if (capturedText) {
-    const chatContext = document.createElement('div');
-    chatContext.className = 'doc-popup-chat-context';
     const contextTrunc = capturedText.length > 120 ? capturedText.slice(0, 120) + '…' : capturedText;
-    chatContext.textContent = contextTrunc;
-    chatArea.appendChild(chatContext);
+    chatAreaView.add(new window.View('div').className('doc-popup-chat-context').text(contextTrunc));
   }
-  const chatMsgs = document.createElement('div');
-  chatMsgs.className = 'doc-popup-chat-messages';
-  chatArea.appendChild(chatMsgs);
-  popup.appendChild(chatArea);
+  chatAreaView.add(new window.View('div').className('doc-popup-chat-messages'));
+  popup.appendChild(chatAreaView.el);
 
   // Context box (appears above chat, like Cursor)
   if (capturedText) {
-    const contextBox = document.createElement('div');
-    contextBox.className = 'aether-context-box';
+    const contextContent = new window.View('div').className('aether-context-content');
+    contextContent.add(
+      new window.View('span').className('aether-context-label').text('CONTEXT'),
+      new window.View('span').className('aether-context-text').text(' ' + capturedText)
+    );
 
-    const contextIcon = document.createElement('div');
-    contextIcon.className = 'aether-context-icon';
-    contextIcon.innerHTML = icon('chatContext', { size: 11 });
+    const contextBox = new window.View('div').className('aether-context-box');
+    contextBox.add(
+      new window.View('div').className('aether-context-icon').html(icon('chatContext', { size: 11 })),
+      new window.View('div').className('aether-context-close-icon').html(icon('close', { size: 11 })),
+      contextContent
+    );
+    contextBox.on('mouseenter', () => { contextBox.el.classList.add('hover'); })
+      .on('mouseleave', () => { contextBox.el.classList.remove('hover'); })
+      .on('click', (ev) => {
+        ev.stopPropagation();
+        contextBox.el.remove();
+        popup._capturedText = '';
+      });
 
-    const closeIcon = document.createElement('div');
-    closeIcon.className = 'aether-context-close-icon';
-    closeIcon.innerHTML = icon('close', { size: 11 });
-
-    const contextContent = document.createElement('div');
-    contextContent.className = 'aether-context-content';
-
-    const contextLabel = document.createElement('span');
-    contextLabel.className = 'aether-context-label';
-    contextLabel.textContent = 'CONTEXT';
-
-    const contextText = document.createElement('span');
-    contextText.className = 'aether-context-text';
-    contextText.textContent = ' ' + capturedText;
-
-    contextContent.appendChild(contextLabel);
-    contextContent.appendChild(contextText);
-
-    contextBox.appendChild(contextIcon);
-    contextBox.appendChild(closeIcon);
-    contextBox.appendChild(contextContent);
-
-    contextBox.addEventListener('mouseenter', () => {
-      contextBox.classList.add('hover');
-    });
-
-    contextBox.addEventListener('mouseleave', () => {
-      contextBox.classList.remove('hover');
-    });
-
-    contextBox.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      contextBox.remove();
-      popup._capturedText = '';
-    });
-
-    popup.appendChild(contextBox);
+    popup.appendChild(contextBox.el);
   }
 
   // Screenshot / attachment strip (for screenshots/files, not text context)
-  const attachStrip = document.createElement('div');
-  attachStrip.className = 'doc-screenshot-attachments';
-  popup.appendChild(attachStrip);
+  popup.appendChild(new window.View('div').className('doc-screenshot-attachments').el);
 
   // Ask input + send button
-  const askWrap = document.createElement('div');
-  askWrap.className = 'doc-ask-inline-wrap';
+  const askWrap = new window.View('div').className('doc-ask-inline-wrap');
   if (!capturedText) {
-    askWrap.style.borderTop = 'none';
-    askWrap.style.marginTop = '0';
-    askWrap.style.paddingTop = '0';
+    askWrap.styles({ borderTop: 'none', marginTop: '0', paddingTop: '0' });
   }
-  const askInput = document.createElement('input');
-  askInput.type = 'text';
-  askInput.placeholder = 'Ask anything…';
-  askInput.className = 'doc-ask-inline-input';
-  askInput.addEventListener('paste', (ev) => _handleImagePaste(ev, popup));
+  const askInput = new window.View('input').className('doc-ask-inline-input')
+    .attr('type', 'text')
+    .attr('placeholder', 'Ask anything…')
+    .on('paste', (ev) => _handleImagePaste(ev, popup));
 
-  const sendBtn = document.createElement('button');
-  sendBtn.className = 'aether-input-btn doc-ask-inline-send';
-  sendBtn.innerHTML = '↑';
-  sendBtn.title = 'Send';
-  sendBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  sendBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; _renderPopupChat(popup, true); return; }
-    _sendPopupChatMessage(popup, capturedText);
-  });
-  askInput.addEventListener('keydown', (ev) => {
+  const sendBtn = new window.View('button').className('aether-input-btn doc-ask-inline-send')
+    .html('↑')
+    .attr('title', 'Send')
+    .on('mousedown', (ev) => ev.stopPropagation())
+    .on('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; _renderPopupChat(popup, true); return; }
+      _sendPopupChatMessage(popup, capturedText);
+    });
+  askInput.on('keydown', (ev) => {
     // Let Cmd+I bubble up to document handler for toggle
     if ((ev.metaKey || ev.ctrlKey) && ev.key === 'i') return;
     ev.stopPropagation();
-    const val = askInput.value;
+    const val = askInput.el.value;
     const isCmd = val.startsWith('/');
     const dropdown = popup.querySelector('.aether-cmd-dropdown');
     const modelDropdown = popup.querySelector('.aether-model-dropdown');
@@ -1538,7 +1444,7 @@ export function _panelBuildChatInput(popup, config) {
     if (isCmd && dropdown && ev.key === 'Tab') {
       ev.preventDefault();
       const matches = _aetherFilterCommands(val.slice(1).trim());
-      if (matches[window._aetherCmdIdx]) askInput.value = '/' + matches[window._aetherCmdIdx].name;
+      if (matches[window._aetherCmdIdx]) askInput.el.value = '/' + matches[window._aetherCmdIdx].name;
       _aetherRenderCmdDropdown(popup, matches[window._aetherCmdIdx]?.name || '');
       return;
     }
@@ -1551,12 +1457,12 @@ export function _panelBuildChatInput(popup, config) {
       // Check if user has text selected in the panel (not in the input)
       const selection = window.getSelection();
       const selectedText = selection ? selection.toString().trim() : '';
-      if (selectedText && !selection.containsNode(askInput, true)) {
+      if (selectedText && !selection.containsNode(askInput.el, true)) {
         ev.preventDefault();
         // Add selected text to input
-        const currentVal = askInput.value.trim();
-        askInput.value = currentVal ? currentVal + ' ' + selectedText : selectedText;
-        askInput.focus();
+        const currentVal = askInput.el.value.trim();
+        askInput.el.value = currentVal ? currentVal + ' ' + selectedText : selectedText;
+        askInput.el.focus();
         // Clear the selection
         if (selection) selection.removeAllRanges();
         return;
@@ -1568,7 +1474,7 @@ export function _panelBuildChatInput(popup, config) {
         const cmd = matches[window._aetherCmdIdx] || matches[0];
         if (cmd) {
           if (cmd.hasArgs) {
-            askInput.value = '/' + cmd.name + ' ';
+            askInput.el.value = '/' + cmd.name + ' ';
             _aetherHideCmdDropdown(popup);
           } else if (cmd._special) {
             _aetherHideCmdDropdown(popup);
@@ -1616,8 +1522,8 @@ export function _panelBuildChatInput(popup, config) {
     }
     // Shift key handler removed - no longer dismisses panel
   });
-  askInput.addEventListener('input', () => {
-    const val = askInput.value;
+  askInput.on('input', () => {
+    const val = askInput.el.value;
     if (val.startsWith('/')) {
       const histMatch = val.match(/^\/history(\s+(.*))?$/i);
       if (histMatch && histMatch[1] !== undefined) {
@@ -1634,133 +1540,116 @@ export function _panelBuildChatInput(popup, config) {
       _aetherHideHistoryDropdown(popup);
     }
   });
-  askInput.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  // Mic button for voice input (MediaRecorder + Parakeet TDT via IPC)
-  const micBtn = document.createElement('button');
-  micBtn.className = 'aether-input-btn doc-ask-mic-btn';
-  micBtn.innerHTML = icon('microphone', { size: 14 });
-  micBtn.title = 'Voice input';
-  let micRecorder = null;
-  micBtn.addEventListener('mousedown', (ev) => ev.stopPropagation());
-  micBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    if (micRecorder) {
-      micRecorder.stop();
-      return;
-    }
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-      const chunks = [];
-      micRecorder = recorder;
-      micBtn.classList.add('doc-ask-mic-active');
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-      recorder.onstop = async () => {
-        micRecorder = null;
-        micBtn.classList.remove('doc-ask-mic-active');
-        stream.getTracks().forEach(t => t.stop());
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const prevPlaceholder = askInput.placeholder;
-        askInput.placeholder = 'Transcribing…';
-        islandUpdate('ai-transcribe', { type: 'ai', label: 'parakeet', detail: 'Transcribing · parakeet' });
-        try {
-          // Decode webm/opus → PCM float32 via AudioContext
-          const arrayBuf = await blob.arrayBuffer();
-          const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-          const decoded = await audioCtx.decodeAudioData(arrayBuf);
-          const pcmFloat32 = decoded.getChannelData(0);
-          audioCtx.close();
-          // Convert float32 bytes → base64 for IPC (chunked to avoid call stack overflow)
-          const bytes = new Uint8Array(pcmFloat32.buffer);
-          let binary = '';
-          for (let i = 0; i < bytes.length; i += 8192) {
-            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
-          }
-          const pcmBase64 = btoa(binary);
-          const data = await electronAPI.captionsTranscribe(pcmBase64, 16000);
-          islandRemove('ai-transcribe');
-          askInput.placeholder = prevPlaceholder;
-          if (data && data.text) {
-            askInput.value = askInput.value + (askInput.value ? ' ' : '') + data.text;
-            askInput.focus();
-            if (Settings.get('voiceAutoSend') === 'on') {
-              setTimeout(() => _sendPopupChatMessage(popup, capturedText), 50);
-            }
-          }
-        } catch {
-          islandRemove('ai-transcribe');
-          askInput.placeholder = prevPlaceholder;
-        }
-      };
-      recorder.start();
-    }).catch(() => {});
-  });
+  askInput.on('mousedown', (ev) => ev.stopPropagation());
 
-  askWrap.appendChild(askInput);
-  popup.appendChild(askWrap);
+  // Mic button for voice input (MediaRecorder + Parakeet TDT via IPC)
+  let micRecorder = null;
+  const micBtn = new window.View('button').className('aether-input-btn doc-ask-mic-btn')
+    .html(icon('microphone', { size: 14 }))
+    .attr('title', 'Voice input')
+    .on('mousedown', (ev) => ev.stopPropagation())
+    .on('click', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      if (micRecorder) {
+        micRecorder.stop();
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+        const chunks = [];
+        micRecorder = recorder;
+        micBtn.el.classList.add('doc-ask-mic-active');
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = async () => {
+          micRecorder = null;
+          micBtn.el.classList.remove('doc-ask-mic-active');
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          const prevPlaceholder = askInput.el.placeholder;
+          askInput.el.placeholder = 'Transcribing…';
+          islandUpdate('ai-transcribe', { type: 'ai', label: 'parakeet', detail: 'Transcribing · parakeet' });
+          try {
+            const arrayBuf = await blob.arrayBuffer();
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+            const decoded = await audioCtx.decodeAudioData(arrayBuf);
+            const pcmFloat32 = decoded.getChannelData(0);
+            audioCtx.close();
+            const bytes = new Uint8Array(pcmFloat32.buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i += 8192) {
+              binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+            }
+            const pcmBase64 = btoa(binary);
+            const data = await electronAPI.captionsTranscribe(pcmBase64, 16000);
+            islandRemove('ai-transcribe');
+            askInput.el.placeholder = prevPlaceholder;
+            if (data && data.text) {
+              askInput.el.value = askInput.el.value + (askInput.el.value ? ' ' : '') + data.text;
+              askInput.el.focus();
+              if (Settings.get('voiceAutoSend') === 'on') {
+                setTimeout(() => _sendPopupChatMessage(popup, capturedText), 50);
+              }
+            }
+          } catch {
+            islandRemove('ai-transcribe');
+            askInput.el.placeholder = prevPlaceholder;
+          }
+        };
+        recorder.start();
+      }).catch(() => {});
+    });
+
+  askWrap.add(askInput);
+  popup.appendChild(askWrap.el);
 
   // Second row: model label + buttons
-  const buttonRow = document.createElement('div');
-  buttonRow.className = 'aether-button-row';
-
   // Agent chip — clickable to switch agents
-  const agentChip = document.createElement('span');
-  agentChip.className = 'aether-agent-chip';
-  agentChip.title = 'Switch agent';
   const agentNames = { 'research-assistant': 'Research Assistant', 'chat': 'Chat', 'browser': 'Browser' };
   const currentAgentId = Settings.get('chatAgent') || 'research-assistant';
-  const agentLabel = document.createElement('span');
-  agentLabel.className = 'aether-agent-chip-label';
-  agentLabel.textContent = agentNames[currentAgentId] || currentAgentId;
-  agentChip.appendChild(agentLabel);
-  agentChip.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    _doAetherAgent(popup);
-  });
-  buttonRow.appendChild(agentChip);
+  const agentLabel = new window.View('span').className('aether-agent-chip-label')
+    .text(agentNames[currentAgentId] || currentAgentId);
+  const agentChip = new window.View('span').className('aether-agent-chip')
+    .attr('title', 'Switch agent')
+    .on('click', (ev) => { ev.stopPropagation(); _doAetherAgent(popup); });
+  agentChip.add(agentLabel);
 
   // Model label (secondary info beside agent chip)
-  const modelLabel = document.createElement('span');
-  modelLabel.className = 'aether-model-label';
   const cm = Settings.get('chatModel') || 'qwen2.5:3b';
-  modelLabel.textContent = cm;
-  modelLabel.title = 'Current model';
-  buttonRow.appendChild(modelLabel);
+  const modelLabel = new window.View('span').className('aether-model-label')
+    .text(cm)
+    .attr('title', 'Current model');
 
   // AI mode chip (Local/Cloud toggle)
-  const aiModeChip = document.createElement('span');
-  aiModeChip.className = 'ai-mode-chip';
   const isCloud = Settings.get('aiProvider') === 'openrouter';
-  aiModeChip.innerHTML = (isCloud ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5h4.5l-3.5 2.5 1.5 4.5-4-3-4 3 1.5-4.5-3.5-2.5h4.5z"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>') + '<span>' + (isCloud ? 'Cloud' : 'Local') + '</span>';
-  if (isCloud) aiModeChip.classList.add('ai-mode-cloud');
-  aiModeChip.title = 'Toggle Local/Cloud AI';
-  aiModeChip.addEventListener('click', function(e) {
-    e.stopPropagation();
-    var cur = Settings.get('aiProvider') || 'ollama';
-    var next = cur === 'openrouter' ? 'ollama' : 'openrouter';
-    Settings.set('aiProvider', next);
-    if (window.electronAPI && window.electronAPI.providerSetDefault) window.electronAPI.providerSetDefault(next);
-    window.dispatchEvent(new CustomEvent('aimode-changed', { detail: { provider: next } }));
-  });
-  buttonRow.appendChild(aiModeChip);
+  const cloudSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5h4.5l-3.5 2.5 1.5 4.5-4-3-4 3 1.5-4.5-3.5-2.5h4.5z"/></svg>';
+  const localSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
+  const aiModeChip = new window.View('span').className('ai-mode-chip')
+    .html((isCloud ? cloudSvg : localSvg) + '<span>' + (isCloud ? 'Cloud' : 'Local') + '</span>')
+    .attr('title', 'Toggle Local/Cloud AI')
+    .on('click', function(e) {
+      e.stopPropagation();
+      var cur = Settings.get('aiProvider') || 'ollama';
+      var next = cur === 'openrouter' ? 'ollama' : 'openrouter';
+      Settings.set('aiProvider', next);
+      if (window.electronAPI && window.electronAPI.providerSetDefault) window.electronAPI.providerSetDefault(next);
+      window.dispatchEvent(new CustomEvent('aimode-changed', { detail: { provider: next } }));
+    });
+  if (isCloud) aiModeChip.el.classList.add('ai-mode-cloud');
 
   // Listen for mode changes to update this chip
   function _updateAiModeChip() {
     var cloud = Settings.get('aiProvider') === 'openrouter';
-    aiModeChip.innerHTML = (cloud ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5h4.5l-3.5 2.5 1.5 4.5-4-3-4 3 1.5-4.5-3.5-2.5h4.5z"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>') + '<span>' + (cloud ? 'Cloud' : 'Local') + '</span>';
-    aiModeChip.classList.toggle('ai-mode-cloud', cloud);
+    aiModeChip.el.innerHTML = (cloud ? cloudSvg : localSvg) + '<span>' + (cloud ? 'Cloud' : 'Local') + '</span>';
+    aiModeChip.el.classList.toggle('ai-mode-cloud', cloud);
   }
   window.addEventListener('aimode-changed', _updateAiModeChip);
 
-  // Spacer to push buttons right
-  const spacer = document.createElement('span');
-  spacer.style.flex = '1';
-  buttonRow.appendChild(spacer);
+  const spacer = new window.View('span').styles({ flex: '1' });
 
-  // Mic and Send buttons
-  buttonRow.appendChild(micBtn);
-  buttonRow.appendChild(sendBtn);
+  const buttonRow = window.HStack([agentChip, modelLabel, aiModeChip, spacer, micBtn, sendBtn])
+    .className('aether-button-row');
 
-  popup.appendChild(buttonRow);
+  popup.appendChild(buttonRow.el);
 
 }
 

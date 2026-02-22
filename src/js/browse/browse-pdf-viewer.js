@@ -143,7 +143,11 @@ function _buildViewerDOM(tab, viewerEl) {
   // Pages container
   var pagesContainer = document.createElement('div');
   pagesContainer.className = 'pdf-pages-container';
-  pagesContainer.innerHTML = '<div style="padding:40px;color:var(--nr-text-secondary);text-align:center;">Loading PDF...</div>';
+  if (window.Skeleton) {
+    AetherUI.mount(window.Skeleton().lines(5).padding(4), pagesContainer);
+  } else {
+    pagesContainer.innerHTML = '<div style="padding:40px;color:var(--nr-text-secondary);text-align:center;">Loading PDF...</div>';
+  }
   bodyWrapper.appendChild(pagesContainer);
   tab._pdfPagesContainer = pagesContainer;
 
