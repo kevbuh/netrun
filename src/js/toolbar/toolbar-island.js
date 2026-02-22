@@ -219,7 +219,7 @@ function _renderIslandTabPill() {
   });
 
   // Divider + New tab row
-  rows.push(new window.View('div').styles({ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '2px 10px' }));
+  rows.push(new window.View('div').styles({ height: '1px', background: 'var(--nr-border-default)', margin: '2px 10px' }));
   rows.push(window.HStack([window.RawHTML(plusSvg), window.Text('New tab')])
     .className('island-vtab-new')
     .onTap(function(e) {
@@ -359,7 +359,7 @@ function _renderIslandActions() {
   // Title
   var title = (activeTab && activeTab.title) ? activeTab.title : '';
   if (title) {
-    rows.push(T(title).styles({ fontSize: '0.82rem', fontWeight: '600', color: '#fff',
+    rows.push(T(title).styles({ fontSize: '0.82rem', fontWeight: '600', color: 'var(--nr-text-primary)',
       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }));
   }
 
@@ -369,7 +369,7 @@ function _renderIslandActions() {
     var domain = '';
     try { domain = new URL(url).hostname; } catch(e) {}
     if (domain) {
-      rows.push(T(domain).styles({ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)',
+      rows.push(T(domain).styles({ fontSize: '0.7rem', color: 'var(--nr-text-tertiary)',
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }));
     }
   }
@@ -387,8 +387,8 @@ function _renderIslandActions() {
 
   if (pills.length) {
     var pillViews = pills.map(function(p) {
-      return T(p).styles({ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)',
-        background: 'rgba(255,255,255,0.08)', borderRadius: '6px', padding: '2px 6px',
+      return T(p).styles({ fontSize: '0.65rem', color: 'var(--nr-text-tertiary)',
+        background: 'var(--nr-bg-raised)', borderRadius: '6px', padding: '2px 6px',
         whiteSpace: 'nowrap' });
     });
     rows.push(H(pillViews).styles({ gap: '4px', flexWrap: 'wrap', marginTop: '4px' }));
@@ -397,7 +397,7 @@ function _renderIslandActions() {
   // Description
   if (meta.description) {
     var desc = meta.description.length > 100 ? meta.description.slice(0, 98) + '\u2026' : meta.description;
-    rows.push(T(desc).styles({ fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)',
+    rows.push(T(desc).styles({ fontSize: '0.68rem', color: 'var(--nr-text-quaternary)',
       lineHeight: '1.35', marginTop: '4px', display: '-webkit-box',
       WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden' }));
   }

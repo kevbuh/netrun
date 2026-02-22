@@ -751,29 +751,10 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
   gap: 0; height: auto; min-height: 72px; min-width: 480px;
   padding: 12px; border-radius: 24px;
   top: 0; transform: translateX(-50%);
-  background: #000; backdrop-filter: none; -webkit-backdrop-filter: none;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.45);
-  /* Scoped dark vars */
-  --nr-text-primary: #fff;
-  --nr-text-secondary: rgba(255,255,255,0.6);
-  --nr-text-tertiary: rgba(255,255,255,0.45);
-  --nr-text-quaternary: rgba(255,255,255,0.35);
-  --nr-bg-raised: rgba(255,255,255,0.08);
-  --nr-bg-surface: rgba(255,255,255,0.06);
-  --nr-border-default: rgba(255,255,255,0.1);
-  --aether-text: #fff;
-  --aether-text-dim: rgba(255,255,255,0.7);
-  --aether-text-dimmer: rgba(255,255,255,0.5);
-  --aether-text-dimmest: rgba(255,255,255,0.25);
-  --aether-hover: rgba(255,255,255,0.08);
-  --aether-placeholder: rgba(255,255,255,0.35);
-  --aether-dropdown-bg: #000;
-  --aether-border: rgba(255,255,255,0.1);
-  color: #fff;
+  background: var(--nr-bg-overlay); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.45), 0 0 0 1px var(--nr-border-default);
+  color: var(--nr-text-primary);
 }
-[data-aether-theme="midnight"] .browse-mode.island-mode #pill-url-wrap.island-expanded,
-[data-aether-theme="match"] .browse-mode.island-mode #pill-url-wrap.island-expanded,
-[data-aether-theme="aether"] .browse-mode.island-mode #pill-url-wrap.island-expanded { background: #000; }
 
 /* Left column — row 2: vertical tab list */
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-left {
@@ -785,7 +766,7 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-center {
   grid-row: 2; grid-column: 2; display: flex; flex-direction: column;
   align-items: flex-start; justify-content: flex-start; gap: 2px; padding: 6px 10px;
-  min-width: 0; overflow: hidden; border-left: 1px solid rgba(255,255,255,0.08);
+  min-width: 0; overflow: hidden; border-left: 1px solid var(--nr-border-default);
 }
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-title {
   display: none;
@@ -803,36 +784,36 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .island-vtab-item {
   display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 10px;
   cursor: pointer; transition: background 0.12s; font-size: 0.78rem;
-  color: rgba(255,255,255,0.65); white-space: nowrap; overflow: hidden;
+  color: var(--nr-text-secondary); white-space: nowrap; overflow: hidden;
 }
-.island-vtab-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
-.island-vtab-item.active { color: #fff; font-weight: 600; }
+.island-vtab-item:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
+.island-vtab-item.active { color: var(--nr-text-primary); font-weight: 600; }
 .island-vtab-item img { width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; object-fit: contain; }
 .island-vtab-item-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .island-vtab-item-close {
   flex-shrink: 0; width: 18px; height: 18px; border: none; background: transparent;
-  color: rgba(255,255,255,0.3); font-size: 0.85rem; line-height: 1; border-radius: 4px;
+  color: var(--nr-text-quaternary); font-size: 0.85rem; line-height: 1; border-radius: 4px;
   cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
   opacity: 0; transition: opacity 0.12s, background 0.12s, color 0.12s;
 }
 .island-vtab-item:hover .island-vtab-item-close { opacity: 0.7; }
-.island-vtab-item-close:hover { opacity: 1 !important; background: rgba(255,255,255,0.12); color: #fff; }
+.island-vtab-item-close:hover { opacity: 1 !important; background: var(--nr-bg-raised); color: var(--nr-text-primary); }
 .island-vtab-new {
   display: flex; align-items: center; gap: 8px; padding: 5px 10px;
-  cursor: pointer; color: rgba(255,255,255,0.35); font-size: 0.78rem;
+  cursor: pointer; color: var(--nr-text-quaternary); font-size: 0.78rem;
   border: none; background: transparent; width: 100%; text-align: left;
   transition: color 0.12s; margin-top: 2px;
 }
-.island-vtab-new:hover { color: rgba(255,255,255,0.8); }
+.island-vtab-new:hover { color: var(--nr-text-secondary); }
 
 /* Legacy expanded tab items */
 .island-expanded-tab {
   display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 8px;
   cursor: pointer; transition: background 0.12s; font-size: 0.7rem;
-  color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--nr-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.island-expanded-tab:hover { background: rgba(255,255,255,0.1); color: #fff; }
-.island-expanded-tab.active { color: #fff; font-weight: 600; }
+.island-expanded-tab:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
+.island-expanded-tab.active { color: var(--nr-text-primary); font-weight: 600; }
 .island-expanded-tab img { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
 .island-expanded-tab span { overflow: hidden; text-overflow: ellipsis; }
 
@@ -840,9 +821,9 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .island-expanded-action {
   display: flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; border-radius: 8px; border: none; background: none;
-  color: rgba(255,255,255,0.6); cursor: pointer; transition: background 0.12s, color 0.12s; padding: 0;
+  color: var(--nr-text-secondary); cursor: pointer; transition: background 0.12s, color 0.12s; padding: 0;
 }
-.island-expanded-action:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.island-expanded-action:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
 .island-expanded-action.active { color: var(--nr-accent); }
 
 /* Nav row — expanded only */
@@ -850,12 +831,12 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
   display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 4px;
 }
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button {
-  color: rgba(255,255,255,0.7); background: none; border: none; padding: 6px;
+  color: var(--nr-text-secondary); background: none; border: none; padding: 6px;
   border-radius: 8px; cursor: pointer; transition: color 0.15s, background 0.15s;
   display: flex; align-items: center; justify-content: center;
 }
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button svg { width: 16px; height: 16px; }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button:hover { color: #fff; background: rgba(255,255,255,0.12); }
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button:hover { color: var(--nr-text-primary); background: var(--nr-bg-raised); }
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button:disabled,
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button.nav-disabled { opacity: 0.25; pointer-events: none; }
 
@@ -868,10 +849,10 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .island-utility-btn {
   display: flex; align-items: center; justify-content: center; gap: 4px;
   padding: 5px 10px; border-radius: 10px; border: none;
-  background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6);
+  background: var(--nr-bg-surface); color: var(--nr-text-secondary);
   font-size: 0.7rem; cursor: pointer; transition: background 0.12s, color 0.12s;
 }
-.island-utility-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.island-utility-btn:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
 .island-utility-btn svg { width: 14px; height: 14px; }
 .island-utility-btn.active { color: var(--nr-accent); }
 
@@ -880,13 +861,13 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
   grid-column: 1 / -1 !important; grid-row: 1 !important;
   display: block !important; opacity: 1 !important; max-width: none !important;
   width: 100% !important; height: auto !important; min-width: 0;
-  transition: none !important; font-size: 0.8rem; color: rgba(255,255,255,0.7);
-  padding: 8px 14px; border-radius: 12px; background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.1); text-align: left;
+  transition: none !important; font-size: 0.8rem; color: var(--nr-text-secondary);
+  padding: 8px 14px; border-radius: 12px; background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-default); text-align: left;
   box-sizing: border-box; overflow: visible; white-space: normal;
 }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:hover { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.85); }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:focus { color: #fff; background: rgba(255,255,255,0.14); }
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:focus { color: var(--nr-text-primary); background: var(--nr-bg-raised); }
 
 /* Expanded reload override */
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row #pill-browse-reload {
@@ -906,15 +887,12 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 
 /* Focus-within accent glow */
 .browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within {
-  height: auto; background: var(--nr-accent) !important; border-radius: 24px;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1);
+  height: auto; border-radius: 24px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px var(--nr-border-default);
 }
-.browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within.pill-dropdown-open { border-radius: 24px 24px 0 0; }
-.browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within #pill-island-left { background: none; }
 .browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within #pill-browse-url-input {
-  font-size: 0.82rem; max-width: none; padding: 6px 12px; border-radius: 12px; background: rgba(255,255,255,0.18);
+  font-size: 0.82rem; max-width: none; padding: 6px 12px; border-radius: 12px; background: var(--nr-bg-raised);
 }
-.browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within #pill-url-dropdown { background: #000 !important; border-radius: 0 0 24px 24px; }
 
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -926,19 +904,19 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .island-tabs-full-item {
   display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px;
   cursor: pointer; transition: background 0.12s; font-size: 0.75rem;
-  color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--nr-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.island-tabs-full-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
-.island-tabs-full-item.active { color: #fff; font-weight: 600; }
+.island-tabs-full-item:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
+.island-tabs-full-item.active { color: var(--nr-text-primary); font-weight: 600; }
 .island-tabs-full-item img { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
 .island-tabs-full-item span { overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
 .island-tabs-full-close {
-  flex-shrink: 0; background: none; border: none; color: rgba(255,255,255,0.35);
+  flex-shrink: 0; background: none; border: none; color: var(--nr-text-quaternary);
   font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 4px; opacity: 0;
   transition: opacity 0.15s;
 }
 .island-tabs-full-item:hover .island-tabs-full-close { opacity: 0.6; }
-.island-tabs-full-close:hover { opacity: 1 !important; color: #fff; }
+.island-tabs-full-close:hover { opacity: 1 !important; color: var(--nr-text-primary); }
 
 /* Sub-state: AI Expanded */
 .island-ai-expanded #pill-island-left,
