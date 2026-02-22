@@ -1118,48 +1118,47 @@ export async function loadAllFeeds() {
   // Build list of enabled catalog entries with metadata for on-demand fetching
   const enabledEntries = FEED_CATALOG.filter(f => sources[f.key]).map(f => ({ key: f.key, url: f.url || null, special: f.special || null }));
   const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
-  const promises = [];
+  const MAX_PER_SOURCE = 100;
 
-  // 1) Fetch catalog sources (on-demand: backend fetches stale/missing)
-  if (enabledEntries.length > 0) {
-    promises.push(
-      apiPost('/api/feed-items/catalog', { entries: enabledEntries, limit: 500 })
-        .catch(() => [])
-    );
-  } else {
-    promises.push(Promise.resolve([]));
-  }
+  // Fire one call per catalog source for incremental rendering
+  const sourcePromises = enabledEntries.map(entry =>
+    apiPost('/api/feed-items/catalog', { entries: [entry], limit: MAX_PER_SOURCE })
+      .catch(() => [])
+  );
 
-  // 2) Fetch custom user feeds
-  if (customFeeds.length > 0) {
-    promises.push(
-      apiPost('/api/feed-items/custom', { feeds: customFeeds.map(f => ({ url: f.url, name: f.name })) })
-        .catch(() => [])
-    );
-  } else {
-    promises.push(Promise.resolve([]));
-  }
+  // Custom feeds as a single additional call
+  const customPromise = customFeeds.length > 0
+    ? apiPost('/api/feed-items/custom', { feeds: customFeeds.map(f => ({ url: f.url, name: f.name })) }).catch(() => [])
+    : Promise.resolve([]);
+
+  // Track progress for island notification
+  let loadedCount = 0;
+  const totalSources = sourcePromises.length + (customFeeds.length > 0 ? 1 : 0);
+
+  // Append results and re-render as each source resolves
+  sourcePromises.forEach(p => p.then(items => {
+    if (abort.signal.aborted) return;
+    if (items.length) {
+      allPapers = allPapers.concat(items);
+      renderPapers();
+    }
+    loadedCount++;
+    if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Loading feeds', detail: loadedCount + '/' + totalSources + ' sources' });
+  }));
+
+  customPromise.then(items => {
+    if (abort.signal.aborted) return;
+    if (items.length) {
+      allPapers = allPapers.concat(items);
+      renderPapers();
+    }
+    loadedCount++;
+    if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Loading feeds', detail: loadedCount + '/' + totalSources + ' sources' });
+  });
 
   try {
-    const [catalogItems, customItems] = await Promise.all(promises);
+    await Promise.all([...sourcePromises, customPromise]);
     if (abort.signal.aborted) return;
-
-    const MAX_PER_SOURCE = 100;
-    // Group catalog items by source and cap per source
-    const bySource = {};
-    for (const item of catalogItems) {
-      const src = item.source;
-      if (!bySource[src]) bySource[src] = [];
-      if (bySource[src].length < MAX_PER_SOURCE) bySource[src].push(item);
-    }
-    for (const items of Object.values(bySource)) {
-      allPapers = allPapers.concat(items);
-    }
-
-    // Add custom feed items (already capped server-side at 100 per source)
-    if (customItems.length) {
-      allPapers = allPapers.concat(customItems);
-    }
 
     renderTrends();
     if (typeof computeInterestProfile === 'function') computeInterestProfile();
@@ -1700,11 +1699,7 @@ export function _renderPaperTwitterCard(p, i, ctx) {
   return card;
 }
 
-export function _renderPapersNow() {
-  const ctx = _buildRenderCtx();
-  const hiddenSet = ctx.hiddenSet;
-  const filtered = getFilteredPapers(ctx);
-  lastFilteredPapers = filtered;
+export function _renderFilteredPapers(filtered, ctx) {
   const visible = filtered.slice(0, visibleCount);
   document.getElementById('stats').textContent = 'Showing ' + visible.length + ' of ' + filtered.length;
   const container = document.getElementById('papers');
@@ -1760,6 +1755,101 @@ export function _renderPapersNow() {
           .catch(function(e) { logger.warn('loadTweetComments:', e); });
       }
     }
+  });
+}
+
+// ── Worker management ──
+let _feedWorker = null;
+let _workerRequestId = 0;
+let _workerResolves = new Map();
+
+function _getFeedWorker() {
+  if (_feedWorker) return _feedWorker;
+  try {
+    _feedWorker = new Worker('/js/workers/feed-worker.js');
+    _feedWorker.onmessage = _handleWorkerMessage;
+    _feedWorker.onerror = function(e) {
+      logger.warn('Feed worker error:', e);
+      _feedWorker = null;
+    };
+    return _feedWorker;
+  } catch (e) {
+    logger.warn('Feed worker init failed:', e);
+    return null;
+  }
+}
+
+function _handleWorkerMessage(e) {
+  var msg = e.data;
+  if (msg.type === 'scored') {
+    var resolve = _workerResolves.get(msg.requestId);
+    _workerResolves.delete(msg.requestId);
+    if (resolve) resolve(msg);
+  }
+}
+
+function _cancelPendingWorkerRequest() {
+  // Discard all pending resolves — stale results will be ignored
+  _workerResolves.clear();
+}
+
+function _scoreInWorker(papers, ctx, searchQuery, category) {
+  var worker = _getFeedWorker();
+  if (!worker) return null;
+  var requestId = ++_workerRequestId;
+  return new Promise(function(resolve) {
+    _workerResolves.set(requestId, resolve);
+    worker.postMessage({
+      type: 'score',
+      requestId: requestId,
+      papers: papers,
+      userState: {
+        readPosts: Array.from(ctx.readSet),
+        savedPosts: ctx.savedPosts,
+        hiddenPosts: Array.from(ctx.hiddenSet),
+        blockedWords: Array.from(ctx.blockedWords),
+        ratings: ctx.ratings
+      },
+      params: {
+        searchQuery: searchQuery,
+        category: category,
+        currentSort: currentSort,
+        hiddenSourceFilters: Array.from(hiddenSourceFilters),
+        SOURCE_NAMES: SOURCE_NAMES,
+        FEED_CAT_MAP: FEED_CAT_MAP,
+        fyWeightBase: Settings.get('fyWeightBase') || '0.7',
+        fyWeightAffinity: Settings.get('fyWeightAffinity') || '0.3',
+        fyWeightRecency: Settings.get('fyWeightRecency') || '1.0',
+        fyWeightExploration: Settings.get('fyWeightExploration') || '0.10',
+        maxPerCategoryRun: Settings.get('maxPerCategoryRun') || '3'
+      }
+    });
+  });
+}
+
+export function _renderPapersNow() {
+  const ctx = _buildRenderCtx();
+  const searchQuery = document.getElementById('search')?.value || '';
+  const category = document.getElementById('category')?.value || '';
+
+  const worker = _getFeedWorker();
+  if (!worker) {
+    // Synchronous fallback (current code path)
+    const filtered = getFilteredPapers(ctx);
+    lastFilteredPapers = filtered;
+    _renderFilteredPapers(filtered, ctx);
+    return;
+  }
+
+  _cancelPendingWorkerRequest();
+  _scoreInWorker(allPapers, ctx, searchQuery, category).then(function(result) {
+    if (!result) return;
+    lastFilteredPapers = result.filteredIndices.map(function(i) {
+      if (result.compositeScores[i] != null) allPapers[i]._compositeScore = result.compositeScores[i];
+      return allPapers[i];
+    });
+    if (result.interestProfile) Settings.set('interestProfile', JSON.stringify(result.interestProfile));
+    _renderFilteredPapers(lastFilteredPapers, ctx);
   });
 }
 
