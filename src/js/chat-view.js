@@ -972,7 +972,7 @@ async function _chatViewSend(text) {
   await _chatViewSession.send(text, sendOpts);
 
   // Update tab title after send
-  if (_chatViewSession.thread.title) {
+  if (_chatViewSession.thread && _chatViewSession.thread.title) {
     const tab = _browseTabs.find(t => t.id === _browseActiveTab);
     if (tab) { tab.title = _chatViewSession.thread.title; _browseRenderTabs(); }
   }

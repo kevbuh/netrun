@@ -60,50 +60,56 @@ export async function openSettings() {
   renderSettingsView();
 }
 
-var _sidebarMounted = false;
 var _hooksRegistered = false;
 
 export function renderSettingsView() {
   // ── Sidebar (built once, active state is reactive) ──
   const sidebar = document.getElementById('settings-sidebar');
   if (sidebar && !sidebar.hasChildNodes()) {
-    _sidebarMounted = true;
-    const sbViews = [
-        window.RawHTML('<div style="padding:0 12px 12px;"><span class="text-[1.1rem] font-semibold text-primary">Settings</span></div>')
-      ];
-      const base = 'w-full flex items-center gap-2.5 px-3 py-2 text-left text-[0.8rem] rounded-md transition-colors ';
-      _SETTINGS_SECTIONS.forEach(function(s) {
-        if (s.type === 'label') {
-          sbViews.push(window.RawHTML('<div class="nr-settings-sidebar-label">' + escapeHtml(s.text) + '</div>'));
-          return;
-        }
-        const btn = new (window._AetherUIView || View)('button');
-        btn.cssText('width:calc(100% - 16px);margin:0 8px;');
-        btn.add(window.RawHTML(s.icon + ' ' + s.label));
-        btn.onTap(function() { _setSettingsSection(s.key); });
-        // Reactive active state
-        Effect(function() {
-          var active = _settingsSection.value === s.key;
-          btn.el.className = base + (active ? 'bg-accent/10 text-accent' : 'text-muted hover:text-primary hover:bg-hover');
-        });
-        sbViews.push(btn);
+    const sbViews = [];
+
+    // Title
+    sbViews.push(Text('Settings').font('1.1rem').fontWeight(600).foreground('primary').padding(0, 12, 12, 12));
+
+    const base = 'w-full flex items-center gap-2.5 px-3 py-2 text-left text-[0.8rem] rounded-md transition-colors ';
+    _SETTINGS_SECTIONS.forEach(function(s) {
+      if (s.type === 'label') {
+        sbViews.push(Text(s.text).className('nr-settings-sidebar-label'));
+        return;
+      }
+      var btn = HStack([
+        window.RawHTML(s.icon),
+        Text(s.label)
+      ]).spacing(10).alignment('center')
+        .cssText('width:calc(100% - 16px);margin:0 8px;cursor:pointer;');
+      btn.el.setAttribute('role', 'button');
+      btn.onTap(function() { _setSettingsSection(s.key); });
+      Effect(function() {
+        var active = _settingsSection.value === s.key;
+        btn.el.className = base + (active ? 'bg-accent/10 text-accent' : 'text-muted hover:text-primary hover:bg-hover');
       });
-      sbViews.push(window.RawHTML('<div style="margin-top:auto;padding:12px 16px;"><div id="settings-version" style="color:var(--nr-text-quaternary);font-size:0.65rem;"></div></div>'));
-      AetherUI.mount(window.VStack(sbViews), sidebar);
+      sbViews.push(btn);
+    });
+
+    // Version (pushed to bottom via spacer)
+    var versionText = VStack([]).cssText('margin-top:auto;padding:12px 16px;');
+    versionText.el.id = 'settings-version';
+    versionText.el.style.color = 'var(--nr-text-quaternary)';
+    versionText.el.style.fontSize = '0.65rem';
+    sbViews.push(versionText);
+
+    AetherUI.mount(VStack(sbViews), sidebar);
   }
 
   // ── Content pane (reactive title + reactive Switch) ──
-  // Re-mounted on explicit renderSettingsView() calls for within-section refreshes;
-  // section navigation is handled reactively by Switch tracking _settingsSection.
   const pane = document.getElementById('settings-content-pane');
   if (pane) {
     const titles = { profile: 'Profile', appearance: 'Appearance', browser: 'Browser', ai: 'AI', feed: 'Feed', context: 'Context', help: 'Help' };
-    const titleView = new (window._AetherUIView || View)('h2');
-    titleView.className('text-[1.2rem] font-semibold text-primary mb-5');
+    var titleView = Text('').font('1.2rem').fontWeight(600).foreground('primary').cssText('margin-bottom:20px;');
     titleView._bindText(function() { return titles[_settingsSection.value] || 'Settings'; });
 
-    const sectionView = window.Switch(_settingsSection, {
-      profile: function() { return window.VStack([_renderAccountSettings()]); },
+    var sectionView = window.Switch(_settingsSection, {
+      profile: function() { return VStack([_renderAccountSettings()]); },
       appearance: function() { return _renderAppearanceSettings(); },
       browser: function() { return _renderBrowserSettings(); },
       ai: function() { return _renderAISettings(); },
@@ -112,7 +118,7 @@ export function renderSettingsView() {
       help: function() { return _renderHelpSettings(); },
     }).transition('fade');
 
-    AetherUI.mount(window.VStack([titleView, sectionView]), pane);
+    AetherUI.mount(VStack([titleView, sectionView]), pane);
   }
 
   // One-time setup: version info + reactive post-render hooks
