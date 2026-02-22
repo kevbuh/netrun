@@ -3,7 +3,6 @@
 import Settings from '/js/core/core-settings.js';
 
 // ── Primary signals ──
-var toolbarLayout = State(Settings.get('browseTabLayout') || 'island');
 var browseActive = State(false);
 var isNtp = State(false);
 var islandExpanded = State(false);
@@ -12,24 +11,6 @@ var tabListVersion = State(0);
 var pillMenuOpen = State(false);
 var moreMenuOpen = State(false);
 var historyDropdown = State(null); // null | { direction, anchor }
-
-// ── Settings sync ──
-// When Settings changes externally, update our signal
-var _settingsCheckTimer = null;
-function _syncFromSettings() {
-  var layout = Settings.get('browseTabLayout') || 'island';
-  if (layout !== toolbarLayout.value) toolbarLayout.value = layout;
-}
-// Poll settings for external changes (Settings doesn't have a change event)
-_settingsCheckTimer = setInterval(_syncFromSettings, 1000);
-
-// When our signal changes, write to Settings
-Effect(function() {
-  var layout = toolbarLayout.value;
-  if (Settings.get('browseTabLayout') !== layout) {
-    Settings.set('browseTabLayout', layout);
-  }
-});
 
 // ── Computed signals ──
 
@@ -147,7 +128,6 @@ function notifyTabsChanged() {
 
 export {
   // Primary signals
-  toolbarLayout,
   browseActive,
   isNtp,
   islandExpanded,

@@ -11,7 +11,6 @@ import { _browseCreateFrame } from '/js/browse/browse-ntp.js';
 import { _browseInstallKeyGuard, _browseInstallPinchOverlay } from '/js/browse/browse-features.js';
 import { _browseRestoreTabs } from '/js/browse/browse-core.js';
 import { _browseUpdateNewTabPage, browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
-import { _setPillBrowseMode } from '/js/browse/browse-pill.js';
 import { _showAnnotateOfferPill } from '/js/browse/browse-annotations.js';
 import { openChatPage } from '/js/chat-view.js';
 import { openNeuralook } from '/js/neuralook.js';
@@ -185,13 +184,7 @@ export function openBrowse(url) {
     view.style.display = 'flex';
     view.style.flexDirection = 'column';
     setSidebarActive('sb-browse');
-    if (Settings.get('browseTabLayout') === 'island') {
-      // Island mode: normal sidebar, full browse bar, no pill mode
-      _setPillBrowseMode(false);
-      _applyBrowseTabLayout();
-    } else {
-      _setPillBrowseMode(true);
-    }
+    _applyBrowseTabLayout();
 
     // Hide panel by default — shown later when a paper tab is selected
     hidePanel();
@@ -272,18 +265,10 @@ export function browseNewTab(url) {
   }
 
   const tab = { id, url: resolved, title: isBlank ? 'New Tab' : _browseTitleFromUrl(resolved), favicon: isBlank ? '' : _browseFaviconUrl(resolved), el, blank: isBlank, backStack: [], forwardStack: [] };
-  // Island mode: new tabs at top; horizontal: insert after active
-  if (Settings.get('browseTabLayout') === 'island') {
-    const firstUnpinned = win.tabs.findIndex(t => !t.pinned);
-    if (firstUnpinned >= 0) win.tabs.splice(firstUnpinned, 0, tab);
-    else win.tabs.push(tab);
-  } else if (isBlank) {
-    win.tabs.push(tab);
-  } else {
-    const activeIdx = win.tabs.findIndex(t => t.id === win.activeTab);
-    if (activeIdx >= 0) win.tabs.splice(activeIdx + 1, 0, tab);
-    else win.tabs.push(tab);
-  }
+  // New tabs inserted at top (after pinned tabs)
+  const firstUnpinned = win.tabs.findIndex(t => !t.pinned);
+  if (firstUnpinned >= 0) win.tabs.splice(firstUnpinned, 0, tab);
+  else win.tabs.push(tab);
   if (el) _browseBindFrame(tab);
   if (!isBlank && resolved) _saveBrowseVisit(resolved, tab.title);
 

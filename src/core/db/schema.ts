@@ -113,6 +113,18 @@ export function initSchema(db: Database.Database): void {
       highlights_json TEXT NOT NULL,
       cached_at REAL NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS s2_response_cache (
+      url_path TEXT PRIMARY KEY,
+      response_json TEXT NOT NULL,
+      cached_at REAL NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS pwc_response_cache (
+      url TEXT PRIMARY KEY,
+      response_json TEXT NOT NULL,
+      cached_at REAL NOT NULL
+    );
   `);
 
   // ── Feed ──

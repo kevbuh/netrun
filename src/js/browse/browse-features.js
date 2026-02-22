@@ -379,30 +379,13 @@ export function _browseInstallKeyGuard() {
     if (!win) return;
 
     // Arrow keys for navigation when tab bar is focused
-    const islandMode = Settings.get('browseTabLayout') === 'island';
-    if (islandMode) {
-      // Island layout: Up/Down switch tabs, no window switching via arrows
-      if (e.key === 'ArrowUp' && win.tabs.length > 1) {
-        e.preventDefault();
-        _switchTabLeft();
-      } else if (e.key === 'ArrowDown' && win.tabs.length > 1) {
-        e.preventDefault();
-        _switchTabRight();
-      }
-    } else {
-      if (e.key === 'ArrowUp' && window._browseWindows.length > 1) {
-        e.preventDefault();
-        switchWindowUp();
-      } else if (e.key === 'ArrowDown' && window._browseWindows.length > 1) {
-        e.preventDefault();
-        switchWindowDown();
-      } else if (e.key === 'ArrowLeft' && win.tabs.length > 1) {
-        e.preventDefault();
-        _switchTabLeft();
-      } else if (e.key === 'ArrowRight' && win.tabs.length > 1) {
-        e.preventDefault();
-        _switchTabRight();
-      }
+    // Up/Down switch tabs, no window switching via arrows
+    if (e.key === 'ArrowUp' && win.tabs.length > 1) {
+      e.preventDefault();
+      _switchTabLeft();
+    } else if (e.key === 'ArrowDown' && win.tabs.length > 1) {
+      e.preventDefault();
+      _switchTabRight();
     }
     if (e.key === 'Escape') {
       e.preventDefault();

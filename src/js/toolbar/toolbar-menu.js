@@ -22,7 +22,7 @@ export function toggleBrowseMoreMenu() {
 
   var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
   var hasTab = tab && !tab.blank && tab.url;
-  var isIsland = Settings.get('browseTabLayout') === 'island';
+  var isIsland = true;
 
   var _closeMenu = function() { dd.style.display = 'none'; document.body.classList.remove('island-dropdown-guard'); };
 
@@ -193,12 +193,6 @@ export function toggleBrowseMoreMenu() {
 
   // AI View
   items.push(_mBtn(icon('eye', {size: 16, strokeWidth: '1.5'}), 'AI View', function() { browseShowAIView(); _closeMenu(); }, { disabled: !hasTab }));
-
-  // Tab layout toggle
-  items.push(_mBtn(Settings.get('browseTabLayout') === 'island'
-    ? icon('horizontalTabs', {size: 16})
-    : icon('islandTabs', {size: 16}),
-    Settings.get('browseTabLayout') === 'island' ? 'Horizontal Tabs' : 'Island Mode', function() { if (typeof window.toggleBrowseTabLayout === 'function') window.toggleBrowseTabLayout(); _closeMenu(); }));
 
   // Settings
   items.push(_mBtn(icon('settings', {size: 16, strokeWidth: '1.5'}), 'Settings', function() { location.hash = '#settings'; _closeMenu(); }));

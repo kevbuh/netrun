@@ -2,7 +2,7 @@
 // This is the single entry point for the new toolbar system.
 // It imports all toolbar modules and re-exports public APIs onto window.
 
-import { toolbarLayout, browseActive, isNtp, islandExpanded, islandSubState,
+import { browseActive, isNtp, islandExpanded, islandSubState,
          tabListVersion, pillMenuOpen, moreMenuOpen, historyDropdown,
          activeTabData, canGoBack, canGoForward, visibleActivities, aiPillState,
          getCurrentTabs, getCurrentGroups, getActiveTabId, notifyTabsChanged } from '/js/toolbar/toolbar-state.js';
@@ -14,13 +14,13 @@ import { browseBack, browseForward, browseReload, browseZoom, _browseApplyZoom,
 import { _BANGS, _browseResolveUrl, browseNavigate, _pillSyncUrl,
          _pillUrlKeydown, _showTabsInPillDropdown } from '/js/toolbar/toolbar-url.js';
 
-import { _getActiveTabBar, _pillSyncTabs, _browseRenderTabs,
+import { _getActiveTabBar, _browseRenderTabs,
          browseTogglePin, browseAddTabToNewGroup, browseAddTabToGroup,
          browseRemoveTabFromGroup, _browseToggleGroupCollapse,
          _browseChangeGroupColor, _browseShowGroupContextMenu } from '/js/toolbar/toolbar-tabs.js';
 
-import { _syncIslandPillPosition, toggleBrowseTabLayout, _applyBrowseTabLayout,
-         _setPillBrowseMode, _expandIsland, _collapseIsland,
+import { _syncIslandPillPosition, _applyBrowseTabLayout,
+         _expandIsland, _collapseIsland,
          _togglePillMenu, _closePillMenu } from '/js/toolbar/toolbar-island.js';
 
 import { islandUpdate, islandRemove, showAchievement, _islandRender,
@@ -61,7 +61,6 @@ window._showTabsInPillDropdown = _showTabsInPillDropdown;
 // Tabs
 window._browseRenderTabs = function() { notifyTabsChanged(); };
 window._getActiveTabBar = _getActiveTabBar;
-window._pillSyncTabs = _pillSyncTabs;
 window.browseTogglePin = browseTogglePin;
 window.browseAddTabToNewGroup = browseAddTabToNewGroup;
 window.browseAddTabToGroup = browseAddTabToGroup;
@@ -72,9 +71,7 @@ window._browseShowGroupContextMenu = _browseShowGroupContextMenu;
 
 // Island
 window._syncIslandPillPosition = _syncIslandPillPosition;
-window.toggleBrowseTabLayout = toggleBrowseTabLayout;
 window._applyBrowseTabLayout = function() {}; // No-op — reactive
-window._setPillBrowseMode = _setPillBrowseMode;
 window._expandIsland = _expandIsland;
 window._collapseIsland = _collapseIsland;
 window._togglePillMenu = _togglePillMenu;

@@ -539,7 +539,7 @@ export function _browseUpdateNewTabPage(tab) {
   const container = document.getElementById('browse-content');
   if (!container) return;
   const bar = document.getElementById('browse-bar');
-  if (bar) bar.style.display = (tab && tab.blank) || Settings.get('browseTabLayout') === 'island' ? 'none' : '';
+  if (bar) bar.style.display = 'none';
   let ntp = container.querySelector('.browse-ntp');
   if (tab && tab.blank) {
     if (!ntp) {
@@ -747,7 +747,7 @@ export function _browseUpdateNewTabPage(tab) {
     // Keep NTP visible when in chat-mode or draw-mode morph
     if (!ntp.classList.contains('chat-mode') && !ntp.classList.contains('draw-mode')) ntp.style.display = 'none';
   }
-  if (Settings.get('browseTabLayout') === 'island') _pillSyncUrl();
+  _pillSyncUrl();
   const pinchOverlay = container.querySelector('.browse-pinch-overlay');
   if (pinchOverlay) pinchOverlay.style.pointerEvents = (_browseZoomLevel > 1 && tab && !tab.blank) ? 'auto' : 'none';
 }

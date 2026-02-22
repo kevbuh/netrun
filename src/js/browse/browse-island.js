@@ -1,7 +1,7 @@
 // browse-island.js — Re-export stub (delegates to toolbar/ modules)
 // This file exists for backwards compatibility with imports from other files.
 
-export { _syncIslandPillPosition, toggleBrowseTabLayout, _applyBrowseTabLayout,
+export { _syncIslandPillPosition, _applyBrowseTabLayout,
          _expandIsland, _collapseIsland, _togglePillMenu, _closePillMenu } from '/js/toolbar/toolbar-island.js';
 
 export { _pillSyncUrl, _pillUrlKeydown, _showTabsInPillDropdown,
@@ -12,7 +12,7 @@ export { browseBack, browseForward, browseReload, browseZoom, _browseApplyZoom,
          NavButtons, _showHistoryDropdown, _scheduleHideHistoryDropdown,
          _hideHistoryDropdownNow } from '/js/toolbar/toolbar-nav.js';
 
-export { _browseRenderTabs, _getActiveTabBar, _pillSyncTabs,
+export { _browseRenderTabs, _getActiveTabBar,
          browseTogglePin, browseAddTabToNewGroup, browseAddTabToGroup,
          browseRemoveTabFromGroup, _browseToggleGroupCollapse,
          _browseChangeGroupColor, _browseShowGroupContextMenu,

@@ -183,19 +183,60 @@ export function registerBrowseIPC(): void {
   });
 
   // Generic Semantic Scholar proxy — allows renderer to fetch any S2 API path
-  // without CORS restrictions (fetch runs in main process)
+  // without CORS restrictions (fetch runs in main process).
+  // Responses are cached in DB for 7 days (serve stale + background refresh).
   ipcMain.handle('db:s2-proxy', async (_event, urlPath: string) => {
     if (!urlPath || typeof urlPath !== 'string') return { error: 'urlPath required' };
-    try {
-      const base = 'https://api.semanticscholar.org/graph/v1';
-      const url = urlPath.startsWith('http') ? urlPath : base + urlPath;
-      const resp = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (!resp.ok) return null;
-      return await resp.json();
-    } catch (e: any) { return null; }
+    const cached = contentQueries.getCachedS2Response(urlPath);
+    if (cached && !cached.isStale) return cached.data;
+
+    const doFetch = async () => {
+      try {
+        const base = 'https://api.semanticscholar.org/graph/v1';
+        const url = urlPath.startsWith('http') ? urlPath : base + urlPath;
+        const resp = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        contentQueries.setCachedS2Response(urlPath, data);
+        return data;
+      } catch { return null; }
+    };
+
+    if (cached && cached.isStale) {
+      // Return stale data immediately, refresh in background
+      doFetch();
+      return cached.data;
+    }
+    return await doFetch();
+  });
+
+  // Papers With Code proxy with DB caching
+  ipcMain.handle('db:pwc-proxy', async (_event, url: string) => {
+    if (!url || typeof url !== 'string') return { error: 'url required' };
+    const cached = contentQueries.getCachedPwcResponse(url);
+    if (cached && !cached.isStale) return cached.data;
+
+    const doFetch = async () => {
+      try {
+        const resp = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        contentQueries.setCachedPwcResponse(url, data);
+        return data;
+      } catch { return null; }
+    };
+
+    if (cached && cached.isStale) {
+      doFetch();
+      return cached.data;
+    }
+    return await doFetch();
   });
 
   // ── Browse utilities ──

@@ -345,7 +345,7 @@ export function _islandRender() {
   if (!container) return;
 
   var activities = window._islandActivities ? window._islandActivities.value : {};
-  var isBrowse = !!window._pillBrowseMode;
+  var isBrowse = false;
   var keys = Object.keys(activities);
 
   // Filter out ai/insight types — they render in the AI pill
@@ -501,7 +501,7 @@ function _togglePillTray(pillEl, act) {
   }
   if (isOpen) return;
 
-  var isBrowse = !!window._pillBrowseMode;
+  var isBrowse = false;
   var trayContent = _islandBuildTray(act, isBrowse);
   if (!trayContent) return;
 

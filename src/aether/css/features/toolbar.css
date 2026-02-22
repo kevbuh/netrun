@@ -274,7 +274,6 @@ body.electron-app .browse-mode.island-mode #pill-island-right {
 .browse-mode.ntp-active #pill-browse-url-input,
 .browse-mode.ntp-active #pill-browse-reload,
 .browse-mode.ntp-active #pill-browse-fwd,
-.browse-mode.ntp-active #pill-browse-tabs,
 .browse-mode.ntp-active #pill-browse-more,
 .browse-mode.ntp-active #pill-newtab-btn,
 .browse-mode.ntp-active .pill-url-divider,
@@ -568,29 +567,6 @@ body.electron-app .pill-bar.browse-mode.ntp-active .pill-island-container { marg
    12. BROWSE TABS — tab strip in pill bar
    ══════════════════════════════════════════════════════════════════════════════ */
 
-#pill-browse-tabs {
-  display: flex; align-items: center; flex: 1; max-width: 0; opacity: 0;
-  overflow: hidden; gap: 2px;
-  transition: max-width 0.35s var(--motion-snappy), opacity 0.25s ease 0.1s;
-}
-.browse-mode #pill-browse-tabs { max-width: 100%; flex: 0 1 auto; opacity: 1; overflow-x: auto; }
-.browse-mode.island-mode #pill-browse-tabs { display: none; }
-#pill-browse-tabs::-webkit-scrollbar { display: none; }
-
-#pill-browse-tabs .browse-tab {
-  height: 26px; font-size: 0.72rem; max-width: 200px; padding: 2px 6px;
-  border-radius: 6px; flex: 1 1 0;
-}
-#pill-browse-tabs .browse-tab.active { background: var(--aether-hover); color: var(--aether-text); }
-#pill-browse-tabs .browse-tab:hover { background: var(--aether-hover); color: var(--aether-text); }
-#pill-browse-tabs .browse-tab-close { width: 14px; height: 14px; font-size: 0.75rem; }
-#pill-browse-tabs .browse-tab-favicon { width: 12px; height: 12px; }
-#pill-browse-tabs .browse-tab-pinned { max-width: 28px; min-width: 28px; }
-#pill-browse-tabs .browse-tab-pin-separator { height: 16px; }
-#pill-browse-tabs .browse-tab-group-chip { height: 22px; font-size: 0.65rem; padding: 0 5px; }
-#pill-browse-tabs .browse-window-switcher { flex-shrink: 0; background: transparent; margin-right: 0; margin-left: auto; }
-#pill-browse-tabs .browse-split-pill { height: 26px; }
-
 /* Tab styles (shared) */
 .browse-tab {
   display: flex; align-items: center; gap: 4px; padding: 4px 8px;
@@ -742,6 +718,7 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 #pill-island-right-col { display: none; }
 #pill-island-title { display: none; }
 #pill-island-nav-row { display: none; }
+#pill-island-actions-row { display: none; }
 .browse-mode.island-mode #pill-island-left { display: contents; }
 .browse-mode.island-mode #pill-island-center { display: contents; }
 .browse-mode.island-mode #pill-island-title { display: none; }
@@ -769,7 +746,7 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 
 .browse-mode.island-mode #pill-url-wrap.island-expanded {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   grid-template-rows: auto auto auto;
   gap: 0; height: auto; min-height: 72px; min-width: 480px;
   padding: 12px; border-radius: 24px;
@@ -798,38 +775,57 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 [data-aether-theme="match"] .browse-mode.island-mode #pill-url-wrap.island-expanded,
 [data-aether-theme="aether"] .browse-mode.island-mode #pill-url-wrap.island-expanded { background: #000; }
 
-/* Left column — row 2: tab pill button */
+/* Left column — row 2: vertical tab list */
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-left {
-  grid-row: 2; grid-column: 1; display: flex; align-items: center; gap: 6px;
-  background: rgba(255,255,255,0.06); border-radius: 14px; padding: 6px 12px;
-  cursor: pointer; min-width: 0; overflow: hidden; transition: background 0.15s ease;
+  grid-row: 2; grid-column: 1; display: flex; flex-direction: column; gap: 1px;
+  padding: 4px 0; min-width: 0; overflow-y: auto; max-height: 320px;
 }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-left:hover { background: rgba(255,255,255,0.12); }
 
-/* Center column — row 2: title + nav */
+/* Right column — row 2: page info + nav + actions */
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-center {
   grid-row: 2; grid-column: 2; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 4px; padding: 4px 8px;
-  min-width: 0; overflow: hidden;
+  align-items: flex-start; justify-content: flex-start; gap: 2px; padding: 6px 10px;
+  min-width: 0; overflow: hidden; border-left: 1px solid rgba(255,255,255,0.08);
 }
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-title {
-  display: block; font-size: 0.85rem; font-weight: 600; color: #fff;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 100%; line-height: 1.3; text-align: center;
+  display: none;
 }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-title:empty { display: none; }
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-actions-row {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+}
 
-/* Right column — row 2: AI actions */
+/* Right column — row 2: hidden (actions merged into center) */
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-right-col {
-  grid-row: 2; grid-column: 3; display: flex; flex-wrap: wrap;
-  align-content: center; justify-content: center; gap: 4px; padding: 4px;
-  cursor: pointer; border-radius: 14px; min-width: 0; overflow: hidden;
-  transition: background 0.15s ease;
+  display: none !important;
 }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-right-col:hover { background: rgba(255,255,255,0.06); }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-right-col:empty { display: none; }
 
-/* Expanded tab items */
+/* Expanded tab items (vertical list in left column) */
+.island-vtab-item {
+  display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 10px;
+  cursor: pointer; transition: background 0.12s; font-size: 0.78rem;
+  color: rgba(255,255,255,0.65); white-space: nowrap; overflow: hidden;
+}
+.island-vtab-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.island-vtab-item.active { color: #fff; font-weight: 600; }
+.island-vtab-item img { width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; object-fit: contain; }
+.island-vtab-item-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.island-vtab-item-close {
+  flex-shrink: 0; width: 18px; height: 18px; border: none; background: transparent;
+  color: rgba(255,255,255,0.3); font-size: 0.85rem; line-height: 1; border-radius: 4px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
+  opacity: 0; transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+.island-vtab-item:hover .island-vtab-item-close { opacity: 0.7; }
+.island-vtab-item-close:hover { opacity: 1 !important; background: rgba(255,255,255,0.12); color: #fff; }
+.island-vtab-new {
+  display: flex; align-items: center; gap: 8px; padding: 5px 10px;
+  cursor: pointer; color: rgba(255,255,255,0.35); font-size: 0.78rem;
+  border: none; background: transparent; width: 100%; text-align: left;
+  transition: color 0.12s; margin-top: 2px;
+}
+.island-vtab-new:hover { color: rgba(255,255,255,0.8); }
+
+/* Legacy expanded tab items */
 .island-expanded-tab {
   display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 8px;
   cursor: pointer; transition: background 0.12s; font-size: 0.7rem;
@@ -914,7 +910,7 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
   box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1);
 }
 .browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within.pill-dropdown-open { border-radius: 24px 24px 0 0; }
-.browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within #pill-island-left { background: rgba(255,255,255,0.15); }
+.browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within #pill-island-left { background: none; }
 .browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within #pill-browse-url-input {
   font-size: 0.82rem; max-width: none; padding: 6px 12px; border-radius: 12px; background: rgba(255,255,255,0.18);
 }

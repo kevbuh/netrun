@@ -515,8 +515,13 @@ function _renderCodeTab(container) {
   AetherUI.append(wrap, container);
 
   var query = encodeURIComponent(state.s2Data.title);
-  fetch('https://paperswithcode.com/api/v1/papers/?q=' + query + '&items_per_page=5')
-    .then(function(r) { return r.json(); })
+  var _pwcFetch = function(url) {
+    if (window.electronAPI && window.electronAPI.dbQuery) {
+      return window.electronAPI.dbQuery('pwc-proxy', url);
+    }
+    return fetch(url).then(function(r) { return r.json(); });
+  };
+  _pwcFetch('https://paperswithcode.com/api/v1/papers/?q=' + query + '&items_per_page=5')
     .then(function(data) {
       wrapEl.replaceChildren();
       var results = data && data.results ? data.results : [];
@@ -527,8 +532,7 @@ function _renderCodeTab(container) {
       var foundAny = false;
       var pending = results.length;
       results.forEach(function(paper) {
-        fetch('https://paperswithcode.com/api/v1/papers/' + paper.id + '/repositories/')
-          .then(function(r) { return r.json(); })
+        _pwcFetch('https://paperswithcode.com/api/v1/papers/' + paper.id + '/repositories/')
           .then(function(repoData) {
             var repos = repoData && repoData.results ? repoData.results : [];
             repos.forEach(function(repo) {

@@ -30,6 +30,44 @@ export function setCachedAuthor(query: string, data: unknown): void {
   ).run(query, JSON.stringify(data), Date.now() / 1000);
 }
 
+// ── S2 response cache ──
+
+const S2_STALE_SECONDS = 7 * 86400; // 7 days
+
+export function getCachedS2Response(urlPath: string): { data: unknown; isStale: boolean } | null {
+  const row = prepare('SELECT response_json, cached_at FROM s2_response_cache WHERE url_path = ?').get(urlPath) as { response_json: string; cached_at: number } | undefined;
+  if (!row) return null;
+  try {
+    const data = JSON.parse(row.response_json);
+    const age = Date.now() / 1000 - row.cached_at;
+    return { data, isStale: age > S2_STALE_SECONDS };
+  } catch { return null; }
+}
+
+export function setCachedS2Response(urlPath: string, data: unknown): void {
+  prepare(
+    'INSERT OR REPLACE INTO s2_response_cache (url_path, response_json, cached_at) VALUES (?, ?, ?)'
+  ).run(urlPath, JSON.stringify(data), Date.now() / 1000);
+}
+
+// ── PWC response cache ──
+
+export function getCachedPwcResponse(url: string): { data: unknown; isStale: boolean } | null {
+  const row = prepare('SELECT response_json, cached_at FROM pwc_response_cache WHERE url = ?').get(url) as { response_json: string; cached_at: number } | undefined;
+  if (!row) return null;
+  try {
+    const data = JSON.parse(row.response_json);
+    const age = Date.now() / 1000 - row.cached_at;
+    return { data, isStale: age > S2_STALE_SECONDS };
+  } catch { return null; }
+}
+
+export function setCachedPwcResponse(url: string, data: unknown): void {
+  prepare(
+    'INSERT OR REPLACE INTO pwc_response_cache (url, response_json, cached_at) VALUES (?, ?, ?)'
+  ).run(url, JSON.stringify(data), Date.now() / 1000);
+}
+
 // ── Annotation feedback ──
 
 export interface AnnotationFeedback {

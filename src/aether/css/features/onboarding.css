@@ -123,3 +123,60 @@
       background: color-mix(in srgb, var(--nr-accent) 8%, transparent);
     }
 
+    /* Cursor type option cards */
+    .wizard-cursor-option {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 20px;
+      border-radius: 12px;
+      border: 1.5px solid var(--nr-border-default, rgba(255,255,255,0.08));
+      background: rgba(255,255,255,0.02);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      min-width: 120px;
+    }
+    .wizard-cursor-option:hover {
+      border-color: var(--nr-text-secondary, #999);
+    }
+    .wizard-cursor-option.selected {
+      border-color: var(--nr-accent, var(--accent, #b4451a));
+      background: color-mix(in srgb, var(--nr-accent, var(--accent)) 8%, transparent);
+      box-shadow: 0 0 12px color-mix(in srgb, var(--nr-accent, var(--accent)) 20%, transparent);
+    }
+    .wizard-cursor-preview {
+      width: 48px;
+      height: 48px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* Aether cursor preview — dot + ring */
+    .wizard-cursor-preview-on::before {
+      content: '';
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--nr-text-primary, #e0e0e0);
+      position: absolute;
+    }
+    .wizard-cursor-preview-on::after {
+      content: '';
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1.5px solid var(--nr-text-primary, #e0e0e0);
+      opacity: 0.4;
+      position: absolute;
+    }
+    /* System cursor preview — arrow */
+    .wizard-cursor-preview-off::before {
+      content: '';
+      width: 16px;
+      height: 22px;
+      clip-path: polygon(0 0, 0 100%, 35% 72%, 55% 100%, 70% 93%, 50% 65%, 100% 60%);
+      background: var(--nr-text-primary, #e0e0e0);
+    }
+

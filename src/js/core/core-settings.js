@@ -147,7 +147,6 @@ const Settings = (function() {
   define('aetherColor',    { default: 'match',          sync: true  }); // @persisted
   define('iconSize',       { default: 'medium',         sync: true  }); // @persisted
   define('spinner',        { default: 'squareCorners',  sync: true  }); // @persisted
-  define('browseTabLayout',{ default: 'island',         sync: false }); // @local
   define('customCursor',   { default: 'on',             sync: false }); // @local
 
   // Sidebar

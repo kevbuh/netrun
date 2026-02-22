@@ -78,11 +78,7 @@ if (_browseIsElectron && window.electronAPI.cookieBlockSetEnabled) {
 
 // Audio tracking: { tabId: { windowId, muted } }
 export const _browseAudioTabs = new Map();
-let _pillBrowseMode = false;
-export function getPillBrowseMode() { return _pillBrowseMode; }
-export function setPillBrowseMode(v) { _pillBrowseMode = v; }
 window._browseAudioTabs = _browseAudioTabs;
-_bridge('_pillBrowseMode', () => _pillBrowseMode, v => { _pillBrowseMode = v; });
 
 // Closed captions state
 let _ccStream = null;
@@ -117,8 +113,6 @@ _bridge('_ccActive', () => _ccActive, v => { _ccActive = v; });
 _bridge('_ccTabId', () => _ccTabId, v => { _ccTabId = v; });
 window._ccCaptionLines = _ccCaptionLines;
 _bridge('_ccFadeTimer', () => _ccFadeTimer, v => { _ccFadeTimer = v; });
-
-// UI state — browseTabLayout is read directly from Settings.get('browseTabLayout')
 
 // NTP uploaded files: { name, content, file }
 export const _ntpUploadedFiles = [];

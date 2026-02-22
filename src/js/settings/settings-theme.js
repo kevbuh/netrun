@@ -1,7 +1,5 @@
 import Settings from '../core/core-settings.js';
 import { apiPut } from '/js/api.js';
-import { _applyBrowseTabLayout } from '/js/browse/browse-island.js';
-import { _setPillBrowseMode } from '/js/browse/browse-pill.js';
 import { renderSettingsView } from '/js/settings/settings-core.js';
 import { setAetherColor, startDaylightTheme, stopDaylightTheme } from '/js/settings/settings-colors.js';
 
@@ -95,21 +93,6 @@ export function setEditorTheme(theme) {
     const btn = document.getElementById('editor-theme-btn-' + t);
     if (btn) btn.className = 'px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary');
   });
-}
-
-export function setBrowseTabLayout(layout) {
-  Settings.set('browseTabLayout', layout);
-  // Apply immediately if browse view is open
-  const browseView = document.getElementById('browse-view');
-  if (browseView && browseView.style.display !== 'none') {
-    if (layout === 'vertical') {
-      _setPillBrowseMode(false);
-      _applyBrowseTabLayout();
-    } else {
-      _setPillBrowseMode(true);
-    }
-  }
-  renderSettingsView();
 }
 
 export function setIconSize(size) {

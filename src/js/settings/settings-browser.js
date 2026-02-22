@@ -3,7 +3,7 @@ import { icon } from '/js/core/icons.js';
 import { _SITE_PERM_ICONS, _SITE_PERM_KEYS, _SITE_PERM_LABELS, _browseApplyAdaptiveColor, _browseResetAdaptiveColor, _browseUrlOnBlur, _clearSitePermissions, _getAllSitePermissions, _getUrlBarSections, _saveUrlBarSections, _setSitePermission } from '/js/browse-urlbar.js';
 import { _getDoomScrollSites, _saveDoomScrollSites } from '/js/browse/browse-downloads.js';
 import { _settingBtnGroup, _settingCard, _settingGroupContent, _settingRow, _settingToggle } from '/js/settings/settings-helpers.js';
-import { resetAdBlockRules, setBrowseTabLayout } from '/js/settings/settings-theme.js';
+import { resetAdBlockRules } from '/js/settings/settings-theme.js';
 import { logger } from '/js/logger.js';
 
 // ─── Browser Settings ──────────────────────────────────────
@@ -450,7 +450,6 @@ export function _renderBrowserSettings() {
 
   return window.VStack(
     _settingCard('Layout', [
-      _settingBtnGroup('Tab Style', [{value:'island',label:'Island'},{value:'horizontal',label:'Horizontal'}], Settings.get('browseTabLayout') || 'island', function(v) { setBrowseTabLayout(v); }),
       simplifyRow,
       adaptiveRow,
       _settingGroupContent([

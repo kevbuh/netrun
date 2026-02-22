@@ -3,7 +3,7 @@ import Settings from '/js/core/core-settings.js';
 import { islandExpanded, islandSubState, isNtp, notifyTabsChanged } from '/js/toolbar/toolbar-state.js';
 import { _browseTitleFromUrl, _browseFaviconUrl } from '/js/toolbar/toolbar-nav.js';
 import { _pillSyncUrl } from '/js/toolbar/toolbar-url.js';
-import { _browseRenderTabs, _getActiveTabBar, _pillSyncTabs } from '/js/toolbar/toolbar-tabs.js';
+import { _browseRenderTabs, _getActiveTabBar } from '/js/toolbar/toolbar-tabs.js';
 import { icon } from '/js/core/icons.js';
 import { browseSelectTab, browseCloseTab } from '/js/browse/browse-passwords.js';
 
@@ -30,92 +30,29 @@ export function _syncIslandPillPosition() {
   }
 }
 
-// ── Layout toggle ──
-
-export function toggleBrowseTabLayout() {
-  var newLayout = Settings.get('browseTabLayout') === 'island' ? 'horizontal' : 'island';
-  Settings.set('browseTabLayout', newLayout);
-  var browseView = document.getElementById('browse-view');
-  var browseOpen = browseView && browseView.style.display !== 'none';
-  if (browseOpen) {
-    if (newLayout === 'island') {
-      _setPillBrowseMode(false);
-      _applyBrowseTabLayout();
-    } else {
-      _setPillBrowseMode(true);
-    }
-  }
-}
+// ── Layout apply ──
 
 export function _applyBrowseTabLayout() {
-  var tabRow = document.getElementById('browse-tab-row');
   var bar = document.getElementById('browse-bar');
   var pill = document.getElementById('sidebar-nav');
   var browseView = document.getElementById('browse-view');
   var browseOpen = browseView && browseView.style.display === 'flex';
-  if (Settings.get('browseTabLayout') === 'island') {
-    if (tabRow) tabRow.style.display = 'none';
-    if (bar) bar.style.display = 'none';
-    if (browseOpen) {
-      if (pill) { pill.classList.add('browse-mode'); pill.classList.add('island-mode'); }
-      _pillSyncUrl();
-      _syncIslandPillPosition();
-      var pillTabs = document.getElementById('pill-browse-tabs');
-      if (pillTabs) pillTabs.innerHTML = '';
-      if (typeof window._islandSyncTabs === 'function') window._islandSyncTabs();
-      if (typeof window._islandSyncBookmark === 'function') window._islandSyncBookmark();
-    } else {
-      if (pill) { pill.classList.remove('browse-mode', 'island-mode', 'ntp-active'); }
-      _syncIslandPillPosition();
-      _collapseIsland();
-      if (typeof window.islandRemove === 'function') {
-        window.islandRemove('tabs');
-        window.islandRemove('bookmark');
-      }
-    }
-  } else {
-    _collapseIsland();
+  if (bar) bar.style.display = 'none';
+  if (browseOpen) {
+    if (pill) { pill.classList.add('browse-mode'); pill.classList.add('island-mode'); }
+    _pillSyncUrl();
     _syncIslandPillPosition();
-    if (bar) bar.style.display = '';
-    if (window._pillBrowseMode) {
-      if (tabRow) tabRow.style.display = 'none';
-    } else {
-      if (pill) { pill.classList.remove('browse-mode', 'island-mode', 'ntp-active'); }
-      if (tabRow) tabRow.style.display = '';
+    if (typeof window._islandSyncBookmark === 'function') window._islandSyncBookmark();
+  } else {
+    if (pill) { pill.classList.remove('browse-mode', 'island-mode', 'ntp-active'); }
+    _syncIslandPillPosition();
+    _collapseIsland();
+    if (typeof window.islandRemove === 'function') {
+      window.islandRemove('tabs');
+      window.islandRemove('bookmark');
     }
-    if (window._pillBrowseMode) _pillSyncTabs();
   }
   _browseRenderTabs();
-}
-
-// ── Pill browse mode ──
-
-export function _setPillBrowseMode(enabled) {
-  if (typeof window.setPillBrowseMode === 'function') window.setPillBrowseMode(enabled);
-  else window._pillBrowseMode = enabled;
-  var pill = document.getElementById('sidebar-nav');
-  var tabRow = document.getElementById('browse-tab-row');
-  if (enabled) {
-    if (pill) { pill.classList.add('browse-mode'); pill.classList.remove('island-mode'); }
-    if (tabRow) tabRow.style.display = 'none';
-    var bar = document.getElementById('browse-bar');
-    if (bar) bar.style.display = '';
-    var hideIds = ['browse-more-btn', 'browse-sidebar-toggle',
-      'browse-adblock-btn', 'browse-doh-btn', 'browse-downloads-btn', 'browse-save-btn',
-      'browse-share-btn', 'browse-annotate-btn', 'browse-search-history-btn', 'browse-cc-btn'];
-    hideIds.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = 'none'; });
-    _pillSyncTabs();
-  } else {
-    if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('island-mode'); }
-    var pillTabs = document.getElementById('pill-browse-tabs');
-    if (pillTabs) pillTabs.innerHTML = '';
-    var restoreIds = ['browse-more-btn', 'browse-sidebar-toggle',
-      'browse-adblock-btn', 'browse-doh-btn', 'browse-downloads-btn', 'browse-save-btn',
-      'browse-share-btn', 'browse-annotate-btn', 'browse-search-history-btn', 'browse-cc-btn'];
-    restoreIds.forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = ''; });
-    _closePillMenu();
-    _applyBrowseTabLayout();
-  }
 }
 
 // ── Expand/collapse ──
@@ -159,8 +96,10 @@ export function _collapseIsland() {
   _restoreElementsFromIsland();
   var aiFull = document.getElementById('pill-island-ai-full');
   var utilityRow = document.getElementById('pill-island-utility-row');
+  var actionsRow = document.getElementById('pill-island-actions-row');
   if (aiFull) aiFull.innerHTML = '';
   if (utilityRow) utilityRow.innerHTML = '';
+  if (actionsRow) actionsRow.remove();
   var tabsAnchor = document.getElementById('pill-island-tabs-anchor');
   if (tabsAnchor) tabsAnchor.style.display = '';
 }
@@ -248,29 +187,49 @@ function _renderIslandTabPill() {
   var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
   if (!win || !win.tabs || !win.tabs.length) { leftCol.innerHTML = ''; return; }
   var activeTabId = win.activeTab;
-  var activeTab = win.tabs.find(function(t) { return t.id === activeTabId; });
 
-  var globeSvg = '<svg style="width:14px;height:14px;opacity:0.4;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
-  var favView;
-  if (activeTab && activeTab.favicon) {
-    favView = window.Image(activeTab.favicon).frame({ width: 14, height: 14 }).cornerRadius('xs').styles({ flexShrink: '0' })
-      .on('error', function() { this.style.display = 'none'; });
-  } else {
-    favView = window.RawHTML(globeSvg);
-  }
-  var title = (activeTab && activeTab.title) ? activeTab.title : 'New Tab';
-  var nameView = window.Text(title.length > 20 ? title.slice(0, 18) + '\u2026' : title)
-    .truncate().font('caption2').foreground('secondary').styles({ minWidth: '0' });
-  var children = [favView, nameView];
-  if (win.tabs.length > 1) {
-    children.push(window.Text(String(win.tabs.length)).font('caption2').foreground('quaternary').cornerRadius('sm')
-      .padding('1px', '5px').background('surface').styles({ flexShrink: '0', fontSize: '0.6rem' }));
-  }
-  AetherUI.mount(window.HStack(children), leftCol);
-  leftCol.onclick = function(e) {
-    e.stopPropagation();
-    _toggleIslandTabsDropdown();
-  };
+  var globeSvg = '<svg style="width:16px;height:16px;opacity:0.4;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+  var plusSvg = '<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>';
+
+  var rows = win.tabs.map(function(t) {
+    var isActive = t.id === activeTabId;
+    var favHtml = t.favicon
+      ? '<img class="island-vtab-item" src="' + t.favicon.replace(/"/g, '&quot;') + '" style="width:16px;height:16px;border-radius:3px;flex-shrink:0;object-fit:contain" onerror="this.style.display=\'none\'">'
+      : globeSvg;
+    var title = t.title || 'New Tab';
+    var truncTitle = title.length > 20 ? title.slice(0, 18) + '\u2026' : title;
+    var favView = t.favicon
+      ? window.Image(t.favicon).frame({ width: 16, height: 16 }).cornerRadius('xs').styles({ flexShrink: '0' })
+          .on('error', function() { this.style.display = 'none'; })
+      : window.RawHTML(globeSvg);
+    var nameView = window.Text(truncTitle).className('island-vtab-item-title');
+    var closeBtn = window.Text('\u00d7').className('island-vtab-item-close').attr('title', 'Close tab')
+      .onTap(function(e) {
+        e.stopPropagation();
+        browseCloseTab(t.id);
+        setTimeout(_renderIslandTabPill, 50);
+      });
+    return window.HStack([favView, nameView, closeBtn])
+      .className('island-vtab-item' + (isActive ? ' active' : ''))
+      .onTap(function(e) {
+        e.stopPropagation();
+        browseSelectTab(t.id);
+        setTimeout(_renderIslandTabPill, 50);
+      });
+  });
+
+  // Divider + New tab row
+  rows.push(new window.View('div').styles({ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '2px 10px' }));
+  rows.push(window.HStack([window.RawHTML(plusSvg), window.Text('New tab')])
+    .className('island-vtab-new')
+    .onTap(function(e) {
+      e.stopPropagation();
+      _collapseIsland();
+      if (typeof window.browseNewTab === 'function') window.browseNewTab();
+    }));
+
+  AetherUI.mount(window.VStack(rows), leftCol);
+  leftCol.onclick = null;
 }
 
 // ── Tabs dropdown (below capsule) ──
@@ -381,11 +340,72 @@ function _renderIslandAIFull() {
 // ── Render action icons ──
 
 function _renderIslandActions() {
-  var rightCol = document.getElementById('pill-island-right-col');
-  if (!rightCol) return;
+  var centerCol = document.getElementById('pill-island-center');
+  if (!centerCol) return;
+  // Remove any previous actions/pageinfo content
+  var actionsId = 'pill-island-actions-row';
+  var existing = document.getElementById(actionsId);
+  if (existing) existing.remove();
+
+  var V = window.View, T = window.Text, H = window.HStack, VS = window.VStack;
+  var rows = [];
+
+  // ── Page info section ──
+  var pageInfo = typeof window._getPageInfoState === 'function' ? window._getPageInfoState() : {};
+  var meta = pageInfo.meta || {};
+  var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
+  var activeTab = win ? win.tabs.find(function(t) { return t.id === win.activeTab; }) : null;
+
+  // Title
+  var title = (activeTab && activeTab.title) ? activeTab.title : '';
+  if (title) {
+    rows.push(T(title).styles({ fontSize: '0.82rem', fontWeight: '600', color: '#fff',
+      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }));
+  }
+
+  // URL / domain
+  var url = (activeTab && activeTab.url) ? activeTab.url : '';
+  if (url && url !== 'about:blank') {
+    var domain = '';
+    try { domain = new URL(url).hostname; } catch(e) {}
+    if (domain) {
+      rows.push(T(domain).styles({ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }));
+    }
+  }
+
+  // Meta info pills
+  var pills = [];
+  if (meta.author) pills.push(meta.author);
+  if (pageInfo.label) pills.push(pageInfo.label);
+  if (meta.wordCount > 0) {
+    var mins = Math.max(1, Math.round(meta.wordCount / 238));
+    pills.push(mins + ' min read');
+  }
+  if (pageInfo.badges) pills.push(pageInfo.badges);
+  if (meta.location) pills.push(meta.location);
+
+  if (pills.length) {
+    var pillViews = pills.map(function(p) {
+      return T(p).styles({ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)',
+        background: 'rgba(255,255,255,0.08)', borderRadius: '6px', padding: '2px 6px',
+        whiteSpace: 'nowrap' });
+    });
+    rows.push(H(pillViews).styles({ gap: '4px', flexWrap: 'wrap', marginTop: '4px' }));
+  }
+
+  // Description
+  if (meta.description) {
+    var desc = meta.description.length > 100 ? meta.description.slice(0, 98) + '\u2026' : meta.description;
+    rows.push(T(desc).styles({ fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)',
+      lineHeight: '1.35', marginTop: '4px', display: '-webkit-box',
+      WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden' }));
+  }
+
+  // ── Action icons ──
   var iconNames = ['chatBubble', 'annotate', 'speaker', 'eye', 'microphone', 'rain'];
   var btns = iconNames.map(function(name) {
-    var btn = new window.View('button').className('island-expanded-action').html(icon(name, { size: 16 }))
+    var btn = new V('button').className('island-expanded-action').html(icon(name, { size: 16 }))
       .opacity(0.6).styles({ pointerEvents: 'none' });
     if (name === 'annotate') {
       var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
@@ -393,8 +413,13 @@ function _renderIslandActions() {
     }
     return btn;
   });
-  AetherUI.mount(window.HStack(btns), rightCol);
-  rightCol.onclick = function(e) { e.stopPropagation(); _setIslandSubState('ai'); };
+  rows.push(H(btns).styles({ marginTop: '6px', cursor: 'pointer' })
+    .onTap(function(e) { e.stopPropagation(); _setIslandSubState('ai'); }));
+
+  var container = VS(rows).styles({ gap: '2px', alignItems: 'flex-start', padding: '0 4px' });
+  var el = container.build();
+  el.id = actionsId;
+  centerCol.appendChild(el);
 }
 
 // ── Render utility row ──
@@ -488,7 +513,6 @@ export function _cancelPillMenuClose() {
 // ── Click handler for capsule expand ──
 
 document.addEventListener('click', function(e) {
-  if (Settings.get('browseTabLayout') !== 'island') return;
   var wrap = document.getElementById('pill-url-wrap');
   if (!wrap) return;
   if (wrap.classList.contains('island-expanded')) return;
@@ -500,7 +524,7 @@ document.addEventListener('click', function(e) {
 document.addEventListener('DOMContentLoaded', function() {
   var input = document.getElementById('pill-browse-url-input');
   if (input) input.addEventListener('focus', function() {
-    if (Settings.get('browseTabLayout') === 'island') _expandIsland();
+    _expandIsland();
   });
 });
 
@@ -520,7 +544,6 @@ document.addEventListener('keydown', function(e) {
 
 // ── Action registry ──
 registerActions({
-  toggleBrowseTabLayout: function() { toggleBrowseTabLayout(); },
   _togglePillMenu: function() { _togglePillMenu(); },
   _openPillMenuHover: function() { _openPillMenuHover(); },
   _closePillMenuHover: function() { _closePillMenuHover(); },

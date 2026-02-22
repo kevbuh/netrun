@@ -7,7 +7,6 @@ import { _browseRemoveKeyGuard } from '/js/browse/browse-features.js';
 import { _browseResetAdaptiveColor } from '/js/browse-urlbar.js';
 import { clearDevFpsRaf, renderDevPanel } from '/js/dev-panel.js';
 import { clearRefreshTimer, getCustomFeeds, hiddenSourceFilters, loadAllFeeds, renderSourceBubbles } from '/js/feed.js';
-import { _setPillBrowseMode } from '/js/browse/browse-pill.js';
 import { clearSpinnerPreview } from '/js/settings/settings-colors.js';
 import { browseNewTab, openBrowse } from '/js/browse/browse-windows.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
@@ -320,7 +319,6 @@ export function hideAllViews() {
   if (typeof stopFeedLoading === 'function') stopFeedLoading();
   if (typeof _stopScrollTracker === 'function') _stopScrollTracker();
   clearSpinnerPreview();
-  if (typeof _setPillBrowseMode === 'function') _setPillBrowseMode(false);
   if (typeof _browseRemoveKeyGuard === 'function') _browseRemoveKeyGuard();
   if (typeof _browseResetAdaptiveColor === 'function') _browseResetAdaptiveColor();
   clearDevFpsRaf();

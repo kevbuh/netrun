@@ -1,5 +1,5 @@
 // onboarding.js — Onboarding wizard (SPA overlay or standalone page)
-// Steps: 0=Welcome, 1=Username, 2=Accent Color, 3=Theme, 4=Tab Layout, 5=Bookmark Import, 6=Feed Selection, 7=Chat Model, 8=Pixel Pet, 9=Neuralook, 10=Finale
+// Steps: 0=Welcome, 1=Username, 2=Accent Color, 3=Theme, 4=Tab Layout, 5=Bookmark Import, 6=Feed Selection, 7=Chat Model, 8=Pixel Pet, 9=Cursor, 10=Neuralook, 11=Finale
 
 import Settings from '/js/core/core-settings.js';
 import { apiPost, apiGet } from '/js/api.js';
@@ -22,7 +22,7 @@ function _isStandalonePage() {
 }
 
 let _wizardStep = 0;
-const _wizardTotalSteps = 11;
+const _wizardTotalSteps = 12;
 
 const _wizardAccentColors = [
   { color: '#b4451a', name: 'Orange' },
@@ -137,8 +137,9 @@ function _buildWizardStep(wizard, stepIndex) {
     6: function() { return _wizardFeedsView(); },
     7: function() { return _wizardChatModelView(); },
     8: function() { return _wizardPixelPetView(); },
-    9: function() { return _wizardNeuralookView(); },
-    10: function() { return _wizardFinaleView(); },
+    9: function() { return _wizardCursorView(); },
+    10: function() { return _wizardNeuralookView(); },
+    11: function() { return _wizardFinaleView(); },
   }).transition('slide');
 
   const stepView = new window.View('div').className('wizard-step');
@@ -164,6 +165,7 @@ function _buildWizardStep(wizard, stepIndex) {
   else if (stepIndex === 6) _wizardFeedsInit();
   else if (stepIndex === 7) _wizardChatModelInit();
   else if (stepIndex === 8) _wizardPixelPetInit();
+  else if (stepIndex === 9) _wizardCursorInit();
 }
 
 function _renderWizardStep(stepIndex, direction) {
@@ -382,58 +384,14 @@ function _wizardPickTheme(themeId, el) {
 }
 
 function _wizardThemeContinue() {
-  _renderWizardStep(4, 'forward');
+  _renderWizardStep(5, 'forward');
 }
 
-// ── Step 4: Tab Layout ──
-
+// ── Step 4: (removed — was tab layout choice) ──
+// Skip directly to step 5 to avoid renumbering all subsequent steps
 function _wizardTabLayoutView() {
-  const current = Settings.get('browseTabLayout') || 'island';
-  function _layoutOption(layout, name, desc, previewHTML, selected) {
-    const btn = new window.View('button').className('wizard-tab-layout-option' + (selected ? ' selected' : ''));
-    btn.el.dataset.layout = layout;
-    btn.add(window.RawHTML('<div class="wizard-tab-layout-preview">' + previewHTML + '</div>'));
-    btn.add(window.RawHTML('<span class="wizard-tab-layout-name">' + name + '</span>'));
-    btn.add(window.RawHTML('<span class="wizard-tab-layout-desc">' + desc + '</span>'));
-    btn.onTap(function() { _wizardPickTabLayout(layout, btn.el); });
-    return btn;
-  }
-  const islandPreview = '<div style="display:flex;gap:4px;align-items:center;justify-content:center;height:100%;">' +
-    '<div style="width:10px;height:100%;background:var(--nr-text-secondary,#999);opacity:0.2;border-radius:3px;"></div>' +
-    '<div style="flex:1;display:flex;flex-direction:column;gap:3px;padding:4px;">' +
-      '<div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:80%;"></div>' +
-      '<div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:60%;"></div>' +
-      '<div style="height:4px;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;width:70%;"></div>' +
-    '</div></div>';
-  const horizPreview = '<div style="display:flex;flex-direction:column;height:100%;">' +
-    '<div style="display:flex;gap:2px;padding:3px 4px;">' +
-      '<div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>' +
-      '<div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>' +
-      '<div style="height:5px;flex:1;background:var(--nr-text-secondary,#999);opacity:0.3;border-radius:2px;"></div>' +
-    '</div>' +
-    '<div style="height:5px;background:var(--nr-text-secondary,#999);opacity:0.15;margin:0 4px;border-radius:2px;"></div>' +
-    '<div style="flex:1;"></div></div>';
-  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
-  continueBtn.el.textContent = 'Continue';
-  continueBtn.onTap(function() { _renderWizardStep(5, 'forward'); });
-  return window.VStack(
-    window.Text('Browser tab style').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
-    window.Text('How should your browser tabs look?').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
-    window.HStack(
-      _layoutOption('island', 'Island', 'Sidebar tabs', islandPreview, current === 'island'),
-      _layoutOption('horizontal', 'Horizontal', 'Top tab bar', horizPreview, current === 'horizontal')
-    ).spacing(3).className('justify-center mb-5'),
-    continueBtn
-  ).textAlign('center');
-}
-
-function _wizardPickTabLayout(layout, el) {
-  Settings.set('browseTabLayout', layout);
-  const wizard = document.getElementById('onboarding-wizard');
-  if (wizard) {
-    wizard.querySelectorAll('.wizard-tab-layout-option').forEach(function(b) { b.classList.remove('selected'); });
-  }
-  if (el) el.classList.add('selected');
+  setTimeout(function() { _renderWizardStep(5, 'forward'); }, 0);
+  return new window.View('div');
 }
 
 // ── Step 5: Bookmark Import ──
@@ -864,7 +822,7 @@ function _wizardPixelPetView() {
 
   const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.el.textContent = 'Continue';
-  continueBtn.onTap(function() { _renderWizardStep(9, 'forward'); });
+  continueBtn.onTap(function() { _renderWizardStep(9, 'forward'); });  // → Cursor step
   return window.VStack(
     window.Text('Pick a companion').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
     window.Text('A pixel pet that lives on your screen. Or go solo.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
@@ -1009,7 +967,51 @@ function _wizardPetSprites() {
   };
 }
 
-// ── Step 9: Neuralook (optional) ──
+// ── Step 9: Cursor Type ──
+
+function _wizardCursorView() {
+  const cursorOn = Settings.get('customCursor') !== 'off';
+  function _cursorOption(id, name, desc, selected) {
+    const btn = new window.View('button').className('wizard-cursor-option' + (selected ? ' selected' : ''));
+    btn.el.dataset.cursor = id;
+    btn.add(window.RawHTML('<div class="wizard-cursor-preview wizard-cursor-preview-' + id + '"></div>'));
+    btn.add(window.RawHTML('<span class="wizard-theme-name">' + name + '</span>'));
+    btn.add(window.RawHTML('<span class="wizard-theme-desc">' + desc + '</span>'));
+    btn.onTap(function() { _wizardPickCursor(id, btn.el); });
+    return btn;
+  }
+  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
+  continueBtn.el.textContent = 'Continue';
+  continueBtn.onTap(function() { _renderWizardStep(10, 'forward'); });
+  return window.VStack(
+    window.Text('Cursor style').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
+    window.Text('Choose how your cursor looks and feels.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
+    window.HStack(
+      _cursorOption('on', 'Aether', 'Smooth dot + ring with inertia', cursorOn),
+      _cursorOption('off', 'System', 'Default system cursor', !cursorOn)
+    ).spacing(3).className('justify-center mb-5'),
+    continueBtn
+  ).textAlign('center');
+}
+
+function _wizardCursorInit() {
+  // Apply current cursor state so user sees live preview
+  var isOn = Settings.get('customCursor') !== 'off';
+  if (window.AetherCursor) window.AetherCursor[isOn ? 'enable' : 'disable']();
+}
+
+function _wizardPickCursor(id, el) {
+  var on = id === 'on';
+  Settings.set('customCursor', on ? 'on' : 'off');
+  if (window.AetherCursor) window.AetherCursor[on ? 'enable' : 'disable']();
+  var wizard = document.getElementById('onboarding-wizard');
+  if (wizard) {
+    wizard.querySelectorAll('.wizard-cursor-option').forEach(function(b) { b.classList.remove('selected'); });
+  }
+  if (el) el.classList.add('selected');
+}
+
+// ── Step 10: Neuralook (optional) ──
 
 function _wizardNeuralookView() {
   const calibrateBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
@@ -1017,7 +1019,7 @@ function _wizardNeuralookView() {
   calibrateBtn.onTap(function() { _wizardStartNeuralook(); });
   const skipBtn = new window.View('button').className('nr-btn nr-btn-ghost');
   skipBtn.el.textContent = 'Set up later';
-  skipBtn.onTap(function() { _renderWizardStep(10, 'forward'); });
+  skipBtn.onTap(function() { _renderWizardStep(11, 'forward'); });
   return window.VStack(
     window.Text('Eye tracking').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
     window.Text('Neuralook uses your camera for gaze-based navigation. A quick calibration is needed.').styles({fontSize:'13px', color:'var(--nr-text-secondary,#999)', marginBottom:'20px'}),
