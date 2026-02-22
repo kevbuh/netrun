@@ -244,6 +244,9 @@ document.addEventListener('mousemove', function(e) {
 export function _magnifyTarget() {
   const bv = document.getElementById('browse-view');
   if (!bv || bv.style.display === 'none') return null;
+  // Don't intercept pinch when nerd mode PDF viewer is active — it has its own zoom
+  const pdfContainer = bv.querySelector('.pdf-pages-container');
+  if (pdfContainer && pdfContainer.offsetParent !== null) return null;
   return _browseActiveEl();
 }
 

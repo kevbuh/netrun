@@ -155,6 +155,30 @@ function _buildViewerDOM(tab, viewerEl) {
   pagesContainer.addEventListener('scroll', function() {
     _pdfViewerOnScroll(tab);
   });
+
+  // Pinch-to-zoom: Chrome/Firefox trackpad pinch fires wheel with ctrlKey
+  pagesContainer.addEventListener('wheel', function(e) {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    var delta = -e.deltaY * 0.01;
+    var newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, tab._pdfZoom + delta));
+    _pdfViewerSetZoom(tab, newZoom);
+  }, { passive: false });
+
+  // Pinch-to-zoom: Safari native gesture events
+  var gestureBaseZoom = 1;
+  pagesContainer.addEventListener('gesturestart', function(e) {
+    e.preventDefault();
+    gestureBaseZoom = tab._pdfZoom;
+  }, { passive: false });
+  pagesContainer.addEventListener('gesturechange', function(e) {
+    e.preventDefault();
+    var newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, gestureBaseZoom * e.scale));
+    _pdfViewerSetZoom(tab, newZoom);
+  }, { passive: false });
+  pagesContainer.addEventListener('gestureend', function(e) {
+    e.preventDefault();
+  }, { passive: false });
 }
 
 function _buildToolbar(tab, toolbar) {
