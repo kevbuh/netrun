@@ -110,6 +110,15 @@ export function setPaperRating(link, rating) {
   if (key !== link && r[link]) delete r[link];
   if (rating <= 0) delete r[key]; else r[key] = rating;
   Settings.setJSON('paperRatings', r);
+  // Sync rating to feed server (fire-and-forget)
+  try {
+    fetch('http://localhost:8400/api/rate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ link: key, rating }),
+      signal: AbortSignal.timeout(5000)
+    }).catch(() => {});
+  } catch (_) {}
   if (rating > 0 && !Settings.get('ach_critic')) {
     Settings.set('ach_critic', '1');
     showAchievement('Critic', 'Rated your first paper');

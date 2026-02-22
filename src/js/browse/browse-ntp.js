@@ -68,7 +68,7 @@ export async function handleNtpFileUpload(file) {
 export function _renderNtpFileChips() {
   const container = document.getElementById('ntp-file-chips');
   if (!container) return;
-  if (!window._ntpUploadedFiles.length) { container.innerHTML = ''; return; }
+  if (!window._ntpUploadedFiles.length) { AetherUI.mount(window.Text(''), container); return; }
 
   const fileSvg = icon('document', {class: 'ntp-file-card-icon', strokeWidth: '1.5'});
 
@@ -77,21 +77,21 @@ export function _renderNtpFileChips() {
     const ext = dotIdx >= 0 ? f.name.substring(dotIdx + 1).toUpperCase() : 'FILE';
     const baseName = dotIdx >= 0 ? f.name.substring(0, dotIdx) : f.name;
 
-    const removeBtn = new window.View('span').className('ntp-file-card-remove')._bindText('\u00d7')
+    const removeBtn = window.Text('\u00d7').className('ntp-file-card-remove')
       .onTap(function(e) { e.stopPropagation(); removeNtpFile(i); });
 
     if (f.isImage && f.base64) {
       // Image thumbnail
-      const thumb = new window.View('img').className('ntp-file-card-thumb');
-      thumb.el.src = 'data:image/png;base64,' + f.base64;
+      const thumb = new window.View('img').className('ntp-file-card-thumb')
+        .attr('src', 'data:image/png;base64,' + f.base64);
       return new window.View('button').className('ntp-file-card ntp-file-card-image').attr('title', escapeHtml(f.name))
         .add(thumb, removeBtn);
     }
 
     const iconEl = window.RawHTML(fileSvg);
     const info = new window.View('div').className('ntp-file-card-info').add(
-      new window.View('span').className('ntp-file-card-name')._bindText(escapeHtml(baseName)),
-      new window.View('span').className('ntp-file-card-type')._bindText(escapeHtml(ext))
+      window.Text(escapeHtml(baseName)).className('ntp-file-card-name'),
+      window.Text(escapeHtml(ext)).className('ntp-file-card-type')
     );
 
     return new window.View('button').className('ntp-file-card').attr('title', escapeHtml(f.name))

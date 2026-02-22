@@ -194,9 +194,9 @@ export function _showCaption(text) {
 
   let overlay = document.getElementById('browse-cc-overlay');
   if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'browse-cc-overlay';
-    container.appendChild(overlay);
+    const overlayView = new window.View('div').id('browse-cc-overlay');
+    AetherUI.append(overlayView, container);
+    overlay = overlayView.el;
   }
 
   overlay.textContent = window._ccCaptionLines.join(' ');
@@ -250,11 +250,9 @@ export function _browseRenderTabView(t, activeTab) {
   children.push(window.Text(t.title || 'New Tab').className('browse-tab-title'));
 
   // Close button
-  const closeBtn = new window.View('button');
-  closeBtn.className('browse-tab-close');
-  closeBtn.el.title = 'Close tab';
-  closeBtn.el.textContent = '\u00d7';
-  closeBtn.on('click', function(e) { e.stopPropagation(); browseCloseTab(t.id); });
+  const closeBtn = new window.View('button').className('browse-tab-close')
+    .attr('title', 'Close tab').text('\u00d7')
+    .on('click', function(e) { e.stopPropagation(); browseCloseTab(t.id); });
   children.push(closeBtn);
 
   const classes = ['browse-tab', active ? 'active' : '', hasAudio ? 'has-audio' : '', isPinned ? 'browse-tab-pinned' : '', groupColor ? 'browse-tab-grouped' : ''].filter(Boolean).join(' ');
@@ -287,11 +285,9 @@ export function _browseRenderSplitPillView(panes, tabs, activeTab) {
     // Title
     tabChildren.push(window.Text(t.title || 'New Tab').className('browse-tab-title'));
     // Close
-    const closeBtn = new window.View('button');
-    closeBtn.className('browse-tab-close');
-    closeBtn.el.title = 'Close split pane';
-    closeBtn.el.textContent = '\u00d7';
-    closeBtn.on('click', function(e) { e.stopPropagation(); browseUnsplitPane(pane.id); });
+    const closeBtn = new window.View('button').className('browse-tab-close')
+      .attr('title', 'Close split pane').text('\u00d7')
+      .on('click', function(e) { e.stopPropagation(); browseUnsplitPane(pane.id); });
     tabChildren.push(closeBtn);
 
     const paneView = window.HStack(tabChildren)

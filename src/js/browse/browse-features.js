@@ -35,22 +35,22 @@ export function _swipeCanGo(direction) {
 
 export function _swipeEnsureIndicator() {
   if (_swipeIndicator) return;
-  const el = document.createElement('div');
-  el.style.cssText = 'position:absolute;top:0;width:40px;height:100%;z-index:99;pointer-events:none;' +
-    'display:flex;align-items:center;justify-content:center;opacity:0;' +
-    'transition:opacity 0.2s ease-out;';
-  const pill = document.createElement('div');
-  pill.style.cssText = 'width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;' +
-    'background:var(--nr-accent);border:1px solid var(--nr-accent-hover);' +
-    'backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);' +
-    'box-shadow:0 2px 8px var(--nr-shadow-card);' +
-    'transform:scale(0.6);transition:transform 0.2s ease-out;';
-  AetherUI.mount(window.RawHTML('<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--nr-text-inverse)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 3 5 8 10 13"/></svg>'), pill);
-  el.appendChild(pill);
+  const pillView = new window.View('div')
+    .cssText('width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;' +
+      'background:var(--nr-accent);border:1px solid var(--nr-accent-hover);' +
+      'backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);' +
+      'box-shadow:0 2px 8px var(--nr-shadow-card);' +
+      'transform:scale(0.6);transition:transform 0.2s ease-out;')
+    .add(window.RawHTML('<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--nr-text-inverse)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="10 3 5 8 10 13"/></svg>'));
+  const elView = new window.View('div')
+    .cssText('position:absolute;top:0;width:40px;height:100%;z-index:99;pointer-events:none;' +
+      'display:flex;align-items:center;justify-content:center;opacity:0;' +
+      'transition:opacity 0.2s ease-out;')
+    .add(pillView);
   const container = document.getElementById('browse-content');
-  if (container) container.appendChild(el);
-  _swipeIndicator = el;
-  _swipeChevronPill = pill;
+  if (container) AetherUI.append(elView, container);
+  _swipeIndicator = elView.el;
+  _swipeChevronPill = pillView.el;
 }
 
 export function _swipeCommit(direction) {
@@ -120,47 +120,26 @@ export function _browseToggleFindBar() {
   if (!browseView) return;
 
   // Create the find bar
-  const findInput = new window.View('input');
-  findInput.el.type = 'text';
-  findInput.el.id = 'browse-find-input';
-  findInput.className('browse-find-input');
-  findInput.el.placeholder = 'Find\u2026';
-  findInput.el.autocomplete = 'off';
-  findInput.el.spellcheck = false;
+  const findInput = new window.View('input').id('browse-find-input').className('browse-find-input')
+    .attr('type', 'text').attr('placeholder', 'Find\u2026').attr('autocomplete', 'off').attr('spellcheck', false);
 
-  const countSpan = new window.View('span');
-  countSpan.el.id = 'browse-find-count';
-  countSpan.className('browse-find-count');
+  const countSpan = new window.View('span').id('browse-find-count').className('browse-find-count');
 
-  const prevBtn = new window.View('button');
-  prevBtn.className('browse-find-btn');
-  prevBtn.el.id = 'browse-find-prev';
-  prevBtn.el.title = 'Previous';
-  AetherUI.mount(window.RawHTML(icon('chevronUp', {size: 12, strokeWidth: '2.5'})), prevBtn.el);
+  const prevBtn = new window.View('button').className('browse-find-btn').id('browse-find-prev').attr('title', 'Previous')
+    .add(window.RawHTML(icon('chevronUp', {size: 12, strokeWidth: '2.5'})));
 
-  const nextBtn = new window.View('button');
-  nextBtn.className('browse-find-btn');
-  nextBtn.el.id = 'browse-find-next';
-  nextBtn.el.title = 'Next';
-  AetherUI.mount(window.RawHTML(icon('chevronDown', {size: 12, strokeWidth: '2.5'})), nextBtn.el);
+  const nextBtn = new window.View('button').className('browse-find-btn').id('browse-find-next').attr('title', 'Next')
+    .add(window.RawHTML(icon('chevronDown', {size: 12, strokeWidth: '2.5'})));
 
-  const closeBtn = new window.View('button');
-  closeBtn.className('browse-find-btn');
-  closeBtn.el.id = 'browse-find-close';
-  closeBtn.el.title = 'Close';
-  closeBtn.el.textContent = '\u00d7';
+  const closeBtn = new window.View('button').className('browse-find-btn').id('browse-find-close').attr('title', 'Close')
+    .text('\u00d7');
 
   const barView = window.HStack([findInput, countSpan, prevBtn, nextBtn, closeBtn])
     .id('browse-find-bar').className('browse-find-bar');
-  const bar = barView.build();
 
   // Insert into browse-content so it floats over the page
   const content = document.getElementById('browse-content');
-  if (content) {
-    content.appendChild(bar);
-  } else {
-    browseView.appendChild(bar);
-  }
+  AetherUI.append(barView, content || browseView);
 
   const input = document.getElementById('browse-find-input');
   const countEl = document.getElementById('browse-find-count');
@@ -495,12 +474,12 @@ export function _browseRemoveKeyGuard() {
 export function _browseInstallPinchOverlay() {
   const container = document.getElementById('browse-content');
   if (!container || container.querySelector('.browse-pinch-overlay')) return;
-  const overlay = document.createElement('div');
-  overlay.className = 'browse-pinch-overlay';
-  // Default pointer-events:none so clicks pass through to webview natively.
-  // Only activate (pointer-events:auto) when zoomed in for pan scrolling.
-  overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none;';
-  container.appendChild(overlay);
+  const overlayView = new window.View('div').className('browse-pinch-overlay')
+    // Default pointer-events:none so clicks pass through to webview natively.
+    // Only activate (pointer-events:auto) when zoomed in for pan scrolling.
+    .cssText('position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none;');
+  AetherUI.append(overlayView, container);
+  const overlay = overlayView.el;
 
   function _pinchOverlaySync() {
     overlay.style.pointerEvents = _browseZoomLevel > 1 ? 'auto' : 'none';
@@ -609,10 +588,10 @@ export function browseShare() {
       if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
       const btn = document.querySelector('#browse-bar button[onclick="browseShare()"]');
       if (btn) {
-        const origNodes = Array.from(btn.childNodes).map(function(n) { return n.cloneNode(true); });
+        const origHtml = btn.innerHTML;
         AetherUI.mount(window.RawHTML(icon('check', {size: 20, strokeWidth: '1.5'})), btn);
         btn.classList.add('text-primary');
-        setTimeout(function() { btn.textContent = ''; origNodes.forEach(function(n) { btn.appendChild(n); }); btn.classList.remove('text-primary'); }, 1500);
+        setTimeout(function() { btn.innerHTML = origHtml; btn.classList.remove('text-primary'); }, 1500);
       }
     });
   }

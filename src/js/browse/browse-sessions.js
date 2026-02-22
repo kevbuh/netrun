@@ -46,18 +46,16 @@ export function _renderTabStateDropdown() {
   const canSave = openTabs.length > 0;
 
   // Save row
-  const nameInput = new window.View('input');
-  nameInput.el.type = 'text';
-  nameInput.el.id = 'tab-session-name-input';
-  nameInput.el.placeholder = 'Session name\u2026';
-  nameInput.cssText('flex:1;min-width:0;padding:5px 8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:0.78rem;border-radius:6px;outline:none;');
-  nameInput.on('keydown', function(e) { if (e.key === 'Enter') confirmSaveTabSession(); });
-  if (!canSave) nameInput.el.disabled = true;
+  const nameInput = new window.View('input').id('tab-session-name-input')
+    .attr('type', 'text').attr('placeholder', 'Session name\u2026')
+    .cssText('flex:1;min-width:0;padding:5px 8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:0.78rem;border-radius:6px;outline:none;')
+    .on('keydown', function(e) { if (e.key === 'Enter') confirmSaveTabSession(); });
+  if (!canSave) nameInput.attr('disabled', true);
 
   const saveBtn = new window.View('button');
   saveBtn.text('Save ' + openTabs.length + ' tab' + (openTabs.length !== 1 ? 's' : ''));
   saveBtn.cssText('padding:5px 10px;border:none;background:' + (canSave ? 'var(--nr-accent)' : 'var(--nr-bg-raised)') + ';color:' + (canSave ? '#fff' : 'var(--nr-text-quaternary)') + ';font-size:0.78rem;border-radius:6px;cursor:' + (canSave ? 'pointer' : 'default') + ';white-space:nowrap;');
-  if (!canSave) saveBtn.el.disabled = true;
+  if (!canSave) saveBtn.attr('disabled', true);
   saveBtn.onTap(function() { confirmSaveTabSession(); });
 
   const saveRow = window.HStack([nameInput, saveBtn]).spacing(1).alignment('center').id('tab-session-save-row');
@@ -86,8 +84,8 @@ export function _renderTabStateDropdown() {
       var delBtn = window.Text('\u00d7').foreground('quaternary')
         .styles({ border: 'none', background: 'none', padding: '2px', fontSize: '0.9rem', lineHeight: '1', flexShrink: '0' }).cursor()
         .onHover(function() { delBtn.el.style.color = 'var(--nr-text-primary)'; }, function() { delBtn.el.style.color = 'var(--nr-text-quaternary)'; })
+        .attr('title', 'Delete session')
         .onTap(function(e) { e.stopPropagation(); deleteTabSession(i); });
-      delBtn.el.title = 'Delete session';
 
       var row = window.HStack([infoBtn, delBtn]).spacing(2).alignment('center').className('tab-session-row')
         .padding('6px', '12px').cursor().transition(['background'], '0.1s')
@@ -217,21 +215,18 @@ export function _renderToolbarSessions() {
     '</button>');
 
   // Save current button
-  const saveCurrentBtn = new window.View('button');
-  saveCurrentBtn.el.className = 'browse-save-session-btn';
-  saveCurrentBtn.add(window.RawHTML(icon('plus', {size: 14})));
-  saveCurrentBtn.el.appendChild(document.createTextNode(' Save current'));
-  if (!canSave) saveCurrentBtn.el.disabled = true;
+  const saveCurrentBtn = new window.View('button').className('browse-save-session-btn')
+    .add(window.RawHTML(icon('plus', {size: 14})), window.Text(' Save current'));
+  if (!canSave) saveCurrentBtn.attr('disabled', true);
   saveCurrentBtn.onTap(function() { _promptSaveSessionFromOverview(); });
 
-  const header = new window.View('div');
-  header.el.className = 'browse-sessions-menu-header';
-  header.add(saveCurrentBtn);
+  const header = new window.View('div').className('browse-sessions-menu-header')
+    .add(saveCurrentBtn);
 
   // Session list items
   const listChildren = [];
   if (sessions.length === 0) {
-    listChildren.push(new window.View('div').className('browse-sessions-empty')._bindText('No saved sessions'));
+    listChildren.push(window.Text('No saved sessions').className('browse-sessions-empty'));
   } else {
     sessions.forEach(function(s, i) {
       const count = s.tabs ? s.tabs.length : (s.windows ? s.windows.reduce(function(n, w) { return n + w.tabs.length; }, 0) : 0);
@@ -239,24 +234,16 @@ export function _renderToolbarSessions() {
       const date = new Date(s.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       const subtitle = winCount > 1 ? winCount + ' win \u00b7 ' + count + ' tabs' : count + ' tab' + (count !== 1 ? 's' : '');
 
-      const infoBtn = new window.View('button');
-      infoBtn.el.className = 'browse-session-info';
-      infoBtn.el.title = 'Replace current tabs';
-      infoBtn.add(window.Text(s.name).className('browse-session-name'));
-      infoBtn.add(window.Text(subtitle + ' \u00b7 ' + date).className('browse-session-meta'));
-      infoBtn.onTap(function() { _loadSessionFromOverview(i); });
+      const infoBtn = new window.View('button').className('browse-session-info').attr('title', 'Replace current tabs')
+        .add(window.Text(s.name).className('browse-session-name'),
+             window.Text(subtitle + ' \u00b7 ' + date).className('browse-session-meta'))
+        .onTap(function() { _loadSessionFromOverview(i); });
 
-      const addBtn = new window.View('button');
-      addBtn.el.className = 'browse-session-add';
-      addBtn.el.title = 'Add to existing';
-      addBtn.text('+');
-      addBtn.onTap(function() { _loadSessionFromOverview(i, true); });
+      const addBtn = new window.View('button').className('browse-session-add').attr('title', 'Add to existing')
+        .text('+').onTap(function() { _loadSessionFromOverview(i, true); });
 
-      const delBtn = new window.View('button');
-      delBtn.el.className = 'browse-session-delete';
-      delBtn.el.title = 'Delete';
-      delBtn.text('\u00d7');
-      delBtn.onTap(function() { deleteTabSession(i); });
+      const delBtn = new window.View('button').className('browse-session-delete').attr('title', 'Delete')
+        .text('\u00d7').onTap(function() { deleteTabSession(i); });
 
       const item = window.HStack([infoBtn, addBtn, delBtn]).className('browse-session-item');
       listChildren.push(item);
@@ -282,44 +269,33 @@ export function _promptSaveSessionFromOverview() {
   if (sessionsList.querySelector('.browse-session-input-row')) return;
 
   // Create input row at top
-  const inputView = new window.View('input');
-  inputView.el.type = 'text';
-  inputView.el.placeholder = 'Session name...';
-  inputView.el.autofocus = true;
-
-  const confirmBtnView = new window.View('button');
-  confirmBtnView.el.className = 'save-confirm';
-  confirmBtnView.text('Save');
-
-  const cancelBtnView = new window.View('button');
-  cancelBtnView.el.className = 'save-cancel';
-  cancelBtnView.text('\u00d7');
-
-  const inputRow = window.HStack([inputView, confirmBtnView, cancelBtnView]).className('browse-session-input-row').build();
-  sessionsList.insertBefore(inputRow, sessionsList.firstChild);
-
-  const input = inputRow.querySelector('input');
-  const confirmBtn = inputRow.querySelector('.save-confirm');
-  const cancelBtn = inputRow.querySelector('.save-cancel');
-
-  input.focus();
+  const inputView = new window.View('input').attr('type', 'text').attr('placeholder', 'Session name...').attr('autofocus', true);
 
   const doSave = () => {
-    const name = input.value.trim();
-    if (!name) { input.focus(); return; }
+    const name = inputView.el.value.trim();
+    if (!name) { inputView.el.focus(); return; }
     saveAllWindowsAsSession(name);
     _renderToolbarSessions();
   };
 
-  const doCancel = () => inputRow.remove();
+  const doCancel = () => inputRowEl.remove();
 
-  confirmBtn.onclick = (e) => { e.stopPropagation(); doSave(); };
-  cancelBtn.onclick = (e) => { e.stopPropagation(); doCancel(); };
-  input.onkeydown = (e) => {
+  const confirmBtnView = new window.View('button').className('save-confirm').text('Save')
+    .onTap(function(e) { e.stopPropagation(); doSave(); });
+
+  const cancelBtnView = new window.View('button').className('save-cancel').text('\u00d7')
+    .onTap(function(e) { e.stopPropagation(); doCancel(); });
+
+  inputView.on('keydown', function(e) {
     e.stopPropagation();
     if (e.key === 'Enter') doSave();
     if (e.key === 'Escape') doCancel();
-  };
+  });
+
+  const inputRowEl = window.HStack([inputView, confirmBtnView, cancelBtnView]).className('browse-session-input-row').build();
+  sessionsList.insertBefore(inputRowEl, sessionsList.firstChild);
+
+  inputView.el.focus();
 }
 
 // Save a single window as a session - show inline input

@@ -14,6 +14,44 @@ import { openPaper } from '/js/panel.js';
 import { petReact } from '/js/pixel-pet.js';
 import { logger } from '/js/logger.js';
 
+// ── Feed Server ──
+const _FEED_SERVER = 'http://localhost:8400';
+
+async function _feedFetch(path) {
+  const resp = await fetch(_FEED_SERVER + path, { signal: AbortSignal.timeout(5000) });
+  if (!resp.ok) throw new Error(resp.status);
+  return resp.json();
+}
+
+function _feedPost(path, body) {
+  fetch(_FEED_SERVER + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(5000)
+  }).catch(() => {});
+}
+
+function _feedDelete(path, body) {
+  fetch(_FEED_SERVER + path, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(5000)
+  }).catch(() => {});
+}
+
+function _setFeedServerStatus(online) {
+  const wrap = document.getElementById('feed-server-status');
+  const dot = document.getElementById('feed-server-dot');
+  const label = document.getElementById('feed-server-label');
+  if (!wrap || !dot || !label) return;
+  wrap.style.display = 'flex';
+  dot.style.background = online ? '#22c55e' : '#ef4444';
+  label.textContent = online ? 'Server' : 'IPC';
+  wrap.title = online ? 'Feed server online \u2014 localhost:8400' : 'Feed server offline \u2014 using IPC fallback';
+}
+
 // ── Auto-refresh timer ──
 export let _refreshTimer = null;
 export let _refreshSecondsLeft = 300;
@@ -296,6 +334,7 @@ export function resetPersonalization() {
 export function markPostAsRead(link) {
   const read = getReadPosts();
   if (!read.includes(link)) { read.push(link); setLS('readPosts', read); }
+  _feedPost('/api/read', { link });
   // Capture read article into living context
   if (typeof contextIngest === 'function') {
     const paper = allPapers.find(function(p) { return p.link === link; });
@@ -333,6 +372,7 @@ export function hidePost(link, title, event) {
   const hidden = getHiddenPosts();
   if (!hidden.includes(link)) hidden.push(link);
   setLS('hiddenPosts', hidden);
+  _feedPost('/api/hide', { link });
   if (title) addTestTitle(title);
   if (!Settings.get('ach_curator')) {
     Settings.set('ach_curator', '1');
@@ -447,8 +487,10 @@ export function toggleSavePost(paper, event) {
   const wasAdding = !saved[paper.link];
   if (saved[paper.link]) {
     delete saved[paper.link];
+    _feedDelete('/api/save', { link: paper.link });
   } else {
     saved[paper.link] = { paper, savedAt: Date.now(), read: false };
+    _feedPost('/api/save', { link: paper.link });
     if (typeof petReact === 'function') petReact('happy');
   }
   savePosts(saved);
@@ -474,23 +516,22 @@ export function _showBookmarkFly(event) {
   // Flying bookmark icon from click position to pill island
   const target = document.getElementById('pill-island') || document.getElementById('sb-home');
   if (target) {
-    const iconEl = document.createElement('div');
-    iconEl.innerHTML = window.icon('bookmark', {size: 24, fill: 'var(--nr-accent)', stroke: 'var(--nr-accent)'});
-    iconEl.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;transition:all 0.5s cubic-bezier(0.4,0,0.2,1);';
+    const iconView = window.RawHTML(window.icon('bookmark', {size: 24, fill: 'var(--nr-accent)', stroke: 'var(--nr-accent)'}))
+      .cssText('position:fixed;z-index:9999;pointer-events:none;transition:all 0.5s cubic-bezier(0.4,0,0.2,1);');
     const startX = event.clientX - 12;
     const startY = event.clientY - 12;
-    iconEl.style.left = startX + 'px';
-    iconEl.style.top = startY + 'px';
-    iconEl.style.opacity = '1';
-    document.body.appendChild(iconEl);
+    iconView.el.style.left = startX + 'px';
+    iconView.el.style.top = startY + 'px';
+    iconView.el.style.opacity = '1';
+    AetherUI.append(iconView, document.body);
     const tr = target.getBoundingClientRect();
     requestAnimationFrame(() => {
-      iconEl.style.left = (tr.left + tr.width / 2 - 8) + 'px';
-      iconEl.style.top = (tr.top + tr.height / 2 - 8) + 'px';
-      iconEl.style.opacity = '0';
-      iconEl.style.transform = 'scale(0.3)';
+      iconView.el.style.left = (tr.left + tr.width / 2 - 8) + 'px';
+      iconView.el.style.top = (tr.top + tr.height / 2 - 8) + 'px';
+      iconView.el.style.opacity = '0';
+      iconView.el.style.transform = 'scale(0.3)';
     });
-    setTimeout(() => iconEl.remove(), 550);
+    setTimeout(() => iconView.el.remove(), 550);
   }
 }
 
@@ -1115,67 +1156,84 @@ export async function loadAllFeeds() {
     AetherUI.mount(window.RawHTML('<div style="column-span:all" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>'), container);
   }
 
-  // Build list of enabled catalog entries with metadata for on-demand fetching
-  const enabledEntries = FEED_CATALOG.filter(f => sources[f.key]).map(f => ({ key: f.key, url: f.url || null, special: f.special || null }));
-  const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
-  const MAX_PER_SOURCE = 100;
-
-  // Fire one call per catalog source for incremental rendering
-  const sourcePromises = enabledEntries.map(entry =>
-    apiPost('/api/feed-items/catalog', { entries: [entry], limit: MAX_PER_SOURCE })
-      .catch(() => [])
-  );
-
-  // Custom feeds as a single additional call
-  const customPromise = customFeeds.length > 0
-    ? apiPost('/api/feed-items/custom', { feeds: customFeeds.map(f => ({ url: f.url, name: f.name })) }).catch(() => [])
-    : Promise.resolve([]);
-
-  // Track progress for island notification
-  let loadedCount = 0;
-  const totalSources = sourcePromises.length + (customFeeds.length > 0 ? 1 : 0);
-
-  // Append results and re-render as each source resolves
-  sourcePromises.forEach(p => p.then(items => {
-    if (abort.signal.aborted) return;
-    if (items.length) {
-      allPapers = allPapers.concat(items);
-      renderPapers();
-    }
-    loadedCount++;
-    if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Loading feeds', detail: loadedCount + '/' + totalSources + ' sources' });
-  }));
-
-  customPromise.then(items => {
-    if (abort.signal.aborted) return;
-    if (items.length) {
-      allPapers = allPapers.concat(items);
-      renderPapers();
-    }
-    loadedCount++;
-    if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Loading feeds', detail: loadedCount + '/' + totalSources + ' sources' });
-  });
-
+  // Try Go feed server first (single bulk call), fall back to per-source IPC
+  let usedServer = false;
   try {
-    await Promise.all([...sourcePromises, customPromise]);
+    const result = await _feedFetch('/api/timeline?sort=latest&limit=2000');
     if (abort.signal.aborted) return;
-
-    renderTrends();
-    if (typeof computeInterestProfile === 'function') computeInterestProfile();
-    renderPapers();
-    if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Feeds loaded', detail: 'Feed refresh complete', done: true });
-    if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
-    _detectNewPosts();
-    startRefreshTimer();
-  } catch (e) {
-    if (abort.signal.aborted) return;
-    if (typeof islandRemove === 'function') islandRemove('feed');
-    // Fallback: show error
-    AetherUI.mount(window.VStack(
-      window.Text('Failed to load feed: ' + e.message).foreground('red'),
-      window.Text('Try refreshing or check your connection.').className('mt-2 text-[0.85rem] text-muted')
-    ).className('text-center py-20 text-red-400'), container);
+    if (result && result.items) {
+      allPapers = result.items;
+      usedServer = true;
+      _setFeedServerStatus(true);
+      renderPapers();
+      if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Loading feeds', detail: 'Feed server OK' });
+      // Trigger background refresh so next load has fresher data
+      _feedPost('/api/refresh', {});
+    }
+  } catch (_) {
+    // Feed server unavailable — fall back to IPC
   }
+
+  if (!usedServer) {
+    _setFeedServerStatus(false);
+    // Fallback: per-source IPC calls (existing path)
+    const enabledEntries = FEED_CATALOG.filter(f => sources[f.key]).map(f => ({ key: f.key, url: f.url || null, special: f.special || null }));
+    const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
+    const MAX_PER_SOURCE = 100;
+
+    const sourcePromises = enabledEntries.map(entry =>
+      apiPost('/api/feed-items/catalog', { entries: [entry], limit: MAX_PER_SOURCE })
+        .catch(() => [])
+    );
+
+    const customPromise = customFeeds.length > 0
+      ? apiPost('/api/feed-items/custom', { feeds: customFeeds.map(f => ({ url: f.url, name: f.name })) }).catch(() => [])
+      : Promise.resolve([]);
+
+    let loadedCount = 0;
+    const totalSources = sourcePromises.length + (customFeeds.length > 0 ? 1 : 0);
+
+    sourcePromises.forEach(p => p.then(items => {
+      if (abort.signal.aborted) return;
+      if (items.length) {
+        allPapers = allPapers.concat(items);
+        renderPapers();
+      }
+      loadedCount++;
+      if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Loading feeds', detail: loadedCount + '/' + totalSources + ' sources' });
+    }));
+
+    customPromise.then(items => {
+      if (abort.signal.aborted) return;
+      if (items.length) {
+        allPapers = allPapers.concat(items);
+        renderPapers();
+      }
+      loadedCount++;
+      if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Loading feeds', detail: loadedCount + '/' + totalSources + ' sources' });
+    });
+
+    try {
+      await Promise.all([...sourcePromises, customPromise]);
+    } catch (e) {
+      if (abort.signal.aborted) return;
+      if (typeof islandRemove === 'function') islandRemove('feed');
+      AetherUI.mount(window.VStack(
+        window.Text('Failed to load feed: ' + e.message).foreground('red'),
+        window.Text('Try refreshing or check your connection.').className('mt-2 text-[0.85rem] text-muted')
+      ).className('text-center py-20 text-red-400'), container);
+      return;
+    }
+  }
+
+  if (abort.signal.aborted) return;
+  renderTrends();
+  if (typeof computeInterestProfile === 'function') computeInterestProfile();
+  renderPapers();
+  if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Feeds loaded', detail: 'Feed refresh complete', done: true });
+  if (typeof _updateNowPlayingContext === 'function') _updateNowPlayingContext();
+  _detectNewPosts();
+  startRefreshTimer();
 }
 
 export function extractArxivId(link) {

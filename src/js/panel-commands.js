@@ -266,19 +266,15 @@ export function _aetherRenderCmdDropdown(popup, query) {
     else popup.appendChild(dropdown);
   }
   window._aetherCmdIdx = Math.min(window._aetherCmdIdx, matches.length - 1);
-  dropdown.innerHTML = '';
-  matches.forEach(function(c, i) {
-    const row = new window.View('div').className('aether-cmd-item' + (i === window._aetherCmdIdx ? ' selected' : ''));
-    row.el.dataset.idx = String(i);
-    const nameSpan = new window.View('span').className('aether-cmd-name');
-    nameSpan.el.textContent = '/' + c.name;
-    const descSpan = new window.View('span').className('aether-cmd-desc');
-    descSpan.el.textContent = c.desc;
-    row.el.appendChild(nameSpan.el);
-    row.el.appendChild(descSpan.el);
+  const rows = matches.map(function(c, i) {
+    const nameSpan = window.Text('/' + c.name).className('aether-cmd-name');
+    const descSpan = window.Text(c.desc).className('aether-cmd-desc');
+    const row = new window.View('div').className('aether-cmd-item' + (i === window._aetherCmdIdx ? ' selected' : ''))
+      .attr('data-idx', String(i))
+      .add(nameSpan, descSpan);
     // Click to execute or fill
     (function(cmd) {
-      row.el.addEventListener('click', function(ev) {
+      row.on('click', function(ev) {
         ev.stopPropagation(); ev.preventDefault();
         if (!cmd) return;
         if (cmd.hasArgs) {
@@ -302,8 +298,9 @@ export function _aetherRenderCmdDropdown(popup, query) {
         }
       });
     })(c);
-    dropdown.appendChild(row.el);
+    return row;
   });
+  AetherUI.mount(window.VStack(rows), dropdown);
   _repositionSelectionPopup();
 }
 
@@ -356,11 +353,9 @@ export function _aetherRenderHistoryDropdown(popup, query) {
       if (askWrap) popup.insertBefore(dropdown, askWrap);
       else popup.appendChild(dropdown);
     }
-    const emptyMsg = new window.View('div');
-    emptyMsg.cssText('padding:10px 12px;font-size:0.8rem;color:var(--nr-text-secondary);text-align:center');
-    emptyMsg.el.textContent = 'No history found';
-    dropdown.innerHTML = '';
-    dropdown.appendChild(emptyMsg.el);
+    const emptyMsg = window.Text('No history found')
+      .cssText('padding:10px 12px;font-size:0.8rem;color:var(--nr-text-secondary);text-align:center');
+    AetherUI.mount(emptyMsg, dropdown);
     _repositionSelectionPopup();
     return;
   }
@@ -375,58 +370,42 @@ export function _aetherRenderHistoryDropdown(popup, query) {
   }
   if (window._aetherHistoryIdx >= window._aetherHistoryList.length) window._aetherHistoryIdx = window._aetherHistoryList.length - 1;
 
-  dropdown.innerHTML = '';
   const fullSelected = window._aetherHistoryIdx === -1;
-  const fullRow = new window.View('div').className('aether-note-item aether-history-full' + (fullSelected ? ' selected' : ''));
-  fullRow.el.dataset.idx = '-1';
-  fullRow.cssText('padding:6px 10px;font-size:0.75rem;border-bottom:none');
-  fullRow.el.textContent = 'See full history';
-  fullRow.el.addEventListener('click', function(ev) {
-    ev.stopPropagation(); ev.preventDefault();
-    _aetherHideHistoryDropdown(popup);
-    popup.remove();
-    window._aetherTrackMode = false;
-    if (typeof openSearchHistoryPage === 'function') openSearchHistoryPage();
-  });
-  dropdown.appendChild(fullRow.el);
+  const fullRow = window.Text('See full history').className('aether-note-item aether-history-full' + (fullSelected ? ' selected' : ''))
+    .attr('data-idx', '-1')
+    .cssText('padding:6px 10px;font-size:0.75rem;border-bottom:none')
+    .on('click', function(ev) {
+      ev.stopPropagation(); ev.preventDefault();
+      _aetherHideHistoryDropdown(popup);
+      popup.remove();
+      window._aetherTrackMode = false;
+      if (typeof openSearchHistoryPage === 'function') openSearchHistoryPage();
+    });
 
-  window._aetherHistoryList.forEach(function(h, i) {
+  const historyRows = window._aetherHistoryList.map(function(h, i) {
     let domain = '';
     try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
     const favicon = typeof _browseFaviconUrl === 'function' ? _browseFaviconUrl(h.url) : '';
     const time = typeof _relativeTime === 'function' ? _relativeTime(h.ts) : '';
 
-    const favImg = new window.View('img');
-    favImg.el.src = favicon;
-    favImg.cssText('width:14px;height:14px;flex-shrink:0;border-radius:2px');
-    favImg.el.onerror = function() { this.style.display = 'none'; };
+    const favImg = new window.View('img').attr('src', favicon)
+      .cssText('width:14px;height:14px;flex-shrink:0;border-radius:2px')
+      .on('error', function() { this.style.display = 'none'; });
 
-    const titleDiv = new window.View('div');
-    titleDiv.cssText('font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap');
-    titleDiv.el.textContent = h.title || domain;
+    const infoDiv = new window.View('div').cssText('flex:1;min-width:0;overflow:hidden').add(
+      window.Text(h.title || domain).cssText('font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'),
+      window.Text(domain).cssText('font-size:0.68rem;color:var(--nr-text-quaternary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap')
+    );
 
-    const domainDiv = new window.View('div');
-    domainDiv.cssText('font-size:0.68rem;color:var(--nr-text-quaternary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap');
-    domainDiv.el.textContent = domain;
+    const timeSpan = window.Text(time).cssText('font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0');
 
-    const infoDiv = new window.View('div');
-    infoDiv.cssText('flex:1;min-width:0;overflow:hidden');
-    infoDiv.el.appendChild(titleDiv.el);
-    infoDiv.el.appendChild(domainDiv.el);
-
-    const timeSpan = new window.View('span');
-    timeSpan.cssText('font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0');
-    timeSpan.el.textContent = time;
-
-    const row = new window.View('div').className('aether-note-item' + (i === window._aetherHistoryIdx ? ' selected' : ''));
-    row.el.dataset.idx = String(i);
-    row.cssText('display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:none');
-    row.el.appendChild(favImg.el);
-    row.el.appendChild(infoDiv.el);
-    row.el.appendChild(timeSpan.el);
+    const row = new window.View('div').className('aether-note-item' + (i === window._aetherHistoryIdx ? ' selected' : ''))
+      .attr('data-idx', String(i))
+      .cssText('display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:none')
+      .add(favImg, infoDiv, timeSpan);
 
     (function(entry) {
-      row.el.addEventListener('click', function(ev) {
+      row.on('click', function(ev) {
         ev.stopPropagation(); ev.preventDefault();
         if (!entry) return;
         _aetherHideHistoryDropdown(popup);
@@ -435,8 +414,10 @@ export function _aetherRenderHistoryDropdown(popup, query) {
         if (typeof browseNavigate === 'function') browseNavigate(entry.url);
       });
     })(h);
-    dropdown.appendChild(row.el);
+    return row;
   });
+
+  AetherUI.mount(window.VStack([fullRow].concat(historyRows)), dropdown);
   _repositionSelectionPopup();
 }
 
@@ -556,25 +537,18 @@ export function _aetherRenderModelDropdown(popup) {
     else popup.appendChild(dropdown);
   }
   const currentModel = Settings.get('chatModel') || '';
-  dropdown.innerHTML = '';
-  window._aetherModelList.forEach(function(m, i) {
+  const modelRows = window._aetherModelList.map(function(m, i) {
     const active = m === currentModel;
-    const row = new window.View('div').className('aether-note-item' + (i === window._aetherModelIdx ? ' selected' : ''));
-    row.el.dataset.idx = String(i);
-
-    const nameSpan = new window.View('span').className('aether-note-item-title');
-    nameSpan.el.textContent = m;
-    row.el.appendChild(nameSpan.el);
+    const row = new window.View('div').className('aether-note-item' + (i === window._aetherModelIdx ? ' selected' : ''))
+      .attr('data-idx', String(i))
+      .add(window.Text(m).className('aether-note-item-title'));
 
     if (active) {
-      const curSpan = new window.View('span').className('aether-note-item-tags');
-      /* styled via .aether-note-item-tags CSS */
-      curSpan.el.textContent = 'current';
-      row.el.appendChild(curSpan.el);
+      row.add(window.Text('current').className('aether-note-item-tags'));
     }
 
     (function(model, idx) {
-      row.el.addEventListener('click', function(ev) {
+      row.on('click', function(ev) {
         ev.stopPropagation(); ev.preventDefault();
         if (model) {
           window._aetherModelIdx = idx;
@@ -591,8 +565,9 @@ export function _aetherRenderModelDropdown(popup) {
         }
       });
     })(m, i);
-    dropdown.appendChild(row.el);
+    return row;
   });
+  AetherUI.mount(window.VStack(modelRows), dropdown);
   _repositionSelectionPopup();
 }
 
@@ -658,29 +633,21 @@ export function _aetherRenderAgentDropdown(popup) {
     else popup.appendChild(dropdown);
   }
   const currentAgent = Settings.get('chatAgent') || 'research-assistant';
-  dropdown.innerHTML = '';
-  window._aetherAgentList.forEach(function(a, i) {
+  const agentRows = window._aetherAgentList.map(function(a, i) {
     const active = a.id === currentAgent;
-    const row = new window.View('div').className('aether-note-item' + (i === window._aetherAgentIdx ? ' selected' : ''));
-    row.el.dataset.idx = String(i);
-
-    const nameDiv = new window.View('div').className('aether-note-item-title');
-    nameDiv.el.textContent = a.name;
-    row.el.appendChild(nameDiv.el);
-
-    const descDiv = new window.View('div').className('aether-note-item-snippet');
-    descDiv.el.textContent = a.description;
-    row.el.appendChild(descDiv.el);
+    const row = new window.View('div').className('aether-note-item' + (i === window._aetherAgentIdx ? ' selected' : ''))
+      .attr('data-idx', String(i))
+      .add(
+        window.Text(a.name).className('aether-note-item-title'),
+        window.Text(a.description).className('aether-note-item-snippet')
+      );
 
     if (active) {
-      const curSpan = new window.View('span').className('aether-note-item-tags');
-      /* styled via .aether-note-item-tags CSS */
-      curSpan.el.textContent = 'current';
-      row.el.appendChild(curSpan.el);
+      row.add(window.Text('current').className('aether-note-item-tags'));
     }
 
     (function(agent, idx) {
-      row.el.addEventListener('click', function(ev) {
+      row.on('click', function(ev) {
         ev.stopPropagation(); ev.preventDefault();
         if (agent) {
           window._aetherAgentIdx = idx;
@@ -693,8 +660,9 @@ export function _aetherRenderAgentDropdown(popup) {
         }
       });
     })(a, i);
-    dropdown.appendChild(row.el);
+    return row;
   });
+  AetherUI.mount(window.VStack(agentRows), dropdown);
   _repositionSelectionPopup();
 }
 
@@ -846,47 +814,38 @@ export function _renderTabDropdown(popup) {
   }
   window._aetherTabIdx = Math.min(window._aetherTabIdx, window._aetherTabList.length - 1);
   const activeTabId = window._aetherTabSwitchMode && typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : null;
-  dropdown.innerHTML = '';
-  window._aetherTabList.forEach(function(tab, i) {
+  const tabRows = window._aetherTabList.map(function(tab, i) {
     const domain = (function() { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })();
     const favUrl = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=16';
 
-    const favImg = new window.View('img').className('aether-tab-item-favicon');
-    favImg.el.src = favUrl;
-    favImg.el.onerror = function() { this.style.display = 'none'; };
+    const favImg = new window.View('img').className('aether-tab-item-favicon')
+      .attr('src', favUrl)
+      .on('error', function() { this.style.display = 'none'; });
 
-    const tabTitle = new window.View('div').className('aether-tab-item-title');
-    tabTitle.el.textContent = tab.title || 'Untitled';
+    const infoDiv = new window.View('div').className('aether-tab-item-info').add(
+      window.Text(tab.title || 'Untitled').className('aether-tab-item-title'),
+      window.Text(domain).className('aether-tab-item-url')
+    );
 
-    const tabUrl = new window.View('div').className('aether-tab-item-url');
-    tabUrl.el.textContent = domain;
-
-    const infoDiv = new window.View('div').className('aether-tab-item-info');
-    infoDiv.el.appendChild(tabTitle.el);
-    infoDiv.el.appendChild(tabUrl.el);
-
-    const row = new window.View('div').className('aether-tab-item' + (i === window._aetherTabIdx ? ' selected' : ''));
-    row.el.dataset.idx = String(i);
-    row.el.appendChild(favImg.el);
-    row.el.appendChild(infoDiv.el);
+    const row = new window.View('div').className('aether-tab-item' + (i === window._aetherTabIdx ? ' selected' : ''))
+      .attr('data-idx', String(i))
+      .add(favImg, infoDiv);
 
     if (activeTabId != null && tab.id === activeTabId) {
-      const curSpan = new window.View('span');
-      curSpan.cssText('opacity:0.4;font-size:10px;margin-left:auto;flex-shrink:0');
-      curSpan.el.textContent = 'current';
-      row.el.appendChild(curSpan.el);
+      row.add(window.Text('current').cssText('opacity:0.4;font-size:10px;margin-left:auto;flex-shrink:0'));
     }
 
     (function(idx) {
-      row.el.addEventListener('click', function(ev) {
+      row.on('click', function(ev) {
         ev.stopPropagation(); ev.preventDefault();
         window._aetherTabIdx = idx;
         if (window._aetherTabSwitchMode) _aetherSwitchToTab(popup);
         else _aetherSelectTab(popup);
       });
     })(i);
-    dropdown.appendChild(row.el);
+    return row;
   });
+  AetherUI.mount(window.VStack(tabRows), dropdown);
   _repositionSelectionPopup();
 }
 
@@ -1048,13 +1007,13 @@ Type in the browser URL bar:
 
   const popupRect = popup.getBoundingClientRect();
 
-  const panelView = new window.View('div').id('aether-help-panel').className('aether-help-preview-panel');
-  panelView.on('mousedown', (ev) => ev.stopPropagation());
-  const panel = panelView.build();
+  const panelView = new window.View('div').id('aether-help-panel').className('aether-help-preview-panel')
+    .on('mousedown', (ev) => ev.stopPropagation());
+  const panel = panelView.el;
 
   // Title bar (reuse note editor styles)
   const titleBarView = new window.View('div').className('aether-note-editor-title-bar');
-  const titleBar = titleBarView.build();
+  const titleBar = titleBarView.el;
 
   let hDragging = false, hDragOff = { x: 0, y: 0 };
   titleBar.addEventListener('mousedown', (ev) => {
@@ -1069,21 +1028,20 @@ Type in the browser URL bar:
   document.addEventListener('mousemove', hMove);
   document.addEventListener('mouseup', hUp);
 
-  const titleSpanView = new window.View('span').className('aether-note-editor-title')._bindText('Help');
-  AetherUI.append(titleSpanView, titleBar);
+  const titleSpanView = window.Text('Help').className('aether-note-editor-title');
 
-  const closeBtnView = new window.View('button').className('aether-note-editor-close').attr('title', 'Close');
-  closeBtnView.el.textContent = '\u00d7';
-  closeBtnView.onTap((ev) => { ev.stopPropagation(); panel.remove(); document.removeEventListener('mousemove', hMove); document.removeEventListener('mouseup', hUp); });
-  AetherUI.append(closeBtnView, titleBar);
-  panel.appendChild(titleBar);
+  const closeBtnView = new window.View('button').className('aether-note-editor-close').attr('title', 'Close')
+    .text('\u00d7')
+    .onTap((ev) => { ev.stopPropagation(); panel.remove(); document.removeEventListener('mousemove', hMove); document.removeEventListener('mouseup', hUp); });
+
+  titleBarView.add(titleSpanView, closeBtnView);
 
   // Rendered markdown content
-  const contentView = new window.View('div').className('aether-help-preview-content nb-rendered-md');
-  contentView.el.innerHTML = typeof marked !== 'undefined' ? marked.parse(helpMd) : helpMd.replace(/\n/g, '<br>');
-  AetherUI.append(contentView, panel);
+  const contentView = window.RawHTML(typeof marked !== 'undefined' ? marked.parse(helpMd) : helpMd.replace(/\n/g, '<br>'))
+    .className('aether-help-preview-content nb-rendered-md');
 
-  document.body.appendChild(panel);
+  panelView.add(titleBarView, contentView);
+  AetherUI.append(panelView, document.body);
 
   // Position to the right of the aether panel
   const panelRect = panel.getBoundingClientRect();

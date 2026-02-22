@@ -21,6 +21,7 @@ export const DEV_SECTIONS = [
   { id: 'load-order', label: 'Load Order' },
   { id: 'dependency-graph', label: 'Dependency Graph' },
   { id: 'git-log', label: 'Git Log' },
+  { id: 'feed-server', label: 'Feed Server' },
   { id: 'tools', label: 'Dev Tools' }
 ];
 
@@ -181,6 +182,8 @@ export function _devNavigateTo(sectionId) {
 export function renderDevSection(sectionId) {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
+  // Clean up feed server polling when navigating away
+  if (_feedServerPoll && sectionId !== 'feed-server') { clearInterval(_feedServerPoll); _feedServerPoll = null; }
 
   const renderers = {
     'overview': _renderDevOverview,
@@ -189,6 +192,7 @@ export function renderDevSection(sectionId) {
     'load-order': _renderDevLoadOrder,
     'dependency-graph': _renderDevDependencyGraph,
     'git-log': _renderDevGitLog,
+    'feed-server': _renderDevFeedServer,
     'tools': _renderDevTools,
   };
 
@@ -398,22 +402,17 @@ export function _renderDevDependencyGraph() {
     .gap('8px').styles({marginBottom:'12px'}).wrap();
 
   // Controls Row 2 (function view)
-  const searchInput = new window.View('input');
-  searchInput.id('dev-graph-search').className('dev-input');
-  searchInput.el.type = 'text';
-  searchInput.el.placeholder = 'Search functions...';
-  searchInput.on('input', function() { _devGraphSearch(searchInput.el.value); });
-  const fileFilter = new window.View('select');
-  fileFilter.id('dev-graph-file-filter').className('dev-input');
-  fileFilter.el.innerHTML = '<option value="">All Files</option>';
+  const searchInput = new window.View('input').id('dev-graph-search').className('dev-input')
+    .attr('type', 'text').attr('placeholder', 'Search functions...')
+    .on('input', function() { _devGraphSearch(searchInput.el.value); });
+  const fileFilter = new window.View('select').id('dev-graph-file-filter').className('dev-input')
+    .add(window.RawHTML('<option value="">All Files</option>'));
   fileFilter.onChange(function() { _devGraphFilterByFile(fileFilter.el.value); });
-  const unusedCb = new window.View('input');
-  unusedCb.el.type = 'checkbox';
-  unusedCb.id('dev-graph-show-unused');
+  const unusedCb = new window.View('input').attr('type', 'checkbox').id('dev-graph-show-unused');
   unusedCb.onChange(function() { _devGraphToggleUnused(unusedCb.el.checked); });
-  const unusedLabel = window.RawHTML('<label style="display:flex;align-items:center;gap:4px;font-size:0.75rem;color:var(--nr-text-quaternary)"></label>');
-  unusedLabel.el.firstChild.appendChild(unusedCb.build());
-  unusedLabel.el.firstChild.appendChild(document.createTextNode('Show unused'));
+  const unusedLabel = new window.View('label')
+    .styles({display:'flex', alignItems:'center', gap:'4px', fontSize:'0.75rem', color:'var(--nr-text-quaternary)'})
+    .add(unusedCb, window.Text('Show unused'));
   const controlsRow2 = window.HStack(searchInput, fileFilter, unusedLabel)
     .id('dev-graph-function-controls')
     .styles({display:'none', marginBottom:'12px'}).gap('8px').wrap();
@@ -433,7 +432,7 @@ export function _renderDevDependencyGraph() {
   const graphContainer = new window.View('div');
   graphContainer.id('dev-dep-graph-container')
     .styles({background:'var(--nr-bg-surface)', border:'1px solid var(--nr-border-default)', borderRadius:'6px', padding:'16px', maxHeight:'600px', overflowY:'auto', fontFamily:'monospace', fontSize:'12px', lineHeight:'1.6'});
-  graphContainer.el.innerHTML = '<div style="color:var(--nr-text-quaternary)">Click "Load Graph" to start...</div>';
+  AetherUI.mount(window.Text('Click "Load Graph" to start...').foreground('quaternary'), graphContainer.el);
 
   AetherUI.mount(window.VStack(header, controlsRow1, controlsRow2, legend, graphContainer), contentPane);
 }
@@ -537,69 +536,48 @@ export function _devRenderFileTree(nodes, edges) {
 
   const btnRow = new window.View('div');
   btnRow.cssText('margin-bottom:12px;display:flex;gap:8px');
-  const expandBtn = new window.View('button');
-  expandBtn.el.textContent = 'Expand All';
-  expandBtn.cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer');
-  expandBtn.onTap(function() { _devExpandAllFiles(); });
-  const collapseBtn = new window.View('button');
-  collapseBtn.el.textContent = 'Collapse All';
-  collapseBtn.cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer');
-  collapseBtn.onTap(function() { _devCollapseAllFiles(); });
-  btnRow.el.appendChild(expandBtn.el);
-  btnRow.el.appendChild(collapseBtn.el);
-  wrapper.el.appendChild(btnRow.el);
+  const expandBtn = new window.View('button').text('Expand All')
+    .cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer')
+    .onTap(function() { _devExpandAllFiles(); });
+  const collapseBtn = new window.View('button').text('Collapse All')
+    .cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer')
+    .onTap(function() { _devCollapseAllFiles(); });
+  btnRow.add(expandBtn, collapseBtn);
+  wrapper.add(btnRow);
 
   nodes.forEach(function(node, i) {
     const isLast = i === nodes.length - 1;
     const isCollapsed = _devCollapsedFiles.has(node.id);
     const nodeDeps = deps.get(node.id) || [];
 
-    const nodeDiv = new window.View('div');
-    nodeDiv.cssText('margin-bottom:4px');
-
-    const toggleDiv = new window.View('div');
-    toggleDiv.cssText('cursor:pointer');
-    const arrowSpan = new window.View('span');
-    arrowSpan.cssText('color:var(--nr-accent)');
-    arrowSpan.el.textContent = isCollapsed ? '▶' : '▼';
-    const nameSpan = new window.View('span');
-    nameSpan.cssText('color:var(--nr-text-primary);font-weight:600');
-    nameSpan.el.textContent = ' ' + node.id;
-    const statsSpan = new window.View('span');
-    statsSpan.cssText('color:var(--nr-text-quaternary);margin-left:12px;font-size:11px');
-    statsSpan.el.textContent = node.functions + ' funcs, ' + node.loc + ' LOC';
-    toggleDiv.el.appendChild(arrowSpan.el);
-    toggleDiv.el.appendChild(nameSpan.el);
-    toggleDiv.el.appendChild(statsSpan.el);
+    const toggleDiv = new window.View('div').cssText('cursor:pointer').add(
+      window.Text(isCollapsed ? '▶' : '▼').cssText('color:var(--nr-accent)'),
+      window.Text(' ' + node.id).cssText('color:var(--nr-text-primary);font-weight:600'),
+      window.Text(node.functions + ' funcs, ' + node.loc + ' LOC').cssText('color:var(--nr-text-quaternary);margin-left:12px;font-size:11px')
+    );
     (function(nodeId) { toggleDiv.onTap(function() { _devToggleFileInFileView(nodeId); }); })(node.id);
-    nodeDiv.el.appendChild(toggleDiv.el);
+
+    const nodeDiv = new window.View('div').cssText('margin-bottom:4px').add(toggleDiv);
 
     if (!isCollapsed && nodeDeps.length > 0) {
-      const depsDiv = new window.View('div');
-      depsDiv.cssText('margin-left:24px;color:var(--nr-text-quaternary);font-size:11px;margin-top:2px');
-      nodeDeps.slice(0, 5).forEach(function(dep) {
-        const depRow = new window.View('div');
-        depRow.el.textContent = '→ ' + dep.target + ' ';
-        const callsSpan = new window.View('span');
-        callsSpan.cssText('opacity:0.7');
-        callsSpan.el.textContent = '(' + dep.calls + '× calls)';
-        depRow.el.appendChild(callsSpan.el);
-        depsDiv.el.appendChild(depRow.el);
+      const depRows = nodeDeps.slice(0, 5).map(function(dep) {
+        return new window.View('div').add(
+          window.Text('→ ' + dep.target + ' '),
+          window.Text('(' + dep.calls + '× calls)').cssText('opacity:0.7')
+        );
       });
       if (nodeDeps.length > 5) {
-        const moreRow = new window.View('div');
-        moreRow.el.textContent = '→ +' + (nodeDeps.length - 5) + ' more dependencies...';
-        depsDiv.el.appendChild(moreRow.el);
+        depRows.push(window.Text('→ +' + (nodeDeps.length - 5) + ' more dependencies...'));
       }
-      nodeDiv.el.appendChild(depsDiv.el);
+      const depsDiv = new window.View('div')
+        .cssText('margin-left:24px;color:var(--nr-text-quaternary);font-size:11px;margin-top:2px');
+      depRows.forEach(function(r) { depsDiv.add(r); });
+      nodeDiv.add(depsDiv);
     }
-    wrapper.el.appendChild(nodeDiv.el);
+    wrapper.add(nodeDiv);
 
     if (!isLast) {
-      const sep = new window.View('div');
-      sep.cssText('color:var(--nr-border-default);margin-left:5px');
-      sep.el.textContent = '│';
-      wrapper.el.appendChild(sep.el);
+      wrapper.add(window.Text('│').cssText('color:var(--nr-border-default);margin-left:5px'));
     }
   });
 
@@ -681,34 +659,28 @@ export function _devRenderFunctionTree(allNodes, allEdges) {
 
   const btnRow = new window.View('div');
   btnRow.cssText('margin-bottom:12px;display:flex;gap:8px');
-  const expandBtn = new window.View('button');
-  expandBtn.el.textContent = 'Expand All';
-  expandBtn.cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer');
-  expandBtn.onTap(function() { _devExpandAllFiles(); });
-  const collapseBtn = new window.View('button');
-  collapseBtn.el.textContent = 'Collapse All';
-  collapseBtn.cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer');
-  collapseBtn.onTap(function() { _devCollapseAllFiles(); });
-  btnRow.el.appendChild(expandBtn.el);
-  btnRow.el.appendChild(collapseBtn.el);
-  wrapper.el.appendChild(btnRow.el);
+  const expandBtn = new window.View('button').text('Expand All')
+    .cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer')
+    .onTap(function() { _devExpandAllFiles(); });
+  const collapseBtn = new window.View('button').text('Collapse All')
+    .cssText('background:var(--nr-bg-raised);color:var(--nr-text-primary);border:1px solid var(--nr-border-default);border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer')
+    .onTap(function() { _devCollapseAllFiles(); });
+  btnRow.add(expandBtn, collapseBtn);
+  wrapper.add(btnRow);
 
   Object.keys(fileGroups).sort().forEach(function(file) {
     const isCollapsed = _devCollapsedFiles.has(file);
     const funcs = fileGroups[file];
 
-    const fileDiv = new window.View('div');
-    fileDiv.cssText('margin-bottom:8px');
-
-    const fileHeader = new window.View('div');
-    fileHeader.cssText('cursor:pointer;color:var(--nr-accent);font-weight:600;margin-bottom:4px');
-    fileHeader.el.textContent = (isCollapsed ? '▶' : '▼') + ' \uD83D\uDCC1 ' + file + ' ';
-    const funcCountSpan = new window.View('span');
-    funcCountSpan.cssText('font-weight:normal;color:var(--nr-text-quaternary);font-size:11px');
-    funcCountSpan.el.textContent = '(' + funcs.length + ' functions)';
-    fileHeader.el.appendChild(funcCountSpan.el);
+    const fileHeader = new window.View('div')
+      .cssText('cursor:pointer;color:var(--nr-accent);font-weight:600;margin-bottom:4px')
+      .add(
+        window.Text((isCollapsed ? '▶' : '▼') + ' \uD83D\uDCC1 ' + file + ' '),
+        window.Text('(' + funcs.length + ' functions)').cssText('font-weight:normal;color:var(--nr-text-quaternary);font-size:11px')
+      );
     (function(f) { fileHeader.onTap(function() { _devToggleFile(f); }); })(file);
-    fileDiv.el.appendChild(fileHeader.el);
+
+    const fileDiv = new window.View('div').cssText('margin-bottom:8px').add(fileHeader);
 
     if (!isCollapsed) {
       funcs.forEach(function(func, i) {
@@ -720,56 +692,37 @@ export function _devRenderFunctionTree(allNodes, allEdges) {
           return target && target.file !== func.file;
         });
 
-        const funcRow = new window.View('div');
-        funcRow.cssText('margin-left:16px;margin-bottom:2px');
-
-        const prefixSpan = new window.View('span');
-        prefixSpan.cssText('color:var(--nr-border-default)');
-        prefixSpan.el.textContent = prefix;
-        funcRow.el.appendChild(prefixSpan.el);
-        funcRow.el.appendChild(document.createTextNode(' '));
-
-        const nameSpan = new window.View('span');
-        nameSpan.cssText('color:' + (func.callCount > 10 ? 'var(--nr-accent)' : 'var(--nr-text-primary)'));
-        nameSpan.el.textContent = func.id;
-        funcRow.el.appendChild(nameSpan.el);
-
-        const statsSpan = new window.View('span');
-        statsSpan.cssText('color:var(--nr-text-quaternary);margin-left:8px;font-size:10px');
-        statsSpan.el.textContent = func.callCount + '\u00d7 called' + (crossFileDeps.length > 0 ? ' \u2022 ' + crossFileDeps.length + ' cross-file' : '');
-        funcRow.el.appendChild(statsSpan.el);
+        const funcRow = new window.View('div').cssText('margin-left:16px;margin-bottom:2px').add(
+          window.Text(prefix).cssText('color:var(--nr-border-default)'),
+          window.Text(' '),
+          window.Text(func.id).cssText('color:' + (func.callCount > 10 ? 'var(--nr-accent)' : 'var(--nr-text-primary)')),
+          window.Text(func.callCount + '\u00d7 called' + (crossFileDeps.length > 0 ? ' \u2022 ' + crossFileDeps.length + ' cross-file' : ''))
+            .cssText('color:var(--nr-text-quaternary);margin-left:8px;font-size:10px')
+        );
 
         if (crossFileDeps.length > 0) {
-          const crossDiv = new window.View('div');
-          crossDiv.cssText('margin-left:32px;color:var(--nr-text-quaternary);font-size:10px');
+          const crossDiv = new window.View('div').cssText('margin-left:32px;color:var(--nr-text-quaternary);font-size:10px');
           crossFileDeps.slice(0, 2).forEach(function(dep) {
             const target = allNodes.find(function(n) { return n.id === dep.target; });
-            const arrow = new window.View('span');
-            arrow.cssText('color:#ef4444');
-            arrow.el.textContent = '\u2192';
-            crossDiv.el.appendChild(arrow.el);
-            crossDiv.el.appendChild(document.createTextNode(' ' + dep.target + ' '));
-            const fileRef = new window.View('span');
-            fileRef.cssText('opacity:0.7');
-            fileRef.el.textContent = '(' + (target ? target.file : '') + ') ';
-            crossDiv.el.appendChild(fileRef.el);
+            crossDiv.add(
+              window.Text('\u2192').cssText('color:#ef4444'),
+              window.Text(' ' + dep.target + ' '),
+              window.Text('(' + (target ? target.file : '') + ') ').cssText('opacity:0.7')
+            );
           });
           if (crossFileDeps.length > 2) {
-            crossDiv.el.appendChild(document.createTextNode('+' + (crossFileDeps.length - 2) + ' more'));
+            crossDiv.add(window.Text('+' + (crossFileDeps.length - 2) + ' more'));
           }
-          funcRow.el.appendChild(crossDiv.el);
+          funcRow.add(crossDiv);
         }
-        fileDiv.el.appendChild(funcRow.el);
+        fileDiv.add(funcRow);
 
         if (!isLast) {
-          const sep = new window.View('div');
-          sep.cssText('margin-left:16px;color:var(--nr-border-default)');
-          sep.el.textContent = '│';
-          fileDiv.el.appendChild(sep.el);
+          fileDiv.add(window.Text('│').cssText('margin-left:16px;color:var(--nr-border-default)'));
         }
       });
     }
-    wrapper.el.appendChild(fileDiv.el);
+    wrapper.add(fileDiv);
   });
 
   AetherUI.mount(wrapper, container);
@@ -854,6 +807,92 @@ export async function _renderDevGitLog() {
 }
 
 // ── Dev Tools Section ──
+// ── Feed Server Section ──
+var _feedServerPoll = null;
+export function _renderDevFeedServer() {
+  const contentPane = document.getElementById('dev-content-pane');
+  if (!contentPane) return;
+  if (_feedServerPoll) { clearInterval(_feedServerPoll); _feedServerPoll = null; }
+
+  const SERVER = 'http://localhost:8400';
+
+  const header = window.VStack(
+    window.Text('Feed Server').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
+    window.Text('Go feed server status and controls').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
+  ).styles({marginBottom:'24px'});
+
+  var statusDot = window.Text('\u25CF').styles({fontSize:'10px', transition:'color 0.3s'});
+  var statusLabel = window.Text('Checking\u2026').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem'});
+  var statusRow = window.HStack(statusDot, statusLabel).gap('6px').styles({alignItems:'center'});
+
+  var statsContainer = new window.View('div');
+  var sourcesContainer = new window.View('div');
+
+  var refreshBtn = window.Button('Trigger Refresh').className('dev-btn-primary').onTap(function() {
+    refreshBtn.el.disabled = true;
+    refreshBtn.el.textContent = 'Refreshing\u2026';
+    fetch(SERVER + '/api/refresh', { method: 'POST', signal: AbortSignal.timeout(30000) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        refreshBtn.el.textContent = 'Fetched ' + (d.fetched || 0) + ' items';
+        setTimeout(function() {
+          refreshBtn.el.textContent = 'Trigger Refresh';
+          refreshBtn.el.disabled = false;
+          pollStatus();
+        }, 2000);
+      })
+      .catch(function() {
+        refreshBtn.el.textContent = 'Trigger Refresh';
+        refreshBtn.el.disabled = false;
+      });
+  });
+
+  AetherUI.mount(window.VStack(header, statusRow, statsContainer, refreshBtn, sourcesContainer).gap('16px'), contentPane);
+
+  function pollStatus() {
+    fetch(SERVER + '/api/timeline?sort=latest&limit=1', { signal: AbortSignal.timeout(3000) })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        statusDot.el.style.color = '#22c55e';
+        statusLabel.el.textContent = 'Online \u2014 localhost:8400';
+        statusLabel.el.style.color = '#22c55e';
+        AetherUI.mount(_devStatGrid(
+          _devStatCard(data.total || 0, 'Total Items', 'var(--nr-accent)'),
+          _devStatCard((data.items || []).length > 0 ? '1' : '0', 'Responded', null)
+        ), statsContainer.el);
+        // Fetch source count
+        fetch(SERVER + '/api/sources', { signal: AbortSignal.timeout(3000) })
+          .then(function(r) { return r.json(); })
+          .then(function(sources) {
+            if (!Array.isArray(sources)) return;
+            var rows = sources.map(function(s) {
+              return window.HStack(
+                window.Text(s.name || s.key).styles({fontSize:'0.75rem', color:'var(--nr-text-primary)', flex:'1'}),
+                window.Text(s.cat || '').styles({fontSize:'0.65rem', color:'var(--nr-text-quaternary)'}),
+                window.Text(s.special || s.url ? '\u2713' : '').styles({fontSize:'0.7rem', color:'#22c55e'})
+              ).styles({padding:'4px 0', borderBottom:'1px solid var(--nr-border-default)'});
+            });
+            var srcHeader = window.Text(sources.length + ' Sources Registered').styles({color:'var(--nr-text-primary)', fontSize:'0.85rem', fontWeight:'600', marginBottom:'8px'});
+            var srcList = window.VStack.apply(null, rows).styles({maxHeight:'300px', overflowY:'auto'});
+            AetherUI.mount(window.VStack(srcHeader, srcList).styles({background:'var(--nr-bg-surface)', border:'1px solid var(--nr-border-default)', borderRadius:'8px', padding:'12px'}), sourcesContainer.el);
+          }).catch(function() {});
+      })
+      .catch(function() {
+        statusDot.el.style.color = '#ef4444';
+        statusLabel.el.textContent = 'Offline \u2014 server not running';
+        statusLabel.el.style.color = '#ef4444';
+        AetherUI.mount(window.VStack(
+          window.Text('Feed server is not running.').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem'}),
+          window.Text('Start with: cd feedserver && go run .').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem', fontFamily:'monospace', marginTop:'4px'})
+        ), statsContainer.el);
+        AetherUI.mount(window.Text(''), sourcesContainer.el);
+      });
+  }
+
+  pollStatus();
+  _feedServerPoll = setInterval(pollStatus, 10000);
+}
+
 export function _renderDevTools() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
@@ -863,9 +902,8 @@ export function _renderDevTools() {
     window.Text('Testing utilities and debugging tools').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
 
-  const achSelect = new window.View('select');
-  achSelect.id('dev-ach-select').className('dev-input').styles({minWidth:'180px'});
-  achSelect.el.innerHTML = '<option value="bookworm">Bookworm</option><option value="curator">Curator</option><option value="critic">Critic</option><option value="explorer">Explorer</option><option value="model_switch">Model Swapper</option><option value="pixel_parent">Pixel Parent</option>';
+  const achSelect = new window.View('select').id('dev-ach-select').className('dev-input').styles({minWidth:'180px'})
+    .add(window.RawHTML('<option value="bookworm">Bookworm</option><option value="curator">Curator</option><option value="critic">Critic</option><option value="explorer">Explorer</option><option value="model_switch">Model Swapper</option><option value="pixel_parent">Pixel Parent</option>'));
 
   const showBtn = window.Button('Show').onTap(function() { _devTestAchievement(); })
     .styles({background:'linear-gradient(135deg,#b8860b,#ffd700)', color:'#1a1400', border:'none', borderRadius:'6px', padding:'6px 14px', fontSize:'0.75rem', fontWeight:'600'}).cursor();
