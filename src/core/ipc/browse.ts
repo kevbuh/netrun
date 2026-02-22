@@ -182,6 +182,22 @@ export function registerBrowseIPC(): void {
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 
+  // Generic Semantic Scholar proxy — allows renderer to fetch any S2 API path
+  // without CORS restrictions (fetch runs in main process)
+  ipcMain.handle('db:s2-proxy', async (_event, urlPath: string) => {
+    if (!urlPath || typeof urlPath !== 'string') return { error: 'urlPath required' };
+    try {
+      const base = 'https://api.semanticscholar.org/graph/v1';
+      const url = urlPath.startsWith('http') ? urlPath : base + urlPath;
+      const resp = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!resp.ok) return null;
+      return await resp.json();
+    } catch (e: any) { return null; }
+  });
+
   // ── Browse utilities ──
   ipcMain.handle('db:link-preview', async (_event, url: string) => {
     if (!url) return { error: 'url required' };

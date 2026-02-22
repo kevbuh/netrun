@@ -307,17 +307,22 @@
       opacity: 0.3;
     }
 
-    /* ── Citation hover popup ── */
+    /* ── Citation hover overlay ── */
+    .pdf-citation-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
     .pdf-citation-ref {
-      color: var(--nr-accent);
       border-radius: 2px;
       cursor: pointer !important;
       pointer-events: auto !important;
-      position: relative;
-      z-index: 10;
     }
     .pdf-citation-ref:hover {
-      text-decoration: underline;
       background: rgba(180, 69, 26, 0.15);
     }
     .pdf-annot-link[data-dest] {

@@ -361,7 +361,7 @@ function _renderRelatedTab(container) {
   wrap.innerHTML = '<div class="nerd-empty">Loading recommendations...</div>';
   container.appendChild(wrap);
 
-  _s2Fetch('/recommendations/v1/papers/forpaper/' + state.s2Data.paperId + '?limit=10&fields=title,authors,year,citationCount,venue').then(function(data) {
+  _s2Fetch('https://api.semanticscholar.org/recommendations/v1/papers/forpaper/' + state.s2Data.paperId + '?limit=10&fields=title,authors,year,citationCount,venue').then(function(data) {
     wrap.innerHTML = '';
     var papers = data && data.recommendedPapers ? data.recommendedPapers : [];
     if (!papers.length) {

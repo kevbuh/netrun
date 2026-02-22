@@ -69,9 +69,13 @@ export async function _s2ProcessQueue() {
       continue;
     }
     try {
-      const resp = await fetch(_S2_BASE + urlPath);
-      if (!resp.ok) { resolve(null); continue; }
-      const data = await resp.json();
+      let data = null;
+      if (window.electronAPI && window.electronAPI.dbQuery) {
+        data = await window.electronAPI.dbQuery('s2-proxy', urlPath);
+      } else {
+        const resp = await fetch(_S2_BASE + urlPath);
+        if (resp.ok) data = await resp.json();
+      }
       _s2Cache.set(urlPath, { data, ts: Date.now() });
       resolve(data);
     } catch {
@@ -99,7 +103,7 @@ export async function _s2GetAuthor(authorId) {
 }
 
 export async function _s2GetRecommendations(paperId) {
-  return _s2Fetch('/recommendations/v1/papers/forpaper/' + paperId + '?limit=10&fields=title,authors,year,citationCount,venue');
+  return _s2Fetch('https://api.semanticscholar.org/recommendations/v1/papers/forpaper/' + paperId + '?limit=10&fields=title,authors,year,citationCount,venue');
 }
 
 export async function _s2GetCitations(paperId) {

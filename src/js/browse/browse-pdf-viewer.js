@@ -3,6 +3,7 @@
 // Depends on: browse-state.js
 
 import { icon } from '/js/core/icons.js';
+import { _paperState } from '/js/browse/browse-paper.js';
 
 // ── PDF.js CDN loader ──
 var _pdfjsLoaded = false;
@@ -427,7 +428,6 @@ function _pdfViewerRenderPage(tab, pageNum) {
           viewport: viewport,
           textDivs: []
         };
-        // Use textContentSource (newer API) if available, fallback to textContent
         opts.textContentSource = textContent;
         window.pdfjsLib.renderTextLayer(opts);
       }
@@ -482,6 +482,9 @@ function _pdfViewerRenderPage(tab, pageNum) {
         annotLayer.appendChild(link);
       });
     });
+
+    // Citation hover overlays — scan rendered text layer spans after they appear
+    _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv);
 
   }).catch(function() {});
 }
@@ -937,6 +940,225 @@ export function _pdfViewerGetText(tab, startPage, endPage) {
   })).then(function(texts) {
     return texts.join('\n\n');
   });
+}
+
+// ── Citation hover popups ──
+
+var _citationPopup = null;
+var _citationHideTimer = null;
+
+function _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv) {
+  var attempts = 0;
+  function tryInstall() {
+    attempts++;
+    var spans = textLayerDiv.querySelectorAll('span');
+    if (!spans.length && attempts < 10) {
+      setTimeout(tryInstall, 300);
+      return;
+    }
+
+    var citLayer = document.createElement('div');
+    citLayer.className = 'pdf-citation-layer';
+    wrapper.appendChild(citLayer);
+
+    var wrapperRect = wrapper.getBoundingClientRect();
+
+    spans.forEach(function(span) {
+      var text = span.textContent;
+      if (!text) return;
+
+      var pattern = /\[(\d+(?:\s*[,\-–]\s*\d+)*)\]/g;
+      var match;
+      while ((match = pattern.exec(text)) !== null) {
+        var refNums = _parseCitationNums(match[1]);
+        if (!refNums.length) continue;
+
+        // Try Range for precise position, fall back to whole span
+        var rects = null;
+        try {
+          // Walk text nodes to find the one containing our match offset
+          var walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+          var node, offset = 0, startNode = null, startOffset = 0, endNode = null, endOffset = 0;
+          while ((node = walker.nextNode())) {
+            var nodeLen = node.textContent.length;
+            if (!startNode && offset + nodeLen > match.index) {
+              startNode = node;
+              startOffset = match.index - offset;
+            }
+            if (!endNode && offset + nodeLen >= match.index + match[0].length) {
+              endNode = node;
+              endOffset = match.index + match[0].length - offset;
+              break;
+            }
+            offset += nodeLen;
+          }
+          if (startNode && endNode) {
+            var range = document.createRange();
+            range.setStart(startNode, startOffset);
+            range.setEnd(endNode, endOffset);
+            rects = range.getClientRects();
+          }
+        } catch (e) {}
+
+        // Fallback: use whole span rect
+        if (!rects || !rects.length) {
+          rects = [span.getBoundingClientRect()];
+        }
+
+        for (var r = 0; r < rects.length; r++) {
+          var cr = rects[r];
+          if (cr.width < 1 || cr.height < 1) continue;
+          var overlay = document.createElement('div');
+          overlay.className = 'pdf-citation-ref';
+          overlay.style.cssText =
+            'position:absolute;pointer-events:auto;cursor:pointer;' +
+            'left:' + (cr.left - wrapperRect.left) + 'px;' +
+            'top:' + (cr.top - wrapperRect.top) + 'px;' +
+            'width:' + cr.width + 'px;' +
+            'height:' + cr.height + 'px;';
+          (function(nums) {
+            overlay.addEventListener('mouseenter', function(e) {
+              _showCitationPopup(tab, nums, e.clientX, e.clientY);
+            });
+            overlay.addEventListener('mouseleave', function() {
+              _scheduleCitationHide();
+            });
+          })(refNums);
+          citLayer.appendChild(overlay);
+        }
+      }
+    });
+  }
+  setTimeout(tryInstall, 500);
+}
+
+function _showCitationPopup(tab, refNums, x, y) {
+  if (_citationHideTimer) { clearTimeout(_citationHideTimer); _citationHideTimer = null; }
+  if (_citationPopup) _citationPopup.remove();
+
+  var popup = document.createElement('div');
+  popup.className = 'citation-popup';
+  _citationPopup = popup;
+
+  _populateCitationPopup(popup, tab, refNums);
+
+  document.body.appendChild(popup);
+  var pw = popup.offsetWidth;
+  var ph = popup.offsetHeight;
+  var left = Math.max(8, Math.min(x - pw / 2, window.innerWidth - pw - 8));
+  var top = y - ph - 12;
+  if (top < 8) top = y + 20;
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
+
+  popup.addEventListener('mouseenter', function() {
+    if (_citationHideTimer) { clearTimeout(_citationHideTimer); _citationHideTimer = null; }
+  });
+  popup.addEventListener('mouseleave', function() {
+    _scheduleCitationHide();
+  });
+}
+
+function _populateCitationPopup(popup, tab, refNums) {
+  var state = _paperState.get(tab.id);
+  var refs = state && state.refs ? state.refs : null;
+
+  popup.innerHTML = '';
+
+  if (!refs || !refs.length) {
+    popup.innerHTML = '<div class="citation-popup-loading">[' + refNums.join(', ') + '] Loading references\u2026</div>';
+    // Poll until refs arrive
+    var pollCount = 0;
+    var pollTimer = setInterval(function() {
+      pollCount++;
+      if (pollCount > 20 || !_citationPopup || _citationPopup !== popup) {
+        clearInterval(pollTimer);
+        return;
+      }
+      var s = _paperState.get(tab.id);
+      if (s && s.refs && s.refs.length) {
+        clearInterval(pollTimer);
+        _populateCitationPopup(popup, tab, refNums);
+        // Reposition after content change
+        var ph = popup.offsetHeight;
+        var curTop = parseFloat(popup.style.top);
+        if (curTop + ph > window.innerHeight - 8) {
+          popup.style.top = Math.max(8, window.innerHeight - ph - 8) + 'px';
+        }
+      }
+    }, 500);
+    return;
+  }
+
+  refNums.forEach(function(num, idx) {
+    var ref = refs[num - 1];
+    if (!ref) return;
+
+    if (idx > 0) {
+      var sep = document.createElement('div');
+      sep.style.cssText = 'border-top:1px solid var(--nr-border-dim);margin:8px 0;';
+      popup.appendChild(sep);
+    }
+
+    var numEl = document.createElement('div');
+    numEl.style.cssText = 'font-size:0.68rem;font-weight:600;color:var(--nr-text-quaternary);margin-bottom:2px;';
+    numEl.textContent = '[' + num + ']';
+    popup.appendChild(numEl);
+
+    var titleEl = document.createElement('div');
+    titleEl.className = 'citation-popup-title';
+    titleEl.textContent = ref.title || 'Untitled';
+    popup.appendChild(titleEl);
+
+    var meta = [];
+    if (ref.authors && ref.authors.length) {
+      meta.push(ref.authors.slice(0, 3).map(function(a) { return a.name; }).join(', ') + (ref.authors.length > 3 ? ' et al.' : ''));
+    }
+    if (ref.year) meta.push(String(ref.year));
+    if (ref.venue) meta.push(ref.venue);
+    if (ref.citationCount != null) meta.push(ref.citationCount + ' citations');
+    if (meta.length) {
+      var metaEl = document.createElement('div');
+      metaEl.className = 'citation-popup-meta';
+      metaEl.textContent = meta.join(' \u00b7 ');
+      popup.appendChild(metaEl);
+    }
+
+    var linkEl = document.createElement('a');
+    linkEl.className = 'citation-popup-link';
+    linkEl.textContent = 'Search on Google Scholar \u2192';
+    linkEl.href = '#';
+    linkEl.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (typeof window.browseNewTab === 'function') window.browseNewTab('https://scholar.google.com/scholar?q=' + encodeURIComponent(ref.title));
+      if (_citationPopup) { _citationPopup.remove(); _citationPopup = null; }
+    });
+    popup.appendChild(linkEl);
+  });
+}
+
+function _scheduleCitationHide() {
+  if (_citationHideTimer) clearTimeout(_citationHideTimer);
+  _citationHideTimer = setTimeout(function() {
+    if (_citationPopup) { _citationPopup.remove(); _citationPopup = null; }
+  }, 300);
+}
+
+function _parseCitationNums(str) {
+  var nums = [];
+  str.split(',').forEach(function(part) {
+    part = part.trim();
+    var dashMatch = part.match(/(\d+)\s*[\-–]\s*(\d+)/);
+    if (dashMatch) {
+      var start = parseInt(dashMatch[1]);
+      var end = parseInt(dashMatch[2]);
+      for (var i = start; i <= end; i++) nums.push(i);
+    } else {
+      var n = parseInt(part);
+      if (!isNaN(n)) nums.push(n);
+    }
+  });
+  return nums;
 }
 
 // ── Window bridge ──
