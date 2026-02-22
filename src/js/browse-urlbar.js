@@ -366,10 +366,16 @@ export function _getOmniInput() {
     const dd = document.getElementById('search-history-dropdown-view');
     if (input && dd) return { input, dd, ntp: true };
   }
-  // Island mode: use pill input + pill dropdown
+  // Island mode: use pill input + pill dropdown (or center column when expanded)
   const nav = document.getElementById('sidebar-nav');
   if (nav && nav.classList.contains('island-mode') && nav.classList.contains('browse-mode')) {
     const pillInput = document.getElementById('pill-browse-url-input');
+    const pillWrap = document.getElementById('pill-url-wrap');
+    const isExpanded = pillWrap && pillWrap.classList.contains('island-expanded');
+    if (isExpanded) {
+      const centerCol = document.getElementById('pill-island-center');
+      if (pillInput && centerCol) return { input: pillInput, dd: centerCol, ntp: false, island: true, islandCenter: true };
+    }
     const pillDd = document.getElementById('pill-url-dropdown');
     if (pillInput && pillDd) return { input: pillInput, dd: pillDd, ntp: false, island: true };
   }
@@ -526,7 +532,7 @@ export function _browseUrlRenderLuckyRow(dd) {
 }
 
 export function _browseUrlShowHistory() {
-  const { input, dd, ntp } = _getOmniInput();
+  const { input, dd, ntp, islandCenter } = _getOmniInput();
   if (!input || !dd) return;
   // When autocomplete was active and user types, the selection gets replaced.
   // Detect this: if cursor is NOT at the autocomplete boundary, user typed new input.
@@ -541,6 +547,12 @@ export function _browseUrlShowHistory() {
     }
   }
   const filter = rawVal.trim().toLowerCase();
+
+  // In expanded island mode, only show dropdown when user is actually typing
+  if (!filter && islandCenter) {
+    _islandCenterRestorePageInfo();
+    return;
+  }
 
   // Don't show dropdown on blank new-tab pages with no input (URL bar only, NTP always shows)
   if (!filter && !ntp) {
@@ -737,10 +749,15 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
 
   const pillWrap = document.getElementById('pill-url-wrap');
   const isIsland = dd.id === 'pill-url-dropdown';
+  const isIslandCenter = dd.id === 'pill-island-center';
 
   if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length && !matchedBangs.length && !quickOpenMatches.length && !(ntp && filter)) {
-    dd.style.display = 'none'; dd.classList.add('hidden');
-    if (isIsland && pillWrap) pillWrap.classList.remove('pill-dropdown-open');
+    if (isIslandCenter) {
+      _islandCenterRestorePageInfo();
+    } else {
+      dd.style.display = 'none'; dd.classList.add('hidden');
+      if (isIsland && pillWrap) pillWrap.classList.remove('pill-dropdown-open');
+    }
     return;
   }
 
@@ -754,8 +771,16 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
     dd.style.width = '';
     dd.style.maxHeight = '320px';
     dd.style.overflowY = 'auto';
+  } else if (isIslandCenter) {
+    // Island expanded: render dropdown inside the center column (replacing page info)
+    dd.style.position = '';
+    dd.style.left = '';
+    dd.style.top = '';
+    dd.style.width = '';
+    dd.style.maxHeight = '';
+    dd.style.overflowY = 'auto';
   } else if (isIsland) {
-    // Island mode: dropdown flows inside the pill, no fixed positioning
+    // Island mode (collapsed): dropdown flows below the pill
     dd.style.position = '';
     dd.style.left = '';
     dd.style.top = '';
@@ -1045,14 +1070,42 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
   }
 
   if (!html) {
-    dd.style.display = 'none'; dd.classList.add('hidden');
-    if (isIsland && pillWrap) pillWrap.classList.remove('pill-dropdown-open');
+    if (isIslandCenter) {
+      _islandCenterRestorePageInfo();
+    } else {
+      dd.style.display = 'none'; dd.classList.add('hidden');
+      if (isIsland && pillWrap) pillWrap.classList.remove('pill-dropdown-open');
+    }
     return;
   }
 
-  dd.innerHTML = html;
-  dd.style.display = '';
-  dd.classList.remove('hidden');
+  if (isIslandCenter) {
+    // Hide tabs + page info, show dropdown spanning full width
+    const leftCol = document.getElementById('pill-island-left');
+    const actionsRow = document.getElementById('pill-island-actions-row');
+    const titleEl = document.getElementById('pill-island-title');
+    const navRow = document.getElementById('pill-island-nav-row');
+    if (leftCol) leftCol.style.display = 'none';
+    if (actionsRow) actionsRow.style.display = 'none';
+    if (titleEl) titleEl.style.display = 'none';
+    if (navRow) navRow.style.display = 'none';
+    // Also hide the center column's own content
+    dd.classList.add('island-center-dd-active');
+    let ddWrap = document.getElementById('island-center-dropdown');
+    if (!ddWrap) {
+      ddWrap = document.createElement('div');
+      ddWrap.id = 'island-center-dropdown';
+      const pillWrapEl = document.getElementById('pill-url-wrap');
+      if (pillWrapEl) pillWrapEl.appendChild(ddWrap);
+    }
+    ddWrap.innerHTML = html;
+    ddWrap.style.display = '';
+    dd = ddWrap;
+  } else {
+    dd.innerHTML = html;
+    dd.style.display = '';
+    dd.classList.remove('hidden');
+  }
 
   // Attach feeling lucky click handlers (must be after innerHTML)
   const luckyRow = dd.querySelector('.browse-lucky-row');
@@ -1523,6 +1576,21 @@ export function _browseUrlCancelHide() {
   _browseUrlHideTimeout = null;
 }
 
+function _islandCenterRestorePageInfo() {
+  const ddWrap = document.getElementById('island-center-dropdown');
+  if (ddWrap) { ddWrap.innerHTML = ''; ddWrap.style.display = 'none'; }
+  const leftCol = document.getElementById('pill-island-left');
+  const actionsRow = document.getElementById('pill-island-actions-row');
+  const titleEl = document.getElementById('pill-island-title');
+  const navRow = document.getElementById('pill-island-nav-row');
+  const centerCol = document.getElementById('pill-island-center');
+  if (leftCol) leftCol.style.display = '';
+  if (actionsRow) actionsRow.style.display = '';
+  if (titleEl) titleEl.style.display = '';
+  if (navRow) navRow.style.display = '';
+  if (centerCol) centerCol.classList.remove('island-center-dd-active');
+}
+
 export function _browseUrlHideHistory() {
   _browseUrlClearAutocomplete();
   _browseUrlHideTimeout = null;
@@ -1532,6 +1600,7 @@ export function _browseUrlHideHistory() {
   if (ntpDd) { ntpDd.style.display = 'none'; ntpDd.classList.add('hidden'); }
   const pillWrap = document.getElementById('pill-url-wrap');
   if (pillWrap) pillWrap.classList.remove('pill-dropdown-open');
+  _islandCenterRestorePageInfo();
   _browseUrlHistIdx = -1;
 }
 window._browseUrlHideHistory = _browseUrlHideHistory;
@@ -1541,10 +1610,14 @@ window.submitSearch = submitSearch;
 window.openUserProfile = openUserProfile;
 
 document.addEventListener('mousedown', (e) => {
-  const { input, dd, island } = _getOmniInput();
+  const { input, dd, island, islandCenter } = _getOmniInput();
   if (!dd) return;
   // Check visibility: pill dropdown uses class, others use display
-  if (island) {
+  if (islandCenter) {
+    const ddWrap = document.getElementById('island-center-dropdown');
+    if (!ddWrap || ddWrap.style.display === 'none') return;
+    if ((input && input.contains(e.target)) || (e.target.closest && e.target.closest('#pill-url-wrap'))) return;
+  } else if (island) {
     const pillWrap = document.getElementById('pill-url-wrap');
     if (!pillWrap || !pillWrap.classList.contains('pill-dropdown-open')) return;
     if ((input && input.contains(e.target)) || dd.contains(e.target) || (e.target.closest && e.target.closest('#pill-url-wrap'))) return;
@@ -2447,6 +2520,17 @@ function _initUrlBarEvents() {
     pillDropdown.addEventListener('mousedown', (e) => {
       e.preventDefault();
       _browseUrlCancelHide();
+    });
+  }
+
+  // Island center dropdown (when expanded, dropdown renders inside pill-url-wrap)
+  const pillWrapEl = document.getElementById('pill-url-wrap');
+  if (pillWrapEl) {
+    pillWrapEl.addEventListener('mousedown', (e) => {
+      if (e.target.closest('#island-center-dropdown')) {
+        e.preventDefault();
+        _browseUrlCancelHide();
+      }
     });
   }
 }
