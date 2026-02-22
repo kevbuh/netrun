@@ -9,6 +9,38 @@ import {
   contentPath, uploadsDir,
 } from './shared.js';
 
+export function parseImageDataUri(imageData: string): { ext: string; b64: string } | null {
+  if (!imageData || !imageData.startsWith('data:image/')) return null;
+  const [header, b64] = imageData.split(',', 2);
+  let ext = 'jpg';
+  if (header.includes('png')) ext = 'png';
+  else if (header.includes('webp')) ext = 'webp';
+  return { ext, b64 };
+}
+
+export function parseSavedPosts(rawValue: any): Record<string, any> {
+  if (rawValue == null) return {};
+  const val = rawValue.value ?? rawValue;
+  if (typeof val === 'string') {
+    try { return JSON.parse(val); } catch { return {}; }
+  }
+  if (typeof val === 'object' && val !== null) return val as Record<string, any>;
+  return {};
+}
+
+export function parseCustomFeeds(rawValue: any): any[] {
+  if (rawValue == null) return [];
+  const val = rawValue.value ?? rawValue;
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  }
+  if (Array.isArray(val)) return val;
+  return [];
+}
+
 export function registerSystemIPC(): void {
   ipcMain.handle('db:read-view', (_event, viewPath: string) => {
     const dataDir = process.env.ARXIV_DATA_DIR ?? process.cwd();
@@ -57,13 +89,9 @@ export function registerSystemIPC(): void {
   // ── Social uploads ──
 
   ipcMain.handle('db:upload-profile-picture', (_event, googleId: string, imageData: string) => {
-    if (!imageData || !imageData.startsWith('data:image/')) {
-      return { error: 'Invalid image data' };
-    }
-    const [header, b64] = imageData.split(',', 2);
-    let ext = 'jpg';
-    if (header.includes('png')) ext = 'png';
-    else if (header.includes('webp')) ext = 'webp';
+    const parsed = parseImageDataUri(imageData);
+    if (!parsed) return { error: 'Invalid image data' };
+    const { ext, b64 } = parsed;
     const hash = createHash('sha256').update(googleId).digest('hex').slice(0, 16);
     const fname = `${hash}_pic.${ext}`;
     fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
@@ -73,13 +101,9 @@ export function registerSystemIPC(): void {
   });
 
   ipcMain.handle('db:upload-profile-background', (_event, googleId: string, imageData: string) => {
-    if (!imageData || !imageData.startsWith('data:image/')) {
-      return { error: 'Invalid image data' };
-    }
-    const [header, b64] = imageData.split(',', 2);
-    let ext = 'jpg';
-    if (header.includes('png')) ext = 'png';
-    else if (header.includes('webp')) ext = 'webp';
+    const parsed = parseImageDataUri(imageData);
+    if (!parsed) return { error: 'Invalid image data' };
+    const { ext, b64 } = parsed;
     const hash = createHash('sha256').update(googleId).digest('hex').slice(0, 16);
     const fname = `${hash}_bg.${ext}`;
     fs.writeFileSync(path.join(uploadsDir, fname), Buffer.from(b64, 'base64'));
@@ -115,16 +139,7 @@ export function registerSystemIPC(): void {
     const favicon = body.favicon ?? '';
     const hostname = body.hostname ?? '';
     const allData = userQueries.getAllUserData(googleId);
-    let saved: Record<string, any> = {};
-    const savedRaw = allData.savedPosts;
-    if (savedRaw) {
-      const val = savedRaw.value;
-      if (typeof val === 'string') {
-        try { saved = JSON.parse(val); } catch { saved = {}; }
-      } else if (typeof val === 'object' && val !== null) {
-        saved = val as Record<string, any>;
-      }
-    }
+    const saved = parseSavedPosts(allData.savedPosts);
     if (url in saved) return { exists: true };
     saved[url] = {
       paper: { title, link: url, favicon, hostname },
@@ -140,17 +155,7 @@ export function registerSystemIPC(): void {
     const name = (body.name ?? '').trim();
     if (!url) return { error: 'url required' };
     const allData = userQueries.getAllUserData(googleId);
-    let feeds: any[] = [];
-    const feedsRaw = allData.customFeeds;
-    if (feedsRaw) {
-      const val = feedsRaw.value;
-      if (typeof val === 'string') {
-        try { feeds = JSON.parse(val); } catch { feeds = []; }
-      } else if (Array.isArray(val)) {
-        feeds = val;
-      }
-    }
-    if (!Array.isArray(feeds)) feeds = [];
+    const feeds = parseCustomFeeds(allData.customFeeds);
     if (feeds.some((f: any) => f.url === url)) return { exists: true };
     feeds.push({ url, name: name || url, enabled: true });
     userQueries.setUserData(googleId, 'customFeeds', JSON.stringify(feeds));

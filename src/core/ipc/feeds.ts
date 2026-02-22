@@ -2,6 +2,63 @@ import { ipcMain } from 'electron';
 import * as feedQueries from '../db/queries/feeds.js';
 import { cachedFetch, getActiveProvider } from './shared.js';
 
+export const STALE_THRESHOLD = 600; // 10 minutes in seconds
+
+export function parseRSSItems(xml: string, sourceKey: string): any[] {
+  const items: any[] = [];
+  // Try RSS <item> blocks first
+  const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
+  let match;
+  while ((match = itemRegex.exec(xml)) !== null) {
+    const block = match[1];
+    const tag = (t: string) => { const m = block.match(new RegExp(`<${t}[^>]*>([\\s\\S]*?)</${t}>`, 'i')); return m ? m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim() : ''; };
+    const title = tag('title');
+    const link = tag('link') || tag('guid');
+    if (!title || !link) continue;
+    items.push({
+      source: sourceKey, title, link,
+      authors: tag('dc:creator') || tag('author'),
+      categories: '[]', description: tag('description').slice(0, 500),
+      display_date: tag('pubDate') || tag('dc:date') || tag('published'),
+      pub_date: tag('pubDate') || tag('dc:date') || tag('published'),
+      arxiv_id: null, extra: '{}',
+    });
+  }
+  // If no RSS items found, try Atom <entry> blocks
+  if (items.length === 0) {
+    const entryRegex = /<entry>([\s\S]*?)<\/entry>/gi;
+    while ((match = entryRegex.exec(xml)) !== null) {
+      const block = match[1];
+      const tag = (t: string) => { const m = block.match(new RegExp(`<${t}[^>]*>([\\s\\S]*?)</${t}>`, 'i')); return m ? m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim() : ''; };
+      const linkMatch = block.match(/<link[^>]*href="([^"]+)"/i);
+      const title = tag('title');
+      const link = linkMatch ? linkMatch[1] : tag('link');
+      if (!title || !link) continue;
+      items.push({
+        source: sourceKey, title, link,
+        authors: tag('author') ? tag('name') || tag('author') : '',
+        categories: '[]', description: (tag('summary') || tag('content')).slice(0, 500),
+        display_date: tag('published') || tag('updated'),
+        pub_date: tag('published') || tag('updated'),
+        arxiv_id: null, extra: '{}',
+      });
+    }
+  }
+  return items;
+}
+
+export function mapRowToFrontend(row: any): any {
+  const extra = typeof row.extra === 'string' ? (() => { try { return JSON.parse(row.extra); } catch { return {}; } })() : (row.extra ?? {});
+  return {
+    ...row,
+    pubDate: row.pub_date,
+    date: row.display_date,
+    arxivId: row.arxiv_id,
+    categories: typeof row.categories === 'string' ? (() => { try { return JSON.parse(row.categories); } catch { return []; } })() : (row.categories ?? []),
+    ...extra,
+  };
+}
+
 export function registerFeedsIPC(): void {
   ipcMain.handle('db:feed-arxiv', async () => {
     try {
@@ -111,51 +168,6 @@ export function registerFeedsIPC(): void {
 
   // ── Catalog feed handler (on-demand fetch) ──
 
-  const STALE_THRESHOLD = 600; // 10 minutes in seconds
-
-  function parseRSSItems(xml: string, sourceKey: string): any[] {
-    const items: any[] = [];
-    // Try RSS <item> blocks first
-    const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
-    let match;
-    while ((match = itemRegex.exec(xml)) !== null) {
-      const block = match[1];
-      const tag = (t: string) => { const m = block.match(new RegExp(`<${t}[^>]*>([\\s\\S]*?)</${t}>`, 'i')); return m ? m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim() : ''; };
-      const title = tag('title');
-      const link = tag('link') || tag('guid');
-      if (!title || !link) continue;
-      items.push({
-        source: sourceKey, title, link,
-        authors: tag('dc:creator') || tag('author'),
-        categories: '[]', description: tag('description').slice(0, 500),
-        display_date: tag('pubDate') || tag('dc:date') || tag('published'),
-        pub_date: tag('pubDate') || tag('dc:date') || tag('published'),
-        arxiv_id: null, extra: '{}',
-      });
-    }
-    // If no RSS items found, try Atom <entry> blocks
-    if (items.length === 0) {
-      const entryRegex = /<entry>([\s\S]*?)<\/entry>/gi;
-      while ((match = entryRegex.exec(xml)) !== null) {
-        const block = match[1];
-        const tag = (t: string) => { const m = block.match(new RegExp(`<${t}[^>]*>([\\s\\S]*?)</${t}>`, 'i')); return m ? m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim() : ''; };
-        const linkMatch = block.match(/<link[^>]*href="([^"]+)"/i);
-        const title = tag('title');
-        const link = linkMatch ? linkMatch[1] : tag('link');
-        if (!title || !link) continue;
-        items.push({
-          source: sourceKey, title, link,
-          authors: tag('author') ? tag('name') || tag('author') : '',
-          categories: '[]', description: (tag('summary') || tag('content')).slice(0, 500),
-          display_date: tag('published') || tag('updated'),
-          pub_date: tag('published') || tag('updated'),
-          arxiv_id: null, extra: '{}',
-        });
-      }
-    }
-    return items;
-  }
-
   async function fetchRSSItems(key: string, url: string): Promise<any[]> {
     const buf = await cachedFetch(url, 15_000);
     return parseRSSItems(buf.toString('utf-8'), key);
@@ -238,18 +250,6 @@ export function registerFeedsIPC(): void {
     if (entry.special === 'polymarket') return fetchPolymarketItems();
     if (entry.url) return fetchRSSItems(entry.key, entry.url);
     return [];
-  }
-
-  function mapRowToFrontend(row: any): any {
-    const extra = typeof row.extra === 'string' ? (() => { try { return JSON.parse(row.extra); } catch { return {}; } })() : (row.extra ?? {});
-    return {
-      ...row,
-      pubDate: row.pub_date,
-      date: row.display_date,
-      arxivId: row.arxiv_id,
-      categories: typeof row.categories === 'string' ? (() => { try { return JSON.parse(row.categories); } catch { return []; } })() : (row.categories ?? []),
-      ...extra,
-    };
   }
 
   ipcMain.handle('db:feed-items-catalog', async (_event, entries: Array<{ key: string; url?: string | null; special?: string | null }>, limit: number = 500) => {

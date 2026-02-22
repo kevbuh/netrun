@@ -11,11 +11,12 @@ function formatDate(d) {
   if (!d) return '';
   const now = new Date();
   const diffMs = now - d;
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return 'just now';
+  const diffSecs = Math.floor(diffMs / 1000);
+  if (diffSecs < 60) return `${diffSecs}s ago`;
+  const diffMins = Math.floor(diffSecs / 60);
   if (diffMins < 60) return `${diffMins}m ago`;
   const diffHrs = Math.floor(diffMins / 60);
-  if (d.toDateString() === now.toDateString()) return `${diffHrs}h ago`;
+  if (diffHrs < 24) return `${diffHrs}h ago`;
   return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
 }
 
@@ -98,9 +99,11 @@ describe('Date Formatting', () => {
     expect(formatDate(undefined)).toBe('');
   });
 
-  it('should format recent time as "just now"', () => {
+  it('should format seconds ago for very recent', () => {
     const now = new Date();
-    expect(formatDate(now)).toBe('just now');
+    expect(formatDate(now)).toBe('0s ago');
+    const d = new Date(Date.now() - 30 * 1000);
+    expect(formatDate(d)).toBe('30s ago');
   });
 
   it('should format minutes ago', () => {
@@ -108,16 +111,9 @@ describe('Date Formatting', () => {
     expect(formatDate(d)).toBe('5m ago');
   });
 
-  it('should format hours ago for today', () => {
-    const d = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago (safer than 3)
-    const result = formatDate(d);
-    const now = new Date();
-    // If still same day, should be "Xh ago", otherwise date format
-    if (d.toDateString() === now.toDateString()) {
-      expect(result).toMatch(/^\d+h ago$/);
-    } else {
-      expect(result).toMatch(/^\d+\/\d+\/\d+$/);
-    }
+  it('should format hours ago', () => {
+    const d = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    expect(formatDate(d)).toBe('2h ago');
   });
 
   it('should format absolute date for older dates', () => {

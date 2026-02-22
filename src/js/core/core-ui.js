@@ -2,7 +2,6 @@
 // Extracted from core.js
 import { apiGet } from '/js/api.js';
 import { escapeHtml, escapeAttr } from '/js/core/core-utils.js';
-import { _islandFlipNeighbors, _islandRender, _islandSnapshotRects } from '/js/core/core-audio.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
 import { lastFilteredPapers } from '/js/feed.js';
 import { openPaper } from '/js/panel.js';
@@ -96,98 +95,7 @@ export function _loadCustomAnnotationCategories() {
     .catch(function() {});
 }
 
-// ── Dynamic Island — live activity capsule ──
-
-// Keep pill container constrained on resize/mode change
-window.addEventListener('resize', function() {
-  const cont = document.getElementById('pill-island');
-  const wrap = document.getElementById('pill-url-wrap');
-  const nav = document.getElementById('sidebar-nav');
-  if (!cont || !wrap || !nav || !nav.classList.contains('island-mode')) {
-    if (cont) cont.style.removeProperty('--island-pills-max-w');
-    return;
-  }
-  const ur = wrap.getBoundingClientRect();
-  const cr = cont.getBoundingClientRect();
-  const avail = ur.left - cr.left - 12;
-  if (avail > 0) cont.style.setProperty('--island-pills-max-w', Math.floor(avail) + 'px');
-});
-
-// ── Pulse state provider for unified AI pill ──
-let _pulseFlashTimer = null;
-let _pulseLastEventTs = 0;
-let _pulseIsFlashing = false;
-
-export function _getPulseState() {
-  const recent = (typeof Motion !== 'undefined' && Motion.pulse) ? Motion.pulse.recent : [];
-  const lastEvent = recent.length ? recent[recent.length - 1] : null;
-
-  // Track flash state
-  if (lastEvent && lastEvent.timestamp > _pulseLastEventTs) {
-    _pulseLastEventTs = lastEvent.timestamp;
-    _pulseIsFlashing = true;
-    if (_pulseFlashTimer) clearTimeout(_pulseFlashTimer);
-    _pulseFlashTimer = setTimeout(function() {
-      _pulseFlashTimer = null;
-      _pulseIsFlashing = false;
-      if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
-    }, 3000);
-  }
-
-  return { recent: recent, lastEvent: lastEvent, isFlashing: _pulseIsFlashing };
-}
-window._getPulseState = _getPulseState;
-
-export function _setIslandActivity(id, data) {
-  window._islandActivities.update(id, function(old) {
-    return Object.assign({}, old || {}, data, { _ts: Date.now() });
-  });
-}
-export function _clearIslandActivity(id) {
-  window._islandActivities.delete(id);
-}
-
-export function islandUpdate(id, data) {
-  _setIslandActivity(id, data);
-  _islandRender();
-}
-
-export function islandRemove(id) {
-  let el = document.querySelector('.pill-island[data-island-id="'+id+'"]');
-  if (!el) {
-    const anchor = document.getElementById('pill-island-tabs-anchor');
-    if (anchor) el = anchor.querySelector('.pill-island[data-island-id="'+id+'"]');
-  }
-  if (window._islandDismissTimers[id]) { clearTimeout(window._islandDismissTimers[id]); delete window._islandDismissTimers[id]; }
-  _clearIslandActivity(id);
-  // Re-render unified AI pill so it picks up removed ai/insight data
-  if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
-  if (el && !el.classList.contains('island-exiting')) {
-    const parentCont = el.parentNode;
-    _islandSnapshotRects(parentCont);
-    el.classList.add('island-exiting');
-    el.addEventListener('animationend', function onExit(ev) {
-      if (ev.animationName !== 'pill-exit') return;
-      el.removeEventListener('animationend', onExit);
-      _islandSnapshotRects(parentCont);
-      el.remove();
-      _islandFlipNeighbors(parentCont);
-    });
-  } else if (el) {
-    el.remove();
-  }
-}
-
-// Global achievement helper — persistent island pill, click to dismiss
-export function showAchievement(name, description) {
-  islandUpdate('achievement', {
-    type: 'achievement',
-    label: name || 'Unlocked!',
-    detail: description || 'Achievement Unlocked!',
-    cssClass: 'nr-glow',
-    action: function() { islandRemove('achievement'); }
-  });
-  if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#d4a017');
-}
-
-// ── Unified Audio Pill ──
+// ── Dynamic Island — delegated to toolbar-activities.js ──
+// Re-export for backwards compatibility with files that import from core-ui.js
+export { islandUpdate, islandRemove, showAchievement, _getPulseState,
+         _setIslandActivity, _clearIslandActivity } from '/js/toolbar/toolbar-activities.js';

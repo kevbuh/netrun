@@ -25,17 +25,19 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
-      include: ['src/js/**/*.js'],
+      include: ['src/js/**/*.js', 'src/core/**/*.ts'],
       exclude: [
         'src/js/**/*.{test,spec}.js',
+        'src/core/**/*.{test,spec}.ts',
+        'src/core/**/__tests__/**',
         'src/dist/**',
         'node_modules/**'
       ],
       thresholds: {
-        lines: 0,      // Start at 0, increase as you add tests
-        functions: 0,
-        branches: 0,
-        statements: 0
+        lines: 20,
+        functions: 20,
+        branches: 15,
+        statements: 20
       }
     },
 

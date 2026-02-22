@@ -1,6 +1,56 @@
 import { ipcMain } from 'electron';
+import * as dns from 'dns';
 import * as contentQueries from '../db/queries/content.js';
 import { cachedFetch, rewriteProxyHtml } from './shared.js';
+
+export function parseLinkPreview(html: string, url: string): { title: string; description: string; image: string; site: string; favicon: string; domain: string } {
+  const meta = (prop: string): string => {
+    for (const attr of ['property', 'name']) {
+      const m = html.match(new RegExp(`<meta\\s+${attr}="${prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s+content="([^"]*)"`, 'i'))
+        ?? html.match(new RegExp(`<meta\\s+content="([^"]*)"\\s+${attr}="${prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'i'));
+      if (m) return m[1];
+    }
+    return '';
+  };
+  let title = meta('og:title') || meta('twitter:title');
+  if (!title) {
+    const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    title = m ? m[1].replace(/<[^>]+>/g, '').trim() : '';
+  }
+  const desc = meta('og:description') || meta('twitter:description') || meta('description');
+  let image = meta('og:image') || meta('twitter:image');
+  if (image && !image.startsWith('http')) {
+    const u = new URL(url);
+    if (image.startsWith('//')) image = u.protocol + image;
+    else if (image.startsWith('/')) image = u.origin + image;
+    else image = url.replace(/\/[^/]*$/, '/') + image;
+  }
+  const site = meta('og:site_name');
+  const u = new URL(url);
+  const domain = u.hostname.replace(/^www\./, '');
+  const favicon = u.origin + '/favicon.ico';
+  return { title: title.slice(0, 200), description: desc.slice(0, 300), image, site: site || domain, favicon, domain };
+}
+
+export function extractLinks(html: string, baseUrl: string): Array<{ text: string; url: string }> {
+  const linkRegex = /<a\s+[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+  const seen = new Set<string>();
+  const links: Array<{ text: string; url: string }> = [];
+  let match;
+  while ((match = linkRegex.exec(html)) !== null) {
+    let href = match[1];
+    const text = match[2].replace(/<[^>]+>/g, '').trim();
+    if (!text || !href) continue;
+    try {
+      href = new URL(href, baseUrl).href;
+    } catch { continue; }
+    if (!href.startsWith('http')) continue;
+    if (seen.has(href)) continue;
+    seen.add(href);
+    links.push({ text, url: href });
+  }
+  return links;
+}
 
 export function registerBrowseIPC(): void {
   // ── Semantic Scholar API ──
@@ -141,32 +191,7 @@ export function registerBrowseIPC(): void {
         signal: AbortSignal.timeout(8_000),
       });
       const html = (await resp.text()).slice(0, 200_000);
-      const meta = (prop: string): string => {
-        for (const attr of ['property', 'name']) {
-          const m = html.match(new RegExp(`<meta\\s+${attr}="${prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s+content="([^"]*)"`, 'i'))
-            ?? html.match(new RegExp(`<meta\\s+content="([^"]*)"\\s+${attr}="${prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'i'));
-          if (m) return m[1];
-        }
-        return '';
-      };
-      let title = meta('og:title') || meta('twitter:title');
-      if (!title) {
-        const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-        title = m ? m[1].replace(/<[^>]+>/g, '').trim() : '';
-      }
-      const desc = meta('og:description') || meta('twitter:description') || meta('description');
-      let image = meta('og:image') || meta('twitter:image');
-      if (image && !image.startsWith('http')) {
-        const u = new URL(url);
-        if (image.startsWith('//')) image = u.protocol + image;
-        else if (image.startsWith('/')) image = u.origin + image;
-        else image = url.replace(/\/[^/]*$/, '/') + image;
-      }
-      const site = meta('og:site_name');
-      const u = new URL(url);
-      const domain = u.hostname.replace(/^www\./, '');
-      const favicon = u.origin + '/favicon.ico';
-      return { title: title.slice(0, 200), description: desc.slice(0, 300), image, site: site || domain, favicon, domain };
+      return parseLinkPreview(html, url);
     } catch (e: any) {
       return { title: '', description: '', image: '', site: '', domain: '', error: e.message ?? String(e) };
     }
@@ -194,23 +219,7 @@ export function registerBrowseIPC(): void {
     try {
       const buf = await cachedFetch(url, 30_000);
       const html = buf.toString('utf-8');
-      const linkRegex = /<a\s+[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-      const seen = new Set<string>();
-      const links: Array<{ text: string; url: string }> = [];
-      let match;
-      while ((match = linkRegex.exec(html)) !== null) {
-        let href = match[1];
-        const text = match[2].replace(/<[^>]+>/g, '').trim();
-        if (!text || !href) continue;
-        try {
-          href = new URL(href, url).href;
-        } catch { continue; }
-        if (!href.startsWith('http')) continue;
-        if (seen.has(href)) continue;
-        seen.add(href);
-        links.push({ text, url: href });
-      }
-      return { links };
+      return { links: extractLinks(html, url) };
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 
@@ -267,5 +276,39 @@ export function registerBrowseIPC(): void {
     } catch (e: any) {
       return { error: e.message ?? String(e) };
     }
+  });
+
+  // ── IP geolocation ──
+  const _ipGeoCache = new Map<string, { data: any; ts: number }>();
+  const _IP_GEO_TTL = 30 * 60 * 1000; // 30 minutes
+
+  ipcMain.handle('db:ip-geo', async (_event, hostname: string) => {
+    if (!hostname) return { error: 'hostname required' };
+    // Check cache
+    const cached = _ipGeoCache.get(hostname);
+    if (cached && (Date.now() - cached.ts) < _IP_GEO_TTL) return cached.data;
+    try {
+      // Resolve hostname to IP
+      const addresses = await dns.promises.resolve4(hostname);
+      const ip = addresses[0];
+      if (!ip) return { error: 'could not resolve' };
+      // Geolocation lookup
+      const resp = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,regionName,city,isp,org,as`, {
+        signal: AbortSignal.timeout(5_000),
+      });
+      const geo = await resp.json() as any;
+      if (geo.status !== 'success') return { ip, error: 'geo lookup failed' };
+      const result = {
+        ip,
+        city: geo.city || null,
+        region: geo.regionName || null,
+        country: geo.country || null,
+        isp: geo.isp || null,
+        org: geo.org || null,
+        as: geo.as || null,
+      };
+      _ipGeoCache.set(hostname, { data: result, ts: Date.now() });
+      return result;
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 }

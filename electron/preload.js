@@ -58,6 +58,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   adblockCosmetic: (url) => ipcRenderer.invoke('adblock-cosmetic', url),
   adblockUpdate: () => ipcRenderer.invoke('adblock-update'),
   adblockStats: () => ipcRenderer.invoke('adblock-stats'),
+  // IP geolocation
+  ipGeo: (hostname) => ipcRenderer.invoke('db:ip-geo', hostname),
   // DNS-over-HTTPS
   dohSetConfig: (enabled, provider) => ipcRenderer.invoke('doh-set-config', enabled, provider),
   // Tracking Parameter Stripping
@@ -78,7 +80,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   privacyStats: () => ipcRenderer.invoke('privacy-stats'),
 
   // ── Terminal (node-pty via IPC) ──
-  terminalStart: (cwd) => ipcRenderer.invoke('terminal:start', cwd),
+  terminalStart: (cwdOrOpts) => ipcRenderer.invoke('terminal:start', cwdOrOpts),
   terminalInput: (sessionId, data) => ipcRenderer.invoke('terminal:input', sessionId, data),
   terminalResize: (sessionId, cols, rows) => ipcRenderer.invoke('terminal:resize', sessionId, cols, rows),
   terminalKill: (sessionId) => ipcRenderer.invoke('terminal:kill', sessionId),

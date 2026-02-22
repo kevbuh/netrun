@@ -730,7 +730,7 @@ export async function _connectTerminalIpc(t, cwd) {
   console.debug(`terminal ${t.id} connecting via IPC, cwd=${cwd}`);
 
   try {
-    const result = await window.electronAPI.terminalStart(cwd);
+    const result = await window.electronAPI.terminalStart({ sandboxed: true });
     if (result.error) {
       if (t.term) t.term.write(`\r\n\x1b[91m[error: ${result.error}]\x1b[0m\r\n`);
       return;
@@ -749,8 +749,9 @@ export async function _connectTerminalIpc(t, cwd) {
       if (id === sessionId && t.term) {
         t.term.write(`\r\n\x1b[90m[exited with code ${exitCode}]\x1b[0m\r\n`);
       }
-      window.electronAPI.onTerminalOutput && ipcRenderer_removeListener('terminal:output', onOutput);
-      window.electronAPI.onTerminalExit && ipcRenderer_removeListener('terminal:exit', onExit);
+      if (window.electronAPI.removeTerminalListeners) {
+        window.electronAPI.removeTerminalListeners(sessionId);
+      }
     };
 
     window.electronAPI.onTerminalOutput(onOutput);

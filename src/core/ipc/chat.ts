@@ -8,15 +8,42 @@ import * as chatDb from '../db/queries/chat.js';
 const CHAT_MEMORY_DIR = path.join(DATA_DIR, 'chat-memories');
 fs.mkdirSync(CHAT_MEMORY_DIR, { recursive: true });
 
+export function generateChatMemoryId(): string {
+  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+}
+
+export function extractSummary(messages: any[]): string {
+  return messages
+    .filter((m: any) => m.role === 'user')
+    .map((m: any) => (m.content || '').slice(0, 100))
+    .join('; ')
+    .slice(0, 300);
+}
+
+export function buildDocChatSystemPrompt(options: { context?: string; toolsEnabled?: boolean; think?: boolean }): string {
+  const { context, toolsEnabled = false, think = true } = options;
+  const truncatedCtx = (context || '').slice(0, 12_000);
+  const now = new Date();
+  const dateStr = `CURRENT DATE AND TIME: ${now.toLocaleString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })} (local time). Always use this date/time for any time-relative requests.\n\n`;
+  let systemMsg: string;
+  if (truncatedCtx) {
+    systemMsg = toolsEnabled
+      ? dateStr + 'You are the AI assistant inside Netrun, a desktop research app. Answer based on the document text below.\n\n--- DOCUMENT TEXT ---\n' + truncatedCtx + '\n--- END ---'
+      : dateStr + 'You are a helpful research assistant. Answer based ONLY on the document text below.\n\n--- DOCUMENT TEXT ---\n' + truncatedCtx + '\n--- END ---';
+  } else {
+    systemMsg = toolsEnabled
+      ? dateStr + 'You are the AI assistant inside Netrun, a desktop research app.'
+      : dateStr + 'You are a helpful assistant.';
+  }
+  if (!think) systemMsg += ' /no_think';
+  return systemMsg;
+}
+
 export function registerChatIPC(): void {
   ipcMain.handle('db:chat-memory-save', (_event, data: { messages: any[]; pageUrl?: string; pageTitle?: string }) => {
     if (!data.messages?.length) return { ok: false };
-    const id = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-    const summary = data.messages
-      .filter((m: any) => m.role === 'user')
-      .map((m: any) => (m.content || '').slice(0, 100))
-      .join('; ')
-      .slice(0, 300);
+    const id = generateChatMemoryId();
+    const summary = extractSummary(data.messages);
     const entry = {
       id,
       summary,
@@ -86,20 +113,7 @@ export function registerChatIPC(): void {
           ];
         } else {
           model = model || (toolsEnabled ? 'qwen3:8b' : 'qwen2.5:3b');
-          const truncatedCtx = context.slice(0, 12_000);
-          const now = new Date();
-          const dateStr = `CURRENT DATE AND TIME: ${now.toLocaleString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })} (local time). Always use this date/time for any time-relative requests.\n\n`;
-          let systemMsg: string;
-          if (truncatedCtx) {
-            systemMsg = toolsEnabled
-              ? dateStr + 'You are the AI assistant inside Netrun, a desktop research app. Answer based on the document text below.\n\n--- DOCUMENT TEXT ---\n' + truncatedCtx + '\n--- END ---'
-              : dateStr + 'You are a helpful research assistant. Answer based ONLY on the document text below.\n\n--- DOCUMENT TEXT ---\n' + truncatedCtx + '\n--- END ---';
-          } else {
-            systemMsg = toolsEnabled
-              ? dateStr + 'You are the AI assistant inside Netrun, a desktop research app.'
-              : dateStr + 'You are a helpful assistant.';
-          }
-          if (!think) systemMsg += ' /no_think';
+          const systemMsg = buildDocChatSystemPrompt({ context, toolsEnabled, think });
           ollamaMessages = [{ role: 'system', content: systemMsg }, ...messages];
         }
 

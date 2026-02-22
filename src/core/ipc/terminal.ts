@@ -4,9 +4,15 @@ export function registerTerminalIPC(): void {
   const { terminalManager } = require('../terminal-manager.js') as typeof import('../terminal-manager.js');
   const { transcribeChunk } = require('../captions-manager.js') as typeof import('../captions-manager.js');
 
-  ipcMain.handle('terminal:start', (event, cwd?: string) => {
+  ipcMain.handle('terminal:start', (event, cwdOrOpts?: string | { cwd?: string; sandboxed?: boolean }) => {
     try {
-      const sessionId = terminalManager.start(cwd);
+      let sessionId: string;
+      if (typeof cwdOrOpts === 'object' && cwdOrOpts?.sandboxed) {
+        sessionId = terminalManager.startSandboxed();
+      } else {
+        const cwd = typeof cwdOrOpts === 'string' ? cwdOrOpts : cwdOrOpts?.cwd;
+        sessionId = terminalManager.start(cwd);
+      }
       const webContents = event.sender;
 
       const onOutput = (id: string, data: string) => {

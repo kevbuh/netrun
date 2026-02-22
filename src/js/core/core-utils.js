@@ -15,11 +15,12 @@ export function formatDate(d) {
   if (!d) return '';
   const now = new Date();
   const diffMs = now - d;
-  const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return 'just now';
+  const diffSecs = Math.floor(diffMs / 1000);
+  if (diffSecs < 60) return `${diffSecs}s ago`;
+  const diffMins = Math.floor(diffSecs / 60);
   if (diffMins < 60) return `${diffMins}m ago`;
   const diffHrs = Math.floor(diffMins / 60);
-  if (d.toDateString() === now.toDateString()) return `${diffHrs}h ago`;
+  if (diffHrs < 24) return `${diffHrs}h ago`;
   return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
 }
 

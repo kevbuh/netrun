@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { spawn } from 'child_process';
+import * as cp from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -7,7 +7,7 @@ import * as os from 'os';
 const SCRIPT_PATH = path.join(__dirname, '..', '..', 'core', 'python', 'pdf-convert.py');
 
 // In dev mode, script is at src/core/python/pdf-convert.py relative to project root
-function getScriptPath(): string {
+export function getScriptPath(): string {
   // Try compiled location first, then dev location
   if (fs.existsSync(SCRIPT_PATH)) return SCRIPT_PATH;
   const devPath = path.join(__dirname, '..', '..', '..', 'src', 'core', 'python', 'pdf-convert.py');
@@ -17,11 +17,11 @@ function getScriptPath(): string {
   return cwdPath;
 }
 
-function runPdfConvert(args: Record<string, unknown>): Promise<any> {
+export function runPdfConvert(args: Record<string, unknown>): Promise<any> {
   return new Promise((resolve, reject) => {
     const scriptPath = getScriptPath();
     const jsonArg = JSON.stringify(args);
-    const proc = spawn('python3', [scriptPath, jsonArg], {
+    const proc = cp.spawn('python3', [scriptPath, jsonArg], {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 

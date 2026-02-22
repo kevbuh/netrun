@@ -83,6 +83,14 @@ function _pushPill(meta) {
   _currentLabel = label || '';
   _currentBadges = badges;
   _currentMeta = meta || null;
+  // Push into island activities so toolbar-activities._getPageInfoState() can find it
+  if (typeof window._setIslandActivity === 'function') {
+    if (label || badges || (meta && Object.keys(meta).length)) {
+      window._setIslandActivity('pageinfo', { type: 'pageinfo', label: label || '', badges: badges, meta: meta || {} });
+    } else {
+      if (typeof window._clearIslandActivity === 'function') window._clearIslandActivity('pageinfo');
+    }
+  }
   if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
 }
 
@@ -190,19 +198,29 @@ export function _pageInfoOnPageLoad(tab, frame) {
     _pushPill(cached.data);
     return;
   }
-  // Inject content script to extract metadata
+  // Inject content script to extract metadata + fetch IP geolocation
   try {
-    frame.executeJavaScript(_EXTRACT_SCRIPT).then(function(meta) {
-      if (!meta) meta = {};
+    var hostname = '';
+    try { hostname = new URL(url).hostname; } catch(e) {}
+    var metaPromise = frame.executeJavaScript(_EXTRACT_SCRIPT).catch(function() { return {}; });
+    var geoPromise = (hostname && window.electronAPI && window.electronAPI.ipGeo)
+      ? window.electronAPI.ipGeo(hostname).catch(function() { return null; })
+      : Promise.resolve(null);
+    Promise.all([metaPromise, geoPromise]).then(function(results) {
+      var meta = results[0] || {};
+      var geo = results[1];
+      if (geo && !geo.error) {
+        meta.ip = geo.ip;
+        var locParts = [geo.city, geo.region, geo.country].filter(Boolean);
+        meta.location = locParts.join(', ');
+        meta.org = geo.org || geo.isp || null;
+      }
       _pageInfoCache.set(url, { data: meta, ts: Date.now() });
       // Only push if this tab is still the active one
-      const win = window._getCurrentWindow ? window._getCurrentWindow() : null;
+      var win = window._getCurrentWindow ? window._getCurrentWindow() : null;
       if (win && win.activeTab === tab.id) {
         _pushPill(meta);
       }
-    }).catch(function() {
-      // Still show pill with scroll/token data even if metadata extraction fails
-      _pushPill(null);
     });
   } catch(e) {
     _pushPill(null);
@@ -220,6 +238,7 @@ export function _pageInfoRestoreForTab(tab) {
   _scrollPct = -1;
   _tokenCount = 0;
   const cached = _pageInfoCache.get(url);
+  console.log('[pageinfo] restoreForTab url:', url, 'cached:', !!cached, 'cacheKeys:', [..._pageInfoCache.keys()]);
   if (cached && (Date.now() - cached.ts) < _CACHE_TTL) {
     _pushPill(cached.data);
   } else {
@@ -234,6 +253,7 @@ export function _pageInfoCleanup() {
   _currentLabel = '';
   _currentBadges = '';
   _currentMeta = null;
+  if (typeof window._clearIslandActivity === 'function') window._clearIslandActivity('pageinfo');
   if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
 }
 

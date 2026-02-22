@@ -1,7 +1,7 @@
 import Settings from '/js/core/core-settings.js';
 import { ipcRoute } from '/js/api-ipc.js';
 import { apiPost, apiGet, apiDelete } from '/js/api.js';
-import { escapeHtml, escapeAttr, getPaperRatings, getPaperRating, truncate, _normalizeRatingKey, renderTitle, renderStarRating } from '/js/core/core-utils.js';
+import { formatDate, escapeHtml, escapeAttr, stripHtml, getPaperRatings, getPaperRating, truncate, _normalizeRatingKey, renderTitle, renderStarRating } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { islandUpdate, islandRemove, showAchievement } from '/js/core/core-ui.js';
 import { _updateNowPlayingContext } from '/js/core/core-audio.js';
@@ -1472,6 +1472,18 @@ function _scoreBadge(p) {
   return window.Text(String(Math.round(p._compositeScore))).className('text-[0.6rem] text-dimmer tabular-nums opacity-60 shrink-0');
 }
 
+function _displayDate(p) {
+  if (p.pubDate) {
+    const d = new Date(p.pubDate);
+    if (!isNaN(d)) return formatDate(d);
+  }
+  if (p.date) {
+    const d = new Date(p.date);
+    if (!isNaN(d)) return formatDate(d);
+  }
+  return p.date || '';
+}
+
 export function _renderPaperCompactRow(p, i, ctx) {
   const readSet = ctx.readSet;
   const sourceChip = getSourceChip(p.source, p.arxivId);
@@ -1485,7 +1497,7 @@ export function _renderPaperCompactRow(p, i, ctx) {
     window.RawHTML('<span class="text-[0.82rem] ' + (isRead ? 'text-muted' : 'text-primary') + ' truncate">' + renderTitle(p.title) + '</span>'),
     actionWrap,
     _scoreBadge(p),
-    p.date ? window.Text(p.date).className('text-[0.68rem] text-dim shrink-0') : null
+    (function() { var dd = _displayDate(p); return dd ? window.Text(dd).className('text-[0.68rem] text-dim shrink-0') : null; })()
   ).spacing(2).className('py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors')
     .onTap(function(e) { openPaper(i, e); });
   return window.VStack(row, _cardCommentContainer(p, i))
@@ -1499,7 +1511,7 @@ export function _renderPaperCard(p, i, ctx) {
   const _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
   const sourceLabel = _hasExternalLink ? (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
   const isPoly = p.source === 'polymarket';
-  const snippet = isPoly ? '' : (p.description ? truncate(p.description, 120) : '');
+  const snippet = isPoly ? '' : (p.description ? truncate(stripHtml(p.description), 120) : '');
   const nLink = _normalizeRatingKey(p.link);
   const userRating = ctx.ratings ? (ctx.ratings[nLink] || ctx.ratings[p.link] || 0) : getPaperRating(p.link);
   const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
@@ -1529,7 +1541,8 @@ export function _renderPaperCard(p, i, ctx) {
     else if (p.citations !== undefined) metaItems.push(window.Text(p.citations + ' cited').className('text-[0.68rem] text-dim'));
   }
   if (userRating > 0) metaItems.push(window.RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
-  if (p.date) metaItems.push(window.Text(p.date).className('text-[0.68rem] text-dim'));
+  var dd = _displayDate(p);
+  if (dd) metaItems.push(window.Text(dd).className('text-[0.68rem] text-dim'));
   var badge = _scoreBadge(p);
   if (badge) metaItems.push(badge);
   metaItems.push(_cardActionRow(p, i, ctx));
@@ -1581,7 +1594,7 @@ export function _renderPaperVerboseCard(p, i, ctx) {
   const _hasExternalLink = p.commentsUrl || (isHN && !/news\.ycombinator\.com/.test(p.link));
   const sourceName = _hasExternalLink ? (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return SOURCE_NAMES[p.source] || p.source; } })() : (SOURCE_NAMES[p.source] || p.source);
   const isPoly = p.source === 'polymarket';
-  const fullDesc = isPoly ? '' : (p.description || '');
+  const fullDesc = isPoly ? '' : (p.description ? stripHtml(p.description) : '');
   const pCats = Array.isArray(p.categories) ? p.categories : [];
   const nLink = _normalizeRatingKey(p.link);
   const userRating = ctx.ratings[nLink] || ctx.ratings[p.link] || 0;
@@ -1621,7 +1634,8 @@ export function _renderPaperVerboseCard(p, i, ctx) {
     else if (p.citations !== undefined) metaItems.push(window.Text(p.citations + ' cited').className('text-[0.72rem] text-dim'));
   }
   if (userRating > 0) metaItems.push(window.RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
-  if (p.date) metaItems.push(window.Text(p.date).className('text-[0.72rem] text-dim'));
+  var dd2 = _displayDate(p);
+  if (dd2) metaItems.push(window.Text(dd2).className('text-[0.72rem] text-dim'));
   var vBadge = _scoreBadge(p);
   if (vBadge) metaItems.push(vBadge);
   metaItems.push(_cardActionRow(p, i, ctx));
@@ -1640,7 +1654,7 @@ export function _renderPaperTwitterCard(p, i, ctx) {
   const sourceName = SOURCE_NAMES[p.source] || p.source;
   const handle = (function() { try { return new URL(p.link).hostname.replace(/^www\./, ''); } catch(e) { return p.source; } })();
   const isPoly = p.source === 'polymarket';
-  const snippet = isPoly ? '' : (p.description ? truncate(p.description, 280) : '');
+  const snippet = isPoly ? '' : (p.description ? truncate(stripHtml(p.description), 280) : '');
   const isSaved = !!ctx.savedPosts[p.link];
   const bmFill = isSaved ? 'var(--nr-accent)' : 'none';
   const bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
@@ -1649,7 +1663,7 @@ export function _renderPaperTwitterCard(p, i, ctx) {
   const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
   const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
   const avatarView = window.RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-10 h-10 rounded-full shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
-  const tAgo = p.pubDate && typeof _relativeTime === 'function' ? _relativeTime(p.pubDate) : (p.date || '');
+  const tAgo = _displayDate(p);
   const hnPts = isHN ? p.hnScore || 0 : 0;
   const citations = p.citations !== undefined ? p.citations : null;
   const statsNum = isPoly ? p.polyYesPct + '%' : isHN ? String(hnPts) : (citations !== null ? String(citations) : '');
