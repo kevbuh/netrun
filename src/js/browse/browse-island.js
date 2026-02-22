@@ -22,6 +22,7 @@ import { _showPanel } from '/js/panel.js';
 import { browseNewTab, openLocalPdf } from '/js/browse/browse-windows.js';
 import { chatViewCleanupMorph, chatViewUnmorph, openChatPage } from '/js/chat-view.js';
 import { openDrawPage } from '/js/draw-view.js';
+import { openTerminalPage } from '/js/terminal.js';
 import { renderAIPanelContent } from '/js/browse/browse-ai-pill.js';
 
 // ── Island pill position sync ──
@@ -1449,6 +1450,11 @@ export function browseNavigate(input) {
     if (typeof openDrawPage === 'function') openDrawPage(drawId || undefined);
     return;
   }
+  // Intercept terminal:// URLs — open dedicated terminal view
+  if (/^terminal:\/\//i.test(cmd)) {
+    if (typeof openTerminalPage === 'function') openTerminalPage();
+    return;
+  }
   const url = _browseResolveUrl(input);
   // Track web searches (when input resolved to a Google search, not a direct URL)
   const trimmed = (input || '').trim();
@@ -1458,7 +1464,7 @@ export function browseNavigate(input) {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab) { browseNewTab(url); return; }
   // Tear down special pages if this tab was showing one
-  if (tab._historyPage || tab._helpPage || tab._netrunPage || tab._chatPage) {
+  if (tab._historyPage || tab._helpPage || tab._netrunPage || tab._chatPage || tab._terminalPage) {
     // Clean up NTP morph if in chat-mode (DOM only; tab state handled below)
     if (tab._chatPage && typeof chatViewCleanupMorph === 'function') {
       const ntpMorphed = document.getElementById('browse-content')?.querySelector('.browse-ntp.chat-mode');
@@ -1471,6 +1477,7 @@ export function browseNavigate(input) {
     delete tab._netrunPage;
     delete tab._chatPage;
     delete tab._chatThreadId;
+    delete tab._terminalPage;
   }
   // Push current URL onto back stack for navigation history
   // Skip hash routes (app views like #feed, #settings) and blank/empty URLs

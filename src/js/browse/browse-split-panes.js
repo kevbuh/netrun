@@ -331,7 +331,7 @@ export function _browseFocusPane(paneId) {
   // Update URL bar
   const tab = win?.tabs.find(t => t.id === pane.tabId);
   const urlInput = document.getElementById('browse-url-input');
-  if (tab) _browseSetUrlDisplay(urlInput, tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : tab._netrunPage ? 'netrun://' : (tab.url || ''));
+  if (tab) _browseSetUrlDisplay(urlInput, tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : tab._netrunPage ? 'netrun://' : tab._terminalPage ? 'terminal://' : (tab.url || ''));
   _browseUpdateSaveBtn();
   _browseRenderTabs();
 }

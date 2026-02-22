@@ -58,22 +58,22 @@ export function _setPillBrowseMode(enabled) {
     if (tabRow) tabRow.style.display = 'none';
     const bar = document.getElementById('browse-bar');
     if (bar) bar.style.display = '';
-    // Hide More and sidebar toggle — redundant in horizontal pill mode
-    const moreBtn = document.getElementById('browse-more-btn');
-    const sidebarToggle = document.getElementById('browse-sidebar-toggle');
-    if (moreBtn) moreBtn.style.display = 'none';
-    if (sidebarToggle) sidebarToggle.style.display = 'none';
+    // Hide buttons redundant in horizontal pill mode
+    const hideIds = ['browse-more-btn', 'browse-sidebar-toggle',
+      'browse-adblock-btn', 'browse-doh-btn', 'browse-downloads-btn', 'browse-save-btn',
+      'browse-share-btn', 'browse-annotate-btn', 'browse-search-history-btn', 'browse-cc-btn'];
+    hideIds.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
     _pillSyncTabs();
   } else {
     // Exiting horizontal pill mode — remove classes, restore layout
     if (pill) { pill.classList.remove('browse-mode'); pill.classList.remove('island-mode'); }
     const pillTabs = document.getElementById('pill-browse-tabs');
     if (pillTabs) pillTabs.innerHTML = '';
-    // Restore More and sidebar toggle
-    const moreBtn = document.getElementById('browse-more-btn');
-    const sidebarToggle = document.getElementById('browse-sidebar-toggle');
-    if (moreBtn) moreBtn.style.display = '';
-    if (sidebarToggle) sidebarToggle.style.display = '';
+    // Restore buttons hidden in horizontal pill mode
+    const restoreIds = ['browse-more-btn', 'browse-sidebar-toggle',
+      'browse-adblock-btn', 'browse-doh-btn', 'browse-downloads-btn', 'browse-save-btn',
+      'browse-share-btn', 'browse-annotate-btn', 'browse-search-history-btn', 'browse-cc-btn'];
+    restoreIds.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = ''; });
     _closePillMenu();
     _applyBrowseTabLayout();
   }

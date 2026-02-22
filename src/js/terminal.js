@@ -1,7 +1,155 @@
 import Settings from '/js/core/core-settings.js';
 import { icon } from '/js/core/icons.js';
+import { _browseRenderTabs } from '/js/browse/browse-island.js';
+import { _browseSetUrlDisplay } from '/js/browse-urlbar.js';
+import { _browseUpdateNewTabPage, browseSelectTab } from '/js/browse/browse-passwords.js';
+import { browseSelectWindow, openBrowse } from '/js/browse/browse-windows.js';
+import { _browseWindows, getBrowseActiveWindow } from '/js/browse/browse-state.js';
 
 // ── Terminal window.View(Multi-tab, Split Panes, Search, Themes) ──
+
+// ─── Open terminal as a dedicated browse tab ─────────────────
+export function openTerminalPage() {
+  openBrowse();
+
+  // Reuse existing terminal tab
+  for (const w of _browseWindows) {
+    const existing = w.tabs.find(t => t._terminalPage);
+    if (existing) {
+      if (w.id !== getBrowseActiveWindow()) browseSelectWindow(w.id);
+      browseSelectTab(existing.id);
+      return;
+    }
+  }
+
+  const win = _browseWindows.find(w => w.id === getBrowseActiveWindow());
+  if (!win) return;
+  const tab = win.tabs.find(t => t.id === win.activeTab);
+  if (!tab) return;
+
+  tab.blank = false;
+  tab.url = 'terminal://';
+  tab.title = 'Terminal';
+  tab.favicon = '';
+  tab._terminalPage = true;
+
+  if (tab.el) tab.el.remove();
+
+  const container = document.getElementById('browse-content');
+  const el = document.createElement('div');
+  el.id = 'browse-terminal-' + tab.id;
+  el.className = 'nr-terminal-page';
+  el.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;display:flex;flex-direction:column;';
+  container.appendChild(el);
+  tab.el = el;
+
+  _browseUpdateNewTabPage(tab);
+  _browseRenderTabs();
+
+  const urlInput = document.getElementById('browse-url-input');
+  _browseSetUrlDisplay(urlInput, 'terminal://');
+
+  _renderTerminalPage(el);
+}
+
+function _renderTerminalPage(el) {
+  _loadTerminalState();
+
+  // Tab bar
+  const tabBar = document.createElement('div');
+  tabBar.className = 'nr-terminal-page-tabs';
+  el.appendChild(tabBar);
+
+  // Terminal pane
+  const pane = document.createElement('div');
+  pane.className = 'nr-terminal-page-pane';
+  el.appendChild(pane);
+
+  // Create first terminal if none exist
+  if (_terminals.length === 0) {
+    createTerminal();
+  }
+
+  _renderTerminalPageTabs(tabBar);
+  _renderTerminalPagePane(pane);
+}
+
+function _renderTerminalPageTabs(tabBar) {
+  tabBar.innerHTML = '';
+  _terminals.forEach(function(t) {
+    const tabSvg = icon('terminal', { size: 12, class: 'shrink-0 text-dimmer', strokeWidth: '1.5' });
+    const tab = document.createElement('div');
+    tab.className = 'term-tab' + (t.id === _activeTerminalId ? ' active' : '');
+    tab.dataset.termId = t.id;
+    tab.addEventListener('click', function() {
+      _activeTerminalId = t.id;
+      _renderTerminalPageTabs(tabBar);
+      _renderTerminalPagePane(tabBar.nextElementSibling);
+      _saveTerminalState();
+    });
+    tab.innerHTML = tabSvg;
+    const title = document.createElement('span');
+    title.className = 'term-tab-title';
+    title.textContent = t.name;
+    tab.appendChild(title);
+    if (_terminals.length > 1) {
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'term-tab-close';
+      closeBtn.textContent = '\u00d7';
+      closeBtn.title = 'Close';
+      closeBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        destroyTerminal(t.id);
+        _renderTerminalPageTabs(tabBar);
+        _renderTerminalPagePane(tabBar.nextElementSibling);
+      });
+      tab.appendChild(closeBtn);
+    }
+    tabBar.appendChild(tab);
+  });
+  const newBtn = document.createElement('button');
+  newBtn.className = 'term-tab-new';
+  newBtn.textContent = '+';
+  newBtn.title = 'New Tab';
+  newBtn.addEventListener('click', function() {
+    createTerminal();
+    _renderTerminalPageTabs(tabBar);
+    _renderTerminalPagePane(tabBar.nextElementSibling);
+  });
+  tabBar.appendChild(newBtn);
+}
+
+function _renderTerminalPagePane(container) {
+  if (!container) return;
+  const t = _terminals.find(t => t.id === _activeTerminalId);
+  if (!t) return;
+
+  container.innerHTML = '';
+  const pane = t.container;
+  pane.style.width = '100%';
+  pane.style.height = '100%';
+  container.appendChild(pane);
+
+  if (!pane.querySelector('.xterm')) {
+    t.term.open(pane);
+    t.fitAddon.fit();
+    _connectTerminalWs(t);
+
+    const ro = new ResizeObserver(() => {
+      try { t.fitAddon.fit(); } catch (_) {}
+    });
+    ro.observe(pane);
+
+    t.term.onResize(({ cols, rows }) => {
+      _terminalSendResize(t, cols, rows);
+    });
+  } else {
+    setTimeout(() => {
+      t.fitAddon.fit();
+      t.term.focus();
+    }, 50);
+  }
+}
 
 // Global state
 export const _terminals = [];
@@ -579,7 +727,7 @@ export function _connectTerminalWs(t, cwd) {
 }
 
 export async function _connectTerminalIpc(t, cwd) {
-  logger.debug(`terminal ${t.id} connecting via IPC, cwd=${cwd}`);
+  console.debug(`terminal ${t.id} connecting via IPC, cwd=${cwd}`);
 
   try {
     const result = await window.electronAPI.terminalStart(cwd);
@@ -625,9 +773,9 @@ export async function _connectTerminalIpc(t, cwd) {
       window.electronAPI.terminalResize(sessionId, cols, rows);
     });
 
-    logger.debug(`terminal ${t.id} connected, session=${sessionId}`);
+    console.debug(`terminal ${t.id} connected, session=${sessionId}`);
   } catch (err) {
-    logger.error(`terminal ${t.id} IPC connect failed`, err);
+    console.error(`terminal ${t.id} IPC connect failed`, err);
     if (t.term) t.term.write(`\r\n\x1b[91m[connection failed]\x1b[0m\r\n`);
   }
 }
@@ -635,14 +783,14 @@ export async function _connectTerminalIpc(t, cwd) {
 export function _connectTerminalWsFallback(t, cwd) {
   const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const wsUrl = `${wsProto}//${location.host}/ws/terminal` + (cwd ? '?cwd=' + encodeURIComponent(cwd) : '');
-  logger.debug(`terminal ${t.id} connecting to`, wsUrl);
+  console.debug(`terminal ${t.id} connecting to`, wsUrl);
 
   const ws = new WebSocket(wsUrl);
   ws.binaryType = 'arraybuffer';
   t.ws = ws;
 
   ws.onopen = () => {
-    logger.debug(`terminal ${t.id} ws open`);
+    console.debug(`terminal ${t.id} ws open`);
     t.fitAddon.fit();
     const { cols, rows } = t.term;
     ws.send(JSON.stringify({ type: 'resize', cols, rows }));
@@ -658,11 +806,11 @@ export function _connectTerminalWsFallback(t, cwd) {
   };
 
   ws.onerror = (e) => {
-    logger.error(`terminal ${t.id} ws error`, e);
+    console.error(`terminal ${t.id} ws error`, e);
   };
 
   ws.onclose = (ev) => {
-    logger.debug(`terminal ${t.id} ws close`, ev.code, ev.reason);
+    console.debug(`terminal ${t.id} ws close`, ev.code, ev.reason);
     if (t.term) t.term.write('\r\n\x1b[90m[disconnected]\x1b[0m\r\n');
   };
 

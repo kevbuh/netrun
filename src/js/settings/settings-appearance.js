@@ -202,7 +202,7 @@ export function _renderAppearanceSettings() {
   // Button sounds
   const soundBtns = Object.entries(CLICK_SOUND_PRESETS).map(function(pair) {
     const key = pair[0], p = pair[1];
-    const sel = _clickSoundOn && (Settings.get('clickSoundType') || 'thud') === key;
+    const sel = (Settings.get('clickSound') === 'on') && (Settings.get('clickSoundType') || 'thud') === key;
     const b = new window.View('button');
     b.text(p.label);
     b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
@@ -213,7 +213,7 @@ export function _renderAppearanceSettings() {
   const soundNone = new window.View('button');
   soundNone.text('none');
   soundNone.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
-    (!_clickSoundOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
+    (!(Settings.get('clickSound') === 'on') ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
   soundNone.onTap(function() { toggleClickSound(false); renderSettingsView(); });
   soundBtns.push(soundNone);
   // TTS

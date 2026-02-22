@@ -80,8 +80,6 @@ const ADBLOCK_FILTER_LISTS = [
   ['EasyList', 'https://easylist.to/easylist/easylist.txt'],
   ['EasyPrivacy', 'https://easylist.to/easylist/easyprivacy.txt'],
   ['HideYTShorts', 'https://raw.githubusercontent.com/i5heu/ublock-hide-yt-shorts/master/list.txt'],
-  ['uBO-Annoyances', 'https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/annoyances-others.txt'],
-  ['uBO-Quick', 'https://raw.githubusercontent.com/AakashRao-dev/Block-YouTube-Ads-ABP/master/AakashRao-YTAdsBlock.txt'],
 ];
 
 function _mapResourceType(rt) {
@@ -525,7 +523,7 @@ app.on('web-contents-created', (event, contents) => {
     const ses = contents.session;
     if (!sessionsWithAdblock.has(ses)) {
       sessionsWithAdblock.add(ses);
-      const _ytAdPatterns = ['/api/stats/ads', '/pagead/', '/get_midroll_', 'doubleclick.net/pagead/', 'googlesyndication.com/pagead/', 'youtube.com/api/stats/atr', 'youtube.com/ptracking'];
+      const _ytAdPatterns = ['/api/stats/ads', '/pagead/', '/get_midroll_', 'doubleclick.net/pagead/', 'googlesyndication.com/pagead/'];
       ses.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (details, cb) => {
         const url = details.url;
         const wcId = details.webContentsId;

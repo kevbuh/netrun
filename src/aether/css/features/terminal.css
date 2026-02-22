@@ -150,6 +150,26 @@
       cursor: pointer;
     }
 
+/* ── Dedicated terminal page (terminal://) ── */
+    .nr-terminal-page {
+      background: #0d0d0d;
+      overflow: hidden;
+    }
+    .nr-terminal-page-tabs {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 6px 8px;
+      background: var(--nr-bg-surface);
+      border-bottom: 1px solid var(--nr-border-dim);
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+    .nr-terminal-page-pane {
+      flex: 1;
+      overflow: hidden;
+    }
+
 /* ── Bottom terminal panel ── */
 /* ── Bottom Terminal Panel (Cmd+J) ── */
     .bottom-terminal-panel {

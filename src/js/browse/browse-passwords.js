@@ -439,7 +439,7 @@ export function browseSelectTab(id) {
     if (t.el) t.el.style.display = t.id === id ? '' : 'none';
   });
   const urlInput = document.getElementById('browse-url-input');
-  _browseSetUrlDisplay(urlInput, tab ? (tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : tab._netrunPage ? 'netrun://' : tab.url) : '');
+  _browseSetUrlDisplay(urlInput, tab ? (tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : tab._netrunPage ? 'netrun://' : tab._terminalPage ? 'terminal://' : tab.url) : '');
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   window._browseSaveTabs();

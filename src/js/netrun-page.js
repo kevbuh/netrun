@@ -15,6 +15,7 @@ import { calendarEvents, addCalendarEvent, deleteCalendarEvent } from '/js/calen
 import { getGreeting } from '/js/core/core-profile.js';
 import Settings from '/js/core/core-settings.js';
 import { initNetrunner } from '/js/netrunner-game.js';
+import { openTerminalPage } from '/js/terminal.js';
 
 // ─── Open / reuse the netrun:// tab ─────────────────────────
 
@@ -131,6 +132,7 @@ const _FEATURES = [
   { icon: 'edit',       title: 'Draw',      desc: 'Whiteboard with pen, shapes, text.',                   action: () => browseNavigate('draw://') },
   { icon: 'feed',       title: 'Feed',      desc: '125+ sources. arXiv, HN, RSS, and more.',              action: () => wmOpen('feed') },
   { icon: 'clock',      title: 'History',   desc: 'Browse and search history.',                            action: () => browseNavigate('netrun://history') },
+  { icon: 'terminal',   title: 'Terminal',   desc: 'Shell with tabs, splits, and themes.',                   action: () => openTerminalPage() },
   { icon: 'research',   title: 'Docs',      desc: 'AetherUI API reference and live previews.',              action: () => browseNavigate('netrun://docs') },
 ];
 

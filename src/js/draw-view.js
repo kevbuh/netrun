@@ -49,14 +49,15 @@ export function openDrawPage(drawingId) {
 
   const container = document.getElementById('browse-content');
 
-  // Tear down any special page (netrun, history, help, chat) so the NTP can appear
-  if (tab._historyPage || tab._helpPage || tab._netrunPage || tab._chatPage) {
+  // Tear down any special page (netrun, history, help, chat, terminal) so the NTP can appear
+  if (tab._historyPage || tab._helpPage || tab._netrunPage || tab._chatPage || tab._terminalPage) {
     if (tab.el) { tab.el.remove(); tab.el = null; }
     delete tab._historyPage;
     delete tab._helpPage;
     delete tab._netrunPage;
     delete tab._chatPage;
     delete tab._chatThreadId;
+    delete tab._terminalPage;
   }
 
   // If already in draw mode, tear down first

@@ -234,9 +234,6 @@ export function openBrowse(url) {
   }
   _browseInstallPinchOverlay();
   _browseInstallKeyGuard();
-  // Show/hide return button
-  const retBtn = document.getElementById('browse-return-btn');
-  if (retBtn) retBtn.style.display = Settings.get('_browseReturnView') ? '' : 'none';
 }
 
 export function browseNewTab(url) {
