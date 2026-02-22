@@ -199,13 +199,13 @@ export function _showTabsInPillDropdown() {
   var pinnedItems = tabs.filter(function(t) { return t.pinned; });
   var unpinnedItems = tabs.filter(function(t) { return !t.pinned; }).slice().sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
 
-  var rowBase = { gap: '8px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--nr-text-primary)', transition: 'background 0.1s' };
   var globeSvg = '<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
 
   function _ddRow(children, opts) {
     opts = opts || {};
-    var row = window.HStack(children).alignment('center');
-    Object.assign(row.el.style, rowBase);
+    var row = window.HStack(children).alignment('center')
+      .padding('6px', '12px').foreground('primary')
+      .styles({ gap: '8px', cursor: 'pointer', fontSize: '0.8rem', transition: 'background 0.1s' });
     if (opts.bg) row.el.style.background = opts.bg;
     row.onHover(
       function() { row.el.style.background = 'var(--nr-bg-raised)'; },
@@ -230,8 +230,9 @@ export function _showTabsInPillDropdown() {
       ? window.Image(t.favicon).frame({ width: 14, height: 14 }).cornerRadius('xs').styles({ flexShrink: '0' })
           .on('error', function() { this.style.display = 'none'; })
       : window.RawHTML(globeSvg);
-    var titleView = window.Text(title).flex(1).styles({ minWidth: '0' }).truncate();
-    var closeBtn = window.Text('\u00d7').foreground('quaternary').styles({ fontSize: '1rem', lineHeight: '1', padding: '0 2px' }).opacity(0.5)
+    var titleView = window.Text(title).flex(1).truncate();
+    var closeBtn = window.Text('\u00d7').foreground('quaternary').padding('0', '2px').opacity(0.5)
+      .styles({ fontSize: '1rem', lineHeight: '1' })
       .onHover(function() { closeBtn.el.style.opacity = '1'; }, function() { closeBtn.el.style.opacity = '0.5'; })
       .onTap(function(e) {
         e.stopPropagation();
@@ -249,7 +250,7 @@ export function _showTabsInPillDropdown() {
   if (pinnedItems.length) {
     pinnedItems.forEach(function(t) { views.push(renderTabView(t)); });
     if (unpinnedItems.length) {
-      views.push(new window.View('div').styles({ height: '1px', background: 'var(--aether-border, var(--nr-border-default))', margin: '2px 12px' }));
+      views.push(new window.View('div').styles({ height: '1px', background: 'var(--nr-border-default)', margin: '2px 12px' }));
     }
   }
   unpinnedItems.forEach(function(t) { views.push(renderTabView(t)); });

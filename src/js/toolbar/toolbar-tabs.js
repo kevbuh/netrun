@@ -344,7 +344,8 @@ export function _browseStartRenameGroup(groupId, nameEl) {
   var group = (win.groups || []).find(function(g) { return g.id === groupId; });
   if (!group) return;
   var inputView = new window.View('input').className('browse-tab-group-rename')
-    .cssText('width:60px;font-size:0.65rem;font-weight:600;background:transparent;border:1px solid var(--nr-border-default);border-radius:3px;color:inherit;padding:0 3px;outline:none;');
+    .padding('0', '3px').cornerRadius('xs')
+    .styles({ width: '60px', fontSize: '0.65rem', fontWeight: '600', background: 'transparent', border: '1px solid var(--nr-border-default)', color: 'inherit', outline: 'none' });
   inputView.el.type = 'text';
   inputView.el.value = group.name;
   var input = inputView.build();

@@ -5,6 +5,7 @@ import { _browseTitleFromUrl, _browseFaviconUrl } from '/js/toolbar/toolbar-nav.
 import { _pillSyncUrl } from '/js/toolbar/toolbar-url.js';
 import { _browseRenderTabs, _getActiveTabBar, _pillSyncTabs } from '/js/toolbar/toolbar-tabs.js';
 import { icon } from '/js/core/icons.js';
+import { browseSelectTab, browseCloseTab } from '/js/browse/browse-passwords.js';
 
 // ── Island pill position sync ──
 
@@ -137,6 +138,7 @@ export function _expandIsland() {
   _collapseIslandCleanup();
   _islandExpandedOutsideHandler = function(e) {
     if (wrap.contains(e.target)) return;
+    if (_islandTabsDropdownEl && _islandTabsDropdownEl.contains(e.target)) return;
     _collapseIsland();
   };
   _islandExpandedBlurHandler = function() { _collapseIsland(); };
@@ -258,10 +260,11 @@ function _renderIslandTabPill() {
   }
   var title = (activeTab && activeTab.title) ? activeTab.title : 'New Tab';
   var nameView = window.Text(title.length > 20 ? title.slice(0, 18) + '\u2026' : title)
-    .truncate().styles({ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', minWidth: '0' });
+    .truncate().font('caption2').foreground('secondary').styles({ minWidth: '0' });
   var children = [favView, nameView];
   if (win.tabs.length > 1) {
-    children.push(window.Text(String(win.tabs.length)).styles({ fontSize: '0.6rem', color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.08)', borderRadius: '6px', padding: '1px 5px', flexShrink: '0' }));
+    children.push(window.Text(String(win.tabs.length)).font('caption2').foreground('quaternary').cornerRadius('sm')
+      .padding('1px', '5px').background('surface').styles({ flexShrink: '0', fontSize: '0.6rem' }));
   }
   AetherUI.mount(window.HStack(children), leftCol);
   leftCol.onclick = function(e) {
@@ -298,14 +301,14 @@ function _toggleIslandTabsDropdown() {
     var closeBtn = window.Text('\u00d7').className('island-tabs-full-close').attr('title', 'Close tab')
       .onTap(function(e) {
         e.stopPropagation();
-        if (typeof window.browseCloseTab === 'function') window.browseCloseTab(t.id);
+        browseCloseTab(t.id);
         setTimeout(function() { _closeIslandTabsDropdown(); _toggleIslandTabsDropdown(); }, 50);
       });
     return window.HStack([favView, nameView, closeBtn])
       .className('island-tabs-full-item' + (t.id === activeTabId ? ' active' : ''))
       .onTap(function(e) {
         e.stopPropagation();
-        if (typeof window.browseSelectTab === 'function') window.browseSelectTab(t.id);
+        browseSelectTab(t.id);
         _closeIslandTabsDropdown();
         setTimeout(_renderIslandTabPill, 50);
       });
@@ -313,7 +316,7 @@ function _toggleIslandTabsDropdown() {
 
   // New tab row
   var newTabIcon = window.RawHTML('<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>');
-  rows.push(new window.View('div').styles({ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '2px 10px' }));
+  rows.push(new window.View('div').styles({ height: '1px', background: 'var(--nr-border-default)', margin: '2px 10px' }));
   rows.push(window.HStack([newTabIcon, window.Text('New tab')])
     .className('island-tabs-full-item')
     .onTap(function() {
@@ -323,14 +326,23 @@ function _toggleIslandTabsDropdown() {
     }));
 
   var wrapRect = wrap.getBoundingClientRect();
-  var dd = document.createElement('div');
-  dd.className = 'island-tabs-dropdown';
-  dd.style.cssText = 'position:fixed;z-index:10001;';
-  dd.style.left = Math.round(wrapRect.left) + 'px';
-  dd.style.top = Math.round(wrapRect.bottom + 4) + 'px';
-  dd.style.minWidth = Math.round(wrapRect.width) + 'px';
+  var panel = window.VStack(rows)
+    .position('fixed')
+    .background('overlay')
+    .cornerRadius('lg')
+    .shadow('popup')
+    .border('border-default')
+    .colorScheme('dark')
+    .frame({ maxHeight: 320, minWidth: Math.round(wrapRect.width) })
+    .overflow('auto')
+    .zIndex('modal')
+    .padding('6px', '0')
+    .styles({
+      left: Math.round(wrapRect.left) + 'px',
+      top: Math.round(wrapRect.bottom + 4) + 'px'
+    });
+  var dd = panel.el;
   document.body.appendChild(dd);
-  AetherUI.mount(window.VStack(rows), dd);
   _islandTabsDropdownEl = dd;
 
   setTimeout(function() {
@@ -374,7 +386,7 @@ function _renderIslandActions() {
   var iconNames = ['chatBubble', 'annotate', 'speaker', 'eye', 'microphone', 'rain'];
   var btns = iconNames.map(function(name) {
     var btn = new window.View('button').className('island-expanded-action').html(icon(name, { size: 16 }))
-      .styles({ pointerEvents: 'none' });
+      .opacity(0.6).styles({ pointerEvents: 'none' });
     if (name === 'annotate') {
       var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
       if (tab && typeof window._annotationsEnabled !== 'undefined' && window._annotationsEnabled.get(tab.id)) btn.className('active');

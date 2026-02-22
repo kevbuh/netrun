@@ -141,7 +141,8 @@ export function _islandRenderPill(a) {
     var offset = circ * (1 - pct / 100);
     var ringHtml = pct > 0 ? '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg>' : icon('download', { size: 14 });
     var dismiss = new V('span').className('island-dismiss').attr('data-island-dismiss', 'download')
-      .styles({ marginLeft: '4px', opacity: '0.4', fontSize: '15px', lineHeight: '1', padding: '0 2px', cursor: 'pointer' });
+      .opacity(0.4).padding('0', '2px')
+      .styles({ marginLeft: '4px', fontSize: '15px', lineHeight: '1', cursor: 'pointer' });
     dismiss.el.textContent = '\u00d7';
     return H([R(ringHtml), T(a.label || pct + '%'), dismiss]);
   } else if (a.type === 'tts') {
@@ -221,7 +222,8 @@ export function _islandRenderPill(a) {
     var children = [R(icon('comment', { size: 14, stroke: annColor })), T(a.label || '').foreground('var(--aether-text)')];
     if (a._paper && a._paperState && a._paperState.s2Data) {
       var cc = a._paperState.s2Data.citationCount;
-      if (cc != null) children.push(T(cc + ' cit.').styles({ marginLeft: '6px', fontSize: '10px', padding: '1px 5px', borderRadius: '8px', background: 'rgba(139,92,246,0.15)', color: '#8b5cf6' }));
+      if (cc != null) children.push(T(cc + ' cit.').cornerRadius('sm').padding('1px', '5px')
+        .styles({ marginLeft: '6px', fontSize: '10px', background: 'rgba(139,92,246,0.15)', color: '#8b5cf6' }));
     }
     return H(children);
   } else if (a.type === 'pageinfo') {
@@ -248,8 +250,8 @@ export function _islandRenderPill(a) {
 export function _islandBuildTray(a, isBrowse) {
   var V = window.View, T = window.Text, R = window.RawHTML, H = window.HStack, VS = window.VStack;
 
-  function _divider() { return new V('div').styles({ height: '1px', background: 'var(--aether-border)', margin: '4px 0' }); }
-  function _borderDivider() { return new V('div').styles({ height: '1px', background: 'var(--aether-border, var(--nr-border-default))', margin: '2px 0' }); }
+  function _divider() { return new V('div').styles({ height: '1px', background: 'var(--nr-border-default)', margin: '4px 0' }); }
+  function _borderDivider() { return new V('div').styles({ height: '1px', background: 'var(--nr-border-default)', margin: '2px 0' }); }
   function _favImg(src) {
     var img = new V('img').frame({ width: 14, height: 14 }).cornerRadius('xs').styles({ flexShrink: '0' });
     img.el.src = src;
@@ -261,7 +263,7 @@ export function _islandBuildTray(a, isBrowse) {
     if (title.length > 36) title = title.slice(0, 34) + '\u2026';
     var children = [];
     if (item.favicon) children.push(_favImg(item.favicon));
-    children.push(T(title).flex(1).styles({ minWidth: '0' }).truncate());
+    children.push(T(title).flex(1).truncate());
     if (showClose) {
       var cb = new V('button').className('island-tab-item-close').attr('data-island-tab-close', item.id).attr('title', 'Close');
       cb.el.textContent = '\u00d7';
@@ -324,8 +326,8 @@ export function _islandBuildTray(a, isBrowse) {
       var text = ann.text || '';
       if (text.length > 80) text = text.slice(0, 77) + '\u2026';
       var annRow = H([
-        new V('span').styles({ width: '6px', height: '6px', borderRadius: '50%', background: color, flexShrink: '0' }),
-        T(text).flex(1).styles({ minWidth: '0' }).truncate()
+        new V('span').frame({ width: 6, height: 6 }).cornerRadius('full').styles({ background: color, flexShrink: '0' }),
+        T(text).flex(1).truncate()
       ]).className('island-ctx-item').spacing(2);
       if (ann.nodeId) annRow.attr('data-ann-node', ann.nodeId);
       rows.push(annRow);
@@ -393,6 +395,7 @@ export function _islandRender() {
     // Render pill content
     var contentView = _islandRenderPill(f.data);
     if (contentView) {
+      contentView.font('caption2');
       AetherUI.mount(contentView, pillEl);
     }
     // Mark active

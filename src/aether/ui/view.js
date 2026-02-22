@@ -295,6 +295,56 @@ VP.material = function(level) {
   return this;
 };
 
+VP.colorScheme = function(scheme) {
+  var el = this.el;
+  if (scheme === 'dark') {
+    el.style.setProperty('--nr-bg-body', '#000');
+    el.style.setProperty('--nr-bg-surface', 'rgba(255,255,255,0.06)');
+    el.style.setProperty('--nr-bg-raised', 'rgba(255,255,255,0.08)');
+    el.style.setProperty('--nr-bg-overlay', '#000');
+    el.style.setProperty('--nr-bg-hover', 'rgba(255,255,255,0.08)');
+    el.style.setProperty('--nr-bg-input', 'rgba(255,255,255,0.06)');
+    el.style.setProperty('--nr-text-primary', '#fff');
+    el.style.setProperty('--nr-text-secondary', 'rgba(255,255,255,0.6)');
+    el.style.setProperty('--nr-text-tertiary', 'rgba(255,255,255,0.45)');
+    el.style.setProperty('--nr-text-quaternary', 'rgba(255,255,255,0.35)');
+    el.style.setProperty('--nr-border-default', 'rgba(255,255,255,0.1)');
+    el.style.setProperty('--nr-shadow-popup', 'rgba(0,0,0,0.5)');
+    el.style.setProperty('--aether-text', '#fff');
+    el.style.setProperty('--aether-text-dim', 'rgba(255,255,255,0.7)');
+    el.style.setProperty('--aether-text-dimmer', 'rgba(255,255,255,0.5)');
+    el.style.setProperty('--aether-text-dimmest', 'rgba(255,255,255,0.25)');
+    el.style.setProperty('--aether-hover', 'rgba(255,255,255,0.08)');
+    el.style.setProperty('--aether-placeholder', 'rgba(255,255,255,0.35)');
+    el.style.setProperty('--aether-border', 'rgba(255,255,255,0.1)');
+    el.style.setProperty('--aether-dropdown-bg', '#000');
+    el.style.color = '#fff';
+  } else if (scheme === 'light') {
+    el.style.setProperty('--nr-bg-body', '#fff');
+    el.style.setProperty('--nr-bg-surface', 'rgba(0,0,0,0.03)');
+    el.style.setProperty('--nr-bg-raised', 'rgba(0,0,0,0.05)');
+    el.style.setProperty('--nr-bg-overlay', '#fff');
+    el.style.setProperty('--nr-bg-hover', 'rgba(0,0,0,0.05)');
+    el.style.setProperty('--nr-bg-input', 'rgba(0,0,0,0.03)');
+    el.style.setProperty('--nr-text-primary', '#000');
+    el.style.setProperty('--nr-text-secondary', 'rgba(0,0,0,0.6)');
+    el.style.setProperty('--nr-text-tertiary', 'rgba(0,0,0,0.45)');
+    el.style.setProperty('--nr-text-quaternary', 'rgba(0,0,0,0.35)');
+    el.style.setProperty('--nr-border-default', 'rgba(0,0,0,0.1)');
+    el.style.setProperty('--nr-shadow-popup', 'rgba(0,0,0,0.15)');
+    el.style.setProperty('--aether-text', '#000');
+    el.style.setProperty('--aether-text-dim', 'rgba(0,0,0,0.7)');
+    el.style.setProperty('--aether-text-dimmer', 'rgba(0,0,0,0.5)');
+    el.style.setProperty('--aether-text-dimmest', 'rgba(0,0,0,0.25)');
+    el.style.setProperty('--aether-hover', 'rgba(0,0,0,0.05)');
+    el.style.setProperty('--aether-placeholder', 'rgba(0,0,0,0.35)');
+    el.style.setProperty('--aether-border', 'rgba(0,0,0,0.1)');
+    el.style.setProperty('--aether-dropdown-bg', '#fff');
+    el.style.color = '#000';
+  }
+  return this;
+};
+
 VP.overflow = function(v) {
   this.el.style.overflow = v || 'hidden';
   return this;

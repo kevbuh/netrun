@@ -944,15 +944,6 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .island-tabs-full-item:hover .island-tabs-full-close { opacity: 0.6; }
 .island-tabs-full-close:hover { opacity: 1 !important; color: #fff; }
 
-/* Tabs dropdown (below capsule) */
-.island-tabs-dropdown {
-  background: #000; border-radius: 16px; padding: 6px 0; max-height: 320px; overflow-y: auto;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1);
-  --nr-text-primary: #fff; --nr-text-secondary: rgba(255,255,255,0.6);
-  --aether-text: #fff; --aether-hover: rgba(255,255,255,0.08);
-  color: #fff;
-}
-
 /* Sub-state: AI Expanded */
 .island-ai-expanded #pill-island-left,
 .island-ai-expanded #pill-island-center,

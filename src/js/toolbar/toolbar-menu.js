@@ -15,7 +15,7 @@ export function toggleBrowseMoreMenu() {
     if (!dd) {
       dd = document.createElement('div');
       dd.id = 'pill-more-menu-dropdown';
-      dd.style.cssText = 'display:none;position:fixed;z-index:10000;';
+      Object.assign(dd.style, { display: 'none', position: 'fixed', zIndex: '10000' });
       document.body.appendChild(dd);
     }
   }
@@ -33,10 +33,13 @@ export function toggleBrowseMoreMenu() {
     var row = window.HStack([window.RawHTML(svgHtml), window.Text(label).flex(1)]).spacing(2).alignment('center');
     if (opts.trailing) row.add(opts.trailing);
     btn.add(row);
-    btn.cssText('width:100%;text-align:left;padding:6px 12px;border:none;background:none;color:' + (opts.disabled ? 'var(--nr-text-quaternary, var(--aether-text-dimmest))' : (opts.color || 'var(--nr-text-primary, var(--aether-text))')) + ';font-size:0.78rem;cursor:' + (opts.disabled ? 'default' : 'pointer') + ';display:flex;align-items:center;gap:8px;');
+    btn.padding('6px', '12px')
+      .foreground(opts.disabled ? 'quaternary' : 'primary')
+      .styles({ width: '100%', textAlign: 'left', border: 'none', background: 'none', fontSize: '0.78rem', cursor: opts.disabled ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' });
+    if (opts.color && !opts.disabled) btn.styles({ color: opts.color });
     if (opts.disabled) btn.el.disabled = true;
     if (opts.dataOverflowId) btn.el.setAttribute('data-overflow-id', opts.dataOverflowId);
-    btn.onHover(function() { btn.el.style.background = 'var(--nr-bg-hover, var(--aether-hover))'; }, function() { btn.el.style.background = 'none'; });
+    btn.onHover(function() { btn.el.style.background = 'var(--nr-bg-hover)'; }, function() { btn.el.style.background = 'none'; });
     btn.onTap(function() { if (action) action(); });
     return btn;
   }
@@ -102,7 +105,7 @@ export function toggleBrowseMoreMenu() {
           if (c[2] > 0) parts.push(c[2] + ' HTTPS upgrade' + (c[2] !== 1 ? 's' : ''));
           if (c[3] > 0) parts.push(c[3] + ' cookie' + (c[3] !== 1 ? 's' : '') + ' blocked');
           var summaryText = parts.length > 0 ? parts.join(' \u00b7 ') : 'No threats detected on this page';
-          rows.push(window.Text(summaryText).font('caption2').styles({color:'var(--nr-accent)', fontWeight:'500'}));
+          rows.push(window.Text(summaryText).font('caption2').styles({color:'var(--nr-accent)', fontWeight:'500', lineHeight: '1.4'}));
 
           function _domainRows(map, label) {
             var entries = Object.entries(map || {}).sort(function(a, b) { return b[1] - a[1]; });
@@ -111,7 +114,7 @@ export function toggleBrowseMoreMenu() {
             var shown = entries.slice(0, 5);
             for (var i = 0; i < shown.length; i++) {
               rows.push(window.HStack([
-                window.Text(shown[i][0]).font('caption2').foreground('secondary').flex(1).styles({overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}),
+                window.Text(shown[i][0]).font('caption2').foreground('secondary').flex(1).truncate(),
                 window.Text(String(shown[i][1])).font('caption2').foreground('quaternary')
               ]).spacing(2));
             }
@@ -211,10 +214,13 @@ export function toggleBrowseMoreMenu() {
 
   var menuPanel = window.VStack(items)
     .position('fixed')
-    .styles({ minWidth: '180px', background: 'var(--nr-bg-overlay, var(--aether-dropdown-bg))', border: '1px solid var(--nr-border-default, var(--aether-border))', boxShadow: '0 8px 32px var(--nr-shadow-popup, var(--aether-shadow))' })
+    .background('overlay')
+    .border('border-default')
+    .shadow('popup')
     .cornerRadius('lg')
     .zIndex('overlay')
-    .padding('4px', '0');
+    .padding('4px', '0')
+    .frame({ minWidth: 180 });
 
   if (isIsland) {
     menuPanel.styles({right: Math.round(window.innerWidth - btnRect.right) + 'px'});
@@ -276,8 +282,10 @@ function _renderConvertPanel(panel) {
     var btn = new window.View('button');
     var row = window.HStack([window.RawHTML(svgHtml), window.Text(label).flex(1)]).spacing(2).alignment('center');
     btn.add(row);
-    btn.cssText('width:100%;text-align:left;padding:5px 16px;border:none;background:none;color:var(--nr-text-primary, var(--aether-text));font-size:0.75rem;cursor:pointer;display:flex;align-items:center;gap:8px;');
-    btn.onHover(function() { btn.el.style.background = 'var(--nr-bg-hover, var(--aether-hover))'; }, function() { btn.el.style.background = 'none'; });
+    btn.padding('5px', '16px')
+      .foreground('primary')
+      .styles({ width: '100%', textAlign: 'left', border: 'none', background: 'none', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' });
+    btn.onHover(function() { btn.el.style.background = 'var(--nr-bg-hover)'; }, function() { btn.el.style.background = 'none'; });
     btn.onTap(function() { action(); });
     return btn;
   }
@@ -293,17 +301,15 @@ function _renderConvertPanel(panel) {
   panel.appendChild(_cBtn(icon('fileMerge', {size: 14, strokeWidth: '1.5'}), 'Merge PDFs', function() { _closeAll(); _pdfMergeAction(tab); }).el);
   panel.appendChild(_cBtn(icon('compress', {size: 14, strokeWidth: '1.5'}), 'Compress PDF', function() { _closeAll(); _pdfCompressAction(tab); }).el);
 
-  var div1 = document.createElement('div');
-  div1.style.cssText = 'border-top:1px solid var(--nr-border-default, var(--aether-border));margin:2px 12px;';
-  panel.appendChild(div1);
+  var div1 = new window.View('div').styles({ borderTop: '1px solid var(--nr-border-default)', margin: '2px 12px' });
+  panel.appendChild(div1.el);
 
   panel.appendChild(_cBtn(icon('imagePlus', {size: 14, strokeWidth: '1.5'}), 'PDF to PNG', function() { _closeAll(); _pdfToPngAction(tab); }).el);
   panel.appendChild(_cBtn(icon('imagePlus', {size: 14, strokeWidth: '1.5'}), 'PDF to JPEG', function() { _closeAll(); _pdfToJpegAction(tab); }).el);
   panel.appendChild(_cBtn(icon('filePlus', {size: 14, strokeWidth: '1.5'}), 'Images to PDF', function() { _closeAll(); _pdfFromImagesAction(); }).el);
 
-  var div2 = document.createElement('div');
-  div2.style.cssText = 'border-top:1px solid var(--nr-border-default, var(--aether-border));margin:2px 12px;';
-  panel.appendChild(div2);
+  var div2 = new window.View('div').styles({ borderTop: '1px solid var(--nr-border-default)', margin: '2px 12px' });
+  panel.appendChild(div2.el);
 
   panel.appendChild(_cBtn(icon('markdown', {size: 14, strokeWidth: '1.5'}), 'PDF to Markdown', function() { _closeAll(); _pdfToMdAction(tab); }).el);
   panel.appendChild(_cBtn(icon('markdown', {size: 14, strokeWidth: '1.5'}), 'Markdown to PDF', function() { _closeAll(); _pdfMdToPdfAction(); }).el);
@@ -551,52 +557,38 @@ export function browseShowAIView() {
     var existing = document.getElementById('ai-view-overlay');
     if (existing) existing.remove();
 
-    var overlayView = new window.View('div').id('ai-view-overlay');
-    overlayView.cssText('position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;background:var(--nr-bg-primary, #111);padding-top:48px;');
+    var titleEl = window.Text('AI View').foreground('primary').styles({ fontSize: '0.85rem', fontWeight: '600' });
+    var badgeEl = window.Text(elCount + ' elements \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars')
+      .font('caption2').foreground('secondary').styles({ marginLeft: '8px', fontVariantNumeric: 'tabular-nums' });
+    var urlBadgeEl = window.Text(dom.title ? dom.title + ' \u2014 ' + dom.url : dom.url)
+      .font('caption2').foreground('tertiary').truncate().styles({ marginLeft: '8px', maxWidth: '300px' });
 
-    var titleEl = new window.View('span');
-    titleEl.cssText('font-size:0.85rem;font-weight:600;color:var(--nr-text-primary, #fff);');
-    titleEl.el.textContent = 'AI View';
+    var closeBtnEl = window.Text('\u00d7').foreground('secondary').padding('4px', '8px')
+      .styles({ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' })
+      .onTap(function() { overlayView.el.remove(); document.removeEventListener('keydown', onKey); });
 
-    var badgeEl = new window.View('span');
-    badgeEl.cssText('font-size:0.7rem;color:var(--nr-text-secondary, #888);margin-left:8px;font-variant-numeric:tabular-nums;');
-    badgeEl.el.textContent = elCount + ' elements \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars';
+    var leftGroup = window.HStack([titleEl, badgeEl, urlBadgeEl]).alignment('center');
+    var headerEl = window.HStack([leftGroup, closeBtnEl]).alignment('center')
+      .padding('12px', '16px')
+      .styles({ justifyContent: 'space-between', flexShrink: '0', borderBottom: '1px solid var(--nr-border-default)' });
 
-    var urlBadgeEl = new window.View('span');
-    urlBadgeEl.cssText('font-size:0.65rem;color:var(--nr-text-secondary, #666);margin-left:8px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;');
-    urlBadgeEl.el.textContent = dom.title ? dom.title + ' \u2014 ' + dom.url : dom.url;
-
-    var closeBtnEl = new window.View('button');
-    closeBtnEl.cssText('background:none;border:none;color:var(--nr-text-secondary, #888);cursor:pointer;font-size:1.2rem;padding:4px 8px;');
-    closeBtnEl.el.textContent = '\u00d7';
-    closeBtnEl.onTap(function() { overlayView.el.remove(); });
-
-    var leftGroup = new window.View('div');
-    leftGroup.cssText('display:flex;align-items:center;');
-    leftGroup.el.appendChild(titleEl.el);
-    leftGroup.el.appendChild(badgeEl.el);
-    leftGroup.el.appendChild(urlBadgeEl.el);
-
-    var headerEl = new window.View('div');
-    headerEl.cssText('display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--nr-border-default, #333);flex-shrink:0;');
-    headerEl.el.appendChild(leftGroup.el);
-    headerEl.el.appendChild(closeBtnEl.el);
-
-    var contentEl = new window.View('pre');
-    contentEl.cssText('flex:1;overflow:auto;padding:16px;margin:0;font-size:0.75rem;line-height:1.6;color:var(--nr-text-primary, #ddd);white-space:pre;font-family:var(--nr-font-mono, monospace);');
+    var contentEl = new window.View('pre').flex(1).overflow('auto').padding(4).foreground('primary')
+      .styles({ margin: '0', fontSize: '0.75rem', lineHeight: '1.6', whiteSpace: 'pre', fontFamily: 'var(--nr-font-mono, monospace)' });
 
     var fullText = '--- BROWSER TAB DOM (' + (dom.title || '') + ') [' + (dom.url || '') + '] ---\n' + text + '\n--- END DOM ---';
-    var highlighted = fullText.replace(/^(--- .+ ---)$/gm, '<span style="color:var(--nr-text-secondary,#888)">$1</span>')
-      .replace(/^(VIEWPORT:.*)$/m, '<span style="color:var(--nr-text-secondary,#888)">$1</span>')
+    var highlighted = fullText.replace(/^(--- .+ ---)$/gm, '<span style="color:var(--nr-text-secondary)">$1</span>')
+      .replace(/^(VIEWPORT:.*)$/m, '<span style="color:var(--nr-text-secondary)">$1</span>')
       .replace(/\[(\d+)\]/g, '<span style="color:#67d4f1">[$1]</span>')
       .replace(/<(\w+)/g, '<span style="color:#8bdb8b">&lt;$1</span>')
       .replace(/>/g, '<span style="color:#8bdb8b">&gt;</span>')
       .replace(/((?:aria-\w+|role|type|name|placeholder|href|value|title|disabled|checked)(?:="[^"]*")?)/g, '<span style="color:#e8c87a">$1</span>')
-      .replace(/(@-?\d+,-?\d+,\d+,\d+)/g, '<span style="color:var(--nr-text-secondary,#555)">$1</span>');
+      .replace(/(@-?\d+,-?\d+,\d+,\d+)/g, '<span style="color:var(--nr-text-secondary)">$1</span>');
     contentEl.el.innerHTML = highlighted;
 
-    overlayView.el.appendChild(headerEl.el);
-    overlayView.el.appendChild(contentEl.el);
+    var overlayView = window.VStack([headerEl, contentEl]).id('ai-view-overlay')
+      .position('fixed').zIndex('modal').background('primary')
+      .styles({ inset: '0', paddingTop: '48px' });
+
     document.body.appendChild(overlayView.el);
 
     function onKey(e) { if (e.key === 'Escape') { overlayView.el.remove(); document.removeEventListener('keydown', onKey); } }
@@ -613,20 +605,13 @@ export function _showTextOverlay(title, text, subtitle, tab) {
   var tokens = Math.round(text.length / 4);
   var tokenLabel = tokens >= 1000 ? Math.round(tokens / 1000) + 'k' : String(tokens);
 
-  var overlayView = new window.View('div').id('pdf-text-overlay');
-  overlayView.cssText('position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;background:var(--nr-bg-primary, #111);padding-top:48px;');
+  var titleEl = window.Text(title).foreground('primary').styles({ fontSize: '0.85rem', fontWeight: '600' });
+  var badgeEl = window.Text(subtitle + ' \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars')
+    .font('caption2').foreground('secondary').styles({ marginLeft: '8px', fontVariantNumeric: 'tabular-nums' });
 
-  var titleEl = new window.View('span');
-  titleEl.cssText('font-size:0.85rem;font-weight:600;color:var(--nr-text-primary, #fff);');
-  titleEl.el.textContent = title;
-
-  var badgeEl = new window.View('span');
-  badgeEl.cssText('font-size:0.7rem;color:var(--nr-text-secondary, #888);margin-left:8px;font-variant-numeric:tabular-nums;');
-  badgeEl.el.textContent = subtitle + ' \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars';
-
-  var copyBtn = new window.View('button');
-  copyBtn.cssText('background:none;border:1px solid var(--nr-border-default, #444);color:var(--nr-text-secondary, #888);cursor:pointer;font-size:0.7rem;padding:3px 10px;border-radius:6px;margin-right:8px;');
-  copyBtn.el.textContent = 'Copy';
+  var copyBtn = window.Button('Copy').foreground('secondary').font('caption2').cornerRadius('sm')
+    .padding('3px', '10px')
+    .styles({ background: 'none', border: '1px solid var(--nr-border-default)', cursor: 'pointer', marginRight: '8px' });
   copyBtn.onTap(function() {
     navigator.clipboard.writeText(text).then(function() {
       copyBtn.el.textContent = 'Copied!';
@@ -635,32 +620,24 @@ export function _showTextOverlay(title, text, subtitle, tab) {
     });
   });
 
-  var closeBtn = new window.View('button');
-  closeBtn.cssText('background:none;border:none;color:var(--nr-text-secondary, #888);cursor:pointer;font-size:1.2rem;padding:4px 8px;');
-  closeBtn.el.textContent = '\u00d7';
-  closeBtn.onTap(function() { overlayView.el.remove(); });
+  var closeBtn = window.Text('\u00d7').foreground('secondary').padding('4px', '8px')
+    .styles({ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' })
+    .onTap(function() { overlayView.el.remove(); document.removeEventListener('keydown', onKey); });
 
-  var leftGroup = new window.View('div');
-  leftGroup.cssText('display:flex;align-items:center;');
-  leftGroup.el.appendChild(titleEl.el);
-  leftGroup.el.appendChild(badgeEl.el);
+  var leftGroup = window.HStack([titleEl, badgeEl]).alignment('center');
+  var rightGroup = window.HStack([copyBtn, closeBtn]).alignment('center');
+  var headerEl = window.HStack([leftGroup, rightGroup]).alignment('center')
+    .padding('12px', '16px')
+    .styles({ justifyContent: 'space-between', flexShrink: '0', borderBottom: '1px solid var(--nr-border-default)' });
 
-  var rightGroup = new window.View('div');
-  rightGroup.cssText('display:flex;align-items:center;');
-  rightGroup.el.appendChild(copyBtn.el);
-  rightGroup.el.appendChild(closeBtn.el);
-
-  var headerEl = new window.View('div');
-  headerEl.cssText('display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--nr-border-default, #333);flex-shrink:0;');
-  headerEl.el.appendChild(leftGroup.el);
-  headerEl.el.appendChild(rightGroup.el);
-
-  var contentEl = new window.View('pre');
-  contentEl.cssText('flex:1;overflow:auto;padding:16px;margin:0;font-size:0.75rem;line-height:1.6;color:var(--nr-text-primary, #ddd);white-space:pre-wrap;font-family:var(--nr-font-mono, monospace);');
+  var contentEl = new window.View('pre').flex(1).overflow('auto').padding(4).foreground('primary')
+    .styles({ margin: '0', fontSize: '0.75rem', lineHeight: '1.6', whiteSpace: 'pre-wrap', fontFamily: 'var(--nr-font-mono, monospace)' });
   contentEl.el.textContent = text;
 
-  overlayView.el.appendChild(headerEl.el);
-  overlayView.el.appendChild(contentEl.el);
+  var overlayView = window.VStack([headerEl, contentEl]).id('pdf-text-overlay')
+    .position('fixed').zIndex('modal').background('primary')
+    .styles({ inset: '0', paddingTop: '48px' });
+
   document.body.appendChild(overlayView.el);
 
   function onKey(e) { if (e.key === 'Escape') { overlayView.el.remove(); document.removeEventListener('keydown', onKey); } }
@@ -725,7 +702,7 @@ export function _setupOverflowDrag(dd) {
       dragBtn = btn;
       btn.style.opacity = '0.4';
       dragGhost = btn.cloneNode(true);
-      dragGhost.style.cssText = 'position:fixed;z-index:100000;pointer-events:none;padding:6px 12px;background:var(--nr-bg-overlay);border:1px solid var(--nr-border-default);border-radius:8px;box-shadow:0 4px 16px var(--nr-shadow-popup);font-size:0.78rem;display:flex;align-items:center;gap:8px;opacity:0.9;color:var(--nr-text-primary);white-space:nowrap;';
+      Object.assign(dragGhost.style, { position: 'fixed', zIndex: '100000', pointerEvents: 'none', padding: '6px 12px', background: 'var(--nr-bg-overlay)', border: '1px solid var(--nr-border-default)', borderRadius: '8px', boxShadow: '0 4px 16px var(--nr-shadow-popup)', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '8px', opacity: '0.9', color: 'var(--nr-text-primary)', whiteSpace: 'nowrap' });
       dragGhost.style.left = (e.clientX - 40) + 'px';
       dragGhost.style.top = (e.clientY - 14) + 'px';
       document.body.appendChild(dragGhost);
