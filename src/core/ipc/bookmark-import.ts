@@ -42,7 +42,7 @@ function hostnameFromUrl(url: string): string {
 
 function faviconUrl(url: string): string {
   const h = hostnameFromUrl(url);
-  return h ? `https://www.google.com/s2/favicons?domain=${h}&sz=32` : '';
+  return h ? `/api/favicon?domain=${h}` : '';
 }
 
 // ── Parsers ──

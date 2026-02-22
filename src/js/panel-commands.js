@@ -812,7 +812,7 @@ export function _renderTabDropdown(popup) {
   const activeTabId = window._aetherTabSwitchMode && typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : null;
   const tabRows = window._aetherTabList.map(function(tab, i) {
     const domain = (function() { try { return new URL(tab.url).hostname.replace('www.', ''); } catch { return ''; } })();
-    const favUrl = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=16';
+    const favUrl = '/api/favicon?domain=' + encodeURIComponent(domain);
 
     const favImg = new window.View('img').className('aether-tab-item-favicon')
       .attr('src', favUrl)

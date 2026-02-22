@@ -827,7 +827,7 @@ export function renderOnboardGrid() {
     const itemViews = items.map(function(f) {
       const sel = onboardSelected.has(f.key);
       const iconHtml = f.favicon
-        ? '<img src="https://www.google.com/s2/favicons?domain=' + f.favicon + '&sz=32" class="w-5 h-5 rounded" onerror="this.outerHTML=\'<span class=\\\'inline-flex items-center justify-center w-5 h-5 rounded text-[0.6rem] font-bold\\\' style=\\\'background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '\\\'>' + (f.letter || f.name[0]) + '</span>\'">'
+        ? '<img src="/api/favicon?domain=' + f.favicon + '" class="w-5 h-5 rounded" onerror="this.outerHTML=\'<span class=\\\'inline-flex items-center justify-center w-5 h-5 rounded text-[0.6rem] font-bold\\\' style=\\\'background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '\\\'>' + (f.letter || f.name[0]) + '</span>\'">'
         : '<span class="inline-flex items-center justify-center w-5 h-5 rounded text-[0.6rem] font-bold" style="background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>';
       const checkHtml = sel ? icon('check', {size: 12, class: 'w-3 h-3 text-white', strokeWidth: '3'}) : '';
       return window.HStack(
@@ -1554,7 +1554,7 @@ export function _renderPaperCard(p, i, ctx) {
   const userRating = ctx.ratings ? (ctx.ratings[nLink] || ctx.ratings[p.link] || 0) : getPaperRating(p.link);
   const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
   const isRead = readSet.has(p.link);
-  const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
+  const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return '/api/favicon?domain=' + encodeURIComponent(new URL(p.link).hostname); } catch(e) { return ''; } })();
   const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
   const imgView = window.RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
 
@@ -1638,7 +1638,7 @@ export function _renderPaperVerboseCard(p, i, ctx) {
   const userRating = ctx.ratings[nLink] || ctx.ratings[p.link] || 0;
   const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
   const isRead = readSet.has(p.link);
-  const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
+  const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return '/api/favicon?domain=' + encodeURIComponent(new URL(p.link).hostname); } catch(e) { return ''; } })();
   const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
   const imgView = window.RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-8 h-8 rounded-lg shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
 
@@ -1698,7 +1698,7 @@ export function _renderPaperTwitterCard(p, i, ctx) {
   const bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
   const isNew = _previousPostLinks.size > 0 && !_previousPostLinks.has(p.link);
   const isRead = readSet.has(p.link);
-  const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(new URL(p.link).hostname) + '&sz=64'; } catch(e) { return ''; } })();
+  const cardImgSrc = isPoly && p.polyImage ? escapeAttr(p.polyImage) : (function() { try { return '/api/favicon?domain=' + encodeURIComponent(new URL(p.link).hostname); } catch(e) { return ''; } })();
   const pixelFallback = typeof _pixelArt === 'function' ? _pixelArt(p.title) : '';
   const avatarView = window.RawHTML(cardImgSrc ? '<img src="' + cardImgSrc + '" class="w-10 h-10 rounded-full shrink-0 object-cover" onerror="this.outerHTML=' + escapeAttr(JSON.stringify(pixelFallback)) + '">' : pixelFallback);
   const tAgo = _displayDate(p);

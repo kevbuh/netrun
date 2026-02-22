@@ -57,7 +57,8 @@ export function registerToolsProvidersIPC(): void {
   ipcMain.handle('providers:set-api-key', (_event, provider: string, key: string) => {
     if (provider === 'openrouter') {
       openrouterProvider.setApiKey(key || null);
-      settingsQueries.setSetting('openrouterApiKey', key || '');
+      // Encrypted storage is handled by 'set-api-key-secure' IPC
+      // called from the renderer alongside this call
       return { ok: true };
     }
     return { error: `Unknown provider: ${provider}` };

@@ -177,7 +177,7 @@ export function _browseTitleFromUrl(url) {
 export function _browseFaviconUrl(url) {
   try {
     var u = new URL(url);
-    return 'https://www.google.com/s2/favicons?domain=' + u.hostname + '&sz=32';
+    return '/api/favicon?domain=' + u.hostname;
   } catch(e) { return ''; }
 }
 

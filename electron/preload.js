@@ -78,6 +78,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   privacyDetails: (wcId) => ipcRenderer.invoke('privacy-details', wcId),
   // Aggregate privacy stats
   privacyStats: () => ipcRenderer.invoke('privacy-stats'),
+  // Permission request from webview (main → renderer)
+  onPermissionRequest: (callback) => ipcRenderer.on('permission-request', callback),
+  permissionResponse: (requestId, granted) => ipcRenderer.invoke('permission-response', requestId, granted),
 
   // ── Terminal (node-pty via IPC) ──
   terminalStart: (cwdOrOpts) => ipcRenderer.invoke('terminal:start', cwdOrOpts),
@@ -106,7 +109,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   providerModels: (providerName) => ipcRenderer.invoke('providers:models', providerName),
   providerSetDefault: (name) => ipcRenderer.invoke('providers:set-default', name),
   providerGetDefault: () => ipcRenderer.invoke('providers:get-default'),
-  providerSetApiKey: (provider, key) => ipcRenderer.invoke('providers:set-api-key', provider, key),
+  providerSetApiKey: (provider, key) => {
+    // Store encrypted + set in-memory provider
+    ipcRenderer.invoke('set-api-key-secure', provider, key || '');
+    return ipcRenderer.invoke('providers:set-api-key', provider, key);
+  },
   providerGetApiKey: (provider) => ipcRenderer.invoke('providers:get-api-key', provider),
 
   // ── Agent system ──

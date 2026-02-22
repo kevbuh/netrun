@@ -77,6 +77,67 @@ if (_browseIsElectron && window.electronAPI.cookieBlockSetEnabled) {
   window.electronAPI.cookieBlockSetEnabled(Settings.get('thirdPartyCookiesBlocked') !== 'false');
 }
 
+// ── Permission request handler (Electron → renderer round-trip) ──
+// When a webview requests camera/mic/location/notifications, main process sends
+// 'permission-request' here. We check stored permissions and either respond
+// immediately or show the permission prompt UI and respond when the user decides.
+if (_browseIsElectron && window.electronAPI.onPermissionRequest) {
+  window.electronAPI.onPermissionRequest((_event, data) => {
+    const { requestId, domain, permKey } = data;
+    // Check stored site permissions
+    const stored = Settings.getJSON('sitePermissions', {});
+    const domainPerms = stored[domain] || {};
+    if (domainPerms[permKey] === 'allow') {
+      window.electronAPI.permissionResponse(requestId, true);
+      return;
+    }
+    if (domainPerms[permKey] === 'block') {
+      window.electronAPI.permissionResponse(requestId, false);
+      return;
+    }
+    // Check session permissions
+    if (window._sessionPermissions && window._sessionPermissions[domain] && window._sessionPermissions[domain][permKey] === 'allow') {
+      window.electronAPI.permissionResponse(requestId, true);
+      return;
+    }
+    // No stored decision — show the permission prompt UI
+    // We hook into the existing prompt by temporarily patching the allow/block callbacks
+    if (typeof window._showPermissionPrompt === 'function') {
+      // Store the requestId so the prompt callbacks can respond
+      window._pendingElectronPermRequest = requestId;
+      window._showPermissionPrompt(domain, permKey);
+      // The prompt's Allow/Block buttons call _setSitePermission. We also need them to
+      // resolve the Electron permission request. Monkey-patch the dismiss to respond with deny.
+      const existing = document.getElementById('site-permission-prompt');
+      if (existing) {
+        // Watch for prompt removal — if dismissed without action, deny
+        const observer = new MutationObserver(() => {
+          if (!document.getElementById('site-permission-prompt') && window._pendingElectronPermRequest === requestId) {
+            window._pendingElectronPermRequest = null;
+            // Check if a decision was stored (allow/block) during prompt
+            const updated = Settings.getJSON('sitePermissions', {});
+            const updatedPerms = updated[domain] || {};
+            const sessionPerms = (window._sessionPermissions && window._sessionPermissions[domain]) || {};
+            if (updatedPerms[permKey] === 'allow' || sessionPerms[permKey] === 'allow') {
+              window.electronAPI.permissionResponse(requestId, true);
+            } else {
+              window.electronAPI.permissionResponse(requestId, false);
+            }
+            observer.disconnect();
+          }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+      } else {
+        // Prompt didn't appear — deny
+        window.electronAPI.permissionResponse(requestId, false);
+      }
+    } else {
+      // No prompt available — deny by default
+      window.electronAPI.permissionResponse(requestId, false);
+    }
+  });
+}
+
 // Audio tracking: { tabId: { windowId, muted } }
 export const _browseAudioTabs = new Map();
 window._browseAudioTabs = _browseAudioTabs;

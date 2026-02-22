@@ -36,6 +36,8 @@ export function initCore(): void {
       setActiveProviderName('openrouter');
       providerRegistry.setDefault('openrouter');
     }
+    // API key is loaded from encrypted safeStorage by main.js after initCore()
+    // Fall back to plaintext DB key for migration (main.js will migrate it)
     const apiKeySetting = settingsQueries.getSetting('openrouterApiKey');
     if (apiKeySetting?.value) {
       openrouterProvider.setApiKey(apiKeySetting.value);

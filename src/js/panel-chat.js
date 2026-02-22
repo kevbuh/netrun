@@ -747,7 +747,7 @@ export function _addTabContextToPanel(popup, tabInfo) {
   chipView.attr('data-tab-id', tabInfo.tabId);
   const chip = chipView.el;
   const domain = (() => { try { return new URL(tabInfo.url).hostname.replace('www.', ''); } catch { return ''; } })();
-  const favUrl = tabInfo.url ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=16' : '';
+  const favUrl = tabInfo.url ? '/api/favicon?domain=' + encodeURIComponent(domain) : '';
   const favHtml = favUrl ? '<img src="' + favUrl + '" class="w-3 h-3 flex-shrink-0 rounded-sm" onerror="this.style.display=\'none\'">' :
     icon('browserTab', { size: 12, class: 'w-3 h-3 flex-shrink-0' });
   chipView.add(

@@ -420,7 +420,7 @@ function _buildReadingList(savedEntries, savedCount) {
 
       const rowChildren = [
         new View('img').className('nr-hub-saved-favicon')
-          .attr('src', 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(hostname) + '&sz=32')
+          .attr('src', '/api/favicon?domain=' + encodeURIComponent(hostname))
           .attr('alt', '').attr('loading', 'lazy'),
         Text(paper.title || paper.link || 'Untitled').className('nr-hub-saved-title'),
       ];

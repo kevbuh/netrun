@@ -230,6 +230,91 @@ const MIME_TYPES = {
 
 let _staticServer = null;
 
+// ── Favicon cache (privacy: fetch directly from sites, never Google) ──
+const _faviconCache = new Map(); // domain → { data: Buffer, contentType: string } | 'pending' | 'missing'
+const _faviconCacheDir = () => path.join(app.getPath('userData'), 'favicons');
+const _FAVICON_1PX_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQABNjN9GQAAAAlwSFlzAAAWJQAAFiUBSVIk8AAAAA0lEQVQI12P4z8BQDwAEgAF/QualzQAAAABJRU5ErkJggg==', 'base64');
+
+function _fetchFavicon(domain) {
+  return new Promise((resolve) => {
+    const url = `https://${domain}/favicon.ico`;
+    const req = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        // Follow one redirect
+        const loc = res.headers.location.startsWith('http') ? res.headers.location : `https://${domain}${res.headers.location}`;
+        https.get(loc, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 }, (res2) => {
+          if (res2.statusCode !== 200) { res2.resume(); return resolve(null); }
+          const chunks = [];
+          res2.on('data', c => chunks.push(c));
+          res2.on('end', () => resolve({ data: Buffer.concat(chunks), contentType: res2.headers['content-type'] || 'image/x-icon' }));
+          res2.on('error', () => resolve(null));
+        }).on('error', () => resolve(null));
+        return;
+      }
+      if (res.statusCode !== 200) { res.resume(); return resolve(null); }
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => resolve({ data: Buffer.concat(chunks), contentType: res.headers['content-type'] || 'image/x-icon' }));
+      res.on('error', () => resolve(null));
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+  });
+}
+
+async function _serveFavicon(domain, res) {
+  // Sanitize domain
+  const safeDomain = domain.replace(/[^a-zA-Z0-9.\-]/g, '');
+  if (!safeDomain || safeDomain.length > 253) {
+    res.writeHead(400);
+    res.end('Bad domain');
+    return;
+  }
+
+  // Check memory cache
+  const cached = _faviconCache.get(safeDomain);
+  if (cached === 'missing') {
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
+    res.end(_FAVICON_1PX_PNG);
+    return;
+  }
+  if (cached && cached !== 'pending') {
+    res.writeHead(200, { 'Content-Type': cached.contentType, 'Cache-Control': 'public, max-age=86400' });
+    res.end(cached.data);
+    return;
+  }
+
+  // Check disk cache
+  const cacheDir = _faviconCacheDir();
+  const cachePath = path.join(cacheDir, safeDomain + '.ico');
+  if (fs.existsSync(cachePath)) {
+    const data = fs.readFileSync(cachePath);
+    const entry = { data, contentType: 'image/x-icon' };
+    _faviconCache.set(safeDomain, entry);
+    res.writeHead(200, { 'Content-Type': entry.contentType, 'Cache-Control': 'public, max-age=86400' });
+    res.end(entry.data);
+    return;
+  }
+
+  // Fetch from site
+  _faviconCache.set(safeDomain, 'pending');
+  const result = await _fetchFavicon(safeDomain);
+  if (result && result.data.length > 0 && result.data.length < 500000) {
+    _faviconCache.set(safeDomain, result);
+    // Write to disk cache
+    try {
+      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+      fs.writeFileSync(cachePath, result.data);
+    } catch {}
+    res.writeHead(200, { 'Content-Type': result.contentType, 'Cache-Control': 'public, max-age=86400' });
+    res.end(result.data);
+  } else {
+    _faviconCache.set(safeDomain, 'missing');
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' });
+    res.end(_FAVICON_1PX_PNG);
+  }
+}
+
 function startStaticServer(port) {
   const staticDir = getStaticDir();
   const dataDir = getDataDir();
@@ -238,6 +323,15 @@ function startStaticServer(port) {
   return new Promise((resolve, reject) => {
     _staticServer = http.createServer((req, res) => {
       let urlPath = decodeURIComponent(req.url.split('?')[0]);
+
+      // Serve favicon proxy (privacy: no domain leak to Google)
+      if (urlPath === '/api/favicon') {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const domain = params.get('domain');
+        if (!domain) { res.writeHead(400); res.end('Missing domain'); return; }
+        _serveFavicon(domain, res);
+        return;
+      }
 
       // Serve uploaded files
       if (urlPath.startsWith('/uploads/')) {
@@ -516,6 +610,9 @@ const sessionsWithAdblock = new WeakSet();
 
 // Handle keyboard shortcuts in all web contents (including webviews)
 app.on('web-contents-created', (event, contents) => {
+  // WebRTC IP leak prevention — apply to ALL web contents
+  contents.setWebRTCIPHandlingPolicy('disable_non_proxied_udp');
+
   // Only handle webviews (they have a different type of webContents)
   if (contents.getType && contents.getType() === 'webview') {
     contents.setMaxListeners(20);
@@ -907,8 +1004,91 @@ app.whenReady().then(() => {
   initAdblock();
 
   // ── WebRTC IP leak prevention ──
-  // Prevent real IP from leaking via WebRTC ICE candidates
-  session.defaultSession.setWebRTCIPHandlingPolicy('disable_non_proxied_udp');
+  // Prevent real IP from leaking via WebRTC ICE candidates.
+  // Applied to every webContents (including webviews) via web-contents-created event.
+
+  // ── Permission request handler ──
+  // Route webview permission requests through the app's site permission system
+  // instead of Chromium's default (which silently allows/denies).
+  const _ELECTRON_PERM_MAP = {
+    'media': null, // handled by mediaTypes below
+    'geolocation': 'location',
+    'notifications': 'notifications',
+    'fullscreen': null, // always allow
+    'pointerLock': null, // always allow
+    'openExternal': null, // always deny
+  };
+  let _permRequestId = 0;
+  const _pendingPermRequests = new Map();
+
+  ipcMain.handle('permission-response', (_, requestId, granted) => {
+    const resolve = _pendingPermRequests.get(requestId);
+    if (resolve) {
+      _pendingPermRequests.delete(requestId);
+      resolve(granted);
+    }
+  });
+
+  session.defaultSession.setPermissionRequestHandler((webContentsObj, permission, callback, details) => {
+    // Always allow fullscreen and pointer lock
+    if (permission === 'fullscreen' || permission === 'pointerLock') return callback(true);
+    // Always deny openExternal
+    if (permission === 'openExternal') return callback(false);
+
+    // Map Electron permission to app permission key
+    let permKey;
+    if (permission === 'media') {
+      // details.mediaTypes tells us if it's camera, microphone, or both
+      const types = details?.mediaTypes || [];
+      if (types.includes('video')) permKey = 'camera';
+      else if (types.includes('audio')) permKey = 'microphone';
+      else permKey = 'camera'; // fallback
+    } else {
+      permKey = _ELECTRON_PERM_MAP[permission];
+    }
+    if (!permKey) return callback(false);
+
+    // Get the requesting URL's domain
+    let domain = '';
+    try {
+      const url = details?.requestingUrl || webContentsObj.getURL();
+      domain = new URL(url).hostname.replace(/^www\./, '');
+    } catch {}
+    if (!domain) return callback(false);
+
+    // Ask the renderer to check stored permissions or prompt the user
+    if (!mainWindow || mainWindow.isDestroyed()) return callback(false);
+    const requestId = ++_permRequestId;
+    _pendingPermRequests.set(requestId, (granted) => callback(granted));
+    mainWindow.webContents.send('permission-request', { requestId, domain, permKey });
+
+    // Timeout: deny after 60 seconds if no response
+    setTimeout(() => {
+      if (_pendingPermRequests.has(requestId)) {
+        _pendingPermRequests.delete(requestId);
+        callback(false);
+      }
+    }, 60000);
+  });
+
+  session.defaultSession.setPermissionCheckHandler((_webContentsObj, permission, _requestingOrigin, details) => {
+    if (permission === 'fullscreen' || permission === 'pointerLock') return true;
+    if (permission === 'openExternal') return false;
+    // For media permission checks (e.g. enumerateDevices), check stored permissions
+    let permKey;
+    if (permission === 'media') {
+      const type = details?.mediaType;
+      if (type === 'video') permKey = 'camera';
+      else if (type === 'audio') permKey = 'microphone';
+      else return false;
+    } else {
+      permKey = _ELECTRON_PERM_MAP[permission];
+    }
+    if (!permKey) return false;
+    // Permission checks are synchronous — we can't prompt, so return false (deny)
+    // The actual request will go through setPermissionRequestHandler which can prompt
+    return false;
+  });
 
   // ── DoH (encrypted DNS) ──
   applyDoH(true, 'cloudflare');
@@ -1076,6 +1256,60 @@ app.whenReady().then(() => {
       if (fs.existsSync(secureAuthPath)) fs.unlinkSync(secureAuthPath);
     } catch (_e) { /* no-op */ }
   });
+
+  // ── Encrypted API key storage (safeStorage) ──
+  const secureApiKeyPath = path.join(app.getPath('userData'), 'api-keys.enc');
+
+  function _getEncryptedApiKey(provider) {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return null;
+      if (!fs.existsSync(secureApiKeyPath)) return null;
+      const encrypted = fs.readFileSync(secureApiKeyPath);
+      const json = JSON.parse(safeStorage.decryptString(encrypted));
+      return json[provider] || null;
+    } catch { return null; }
+  }
+
+  function _setEncryptedApiKey(provider, key) {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return;
+      let json = {};
+      if (fs.existsSync(secureApiKeyPath)) {
+        try {
+          const encrypted = fs.readFileSync(secureApiKeyPath);
+          json = JSON.parse(safeStorage.decryptString(encrypted));
+        } catch { json = {}; }
+      }
+      if (key) { json[provider] = key; } else { delete json[provider]; }
+      const encrypted = safeStorage.encryptString(JSON.stringify(json));
+      fs.writeFileSync(secureApiKeyPath, encrypted);
+    } catch { /* no-op */ }
+  }
+
+  ipcMain.handle('get-api-key-secure', (_, provider) => _getEncryptedApiKey(provider));
+  ipcMain.handle('set-api-key-secure', (_, provider, key) => { _setEncryptedApiKey(provider, key); });
+
+  // Migrate plaintext OpenRouter key from DB to encrypted storage on startup
+  if (_coreInitialized) {
+    try {
+      const { getSetting, deleteSetting } = require('../dist/main/db/queries/settings.js');
+      const existing = getSetting('openrouterApiKey');
+      if (existing && existing.value) {
+        const alreadySecure = _getEncryptedApiKey('openrouter');
+        if (!alreadySecure) {
+          _setEncryptedApiKey('openrouter', existing.value);
+        }
+        // Remove plaintext key from DB
+        deleteSetting('openrouterApiKey');
+      }
+      // Load encrypted key into the provider
+      const secureKey = _getEncryptedApiKey('openrouter');
+      if (secureKey) {
+        const { openrouterProvider } = require('../dist/main/ipc/shared.js');
+        openrouterProvider.setApiKey(secureKey);
+      }
+    } catch (_e) { /* DB or core may not be ready */ }
+  }
 
   let _stashedGoogleCookies = null;
 

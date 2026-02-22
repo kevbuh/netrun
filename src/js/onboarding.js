@@ -532,7 +532,7 @@ function _wizBmRenderBookmarks(container, browserId) {
     var isSel = selected.has(bm.url);
     var hostname = '';
     try { hostname = new URL(bm.url).hostname; } catch(e) {}
-    var favicon = hostname ? 'https://www.google.com/s2/favicons?domain=' + hostname + '&sz=32' : '';
+    var favicon = hostname ? '/api/favicon?domain=' + hostname : '';
 
     var checkSvg = isSel ? icon('check', {size: 10, stroke: '#fff', strokeWidth: '3'}) : '';
     var checkCircle = new window.View('div').styles({
@@ -702,7 +702,7 @@ function _wizardFeedRenderGrid() {
       const sel = _wizardFeedSelected.has(f.key);
       let faviconView;
       if (f.favicon) {
-        faviconView = window.RawHTML('<img src="https://www.google.com/s2/favicons?domain=' + f.favicon + '&sz=32" style="width:20px;height:20px;border-radius:4px;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><span style="display:none;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>');
+        faviconView = window.RawHTML('<img src="/api/favicon?domain=' + f.favicon + '" style="width:20px;height:20px;border-radius:4px;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><span style="display:none;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>');
       } else {
         faviconView = window.RawHTML('<span style="display:flex;width:20px;height:20px;border-radius:4px;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;background:' + (f.bg || '#333') + ';color:' + (f.fg || '#fff') + '">' + (f.letter || f.name[0]) + '</span>');
       }

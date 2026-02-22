@@ -604,7 +604,7 @@ function _bmRenderBookmarkList(container, browserId) {
     var isSel = selected.has(bm.url);
     var hostname = '';
     try { hostname = new URL(bm.url).hostname; } catch(e) {}
-    var favicon = hostname ? 'https://www.google.com/s2/favicons?domain=' + hostname + '&sz=32' : '';
+    var favicon = hostname ? '/api/favicon?domain=' + hostname : '';
 
     var checkSvg = isSel ? icon('check', { size: 10, stroke: '#fff', strokeWidth: '3' }) : '';
     var checkCircle = new window.View('div').styles({

@@ -212,7 +212,7 @@ export const FEED_CATALOG = [
 export function catalogLogo(entry, size) {
   // For inline (card chips), prefer favicon
   if (size === 'inline' && entry.favicon) {
-    return `<img class="h-3.5 w-3.5 rounded-sm inline-block" src="https://www.google.com/s2/favicons?domain=${entry.favicon}&sz=32" alt="${entry.name}" onerror="this.style.display='none'" />`;
+    return `<img class="h-3.5 w-3.5 rounded-sm inline-block" src="/api/favicon?domain=${entry.favicon}" alt="${entry.name}" onerror="this.style.display='none'" />`;
   }
   if (entry.img) {
     const cls = size === 'onboard' ? 'h-5 w-auto opacity-70'

@@ -138,7 +138,7 @@ function _renderWebSources(sources) {
   if (!sources?.length) return '';
   return '<div class="nr-source-cards">' + sources.map(s => {
     const domain = _extractDomain(s.url);
-    const favicon = 'https://www.google.com/s2/favicons?sz=16&domain=' + encodeURIComponent(domain);
+    const favicon = '/api/favicon?domain=' + encodeURIComponent(domain);
     return '<a class="nr-source-card" data-source-n="' + s.n + '" href="' + escapeAttr(s.url) + '" title="' + escapeAttr(s.title) + '">' +
       '<span class="nr-source-badge">' + s.n + '</span>' +
       '<img class="nr-source-favicon" src="' + escapeAttr(favicon) + '" width="14" height="14" />' +
