@@ -239,6 +239,18 @@ export function registerBrowseIPC(): void {
     return await doFetch();
   });
 
+  // S2 cache info — returns cached_at epoch (seconds) or null
+  ipcMain.handle('db:s2-cache-age', (_event, urlPath: string) => {
+    if (!urlPath) return null;
+    return contentQueries.getS2CacheAge(urlPath);
+  });
+
+  // S2 cache clear — deletes a single entry so next s2-proxy call hits API
+  ipcMain.handle('db:s2-cache-clear', (_event, urlPath: string) => {
+    if (!urlPath) return;
+    contentQueries.deleteS2CacheEntry(urlPath);
+  });
+
   // ── Browse utilities ──
   ipcMain.handle('db:link-preview', async (_event, url: string) => {
     if (!url) return { error: 'url required' };

@@ -50,6 +50,15 @@ export function setCachedS2Response(urlPath: string, data: unknown): void {
   ).run(urlPath, JSON.stringify(data), Date.now() / 1000);
 }
 
+export function getS2CacheAge(urlPath: string): number | null {
+  const row = prepare('SELECT cached_at FROM s2_response_cache WHERE url_path = ?').get(urlPath) as { cached_at: number } | undefined;
+  return row ? row.cached_at : null;
+}
+
+export function deleteS2CacheEntry(urlPath: string): void {
+  prepare('DELETE FROM s2_response_cache WHERE url_path = ?').run(urlPath);
+}
+
 // ── PWC response cache ──
 
 export function getCachedPwcResponse(url: string): { data: unknown; isStale: boolean } | null {

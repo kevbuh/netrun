@@ -3,7 +3,7 @@
 // Depends on: core-nav.js, browse-paper.js, browse-pdf-viewer.js
 import { icon } from '/js/core/icons.js';
 import { registerPanelTabs } from '/js/core/core-nav.js';
-import { _paperState, _s2Fetch, _s2GetAuthor, _s2GetAuthorFull, _extractArxivId, _s2LookupByArxivId, _s2SearchPaper } from '/js/browse/browse-paper.js';
+import { _paperState, _s2Cache, _s2Fetch, _s2GetAuthor, _s2GetAuthorFull, _extractArxivId, _s2LookupByArxivId, _s2SearchPaper } from '/js/browse/browse-paper.js';
 import { _pdfViewerScrollToPage, _pdfViewerGetText } from '/js/browse/browse-pdf-viewer.js';
 import { _nerdModeEnabled } from '/js/browse/browse-nerd-mode.js';
 
@@ -47,6 +47,7 @@ function _fetchPaperData(tab) {
   if (!tab || !tab.url) return;
   var arxivId = _extractArxivId(tab.url);
   if (arxivId) {
+    var s2Path = '/paper/ARXIV:' + arxivId + '?fields=title,authors,citationCount,year,venue,references.title,references.authors,references.year,references.venue,references.citationCount';
     _s2LookupByArxivId(arxivId).then(function(data) {
       if (data) {
         _paperState.set(tab.id, {
@@ -54,6 +55,7 @@ function _fetchPaperData(tab) {
           meta: { title: data.title, authors: (data.authors || []).map(function(a) { return a.name; }), site: '' },
           refs: data.references || null,
           s2Data: data,
+          s2UrlPath: s2Path,
           authorDetails: []
         });
         // Fetch author details
@@ -69,13 +71,15 @@ function _fetchPaperData(tab) {
           // Fetch full data with references
           var paperId = data.paperId;
           if (paperId) {
-            _s2Fetch('/paper/' + paperId + '?fields=title,authors,citationCount,year,venue,abstract,references.title,references.authors,references.year,references.citationCount,references.venue').then(function(full) {
+            var fullPath = '/paper/' + paperId + '?fields=title,authors,citationCount,year,venue,abstract,references.title,references.authors,references.year,references.citationCount,references.venue';
+            _s2Fetch(fullPath).then(function(full) {
               if (full) {
                 _paperState.set(tab.id, {
                   url: tab.url,
                   meta: { title: full.title, authors: (full.authors || []).map(function(a) { return a.name; }), site: '' },
                   refs: full.references || null,
                   s2Data: full,
+                  s2UrlPath: fullPath,
                   authorDetails: []
                 });
                 _fetchAuthorDetails(tab, full);
@@ -146,6 +150,45 @@ function _renderInfoTab(container) {
   if (s2.citationCount != null) meta.push(s2.citationCount + ' citations');
   if (meta.length) {
     wrap.add(Text(meta.join(' \u00b7 ')).className('nerd-info-meta'));
+  }
+
+  // Cache age indicator
+  var s2Path = state.s2UrlPath;
+  if (!s2Path && tab) {
+    var _aid = _extractArxivId(tab.url);
+    if (_aid) {
+      s2Path = '/paper/ARXIV:' + _aid + '?fields=title,authors,citationCount,year,venue,references.title,references.authors,references.year,references.venue,references.citationCount';
+    } else if (s2.paperId) {
+      s2Path = '/paper/' + s2.paperId + '?fields=title,authors,citationCount,year,venue,abstract,references.title,references.authors,references.year,references.citationCount,references.venue';
+    }
+    if (s2Path) state.s2UrlPath = s2Path;
+  }
+  if (s2Path && window.electronAPI && window.electronAPI.dbQuery) {
+    var cacheRow = new View('div').className('nerd-cache-row');
+    var cacheLabel = Text('').className('nerd-cache-label');
+    cacheRow.add(cacheLabel);
+    wrap.add(cacheRow);
+
+    window.electronAPI.dbQuery('s2-cache-age', s2Path).then(function(cachedAt) {
+      if (!cachedAt) {
+        cacheLabel.text('Live data');
+        return;
+      }
+      var ageSec = Date.now() / 1000 - cachedAt;
+      cacheLabel.text('Cached ' + _formatCacheAge(ageSec));
+
+      var refetchBtn = Button('Refetch').className('nerd-cache-refetch').onTap(function() {
+        refetchBtn.el.disabled = true;
+        refetchBtn.text('Refetching...');
+        window.electronAPI.dbQuery('s2-cache-clear', s2Path).then(function() {
+          _s2Cache.delete(s2Path);
+          _paperState.delete(tab.id);
+          _fetchPaperData(tab);
+          setTimeout(function() { _renderInfoTab(container); }, 2500);
+        });
+      });
+      cacheRow.add(refetchBtn);
+    });
   }
 
   // Authors
@@ -566,6 +609,14 @@ function _renderCodeTab(container) {
 }
 
 // ── Helpers ──
+
+function _formatCacheAge(seconds) {
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+  var days = Math.floor(seconds / 86400);
+  return days + 'd ago';
+}
 
 function _parseRefNums(str) {
   var nums = [];

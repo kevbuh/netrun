@@ -54,6 +54,31 @@
   gap: 6px;
 }
 
+.nerd-cache-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--nr-space-2);
+}
+
+.nerd-cache-label {
+  font-size: 0.65rem;
+  color: var(--nr-text-quaternary);
+}
+
+.nerd-cache-refetch {
+  font-size: 0.62rem;
+  padding: 1px 8px;
+  border-radius: var(--nr-radius-sm);
+  background: var(--nr-bg-elevated);
+  color: var(--nr-text-secondary);
+  border: 1px solid var(--nr-border-subtle);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.nerd-cache-refetch:hover { background: var(--nr-bg-hover); }
+.nerd-cache-refetch:disabled { opacity: 0.5; cursor: default; }
+
 .nerd-info-authors {
   font-size: 0.75rem;
   color: var(--nr-text-secondary);
@@ -107,7 +132,7 @@
   font-size: 0.72rem;
   color: var(--nr-text-secondary);
   background: transparent;
-  border: 1px solid var(--nr-border-subtle);
+  border: none;
   border-radius: var(--nr-radius-sm);
   padding: var(--nr-space-2) var(--nr-space-3);
   line-height: 1.45;
@@ -118,7 +143,6 @@
 
 .nerd-cite-box:hover {
   background: var(--nr-bg-raised);
-  border-color: var(--nr-border-default);
 }
 
 /* ── Paper items (References, Related, Search results) ── */
