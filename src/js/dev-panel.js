@@ -17,7 +17,6 @@ export var _devChartRegistry = [];
 export const DEV_SECTIONS = [
   { id: 'overview', label: 'Overview' },
   { id: 'function-registry', label: 'Function Registry' },
-  { id: 'feed-validator', label: 'Feed Validator' },
   { id: 'load-order', label: 'Load Order' },
   { id: 'dependency-graph', label: 'Dependency Graph' },
   { id: 'git-log', label: 'Git Log' },
@@ -188,7 +187,6 @@ export function renderDevSection(sectionId) {
   const renderers = {
     'overview': _renderDevOverview,
     'function-registry': _renderDevFunctionRegistry,
-    'feed-validator': _renderDevFeedValidator,
     'load-order': _renderDevLoadOrder,
     'dependency-graph': _renderDevDependencyGraph,
     'git-log': _renderDevGitLog,
@@ -333,25 +331,6 @@ export function _renderDevFunctionRegistry() {
   const controls = window.HStack(analyzeBtn, reportBtn, statusEl).gap('8px').wrap().styles({marginBottom:'16px'});
   const results = new window.View('div');
   results.id('dev-fn-reg-results');
-
-  AetherUI.mount(window.VStack(header, controls, results), contentPane);
-}
-
-// ── Feed Validator Section ──
-export function _renderDevFeedValidator() {
-  const contentPane = document.getElementById('dev-content-pane');
-  if (!contentPane) return;
-
-  const header = window.VStack(
-    window.Text('Feed Catalog Validator').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
-    window.Text('Validate sync between JS (core.js) and Python (feed_catalog.py) feed catalogs.').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
-  ).styles({marginBottom:'24px'});
-
-  const valBtn = window.Button('Run Validation').className('dev-btn-primary').id('dev-feed-val-btn').onTap(function() { _devRunFeedValidator(); });
-  const statusEl = window.Text('').id('dev-feed-val-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
-  const controls = window.HStack(valBtn, statusEl).gap('8px').styles({marginBottom:'16px'});
-  const results = new window.View('div');
-  results.id('dev-feed-val-results');
 
   AetherUI.mount(window.VStack(header, controls, results), contentPane);
 }
@@ -1029,127 +1008,6 @@ export function _devOpenFunctionRegistryReport() {
   } else {
     window.open('../coverage/function-registry.html', '_blank');
   }
-}
-
-export async function _devRunFeedValidator() {
-  const btn = document.getElementById('dev-feed-val-btn');
-  const status = document.getElementById('dev-feed-val-status');
-  const results = document.getElementById('dev-feed-val-results');
-  if (!btn || !status || !results) return;
-
-  btn.disabled = true;
-  btn.textContent = 'Validating...';
-  status.textContent = 'Running validation...';
-  AetherUI.mount(window.Text(''), results);
-
-  try {
-    const data = await apiGet('/api/validate-feeds');
-
-    if (data.status === 'error' && data.message) {
-      status.textContent = 'Error: ' + data.message;
-      status.style.color = 'var(--nr-text-error, #ef4444)';
-      return;
-    }
-
-    const isSync = data.errorCount === 0;
-    status.textContent = isSync ? 'Catalogs in sync' : `${data.errorCount} mismatch${data.errorCount === 1 ? '' : 'es'} found`;
-    status.style.color = isSync ? '#34d399' : '#ef4444';
-
-    const feedValidatorParts = [
-      _devStatGrid(
-        _devStatCard(data.jsCatalogSize, 'JS Entries', 'var(--nr-accent)'),
-        _devStatCard(data.pyCatalogSize, 'PY Entries', 'var(--nr-accent)'),
-        _devStatCard(data.errorCount, 'Mismatches', isSync ? '#34d399' : '#ef4444')
-      )
-    ];
-    if (data.errorCount > 0) {
-      feedValidatorParts.push(window.RawHTML(_devRenderFeedValidatorErrors(data.errors)));
-    } else {
-      feedValidatorParts.push(window.RawHTML(`<div style="padding:24px;text-align:center;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px"><div style="width:48px;height:48px;margin:0 auto 12px;border-radius:50%;background:#34d399;display:flex;align-items:center;justify-content:center">${icon('check', {size: 24, stroke: 'white', strokeWidth: '3'})}</div><div style="color:var(--nr-text-primary);font-size:0.85rem;font-weight:600">All ${data.jsCatalogSize} feed entries are in sync!</div><div style="color:var(--nr-text-quaternary);font-size:0.7rem;margin-top:4px">JS and Python catalogs match perfectly.</div></div>`));
-    }
-    AetherUI.mount(VStack(feedValidatorParts), results);
-  } catch (e) {
-    status.textContent = 'Error: ' + e.message;
-    status.style.color = 'var(--nr-text-error, #ef4444)';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Run Validation';
-  }
-}
-
-export function _devRenderFeedValidatorErrors(errors) {
-  const byType = { MISSING_IN_PY: [], MISSING_IN_JS: [], URL_MISMATCH: [], SPECIAL_MISMATCH: [] };
-  errors.forEach(e => byType[e.type].push(e));
-
-  return `
-    ${byType.MISSING_IN_PY.length > 0 ? `
-      <div style="margin-bottom:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #f59e0b">
-        <div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Missing in Python (${byType.MISSING_IN_PY.length})</div>
-        <div style="color:var(--nr-text-quaternary);font-size:0.65rem">
-          ${byType.MISSING_IN_PY.map(e => `
-            <div style="margin-bottom:6px">
-              <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(e.key)}</code>
-              <span style="margin-left:8px">→ Add to feed_catalog.py</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    ` : ''}
-
-    ${byType.MISSING_IN_JS.length > 0 ? `
-      <div style="margin-bottom:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #f59e0b">
-        <div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:8px">WARNING: Missing in JavaScript (${byType.MISSING_IN_JS.length})</div>
-        <div style="color:var(--nr-text-quaternary);font-size:0.65rem">
-          ${byType.MISSING_IN_JS.map(e => `
-            <div style="margin-bottom:6px">
-              <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(e.key)}</code>
-              <span style="margin-left:8px">→ Add to core.js</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    ` : ''}
-
-    ${byType.URL_MISMATCH.length > 0 ? `
-      <div style="margin-bottom:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #ef4444">
-        <div style="color:#ef4444;font-size:0.75rem;font-weight:600;margin-bottom:8px">ERROR: URL Mismatch (${byType.URL_MISMATCH.length})</div>
-        <div style="overflow-x:auto">
-          <table style="width:100%;font-size:0.65rem;border-collapse:collapse">
-            <thead>
-              <tr style="border-bottom:1px solid var(--nr-border-default)">
-                <th style="text-align:left;padding:4px;color:var(--nr-text-primary)">Key</th>
-                <th style="text-align:left;padding:4px;color:var(--nr-text-primary)">JS URL</th>
-                <th style="text-align:left;padding:4px;color:var(--nr-text-primary)">PY URL</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${byType.URL_MISMATCH.map(e => `
-                <tr style="border-bottom:1px solid var(--nr-border-default)">
-                  <td style="padding:4px"><code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 4px;border-radius:3px">${escapeHtml(e.key)}</code></td>
-                  <td style="padding:4px;color:var(--nr-text-quaternary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.js?.url || '(none)')}</td>
-                  <td style="padding:4px;color:var(--nr-text-quaternary);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.py?.url || '(none)')}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ` : ''}
-
-    ${byType.SPECIAL_MISMATCH.length > 0 ? `
-      <div style="margin-bottom:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:8px;border-left:3px solid #ef4444">
-        <div style="color:#ef4444;font-size:0.75rem;font-weight:600;margin-bottom:8px">ERROR: Special Field Mismatch (${byType.SPECIAL_MISMATCH.length})</div>
-        <div style="color:var(--nr-text-quaternary);font-size:0.65rem">
-          ${byType.SPECIAL_MISMATCH.map(e => `
-            <div style="margin-bottom:6px">
-              <code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px">${escapeHtml(e.key)}</code>
-              <span style="margin-left:8px">JS: ${e.js?.special || '(none)'} → PY: ${e.py?.special || '(none)'}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    ` : ''}
-  `;
 }
 
 export async function _devRunLoadOrderAnalysis() {

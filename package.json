@@ -6,8 +6,8 @@
   "scripts": {
     "postinstall": "node scripts/rename-electron.js",
     "build:core": "npx tsc -p tsconfig.json",
-    "start": "npm run build:core && npm run feedserver:start",
-    "start:dev": "npm run feedserver:start-dev",
+    "start": "npm run build:core && electron .",
+    "start:dev": "electron .",
     "feedserver:build": "cd feedserver && go build -o ../dist/feedserver .",
     "feedserver:start": "npm run feedserver:build && (dist/feedserver & FEED_PID=$!; trap 'kill $FEED_PID 2>/dev/null' EXIT; electron .)",
     "feedserver:start-dev": "(cd feedserver && go run . & FEED_PID=$!; trap 'kill $FEED_PID 2>/dev/null' EXIT; electron .)",
@@ -28,7 +28,6 @@
     "test:quick": "npm run test:unit && npm run test:backend:unit",
     "dead-code": "node scripts/dead-code.js",
     "function-registry": "node scripts/function-registry.js",
-    "validate-feeds": "node scripts/validate-feeds.js",
     "validate-load-order": "node scripts/function-registry.js --check-load-order",
     "suggest-reorder": "node scripts/function-registry.js --suggest-reorder",
     "lint": "npm run lint:js && npm run lint:py",

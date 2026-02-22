@@ -166,7 +166,7 @@ def cmd_md_to_pdf(args):
     """Convert markdown text to PDF using fitz Story API."""
     md_text = args.get("text", "")
     if not md_text and args.get("input"):
-        with open(args["input"], "r", encoding="utf-8") as f:
+        with open(args["input"], encoding="utf-8") as f:
             md_text = f.read()
 
     output = args["output"]

@@ -5,6 +5,8 @@ import { _doDeleteAccount, _doLogout, enterGuestMode, exitGuestMode } from '/js/
 import { _uploadProfilePic } from '/js/core/core-profile.js';
 import { _settingSection, _settingToggle } from '/js/settings/settings-helpers.js';
 import { toggleProfilePrivacy } from '/js/settings/settings-theme.js';
+import { apiGet } from '/js/api.js';
+import { getSavedPosts, allPapers } from '/js/feed.js';
 
 // ─── Profile Settings ──────────────────────────────────────
 
@@ -23,23 +25,83 @@ export function _renderAccountSettings() {
     returnBtn.onTap(function() { exitGuestMode(); });
     return _settingSection('Profile', [guestCard, returnBtn]);
   }
-  const avatarHtml = window._authUserInfo?.picture
-    ? '<img src="' + escapeAttr(window._authUserInfo.picture) + '" alt="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;" />'
-    : '<div style="width:56px;height:56px;border-radius:50%;background:var(--nr-accent);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:600;color:#fff;">' + escapeHtml((window._authUserInfo?.username || '?')[0].toUpperCase()) + '</div>';
-  const avatar = window.RawHTML('<div class="relative group cursor-pointer" style="flex-shrink:0">' + avatarHtml +
-    '<div class="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">' +
-    icon('camera', { size: 20, class: 'w-5 h-5 text-white' }) + '</div></div>');
-  avatar.onTap(function() { _uploadProfilePic(); });
 
-  const profileCard = window.HStack(
-    avatar,
-    window.VStack(
-      window.Text(window._authUserInfo?.username || '').className('text-primary font-semibold text-[0.95rem]'),
-      window.Text(window._authUserInfo?.name || '').className('text-dim text-[0.8rem]'),
-      window.Text(window._authUserInfo?.email || '').className('text-dim text-[0.75rem]')
-    )
-  ).spacing(3).className('mb-4');
+  // ── Rich profile card (banner + avatar + info) ──
+  const profileSlot = window.VStack().className('nr-hub-profile').style('marginBottom', '16px');
 
+  const _uname = window._authUserInfo?.username;
+  if (_uname) {
+    apiGet('/api/users/' + encodeURIComponent(_uname)).then(function(profile) {
+      profile = profile || {};
+      const username = profile.username || _uname || '';
+
+      // Banner
+      const banner = document.createElement('div');
+      banner.className = 'nr-hub-profile-banner';
+      if (profile.profile_bg) {
+        banner.style.backgroundImage = "url('" + escapeAttr(profile.profile_bg) + "')";
+        banner.style.backgroundSize = 'cover';
+        banner.style.backgroundPosition = 'center';
+      } else {
+        banner.classList.add('nr-living-gradient');
+      }
+      const bannerGrad = document.createElement('div');
+      bannerGrad.className = 'nr-hub-profile-banner-grad';
+      banner.appendChild(bannerGrad);
+
+      // Avatar
+      const avatarHtml = profile.picture
+        ? '<img src="' + escapeAttr(profile.picture) + '" referrerpolicy="no-referrer" />'
+        : '<div class="nr-hub-profile-avatar-fallback">' + escapeHtml((username || '?')[0].toUpperCase()) + '</div>';
+
+      // Info children
+      const infoChildren = [
+        window.RawHTML('<span>' + escapeHtml(username) + '<span class="nr-hub-online-dot"></span></span>').className('nr-hub-profile-name'),
+      ];
+      if (profile.status_text) {
+        infoChildren.push(window.Text(profile.status_text).className('nr-hub-profile-status'));
+      }
+      if (profile.created) {
+        infoChildren.push(
+          window.Text('Joined ' + new Date(profile.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })).className('nr-hub-profile-join')
+        );
+      }
+      infoChildren.push(
+        window.RawHTML(
+          '<span><strong>' + (profile.comment_count || 0) + '</strong> comments</span>' +
+          '<span><strong>' + (profile.repost_count || 0) + '</strong> reposts</span>'
+        ).className('nr-hub-profile-counters')
+      );
+
+      const row = window.HStack(
+        window.RawHTML(avatarHtml).className('nr-hub-profile-avatar'),
+        window.VStack(...infoChildren).className('nr-hub-profile-info'),
+      ).className('nr-hub-profile-row');
+
+      profileSlot.el.appendChild(banner);
+      window.AetherUI.append(row, profileSlot.el);
+
+      // Stats row
+      const readSet = new Set(Settings.getJSON('readPosts', []));
+      const papersRead = allPapers.filter(p => readSet.has(p.link)).length;
+      const savedCount = Object.keys(getSavedPosts()).length;
+      const statsData = [
+        { value: papersRead, label: 'Papers Read', sub: 'in feed', color: '#60a5fa' },
+        { value: savedCount, label: 'Saved', sub: 'reading list', color: '#34d399' },
+        { value: 0, label: 'Projects', sub: 'active', color: '#a78bfa' },
+      ];
+      const statsRow = window.HStack(
+        ...statsData.map(s => window.VStack(
+          window.Text(String(s.value)).className('nr-hub-stat-value').style('color', s.color),
+          window.Text(s.label).className('nr-hub-stat-label'),
+          window.Text(s.sub).className('nr-hub-stat-sub'),
+        ).className('nr-hub-stat'))
+      ).className('nr-hub-stats');
+      window.AetherUI.append(statsRow, profileSlot.el);
+    }).catch(function() {});
+  }
+
+  // ── Settings controls ──
   const privacyToggle = _settingToggle('Private profile', 'Hide your profile from search and browse.',
     !!window._authUserInfo?.profile_private, function(on) { toggleProfilePrivacy(on); });
 
@@ -62,9 +124,8 @@ export function _renderAccountSettings() {
   });
 
   return _settingSection('Profile', [
-    profileCard,
+    profileSlot,
     privacyToggle,
     window.HStack(guestBtn, signOutBtn, deleteBtn).spacing(2).className('mt-4')
   ]);
 }
-

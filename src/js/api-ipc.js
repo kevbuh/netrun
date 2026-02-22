@@ -567,10 +567,6 @@ export async function ipcRoute(path, opts = {}) {
     if (!googleId) return null;
     return await window.electronAPI.dbQuery('function-registry');
   }
-  if (pathOnly === '/api/validate-feeds' && method === 'GET') {
-    if (!googleId) return null;
-    return await window.electronAPI.dbQuery('validate-feeds');
-  }
   if (pathOnly === '/api/validate-load-order' && method === 'GET') {
     if (!googleId) return null;
     return await window.electronAPI.dbQuery('validate-load-order');

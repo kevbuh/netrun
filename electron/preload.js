@@ -86,7 +86,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   terminalKill: (sessionId) => ipcRenderer.invoke('terminal:kill', sessionId),
   onTerminalOutput: (callback) => ipcRenderer.on('terminal:output', callback),
   onTerminalExit: (callback) => ipcRenderer.on('terminal:exit', callback),
-  removeTerminalListeners: (sessionId) => {
+  removeTerminalListeners: (_sessionId) => {
     // Note: removes ALL listeners; fine since each terminal re-registers on connect
     ipcRenderer.removeAllListeners('terminal:output');
     ipcRenderer.removeAllListeners('terminal:exit');

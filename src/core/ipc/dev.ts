@@ -221,18 +221,6 @@ export function registerDevIPC(): void {
     }
   });
 
-  ipcMain.handle('db:validate-feeds', async () => {
-    try {
-      const scriptPath = path.join(gitRoot, 'scripts', 'validate-feeds.js');
-      const { stdout: result } = await execFile('node', [scriptPath, '--json'], { timeout: 10_000, encoding: 'utf-8' });
-      return JSON.parse(result);
-    } catch (e: any) {
-      if (e.killed) return { status: 'error', message: 'Validation timed out' };
-      if (e.stdout) try { return JSON.parse(e.stdout); } catch {}
-      return { status: 'error', message: e.message ?? String(e) };
-    }
-  });
-
   ipcMain.handle('db:validate-load-order', async () => {
     try {
       const scriptPath = path.join(gitRoot, 'scripts', 'function-registry.js');

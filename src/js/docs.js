@@ -3,6 +3,7 @@
 
 import { hideAllViews, ensureView } from '/js/core/core-views.js';
 import { setSidebarActive } from '/js/core/core-layout.js';
+import { _HELP_DATA } from '/js/settings/settings-helpers.js';
 
 // ── Source file manifest ──
 const SOURCE_FILES = [
@@ -156,7 +157,7 @@ async function parseAll() {
   const components = allItems.filter(it => !it.isModifier);
 
   // Group by category
-  const CATEGORY_ORDER = ['State','Layout','Text & Media','Controls','Containers','Overlays','Component','Mount','Modifiers'];
+  const CATEGORY_ORDER = ['State','Layout','Text & Media','Controls','Containers','Overlays','Component','Mount','Modifiers','Help'];
   const byCategory = {};
   for (const cat of CATEGORY_ORDER) byCategory[cat] = [];
   for (const item of components) {
@@ -313,6 +314,20 @@ function _buildSidebar(data) {
         _scrollToItem('modifiers');
       });
       sidebar.el.appendChild(navItem);
+      continue;
+    }
+
+    if (cat === 'Help') {
+      for (const sec of _HELP_SECTIONS) {
+        const navItem = document.createElement('div');
+        navItem.className = 'docs-nav-item';
+        navItem.textContent = sec.title;
+        navItem.addEventListener('click', () => {
+          _setActiveNav(navItem, 'help-' + sec.id);
+          _scrollToItem('help-' + sec.id);
+        });
+        sidebar.el.appendChild(navItem);
+      }
       continue;
     }
 
@@ -492,6 +507,123 @@ function _matchesModifier(m) {
   return m.name.toLowerCase().includes(q) || (m.params && m.params.toLowerCase().includes(q));
 }
 
+// ── Help Reference Sections ──
+
+const _HELP_SECTIONS = [
+  { id: 'routes', title: 'Special Routes', subtitle: 'Type these in the URL bar to open internal pages.', headers: ['URL', 'Page'], rows: [
+    ['netrun://', 'Hub page \u2014 dashboard and quick links'],
+    ['netrun://history', 'Browse and search history'],
+    ['netrun://docs', 'This page \u2014 AetherUI API reference'],
+    ['chat://', 'Chat threads view'],
+    ['chat://<id>', 'Open a specific chat thread'],
+    ['draw://', 'Drawing whiteboard'],
+    ['ntp://', 'New tab page'],
+  ]},
+  { id: 'instant', title: 'Instant Answers', subtitle: 'Type in the URL bar \u2014 results appear inline as you type.', headers: ['Type', 'Try'], get rows() { return _HELP_DATA.instantAnswers; } },
+  { id: 'search', title: 'Search Syntax', subtitle: 'Use these in the Papers search on new tab pages.', headers: ['Syntax', 'Effect'], mono: true, get rows() { return _HELP_DATA.searchSyntax; } },
+  { id: 'bangs', title: 'Bangs', subtitle: 'Type ! followed by a shortcut and your query to search a specific site.', headers: ['Bang', 'Site'], mono: true, get rows() { return _HELP_DATA.getBangs(); } },
+  { id: 'slash', title: 'Slash Commands', subtitle: 'Right-click \u2192 type / in the aether panel.', headers: ['Command', 'Action'], get rows() { return _HELP_DATA.slashCommands; } },
+  { id: 'shortcuts', title: 'Keyboard Shortcuts', headers: ['Key', 'Action'], isShortcuts: true },
+  { id: 'panel', title: 'Aether Panel', isPanel: true },
+  { id: 'tools', title: 'Chat Tools', subtitle: 'When enabled, the chat assistant can use these tools autonomously.', headers: ['Tool', 'Description'], mono: true, get rows() { return _HELP_DATA.chatTools; } },
+  { id: 'models', title: 'AI Models', subtitle: 'Local Ollama models. All optional \u2014 features degrade gracefully.', headers: ['Model', 'Used for'], mono: true, get rows() { return _HELP_DATA.aiModels; } },
+];
+
+function _buildHelpCard(sec) {
+  const card = document.createElement('div');
+  card.className = 'docs-card';
+  card.id = 'docs-item-help-' + sec.id;
+
+  const title = document.createElement('h2');
+  title.className = 'docs-card-title';
+  title.textContent = sec.title;
+  card.appendChild(title);
+
+  if (sec.subtitle) {
+    const desc = document.createElement('div');
+    desc.className = 'docs-card-desc';
+    desc.textContent = sec.subtitle;
+    card.appendChild(desc);
+  }
+
+  // Aether Panel — special content
+  if (sec.isPanel) {
+    const panelDesc = document.createElement('div');
+    panelDesc.className = 'docs-card-desc';
+    panelDesc.style.lineHeight = '1.7';
+    panelDesc.innerHTML = '<strong>Right-click</strong> anywhere to open the panel.<br>Type to <strong>chat with AI</strong> about the current page.<br><strong>Select text</strong> \u2192 highlight, quote, or define.<br><strong>Drag</strong> while panel is open to capture a screenshot region.';
+    card.appendChild(panelDesc);
+    return card;
+  }
+
+  // Keyboard Shortcuts — special table with section headers and Kbd rendering
+  if (sec.isShortcuts) {
+    const table = document.createElement('table');
+    table.className = 'nr-hub-table';
+    table.style.width = '100%';
+    const thead = document.createElement('tr');
+    for (const h of ['Key', 'Action']) { const th = document.createElement('th'); th.className = 'nr-hub-th'; th.textContent = h; thead.appendChild(th); }
+    table.appendChild(thead);
+
+    for (const [key, val] of _HELP_DATA.shortcuts) {
+      const tr = document.createElement('tr');
+      tr.className = 'nr-hub-tr';
+      if (!key) {
+        const td = document.createElement('td'); td.colSpan = 2; td.style.cssText = 'padding:12px 12px 4px;'; td.innerHTML = val; tr.appendChild(td);
+      } else {
+        const tdKey = document.createElement('td'); tdKey.className = 'nr-hub-td-key';
+        if (window.Kbd) { AetherUI.append(window.Kbd(key), tdKey); } else { const kbd = document.createElement('kbd'); kbd.className = 'nr-hub-kbd'; kbd.textContent = key; tdKey.appendChild(kbd); }
+        tr.appendChild(tdKey);
+        const tdVal = document.createElement('td'); tdVal.className = 'nr-hub-td-val'; tdVal.textContent = val; tr.appendChild(tdVal);
+      }
+      table.appendChild(tr);
+    }
+    card.appendChild(table);
+    return card;
+  }
+
+  // Standard table section
+  const rows = sec.rows;
+  if (!rows || rows.length === 0) return null;
+
+  const table = document.createElement('table');
+  table.className = 'nr-hub-table';
+  table.style.width = '100%';
+  const thead = document.createElement('tr');
+  for (const h of sec.headers) { const th = document.createElement('th'); th.className = 'nr-hub-th'; th.textContent = h; thead.appendChild(th); }
+  table.appendChild(thead);
+
+  for (const [key, val] of rows) {
+    const tr = document.createElement('tr'); tr.className = 'nr-hub-tr';
+    const tdKey = document.createElement('td'); tdKey.className = 'nr-hub-td-key';
+    if (sec.mono) { const code = document.createElement('code'); code.style.fontSize = '0.8rem'; code.textContent = key; tdKey.appendChild(code); }
+    else tdKey.textContent = key;
+    tr.appendChild(tdKey);
+    const tdVal = document.createElement('td'); tdVal.className = 'nr-hub-td-val'; tdVal.textContent = val; tr.appendChild(tdVal);
+    table.appendChild(tr);
+  }
+  card.appendChild(table);
+  return card;
+}
+
+function _matchesHelpSearch(sec) {
+  if (!_searchQuery) return true;
+  const q = _searchQuery.toLowerCase();
+  if (sec.title.toLowerCase().includes(q)) return true;
+  if (sec.subtitle && sec.subtitle.toLowerCase().includes(q)) return true;
+  if (sec.rows) {
+    for (const [key, val] of sec.rows) {
+      if (key.toLowerCase().includes(q) || val.toLowerCase().includes(q)) return true;
+    }
+  }
+  if (sec.isShortcuts) {
+    for (const [key, val] of _HELP_DATA.shortcuts) {
+      if ((key && key.toLowerCase().includes(q)) || val.toLowerCase().includes(q)) return true;
+    }
+  }
+  return false;
+}
+
 function _renderContent(data) {
   const main = document.querySelector('.docs-main');
   if (!main) return;
@@ -505,6 +637,15 @@ function _renderContent(data) {
       if (filtered.length > 0 || !_searchQuery) {
         main.appendChild(_buildModifiersCard(_searchQuery ? filtered : data.modifiers));
         hasResults = true;
+      }
+      continue;
+    }
+
+    if (cat === 'Help') {
+      for (const sec of _HELP_SECTIONS) {
+        if (!_matchesHelpSearch(sec)) continue;
+        const card = _buildHelpCard(sec);
+        if (card) { main.appendChild(card); hasResults = true; }
       }
       continue;
     }

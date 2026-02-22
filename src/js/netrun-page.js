@@ -1,6 +1,5 @@
 // netrun-page.js — netrun:// hub page (home + full dashboard)
 
-import { _HELP_DATA } from '/js/settings/settings-helpers.js';
 import { _browseSetUrlDisplay } from '/js/browse-urlbar.js';
 import { _browseRenderTabs, browseNavigate } from '/js/browse/browse-island.js';
 import { _browseUpdateNewTabPage, browseSelectTab } from '/js/browse/browse-passwords.js';
@@ -8,10 +7,10 @@ import { browseSelectWindow, openBrowse } from '/js/browse/browse-windows.js';
 import { _browseWindows, getBrowseActiveWindow } from '/js/browse/browse-state.js';
 import { wmOpen, getSourceChip } from '/js/core/core-views.js';
 import { getSavedPosts, allPapers, openSavedPaper, toggleSavePostByLink } from '/js/feed.js';
-import { apiGet, apiPut } from '/js/api.js';
-import { escapeHtml, escapeAttr } from '/js/core/core-utils.js';
+import { apiGet } from '/js/api.js';
+import { escapeAttr } from '/js/core/core-utils.js';
 import { _relativeTime } from '/js/search.js';
-import { calendarEvents, addCalendarEvent, deleteCalendarEvent } from '/js/calendar.js';
+import { addCalendarEvent, deleteCalendarEvent } from '/js/calendar.js';
 import { getGreeting } from '/js/core/core-profile.js';
 import Settings from '/js/core/core-settings.js';
 import { initNetrunner } from '/js/netrunner-game.js';
@@ -69,27 +68,21 @@ export function _renderNetrunPage(el) {
   el.innerHTML = '';
   el.className = 'nr-hub-scroll';
 
-  const content = document.createElement('div');
-  content.className = 'nr-hub-content';
+  const content = VStack(
+    _buildHero(),
+    _buildFeatureCards(),
+  ).className('nr-hub-content');
 
-  // Hero
-  content.appendChild(_buildHero());
-
-  // Feature cards
-  content.appendChild(_buildFeatureCards());
-
-  // Full dashboard (async — renders in-place when data loads)
+  // Dashboard slot — async, appended after data loads
   const dashSlot = document.createElement('div');
-  content.appendChild(dashSlot);
+
+  // Mount content
+  AetherUI.mount(content, el);
+
+  // Append dashboard slot into the content element
+  const contentEl = content.el;
+  contentEl.appendChild(dashSlot);
   _buildDashboard(dashSlot);
-
-  // Special routes
-  content.appendChild(_buildRoutes());
-
-  // Help sections
-  _buildHelpSections(content);
-
-  el.appendChild(content);
 
   // Easter egg: Konami code starts the netrunner game
   initNetrunner();
@@ -98,30 +91,16 @@ export function _renderNetrunPage(el) {
 // ─── Hero ────────────────────────────────────────────────────
 
 function _buildHero() {
-  const hero = document.createElement('div');
-  hero.className = 'nr-hub-hero';
-
-  const logo = document.createElement('div');
-  logo.className = 'nr-hub-hero-logo';
-  logo.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 11a2 2 0 1 1-4 0 4 4 0 0 1 8 0 6 6 0 0 1-12 0 8 8 0 0 1 16 0 10 10 0 1 1-20 0 11.93 11.93 0 0 1 2.42-7.22 2 2 0 1 1 3.16 2.44"/></svg>';
-  hero.appendChild(logo);
-
-  const title = document.createElement('div');
-  title.className = 'nr-hub-hero-title';
-  title.textContent = 'netrun';
-  hero.appendChild(title);
-
-  const tagline = document.createElement('div');
-  tagline.className = 'nr-hub-hero-tagline';
-  tagline.textContent = 'Browse, read, chat, draw.';
-  hero.appendChild(tagline);
-
-  const version = document.createElement('div');
-  version.className = 'nr-hub-hero-version';
-  version.textContent = 'v' + (window.electronAPI?.getVersion?.() || '0');
-  hero.appendChild(version);
-
-  return hero;
+  const versionText = Text('').className('nr-hub-hero-version');
+  apiGet('/api/version').then(v => {
+    if (v && v.version) versionText.el.textContent = 'v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
+  }).catch(() => {});
+  return VStack(
+    RawHTML('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 11a2 2 0 1 1-4 0 4 4 0 0 1 8 0 6 6 0 0 1-12 0 8 8 0 0 1 16 0 10 10 0 1 1-20 0 11.93 11.93 0 0 1 2.42-7.22 2 2 0 1 1 3.16 2.44"/></svg>').className('nr-hub-hero-logo'),
+    Text('netrun').className('nr-hub-hero-title'),
+    Text('Browse, read, chat, draw.').className('nr-hub-hero-tagline'),
+    versionText,
+  ).className('nr-hub-hero');
 }
 
 // ─── Feature Cards ───────────────────────────────────────────
@@ -133,39 +112,21 @@ const _FEATURES = [
   { icon: 'feed',       title: 'Feed',      desc: '125+ sources. arXiv, HN, RSS, and more.',              action: () => wmOpen('feed') },
   { icon: 'clock',      title: 'History',   desc: 'Browse and search history.',                            action: () => browseNavigate('netrun://history') },
   { icon: 'terminal',   title: 'Terminal',   desc: 'Shell with tabs, splits, and themes.',                   action: () => openTerminalPage() },
-  { icon: 'research',   title: 'Docs',      desc: 'AetherUI API reference and live previews.',              action: () => browseNavigate('netrun://docs') },
+  { icon: 'research',   title: 'Docs',      desc: 'API reference, shortcuts, and help.',                     action: () => browseNavigate('netrun://docs') },
 ];
 
 function _buildFeatureCards() {
-  const grid = document.createElement('div');
-  grid.className = 'nr-hub-cards';
-
-  for (const f of _FEATURES) {
-    const card = document.createElement('div');
-    card.className = 'nr-hub-card';
-    card.addEventListener('click', f.action);
-
-    const iconEl = document.createElement('div');
-    iconEl.className = 'nr-hub-card-icon';
-    iconEl.innerHTML = icon(f.icon, { size: 24 });
-    card.appendChild(iconEl);
-
-    const text = document.createElement('div');
-    const titleEl = document.createElement('div');
-    titleEl.className = 'nr-hub-card-title';
-    titleEl.textContent = f.title;
-    text.appendChild(titleEl);
-
-    const descEl = document.createElement('div');
-    descEl.className = 'nr-hub-card-desc';
-    descEl.textContent = f.desc;
-    text.appendChild(descEl);
-
-    card.appendChild(text);
-    grid.appendChild(card);
-  }
-
-  return grid;
+  return Grid(
+    ..._FEATURES.map(f =>
+      HStack(
+        RawHTML(icon(f.icon, { size: 24 })).className('nr-hub-card-icon'),
+        VStack(
+          Text(f.title).className('nr-hub-card-title'),
+          Text(f.desc).className('nr-hub-card-desc'),
+        ),
+      ).className('nr-hub-card').onTap(f.action)
+    )
+  ).className('nr-hub-cards');
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -191,16 +152,14 @@ async function _buildDashboard(slot) {
   // ── Fetch all data in parallel ──
   const _uname = window._authUserInfo?.username;
   const [
-    calResp, profileResp, commentsResp, repostsResp,
+    calResp, commentsResp, repostsResp,
   ] = await Promise.all([
     apiGet('/api/calendar').catch(() => []),
-    _uname ? apiGet('/api/users/' + encodeURIComponent(_uname)).catch(() => null) : null,
     _uname ? apiGet('/api/users/' + encodeURIComponent(_uname) + '/comments').catch(() => []) : [],
     _uname ? apiGet('/api/users/' + encodeURIComponent(_uname) + '/reposts').catch(() => []) : [],
   ]);
 
   const events = calResp || [];
-  const profile = profileResp || {};
   const myComments = commentsResp || [];
   const myReposts = repostsResp || [];
   const saved = getSavedPosts();
@@ -208,8 +167,6 @@ async function _buildDashboard(slot) {
   const savedCount = savedEntries.length;
   const searchHist = Settings.getJSON('searchHistory', []);
   const webHist = Settings.getJSON('webSearchHistory', []);
-  const readSet = new Set(Settings.getJSON('readPosts', []));
-  const papersRead = allPapers.filter(p => readSet.has(p.link)).length;
 
   // ── Build today's timeline ──
   const timeline = [];
@@ -251,160 +208,37 @@ async function _buildDashboard(slot) {
   const trending = _getTrending(5);
 
   // ── Render ──
-  const wrap = document.createElement('div');
-  wrap.className = 'nr-hub-dash';
-
-  // ── Profile header ──
-  wrap.appendChild(_buildProfile(profile));
-
-  // ── Stats row ──
-  wrap.appendChild(_buildStats(papersRead, savedCount, 0));
-
-  // ── Greeting + Today header ──
-  const greetEl = document.createElement('div');
-  greetEl.className = 'nr-hub-greeting';
-  greetEl.textContent = getGreeting();
-  wrap.appendChild(greetEl);
-
-  const header = document.createElement('div');
-  header.className = 'nr-hub-dash-header';
-  const dateEl = document.createElement('div');
-  dateEl.className = 'nr-hub-dash-date';
-  dateEl.textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  header.appendChild(dateEl);
   const todaySearchCount = searchHist.filter(e => isToday(e.ts)).length + webHist.filter(e => isToday(e.ts)).length;
-  if (todaySearchCount > 0) _addChip(header, todaySearchCount + ' search' + (todaySearchCount === 1 ? '' : 'es'));
-  if (savedCount > 0) _addChip(header, savedCount + ' saved');
-  if (todayEvents.length > 0) _addChip(header, todayEvents.length + ' event' + (todayEvents.length === 1 ? '' : 's'));
-  wrap.appendChild(header);
+  const chips = [];
+  if (todaySearchCount > 0) chips.push(todaySearchCount + ' search' + (todaySearchCount === 1 ? '' : 'es'));
+  if (savedCount > 0) chips.push(savedCount + ' saved');
+  if (todayEvents.length > 0) chips.push(todayEvents.length + ' event' + (todayEvents.length === 1 ? '' : 's'));
 
-  // ── Activity Heatmap ──
-  wrap.appendChild(_buildHeatmap(activityItems, now));
-
-  // ── Today's Activity Timeline ──
-  if (timeline.length > 0) {
-    wrap.appendChild(_buildTimeline(timeline));
-  }
-
-  // ── Calendar Events ──
-  wrap.appendChild(_buildCalendarCard(upcomingEvents, todayStr));
-
-  // ── Reading List ──
-  wrap.appendChild(_buildReadingList(savedEntries, savedCount));
-
-  // ── Trending ──
-  if (trending.length > 0) {
-    wrap.appendChild(_buildTrending(trending));
-  }
-
-  // ── Comments & Reposts ──
-  if (myComments.length > 0) {
-    wrap.appendChild(_buildComments(myComments));
-  }
-  if (myReposts.length > 0) {
-    wrap.appendChild(_buildReposts(myReposts));
-  }
-
-  slot.appendChild(wrap);
-}
-
-// ── Profile ──
-
-function _buildProfile(profile) {
-  const section = document.createElement('div');
-  section.className = 'nr-hub-profile';
-
-  // Banner
-  const banner = document.createElement('div');
-  banner.className = 'nr-hub-profile-banner';
-  if (profile.profile_bg) {
-    banner.style.backgroundImage = "url('" + escapeAttr(profile.profile_bg) + "')";
-    banner.style.backgroundSize = 'cover';
-    banner.style.backgroundPosition = 'center';
-  } else {
-    banner.classList.add('nr-living-gradient');
-  }
-  const bannerGrad = document.createElement('div');
-  bannerGrad.className = 'nr-hub-profile-banner-grad';
-  banner.appendChild(bannerGrad);
-  section.appendChild(banner);
-
-  // Avatar row
-  const row = document.createElement('div');
-  row.className = 'nr-hub-profile-row';
-
-  const avatar = document.createElement('div');
-  avatar.className = 'nr-hub-profile-avatar';
-  const username = profile.username || window._authUserInfo?.username || '';
-  if (profile.picture) {
-    avatar.innerHTML = '<img src="' + escapeAttr(profile.picture) + '" referrerpolicy="no-referrer" />';
-  } else {
-    avatar.innerHTML = '<div class="nr-hub-profile-avatar-fallback">' + escapeHtml((username || '?')[0].toUpperCase()) + '</div>';
-  }
-  row.appendChild(avatar);
-
-  const info = document.createElement('div');
-  info.className = 'nr-hub-profile-info';
-
-  const nameEl = document.createElement('div');
-  nameEl.className = 'nr-hub-profile-name';
-  nameEl.innerHTML = escapeHtml(username);
-  const onlineDot = document.createElement('span');
-  onlineDot.className = 'nr-hub-online-dot';
-  nameEl.appendChild(onlineDot);
-  info.appendChild(nameEl);
-
-  // Status
-  const statusEl = document.createElement('div');
-  statusEl.className = 'nr-hub-profile-status';
-  statusEl.textContent = profile.status_text || '';
-  info.appendChild(statusEl);
-
-  // Join date
-  if (profile.created) {
-    const joinEl = document.createElement('div');
-    joinEl.className = 'nr-hub-profile-join';
-    joinEl.textContent = 'Joined ' + new Date(profile.created * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-    info.appendChild(joinEl);
-  }
-
-  row.appendChild(info);
-
-  // Counters
-  const counters = document.createElement('div');
-  counters.className = 'nr-hub-profile-counters';
-  counters.innerHTML =
-    '<span><strong>' + (profile.comment_count || 0) + '</strong> comments</span>' +
-    '<span><strong>' + (profile.repost_count || 0) + '</strong> reposts</span>';
-  info.appendChild(counters);
-
-  section.appendChild(row);
-  return section;
-}
-
-// ── Stats Row ──
-
-function _buildStats(papersRead, savedCount, projectCount) {
-  const row = document.createElement('div');
-  row.className = 'nr-hub-stats';
-  const stats = [
-    { value: papersRead, label: 'Papers Read', sub: 'in feed', color: '#60a5fa' },
-    { value: savedCount, label: 'Saved', sub: 'reading list', color: '#34d399' },
-    { value: projectCount, label: 'Projects', sub: 'active', color: '#a78bfa' },
+  const dashChildren = [
+    Text(getGreeting()).className('nr-hub-greeting'),
+    HStack(
+      Text(now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })).className('nr-hub-dash-date'),
+      ...chips.map(c => Text(c).className('nr-hub-dash-chip')),
+    ).className('nr-hub-dash-header'),
   ];
-  for (const s of stats) {
-    const stat = document.createElement('div');
-    stat.className = 'nr-hub-stat';
-    stat.innerHTML =
-      '<div class="nr-hub-stat-value" style="color:' + s.color + '">' + s.value + '</div>' +
-      '<div class="nr-hub-stat-label">' + s.label + '</div>' +
-      '<div class="nr-hub-stat-sub">' + s.sub + '</div>';
-    row.appendChild(stat);
-  }
-  return row;
+
+  // Heatmap stays raw — wrap its DOM element
+  const heatmapEl = _buildHeatmap(activityItems, now);
+  dashChildren.push(heatmapEl);
+
+  if (timeline.length > 0) dashChildren.push(_buildTimeline(timeline));
+  dashChildren.push(_buildCalendarCard(upcomingEvents, todayStr));
+  dashChildren.push(_buildReadingList(savedEntries, savedCount));
+  if (trending.length > 0) dashChildren.push(_buildTrending(trending));
+  if (myComments.length > 0) dashChildren.push(_buildComments(myComments));
+  if (myReposts.length > 0) dashChildren.push(_buildReposts(myReposts));
+
+  const wrap = VStack(...dashChildren).className('nr-hub-dash');
+  AetherUI.append(wrap, slot);
 }
 
-// ── Activity Heatmap (GitHub-style) ──
+
+// ── Activity Heatmap (GitHub-style) — stays raw ──
 
 function _buildHeatmap(activityItems, now) {
   const card = document.createElement('div');
@@ -523,344 +357,194 @@ function _buildHeatmap(activityItems, now) {
 // ── Today's Timeline ──
 
 function _buildTimeline(timeline) {
-  const card = document.createElement('div');
-  card.className = 'nr-hub-dash-card';
-  const title = document.createElement('div');
-  title.className = 'nr-hub-dash-card-title';
-  title.textContent = 'Today';
-  card.appendChild(title);
-
-  for (const item of timeline.slice(0, 8)) {
-    const color = item.color || _ACTIVITY_COLORS[item.type] || '#999';
-    const label = _ACTIVITY_LABELS[item.type] || item.type;
-    const row = document.createElement('div');
-    row.className = 'nr-hub-timeline-row';
-
-    const dot = document.createElement('div');
-    dot.className = 'nr-hub-timeline-dot';
-    dot.style.background = color;
-    row.appendChild(dot);
-
-    const titleEl = document.createElement('div');
-    titleEl.className = 'nr-hub-timeline-title';
-    titleEl.textContent = (item.title || '').slice(0, 80);
-    row.appendChild(titleEl);
-
-    const badge = document.createElement('div');
-    badge.className = 'nr-hub-timeline-badge';
-    badge.textContent = label;
-    badge.style.color = color;
-    row.appendChild(badge);
-
-    if (item.ts) {
-      const time = document.createElement('div');
-      time.className = 'nr-hub-timeline-time';
-      time.textContent = _relativeTime(item.ts);
-      row.appendChild(time);
-    }
-
-    card.appendChild(row);
-  }
-
-  if (timeline.length > 8) {
-    const more = document.createElement('div');
-    more.className = 'nr-hub-dash-more';
-    more.textContent = (timeline.length - 8) + ' more today';
-    card.appendChild(more);
-  }
-
-  return card;
+  return VStack(
+    Text('Today').className('nr-hub-dash-card-title'),
+    ...timeline.slice(0, 8).map(item => {
+      const color = item.color || _ACTIVITY_COLORS[item.type] || '#999';
+      const label = _ACTIVITY_LABELS[item.type] || item.type;
+      const children = [
+        Text('').className('nr-hub-timeline-dot').style('background', color),
+        Text((item.title || '').slice(0, 80)).className('nr-hub-timeline-title'),
+        Text(label).className('nr-hub-timeline-badge').style('color', color),
+      ];
+      if (item.ts) children.push(Text(_relativeTime(item.ts)).className('nr-hub-timeline-time'));
+      return HStack(...children).className('nr-hub-timeline-row');
+    }),
+    ...(timeline.length > 8
+      ? [Text((timeline.length - 8) + ' more today').className('nr-hub-dash-more')]
+      : []),
+  ).className('nr-hub-dash-card');
 }
 
 // ── Calendar Events ──
 
 function _buildCalendarCard(upcomingEvents, todayStr) {
-  const card = document.createElement('div');
-  card.className = 'nr-hub-dash-card';
-
-  const titleRow = document.createElement('div');
-  titleRow.className = 'nr-hub-dash-card-header';
-  const title = document.createElement('div');
-  title.className = 'nr-hub-dash-card-title';
-  title.textContent = 'Calendar';
-  titleRow.appendChild(title);
-
-  const addBtn = document.createElement('div');
-  addBtn.className = 'nr-hub-cal-add';
-  addBtn.textContent = '+';
-  addBtn.title = 'Add event';
-  addBtn.addEventListener('click', () => _showAddEventForm(card));
-  titleRow.appendChild(addBtn);
-  card.appendChild(titleRow);
+  const children = [
+    HStack(
+      Text('Calendar').className('nr-hub-dash-card-title'),
+      Spacer(),
+      Text('+').className('nr-hub-cal-add').onTap(function() {
+        _showAddEventForm(card);
+      }),
+    ).className('nr-hub-dash-card-header'),
+  ];
 
   if (upcomingEvents.length > 0) {
     for (const ev of upcomingEvents) {
-      const row = document.createElement('div');
-      row.className = 'nr-hub-event-row';
-
-      const dot = document.createElement('div');
-      dot.className = 'nr-hub-event-dot';
-      dot.style.background = ev.color || 'var(--nr-accent)';
-      row.appendChild(dot);
-
-      const info = document.createElement('div');
-      info.className = 'nr-hub-event-info';
-      const titleEl = document.createElement('div');
-      titleEl.className = 'nr-hub-event-title';
-      titleEl.textContent = ev.title || 'Event';
-      info.appendChild(titleEl);
-
+      const infoChildren = [
+        Text(ev.title || 'Event').className('nr-hub-event-title'),
+      ];
       if (ev.date !== todayStr) {
-        const dateLabel = document.createElement('div');
-        dateLabel.className = 'nr-hub-event-date';
         const d = new Date(ev.date + 'T12:00:00');
-        dateLabel.textContent = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        info.appendChild(dateLabel);
+        infoChildren.push(Text(d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })).className('nr-hub-event-date'));
       }
       if (ev.description) {
-        const descEl = document.createElement('div');
-        descEl.className = 'nr-hub-event-desc';
-        descEl.textContent = ev.description;
-        info.appendChild(descEl);
+        infoChildren.push(Text(ev.description).className('nr-hub-event-desc'));
       }
-      row.appendChild(info);
 
-      const del = document.createElement('div');
-      del.className = 'nr-hub-event-del';
-      del.textContent = '\u00d7';
-      del.title = 'Delete event';
-      del.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await deleteCalendarEvent(ev.id);
-        row.remove();
-      });
-      row.appendChild(del);
-      card.appendChild(row);
+      const row = HStack(
+        Text('').className('nr-hub-event-dot').style('background', ev.color || 'var(--nr-accent)'),
+        VStack(...infoChildren).className('nr-hub-event-info'),
+        Spacer(),
+        Text('\u00d7').className('nr-hub-event-del').onTap(async function(e) {
+          e.stopPropagation();
+          await deleteCalendarEvent(ev.id);
+          row.el.remove();
+        }),
+      ).className('nr-hub-event-row');
+      children.push(row);
     }
   } else {
-    const empty = document.createElement('div');
-    empty.className = 'nr-hub-dash-empty';
-    empty.textContent = 'No upcoming events';
-    card.appendChild(empty);
+    children.push(Text('No upcoming events').className('nr-hub-dash-empty'));
   }
 
+  const card = VStack(...children).className('nr-hub-dash-card');
   return card;
 }
 
 // ── Reading List ──
 
 function _buildReadingList(savedEntries, savedCount) {
-  const card = document.createElement('div');
-  card.className = 'nr-hub-dash-card';
-
-  const titleRow = document.createElement('div');
-  titleRow.className = 'nr-hub-dash-card-header';
-  const title = document.createElement('div');
-  title.className = 'nr-hub-dash-card-title';
-  title.textContent = 'Reading List';
-  titleRow.appendChild(title);
-  if (savedCount > 0) {
-    const countEl = document.createElement('div');
-    countEl.className = 'nr-hub-heatmap-year';
-    countEl.textContent = String(savedCount);
-    titleRow.appendChild(countEl);
-  }
-  card.appendChild(titleRow);
+  const children = [
+    HStack(
+      Text('Reading List').className('nr-hub-dash-card-title'),
+      Spacer(),
+      ...(savedCount > 0 ? [Text(String(savedCount)).className('nr-hub-heatmap-year')] : []),
+    ).className('nr-hub-dash-card-header'),
+  ];
 
   if (savedCount > 0) {
     const sorted = savedEntries.sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0)).slice(0, 8);
     for (const entry of sorted) {
       const paper = entry.paper || {};
-      const row = document.createElement('div');
-      row.className = 'nr-hub-saved-row';
-      row.addEventListener('click', () => openSavedPaper(paper.link));
-
       let hostname = '';
       try { hostname = new URL(paper.link).hostname.replace(/^www\./, ''); } catch {}
 
+      const rowChildren = [];
+
+      // Favicon as raw img
       const fav = document.createElement('img');
       fav.className = 'nr-hub-saved-favicon';
       fav.src = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(hostname) + '&sz=32';
       fav.alt = '';
       fav.loading = 'lazy';
-      row.appendChild(fav);
 
-      const titleEl = document.createElement('div');
-      titleEl.className = 'nr-hub-saved-title';
-      titleEl.textContent = paper.title || paper.link || 'Untitled';
-      row.appendChild(titleEl);
+      rowChildren.push(Text(paper.title || paper.link || 'Untitled').className('nr-hub-saved-title'));
+      if (hostname) rowChildren.push(Text(hostname).className('nr-hub-saved-host'));
 
-      if (hostname) {
-        const hostEl = document.createElement('div');
-        hostEl.className = 'nr-hub-saved-host';
-        hostEl.textContent = hostname;
-        row.appendChild(hostEl);
-      }
+      const row = HStack(...rowChildren).className('nr-hub-saved-row').onTap(() => openSavedPaper(paper.link));
+      // Prepend favicon as raw element
+      row.el.insertBefore(fav, row.el.firstChild);
 
       // Delete button
-      const del = document.createElement('div');
-      del.className = 'nr-hub-event-del';
-      del.textContent = '\u00d7';
-      del.title = 'Remove';
-      del.addEventListener('click', (e) => {
+      const del = Text('\u00d7').className('nr-hub-event-del').onTap(function(e) {
         e.stopPropagation();
         toggleSavePostByLink(paper.link);
-        row.remove();
+        row.el.remove();
       });
-      row.appendChild(del);
+      row.add(del);
 
-      card.appendChild(row);
+      children.push(row);
     }
 
     if (savedCount > 8) {
-      const more = document.createElement('div');
-      more.className = 'nr-hub-dash-more';
-      more.textContent = 'View all ' + savedCount + ' saved \u2192';
-      more.addEventListener('click', () => browseNavigate('netrun://'));
-      card.appendChild(more);
+      children.push(
+        Text('View all ' + savedCount + ' saved \u2192').className('nr-hub-dash-more').onTap(() => browseNavigate('netrun://'))
+      );
     }
   } else {
-    const empty = document.createElement('div');
-    empty.className = 'nr-hub-dash-empty';
-    empty.textContent = 'No saved posts yet';
-    card.appendChild(empty);
+    children.push(Text('No saved posts yet').className('nr-hub-dash-empty'));
   }
 
-  return card;
+  return VStack(...children).className('nr-hub-dash-card');
 }
 
 // ── Trending ──
 
 function _buildTrending(trending) {
-  const card = document.createElement('div');
-  card.className = 'nr-hub-dash-card';
-  const title = document.createElement('div');
-  title.className = 'nr-hub-dash-card-title';
-  title.textContent = 'Trending';
-  card.appendChild(title);
-
-  for (let i = 0; i < trending.length; i++) {
-    const p = trending[i];
-    const row = document.createElement('div');
-    row.className = 'nr-hub-trending-row';
-    row.addEventListener('click', () => browseNavigate(p.link));
-
-    const rank = document.createElement('div');
-    rank.className = 'nr-hub-trending-rank';
-    rank.textContent = String(i + 1);
-    row.appendChild(rank);
-
-    const info = document.createElement('div');
-    info.className = 'nr-hub-trending-info';
-
-    const titleEl = document.createElement('div');
-    titleEl.className = 'nr-hub-trending-title';
-    titleEl.textContent = p.title;
-    info.appendChild(titleEl);
-
-    const meta = document.createElement('div');
-    meta.className = 'nr-hub-trending-meta';
-    const chip = getSourceChip(p.source, p.arxivId);
-    const engagement = (p.points || 0) + (p.citations || 0);
-    meta.innerHTML = (chip || '') + (engagement > 0 ? '<span class="nr-hub-trending-eng">' + engagement + '</span>' : '');
-    info.appendChild(meta);
-
-    row.appendChild(info);
-    card.appendChild(row);
-  }
-
-  return card;
+  return VStack(
+    Text('Trending').className('nr-hub-dash-card-title'),
+    ...trending.map((p, i) => {
+      const chip = getSourceChip(p.source, p.arxivId);
+      const engagement = (p.points || 0) + (p.citations || 0);
+      return HStack(
+        Text(String(i + 1)).className('nr-hub-trending-rank'),
+        VStack(
+          Text(p.title).className('nr-hub-trending-title'),
+          RawHTML((chip || '') + (engagement > 0 ? '<span class="nr-hub-trending-eng">' + engagement + '</span>' : '')).className('nr-hub-trending-meta'),
+        ).className('nr-hub-trending-info'),
+      ).className('nr-hub-trending-row').onTap(() => browseNavigate(p.link));
+    }),
+  ).className('nr-hub-dash-card');
 }
 
 // ── Recent Comments ──
 
 function _buildComments(comments) {
-  const card = document.createElement('div');
-  card.className = 'nr-hub-dash-card';
-
-  const titleRow = document.createElement('div');
-  titleRow.className = 'nr-hub-dash-card-header';
-  const title = document.createElement('div');
-  title.className = 'nr-hub-dash-card-title';
-  title.textContent = 'Recent Comments';
-  titleRow.appendChild(title);
-  const countEl = document.createElement('div');
-  countEl.className = 'nr-hub-heatmap-year';
-  countEl.textContent = String(comments.length);
-  titleRow.appendChild(countEl);
-  card.appendChild(titleRow);
-
-  for (const c of comments.slice(0, 4)) {
-    const row = document.createElement('div');
-    row.className = 'nr-hub-timeline-row';
-    row.style.cursor = 'pointer';
-    if (c.paperLink) row.addEventListener('click', () => browseNavigate(c.paperLink));
-
-    const preview = (c.content || '').length > 80 ? c.content.slice(0, 80) + '...' : c.content;
-    const titleEl = document.createElement('div');
-    titleEl.className = 'nr-hub-timeline-title';
-    titleEl.textContent = preview;
-    row.appendChild(titleEl);
-
-    if (c.timestamp) {
-      const time = document.createElement('div');
-      time.className = 'nr-hub-timeline-time';
-      time.textContent = _relativeTime(c.timestamp);
-      row.appendChild(time);
-    }
-
-    card.appendChild(row);
-  }
-
-  return card;
+  return VStack(
+    HStack(
+      Text('Recent Comments').className('nr-hub-dash-card-title'),
+      Spacer(),
+      Text(String(comments.length)).className('nr-hub-heatmap-year'),
+    ).className('nr-hub-dash-card-header'),
+    ...comments.slice(0, 4).map(c => {
+      const preview = (c.content || '').length > 80 ? c.content.slice(0, 80) + '...' : c.content;
+      const children = [
+        Text(preview).className('nr-hub-timeline-title'),
+      ];
+      if (c.timestamp) children.push(Text(_relativeTime(c.timestamp)).className('nr-hub-timeline-time'));
+      const row = HStack(...children).className('nr-hub-timeline-row').style('cursor', 'pointer');
+      if (c.paperLink) row.onTap(() => browseNavigate(c.paperLink));
+      return row;
+    }),
+  ).className('nr-hub-dash-card');
 }
 
 // ── Recent Reposts ──
 
 function _buildReposts(reposts) {
-  const card = document.createElement('div');
-  card.className = 'nr-hub-dash-card';
-
-  const titleRow = document.createElement('div');
-  titleRow.className = 'nr-hub-dash-card-header';
-  const title = document.createElement('div');
-  title.className = 'nr-hub-dash-card-title';
-  title.textContent = 'Reposts';
-  titleRow.appendChild(title);
-  const countEl = document.createElement('div');
-  countEl.className = 'nr-hub-heatmap-year';
-  countEl.textContent = String(reposts.length);
-  titleRow.appendChild(countEl);
-  card.appendChild(titleRow);
-
-  for (const r of reposts.slice(0, 4)) {
-    const row = document.createElement('div');
-    row.className = 'nr-hub-timeline-row';
-    row.style.cursor = 'pointer';
-    if (r.paperLink) row.addEventListener('click', () => browseNavigate(r.paperLink));
-
-    const titleEl = document.createElement('div');
-    titleEl.className = 'nr-hub-timeline-title';
-    titleEl.textContent = r.paperTitle || r.paperLink || 'Repost';
-    row.appendChild(titleEl);
-
-    if (r.timestamp) {
-      const time = document.createElement('div');
-      time.className = 'nr-hub-timeline-time';
-      time.textContent = _relativeTime(r.timestamp);
-      row.appendChild(time);
-    }
-
-    card.appendChild(row);
-  }
-
-  return card;
+  return VStack(
+    HStack(
+      Text('Reposts').className('nr-hub-dash-card-title'),
+      Spacer(),
+      Text(String(reposts.length)).className('nr-hub-heatmap-year'),
+    ).className('nr-hub-dash-card-header'),
+    ...reposts.slice(0, 4).map(r => {
+      const children = [
+        Text(r.paperTitle || r.paperLink || 'Repost').className('nr-hub-timeline-title'),
+      ];
+      if (r.timestamp) children.push(Text(_relativeTime(r.timestamp)).className('nr-hub-timeline-time'));
+      const row = HStack(...children).className('nr-hub-timeline-row').style('cursor', 'pointer');
+      if (r.paperLink) row.onTap(() => browseNavigate(r.paperLink));
+      return row;
+    }),
+  ).className('nr-hub-dash-card');
 }
 
 // ── Add Event Form ──
 
 function _showAddEventForm(card) {
-  if (card.querySelector('.nr-hub-cal-form')) return;
+  if (card.el.querySelector('.nr-hub-cal-form')) return;
 
   const form = document.createElement('div');
   form.className = 'nr-hub-cal-form';
@@ -915,15 +599,15 @@ function _showAddEventForm(card) {
     if (!t) return;
     await addCalendarEvent({ title: t, date: dateInput.value, description: descInput.value.trim() || undefined, color: selectedColor });
     form.remove();
-    const hubEl = card.closest('.nr-hub-scroll');
+    const hubEl = card.el.closest('.nr-hub-scroll');
     if (hubEl) _renderNetrunPage(hubEl);
   });
   actions.appendChild(saveBtn);
   form.appendChild(actions);
 
-  const titleRow = card.querySelector('.nr-hub-dash-card-header');
-  if (titleRow && titleRow.nextSibling) card.insertBefore(form, titleRow.nextSibling);
-  else card.appendChild(form);
+  const titleRow = card.el.querySelector('.nr-hub-dash-card-header');
+  if (titleRow && titleRow.nextSibling) card.el.insertBefore(form, titleRow.nextSibling);
+  else card.el.appendChild(form);
   titleInput.focus();
 }
 
@@ -931,13 +615,6 @@ function _showAddEventForm(card) {
 
 function _dateKey(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-
-function _addChip(parent, text) {
-  const chip = document.createElement('span');
-  chip.className = 'nr-hub-dash-chip';
-  chip.textContent = text;
-  parent.appendChild(chip);
 }
 
 function _getTrending(limit) {
@@ -951,125 +628,6 @@ function _getTrending(limit) {
     const score = engagement * 2 * (0.3 + recency * 0.7);
     return { ...p, _trendScore: score };
   }).filter(p => p._trendScore > 0).sort((a, b) => b._trendScore - a._trendScore).slice(0, limit);
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ─── Help Reference ──────────────────────────────────────────
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-const _ROUTES = [
-  ['netrun://',        'This page \u2014 hub and help reference'],
-  ['netrun://history', 'Browse and search history'],
-  ['netrun://docs',    'AetherUI API reference'],
-  ['chat://',          'Chat threads view'],
-  ['chat://<id>',      'Open a specific chat thread'],
-  ['draw://',          'Drawing whiteboard'],
-  ['ntp://',           'New tab page'],
-];
-
-function _buildRoutes() {
-  const section = document.createElement('div');
-  section.className = 'nr-hub-section';
-  section.appendChild(_sectionTitle('Special Routes', 'Type these in the URL bar to open internal pages.'));
-
-  for (const [url, desc] of _ROUTES) {
-    const row = document.createElement('div');
-    row.className = 'nr-hub-route';
-    if (!url.includes('<')) row.addEventListener('click', () => browseNavigate(url));
-
-    const urlEl = document.createElement('span');
-    urlEl.className = 'nr-hub-route-url';
-    urlEl.textContent = url;
-    row.appendChild(urlEl);
-
-    const descEl = document.createElement('span');
-    descEl.className = 'nr-hub-route-desc';
-    descEl.textContent = desc;
-    row.appendChild(descEl);
-
-    section.appendChild(row);
-  }
-
-  return section;
-}
-
-function _buildHelpSections(container) {
-  container.appendChild(_tableSection('Instant Answers', 'Type in the URL bar \u2014 results appear inline as you type.', ['Type', 'Try'], _HELP_DATA.instantAnswers));
-  container.appendChild(_tableSection('Search Syntax', 'Use these in the Papers search on new tab pages.', ['Syntax', 'Effect'], _HELP_DATA.searchSyntax, true));
-  const bangs = _HELP_DATA.getBangs();
-  if (bangs.length) container.appendChild(_tableSection('Bangs', 'Type ! followed by a shortcut and your query to search a specific site.', ['Bang', 'Site'], bangs, true));
-  container.appendChild(_tableSection('Slash Commands', 'Right-click \u2192 type / in the aether panel.', ['Command', 'Action'], _HELP_DATA.slashCommands));
-  container.appendChild(_buildShortcuts());
-  container.appendChild(_buildAetherPanel());
-  container.appendChild(_tableSection('Chat Tools', 'When enabled, the chat assistant can use these tools autonomously.', ['Tool', 'Description'], _HELP_DATA.chatTools, true));
-  container.appendChild(_tableSection('AI Models', 'Local Ollama models. All optional \u2014 features degrade gracefully.', ['Model', 'Used for'], _HELP_DATA.aiModels, true));
-}
-
-function _buildShortcuts() {
-  const section = document.createElement('div');
-  section.className = 'nr-hub-section';
-  section.appendChild(_sectionTitle('Keyboard Shortcuts'));
-
-  const table = document.createElement('table');
-  table.className = 'nr-hub-table';
-  const thead = document.createElement('tr');
-  for (const h of ['Key', 'Action']) { const th = document.createElement('th'); th.className = 'nr-hub-th'; th.textContent = h; thead.appendChild(th); }
-  table.appendChild(thead);
-
-  for (const [key, val] of _HELP_DATA.shortcuts) {
-    const tr = document.createElement('tr');
-    tr.className = 'nr-hub-tr';
-    if (!key) {
-      const td = document.createElement('td'); td.colSpan = 2; td.style.cssText = 'padding:12px 12px 4px;'; td.innerHTML = val; tr.appendChild(td);
-    } else {
-      const tdKey = document.createElement('td'); tdKey.className = 'nr-hub-td-key';
-      if (window.Kbd) { AetherUI.append(window.Kbd(key), tdKey); } else { const kbd = document.createElement('kbd'); kbd.className = 'nr-hub-kbd'; kbd.textContent = key; tdKey.appendChild(kbd); }
-      tr.appendChild(tdKey);
-      const tdVal = document.createElement('td'); tdVal.className = 'nr-hub-td-val'; tdVal.textContent = val; tr.appendChild(tdVal);
-    }
-    table.appendChild(tr);
-  }
-  section.appendChild(table);
-  return section;
-}
-
-function _buildAetherPanel() {
-  const section = document.createElement('div');
-  section.className = 'nr-hub-section';
-  section.appendChild(_sectionTitle('Aether Panel'));
-  const desc = document.createElement('div');
-  desc.className = 'nr-hub-panel-desc';
-  desc.innerHTML = '<strong>Right-click</strong> anywhere to open the panel.<br>Type to <strong>chat with AI</strong> about the current page.<br><strong>Select text</strong> \u2192 highlight, quote, or define.<br><strong>Drag</strong> while panel is open to capture a screenshot region.';
-  section.appendChild(desc);
-  return section;
-}
-
-function _sectionTitle(title, subtitle) {
-  const frag = document.createDocumentFragment();
-  const h = document.createElement('div'); h.className = 'nr-hub-section-title'; h.textContent = title; frag.appendChild(h);
-  if (subtitle) { const p = document.createElement('div'); p.className = 'nr-hub-section-desc'; p.textContent = subtitle; frag.appendChild(p); }
-  return frag;
-}
-
-function _tableSection(title, subtitle, headers, rows, monoKeys) {
-  const section = document.createElement('div');
-  section.className = 'nr-hub-section';
-  section.appendChild(_sectionTitle(title, subtitle));
-  const table = document.createElement('table'); table.className = 'nr-hub-table';
-  const thead = document.createElement('tr');
-  for (const h of headers) { const th = document.createElement('th'); th.className = 'nr-hub-th'; th.textContent = h; thead.appendChild(th); }
-  table.appendChild(thead);
-  for (const [key, val] of rows) {
-    const tr = document.createElement('tr'); tr.className = 'nr-hub-tr';
-    const tdKey = document.createElement('td'); tdKey.className = 'nr-hub-td-key';
-    if (monoKeys) { const code = document.createElement('code'); code.style.fontSize = '0.8rem'; code.textContent = key; tdKey.appendChild(code); }
-    else tdKey.textContent = key;
-    tr.appendChild(tdKey);
-    const tdVal = document.createElement('td'); tdVal.className = 'nr-hub-td-val'; tdVal.textContent = val; tr.appendChild(tdVal);
-    table.appendChild(tr);
-  }
-  section.appendChild(table);
-  return section;
 }
 
 // Expose to window for browse modules that use global references
