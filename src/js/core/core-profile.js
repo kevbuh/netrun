@@ -169,8 +169,8 @@ export async function renderUserProfile(username) {
     if (isOwnProfile) {
       const bgBtn = new window.View('button');
       bgBtn.className('absolute top-2 right-2 w-7 h-7 rounded-lg flex items-center justify-center bg-black/40 text-white/70 hover:text-white border-none cursor-pointer transition-colors');
-      bgBtn.el.title = 'Change background';
-      bgBtn.el.innerHTML = icon('camera', { size: 14 });
+      bgBtn.attr('title', 'Change background');
+      bgBtn.add(window.RawHTML(icon('camera', { size: 14 })));
       bgBtn.onTap(function() { _uploadProfileBg(); });
       banner.add(bgBtn);
     }
@@ -191,8 +191,8 @@ export async function renderUserProfile(username) {
     if (isOwnProfile) {
       const picBtn = new window.View('button');
       picBtn.className('absolute inset-0 w-full h-full rounded-full bg-black/0 hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer border-none');
-      picBtn.el.title = 'Change picture';
-      picBtn.el.innerHTML = icon('camera', { size: 20, stroke: '#fff' });
+      picBtn.attr('title', 'Change picture');
+      picBtn.add(window.RawHTML(icon('camera', { size: 20, stroke: '#fff' })));
       picBtn.onTap(function() { _uploadProfilePic(); });
       avatarWrap.add(picBtn);
     }
@@ -229,8 +229,8 @@ export async function renderUserProfile(username) {
     if (isOwnProfile) {
       actionBtn = new window.View('button');
       actionBtn.className('w-8 h-8 rounded-lg flex items-center justify-center bg-transparent border border-border-card text-dim hover:text-primary hover:border-accent/40 cursor-pointer transition-colors');
-      actionBtn.el.title = 'Settings';
-      actionBtn.el.innerHTML = icon('settings', { size: 16, class: 'fill-current' });
+      actionBtn.attr('title', 'Settings');
+      actionBtn.add(window.RawHTML(icon('settings', { size: 16, class: 'fill-current' })));
       actionBtn.onTap(function() { openSettings(); });
     } else {
       actionBtn = window.Button('Message').className('px-3 py-1 rounded-md text-[0.78rem] bg-accent text-white border-none cursor-pointer hover:bg-accent-hover transition-colors');

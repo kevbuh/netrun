@@ -79,8 +79,8 @@ export function renderSettingsView() {
         }
         const btn = new (window._AetherUIView || View)('button');
         btn.cssText('width:calc(100% - 16px);margin:0 8px;');
-        btn.el.innerHTML = s.icon + ' ' + s.label;
-        btn.el.addEventListener('click', function() { _setSettingsSection(s.key); });
+        btn.add(window.RawHTML(s.icon + ' ' + s.label));
+        btn.onTap(function() { _setSettingsSection(s.key); });
         // Reactive active state
         Effect(function() {
           var active = _settingsSection.value === s.key;

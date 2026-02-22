@@ -295,3 +295,197 @@ describe('Tab State Constants', () => {
     expect(MAX).toBeLessThan(200);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// _bridge getter/setter (Object.defineProperty wrapper)
+// ═══════════════════════════════════════════════════════════════
+
+describe('_bridge getter/setter', () => {
+  function _bridge(obj, name, get, set) {
+    Object.defineProperty(obj, name, { get, set, configurable: true, enumerable: true });
+  }
+
+  it('defines a getter on the target object', () => {
+    let val = 42;
+    const obj = {};
+    _bridge(obj, 'x', () => val, v => { val = v; });
+    expect(obj.x).toBe(42);
+  });
+
+  it('defines a setter on the target object', () => {
+    let val = 0;
+    const obj = {};
+    _bridge(obj, 'x', () => val, v => { val = v; });
+    obj.x = 99;
+    expect(val).toBe(99);
+    expect(obj.x).toBe(99);
+  });
+
+  it('reflects changes made to the backing variable', () => {
+    let val = 'initial';
+    const obj = {};
+    _bridge(obj, 'name', () => val, v => { val = v; });
+    val = 'changed';
+    expect(obj.name).toBe('changed');
+  });
+
+  it('creates configurable properties', () => {
+    const obj = {};
+    _bridge(obj, 'x', () => 1, () => {});
+    const desc = Object.getOwnPropertyDescriptor(obj, 'x');
+    expect(desc.configurable).toBe(true);
+  });
+
+  it('creates enumerable properties', () => {
+    const obj = {};
+    _bridge(obj, 'x', () => 1, () => {});
+    const desc = Object.getOwnPropertyDescriptor(obj, 'x');
+    expect(desc.enumerable).toBe(true);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// _getCurrentWindow logic
+// ═══════════════════════════════════════════════════════════════
+
+describe('_getCurrentWindow', () => {
+  function _getCurrentWindow(windows, activeWindowId) {
+    return windows.find(w => w.id === activeWindowId);
+  }
+
+  it('finds window by matching ID', () => {
+    const windows = [
+      { id: 1, name: 'Main', tabs: [] },
+      { id: 2, name: 'Secondary', tabs: [] },
+    ];
+    expect(_getCurrentWindow(windows, 1).name).toBe('Main');
+    expect(_getCurrentWindow(windows, 2).name).toBe('Secondary');
+  });
+
+  it('returns undefined when no match', () => {
+    const windows = [{ id: 1, name: 'Main', tabs: [] }];
+    expect(_getCurrentWindow(windows, 99)).toBeUndefined();
+  });
+
+  it('returns undefined for empty array', () => {
+    expect(_getCurrentWindow([], 1)).toBeUndefined();
+  });
+
+  it('returns undefined for null ID', () => {
+    const windows = [{ id: 1, name: 'Main', tabs: [] }];
+    expect(_getCurrentWindow(windows, null)).toBeUndefined();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Computed tab properties (_browseTabs, _browseActiveTab)
+// ═══════════════════════════════════════════════════════════════
+
+describe('Computed tab properties', () => {
+  function getComputedProps(windows, activeWindowId) {
+    const w = windows.find(win => win.id === activeWindowId);
+    return {
+      tabs: w ? w.tabs : [],
+      activeTab: w ? w.activeTab : null,
+    };
+  }
+
+  it('returns tabs from active window', () => {
+    const windows = [{ id: 1, tabs: [{ id: 10, url: 'https://a.com' }], activeTab: 10 }];
+    const { tabs, activeTab } = getComputedProps(windows, 1);
+    expect(tabs).toHaveLength(1);
+    expect(activeTab).toBe(10);
+  });
+
+  it('returns empty tabs when no active window', () => {
+    const { tabs, activeTab } = getComputedProps([], null);
+    expect(tabs).toEqual([]);
+    expect(activeTab).toBeNull();
+  });
+
+  it('tracks tab changes on the window object', () => {
+    const windows = [{ id: 1, tabs: [], activeTab: null }];
+    windows[0].tabs.push({ id: 1, url: 'https://example.com' });
+    windows[0].activeTab = 1;
+    const { tabs, activeTab } = getComputedProps(windows, 1);
+    expect(tabs).toHaveLength(1);
+    expect(activeTab).toBe(1);
+  });
+
+  it('switches between windows', () => {
+    const windows = [
+      { id: 1, tabs: [{ id: 10 }], activeTab: 10 },
+      { id: 2, tabs: [{ id: 20 }, { id: 21 }], activeTab: 21 },
+    ];
+    expect(getComputedProps(windows, 1).tabs).toHaveLength(1);
+    expect(getComputedProps(windows, 2).tabs).toHaveLength(2);
+    expect(getComputedProps(windows, 2).activeTab).toBe(21);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Debounced save (_browseSaveTabs)
+// ═══════════════════════════════════════════════════════════════
+
+describe('Debounced save', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function makeDebouncedSave() {
+    let timer = 0;
+    const calls = [];
+    function saveNow() { calls.push(Date.now()); }
+    function save() {
+      clearTimeout(timer);
+      timer = setTimeout(saveNow, 100);
+    }
+    return { save, calls, getTimer: () => timer };
+  }
+
+  it('does not call immediately', () => {
+    const { save, calls } = makeDebouncedSave();
+    save();
+    expect(calls).toHaveLength(0);
+  });
+
+  it('calls after delay', () => {
+    const { save, calls } = makeDebouncedSave();
+    save();
+    vi.advanceTimersByTime(100);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('resets timer on repeated calls', () => {
+    const { save, calls } = makeDebouncedSave();
+    save();
+    vi.advanceTimersByTime(50);
+    save(); // reset
+    vi.advanceTimersByTime(50);
+    expect(calls).toHaveLength(0); // still waiting
+    vi.advanceTimersByTime(50);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('fires only once after rapid calls', () => {
+    const { save, calls } = makeDebouncedSave();
+    save();
+    save();
+    save();
+    save();
+    vi.advanceTimersByTime(100);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('clearTimeout cancels pending save', () => {
+    const { save, calls, getTimer } = makeDebouncedSave();
+    save();
+    clearTimeout(getTimer());
+    vi.advanceTimersByTime(200);
+    expect(calls).toHaveLength(0);
+  });
+});

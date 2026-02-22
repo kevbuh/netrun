@@ -417,9 +417,8 @@ function _renderIslandActions() {
     .onTap(function(e) { e.stopPropagation(); _setIslandSubState('ai'); }));
 
   var container = VS(rows).styles({ gap: '2px', alignItems: 'flex-start', padding: '0 4px' });
-  var el = container.build();
-  el.id = actionsId;
-  centerCol.appendChild(el);
+  container.id(actionsId);
+  centerCol.appendChild(container.el);
 }
 
 // ── Render utility row ──

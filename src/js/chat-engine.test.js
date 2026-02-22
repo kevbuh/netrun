@@ -392,3 +392,412 @@ describe('Session tree logic', () => {
     expect(isBranchPoint(msgs, 2)).toBe(false);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// Think-tag parsing (inline <think>...</think> stripping)
+// ═══════════════════════════════════════════════════════════════
+
+describe('Think-tag parsing', () => {
+  // Re-implement the token-level think-tag parser from _handleEvent
+  function processTokens(tokens) {
+    let inThinkTag = false;
+    let visibleText = '';
+    let thinkingText = '';
+
+    for (const token of tokens) {
+      let _visibleToken = token;
+
+      if (inThinkTag) {
+        const endIdx = _visibleToken.indexOf('</think>');
+        if (endIdx !== -1) {
+          thinkingText += _visibleToken.slice(0, endIdx);
+          _visibleToken = _visibleToken.slice(endIdx + 8);
+          inThinkTag = false;
+        } else {
+          thinkingText += _visibleToken;
+          continue;
+        }
+      }
+
+      if (!inThinkTag && _visibleToken.includes('<think>')) {
+        const startIdx = _visibleToken.indexOf('<think>');
+        const before = _visibleToken.slice(0, startIdx);
+        const after = _visibleToken.slice(startIdx + 7);
+        inThinkTag = true;
+        const endIdx2 = after.indexOf('</think>');
+        if (endIdx2 !== -1) {
+          thinkingText += after.slice(0, endIdx2);
+          _visibleToken = before + after.slice(endIdx2 + 8);
+          inThinkTag = false;
+        } else {
+          thinkingText += after;
+          _visibleToken = before;
+        }
+      }
+
+      if (_visibleToken) visibleText += _visibleToken;
+    }
+
+    return { visibleText, thinkingText, inThinkTag };
+  }
+
+  it('passes through tokens with no think tags', () => {
+    const result = processTokens(['Hello', ' world', '!']);
+    expect(result.visibleText).toBe('Hello world!');
+    expect(result.thinkingText).toBe('');
+    expect(result.inThinkTag).toBe(false);
+  });
+
+  it('strips a complete think tag within a single token', () => {
+    const result = processTokens(['before<think>hidden</think>after']);
+    expect(result.visibleText).toBe('beforeafter');
+    expect(result.thinkingText).toBe('hidden');
+  });
+
+  it('handles think tag split across two tokens', () => {
+    const result = processTokens(['Hello <think>part1', 'part2</think> world']);
+    expect(result.visibleText).toBe('Hello  world');
+    expect(result.thinkingText).toBe('part1part2');
+  });
+
+  it('handles think tag split across many tokens', () => {
+    const result = processTokens(['<think>a', 'b', 'c', 'd</think>visible']);
+    expect(result.visibleText).toBe('visible');
+    expect(result.thinkingText).toBe('abcd');
+  });
+
+  it('handles empty think tags', () => {
+    const result = processTokens(['before<think></think>after']);
+    expect(result.visibleText).toBe('beforeafter');
+    expect(result.thinkingText).toBe('');
+  });
+
+  it('handles think tag at start of stream', () => {
+    const result = processTokens(['<think>thinking</think>The answer is 42']);
+    expect(result.visibleText).toBe('The answer is 42');
+    expect(result.thinkingText).toBe('thinking');
+  });
+
+  it('handles think tag at end of stream (unclosed)', () => {
+    const result = processTokens(['visible<think>still thinking']);
+    expect(result.visibleText).toBe('visible');
+    expect(result.thinkingText).toBe('still thinking');
+    expect(result.inThinkTag).toBe(true);
+  });
+
+  it('handles multiple think tags in stream', () => {
+    const result = processTokens([
+      '<think>first</think>visible1',
+      '<think>second</think>visible2'
+    ]);
+    expect(result.visibleText).toBe('visible1visible2');
+    expect(result.thinkingText).toBe('firstsecond');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Follow-up extraction
+// ═══════════════════════════════════════════════════════════════
+
+describe('Follow-up extraction', () => {
+  // Re-implement the FOLLOW_UP regex from session.send
+  function extractFollowUps(content) {
+    const fuMatch = content.match(/\n---\nFOLLOW_UP:\n([\s\S]+)$/);
+    if (!fuMatch) return { content, followUps: null };
+    const followUps = fuMatch[1].split('\n')
+      .map(l => l.replace(/^-\s*/, '').trim())
+      .filter(Boolean);
+    const trimmedContent = content.slice(0, fuMatch.index).trimEnd();
+    return { content: trimmedContent, followUps };
+  }
+
+  it('extracts follow-ups when present', () => {
+    const input = 'Main answer\n---\nFOLLOW_UP:\n- What about X?\n- Tell me more about Y';
+    const result = extractFollowUps(input);
+    expect(result.content).toBe('Main answer');
+    expect(result.followUps).toEqual(['What about X?', 'Tell me more about Y']);
+  });
+
+  it('returns null follow-ups when section absent', () => {
+    const result = extractFollowUps('Just an answer with no follow-ups.');
+    expect(result.content).toBe('Just an answer with no follow-ups.');
+    expect(result.followUps).toBeNull();
+  });
+
+  it('strips leading dashes from follow-up lines', () => {
+    const input = 'Answer\n---\nFOLLOW_UP:\n- Question 1\n- Question 2';
+    const result = extractFollowUps(input);
+    expect(result.followUps).toEqual(['Question 1', 'Question 2']);
+  });
+
+  it('trims whitespace from follow-up lines', () => {
+    const input = 'Answer\n---\nFOLLOW_UP:\n-   Padded question  \n-  Another  ';
+    const result = extractFollowUps(input);
+    expect(result.followUps).toEqual(['Padded question', 'Another']);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Timing computation
+// ═══════════════════════════════════════════════════════════════
+
+describe('Timing computation', () => {
+  // Re-implement timing calc from session.send
+  function computeTimings(activity, streamStart, endTime) {
+    const _timings = { total: endTime - streamStart };
+    const toolEntries = activity.filter(a => a.type === 'tool');
+    const searchTime = toolEntries.filter(a => a.category === 'search').reduce((s, a) => s + (a.endedAt - a.startedAt), 0);
+    const extractTime = toolEntries.filter(a => a.category === 'extract').reduce((s, a) => s + (a.endedAt - a.startedAt), 0);
+    const inferenceEntry = activity.find(a => a.type === 'inference');
+    if (searchTime) _timings.search = searchTime;
+    if (extractTime) _timings.extract = extractTime;
+    if (inferenceEntry) _timings.inference = inferenceEntry.endedAt - inferenceEntry.startedAt;
+    const toolsTime = toolEntries.reduce((s, a) => s + (a.endedAt - a.startedAt), 0);
+    if (toolsTime) _timings.tools = toolsTime;
+    return _timings;
+  }
+
+  it('computes total time', () => {
+    const result = computeTimings([], 1000, 5000);
+    expect(result.total).toBe(4000);
+  });
+
+  it('computes search time from search-category tools', () => {
+    const activity = [
+      { type: 'tool', category: 'search', startedAt: 1000, endedAt: 2000 },
+      { type: 'tool', category: 'search', startedAt: 2500, endedAt: 3000 },
+    ];
+    const result = computeTimings(activity, 0, 5000);
+    expect(result.search).toBe(1500);
+    expect(result.tools).toBe(1500);
+  });
+
+  it('computes extract time from extract-category tools', () => {
+    const activity = [
+      { type: 'tool', category: 'extract', startedAt: 1000, endedAt: 3000 },
+    ];
+    const result = computeTimings(activity, 0, 5000);
+    expect(result.extract).toBe(2000);
+  });
+
+  it('computes inference time', () => {
+    const activity = [
+      { type: 'inference', startedAt: 2000, endedAt: 4500 },
+    ];
+    const result = computeTimings(activity, 0, 5000);
+    expect(result.inference).toBe(2500);
+  });
+
+  it('omits zero-value timing fields', () => {
+    const result = computeTimings([], 0, 3000);
+    expect(result.total).toBe(3000);
+    expect(result.search).toBeUndefined();
+    expect(result.extract).toBeUndefined();
+    expect(result.inference).toBeUndefined();
+    expect(result.tools).toBeUndefined();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Session listener management (onUpdate / _notify pattern)
+// ═══════════════════════════════════════════════════════════════
+
+describe('Session listener management', () => {
+  function makeListenerManager() {
+    let _listeners = [];
+    return {
+      onUpdate(fn) {
+        _listeners.push(fn);
+        return () => { _listeners = _listeners.filter(f => f !== fn); };
+      },
+      _notify(type) {
+        for (const fn of _listeners) {
+          try { fn(type); } catch { /* swallow */ }
+        }
+      },
+      get listenerCount() { return _listeners.length; }
+    };
+  }
+
+  it('registers a listener', () => {
+    const mgr = makeListenerManager();
+    const fn = vi.fn();
+    mgr.onUpdate(fn);
+    mgr._notify('test');
+    expect(fn).toHaveBeenCalledWith('test');
+  });
+
+  it('supports multiple listeners', () => {
+    const mgr = makeListenerManager();
+    const fn1 = vi.fn();
+    const fn2 = vi.fn();
+    mgr.onUpdate(fn1);
+    mgr.onUpdate(fn2);
+    mgr._notify('stream');
+    expect(fn1).toHaveBeenCalledWith('stream');
+    expect(fn2).toHaveBeenCalledWith('stream');
+  });
+
+  it('unsubscribes via returned function', () => {
+    const mgr = makeListenerManager();
+    const fn = vi.fn();
+    const unsub = mgr.onUpdate(fn);
+    unsub();
+    mgr._notify('stream');
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('does not crash when listener throws', () => {
+    const mgr = makeListenerManager();
+    mgr.onUpdate(() => { throw new Error('oops'); });
+    const fn2 = vi.fn();
+    mgr.onUpdate(fn2);
+    expect(() => mgr._notify('test')).not.toThrow();
+    expect(fn2).toHaveBeenCalled();
+  });
+
+  it('passes type argument to listeners', () => {
+    const mgr = makeListenerManager();
+    const types = [];
+    mgr.onUpdate(t => types.push(t));
+    mgr._notify('message');
+    mgr._notify('stream');
+    mgr._notify('done');
+    expect(types).toEqual(['message', 'stream', 'done']);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Session cancel logic
+// ═══════════════════════════════════════════════════════════════
+
+describe('Session cancel logic', () => {
+  function makeSession() {
+    let _streaming = false;
+    let _abortController = null;
+    const _listeners = [];
+    const notifications = [];
+
+    return {
+      startStreaming() {
+        _streaming = true;
+        _abortController = new AbortController();
+      },
+      get streaming() { return _streaming; },
+      get abortController() { return _abortController; },
+      onUpdate(fn) { _listeners.push(fn); },
+      _notify(type) { notifications.push(type); for (const fn of _listeners) fn(type); },
+      get notifications() { return notifications; },
+      cancel() {
+        if (_abortController) {
+          _abortController.abort();
+          _abortController = null;
+        }
+        if (_streaming) {
+          _streaming = false;
+          this._notify('cancel');
+        }
+      }
+    };
+  }
+
+  it('aborts the abort controller on cancel', () => {
+    const session = makeSession();
+    session.startStreaming();
+    const ac = session.abortController;
+    session.cancel();
+    expect(ac.signal.aborted).toBe(true);
+  });
+
+  it('sets streaming to false on cancel', () => {
+    const session = makeSession();
+    session.startStreaming();
+    session.cancel();
+    expect(session.streaming).toBe(false);
+  });
+
+  it('notifies cancel event', () => {
+    const session = makeSession();
+    session.startStreaming();
+    session.cancel();
+    expect(session.notifications).toContain('cancel');
+  });
+
+  it('does not notify if not streaming', () => {
+    const session = makeSession();
+    session.cancel();
+    expect(session.notifications).toEqual([]);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Session redo / editFrom logic
+// ═══════════════════════════════════════════════════════════════
+
+describe('Session redo / editFrom logic', () => {
+  function makeMessages() {
+    return [
+      { id: 1, role: 'user', content: 'Hello', _display: 'Hello' },
+      { id: 2, role: 'assistant', content: 'Hi there!' },
+      { id: 3, role: 'user', content: 'How are you?', _display: 'How are you?' },
+      { id: 4, role: 'assistant', content: 'I am fine.' },
+    ];
+  }
+
+  // Re-implement redo logic
+  function redo(messages) {
+    let lastUserIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') { lastUserIdx = i; break; }
+    }
+    if (lastUserIdx < 0) return null;
+    const lastUserMsg = messages[lastUserIdx];
+    messages.splice(lastUserIdx);
+    return lastUserMsg._display || lastUserMsg.content;
+  }
+
+  // Re-implement editFrom logic
+  function editFrom(messages, msgIdx) {
+    const msg = messages[msgIdx];
+    if (!msg || msg.role !== 'user') return null;
+    const text = msg.content;
+    messages.splice(msgIdx);
+    return text;
+  }
+
+  it('redo returns last user message display text', () => {
+    const msgs = makeMessages();
+    const text = redo(msgs);
+    expect(text).toBe('How are you?');
+  });
+
+  it('redo truncates messages to before last user msg', () => {
+    const msgs = makeMessages();
+    redo(msgs);
+    expect(msgs).toHaveLength(2);
+    expect(msgs[1].role).toBe('assistant');
+  });
+
+  it('redo returns null when no user messages', () => {
+    const msgs = [{ id: 1, role: 'assistant', content: 'Hi' }];
+    expect(redo(msgs)).toBeNull();
+  });
+
+  it('editFrom returns content of the specified user message', () => {
+    const msgs = makeMessages();
+    const text = editFrom(msgs, 0);
+    expect(text).toBe('Hello');
+    expect(msgs).toHaveLength(0);
+  });
+
+  it('editFrom rejects non-user messages', () => {
+    const msgs = makeMessages();
+    expect(editFrom(msgs, 1)).toBeNull(); // assistant message
+    expect(msgs).toHaveLength(4); // unchanged
+  });
+
+  it('editFrom returns null for out-of-bounds index', () => {
+    const msgs = makeMessages();
+    expect(editFrom(msgs, 99)).toBeNull();
+  });
+});

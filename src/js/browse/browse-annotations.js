@@ -452,7 +452,7 @@ export function _showAnnotationTooltip(data, frame, pinned) {
     const tipView = new window.View('div').id('aether-annotation-tooltip').className('doc-selection-popup aether-ann-tooltip')
       .styles({zIndex:'999999', pointerEvents:'auto'});
     tipView.on('mousedown', function(ev) { ev.stopPropagation(); });
-    tip = tipView.build();
+    tip = tipView.el;
     document.body.appendChild(tip);
   }
   _annTooltipPinned = !!pinned;

@@ -1047,3 +1047,259 @@ describe('Edge Cases and Error Handling', () => {
     });
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// Blocked words (pure logic)
+// ═══════════════════════════════════════════════════════════════
+
+describe('Blocked Words', () => {
+  // Re-implement blocked word logic from feed.js
+  function addBlockedWords(existing, raw) {
+    const newWords = raw.toLowerCase().split(/,\s*/).map(w => w.trim()).filter(Boolean);
+    let changed = false;
+    for (const w of newWords) {
+      if (!existing.includes(w)) { existing.push(w); changed = true; }
+    }
+    return changed;
+  }
+
+  function removeBlockedWord(existing, word) {
+    return existing.filter(w => w !== word);
+  }
+
+  function titleContainsBlocked(title, blockedWords) {
+    const titleLower = title.toLowerCase();
+    for (const w of blockedWords) {
+      if (titleLower.includes(w)) return true;
+    }
+    return false;
+  }
+
+  it('adds a single word', () => {
+    const words = [];
+    addBlockedWords(words, 'spam');
+    expect(words).toEqual(['spam']);
+  });
+
+  it('adds CSV words', () => {
+    const words = [];
+    addBlockedWords(words, 'spam, crypto, nft');
+    expect(words).toEqual(['spam', 'crypto', 'nft']);
+  });
+
+  it('deduplicates words', () => {
+    const words = ['spam'];
+    const changed = addBlockedWords(words, 'spam');
+    expect(words).toEqual(['spam']);
+    expect(changed).toBe(false);
+  });
+
+  it('lowercases words', () => {
+    const words = [];
+    addBlockedWords(words, 'CRYPTO');
+    expect(words).toEqual(['crypto']);
+  });
+
+  it('removes a word', () => {
+    const result = removeBlockedWord(['spam', 'crypto', 'nft'], 'crypto');
+    expect(result).toEqual(['spam', 'nft']);
+  });
+
+  it('detects blocked words in titles', () => {
+    expect(titleContainsBlocked('New Crypto Exchange Launches', ['crypto'])).toBe(true);
+    expect(titleContainsBlocked('Machine Learning Advances', ['crypto'])).toBe(false);
+    expect(titleContainsBlocked('Buy NFT Collection Now', ['nft', 'spam'])).toBe(true);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Engagement state machine
+// ═══════════════════════════════════════════════════════════════
+
+describe('Engagement State Machine', () => {
+  // Re-implement read/hide/save state transitions
+
+  function markRead(readPosts, link) {
+    if (!readPosts.includes(link)) readPosts.push(link);
+    return readPosts;
+  }
+
+  function toggleHide(hiddenPosts, link) {
+    if (!hiddenPosts.includes(link)) hiddenPosts.push(link);
+    return hiddenPosts;
+  }
+
+  function toggleSave(savedPosts, paper) {
+    const wasAdding = !savedPosts[paper.link];
+    if (savedPosts[paper.link]) {
+      delete savedPosts[paper.link];
+    } else {
+      savedPosts[paper.link] = { paper, savedAt: Date.now(), read: false };
+    }
+    return { savedPosts, wasAdding };
+  }
+
+  it('markRead adds link', () => {
+    const read = [];
+    markRead(read, 'link1');
+    expect(read).toEqual(['link1']);
+  });
+
+  it('markRead does not duplicate', () => {
+    const read = ['link1'];
+    markRead(read, 'link1');
+    expect(read).toEqual(['link1']);
+  });
+
+  it('toggleHide adds link', () => {
+    const hidden = [];
+    toggleHide(hidden, 'link1');
+    expect(hidden).toEqual(['link1']);
+  });
+
+  it('toggleHide does not duplicate', () => {
+    const hidden = ['link1'];
+    toggleHide(hidden, 'link1');
+    expect(hidden).toEqual(['link1']);
+  });
+
+  it('toggleSave adds with timestamp', () => {
+    const saved = {};
+    const { wasAdding } = toggleSave(saved, { link: 'link1', title: 'Test' });
+    expect(wasAdding).toBe(true);
+    expect(saved['link1']).toBeDefined();
+    expect(saved['link1'].savedAt).toBeGreaterThan(0);
+    expect(saved['link1'].read).toBe(false);
+  });
+
+  it('toggleSave removes when already saved', () => {
+    const saved = { 'link1': { paper: {}, savedAt: 123, read: false } };
+    const { wasAdding } = toggleSave(saved, { link: 'link1' });
+    expect(wasAdding).toBe(false);
+    expect(saved['link1']).toBeUndefined();
+  });
+
+  it('toggleSave reports wasAdding correctly', () => {
+    const saved = {};
+    const r1 = toggleSave(saved, { link: 'a', title: 'A' });
+    expect(r1.wasAdding).toBe(true);
+    const r2 = toggleSave(saved, { link: 'a' });
+    expect(r2.wasAdding).toBe(false);
+  });
+
+  it('independent state tracking', () => {
+    const read = [];
+    const hidden = [];
+    const saved = {};
+
+    markRead(read, 'link1');
+    toggleHide(hidden, 'link2');
+    toggleSave(saved, { link: 'link3', title: 'Test' });
+
+    expect(read).toEqual(['link1']);
+    expect(hidden).toEqual(['link2']);
+    expect(Object.keys(saved)).toEqual(['link3']);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Interest profile building
+// ═══════════════════════════════════════════════════════════════
+
+describe('Interest Profile Building', () => {
+  const STOP_WORDS = new Set(['the','a','an','and','or','but','in','on','at','to','for','of','with','by','from','is','it','that','this','are','was','were','be','been','has','have','had','not','no']);
+
+  function buildProfile(papers, readSet, savedSet, ratings, hiddenSet) {
+    const topicScores = {};
+    const catScores = {};
+
+    function addTitle(title, weight) {
+      if (!title) return;
+      const words = title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').split(/\s+/).filter(w => w.length > 2 && !STOP_WORDS.has(w));
+      for (const w of words) topicScores[w] = (topicScores[w] || 0) + weight;
+    }
+
+    function addCategories(cats, weight) {
+      if (!Array.isArray(cats)) return;
+      for (const c of cats) catScores[c] = (catScores[c] || 0) + weight;
+    }
+
+    for (const p of papers) {
+      if (readSet.has(p.link)) { addTitle(p.title, 1); addCategories(p.categories, 1); }
+      if (savedSet.has(p.link)) { addTitle(p.title, 3); addCategories(p.categories, 3); }
+      const rating = ratings[p.link] || 0;
+      if (rating > 0) { addTitle(p.title, rating); addCategories(p.categories, rating); }
+      if (hiddenSet.has(p.link)) { addTitle(p.title, -0.5); addCategories(p.categories, -0.5); }
+    }
+
+    const topTopics = Object.entries(topicScores).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, 15).map(e => e[0]);
+    const topCategories = Object.entries(catScores).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
+    return { topTopics, topCategories };
+  }
+
+  it('weights read posts at 1', () => {
+    const papers = [{ link: 'a', title: 'Machine Learning Overview', categories: ['cs.LG'] }];
+    const profile = buildProfile(papers, new Set(['a']), new Set(), {}, new Set());
+    expect(profile.topTopics).toContain('machine');
+    expect(profile.topCategories).toContain('cs.LG');
+  });
+
+  it('weights saved posts at 3', () => {
+    const papers = [
+      { link: 'a', title: 'Deep Networks', categories: ['cs.LG'] },
+      { link: 'b', title: 'Quantum Physics', categories: ['quant-ph'] },
+    ];
+    const profile = buildProfile(papers, new Set(['a', 'b']), new Set(['a']), {}, new Set());
+    // 'deep' has weight 1(read) + 3(saved) = 4, 'quantum' has weight 1(read) = 1
+    expect(profile.topTopics.indexOf('deep')).toBeLessThan(profile.topTopics.indexOf('quantum'));
+  });
+
+  it('weights rated posts by rating value', () => {
+    const papers = [{ link: 'a', title: 'Neural Transformer Architecture', categories: [] }];
+    const profile = buildProfile(papers, new Set(), new Set(), { 'a': 5 }, new Set());
+    expect(profile.topTopics).toContain('neural');
+  });
+
+  it('hidden posts get negative weight', () => {
+    const papers = [{ link: 'a', title: 'Crypto Trading Strategies', categories: [] }];
+    const profile = buildProfile(papers, new Set(), new Set(), {}, new Set(['a']));
+    // negative weight means these topics should not appear
+    expect(profile.topTopics).not.toContain('crypto');
+  });
+
+  it('limits to top 15 topics and top 10 categories', () => {
+    const papers = [];
+    for (let i = 0; i < 20; i++) {
+      papers.push({ link: `l${i}`, title: `unique${i} paper topic`, categories: [`cat${i}`] });
+    }
+    const profile = buildProfile(papers, new Set(papers.map(p => p.link)), new Set(), {}, new Set());
+    expect(profile.topTopics.length).toBeLessThanOrEqual(15);
+    expect(profile.topCategories.length).toBeLessThanOrEqual(10);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Offline cache state
+// ═══════════════════════════════════════════════════════════════
+
+describe('Offline Cache State', () => {
+  it('creates a set from array', () => {
+    const cached = new Set(['link1', 'link2']);
+    expect(cached.has('link1')).toBe(true);
+    expect(cached.has('link3')).toBe(false);
+  });
+
+  it('supports lookup via has()', () => {
+    const cached = new Set(['link1']);
+    expect(cached.has('link1')).toBe(true);
+    expect(cached.has('link2')).toBe(false);
+  });
+
+  it('deduplicates on add', () => {
+    const cached = new Set(['link1']);
+    cached.add('link1');
+    cached.add('link2');
+    expect(cached.size).toBe(2);
+    expect([...cached]).toEqual(['link1', 'link2']);
+  });
+});

@@ -121,14 +121,14 @@ export function _renderAppearanceSettings() {
   const aetherCur = aetherRaw.startsWith('#') ? 'midnight' : aetherRaw;
 
   // Spinner controls
-  const prevBtn = new window.View('button');
-  prevBtn.el.innerHTML = '&lsaquo;';
-  prevBtn.className('w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]');
-  prevBtn.onTap(function() { cycleSpinner(-1); });
-  const nextBtn = new window.View('button');
-  nextBtn.el.innerHTML = '&rsaquo;';
-  nextBtn.className('w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]');
-  nextBtn.onTap(function() { cycleSpinner(1); });
+  const prevBtn = new window.View('button')
+    .add(window.RawHTML('&lsaquo;'))
+    .className('w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]')
+    .onTap(function() { cycleSpinner(-1); });
+  const nextBtn = new window.View('button')
+    .add(window.RawHTML('&rsaquo;'))
+    .className('w-6 h-6 rounded flex items-center justify-center bg-transparent border border-border-input text-dimmer cursor-pointer hover:text-primary text-[0.75rem]')
+    .onTap(function() { cycleSpinner(1); });
   const spinnerCenter = window.VStack(
     window.RawHTML('<div class="spinner-preview text-dim font-mono text-[1.2rem] h-6 flex items-center justify-center" id="spinner-preview"></div>'),
     window.RawHTML('<div class="text-[0.68rem] text-dimmer" id="spinner-name">' + getSelectedSpinner() + '</div>')

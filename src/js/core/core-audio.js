@@ -136,12 +136,12 @@ export function _islandRenderPill(a) {
         favImg.on('error', function() {
           var globe = R(icon('globe', { size: 16, strokeWidth: '1.5', class: _cls }));
           globe.attr('data-island-tab', t.id);
-          this.replaceWith(globe.build());
+          this.replaceWith(globe.el);
         });
         if (t.active) {
           var wrap = new V('span').className('island-strip-fav-wrap').attr('data-island-tab', t.id);
-          var closeBtn = new V('button').className('island-strip-fav-close').attr('data-island-tab-close', t.id).attr('title', 'Close tab');
-          closeBtn.el.textContent = '\u00d7';
+          var closeBtn = new V('button').className('island-strip-fav-close').attr('data-island-tab-close', t.id).attr('title', 'Close tab')
+            .text('\u00d7');
           wrap.add(favImg, closeBtn);
           stripChildren.push(wrap);
         } else {
@@ -471,7 +471,7 @@ export function _islandShowDetailCard(pill, activity) {
     trayWrapView.add(T(fallbackText).styles({ padding: '8px', opacity: '0.4', fontSize: '0.72rem', whiteSpace: 'pre-line' }));
   }
   var cardView = new V('div').className('island-detail-card').add(headerView, trayWrapView);
-  const card = cardView.build();
+  const card = cardView.el;
   document.body.appendChild(card);
   // Position below pill, clamped to viewport edges
   const pillRect = pill.getBoundingClientRect();
@@ -921,7 +921,7 @@ export function _islandRender() {
         // Add or update +N badge
         let badge = pill.querySelector('.island-stack-badge');
         if (!badge) {
-          badge = new window.View('span').className('island-stack-badge').build();
+          badge = new window.View('span').className('island-stack-badge').el;
           const content = pill.querySelector('.pill-island-content');
           if (content) content.appendChild(badge);
         }

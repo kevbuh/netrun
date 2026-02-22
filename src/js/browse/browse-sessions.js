@@ -278,7 +278,8 @@ export function _promptSaveSessionFromOverview() {
     _renderToolbarSessions();
   };
 
-  const doCancel = () => inputRowEl.remove();
+  let inputRow; // forward declaration for doCancel
+  const doCancel = () => inputRow.el.remove();
 
   const confirmBtnView = new window.View('button').className('save-confirm').text('Save')
     .onTap(function(e) { e.stopPropagation(); doSave(); });
@@ -292,8 +293,8 @@ export function _promptSaveSessionFromOverview() {
     if (e.key === 'Escape') doCancel();
   });
 
-  const inputRowEl = window.HStack([inputView, confirmBtnView, cancelBtnView]).className('browse-session-input-row').build();
-  sessionsList.insertBefore(inputRowEl, sessionsList.firstChild);
+  const inputRow = window.HStack([inputView, confirmBtnView, cancelBtnView]).className('browse-session-input-row');
+  sessionsList.insertBefore(inputRow.el, sessionsList.firstChild);
 
   inputView.el.focus();
 }

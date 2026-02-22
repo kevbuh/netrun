@@ -781,19 +781,13 @@ export function _renderHcCategoryTabs() {
   if (!container) return;
   const cats = [];
   FEED_CATALOG.forEach(function(f) { if (!cats.includes(f.cat)) cats.push(f.cat); });
-  const tabs = [
-    new window.View('button').className('hc-tab' + (_hcActiveCategory === null ? ' active' : ''))
-      .onTap(function() { _hcSelectCategory(null); })
-  ];
-  tabs[0].el.textContent = 'All';
-  cats.forEach(function(cat) {
-    const tab = new window.View('button').className('hc-tab' + (_hcActiveCategory === cat ? ' active' : ''));
-    tab.el.textContent = cat;
-    tab.onTap(function() { _hcSelectCategory(cat); });
-    tabs.push(tab);
+  var tabs = [null].concat(cats).map(function(cat) {
+    return window.View('button')
+      .className('hc-tab' + ((cat === null ? _hcActiveCategory === null : _hcActiveCategory === cat) ? ' active' : ''))
+      .onTap(function() { _hcSelectCategory(cat); })
+      .add(window.Text(cat || 'All'));
   });
-  const wrap = window.HStack(tabs).spacing(1);
-  AetherUI.mount(wrap, container);
+  AetherUI.mount(window.HStack(tabs).spacing(1), container);
 }
 
 export function _hcSelectCategory(cat) {
@@ -947,9 +941,9 @@ export function renderCustomFeedsList() {
   const rows = feeds.map(function(f, i) {
     const toggle = window.RawHTML('<span class="nr-switch"><input type="checkbox" ' + (f.enabled !== false ? 'checked' : '') + '><span class="slider"></span></span>');
     toggle.el.querySelector('input').addEventListener('change', function() { toggleCustomFeed(i, this.checked); });
-    const removeBtn = new window.View('button').className('text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-base leading-none').attr('title', 'Remove');
-    removeBtn.el.textContent = '\u00d7';
-    removeBtn.onTap(function() { removeCustomFeed(i); });
+    const removeBtn = window.View('button').className('text-dim hover:text-red-400 bg-transparent border-none cursor-pointer text-base leading-none').attr('title', 'Remove')
+      .onTap(function() { removeCustomFeed(i); });
+    removeBtn.add(window.Text('\u00d7'));
     return window.HStack(
       window.Text(f.name || f.url).className('text-primary text-[0.78rem] truncate flex-1').attr('title', f.url),
       window.HStack(toggle, removeBtn).spacing(2).className('shrink-0')
@@ -1971,118 +1965,84 @@ export function _renderTweetComments(container, comments, link, idx) {
     const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
     const isOwn = c.author === currentUser;
 
-    const threadEl = new window.View('div');
-    threadEl.cssText(ml + '; margin-bottom: 6px;');
+    var avatar = window.View('div')
+      .cssText('width:20px;height:20px;min-width:20px;border-radius:50%;background:var(--nr-accent);color:#fff;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center');
+    avatar.add(window.Text(initial));
 
-    const avatarDiv = new window.View('div');
-    avatarDiv.cssText('width:20px;height:20px;min-width:20px;border-radius:50%;background:var(--nr-accent);color:#fff;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center');
-    avatarDiv.el.textContent = initial;
+    var authorEl = window.View('a')
+      .className('text-[0.72rem] font-medium text-primary hover:text-accent')
+      .attr('href', '#profile/' + encodeURIComponent(c.author))
+      .styles({textDecoration: 'none'})
+      .onTap(function(e) { e.stopPropagation(); });
+    authorEl.add(window.Text(c.author));
 
-    const authorLink = new window.View('a');
-    authorLink.el.href = '#profile/' + encodeURIComponent(c.author);
-    authorLink.el.className = 'text-[0.72rem] font-medium text-primary hover:text-accent';
-    authorLink.el.style.textDecoration = 'none';
-    authorLink.el.textContent = c.author;
-    authorLink.el.addEventListener('click', function(e) { e.stopPropagation(); });
-
-    const timeSpan = new window.View('span');
-    timeSpan.el.className = 'text-[0.65rem] text-dimmer';
-    timeSpan.el.textContent = timeAgo;
-
-    const metaRow = new window.View('div');
-    metaRow.el.className = 'flex items-center gap-1.5';
-    metaRow.el.appendChild(authorLink.el);
-    metaRow.el.appendChild(timeSpan.el);
-
+    var metaItems = [authorEl, window.Text(timeAgo).className('text-[0.65rem] text-dimmer')];
     if (isOwn) {
-      const delBtnEl = new window.View('button');
-      delBtnEl.el.className = 'cmt-del text-dimmest hover:text-red-400 text-[0.65rem] ml-auto bg-transparent border-none cursor-pointer';
-      delBtnEl.el.dataset.cid = c.id;
-      delBtnEl.el.textContent = 'x';
-      delBtnEl.el.addEventListener('click', function(e) { e.stopPropagation(); _deleteTweetComment(c.id, link, idx); });
-      metaRow.el.appendChild(delBtnEl.el);
+      metaItems.push(
+        window.View('button')
+          .className('cmt-del text-dimmest hover:text-red-400 text-[0.65rem] ml-auto bg-transparent border-none cursor-pointer')
+          .attr('data-cid', c.id)
+          .onTap(function(e) { e.stopPropagation(); _deleteTweetComment(c.id, link, idx); })
+          .add(window.Text('x'))
+      );
     }
+    var metaRow = window.HStack(metaItems).spacing(1.5).className('items-center');
 
-    const contentDiv = new window.View('div');
-    contentDiv.el.className = 'text-[0.78rem] text-primary mt-0.5 leading-relaxed';
-    contentDiv.el.innerHTML = escapeHtml(c.content).replace(/\n/g, '<br>');
+    var contentDiv = window.RawHTML('<div class="text-[0.78rem] text-primary mt-0.5 leading-relaxed">' + escapeHtml(c.content).replace(/\n/g, '<br>') + '</div>');
 
-    const showReplyBtn = new window.View('button');
-    showReplyBtn.el.className = 'cmt-show-reply text-[0.68rem] text-dim hover:text-accent mt-0.5 bg-transparent border-none cursor-pointer p-0';
-    showReplyBtn.el.dataset.cid = c.id;
-    showReplyBtn.el.textContent = 'Reply';
-    showReplyBtn.el.addEventListener('click', function(e) { e.stopPropagation(); _showTweetReply(c.id); });
+    var showReplyBtn = window.View('button')
+      .className('cmt-show-reply text-[0.68rem] text-dim hover:text-accent mt-0.5 bg-transparent border-none cursor-pointer p-0')
+      .attr('data-cid', c.id)
+      .onTap(function(e) { e.stopPropagation(); _showTweetReply(c.id); });
+    showReplyBtn.add(window.Text('Reply'));
 
-    const replyTa = new window.View('textarea');
-    replyTa.el.id = 'tweet-reply-ta-' + c.id;
-    replyTa.el.className = 'w-full text-[0.75rem] bg-input border border-border-input rounded px-2 py-1 text-primary resize-none outline-none focus:border-accent';
-    replyTa.el.rows = 2;
-    replyTa.el.placeholder = 'Write a reply...';
-    replyTa.el.addEventListener('click', function(e) { e.stopPropagation(); });
+    var replyTa = window.View('textarea')
+      .id('tweet-reply-ta-' + c.id)
+      .className('w-full text-[0.75rem] bg-input border border-border-input rounded px-2 py-1 text-primary resize-none outline-none focus:border-accent')
+      .attr('rows', '2').attr('placeholder', 'Write a reply...')
+      .onTap(function(e) { e.stopPropagation(); });
 
-    const replySubmit = new window.View('button');
-    replySubmit.el.className = 'cmt-reply-submit px-2 py-0.5 text-[0.68rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none';
-    replySubmit.el.dataset.cid = c.id;
-    replySubmit.el.textContent = 'Reply';
-    replySubmit.el.addEventListener('click', function(e) { e.stopPropagation(); _postTweetReply(c.id, link, idx); });
+    var replyBtnRow = window.HStack(
+      window.View('button')
+        .className('cmt-reply-submit px-2 py-0.5 text-[0.68rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none')
+        .attr('data-cid', c.id)
+        .onTap(function(e) { e.stopPropagation(); _postTweetReply(c.id, link, idx); })
+        .add(window.Text('Reply')),
+      window.View('button')
+        .className('cmt-reply-cancel px-2 py-0.5 text-[0.68rem] rounded border border-border-input text-dim hover:text-primary cursor-pointer bg-transparent')
+        .attr('data-cid', c.id)
+        .onTap(function(e) { e.stopPropagation(); _hideTweetReply(c.id); })
+        .add(window.Text('Cancel'))
+    ).spacing(1).className('mt-1');
 
-    const replyCancel = new window.View('button');
-    replyCancel.el.className = 'cmt-reply-cancel px-2 py-0.5 text-[0.68rem] rounded border border-border-input text-dim hover:text-primary cursor-pointer bg-transparent';
-    replyCancel.el.dataset.cid = c.id;
-    replyCancel.el.textContent = 'Cancel';
-    replyCancel.el.addEventListener('click', function(e) { e.stopPropagation(); _hideTweetReply(c.id); });
+    var replyForm = window.VStack(replyTa, replyBtnRow)
+      .id('tweet-reply-' + c.id).className('hidden mt-1');
 
-    const replyBtnRow = new window.View('div');
-    replyBtnRow.el.className = 'flex gap-1 mt-1';
-    replyBtnRow.el.appendChild(replySubmit.el);
-    replyBtnRow.el.appendChild(replyCancel.el);
+    var body = window.VStack(metaRow, contentDiv, showReplyBtn, replyForm).className('flex-1 min-w-0');
+    var row = window.HStack(avatar, body).spacing(1.5).className('items-start');
 
-    const replyForm = new window.View('div');
-    replyForm.el.id = 'tweet-reply-' + c.id;
-    replyForm.el.className = 'hidden mt-1';
-    replyForm.el.appendChild(replyTa.el);
-    replyForm.el.appendChild(replyBtnRow.el);
-
-    const bodyDiv = new window.View('div');
-    bodyDiv.el.className = 'flex-1 min-w-0';
-    bodyDiv.el.appendChild(metaRow.el);
-    bodyDiv.el.appendChild(contentDiv.el);
-    bodyDiv.el.appendChild(showReplyBtn.el);
-    bodyDiv.el.appendChild(replyForm.el);
-
-    const rowDiv = new window.View('div');
-    rowDiv.el.className = 'flex items-start gap-1.5';
-    rowDiv.el.appendChild(avatarDiv.el);
-    rowDiv.el.appendChild(bodyDiv.el);
-
-    threadEl.el.appendChild(rowDiv.el);
-
+    var threadEl = window.VStack(row).cssText(ml + '; margin-bottom: 6px;');
     replies.forEach(function(r) { threadEl.add(renderThread(r, depth + 1)); });
     return threadEl;
   }
 
-  const wrap = new window.View('div');
-  wrap.el.className = 'mt-2 pt-2 border-t border-border-card';
-  if (topLevel.length) {
-    topLevel.forEach(function(c) { wrap.add(renderThread(c, 0)); });
-  } else {
-    wrap.add(window.Text('No comments yet').className('text-dim text-[0.75rem] py-1'));
-  }
+  var threadViews = topLevel.length
+    ? topLevel.map(function(c) { return renderThread(c, 0); })
+    : [window.Text('No comments yet').className('text-dim text-[0.75rem] py-1')];
 
-  const inputRow = new window.View('div');
-  inputRow.el.className = 'flex gap-2 mt-2';
-  const commentTa = new window.View('textarea');
-  commentTa.el.id = 'tweet-comment-input-' + idx;
-  commentTa.el.className = 'flex-1 text-[0.75rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent';
-  commentTa.el.rows = 1;
-  commentTa.el.placeholder = 'Add a comment...';
-  commentTa.el.addEventListener('click', function(e) { e.stopPropagation(); });
-  const postBtn = new window.View('button').className('px-3 py-1 text-[0.72rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none shrink-0');
-  postBtn.el.textContent = 'Post';
-  postBtn.el.addEventListener('click', function(e) { e.stopPropagation(); _postTweetComment(link, idx); });
-  inputRow.el.appendChild(commentTa.el);
-  inputRow.el.appendChild(postBtn.el);
-  wrap.el.appendChild(inputRow.el);
+  var commentTa = window.View('textarea')
+    .id('tweet-comment-input-' + idx)
+    .className('flex-1 text-[0.75rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent')
+    .attr('rows', '1').attr('placeholder', 'Add a comment...')
+    .onTap(function(e) { e.stopPropagation(); });
+
+  var postBtn = window.View('button')
+    .className('px-3 py-1 text-[0.72rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none shrink-0')
+    .onTap(function(e) { e.stopPropagation(); _postTweetComment(link, idx); });
+  postBtn.add(window.Text('Post'));
+
+  var inputRow = window.HStack(commentTa, postBtn).spacing(2).className('mt-2');
+  var wrap = window.VStack(threadViews.concat(inputRow)).className('mt-2 pt-2 border-t border-border-card');
 
   AetherUI.mount(wrap, container);
 }
@@ -2201,19 +2161,35 @@ export function _cardActionRow(p, i, ctx) {
   const bmStroke = isSaved ? 'var(--nr-accent)' : 'currentColor';
   const commentCount = _tweetCommentCounts[p.link] || '';
   const reposted = ctx ? ctx.repostedSet.has(p.link) : _isReposted(p.link);
-  const v = new window.View('div');
-  v.el.className = 'flex items-center gap-3 shrink-0 ml-auto';
-  v.el.innerHTML =
-    '<button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-blue-400 transition-colors" title="Comments">' + icon('chatBubble', {size: 14, class: 'w-3.5 h-3.5'}) + '<span class="text-[0.68rem]" data-tweet-comment-count="' + escapeAttr(p.link) + '">' + commentCount + '</span></button>' +
-    '<button class="flex items-center gap-1 bg-transparent border-none cursor-pointer p-0 transition-colors ' + (reposted ? '' : 'text-dimmer hover:text-green-400') + '" style="' + (reposted ? 'color:rgb(74,222,128)' : '') + '" title="Repost">' + icon('repost', {size: 14, class: 'w-3.5 h-3.5'}) + '</button>' +
-    '<button class="bg-transparent border-none cursor-pointer p-0 transition-colors" style="color:' + (bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)') + '" title="' + (isSaved ? 'Remove from Reading List' : 'Save to Reading List') + '">' + icon('bookmark', {size: 14, class: 'w-3.5 h-3.5', fill: bmFill, stroke: bmStroke}) + '</button>' +
-    '<button class="bg-transparent border-none cursor-pointer p-0 text-dimmer hover:text-primary transition-colors">' + icon('moreVertical', {size: 14, class: 'w-3.5 h-3.5'}) + '</button>';
-  const btns = v.el.querySelectorAll('button');
-  btns[0].addEventListener('click', function(e) { e.stopPropagation(); _toggleTweetComments(p.link, i); });
-  btns[1].addEventListener('click', function(e) { e.stopPropagation(); _tweetRepost(i, btns[1]); });
-  btns[2].addEventListener('click', function(e) { e.stopPropagation(); toggleSavePost(lastFilteredPapers[i], e); });
-  btns[3].addEventListener('click', function(e) { openCardMenu(btns[3], e, i); });
-  return v;
+  const btnBase = 'bg-transparent border-none cursor-pointer p-0 transition-colors';
+
+  var commentBtn = window.HStack(
+    window.RawHTML(icon('chatBubble', {size: 14, class: 'w-3.5 h-3.5'})),
+    window.Text(String(commentCount)).className('text-[0.68rem]').attr('data-tweet-comment-count', p.link)
+  ).spacing(1).className(btnBase + ' text-dimmer hover:text-blue-400').attr('title', 'Comments').attr('role', 'button')
+    .onTap(function(e) { e.stopPropagation(); _toggleTweetComments(p.link, i); });
+
+  var repostBtn = window.View('button')
+    .className(btnBase + ' flex items-center gap-1 ' + (reposted ? '' : 'text-dimmer hover:text-green-400'))
+    .attr('title', 'Repost');
+  repostBtn.add(window.RawHTML(icon('repost', {size: 14, class: 'w-3.5 h-3.5'})));
+  if (reposted) repostBtn.styles({color: 'rgb(74,222,128)'});
+  repostBtn.onTap(function(e) { e.stopPropagation(); _tweetRepost(i, repostBtn.el); });
+
+  var bookmarkBtn = window.View('button')
+    .className(btnBase)
+    .styles({color: bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)'})
+    .attr('title', isSaved ? 'Remove from Reading List' : 'Save to Reading List');
+  bookmarkBtn.add(window.RawHTML(icon('bookmark', {size: 14, class: 'w-3.5 h-3.5', fill: bmFill, stroke: bmStroke})));
+  bookmarkBtn.onTap(function(e) { e.stopPropagation(); toggleSavePost(lastFilteredPapers[i], e); });
+
+  var menuBtn = window.View('button')
+    .className(btnBase + ' text-dimmer hover:text-primary');
+  menuBtn.add(window.RawHTML(icon('moreVertical', {size: 14, class: 'w-3.5 h-3.5'})));
+  menuBtn.onTap(function(e) { openCardMenu(menuBtn.el, e, i); });
+
+  return window.HStack(commentBtn, repostBtn, bookmarkBtn, menuBtn)
+    .spacing(3).className('flex items-center shrink-0 ml-auto');
 }
 
 export function _cardCommentContainer(p, i) {

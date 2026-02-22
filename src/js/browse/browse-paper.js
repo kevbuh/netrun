@@ -389,11 +389,10 @@ export async function _paperLookupRef(data, frame) {
     const titleEl = _refTooltipEl.querySelector('.nr-ref-tooltip-title, .nr-ref-tooltip-text');
     const insertPoint = titleEl || _refTooltipEl.lastElementChild || _refTooltipEl;
     extraEls.forEach(function(v) {
-      const built = v.build();
       if (titleEl && titleEl.nextSibling) {
-        titleEl.parentNode.insertBefore(built, titleEl.nextSibling);
+        titleEl.parentNode.insertBefore(v.el, titleEl.nextSibling);
       } else {
-        _refTooltipEl.appendChild(built);
+        _refTooltipEl.appendChild(v.el);
       }
     });
 

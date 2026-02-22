@@ -906,6 +906,10 @@ app.whenReady().then(() => {
 
   initAdblock();
 
+  // ── WebRTC IP leak prevention ──
+  // Prevent real IP from leaking via WebRTC ICE candidates
+  session.defaultSession.setWebRTCIPHandlingPolicy('disable_non_proxied_udp');
+
   // ── DoH (encrypted DNS) ──
   applyDoH(true, 'cloudflare');
   ipcMain.handle('doh-set-config', (_, enabled, provider) => applyDoH(!!enabled, provider || 'cloudflare'));

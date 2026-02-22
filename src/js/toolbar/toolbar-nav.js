@@ -132,7 +132,7 @@ export function _showHistoryDropdown(direction, buttonEl) {
     .on('mouseenter', function() { clearTimeout(_historyDropdownHideTimer); })
     .on('mouseleave', function() { _scheduleHideHistoryDropdown(); });
 
-  var dd = ddView.build();
+  var dd = ddView.el;
   document.body.appendChild(dd);
   _historyDropdownEl = dd;
   var rect = buttonEl.getBoundingClientRect();

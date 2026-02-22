@@ -6,6 +6,7 @@
 //   @signal   — AetherUI window.State() reactive signal; access via .value
 //   @runtime  — ephemeral in-memory state; plain var, not persisted
 //   @const    — set once at init, never changes
+import { State } from '/aether/ui/state.js';
 import Settings from '/js/core/core-settings.js';
 
 // ── Helper: bridge a local var to window via getter/setter ──
@@ -13,15 +14,15 @@ function _bridge(name, get, set) {
   Object.defineProperty(window, name, { get, set, configurable: true, enumerable: true });
 }
 
-// Window & tab state
+// Window & tab state  @signal (_browseActiveWindow drives tab UI)
 export const _browseWindows = []; // { id, name, tabs: [], activeTab, groups: [] }
-let _browseActiveWindow = null;
+export var _browseActiveWindow = State(null);
 let _browseNextWindowId = 1;
 let _browseNextTabId = 1;
 let _browseNextGroupId = 1;
 
-export function getBrowseActiveWindow() { return _browseActiveWindow; }
-export function setBrowseActiveWindow(v) { _browseActiveWindow = v; }
+export function getBrowseActiveWindow() { return _browseActiveWindow.value; }
+export function setBrowseActiveWindow(v) { _browseActiveWindow.value = v; }
 export function getBrowseNextWindowId() { return _browseNextWindowId; }
 export function setBrowseNextWindowId(v) { _browseNextWindowId = v; }
 export function getBrowseNextTabId() { return _browseNextTabId; }
@@ -30,7 +31,7 @@ export function getBrowseNextGroupId() { return _browseNextGroupId; }
 export function setBrowseNextGroupId(v) { _browseNextGroupId = v; }
 
 window._browseWindows = _browseWindows;
-_bridge('_browseActiveWindow', () => _browseActiveWindow, v => { _browseActiveWindow = v; });
+_bridge('_browseActiveWindow', () => _browseActiveWindow.value, v => { _browseActiveWindow.value = v; });
 _bridge('_browseNextWindowId', () => _browseNextWindowId, v => { _browseNextWindowId = v; });
 _bridge('_browseNextTabId', () => _browseNextTabId, v => { _browseNextTabId = v; });
 _bridge('_browseNextGroupId', () => _browseNextGroupId, v => { _browseNextGroupId = v; });
@@ -85,8 +86,8 @@ let _ccStream = null;
 let _ccSocket = null;
 let _ccAudioCtx = null;
 let _ccWorkletNode = null;
-let _ccActive = false;
-let _ccTabId = null;
+var _ccActive = State(false);  // @signal — drives caption overlay
+var _ccTabId = State(null);    // @signal
 export const _ccCaptionLines = [];
 let _ccFadeTimer = null;
 
@@ -98,10 +99,10 @@ export function getCcAudioCtx() { return _ccAudioCtx; }
 export function setCcAudioCtx(v) { _ccAudioCtx = v; }
 export function getCcWorkletNode() { return _ccWorkletNode; }
 export function setCcWorkletNode(v) { _ccWorkletNode = v; }
-export function getCcActive() { return _ccActive; }
-export function setCcActive(v) { _ccActive = v; }
-export function getCcTabId() { return _ccTabId; }
-export function setCcTabId(v) { _ccTabId = v; }
+export function getCcActive() { return _ccActive.value; }
+export function setCcActive(v) { _ccActive.value = v; }
+export function getCcTabId() { return _ccTabId.value; }
+export function setCcTabId(v) { _ccTabId.value = v; }
 export function getCcFadeTimer() { return _ccFadeTimer; }
 export function setCcFadeTimer(v) { _ccFadeTimer = v; }
 
@@ -109,8 +110,8 @@ _bridge('_ccStream', () => _ccStream, v => { _ccStream = v; });
 _bridge('_ccSocket', () => _ccSocket, v => { _ccSocket = v; });
 _bridge('_ccAudioCtx', () => _ccAudioCtx, v => { _ccAudioCtx = v; });
 _bridge('_ccWorkletNode', () => _ccWorkletNode, v => { _ccWorkletNode = v; });
-_bridge('_ccActive', () => _ccActive, v => { _ccActive = v; });
-_bridge('_ccTabId', () => _ccTabId, v => { _ccTabId = v; });
+_bridge('_ccActive', () => _ccActive.value, v => { _ccActive.value = v; });
+_bridge('_ccTabId', () => _ccTabId.value, v => { _ccTabId.value = v; });
 window._ccCaptionLines = _ccCaptionLines;
 _bridge('_ccFadeTimer', () => _ccFadeTimer, v => { _ccFadeTimer = v; });
 
@@ -149,7 +150,7 @@ _bridge('_browseNextPaneId', () => _browseNextPaneId, v => { _browseNextPaneId =
 // Convenience getters for current window's tabs (backward compatibility)
 // NOTE: read _browseActiveWindow via the local var (getter/setter bridge keeps it in sync)
 export function _getCurrentWindow() {
-  return _browseWindows.find(w => w.id === _browseActiveWindow);
+  return _browseWindows.find(w => w.id === _browseActiveWindow.value);
 }
 
 Object.defineProperty(window, '_browseTabs', {
@@ -206,7 +207,7 @@ export function _browseSaveTabsNow() {
   }));
   Settings.setJSON(_getBrowseStorageKey('browseWindows'), {
     windows: data,
-    activeWindow: _browseActiveWindow,
+    activeWindow: _browseActiveWindow.value,
     nextWindowId: _browseNextWindowId,
     nextTabId: _browseNextTabId,
     nextGroupId: _browseNextGroupId,

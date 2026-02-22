@@ -55,11 +55,11 @@ window._islandWaveformBars = _islandWaveformBars;
 window._islandAudioBars = _islandAudioBars;
 _bridge('_islandResizeTimer', () => _islandResizeTimer, v => { _islandResizeTimer = v; });
 
-// Island stack — collapsed when 3+ non-tabs pills active
-let _islandStackExpanded = false;
-export function getIslandStackExpanded() { return _islandStackExpanded; }
-export function setIslandStackExpanded(v) { _islandStackExpanded = v; }
-_bridge('_islandStackExpanded', () => _islandStackExpanded, v => { _islandStackExpanded = v; });
+// Island stack — collapsed when 3+ non-tabs pills active  @signal
+export var _islandStackExpanded = State(false);
+export function getIslandStackExpanded() { return _islandStackExpanded.value; }
+export function setIslandStackExpanded(v) { _islandStackExpanded.value = v; }
+_bridge('_islandStackExpanded', () => _islandStackExpanded.value, v => { _islandStackExpanded.value = v; });
 
 // ── Audio ──
 export const _audioUnifiedState = Store({ tab: null, tts: null, cc: null, mic: null });  // @store
@@ -89,19 +89,19 @@ _bridge('_spinnerInterval', () => _spinnerInterval, v => { _spinnerInterval = v;
 export const _sidebarToView = { 'sb-home': 'feed', 'sb-dashboard': 'browse', 'sb-browse': 'browse', 'sb-settings': 'settings', 'sb-neuralook': 'neuralook' };
 window._sidebarToView = _sidebarToView;
 
-// ── Sidebar navigation ──
-let _sidebarFocused = false;
-let _sidebarSelectedIndex = -1;
-let _sidebarNavClicking = false;
-export function getSidebarFocused() { return _sidebarFocused; }
-export function setSidebarFocused(v) { _sidebarFocused = v; }
-export function getSidebarSelectedIndex() { return _sidebarSelectedIndex; }
-export function setSidebarSelectedIndex(v) { _sidebarSelectedIndex = v; }
-export function getSidebarNavClicking() { return _sidebarNavClicking; }
-export function setSidebarNavClicking(v) { _sidebarNavClicking = v; }
-_bridge('_sidebarFocused', () => _sidebarFocused, v => { _sidebarFocused = v; });
-_bridge('_sidebarSelectedIndex', () => _sidebarSelectedIndex, v => { _sidebarSelectedIndex = v; });
-_bridge('_sidebarNavClicking', () => _sidebarNavClicking, v => { _sidebarNavClicking = v; });
+// ── Sidebar navigation ──  @signal
+export var _sidebarFocused = State(false);
+export var _sidebarSelectedIndex = State(-1);
+export var _sidebarNavClicking = State(false);
+export function getSidebarFocused() { return _sidebarFocused.value; }
+export function setSidebarFocused(v) { _sidebarFocused.value = v; }
+export function getSidebarSelectedIndex() { return _sidebarSelectedIndex.value; }
+export function setSidebarSelectedIndex(v) { _sidebarSelectedIndex.value = v; }
+export function getSidebarNavClicking() { return _sidebarNavClicking.value; }
+export function setSidebarNavClicking(v) { _sidebarNavClicking.value = v; }
+_bridge('_sidebarFocused', () => _sidebarFocused.value, v => { _sidebarFocused.value = v; });
+_bridge('_sidebarSelectedIndex', () => _sidebarSelectedIndex.value, v => { _sidebarSelectedIndex.value = v; });
+_bridge('_sidebarNavClicking', () => _sidebarNavClicking.value, v => { _sidebarNavClicking.value = v; });
 
 // ── Lazy images ──
 let _lazyImageObserver = null;
@@ -117,20 +117,20 @@ window.ARXIV_LOGO_INLINE = ARXIV_LOGO_INLINE;
 window.RSS_LOGO_INLINE = RSS_LOGO_INLINE;
 window.SUBSTACK_LOGO_INLINE = SUBSTACK_LOGO_INLINE;
 
-// ── Window manager ──
-let _wmMode = 'fullscreen';   // 'tiling' | 'fullscreen'
-let _wmFocusIndex = 0;
+// ── Window manager ──  @signal
+export var _wmMode = State('fullscreen');   // 'tiling' | 'fullscreen'
+export var _wmFocusIndex = State(0);
 export const _wmPreviews = {};          // { viewKey: 'data:image/png;base64,...' }
 export const _wmDefaultOrder = ['browse','feed','neuralook','dev','docs','settings'];
 let _wmLastNavTime = 0;
-export function getWmMode() { return _wmMode; }
-export function setWmMode(v) { _wmMode = v; }
-export function getWmFocusIndex() { return _wmFocusIndex; }
-export function setWmFocusIndex(v) { _wmFocusIndex = v; }
+export function getWmMode() { return _wmMode.value; }
+export function setWmMode(v) { _wmMode.value = v; }
+export function getWmFocusIndex() { return _wmFocusIndex.value; }
+export function setWmFocusIndex(v) { _wmFocusIndex.value = v; }
 export function getWmLastNavTime() { return _wmLastNavTime; }
 export function setWmLastNavTime(v) { _wmLastNavTime = v; }
-_bridge('_wmMode', () => _wmMode, v => { _wmMode = v; });
-_bridge('_wmFocusIndex', () => _wmFocusIndex, v => { _wmFocusIndex = v; });
+_bridge('_wmMode', () => _wmMode.value, v => { _wmMode.value = v; });
+_bridge('_wmFocusIndex', () => _wmFocusIndex.value, v => { _wmFocusIndex.value = v; });
 window._wmPreviews = _wmPreviews;
 window._wmDefaultOrder = _wmDefaultOrder;
 _bridge('_wmLastNavTime', () => _wmLastNavTime, v => { _wmLastNavTime = v; });
@@ -141,44 +141,44 @@ export function getUserSearchDebounce() { return _userSearchDebounce; }
 export function setUserSearchDebounce(v) { _userSearchDebounce = v; }
 _bridge('_userSearchDebounce', () => _userSearchDebounce, v => { _userSearchDebounce = v; });
 
-// ── Navigation ──
-let _prevRouteHash = ''; // the hash before the current route
-let _currentRouteHash = ''; // the current route hash
+// ── Navigation ──  @signal (route hashes drive nav UI)
+export var _prevRouteHash = State('');
+export var _currentRouteHash = State('');
 export const _navHistory = (() => { try { return JSON.parse(localStorage.getItem('_navHistory')) || []; } catch { return []; } })();
 export const _navForward = (() => { try { return JSON.parse(localStorage.getItem('_navForward')) || []; } catch { return []; } })();
 let _navNavigating = false; // guard to prevent push while navigating back/forward
-export function getPrevRouteHash() { return _prevRouteHash; }
-export function setPrevRouteHash(v) { _prevRouteHash = v; }
-export function getCurrentRouteHash() { return _currentRouteHash; }
-export function setCurrentRouteHash(v) { _currentRouteHash = v; }
+export function getPrevRouteHash() { return _prevRouteHash.value; }
+export function setPrevRouteHash(v) { _prevRouteHash.value = v; }
+export function getCurrentRouteHash() { return _currentRouteHash.value; }
+export function setCurrentRouteHash(v) { _currentRouteHash.value = v; }
 export function getNavNavigating() { return _navNavigating; }
 export function setNavNavigating(v) { _navNavigating = v; }
-_bridge('_prevRouteHash', () => _prevRouteHash, v => { _prevRouteHash = v; });
-_bridge('_currentRouteHash', () => _currentRouteHash, v => { _currentRouteHash = v; });
+_bridge('_prevRouteHash', () => _prevRouteHash.value, v => { _prevRouteHash.value = v; });
+_bridge('_currentRouteHash', () => _currentRouteHash.value, v => { _currentRouteHash.value = v; });
 window._navHistory = _navHistory;
 window._navForward = _navForward;
 _bridge('_navNavigating', () => _navNavigating, v => { _navNavigating = v; });
 
-// ── Guest mode ──
-let _guestMode = sessionStorage.getItem('_guestMode') === 'true';
-export function getGuestMode() { return _guestMode; }
-export function setGuestMode(v) { _guestMode = v; }
-_bridge('_guestMode', () => _guestMode, v => { _guestMode = v; });
+// ── Guest mode ──  @signal
+export var _guestMode = State(sessionStorage.getItem('_guestMode') === 'true');
+export function getGuestMode() { return _guestMode.value; }
+export function setGuestMode(v) { _guestMode.value = v; }
+_bridge('_guestMode', () => _guestMode.value, v => { _guestMode.value = v; });
 
-// ── Auth ──
-let _authToken = localStorage.getItem('authToken') || null;
-let _authUserInfo = JSON.parse(localStorage.getItem('authUserInfo') || 'null');
-export function getAuthToken() { return _authToken; }
-export function setAuthToken(v) { _authToken = v; }
-export function getAuthUserInfo() { return _authUserInfo; }
-export function setAuthUserInfo(v) { _authUserInfo = v; }
-_bridge('_authToken', () => _authToken, v => { _authToken = v; });
-_bridge('_authUserInfo', () => _authUserInfo, v => { _authUserInfo = v; });
+// ── Auth ──  @signal
+export var _authToken = State(localStorage.getItem('authToken') || null);
+export var _authUserInfo = State(JSON.parse(localStorage.getItem('authUserInfo') || 'null'));
+export function getAuthToken() { return _authToken.value; }
+export function setAuthToken(v) { _authToken.value = v; }
+export function getAuthUserInfo() { return _authUserInfo.value; }
+export function setAuthUserInfo(v) { _authUserInfo.value = v; }
+_bridge('_authToken', () => _authToken.value, v => { _authToken.value = v; });
+_bridge('_authUserInfo', () => _authUserInfo.value, v => { _authUserInfo.value = v; });
 
 // Auth headers helper (used by api.js)
 export function _authHeaders() {
   const h = { 'Content-Type': 'application/json' };
-  if (_authToken) h['Authorization'] = 'Bearer ' + _authToken;
+  if (_authToken.value) h['Authorization'] = 'Bearer ' + _authToken.value;
   return h;
 }
 window._authHeaders = _authHeaders;

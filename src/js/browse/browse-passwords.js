@@ -85,9 +85,9 @@ export function _pwShowAutofillPicker(tab, frame, entries) {
   if (!container) return;
 
   const pillBtns = entries.map(function(e) {
-    const btn = new window.View('button');
-    btn.el.textContent = e.username || 'No username';
-    btn.cssText('padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.78rem;cursor:pointer;');
+    const btn = new window.View('button')
+      .text(e.username || 'No username')
+      .cssText('padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.78rem;cursor:pointer;');
     btn.onTap(function() {
       _pwDoAutofill(_browseTabs.find(function(t) { return t.id === tab.id; }), document.querySelector('#browse-content webview'), e.id);
       _pwHideSavePrompt();
@@ -96,14 +96,14 @@ export function _pwShowAutofillPicker(tab, frame, entries) {
   });
 
   const label = window.Text('Choose account:').font('callout').foreground('tertiary');
-  const dismissBtn = new window.View('button');
-  dismissBtn.el.textContent = 'Dismiss';
-  dismissBtn.cssText('margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;');
+  const dismissBtn = new window.View('button')
+    .text('Dismiss')
+    .cssText('margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;');
   dismissBtn.onTap(function() { _pwHideSavePrompt(); });
 
   const row = window.HStack([label].concat(pillBtns, [dismissBtn])).spacing(2).alignment('center');
   row.className('browse-pw-save-bar').id('browse-pw-bar');
-  container.prepend(row.build());
+  container.prepend(row.el);
 }
 
 export function _pwShowSavePrompt(tab, data) {
@@ -128,35 +128,34 @@ export function _pwShowSavePrompt(tab, data) {
 
   const promptText = window.RawHTML('<span style="font-size:0.8rem;color:var(--nr-text-primary);">Save password for <strong>' + escapeHtml(displayUser) + '</strong>?</span>');
 
-  const saveBtn = new window.View('button');
-  saveBtn.el.textContent = 'Save';
-  saveBtn.cssText('padding:3px 12px;border-radius:4px;border:none;background:var(--nr-accent);color:#fff;font-size:0.78rem;cursor:pointer;font-weight:500;');
+  const saveBtn = new window.View('button')
+    .text('Save')
+    .cssText('padding:3px 12px;border-radius:4px;border:none;background:var(--nr-accent);color:#fff;font-size:0.78rem;cursor:pointer;font-weight:500;');
   saveBtn.onTap(function() {
     window.electronAPI.pwSave({ origin: data.origin, username: data.username, password: password }).catch(function(e) { logger.error('[passwords] Save failed:', e); });
     _pwHideSavePrompt(true);
   });
 
-  const neverBtn = new window.View('button');
-  neverBtn.el.textContent = 'Never';
-  neverBtn.cssText('padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-secondary);font-size:0.78rem;cursor:pointer;');
+  const neverBtn = new window.View('button')
+    .text('Never')
+    .cssText('padding:3px 10px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-secondary);font-size:0.78rem;cursor:pointer;');
   neverBtn.onTap(function() {
     window._pwSaveDismissed.set(key, true);
     _pwHideSavePrompt(true);
   });
 
-  const closeBtn = new window.View('button');
-  closeBtn.el.textContent = '\u00d7';
-  closeBtn.cssText('margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;');
+  const closeBtn = new window.View('button')
+    .text('\u00d7')
+    .cssText('margin-left:auto;padding:2px 8px;border-radius:4px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-quaternary);font-size:0.72rem;cursor:pointer;');
   closeBtn.onTap(function() { _pwHideSavePrompt(true); });
 
   const row = window.HStack([lockIcon, promptText, saveBtn, neverBtn, closeBtn]).spacing(2).alignment('center');
   row.className('browse-pw-save-bar').id('browse-pw-bar');
-  const bar = row.build();
-  container.prepend(bar);
+  container.prepend(row.el);
 
   // Auto-dismiss after 15s
   const timer = setTimeout(function() { _pwHideSavePrompt(true); }, 15000);
-  bar._pwDismissTimer = timer;
+  row.el._pwDismissTimer = timer;
 }
 
 export function _pwHideSavePrompt(clearPending) {
@@ -509,8 +508,8 @@ export function _browseUpdateBarForTab(tab) {
         .className('browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none text-dimmer cursor-pointer hover:text-primary hover:bg-hover flex items-center justify-center')
         .attr('title', 'Cite');
       citeBtnView.onTap(function() { if (typeof showCitePopup === 'function') showCitePopup(); });
-      citeBtn = citeBtnView.build();
-      AetherUI.mount(window.RawHTML(icon('at', {size: 16})), citeBtn);
+      citeBtnView.add(window.RawHTML(icon('at', {size: 16})));
+      citeBtn = citeBtnView.el;
       if (moreBtn) moreBtn.parentElement.insertBefore(citeBtn, moreBtn);
     }
     citeBtn.style.display = '';
@@ -521,7 +520,7 @@ export function _browseUpdateBarForTab(tab) {
         .className('browse-bar-draggable shrink-0 w-7 h-7 rounded-md bg-transparent border-none cursor-pointer hover:bg-hover flex items-center justify-center')
         .attr('title', 'Save');
       bookmarkBtnView.onTap(function() { if (typeof togglePaperViewBookmark === 'function') togglePaperViewBookmark(); });
-      bookmarkBtn = bookmarkBtnView.build();
+      bookmarkBtn = bookmarkBtnView.el;
       if (moreBtn) moreBtn.parentElement.insertBefore(bookmarkBtn, citeBtn);
     }
     const isSaved = typeof isPostSaved === 'function' && isPostSaved(tab.paper.link);
@@ -618,8 +617,8 @@ export function _browseUpdateNewTabPage(tab) {
       });
 
       // + button (dropdown menu)
-      const addBtn = new window.View('button').className('ntp-add-btn').attr('type', 'button').attr('title', 'More options');
-      addBtn.el.innerHTML = plusSvg;
+      const addBtn = new window.View('button').className('ntp-add-btn').attr('type', 'button').attr('title', 'More options')
+        .add(window.RawHTML(plusSvg));
       addBtn.on('mousedown', function(e) { e.preventDefault(); _browseUrlCancelHide(); });
       Menu(addBtn, function() {
         return [
@@ -641,18 +640,18 @@ export function _browseUpdateNewTabPage(tab) {
       });
 
       // Mic button
-      const micBtn = new window.View('button').className('ntp-mic-btn').attr('type', 'button').attr('title', 'Voice input');
-      micBtn.el.innerHTML = micSvg;
+      const micBtn = new window.View('button').className('ntp-mic-btn').attr('type', 'button').attr('title', 'Voice input')
+        .add(window.RawHTML(micSvg));
       micBtn.on('mousedown', function(e) { e.preventDefault(); });
       micBtn.onTap(function() { if (typeof _pillMicClick === 'function') _pillMicClick(); });
 
       // Submit button
-      const submitBtn = new window.View('button').className('ntp-action-submit').attr('title', 'Search').attr('type', 'submit');
-      submitBtn.el.innerHTML = submitSvg;
+      const submitBtn = new window.View('button').className('ntp-action-submit').attr('title', 'Search').attr('type', 'submit')
+        .add(window.RawHTML(submitSvg));
 
       // Chat history button
-      const chatHistBtn = new window.View('button').className('ntp-chat-history-btn').attr('type', 'button').attr('title', 'All chats');
-      chatHistBtn.el.innerHTML = icon('chatHistory', { size: 18 });
+      const chatHistBtn = new window.View('button').className('ntp-chat-history-btn').attr('type', 'button').attr('title', 'All chats')
+        .add(window.RawHTML(icon('chatHistory', { size: 18 })));
       chatHistBtn.on('mousedown', function(e) { e.preventDefault(); });
       chatHistBtn.onTap(function() {
         if (typeof openChatPage === 'function') openChatPage();

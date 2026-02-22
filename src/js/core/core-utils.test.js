@@ -343,3 +343,171 @@ describe('Round-trip HTML Encoding', () => {
     expect(decoded).toBe(original);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// KaTeX macro generation
+// ═══════════════════════════════════════════════════════════════
+
+describe('KaTeX Macro Generation', () => {
+  // Re-implement KATEX_MACROS from core-utils.js
+  const KATEX_MACROS = (() => {
+    const m = {};
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    for (const L of letters) {
+      m['\\g' + L] = '{\\mathcal{' + L + '}}';
+      m['\\s' + L] = '{\\mathbb{' + L + '}}';
+    }
+    m['\\R'] = '\\mathbb{R}';
+    m['\\E'] = '\\mathbb{E}';
+    m['\\Ls'] = '\\mathcal{L}';
+    m['\\train'] = '\\mathcal{D}';
+    m['\\valid'] = '\\mathcal{D_{\\mathrm{valid}}}';
+    m['\\test'] = '\\mathcal{D_{\\mathrm{test}}}';
+    return m;
+  })();
+
+  it('generates mathcal macros for all 26 letters', () => {
+    for (const L of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
+      expect(KATEX_MACROS['\\g' + L]).toBe('{\\mathcal{' + L + '}}');
+    }
+  });
+
+  it('generates mathbb macros for all 26 letters', () => {
+    for (const L of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
+      expect(KATEX_MACROS['\\s' + L]).toBe('{\\mathbb{' + L + '}}');
+    }
+  });
+
+  it('includes special macros', () => {
+    expect(KATEX_MACROS['\\R']).toBe('\\mathbb{R}');
+    expect(KATEX_MACROS['\\E']).toBe('\\mathbb{E}');
+    expect(KATEX_MACROS['\\Ls']).toBe('\\mathcal{L}');
+    expect(KATEX_MACROS['\\train']).toBe('\\mathcal{D}');
+    expect(KATEX_MACROS['\\valid']).toContain('valid');
+    expect(KATEX_MACROS['\\test']).toContain('test');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// renderTitle without KaTeX
+// ═══════════════════════════════════════════════════════════════
+
+describe('renderTitle without KaTeX', () => {
+  // Re-implement renderTitle with no global katex
+  function renderTitle(rawTitle) {
+    const decoded = decodeHtml(rawTitle);
+    let html = escapeHtml(decoded);
+    // When katex is not available, $ signs remain
+    return html;
+  }
+
+  it('decodes HTML entities', () => {
+    expect(renderTitle('Hello &amp; World')).toBe('Hello &amp; World');
+  });
+
+  it('escapes HTML tags in plain text', () => {
+    // decodeHtml('<b>bold</b>') returns '<b>bold</b>', then escapeHtml re-escapes
+    // But for raw '<script>', decodeHtml parses it as HTML, stripping tags
+    // So renderTitle with literal angle brackets decodes then re-escapes
+    expect(renderTitle('A &lt;b&gt; title')).toBe('A &lt;b&gt; title');
+  });
+
+  it('preserves dollar signs when katex unavailable', () => {
+    const result = renderTitle('Loss is $L = 0.5$');
+    expect(result).toContain('$');
+    expect(result).toContain('L = 0.5');
+  });
+
+  it('handles empty title', () => {
+    // decodeHtml('') returns ''
+    expect(renderTitle('')).toBe('');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Paper rating lifecycle
+// ═══════════════════════════════════════════════════════════════
+
+describe('Paper Rating Lifecycle', () => {
+  // Re-implement rating logic
+  function getPaperRating(ratings, link) {
+    const key = _normalizeRatingKey(link);
+    return ratings[key] || ratings[link] || 0;
+  }
+
+  function setPaperRating(ratings, link, rating) {
+    const key = _normalizeRatingKey(link);
+    if (key !== link && ratings[link]) delete ratings[link];
+    if (rating <= 0) delete ratings[key]; else ratings[key] = rating;
+  }
+
+  it('returns 0 for unrated paper', () => {
+    expect(getPaperRating({}, 'https://example.com/paper')).toBe(0);
+  });
+
+  it('returns rating for rated paper', () => {
+    const ratings = { 'https://example.com/paper': 4 };
+    expect(getPaperRating(ratings, 'https://example.com/paper')).toBe(4);
+  });
+
+  it('normalizes arXiv URL for lookup', () => {
+    const ratings = { 'https://arxiv.org/abs/1706.03762': 5 };
+    // Lookup via PDF URL should find the same rating
+    expect(getPaperRating(ratings, 'https://arxiv.org/pdf/1706.03762')).toBe(5);
+  });
+
+  it('sets rating and cleans up old key', () => {
+    const ratings = { 'http://arxiv.org/abs/1706.03762': 3 };
+    setPaperRating(ratings, 'http://arxiv.org/abs/1706.03762', 5);
+    // Old key (http) should be cleaned, new key (https normalized) should exist
+    expect(ratings['https://arxiv.org/abs/1706.03762']).toBe(5);
+    expect(ratings['http://arxiv.org/abs/1706.03762']).toBeUndefined();
+  });
+
+  it('deletes rating when set to 0', () => {
+    const ratings = { 'https://example.com/paper': 4 };
+    setPaperRating(ratings, 'https://example.com/paper', 0);
+    expect(ratings['https://example.com/paper']).toBeUndefined();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// renderTitle with mock KaTeX
+// ═══════════════════════════════════════════════════════════════
+
+describe('renderTitle with mock KaTeX', () => {
+  function renderTitleWithKatex(rawTitle, katexMock) {
+    const decoded = decodeHtml(rawTitle);
+    let html = escapeHtml(decoded);
+    if (katexMock) {
+      html = html.replace(/\$\$([^$]+?)\$\$/g, (_, tex) => {
+        try { return katexMock.renderToString(tex, { displayMode: true }); } catch { return _; }
+      });
+      html = html.replace(/\$([^$]+?)\$/g, (_, tex) => {
+        try { return katexMock.renderToString(tex, { displayMode: false }); } catch { return _; }
+      });
+    }
+    return html;
+  }
+
+  it('renders inline math with mock KaTeX', () => {
+    const katex = { renderToString: vi.fn((tex) => `<span class="katex">${tex}</span>`) };
+    const result = renderTitleWithKatex('Loss is $L = 0.5$', katex);
+    expect(katex.renderToString).toHaveBeenCalledWith('L = 0.5', expect.objectContaining({ displayMode: false }));
+    expect(result).toContain('<span class="katex">');
+  });
+
+  it('renders display math with mock KaTeX', () => {
+    const katex = { renderToString: vi.fn((tex) => `<div class="katex-display">${tex}</div>`) };
+    const result = renderTitleWithKatex('Equation: $$E = mc^2$$', katex);
+    expect(katex.renderToString).toHaveBeenCalledWith('E = mc^2', expect.objectContaining({ displayMode: true }));
+    expect(result).toContain('<div class="katex-display">');
+  });
+
+  it('falls back to raw text on KaTeX error', () => {
+    const katex = { renderToString: vi.fn(() => { throw new Error('parse error'); }) };
+    const result = renderTitleWithKatex('Bad math $\\invalid$', katex);
+    // Should contain the original escaped text, not crash
+    expect(result).toContain('\\invalid');
+  });
+});

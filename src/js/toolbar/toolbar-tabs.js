@@ -150,10 +150,10 @@ export function _browseStartRenameGroup(groupId, nameEl) {
   if (!group) return;
   var inputView = new window.View('input').className('browse-tab-group-rename')
     .padding('0', '3px').cornerRadius('xs')
+    .attr('type', 'text')
     .styles({ width: '60px', fontSize: '0.65rem', fontWeight: '600', background: 'transparent', border: '1px solid var(--nr-border-default)', color: 'inherit', outline: 'none' });
-  inputView.el.type = 'text';
   inputView.el.value = group.name;
-  var input = inputView.build();
+  var input = inputView.el;
   nameEl.replaceWith(input);
   input.focus();
   input.select();

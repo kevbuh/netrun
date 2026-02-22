@@ -184,7 +184,7 @@ export function _islandRenderPill(a) {
         favImg.on('error', function() {
           var globe = R(icon('globe', { size: 16, strokeWidth: '1.5', class: _cls }));
           globe.attr('data-island-tab', t.id);
-          this.replaceWith(globe.build());
+          this.replaceWith(globe.el);
         });
         if (t.active) {
           var wrap = new V('span').className('island-strip-fav-wrap').attr('data-island-tab', t.id);
