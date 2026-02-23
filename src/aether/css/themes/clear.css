@@ -244,6 +244,21 @@
   color: #fff;
 }
 
+/* Dropdowns — match aether panel frosted glass */
+[data-theme="clear"] .ai-unified-dropdown,
+[data-theme="clear"] #browse-more-menu > *,
+[data-theme="clear"] #pill-more-menu-dropdown > * {
+  background: rgba(235, 233, 231, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  color: var(--nr-text-primary);
+}
+
 /* Clear theme: NTP search box should be translucent, not opaque */
 [data-theme="clear"] .ntp-search-box {
   background: rgba(255, 255, 255, 0.12);
@@ -276,9 +291,9 @@
     --nr-tint:         rgba(255, 255, 255, 0.10);
     --nr-tint-strong:  rgba(255, 255, 255, 0.15);
 
-    --nr-bg-overlay: rgba(30, 30, 30, 0.92);
+    --nr-bg-overlay: rgba(30, 30, 30, 0.85);
     --nr-bg-hover:   rgba(255, 255, 255, 0.10);
-    --aether-dropdown-bg: rgba(20, 20, 20, 0.92);
+    --aether-dropdown-bg: rgba(30, 30, 30, 0.85);
 
     --nr-border-default: rgba(255, 255, 255, 0.1);
     --nr-border-strong:  rgba(255, 255, 255, 0.15);
@@ -366,6 +381,21 @@
   [data-theme="clear"] .pill-island[data-island-id="annotate"].island-has-items.island-tray-open {
     background: rgba(30, 30, 30, 0.97) !important;
     border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  /* Dropdowns — match aether panel frosted glass */
+  [data-theme="clear"] .ai-unified-dropdown,
+  [data-theme="clear"] #browse-more-menu > *,
+  [data-theme="clear"] #pill-more-menu-dropdown > * {
+    background: rgba(30, 30, 30, 0.85) !important;
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.3),
+      0 2px 8px rgba(0, 0, 0, 0.15),
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px) saturate(1.8);
+    -webkit-backdrop-filter: blur(20px) saturate(1.8);
+    color: rgba(255, 255, 255, 0.9);
   }
 
   /* Aether panel — dark frosted glass */

@@ -6,7 +6,7 @@ import { apiPost } from '/js/api.js';
 import { icon } from '/js/core/icons.js';
 import { _updateAudioUnified } from '/js/core/core-audio.js';
 import { islandUpdate } from '/js/core/core-ui.js';
-import { _ttsChunkText, _ttsFetchAndQueue, _ttsStopAll, _ttsUpdateBtnIcon } from '/js/panel-tts.js';
+import { _ttsChunkText, _ttsFetchAndQueue, _ttsStopAll, _ttsPauseResume, _ttsUpdateBtnIcon } from '/js/panel-tts.js';
 import { registerActions } from '/js/core/core-actions.js';
 
 // ── Insight state ──
@@ -524,11 +524,11 @@ export function _showAnnotationTooltip(data, frame, pinned) {
   const labelEl = window.HStack(labelChildren).className('aether-ann-label')
     .styles({color: data.labelColor || '#4caf50', paddingRight: '36px'});
 
-  const explEl = new window.View('div').className('aether-ann-explanation').text(data.explanation);
+  const explEl = new window.View('div').className('aether-ann-explanation').foreground('var(--aether-text)').text(data.explanation);
 
   const tipChildren = [rateRow, labelEl, explEl];
   if (data.conflictsWith) {
-    tipChildren.push(new window.View('div').className('aether-ann-conflict').text('Conflicts with: ' + data.conflictsWith));
+    tipChildren.push(new window.View('div').className('aether-ann-conflict').foreground('var(--aether-text-secondary)').text('Conflicts with: ' + data.conflictsWith));
   }
 
   AetherUI.mount(window.VStack(tipChildren), tip);
