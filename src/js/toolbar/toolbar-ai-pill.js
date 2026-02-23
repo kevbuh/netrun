@@ -314,9 +314,6 @@ function _renderDropdown(dropdown, state) {
     children.push(_dropdownItem(icon('microphone', { size: 14 }), 'Voice input', function() { _closeDropdown(); if (typeof window._pillMicClick === 'function') window._pillMicClick(); }));
   }
 
-  // Read aloud
-  children.push(_dropdownItem(icon('speaker', { size: 14 }), 'Read aloud', function() { _closeDropdown(); if (typeof window._readPageAloud === 'function') window._readPageAloud(); }));
-
   // 4. Page Info — shown in expanded island, not here
 
   // 5. Activity section — pulse events

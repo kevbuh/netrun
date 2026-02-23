@@ -4,8 +4,10 @@ import Settings from '/js/core/core-settings.js';
 import { icon } from '/js/core/icons.js';
 import { moreMenuOpen } from '/js/toolbar/toolbar-state.js';
 import { browseSaveToReadingList, browseShare } from '/js/browse/browse-features.js';
+import { browseSelectWindow, browseCloseWindow } from '/js/browse/browse-windows.js';
 import { isPostSaved } from '/js/feed.js';
 import { agentGetAccessibleDOM } from '/js/browse/browse-agent.js';
+import { toggleAnnotations, _annotationsEnabled } from '/js/browse/browse-annotations.js';
 
 // ── Browse More Menu (three dots) ──
 
@@ -159,8 +161,8 @@ export function toggleBrowseMoreMenu() {
 
     var _cssOff = Settings.get('autoRemoveCSS') === 'true';
     items.push(_mBtn(icon('code', {size: 16, strokeWidth: '1.5'}), 'Auto Remove CSS', function() { if (typeof window.toggleAutoRemoveCSS === 'function') window.toggleAutoRemoveCSS(); _closeMenu(); }, { disabled: !hasTab, color: _cssOff ? 'var(--nr-accent)' : undefined, trailing: window.Text(_cssOff ? 'On' : 'Off').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') }));
-    var _annEnabled = tab && typeof window._annotationsEnabled !== 'undefined' && window._annotationsEnabled.get(tab.id);
-    items.push(_mBtn(icon('annotate', {size: 16}), _annEnabled ? 'Remove Annotations' : 'Annotate Page', function() { if (typeof window.toggleAnnotations === 'function') window.toggleAnnotations(); _closeMenu(); }, { disabled: !hasTab, color: _annEnabled ? 'var(--nr-accent)' : undefined }));
+    var _annEnabled = tab && _annotationsEnabled.get(tab.id);
+    items.push(_mBtn(icon('annotate', {size: 16}), _annEnabled ? 'Remove Annotations' : 'Annotate Page', function() { toggleAnnotations(); _closeMenu(); }, { disabled: !hasTab, color: _annEnabled ? 'var(--nr-accent)' : undefined }));
     var _nerdOn = tab && typeof window._nerdModeEnabled !== 'undefined' && window._nerdModeEnabled.get(tab.id);
     var isPdfForNerd = hasTab && (tab.pdfUrl || tab.localPath || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
     items.push(_mBtn(icon('research', {size: 16}), 'Nerd Mode', function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); _closeMenu(); }, { disabled: !isPdfForNerd, color: _nerdOn ? 'var(--nr-accent)' : undefined, trailing: _nerdOn ? window.Text('On').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') : undefined }));
@@ -184,6 +186,33 @@ export function toggleBrowseMoreMenu() {
         items.push(btn);
       }
     });
+  }
+
+  // Windows section
+  if (typeof window._browseWindows !== 'undefined' && window._browseWindows.length > 0) {
+    items.push(new window.View('div').styles({borderTop:'1px solid var(--nr-border-default, var(--aether-border))'}).margin('2px', '0'));
+    items.push(new window.View('div').add(
+      window.HStack([
+        window.Text('WINDOWS').font('caption2').foreground('quaternary').styles({letterSpacing:'0.05em'}),
+        window.Text(window._browseWindows.length + ' open').font('caption2').foreground('quaternary').styles({marginLeft:'auto'})
+      ])
+    ).styles({padding:'4px 12px 2px'}));
+
+    for (var wi = 0; wi < window._browseWindows.length; wi++) {
+      (function(w) {
+        var isActiveWin = w.id === window._browseActiveWindow;
+        var countTrail = window.Text(String(w.tabs.length)).styles({marginLeft:'auto'}).font('caption2').foreground('quaternary');
+        var trailing;
+        if (!isActiveWin && window._browseWindows.length > 1) {
+          var closeSpan = window.Text('\u00d7').styles({marginLeft:'4px', opacity:'0.4', cursor:'pointer'});
+          closeSpan.onTap(function(e) { e.stopPropagation(); browseCloseWindow(w.id); toggleBrowseMoreMenu(); toggleBrowseMoreMenu(); });
+          trailing = window.HStack([countTrail, closeSpan]);
+        } else {
+          trailing = countTrail;
+        }
+        items.push(_mBtn(icon('window', {size: 16, strokeWidth: '1.5'}), w.name, function() { browseSelectWindow(w.id); _closeMenu(); }, { color: isActiveWin ? 'var(--nr-accent)' : undefined, trailing: trailing }));
+      })(window._browseWindows[wi]);
+    }
   }
 
   // Fixed items
@@ -227,6 +256,7 @@ export function toggleBrowseMoreMenu() {
     : (document.getElementById('pill-browse-more') || document.getElementById('browse-more-btn'))) || document.getElementById('browse-more-btn');
   var btnRect = anchorBtn.getBoundingClientRect();
 
+  var adaptiveBg = getComputedStyle(document.documentElement).getPropertyValue('--aether-dropdown-bg').trim();
   var menuPanel = window.VStack(items)
     .position('fixed')
     .background('overlay')
@@ -236,6 +266,7 @@ export function toggleBrowseMoreMenu() {
     .zIndex('max')
     .padding('4px', '0')
     .frame({ minWidth: 180 });
+  if (adaptiveBg) menuPanel.styles({ background: adaptiveBg });
 
   if (isIsland) {
     menuPanel.styles({right: Math.round(window.innerWidth - btnRect.right) + 'px'});
