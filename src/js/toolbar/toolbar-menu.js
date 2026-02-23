@@ -8,6 +8,7 @@ import { browseSelectWindow, browseCloseWindow } from '/js/browse/browse-windows
 import { isPostSaved } from '/js/feed.js';
 import { agentGetAccessibleDOM } from '/js/browse/browse-agent.js';
 import { toggleAnnotations, _annotationsEnabled } from '/js/browse/browse-annotations.js';
+import { _renderSitePermissionsDropdown } from '/js/urlbar/urlbar-permissions.js';
 
 // ── Browse More Menu (three dots) ──
 
@@ -309,7 +310,7 @@ export function _togglePermissionsInMenu(e) {
   var open = panel.style.display !== 'none';
   panel.style.display = open ? 'none' : '';
   if (arrow) arrow.style.transform = open ? '' : 'rotate(90deg)';
-  if (!open && typeof window._renderSitePermissionsDropdown === 'function') window._renderSitePermissionsDropdown(panel);
+  if (!open) _renderSitePermissionsDropdown(panel);
 }
 
 // ── Convert submenu ──

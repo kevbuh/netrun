@@ -301,7 +301,7 @@ export function _renderSitePermissionsDropdown(container) {
     const btnGroup = HStack().cssText('display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--aether-border);');
     for (const val of ['ask', 'allow', 'block']) {
       const active = current === val;
-      const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--aether-dropdown-bg))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--aether-dropdown-bg))' : 'color-mix(in srgb, var(--nr-accent) 20%, var(--aether-dropdown-bg))') : 'var(--aether-dropdown-bg)';
+      const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--aether-dropdown-bg, var(--nr-bg-overlay)))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--aether-dropdown-bg, var(--nr-bg-overlay)))' : 'color-mix(in srgb, var(--nr-accent) 20%, var(--aether-dropdown-bg, var(--nr-bg-overlay)))') : 'var(--aether-dropdown-bg, var(--nr-bg-overlay))';
       const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--nr-accent)') : 'var(--aether-text-dimmer)';
       const btn = Button(val).cssText('padding:2px 7px;font-size:0.65rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;');
       btn.onTap(function() {
@@ -328,7 +328,7 @@ export function _renderSitePermissionsDropdown(container) {
 
   // Reset button
   const resetWrap = new View('div').cssText('padding:4px 8px 6px;border-top:1px solid var(--aether-border);margin-top:2px;');
-  const resetBtn = Button('Reset all to default').cssText('width:100%;padding:4px;border-radius:6px;border:1px solid var(--aether-border);background:var(--aether-dropdown-bg);color:var(--aether-text-dim);font-size:0.72rem;cursor:pointer;');
+  const resetBtn = Button('Reset all to default').cssText('width:100%;padding:4px;border-radius:6px;border:1px solid var(--aether-border);background:var(--aether-dropdown-bg, var(--nr-bg-overlay));color:var(--aether-text-dim);font-size:0.72rem;cursor:pointer;');
   resetBtn.onTap(function() {
     _clearSitePermissions(domain);
     delete _sessionPermissions[domain];
