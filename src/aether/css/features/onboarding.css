@@ -141,9 +141,9 @@
       border-color: var(--nr-text-secondary, #999);
     }
     .wizard-cursor-option.selected {
-      border-color: var(--nr-accent, var(--accent, #b4451a));
-      background: color-mix(in srgb, var(--nr-accent, var(--accent)) 8%, transparent);
-      box-shadow: 0 0 12px color-mix(in srgb, var(--nr-accent, var(--accent)) 20%, transparent);
+      border-color: var(--nr-accent);
+      background: color-mix(in srgb, var(--nr-accent) 8%, transparent);
+      box-shadow: 0 0 12px color-mix(in srgb, var(--nr-accent) 20%, transparent);
     }
     .wizard-cursor-preview {
       width: 48px;

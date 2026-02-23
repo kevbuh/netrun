@@ -103,8 +103,6 @@
   margin-bottom: 12px;
 }
 
-/* ─── Legacy card compat (hover removed) ──────────────── */
-
 .nr-settings-card {
   transition: border-color 0.15s ease;
 }

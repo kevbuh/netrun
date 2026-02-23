@@ -165,9 +165,9 @@ export function _showAnnotateOfferPill(tab) {
   }
 }
 
-// ── Toggle insight (clear/restore) ──
+// ── Toggle annotations (clear/restore) ──
 
-export function toggleInsight() {
+export function toggleAnnotations() {
   const tab = _browseTabs.find(t => t.id === _browseActiveTab);
   if (!tab || tab.blank) return;
   const enabled = !_annotationsEnabled.get(tab.id);
@@ -184,9 +184,6 @@ export function toggleInsight() {
     _showAnnotateOfferPill(tab);
   }
 }
-
-// Keep old name as alias for browse-pill.js compatibility
-export function toggleAnnotations() { toggleInsight(); }
 
 // ── Manual re-analyze ──
 

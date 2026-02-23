@@ -59,8 +59,8 @@ function _setFeedServerStatus(online) {
   if (!wrap || !dot || !label) return;
   wrap.style.display = 'flex';
   dot.style.background = online ? '#22c55e' : '#ef4444';
-  label.textContent = online ? 'Server' : 'IPC';
-  wrap.title = online ? 'Feed server online \u2014 localhost:8400' : 'Feed server offline \u2014 using IPC fallback';
+  label.textContent = online ? 'Server' : 'Offline';
+  wrap.title = online ? 'Feed server online \u2014 localhost:8400' : 'Feed server offline';
 }
 
 // ── Auto-refresh timer ──
@@ -975,7 +975,7 @@ export async function addCustomFeed() {
   }
   const feeds = getCustomFeeds();
   if (feeds.some(f => f.url === url)) return;
-  // Try to fetch the feed title — feedserver proxy first, IPC fallback
+  // Try to fetch the feed title via feedserver proxy
   let name = url;
   try { name = new URL(url).hostname.replace(/^www\./, '').replace(/^api\./, ''); } catch (e) { /* fire-and-forget */ }
   try {

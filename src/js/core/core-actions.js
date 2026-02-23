@@ -73,7 +73,7 @@ export function installEventDelegation() {
 // Install delegation immediately — modules execute after DOM parsing
 installEventDelegation();
 
-// ── Backward compatibility: expose on window ──
+// ── Expose on window ──
 window.registerAction = registerAction;
 window.registerActions = registerActions;
 window.installEventDelegation = installEventDelegation;

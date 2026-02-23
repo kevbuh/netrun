@@ -488,30 +488,15 @@ export function _renderPopupChat(popup, final) {
       }).catch(() => { btn.classList.remove('doc-msg-speaking'); _clearAudioUnified('tts'); });
     },
     onRedo() {
-      if (window._panelSession) {
-        window._panelSession.redo().then(text => {
-          if (text) {
-            const input = popup.querySelector('.doc-ask-inline-input');
-            if (input) input.value = text;
-            window._popupChatMessages = window._panelSession.messages;
-            if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
-            _sendPopupChatMessage(popup, popup._capturedText || '');
-          }
-        });
-      } else {
-        // Legacy fallback
-        let lastUserIdx = -1;
-        for (let i = window._popupChatMessages.length - 1; i >= 0; i--) {
-          if (window._popupChatMessages[i].role === 'user') { lastUserIdx = i; break; }
+      window._panelSession.redo().then(text => {
+        if (text) {
+          const input = popup.querySelector('.doc-ask-inline-input');
+          if (input) input.value = text;
+          window._popupChatMessages = window._panelSession.messages;
+          if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
+          _sendPopupChatMessage(popup, popup._capturedText || '');
         }
-        if (lastUserIdx < 0) return;
-        const lastUserMsg = window._popupChatMessages[lastUserIdx];
-        window._popupChatMessages = window._popupChatMessages.slice(0, lastUserIdx);
-        if (window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; }
-        const input = popup.querySelector('.doc-ask-inline-input');
-        if (input) input.value = lastUserMsg._display || lastUserMsg.content;
-        _sendPopupChatMessage(popup, popup._capturedText || '');
-      }
+      });
     },
     onEdit(msgIdx) {
       if (window._panelSession) {

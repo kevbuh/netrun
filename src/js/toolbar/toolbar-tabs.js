@@ -13,6 +13,7 @@ export function _getActiveTabBar() {
 // ── Full tab bar render ──
 
 export function _browseRenderTabs() {
+  notifyTabsChanged();
   _islandSyncTabs();
   _pillSyncUrl();
 }

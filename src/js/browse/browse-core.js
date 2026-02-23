@@ -58,14 +58,6 @@ export function _browseRestoreTabs() {
             win.tabs.push(tab);
             continue;
           }
-          // Help page tab (legacy — migrate to netrun hub)
-          if (saved._helpPage) {
-            const tab = { id: saved.id, url: 'netrun://', title: 'Netrun', favicon: '', el: null, blank: false, _netrunPage: true, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [], origin: saved.origin || null };
-            if (saved.pinned) tab.pinned = true;
-            if (saved.groupId != null) tab.groupId = saved.groupId;
-            win.tabs.push(tab);
-            continue;
-          }
           // Netrun hub page tab
           if (saved._netrunPage) {
             const tab = { id: saved.id, url: 'netrun://', title: 'Netrun', favicon: '', el: null, blank: false, _netrunPage: true, lastVisited: saved.lastVisited || 0, backStack: saved.backStack || [], forwardStack: saved.forwardStack || [], origin: saved.origin || null };

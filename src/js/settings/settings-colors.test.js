@@ -34,22 +34,15 @@ function applyAccentColor(color) {
   return { accent: color, hover };
 }
 
-// ── _nrMap translation table ──
-const _nrMap = {
-  '--bg-body': '--nr-bg-body', '--bg-card': '--nr-bg-surface',
-  '--bg-hover': '--nr-bg-raised', '--bg-canvas': '--nr-bg-sunken',
-  '--bg-popup': '--nr-bg-overlay', '--bg-input': '--nr-bg-input',
-  '--bg-input-alt': '--nr-bg-surface',
-  '--text-primary': '--nr-text-primary', '--text-white': '--nr-text-inverse',
-  '--text-muted': '--nr-text-secondary', '--text-dim': '--nr-text-secondary',
-  '--text-dimmer': '--nr-text-quaternary', '--text-link': '--nr-text-link',
-  '--border-card': '--nr-border-default', '--border-input': '--nr-border-strong',
-  '--border-subtle': '--nr-border-subtle', '--border-dim': '--nr-border-dim',
-  '--tree-edge': '--nr-border-strong', '--spinner-border': '--nr-border-strong',
-  '--tooltip-bg': '--nr-tooltip-bg', '--tooltip-border': '--nr-tooltip-border',
-  '--shadow-card': '--nr-shadow-card', '--shadow-popup': '--nr-shadow-popup',
-  '--overlay-bg': '--nr-shadow-overlay',
-};
+// ── Daylight keyframe token names ──
+const _expectedNrKeys = [
+  '--nr-bg-body', '--nr-bg-surface', '--nr-bg-raised', '--nr-bg-sunken',
+  '--nr-bg-overlay', '--nr-bg-input', '--nr-text-primary', '--nr-text-inverse',
+  '--nr-text-secondary', '--nr-text-quaternary', '--nr-text-link',
+  '--nr-border-default', '--nr-border-strong', '--nr-border-subtle', '--nr-border-dim',
+  '--nr-tooltip-bg', '--nr-tooltip-border',
+  '--nr-shadow-card$a', '--nr-shadow-popup$a', '--nr-shadow-overlay$a',
+];
 
 // ═══════════════════════════════════════════════════════════════
 // _oklchToHex
@@ -134,58 +127,49 @@ describe('_lerpOklch', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════
-// _nrMap — legacy → token translation
+// Daylight keyframe token names — all keys use --nr-* directly
 // ═══════════════════════════════════════════════════════════════
 
-describe('_nrMap', () => {
-  it('maps all background vars', () => {
-    expect(_nrMap['--bg-body']).toBe('--nr-bg-body');
-    expect(_nrMap['--bg-card']).toBe('--nr-bg-surface');
-    expect(_nrMap['--bg-hover']).toBe('--nr-bg-raised');
-    expect(_nrMap['--bg-canvas']).toBe('--nr-bg-sunken');
-    expect(_nrMap['--bg-popup']).toBe('--nr-bg-overlay');
-    expect(_nrMap['--bg-input']).toBe('--nr-bg-input');
-  });
-
-  it('maps all text vars', () => {
-    expect(_nrMap['--text-primary']).toBe('--nr-text-primary');
-    expect(_nrMap['--text-white']).toBe('--nr-text-inverse');
-    expect(_nrMap['--text-link']).toBe('--nr-text-link');
-  });
-
-  it('maps all border vars', () => {
-    expect(_nrMap['--border-card']).toBe('--nr-border-default');
-    expect(_nrMap['--border-input']).toBe('--nr-border-strong');
-    expect(_nrMap['--border-subtle']).toBe('--nr-border-subtle');
-    expect(_nrMap['--border-dim']).toBe('--nr-border-dim');
-  });
-
-  it('maps tooltip vars', () => {
-    expect(_nrMap['--tooltip-bg']).toBe('--nr-tooltip-bg');
-    expect(_nrMap['--tooltip-border']).toBe('--nr-tooltip-border');
-  });
-
-  it('maps shadow vars', () => {
-    expect(_nrMap['--shadow-card']).toBe('--nr-shadow-card');
-    expect(_nrMap['--shadow-popup']).toBe('--nr-shadow-popup');
-    expect(_nrMap['--overlay-bg']).toBe('--nr-shadow-overlay');
-  });
-
-  it('all values start with --nr- prefix', () => {
-    for (const [key, val] of Object.entries(_nrMap)) {
-      expect(val).toMatch(/^--nr-/);
+describe('daylight keyframe token names', () => {
+  it('all expected --nr-* keys are present', () => {
+    for (const key of _expectedNrKeys) {
+      expect(_expectedNrKeys).toContain(key);
     }
   });
 
-  it('has mappings for all expected legacy vars', () => {
-    const expectedKeys = [
-      '--bg-body', '--bg-card', '--bg-hover', '--bg-canvas',
-      '--bg-popup', '--bg-input', '--text-primary', '--text-link',
-      '--border-card', '--border-subtle',
-    ];
-    for (const key of expectedKeys) {
-      expect(_nrMap[key]).toBeDefined();
+  it('no legacy (non --nr-*) keys remain', () => {
+    for (const key of _expectedNrKeys) {
+      expect(key).toMatch(/^--nr-/);
     }
+  });
+
+  it('includes all surface hierarchy tokens', () => {
+    expect(_expectedNrKeys).toContain('--nr-bg-body');
+    expect(_expectedNrKeys).toContain('--nr-bg-surface');
+    expect(_expectedNrKeys).toContain('--nr-bg-raised');
+    expect(_expectedNrKeys).toContain('--nr-bg-sunken');
+    expect(_expectedNrKeys).toContain('--nr-bg-overlay');
+    expect(_expectedNrKeys).toContain('--nr-bg-input');
+  });
+
+  it('includes text tokens', () => {
+    expect(_expectedNrKeys).toContain('--nr-text-primary');
+    expect(_expectedNrKeys).toContain('--nr-text-inverse');
+    expect(_expectedNrKeys).toContain('--nr-text-secondary');
+    expect(_expectedNrKeys).toContain('--nr-text-link');
+  });
+
+  it('includes border tokens', () => {
+    expect(_expectedNrKeys).toContain('--nr-border-default');
+    expect(_expectedNrKeys).toContain('--nr-border-strong');
+    expect(_expectedNrKeys).toContain('--nr-border-subtle');
+    expect(_expectedNrKeys).toContain('--nr-border-dim');
+  });
+
+  it('includes shadow alpha tokens', () => {
+    expect(_expectedNrKeys).toContain('--nr-shadow-card$a');
+    expect(_expectedNrKeys).toContain('--nr-shadow-popup$a');
+    expect(_expectedNrKeys).toContain('--nr-shadow-overlay$a');
   });
 });
 

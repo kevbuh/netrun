@@ -5,11 +5,10 @@ import { escapeHtml, escapeAttr, truncate } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { browseNewTab } from '/js/browse/browse-windows.js';
 
-// ── Helper: open URL via browseNewTab or fallback ──
+// ── Helper: open URL via browseNewTab ──
 function _openUrl(url, opts) {
   window.location.hash = '#browse';
-  if (typeof browseNewTab === 'function') browseNewTab(url);
-  else window.open(url, '_blank');
+  browseNewTab(url);
   if (opts && opts.onNavigate) opts.onNavigate();
 }
 
@@ -111,13 +110,6 @@ function renderMessage(msg, index, total, isFinal, opts) {
   return view;
 }
 
-// ── Backward compat: renderMessageHTML returns HTML string (for gradual migration) ──
-function renderMessageHTML(msg, index, total, isFinal) {
-  var view = renderMessage(msg, index, total, isFinal, {});
-  // Build the view and return its outerHTML
-  var el = view.el;
-  return el.outerHTML;
-}
 
 function _renderUserMessage(msg, index, opts) {
   var children = [];
@@ -616,7 +608,6 @@ function attachMessageHandlers(container, opts) {
 const ChatRender = {
   renderMessage,
   renderMessages,
-  renderMessageHTML,
   renderCtxPills,
   renderLatexInElement,
   attachMessageHandlers,

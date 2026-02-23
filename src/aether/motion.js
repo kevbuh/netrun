@@ -598,8 +598,6 @@ var _AetherMotion = {
   pulse: _pulse
 };
 
-// Expose as internal Aether module + backward-compat alias
-window._AetherMotion = _AetherMotion;
 window.Motion = _AetherMotion;
 
 export { _AetherMotion };

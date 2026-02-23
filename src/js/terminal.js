@@ -721,7 +721,7 @@ export async function _connectTerminalIpc(t, cwd) {
     }
 
     const sessionId = result.sessionId;
-    t.ws = sessionId; // Store session ID in the ws field for compatibility
+    t.ws = sessionId;
 
     // Listen for output from main process
     const onOutput = (_event, id, data) => {

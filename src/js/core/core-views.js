@@ -532,15 +532,6 @@ export async function openResearch() {
   if (searchInput) setTimeout(() => searchInput.focus(), 50);
 }
 
-// Legacy functions for compatibility
-export function openSearch() {
-  openResearch();
-}
-
-export function openDashboard() {
-  openBrowse('netrun://');
-}
-
 export async function openDevStats() {
   hideAllViews();
   const view = await ensureView('dev-stats-view');

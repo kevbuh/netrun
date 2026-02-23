@@ -45,10 +45,6 @@ export function goToAudioTab() {
 }
 
 export function _updateAudioIndicator() {
-  // Remove legacy floating indicator if it exists
-  const legacy = document.getElementById('audio-indicator');
-  if (legacy) legacy.remove();
-
   // CC button + pill — always update regardless of early returns
   _updateCCButton();
 

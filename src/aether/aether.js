@@ -91,9 +91,4 @@ var Aether = {
 
 window.Aether = Aether;
 
-// Backward compat: ensure window.Motion points to the motion module
-if (!window.Motion && motion) {
-  window.Motion = motion;
-}
-
 export { Aether };

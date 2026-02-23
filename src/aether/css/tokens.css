@@ -1,6 +1,5 @@
 /* Aether Design Tokens — CSS Custom Properties
-   --nr-* prefix. Dark theme defaults.
-   During migration, both old vars and new nr-* vars coexist. */
+   --nr-* prefix. Dark theme defaults. */
 
 :root {
   /* ── Background: Semantic Surface Hierarchy ── */

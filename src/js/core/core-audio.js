@@ -7,7 +7,8 @@ import { islandRemove } from '/js/core/core-ui.js';
 import { NOISE_PRESETS, setRainNoiseType, startRain, stopRain, getRainNoiseType, getRainOn } from '/js/core/core-sounds.js';
 import { _browseUrlHideHistory } from '/js/browse-urlbar.js';
 import { _paperState } from '/js/browse/browse-paper.js';
-import { _pillMicClick, _pillMicRecorder, _showTabsInPillDropdown, _syncIslandPillPosition } from '/js/browse/browse-island.js';
+import { _showTabsInPillDropdown } from '/js/toolbar/toolbar-url.js';
+import { _syncIslandPillPosition } from '/js/toolbar/toolbar-island.js';
 import { _readPageAloud, scrollToAnnotation } from '/js/browse/browse-annotations.js';
 import { _ttsStopAll } from '/js/panel-tts.js';
 import { browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
@@ -35,7 +36,7 @@ function _islandInitGuard() {
 
 export function _getAudioState() {
   const { tab, tts, cc, mic } = window._audioUnifiedState.value;
-  const micRecording = typeof _pillMicRecorder !== 'undefined' && !!_pillMicRecorder;
+  const micRecording = !!window._pillMicRecorder;
   const rainActive = getRainOn();
   const rainNoiseType = getRainNoiseType();
   return { tab, tts, cc, mic, micRecording, rainActive, rainNoiseType };

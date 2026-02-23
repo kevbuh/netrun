@@ -96,6 +96,5 @@ export function _loadCustomAnnotationCategories() {
 }
 
 // ── Dynamic Island — delegated to toolbar-activities.js ──
-// Re-export for backwards compatibility with files that import from core-ui.js
 export { islandUpdate, islandRemove, showAchievement, _getPulseState,
          _setIslandActivity, _clearIslandActivity } from '/js/toolbar/toolbar-activities.js';

@@ -72,7 +72,6 @@ window._browseShowGroupContextMenu = _browseShowGroupContextMenu;
 
 // Island
 window._syncIslandPillPosition = _syncIslandPillPosition;
-window._applyBrowseTabLayout = function() {}; // No-op — reactive
 window._expandIsland = _expandIsland;
 window._collapseIsland = _collapseIsland;
 window._togglePillMenu = _togglePillMenu;
