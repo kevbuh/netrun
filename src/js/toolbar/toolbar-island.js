@@ -368,7 +368,7 @@ function _renderIslandActions() {
   function _infoRow(label, value) {
     return H([T(label).styles(_labelStyle), T(value).styles(_infoStyle).flex(1).truncate()]).styles({ gap: '8px', marginTop: '2px' });
   }
-  if (meta.serverIP) rows.push(_infoRow('Server IP', meta.serverIP));
+  if (meta.ip) rows.push(_infoRow('Server IP', meta.ip));
   if (meta.location) rows.push(_infoRow('Location', meta.location));
   if (meta.org) rows.push(_infoRow('Org', meta.org));
   if (meta.wordCount > 0) {

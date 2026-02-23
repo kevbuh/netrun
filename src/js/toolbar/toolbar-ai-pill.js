@@ -35,20 +35,16 @@ window._renderUnifiedPill = _scheduleRender;
 function _resolveIndicatorState() {
   var audioState = typeof window._getAudioState === 'function' ? window._getAudioState() : {};
   var pulseState = typeof window._getPulseState === 'function' ? window._getPulseState() : {};
-  var pageInfoState = typeof window._getPageInfoState === 'function' ? window._getPageInfoState() : {};
-
   var micRecording = audioState.micRecording;
   var aiActive = _isAIActive();
   var audioPlaying = !!(audioState.tab || audioState.tts);
   var pulseFlashing = pulseState.isFlashing;
-  var hasPageInfo = !!(pageInfoState.label || pageInfoState.badges);
 
   var primary = 'idle';
   if (micRecording) primary = 'mic';
   else if (aiActive) primary = 'ai';
   else if (audioPlaying) primary = 'audio';
   else if (pulseFlashing) primary = 'pulse';
-  else if (hasPageInfo) primary = 'pageinfo';
 
   var secondary = [];
   if (primary !== 'mic' && micRecording) secondary.push('mic');
@@ -56,7 +52,7 @@ function _resolveIndicatorState() {
   if (primary !== 'audio' && audioPlaying) secondary.push('audio');
   if (primary !== 'pulse' && pulseFlashing) secondary.push('pulse');
 
-  return { primary: primary, secondary: secondary, audioState: audioState, pulseState: pulseState, pageInfoState: pageInfoState };
+  return { primary: primary, secondary: secondary, audioState: audioState, pulseState: pulseState };
 }
 
 function _isAIActive() {
@@ -148,9 +144,8 @@ function _renderIndicator(container, primary, pulseState) {
       break;
     }
     case 'pageinfo':
-      view = new View('span').className('ai-unified-dot ai-unified-dot-idle nr-breathe');
-      container.classList.add('ai-unified-idle');
-      break;
+      // fallthrough to idle
+
     default:
       view = RawHTML(icon('sparkles', { size: 14 }));
       container.classList.add('ai-unified-idle');
@@ -201,7 +196,6 @@ function _renderSecondaryDots(container, secondary) {
 function _renderDropdown(dropdown, state) {
   var audioState = state.audioState;
   var pulseState = state.pulseState;
-  var pageInfoState = state.pageInfoState;
   var children = [];
 
   // 1. Ask AI
@@ -343,32 +337,7 @@ function _renderDropdown(dropdown, state) {
   // Read aloud
   children.push(_dropdownItem(icon('speaker', { size: 14 }), 'Read aloud', function() { _closeDropdown(); if (typeof window._readPageAloud === 'function') window._readPageAloud(); }));
 
-  // 4. Page Info section
-  if (pageInfoState.label || pageInfoState.badges || (pageInfoState.meta && Object.keys(pageInfoState.meta).length)) {
-    children.push(_divider());
-    children.push(_sectionLabel('Page Info'));
-
-    var meta = pageInfoState.meta || {};
-    if (meta.published) {
-      try {
-        var pd = new Date(meta.published);
-        children.push(_infoRow('Published', pd.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })));
-      } catch(e) { children.push(_infoRow('Published', meta.published)); }
-    }
-    if (meta.author) children.push(_infoRow('Author', meta.author));
-    if (meta.ip) children.push(_infoRow('Server IP', meta.ip));
-    if (meta.location) children.push(_infoRow('Location', meta.location));
-    if (meta.org) children.push(_infoRow('Org', meta.org));
-    if (meta.wordCount) {
-      var mins = Math.max(1, Math.round(meta.wordCount / 238));
-      children.push(_infoRow('Reading time', mins + ' min (' + meta.wordCount.toLocaleString() + ' words)'));
-    }
-    if (pageInfoState.badges) children.push(_infoRow('Position', pageInfoState.badges));
-    if (meta.description) {
-      var desc = meta.description.length > 150 ? meta.description.slice(0, 147) + '\u2026' : meta.description;
-      children.push(Text(escapeHtml(desc)).className('ai-unified-info-desc'));
-    }
-  }
+  // 4. Page Info — shown in expanded island, not here
 
   // 5. Activity section — pulse events
   var recent = pulseState.recent || [];
