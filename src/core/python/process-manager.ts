@@ -1,5 +1,12 @@
 import { spawn, type ChildProcess } from 'child_process';
+import fs from 'fs';
 import path from 'path';
+
+function resolveVenvPython(): string {
+  const venvPython = path.resolve(__dirname, '..', '..', 'venv', 'bin', 'python3');
+  if (fs.existsSync(venvPython)) return venvPython;
+  return 'python3';
+}
 
 /**
  * Manages Python child processes for ML/scientific tasks.
@@ -10,7 +17,7 @@ export class PythonProcessManager {
   private pythonPath: string;
 
   constructor(pythonPath?: string) {
-    this.pythonPath = pythonPath ?? 'python3';
+    this.pythonPath = pythonPath ?? resolveVenvPython();
   }
 
   /**
@@ -72,7 +79,15 @@ export class PythonProcessManager {
         try {
           resolve(JSON.parse(stdout));
         } catch {
-          // Return raw string if not JSON
+          // stdout may contain non-JSON lines (e.g. warnings) before the JSON — find the last JSON line
+          const lines = stdout.trim().split('\n');
+          for (let i = lines.length - 1; i >= 0; i--) {
+            const line = lines[i].trim();
+            if (line.startsWith('{') || line.startsWith('[')) {
+              try { resolve(JSON.parse(line)); return; } catch {}
+            }
+          }
+          // Return raw string if no JSON found
           resolve(stdout.trim());
         }
       });

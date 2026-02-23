@@ -6,6 +6,7 @@ import { _clearAudioUnified, _updateAudioUnified } from '/js/core/core-audio.js'
 // ── TTS Waveform Visualization ──
 export function _ttsStartWaveform(audio) {
   if (!window._ttsAudioCtx) window._ttsAudioCtx = new AudioContext();
+  if (window._ttsAudioCtx.state === 'suspended') window._ttsAudioCtx.resume();
   const src = window._ttsAudioCtx.createMediaElementSource(audio);
   window._ttsAnalyser = window._ttsAudioCtx.createAnalyser();
   window._ttsAnalyser.fftSize = 64;
@@ -377,7 +378,6 @@ export function _ttsPlayNext() {
   const playing = total - window._ttsQueue.length - (window._ttsChunkIdx < total ? (total - window._ttsChunkIdx) : 0);
   window._ttsPlayingChunkIdx = playing - 1;
   _updateAudioUnified('tts', { label: 'Reading ' + playing + '/' + total, detail: _ttsTimeDetail() || 'Reading page aloud' });
-  _ttsStartWaveform(audio);
   // Sentence-level highlighting: split chunk into sentences, update on timeupdate
   const chunkText = (window._ttsPlayingChunkIdx >= 0 && window._ttsPlayingChunkIdx < window._ttsChunks.length) ? window._ttsChunks[window._ttsPlayingChunkIdx] : null;
   const sentences = chunkText ? _ttsSplitSentences(chunkText) : [];
@@ -437,7 +437,10 @@ export function _ttsPlayNext() {
     _ttsStopWaveform();
     _ttsStopAll();
   };
-  audio.play();
+  audio.play().catch(function(e) {
+    window._ttsAudio = null;
+    _ttsStopAll();
+  });
 }
 
 export async function _ttsFetchAndQueue() {
@@ -448,7 +451,8 @@ export async function _ttsFetchAndQueue() {
     try {
       const audioPath = await _ttsFetchChunk(window._ttsChunks[idx]);
       if (window._ttsStopped) return;
-      const url = 'file://' + audioPath;
+      const filename = audioPath.split('/').pop();
+      const url = '/tts-audio/' + filename;
       window._ttsQueue.push(url);
       window._ttsRemainingDurations.push(5);
       // Start playing as soon as first chunk is ready

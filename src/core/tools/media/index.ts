@@ -41,7 +41,7 @@ export const mediaTts: Tool<z.infer<typeof ttsParams>, { audioPath: string }> = 
 import sys, json, tempfile
 try:
     from kokoro import KPipeline
-    pipe = KPipeline(lang_code='a')
+    pipe = KPipeline(lang_code='a', repo_id='hexgrad/Kokoro-82M')
     voice = sys.argv[2] if len(sys.argv) > 2 else 'af_heart'
     generator = pipe(sys.argv[1], voice=voice)
     samples = []

@@ -33,6 +33,21 @@ function startStaticServer(port, staticDir, dataDir) {
         return;
       }
 
+      // Serve TTS audio from temp directory
+      if (urlPath.startsWith('/tts-audio/')) {
+        const filename = path.basename(urlPath);
+        const tmpDir = require('os').tmpdir();
+        const filePath = path.join(tmpDir, filename);
+        if (fs.existsSync(filePath) && filePath.startsWith(tmpDir)) {
+          res.writeHead(200, { 'Content-Type': 'audio/wav' });
+          fs.createReadStream(filePath).pipe(res);
+          return;
+        }
+        res.writeHead(404);
+        res.end('Not found');
+        return;
+      }
+
       // Serve uploaded files
       if (urlPath.startsWith('/uploads/')) {
         const filename = path.basename(urlPath);
