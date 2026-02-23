@@ -75,6 +75,7 @@ export function _expandIsland() {
   _moveElementsIntoIsland();
   _renderIslandTabPill();
   _renderIslandActions();
+  _renderIslandAIColumn();
   _pillSyncUrl();
   _collapseIslandCleanup();
   _islandExpandedOutsideHandler = function(e) {
@@ -166,7 +167,7 @@ function _renderIslandTabPill() {
   var rows = win.tabs.map(function(t) {
     var isActive = t.id === activeTabId;
     var title = t.title || 'New Tab';
-    var truncTitle = title.length > 20 ? title.slice(0, 18) + '\u2026' : title;
+    var truncTitle = title;
     var favView = t.favicon
       ? window.Image(t.favicon).frame({ width: 16, height: 16 }).cornerRadius('xs').styles({ flexShrink: '0' })
           .on('error', function() { this.style.display = 'none'; })
@@ -306,6 +307,17 @@ function _renderIslandAIFull() {
   }
 }
 
+// ── Render AI column (right column in expanded island) ──
+
+function _renderIslandAIColumn() {
+  var rightCol = document.getElementById('pill-island-right-col');
+  if (!rightCol) return;
+  AetherUI.mount(new View('div'), rightCol);
+  if (typeof window.renderAIPanelContent === 'function') {
+    window.renderAIPanelContent(rightCol);
+  }
+}
+
 // ── Render action icons ──
 
 function _renderIslandActions() {
@@ -366,7 +378,7 @@ function _renderIslandActions() {
   var _infoStyle = { fontSize: '0.68rem', color: 'var(--nr-text-tertiary)' };
   var _labelStyle = { fontSize: '0.68rem', color: 'var(--nr-text-quaternary)', minWidth: '70px', flexShrink: '0' };
   function _infoRow(label, value) {
-    return H([T(label).styles(_labelStyle), T(value).styles(_infoStyle).flex(1).truncate()]).styles({ gap: '8px', marginTop: '2px' });
+    return H([T(label).styles(_labelStyle), T(value).styles(_infoStyle)]).styles({ gap: '8px', marginTop: '2px', whiteSpace: 'nowrap' });
   }
   if (meta.ip) rows.push(_infoRow('Server IP', meta.ip));
   if (meta.location) rows.push(_infoRow('Location', meta.location));

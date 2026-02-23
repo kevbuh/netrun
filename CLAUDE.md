@@ -20,8 +20,14 @@ npm test                  # All: Electron + Vitest + pytest
 npm run test:unit         # Vitest (frontend/core unit tests)
 npm run test:electron     # Node --test (Electron tests)
 npm run test:backend      # pytest (Python backend)
+npm run test:backend:unit # pytest unit tests only
+npm run test:backend:integration  # pytest integration tests
 npm run test:quick        # Unit + backend unit only (no integration)
 npm run test:watch        # Vitest watch mode
+npm run test:watch:backend  # pytest-watch
+npm run test:ui           # Vitest UI
+npm run test:coverage     # Vitest with coverage
+npm run test:coverage:backend  # pytest with HTML coverage
 ```
 
 Single test examples:
@@ -38,12 +44,30 @@ npm run lint              # ESLint (JS) + Ruff (Python)
 npm run lint:fix          # Auto-fix both
 ```
 
+## Utility Scripts
+
+```bash
+npm run dead-code         # Dead code detection (scripts/dead-code.js)
+npm run function-registry # Function registry analysis
+npm run validate-load-order  # Check JS load order
+npm run suggest-reorder   # Suggest JS reorder
+```
+
 ## Architecture
 
 **Electron desktop app** with three layers:
 
-1. **Main process** (`electron/main.js`, `electron/preload.js`) — window management, IPC routing, static file server on port 8000, adblock engine, keyboard shortcuts, webview management, privacy hardening (WebRTC leak prevention, permission handler, favicon proxy, encrypted API key storage via `safeStorage`)
-2. **Renderer** (`src/index.html` + `src/js/`) — SPA loaded from localhost:8000. Four main views: Dashboard, Feed, Chat, Browse. Plain browser JS (not ES modules in `src/js/`, ES modules in `src/aether/ui/`)
+1. **Main process** (`electron/`) — window management, IPC routing, and supporting modules:
+   - `main.js` — app lifecycle, window creation, IPC routing, keyboard shortcuts
+   - `preload.js` — context bridge exposing `window.electronAPI`
+   - `adblock.js` — ad blocking engine
+   - `favicon.js` — favicon proxy and cache
+   - `privacy.js` — privacy hardening (HTTPS-only upgrades, tracking parameter stripping, cookie blocking, DNS-over-HTTPS via Cloudflare, WebRTC leak prevention, per-tab privacy stats)
+   - `static-server.js` — localhost:8000 static file server
+   - `youtube-adstrip.js` — YouTube ad stripping via protocol-level response interception
+   - `youtube-content-script.js` — injected content script for YouTube
+   - `password-store.js` — encrypted local password storage for the browser
+2. **Renderer** (`src/index.html` + `src/js/`) — SPA loaded from localhost:8000. Views: Dashboard, Feed, Chat, Browse, Settings, Research, Inbox, Docs, Neuralook, Terminal (opens as browse tab), and more. Plain browser JS (not ES modules in `src/js/`, ES modules in `src/aether/ui/`)
 3. **Core backend** (`src/core/` → compiled to `dist/main/`) — TypeScript, registered at app startup via `src/core/init.ts`. Provides tool registry, agent runtime, LLM providers, database, IPC handlers
 
 ### IPC Communication
@@ -54,11 +78,36 @@ window.electronAPI.toolExecute(name, input, context)
 window.electronAPI.dbQuery('query-name', ...args)
 ```
 
-IPC handlers live in `src/core/ipc/` (one file per subsystem). Tool execution goes through `src/core/tools/registry.ts`.
+IPC handlers live in `src/core/ipc/` (one file per subsystem):
+- `tools-providers.ts` — tool execution and provider management
+- `agent.ts` — agent runtime IPC
+- `db-queries.ts` — database query routing
+- `browse.ts` — browse/S2 cache IPC
+- `feeds.ts` — arXiv, HN, Polymarket feed handlers
+- `context.ts` — context system + page insight pipeline (`db:context-*`, `insight:*`)
+- `chat.ts` — chat thread/message persistence, doc-chat streaming, vault-chat events
+- `system.ts` — system-level operations
+- `settings.ts` — settings management
+- `dev.ts` — dev tools
+- `pdf-convert.ts` — PDF operations via Python subprocess
+- `neuralook.ts` — eye-tracking / gaze estimation
+- `terminal.ts` — multi-tab terminal via node-pty
+- `bookmark-import.ts` — browser bookmark detection and import
+
+Tool execution goes through `src/core/tools/registry.ts`. Tool middleware in `src/core/tools/middleware/` (logging, timeout).
+
+### Core Backend Subsystems
+
+- **LLM Providers** (`src/core/providers/`) — Ollama (local) and OpenRouter (cloud). Registry at `registry.ts`. IPC: `providers:list`, `providers:models`, `providers:set-default`, `providers:get-default`, `providers:set-api-key`, `providers:get-api-key`
+- **Context System** (`src/core/context/`) — markdown-based context file manager with compaction. Files: `manager.ts`, `compaction.ts`, `intake.ts`, `selector.ts`. IPC: `db:context-read`, `db:context-list`, `db:context-update`, `db:context-compact`, `db:context-delete`, `db:context-create`, `db:context-ingest`, `db:context-topic-index`
+- **Page Insight / Ambient** (`src/core/ambient/`) — background AI annotation pipeline for browsed pages. Files: `pipeline.ts`, `annotation-prompt.ts`, `intake.ts`. IPC: `insight:page-loaded`, `insight:analyze`, `insight:set-enabled`. Events: `insight:result`, `insight:partial`
+- **Terminal** (`src/core/terminal-manager.ts`) — multi-tab terminal sessions via node-pty. IPC: `terminal:start`, `terminal:input`, `terminal:resize`, `terminal:kill`. Events: `terminal:output`, `terminal:exit`
+- **Neuralook** (`src/core/neuralook-manager.ts`) — eye-tracking / gaze estimation via Python CNN model. IPC: `db:neuralook-*` (save-calibration, train, predict, etc.)
+- **Captions** (`src/core/captions-manager.ts`, `src/core/parakeet-manager.ts`) — real-time speech transcription via Python Parakeet TDT subprocess. IPC: `captions:transcribe`
 
 ### Feed Server
 
-Standalone Go microservice at `feedserver/` — sole feed data path (replaces old IPC feed handlers):
+Standalone Go microservice at `feedserver/` — sole feed data path:
 - Packages: `internal/api`, `internal/fetch`, `internal/model`, `internal/rank`, `internal/store`
 - Default port: `8400` (configurable via `--port` flag or `FEEDSERVER_PORT` env var)
 - Own SQLite DB at `feedserver/feedserver.db`
@@ -78,11 +127,13 @@ Custom design system with CSS tokens + JS framework:
 
 SolidJS-style reactive UI: `State(val)`, `Computed(fn)`, `Effect(fn)`, `Store(obj)`, `batch(fn)`
 
-Views: `VStack`, `HStack`, `ZStack`, `Text`, `Button`, `TextField`, `Toggle`, `Slider`, `Picker`, `ForEach`, `List`, `Section`, `Grid`, `ScrollView`, `Label`, `Kbd`, `RawHTML`, `Checkbox`, `RadioGroup`, `Textarea`, `ProgressBar`, `Pill`, `FormField`, `SearchField`, `Spinner`, `Disclosure`, `Badge`, `SegmentedControl`, `Skeleton`, `Group`, `Show`, `EmptyState`, `VirtualList`, `Toast`
+Views: `VStack`, `HStack`, `ZStack`, `Text`, `Button`, `TextField`, `Toggle`, `Slider`, `Picker`, `Stepper`, `ForEach`, `List`, `Section`, `Grid`, `ScrollView`, `Label`, `Kbd`, `RawHTML`, `Checkbox`, `RadioGroup`, `Textarea`, `ProgressBar`, `Pill`, `FormField`, `SearchField`, `Spinner`, `Disclosure`, `Badge`, `SegmentedControl`, `Skeleton`, `Group`, `Show`, `EmptyState`, `VirtualList`, `Toast`, `Spacer`, `Divider`, `Link`, `Image`, `Icon`, `TabView`, `Switch`
 
-Additional state primitives: `untrack(fn)`, `Context`
+Additional state primitives: `untrack(fn)`, `Context`, `Binding(source, transform, inverse)`
 
 Overlays: `Sheet`, `Alert`, `Popover`, `Menu`
+
+Component API: `Component(name, renderFn)`, `defineComponent(name, fn)`, `getComponent(name)`, `listComponents()`
 
 Modifiers resolve to tokens: `.padding(4)` → `var(--nr-space-4)`, `.background('surface')` → `var(--nr-bg-surface)`
 
@@ -117,9 +168,9 @@ Settings navigation is reactive: `_settingsSection` is a `State()` signal drivin
 - Persistent magnification (no snap-back), centered on cursor, max 5x zoom
 - PDF viewer has its own pinch-to-zoom (scale range 0.5–4.0), magnify system skips it
 
-**Page Info Pill** (`src/js/browse/browse-pageinfo.js`, `src/js/toolbar/toolbar-ai-pill.js`):
+**Toolbar Island** (`src/js/toolbar/toolbar-island.js`):
+- Center island capsule consolidating AI pill, mic, audio, pulse, and page info states with priority ordering
 - `_getPageInfoState()` → `{ label, badges, meta }` — relative age, reading time, scroll %, token count
-- Unified AI pill consolidates mic/AI/audio/pulse/pageinfo states with priority ordering
 
 **PDF Conversion** — IPC subsystem for PDF operations via Python subprocess:
 - `src/core/ipc/pdf-convert.ts` + `src/core/python/pdf-convert.py`
@@ -128,11 +179,12 @@ Settings navigation is reactive: `_settingsSection` is a `State()` signal drivin
 
 ### Feeds
 
-Now served by the Go feed server (see Feed Server section above). Legacy IPC feed handlers have been removed.
+Now served by the Go feed server (see Feed Server section above). Some specialized feed IPC remains in `src/core/ipc/feeds.ts` (arXiv, HN, Polymarket handlers).
 
 ### Tool & Agent System
 
 - Tools registered in `src/core/tools/` by category (browser, feed, calendar, search, content, system, media, social, context)
+- Tool middleware in `src/core/tools/middleware/` (logging, timeout)
 - Agents in `src/core/agents/builtin/` — research, chat, browser agents
 - Agent runtime in `src/core/agents/runtime.ts`
 
