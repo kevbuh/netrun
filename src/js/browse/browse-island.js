@@ -8,7 +8,7 @@ export { _pillSyncUrl, _pillUrlKeydown, _showTabsInPillDropdown,
          _BANGS, _browseResolveUrl, browseNavigate } from '/js/toolbar/toolbar-url.js';
 
 export { browseBack, browseForward, browseReload, browseZoom, _browseApplyZoom,
-         _browseTitleFromUrl, _browseFaviconUrl, _clearBrowseNavDirection,
+         _browseTitleFromUrl, _browseFaviconUrl, _isBrowseStackNavigation, _clearBrowseStackNavigation,
          NavButtons, _showHistoryDropdown, _scheduleHideHistoryDropdown,
          _hideHistoryDropdownNow } from '/js/toolbar/toolbar-nav.js';
 
@@ -31,9 +31,8 @@ export function _browseActiveEl() {
   return tab ? tab.el : null;
 }
 
-// Navigation direction flag — used by browse-downloads.js did-navigate handler
-export var _browseNavDirection = null;
-// _clearBrowseNavDirection is re-exported from toolbar-nav.js above
+// Stack navigation flag — re-exported from toolbar-nav.js above
+// _isBrowseStackNavigation and _clearBrowseStackNavigation are re-exported
 
 // Mic recording state — these are set/read by core-audio.js and browse-ai-pill.js
 export var _pillMicRecorder = null;
@@ -58,8 +57,10 @@ export var _browseZoomLevel = 1.0;
 export var _browseZoomPanX = 0;
 export var _browseZoomPanY = 0;
 
-// No-op stubs for functions now handled reactively
-export function _updateIslandNavButtons() {}
+// Bridge to reactive signal bump (toolbar-root.js sets window._updateIslandNavButtons)
+export function _updateIslandNavButtons() {
+  if (window._updateIslandNavButtons) window._updateIslandNavButtons();
+}
 
 // Close other tabs helper (used by panel-chat.js)
 export function _browseCloseOtherTabs(keepId) {

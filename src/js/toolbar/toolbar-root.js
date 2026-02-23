@@ -8,7 +8,7 @@ import { browseActive, isNtp, islandExpanded, islandSubState,
          getCurrentTabs, getCurrentGroups, getActiveTabId, notifyTabsChanged } from '/js/toolbar/toolbar-state.js';
 
 import { browseBack, browseForward, browseReload, browseZoom, _browseApplyZoom,
-         NavButtons, _browseTitleFromUrl, _browseFaviconUrl, _clearBrowseNavDirection,
+         NavButtons, _browseTitleFromUrl, _browseFaviconUrl, _isBrowseStackNavigation, _clearBrowseStackNavigation,
          _showHistoryDropdown, _scheduleHideHistoryDropdown, _hideHistoryDropdownNow } from '/js/toolbar/toolbar-nav.js';
 
 import { _BANGS, _browseResolveUrl, browseNavigate, _pillSyncUrl,
@@ -49,7 +49,8 @@ window._browseApplyZoom = _browseApplyZoom;
 window.browseNavigate = browseNavigate;
 window._browseResolveUrl = _browseResolveUrl;
 window._BANGS = _BANGS;
-window._clearBrowseNavDirection = _clearBrowseNavDirection;
+window._isBrowseStackNavigation = _isBrowseStackNavigation;
+window._clearBrowseStackNavigation = _clearBrowseStackNavigation;
 
 // URL helpers
 window._browseTitleFromUrl = _browseTitleFromUrl;
@@ -121,7 +122,7 @@ window._scheduleHideHistoryDropdown = _scheduleHideHistoryDropdown;
 window._hideHistoryDropdownNow = _hideHistoryDropdownNow;
 
 // No-op shims for functions that are now reactive
-window._updateIslandNavButtons = function() {}; // canGoBack/Forward are Computed signals
+window._updateIslandNavButtons = function() { notifyTabsChanged(); };
 
 // ── Init ──
 // Attach island event handlers and guard on DOMContentLoaded
@@ -130,6 +131,16 @@ function _toolbarInit() {
   _islandInitGuard();
   _islandRender();
   _applyBrowseTabLayout();
+
+  // Bind static HTML nav buttons to reactive canGoBack/canGoForward signals
+  var backEl = document.getElementById('pill-browse-back');
+  var fwdEl = document.getElementById('pill-browse-fwd');
+  if (backEl) {
+    Effect(function() { backEl.style.display = canGoBack.value ? 'flex' : 'none'; });
+  }
+  if (fwdEl) {
+    Effect(function() { fwdEl.style.display = canGoForward.value ? 'flex' : 'none'; });
+  }
 }
 
 if (document.readyState === 'loading') {
