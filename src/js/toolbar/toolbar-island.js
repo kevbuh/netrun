@@ -120,13 +120,11 @@ function _collapseIslandCleanup() {
 }
 
 function _moveElementsIntoIsland() {
-  var aiPill = document.getElementById('pill-ai-unified');
-  if (aiPill) aiPill.style.display = 'none';
+  // AI pill visibility is handled by CSS (.island-expanded > #pill-ai-unified)
 }
 
 function _restoreElementsFromIsland() {
-  var aiPill = document.getElementById('pill-ai-unified');
-  if (aiPill) aiPill.style.display = '';
+  // AI pill visibility is handled by CSS (.island-expanded > #pill-ai-unified)
   var leftCol = document.getElementById('pill-island-left');
   if (leftCol) { AetherUI.mount(new View('div'), leftCol); leftCol.onclick = null; }
   var rightCol = document.getElementById('pill-island-right-col');

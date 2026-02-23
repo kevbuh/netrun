@@ -1078,15 +1078,19 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 #pill-ai-unified.ai-unified-expanded { width: auto; border-radius: 14px; padding: 0 10px; }
 .browse-mode #pill-ai-unified { display: flex; margin-left: auto; }
 .browse-mode.island-mode #pill-ai-unified {
-  position: absolute; right: var(--island-ai-right, 32px);
-  top: 50%; transform: translateY(-50%); margin-left: 0;
+  position: relative; margin-left: 0;
+  width: auto; height: 22px;
+  border-radius: 0; background: transparent; padding: 0 6px;
+  border-left: 1px solid rgba(255,255,255,0.1);
 }
-.browse-mode.island-mode #pill-url-wrap.island-expanded ~ #pill-ai-unified,
-#pill-island-right-col > #pill-ai-unified { position: static; transform: none; margin-left: 0; }
+.browse-mode.island-mode #pill-ai-unified.ai-unified-expanded {
+  border-radius: 0; padding: 0 6px;
+}
+/* Hide AI pill when island is expanded */
+.island-expanded > #pill-ai-unified { display: none !important; }
 #pill-ai-unified:hover { background: var(--pill-surface-hover, rgba(255,255,255,0.12)); }
+.browse-mode.island-mode #pill-ai-unified:hover { background: rgba(255,255,255,0.06); border-radius: 6px; }
 #pill-ai-unified:active { transform: scale(0.92); transition: transform 0.06s ease; }
-.browse-mode.island-mode #pill-ai-unified:active { transform: translateY(-50%) scale(0.92); }
-#pill-island-right-col > #pill-ai-unified:active { transform: scale(0.92) !important; }
 
 /* Labels */
 .ai-unified-labels { display: flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 0.72rem; }
@@ -1106,6 +1110,10 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
   width: 28px; height: 28px; border-radius: 50%;
   transition: all 0.2s var(--motion-snappy, ease);
 }
+.browse-mode.island-mode #pill-ai-unified .ai-unified-indicator { width: 18px; height: 18px; }
+.browse-mode.island-mode #pill-ai-unified .ai-unified-indicator svg { width: 12px; height: 12px; }
+.browse-mode.island-mode #pill-ai-unified .ai-unified-labels { font-size: 0.65rem; gap: 4px; }
+.browse-mode.island-mode #pill-ai-unified .ai-unified-secondary { bottom: 0; right: -1px; }
 .ai-unified-expanded .ai-unified-indicator { width: auto; height: auto; }
 .ai-unified-indicator.ai-unified-idle { opacity: 0.45; }
 .ai-unified-indicator.ai-unified-idle svg { width: 14px; height: 14px; }
@@ -1211,6 +1219,8 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 
 /* Light theme adjustments */
 [data-aether-theme="aether"] #pill-ai-unified:hover { background: rgba(0,0,0,0.08); }
+[data-aether-theme="aether"] .browse-mode.island-mode #pill-ai-unified { border-left-color: rgba(0,0,0,0.1); }
+[data-aether-theme="aether"] .browse-mode.island-mode #pill-ai-unified:hover { background: rgba(0,0,0,0.04); }
 [data-aether-theme="aether"] .ai-unified-dropdown { background: rgba(255,255,255,0.96); box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
 
 

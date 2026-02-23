@@ -106,7 +106,7 @@ function _renderUnifiedPill() {
   var labelContainer = el.querySelector('.ai-unified-labels');
   if (labelContainer) _renderInlineLabels(labelContainer, inline);
 
-  var hasInline = !!(inline.modelLabel || inline.annotateLabel);
+  var hasInline = !!inline.modelLabel;
   el.classList.toggle('ai-unified-expanded', hasInline);
 
   // Secondary dots
@@ -162,7 +162,7 @@ function _renderIndicator(container, primary, pulseState) {
 
 // ── Inline labels ──
 function _renderInlineLabels(container, inline) {
-  if (!inline.modelLabel && !inline.annotateLabel) {
+  if (!inline.modelLabel) {
     container.innerHTML = '';
     return;
   }
@@ -173,27 +173,6 @@ function _renderInlineLabels(container, inline) {
     children.push(
       Text(escapeHtml(inline.modelLabel)).className('ai-unified-model-label')
     );
-  }
-
-  if (inline.annotateLabel) {
-    var annIconView;
-    if (inline.annotateOffer) {
-      annIconView = RawHTML(icon('comment', { size: 12, stroke: 'var(--nr-text-secondary)' }));
-    } else if (inline.insightLoading) {
-      annIconView = new View('span').className('island-annotate-dot');
-    } else {
-      annIconView = RawHTML(icon('comment', { size: 12 }));
-    }
-
-    var annotateClasses = 'ai-unified-annotate-label' + (inline.annotateOffer ? ' ai-unified-annotate-offer' : '');
-    var annotateRow = HStack(
-      annIconView,
-      Text(escapeHtml(inline.annotateLabel))
-    )
-      .className(annotateClasses)
-      .attr('data-ai-inline-annotate', '1');
-
-    children.push(annotateRow);
   }
 
   var row = HStack(children);
