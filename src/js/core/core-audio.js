@@ -13,7 +13,7 @@ import { _readPageAloud, scrollToAnnotation } from '/js/browse/browse-annotation
 import { _ttsStopAll } from '/js/panel-tts.js';
 import { browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
 import { browseNewTab } from '/js/browse/browse-windows.js';
-import { clearBrowseDownloads, openDownloadFile, removeBrowseDownload } from '/js/browse/browse-downloads.js';
+import { clearBrowseDownloads, openDownloadFile, removeBrowseDownload } from '/js/browse/browse-download-mgr.js';
 import { goToAudioTab } from '/js/browse/browse-audio.js';
 import { toggleCaptions } from '/js/browse/browse-captions.js';
 
