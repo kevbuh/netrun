@@ -353,7 +353,7 @@ export function _islandRender() {
   for (var i = 0; i < keys.length; i++) {
     var a = activities[keys[i]];
     if (!a) continue;
-    if (a.type === 'ai' || a.type === 'insight') continue;
+    if (a.type === 'ai' || a.type === 'insight' || a.type === 'pageinfo') continue;
     filtered.push({ id: keys[i], data: a });
   }
 

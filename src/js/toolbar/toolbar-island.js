@@ -343,16 +343,15 @@ function _renderIslandActions() {
     }
   }
 
-  // Meta info pills
+  // Meta info pills (badges row)
   var pills = [];
   if (meta.author) pills.push(meta.author);
   if (pageInfo.label) pills.push(pageInfo.label);
-  if (meta.wordCount > 0) {
+  else if (meta.wordCount > 0) {
     var mins = Math.max(1, Math.round(meta.wordCount / 238));
     pills.push(mins + ' min read');
   }
   if (pageInfo.badges) pills.push(pageInfo.badges);
-  if (meta.location) pills.push(meta.location);
 
   if (pills.length) {
     var pillViews = pills.map(function(p) {
@@ -363,12 +362,26 @@ function _renderIslandActions() {
     rows.push(H(pillViews).styles({ gap: '4px', flexWrap: 'wrap', marginTop: '4px' }));
   }
 
+  // Detailed info rows (Server IP, Location, Org, etc.)
+  var _infoStyle = { fontSize: '0.68rem', color: 'var(--nr-text-tertiary)' };
+  var _labelStyle = { fontSize: '0.68rem', color: 'var(--nr-text-quaternary)', minWidth: '70px', flexShrink: '0' };
+  function _infoRow(label, value) {
+    return H([T(label).styles(_labelStyle), T(value).styles(_infoStyle).flex(1).truncate()]).styles({ gap: '8px', marginTop: '2px' });
+  }
+  if (meta.serverIP) rows.push(_infoRow('Server IP', meta.serverIP));
+  if (meta.location) rows.push(_infoRow('Location', meta.location));
+  if (meta.org) rows.push(_infoRow('Org', meta.org));
+  if (meta.wordCount > 0) {
+    var readMins = Math.max(1, Math.round(meta.wordCount / 238));
+    rows.push(_infoRow('Reading time', readMins + ' min (' + meta.wordCount.toLocaleString() + ' words)'));
+  }
+
   // Description
   if (meta.description) {
-    var desc = meta.description.length > 100 ? meta.description.slice(0, 98) + '\u2026' : meta.description;
+    var desc = meta.description.length > 120 ? meta.description.slice(0, 118) + '\u2026' : meta.description;
     rows.push(T(desc).styles({ fontSize: '0.68rem', color: 'var(--nr-text-quaternary)',
       lineHeight: '1.35', marginTop: '4px', display: '-webkit-box',
-      WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden' }));
+      WebkitLineClamp: '3', WebkitBoxOrient: 'vertical', overflow: 'hidden' }));
   }
 
 
