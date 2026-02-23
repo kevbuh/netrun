@@ -9,7 +9,7 @@ import { _paperState } from '/js/browse/browse-paper.js';
 import { _showTabsInPillDropdown } from '/js/toolbar/toolbar-url.js';
 import { _syncIslandPillPosition } from '/js/toolbar/toolbar-island.js';
 import { _readPageAloud, scrollToAnnotation } from '/js/browse/browse-annotations.js';
-import { _ttsStopAll } from '/js/panel-tts.js';
+import { _ttsStopAll, _ttsPauseResume } from '/js/panel-tts.js';
 import { browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
 import { browseNewTab } from '/js/browse/browse-windows.js';
 import { clearBrowseDownloads, openDownloadFile, removeBrowseDownload } from '/js/browse/browse-download-mgr.js';
@@ -40,6 +40,8 @@ export function _getAudioState() {
 }
 window._getAudioState = _getAudioState;
 window._readPageAloud = _readPageAloud;
+window._ttsStopAll = _ttsStopAll;
+window._ttsPauseResume = _ttsPauseResume;
 
 export function _ttsCycleSpeed() {
   const cur = parseFloat(Settings.get('ttsSpeed')) || 1;

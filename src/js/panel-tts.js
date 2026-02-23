@@ -282,6 +282,21 @@ export function _ttsStopAll() {
   document.querySelectorAll('.doc-msg-speak-btn.doc-msg-speaking').forEach(function(b) { b.classList.remove('doc-msg-speaking'); });
 }
 
+export function _ttsPauseResume() {
+  if (window._ttsPaused) {
+    // Resume
+    window._ttsPaused = false;
+    if (window._ttsAudio) window._ttsAudio.play();
+    _updateAudioUnified('tts', { label: 'Reading', detail: _ttsTimeDetail() || 'Reading page aloud' });
+  } else if (window._ttsAudio) {
+    // Pause
+    window._ttsPaused = true;
+    window._ttsAudio.pause();
+    _updateAudioUnified('tts', { label: 'Paused', detail: _ttsTimeDetail() || 'Paused', paused: true });
+  }
+  _ttsUpdateBtnIcon();
+}
+
 export function _ttsFormatTime(secs) {
   let s = Math.round(secs);
   if (s < 0) s = 0;

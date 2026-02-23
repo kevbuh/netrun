@@ -792,6 +792,8 @@ export function browseCloseTab(id) {
   Settings.setJSON('browseClosedTabs', window._browseClosedTabs);
   // Stop captions if this is the captured tab
   if (window._ccTabId === id) stopCaptions();
+  // Stop TTS if this is the tab being read aloud
+  if (window._ttsTabId === id && typeof window._ttsStopAll === 'function') window._ttsStopAll();
   window._pwAutofillOffered.delete(id);
   _annotationsEnabled.delete(id);
   // Clean up nerd mode state and viewer

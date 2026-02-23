@@ -253,11 +253,15 @@ function _renderDropdown(dropdown, state) {
     function() { _closeDropdown(); toggleAnnotations(); },
     { disabled: !hasTab, color: (annEnabled || annAnalyzing) ? 'var(--nr-accent)' : undefined }
   ));
+  var ttsActive = !!(window._ttsAudio || window._ttsPaused || (window._ttsChunks && window._ttsChunks.length > 0));
   children.push(_dropdownItem(
-    icon('speaker', { size: 14 }),
-    'Read Aloud',
-    function() { _closeDropdown(); if (typeof window._readPageAloud === 'function') window._readPageAloud(); },
-    { disabled: !hasTab }
+    icon(ttsActive ? 'close' : 'speaker', { size: 14 }),
+    ttsActive ? 'Stop Reading' : 'Read Aloud',
+    function() {
+      if (ttsActive) { window._ttsStopAll(); _scheduleRender(); }
+      else { _closeDropdown(); if (typeof window._readPageAloud === 'function') window._readPageAloud(); }
+    },
+    { disabled: !hasTab && !ttsActive, color: ttsActive ? '#ef4444' : undefined }
   ));
   // 3. Audio section
   children.push(_divider());
@@ -276,13 +280,13 @@ function _renderDropdown(dropdown, state) {
     children.push(_dropdownItem(
       icon(audioState.tts.paused ? 'play' : 'pause', { size: 14 }),
       audioState.tts.paused ? 'Resume TTS' : 'Pause TTS',
-      function() { if (typeof window._ttsPauseResume === 'function') window._ttsPauseResume(); _scheduleRender(); },
+      function() { window._ttsPauseResume(); _scheduleRender(); },
       { color: 'var(--nr-accent)', trailing: Text(spdText).styles({ marginLeft: 'auto', fontSize: '0.7rem', opacity: '0.5' }) }
     ));
     children.push(_dropdownItem(
       icon('close', { size: 14 }),
       'Stop TTS',
-      function() { if (typeof window._ttsStopAll === 'function') window._ttsStopAll(); _scheduleRender(); }
+      function() { window._ttsStopAll(); _scheduleRender(); }
     ));
   }
 
