@@ -122,79 +122,100 @@ function _renderUnifiedPill() {
 
 // ── Indicator rendering ──
 function _renderIndicator(container, primary, pulseState) {
-  var html = '';
+  var view;
   container.className = 'ai-unified-indicator';
 
   switch (primary) {
     case 'mic':
-      html = icon('microphone', { size: 14, stroke: '#ef4444' });
+      view = RawHTML(icon('microphone', { size: 14, stroke: '#ef4444' }));
       container.classList.add('ai-unified-mic');
       break;
     case 'ai':
-      html = '<span class="ai-unified-dot ai-unified-dot-ai nr-breathe"></span>';
+      view = new View('span').className('ai-unified-dot ai-unified-dot-ai nr-breathe');
       container.classList.add('ai-unified-ai');
       break;
     case 'audio':
-      html = window._islandAudioBars || '';
+      view = RawHTML(window._islandAudioBars || '');
       container.classList.add('ai-unified-audio');
       break;
     case 'pulse': {
       var lastEvent = pulseState.lastEvent;
       var col = lastEvent ? (_pulseCatColors[lastEvent.category] || '#94a3b8') : '#94a3b8';
-      html = '<span class="ai-unified-dot ai-unified-dot-pulse" style="background:' + col + ';box-shadow:0 0 6px ' + col + '"></span>';
+      view = new View('span')
+        .className('ai-unified-dot ai-unified-dot-pulse')
+        .styles({ background: col, boxShadow: '0 0 6px ' + col });
       container.classList.add('ai-unified-pulse');
       break;
     }
     case 'pageinfo':
-      html = '<span class="ai-unified-dot ai-unified-dot-idle nr-breathe"></span>';
+      view = new View('span').className('ai-unified-dot ai-unified-dot-idle nr-breathe');
       container.classList.add('ai-unified-idle');
       break;
     default:
-      html = icon('sparkles', { size: 14 });
+      view = RawHTML(icon('sparkles', { size: 14 }));
       container.classList.add('ai-unified-idle');
       break;
   }
-  if (container._lastHtml !== html) {
-    container.innerHTML = html;
-    container._lastHtml = html;
-  }
+
+  AetherUI.mount(view, container);
 }
 
 // ── Inline labels ──
 function _renderInlineLabels(container, inline) {
-  var html = '';
+  if (!inline.modelLabel && !inline.annotateLabel) {
+    container.innerHTML = '';
+    return;
+  }
+
+  var children = [];
+
   if (inline.modelLabel) {
-    html += '<span class="ai-unified-model-label">' + escapeHtml(inline.modelLabel) + '</span>';
+    children.push(
+      Text(escapeHtml(inline.modelLabel)).className('ai-unified-model-label')
+    );
   }
+
   if (inline.annotateLabel) {
-    var annIcon = inline.annotateOffer
-      ? icon('comment', { size: 12, stroke: 'var(--nr-text-secondary)' })
-      : (inline.insightLoading ? '<span class="island-annotate-dot"></span>' : icon('comment', { size: 12 }));
-    var cls = inline.annotateOffer ? ' ai-unified-annotate-offer' : '';
-    html += '<span class="ai-unified-annotate-label' + cls + '" data-ai-inline-annotate="1">' + annIcon + '<span>' + escapeHtml(inline.annotateLabel) + '</span></span>';
+    var annIconView;
+    if (inline.annotateOffer) {
+      annIconView = RawHTML(icon('comment', { size: 12, stroke: 'var(--nr-text-secondary)' }));
+    } else if (inline.insightLoading) {
+      annIconView = new View('span').className('island-annotate-dot');
+    } else {
+      annIconView = RawHTML(icon('comment', { size: 12 }));
+    }
+
+    var annotateClasses = 'ai-unified-annotate-label' + (inline.annotateOffer ? ' ai-unified-annotate-offer' : '');
+    var annotateRow = HStack(
+      annIconView,
+      Text(escapeHtml(inline.annotateLabel))
+    )
+      .className(annotateClasses)
+      .attr('data-ai-inline-annotate', '1');
+
+    children.push(annotateRow);
   }
-  if (container._lastHtml !== html) {
-    container.innerHTML = html;
-    container._lastHtml = html;
-  }
+
+  var row = HStack(children);
+  AetherUI.mount(row, container);
 }
 
 // ── Secondary dots ──
 function _renderSecondaryDots(container, secondary) {
   if (!secondary.length) {
-    if (container.innerHTML) container.innerHTML = '';
+    container.innerHTML = '';
     return;
   }
+
   var colorMap = { mic: '#ef4444', ai: '#a78bfa', audio: 'var(--nr-accent)', pulse: '#94a3b8' };
-  var html = '';
-  for (var i = 0; i < secondary.length; i++) {
-    var col = colorMap[secondary[i]] || '#94a3b8';
-    html += '<span class="ai-unified-sec-dot" style="background:' + col + '"></span>';
-  }
-  if (container._lastHtml !== html) {
-    container.innerHTML = html;
-    container._lastHtml = html;
-  }
+  var dots = secondary.map(function(s) {
+    var col = colorMap[s] || '#94a3b8';
+    return new View('span')
+      .className('ai-unified-sec-dot')
+      .styles({ background: col });
+  });
+
+  AetherUI.mount(HStack(dots), container);
 }
 
 // ── Dropdown rendering ──
@@ -202,10 +223,10 @@ function _renderDropdown(dropdown, state) {
   var audioState = state.audioState;
   var pulseState = state.pulseState;
   var pageInfoState = state.pageInfoState;
-  var items = [];
+  var children = [];
 
   // 1. Ask AI
-  items.push(_dropdownItem(
+  children.push(_dropdownItem(
     icon('chatBubble', { size: 14 }),
     'Ask AI',
     function() { _closeDropdown(); if (typeof window._showPanel === 'function') window._showPanel({ anchor: _pillAnchor(), trackCursor: false }); },
@@ -215,47 +236,54 @@ function _renderDropdown(dropdown, state) {
   // Conversations
   var _convTabs = _collectConversationTabs();
   if (_convTabs.length > 0) {
-    items.push('<div class="ai-unified-divider"></div>');
-    items.push('<div class="ai-unified-section-label">Conversations</div>');
+    children.push(_divider());
+    children.push(_sectionLabel('Conversations'));
     for (var ci = 0; ci < _convTabs.length; ci++) {
       (function(ct) {
         var isActive = ct.active;
         var streaming = ct.streaming;
-        var preview = ct.preview ? escapeHtml(ct.preview) : '';
-        var title = escapeHtml(ct.title || 'New Tab');
-        var streamDot = streaming ? '<span class="ai-unified-conv-stream nr-breathe"></span>' : '';
-        var activeCls = isActive ? ' ai-unified-conv-active' : '';
-        var id = '_aia_' + (++_actionCounter);
-        _actionMap[id] = function() { _closeDropdown(); browseSelectTab(ct.tabId); };
-        items.push('<div class="ai-unified-conv-item' + activeCls + '" data-ai-action="' + id + '">'
-          + '<div class="ai-unified-conv-title">' + title + '</div>'
-          + '<div class="ai-unified-conv-preview">' + preview + '</div>'
-          + streamDot
-          + '</div>');
+        var preview = ct.preview || '';
+        var title = ct.title || 'New Tab';
+
+        var convItem = VStack(
+          Text(escapeHtml(title)).className('ai-unified-conv-title')
+        );
+
+        if (preview) {
+          convItem.add(Text(escapeHtml(preview)).className('ai-unified-conv-preview'));
+        }
+
+        if (streaming) {
+          convItem.add(new View('span').className('ai-unified-conv-stream nr-breathe'));
+        }
+
+        var cls = 'ai-unified-conv-item' + (isActive ? ' ai-unified-conv-active' : '');
+        convItem.className(cls).onTap(function() { _closeDropdown(); browseSelectTab(ct.tabId); });
+        children.push(convItem);
       })(_convTabs[ci]);
     }
   }
 
-  items.push('<div class="ai-unified-divider"></div>');
+  children.push(_divider());
 
   // 2. AI section
   var tab = _getActiveTab();
   var hasTab = tab && !tab.blank && tab.url;
   var annEnabled = hasTab && typeof window._annotationsEnabled !== 'undefined' && window._annotationsEnabled.get(tab.id);
 
-  items.push(_dropdownItem(
+  children.push(_dropdownItem(
     icon('annotate', { size: 14 }),
     annEnabled ? 'Remove Annotations' : 'Annotate Page',
     function() { _closeDropdown(); if (typeof window.toggleAnnotations === 'function') window.toggleAnnotations(); },
     { disabled: !hasTab, color: annEnabled ? 'var(--nr-accent)' : undefined }
   ));
-  items.push(_dropdownItem(
+  children.push(_dropdownItem(
     icon('speaker', { size: 14 }),
     'Read Aloud',
     function() { _closeDropdown(); if (typeof window._readPageAloud === 'function') window._readPageAloud(); },
     { disabled: !hasTab }
   ));
-  items.push(_dropdownItem(
+  children.push(_dropdownItem(
     icon('eye', { size: 14 }),
     'AI View',
     function() { _closeDropdown(); if (typeof window.browseShowAIView === 'function') window.browseShowAIView(); },
@@ -263,11 +291,11 @@ function _renderDropdown(dropdown, state) {
   ));
 
   // 3. Audio section
-  items.push('<div class="ai-unified-divider"></div>');
-  items.push('<div class="ai-unified-section-label">Audio</div>');
+  children.push(_divider());
+  children.push(_sectionLabel('Audio'));
 
   if (audioState.tab) {
-    items.push(_dropdownItem(
+    children.push(_dropdownItem(
       window._islandAudioBars || '',
       escapeHtml(audioState.tab.label || 'Tab Audio'),
       function() { _closeDropdown(); if (typeof window.goToAudioTab === 'function') window.goToAudioTab(); }
@@ -276,13 +304,13 @@ function _renderDropdown(dropdown, state) {
 
   if (audioState.tts) {
     var spdText = (parseFloat(Settings.get('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x';
-    items.push(_dropdownItem(
+    children.push(_dropdownItem(
       icon(audioState.tts.paused ? 'play' : 'pause', { size: 14 }),
       audioState.tts.paused ? 'Resume TTS' : 'Pause TTS',
       function() { if (typeof window._ttsPauseResume === 'function') window._ttsPauseResume(); _scheduleRender(); },
-      { color: 'var(--nr-accent)', trailing: '<span style="margin-left:auto;font-size:0.7rem;opacity:0.5">' + spdText + '</span>' }
+      { color: 'var(--nr-accent)', trailing: Text(spdText).styles({ marginLeft: 'auto', fontSize: '0.7rem', opacity: '0.5' }) }
     ));
-    items.push(_dropdownItem(
+    children.push(_dropdownItem(
       icon('close', { size: 14 }),
       'Stop TTS',
       function() { if (typeof window._ttsStopAll === 'function') window._ttsStopAll(); _scheduleRender(); }
@@ -290,85 +318,86 @@ function _renderDropdown(dropdown, state) {
   }
 
   if (audioState.cc) {
-    items.push(_dropdownItem(
+    children.push(_dropdownItem(
       icon('cc', { size: 14 }),
       escapeHtml(audioState.cc.label || 'CC'),
       function() { _closeDropdown(); if (typeof window.toggleCaptions === 'function') window.toggleCaptions(); },
       { color: 'var(--nr-accent)' }
     ));
   } else if (audioState.tab) {
-    items.push(_dropdownItem(icon('cc', { size: 14 }), 'Captions', function() { _closeDropdown(); if (typeof window.toggleCaptions === 'function') window.toggleCaptions(); }));
+    children.push(_dropdownItem(icon('cc', { size: 14 }), 'Captions', function() { _closeDropdown(); if (typeof window.toggleCaptions === 'function') window.toggleCaptions(); }));
   }
 
   // Mic
   if (audioState.micRecording) {
-    items.push(_dropdownItem(
+    children.push(_dropdownItem(
       icon('microphone', { size: 14, stroke: '#ef4444' }),
       'Stop recording',
       function() { if (typeof window._pillMicClick === 'function') window._pillMicClick(); },
       { color: '#ef4444' }
     ));
   } else if (audioState.mic) {
-    items.push(_dropdownItem(
+    children.push(_dropdownItem(
       icon('microphone', { size: 14 }),
       escapeHtml(audioState.mic.label || 'Transcribing\u2026'),
       null,
       { disabled: true }
     ));
   } else {
-    items.push(_dropdownItem(icon('microphone', { size: 14 }), 'Voice input', function() { _closeDropdown(); if (typeof window._pillMicClick === 'function') window._pillMicClick(); }));
+    children.push(_dropdownItem(icon('microphone', { size: 14 }), 'Voice input', function() { _closeDropdown(); if (typeof window._pillMicClick === 'function') window._pillMicClick(); }));
   }
 
   // White noise
   if (audioState.rainActive) {
     var noiseLabel = (typeof window.NOISE_PRESETS !== 'undefined' && audioState.rainNoiseType && window.NOISE_PRESETS[audioState.rainNoiseType]) ? window.NOISE_PRESETS[audioState.rainNoiseType].label : 'White noise';
-    items.push(_dropdownItem(
+    children.push(_dropdownItem(
       icon('rain', { size: 14 }),
       escapeHtml(noiseLabel),
       function() { _pillNoiseCycle(); _scheduleRender(); },
       { color: 'var(--nr-accent)' }
     ));
-    items.push(_dropdownItem(icon('close', { size: 14 }), 'Stop noise', function() { if (typeof window.stopRain === 'function') window.stopRain(); _scheduleRender(); }));
+    children.push(_dropdownItem(icon('close', { size: 14 }), 'Stop noise', function() { if (typeof window.stopRain === 'function') window.stopRain(); _scheduleRender(); }));
   } else {
-    items.push(_dropdownItem(icon('rain', { size: 14 }), 'White noise', function() { if (typeof window.startRain === 'function') window.startRain(); _scheduleRender(); }));
+    children.push(_dropdownItem(icon('rain', { size: 14 }), 'White noise', function() { if (typeof window.startRain === 'function') window.startRain(); _scheduleRender(); }));
   }
 
   // Read aloud
-  items.push(_dropdownItem(icon('speaker', { size: 14 }), 'Read aloud', function() { _closeDropdown(); if (typeof window._readPageAloud === 'function') window._readPageAloud(); }));
+  children.push(_dropdownItem(icon('speaker', { size: 14 }), 'Read aloud', function() { _closeDropdown(); if (typeof window._readPageAloud === 'function') window._readPageAloud(); }));
 
   // 4. Page Info section
   if (pageInfoState.label || pageInfoState.badges || (pageInfoState.meta && Object.keys(pageInfoState.meta).length)) {
-    items.push('<div class="ai-unified-divider"></div>');
-    items.push('<div class="ai-unified-section-label">Page Info</div>');
+    children.push(_divider());
+    children.push(_sectionLabel('Page Info'));
 
     var meta = pageInfoState.meta || {};
     if (meta.published) {
       try {
         var pd = new Date(meta.published);
-        items.push(_infoRow('Published', pd.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })));
-      } catch(e) { items.push(_infoRow('Published', meta.published)); }
+        children.push(_infoRow('Published', pd.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })));
+      } catch(e) { children.push(_infoRow('Published', meta.published)); }
     }
-    if (meta.author) items.push(_infoRow('Author', meta.author));
-    if (meta.ip) items.push(_infoRow('Server IP', meta.ip));
-    if (meta.location) items.push(_infoRow('Location', meta.location));
-    if (meta.org) items.push(_infoRow('Org', meta.org));
+    if (meta.author) children.push(_infoRow('Author', meta.author));
+    if (meta.ip) children.push(_infoRow('Server IP', meta.ip));
+    if (meta.location) children.push(_infoRow('Location', meta.location));
+    if (meta.org) children.push(_infoRow('Org', meta.org));
     if (meta.wordCount) {
       var mins = Math.max(1, Math.round(meta.wordCount / 238));
-      items.push(_infoRow('Reading time', mins + ' min (' + meta.wordCount.toLocaleString() + ' words)'));
+      children.push(_infoRow('Reading time', mins + ' min (' + meta.wordCount.toLocaleString() + ' words)'));
     }
-    if (pageInfoState.badges) items.push(_infoRow('Position', pageInfoState.badges));
+    if (pageInfoState.badges) children.push(_infoRow('Position', pageInfoState.badges));
     if (meta.description) {
       var desc = meta.description.length > 150 ? meta.description.slice(0, 147) + '\u2026' : meta.description;
-      items.push('<div class="ai-unified-info-desc">' + escapeHtml(desc) + '</div>');
+      children.push(Text(escapeHtml(desc)).className('ai-unified-info-desc'));
     }
   }
 
   // 5. Activity section — pulse events
   var recent = pulseState.recent || [];
   if (recent.length) {
-    items.push('<div class="ai-unified-divider"></div>');
-    items.push('<div class="ai-unified-section-label">Activity</div>');
-    items.push('<div class="ai-unified-activity-scroll">');
+    children.push(_divider());
+    children.push(_sectionLabel('Activity'));
+
+    var activityScroll = new View('div').className('ai-unified-activity-scroll');
     var start = Math.max(0, recent.length - 30);
     for (var ri = recent.length - 1; ri >= start; ri--) {
       var ev = recent[ri];
@@ -376,43 +405,59 @@ function _renderDropdown(dropdown, state) {
       var age = Math.round((Date.now() - ev.timestamp) / 1000);
       var ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
       var statusDot = ev.ok === true ? '#22c55e' : ev.ok === false ? '#ef4444' : '#94a3b8';
-      items.push('<div class="ai-unified-event">'
-        + '<span class="ai-unified-event-status" style="background:' + statusDot + '"></span>'
-        + '<span class="ai-unified-event-cat" style="color:' + col + '">' + escapeHtml(ev.category) + '</span>'
-        + '<span class="ai-unified-event-label">' + escapeHtml(ev.label) + '</span>'
-        + '<span class="ai-unified-event-age">' + ageStr + '</span>'
-        + '</div>');
+
+      var eventRow = HStack(
+        new View('span').className('ai-unified-event-status').styles({ background: statusDot }),
+        Text(escapeHtml(ev.category)).className('ai-unified-event-cat').styles({ color: col }),
+        Text(escapeHtml(ev.label)).className('ai-unified-event-label'),
+        Text(ageStr).className('ai-unified-event-age')
+      ).className('ai-unified-event');
+
+      activityScroll.add(eventRow);
     }
-    items.push('</div>');
+    children.push(activityScroll);
   }
 
-  var html = items.join('');
-  if (dropdown._lastHtml !== html) {
-    dropdown.innerHTML = html;
-    dropdown._lastHtml = html;
-  }
+  AetherUI.mount(VStack(children), dropdown);
 }
 
 // ── Dropdown helpers ──
-var _actionCounter = 0;
-var _actionMap = {};
+
+function _divider() {
+  return new View('div').className('ai-unified-divider');
+}
+
+function _sectionLabel(text) {
+  return Text(text).className('ai-unified-section-label');
+}
 
 function _dropdownItem(iconHtml, label, action, opts) {
   opts = opts || {};
-  var id = '_aia_' + (++_actionCounter);
-  if (action) _actionMap[id] = action;
+
   var cls = 'ai-unified-item';
   if (opts.highlight) cls += ' ai-unified-item-highlight';
   if (opts.disabled) cls += ' ai-unified-item-disabled';
-  var style = '';
-  if (opts.color) style += 'color:' + opts.color + ';';
-  var trailing = opts.trailing || '';
-  return '<div class="' + cls + '"' + (style ? ' style="' + style + '"' : '') + ' data-ai-action="' + id + '">'
-    + iconHtml + '<span>' + label + '</span>' + trailing + '</div>';
+
+  var iconView = RawHTML(iconHtml || '');
+  var labelView = Text(label);
+
+  var row = HStack(iconView, labelView);
+  if (opts.color) row.styles({ color: opts.color });
+  if (opts.trailing) row.add(opts.trailing);
+  row.className(cls);
+
+  if (action && !opts.disabled) {
+    row.onTap(function(e) { e.stopPropagation(); action(); });
+  }
+
+  return row;
 }
 
 function _infoRow(label, value) {
-  return '<div class="ai-unified-info-row"><span class="ai-unified-info-label">' + escapeHtml(label) + '</span><span class="ai-unified-info-value">' + escapeHtml(value) + '</span></div>';
+  return HStack(
+    Text(escapeHtml(label)).className('ai-unified-info-label'),
+    Text(escapeHtml(value)).className('ai-unified-info-value')
+  ).className('ai-unified-info-row');
 }
 
 // ── Noise cycle ──
@@ -441,8 +486,8 @@ function _collectConversationTabs() {
         var lastAssistant = _lastAssistantPreview(msgs);
         results.push({ tabId: t.id, title: t.title || 'New Tab', preview: lastAssistant, active: isActive, streaming: !!(t._aiPanel.backgroundStreaming) });
       } else if (isActive && window._popupChatMessages && window._popupChatMessages.length > 0) {
-        var lastAssistant = _lastAssistantPreview(window._popupChatMessages);
-        results.push({ tabId: t.id, title: t.title || 'New Tab', preview: lastAssistant, active: true, streaming: !!window._aetherBackgroundStreaming });
+        var lastAssistant2 = _lastAssistantPreview(window._popupChatMessages);
+        results.push({ tabId: t.id, title: t.title || 'New Tab', preview: lastAssistant2, active: true, streaming: !!window._aetherBackgroundStreaming });
       }
     }
   }
@@ -477,8 +522,6 @@ function _openDropdown() {
   var el = document.getElementById('pill-ai-unified');
   if (!el) return;
   _dropdownOpen = true;
-  _actionCounter = 0;
-  for (var k in _actionMap) delete _actionMap[k];
   el.classList.add('ai-unified-open');
   _renderUnifiedPill();
   document.body.classList.add('island-dropdown-guard');
@@ -499,7 +542,7 @@ function _closeDropdown() {
   document.removeEventListener('mousedown', _onOutsideClick);
   _outsideClickBound = false;
   var dropdown = el.querySelector('.ai-unified-dropdown');
-  if (dropdown) { dropdown.innerHTML = ''; dropdown._lastHtml = ''; }
+  if (dropdown) dropdown.innerHTML = '';
 }
 
 function _onOutsideClick(e) {
@@ -511,19 +554,15 @@ function _onOutsideClick(e) {
 
 // ── Exported: render AI panel content into an arbitrary container ──
 export function renderAIPanelContent(container, onAction) {
-  _actionCounter = 0;
-  for (var k in _actionMap) delete _actionMap[k];
   var state = _resolveIndicatorState();
   _renderDropdown(container, state);
-  container.addEventListener('click', function(e) {
-    var actionEl = e.target.closest('[data-ai-action]');
-    if (actionEl) {
-      e.stopPropagation();
-      var actionId = actionEl.getAttribute('data-ai-action');
-      if (_actionMap[actionId]) _actionMap[actionId]();
-      if (onAction) onAction();
-    }
-  });
+  if (onAction) {
+    // onAction fires after any dropdown item tap — wrap by re-mounting with interceptor
+    container.addEventListener('click', function(e) {
+      var item = e.target.closest('.ai-unified-item, .ai-unified-conv-item');
+      if (item) onAction();
+    });
+  }
 }
 
 // ── Init ──
@@ -533,19 +572,14 @@ export function _initUnifiedPill() {
   el._unifiedBound = true;
 
   el.addEventListener('click', function(e) {
-    var actionEl = e.target.closest('[data-ai-action]');
-    if (actionEl) {
-      e.stopPropagation();
-      var actionId = actionEl.getAttribute('data-ai-action');
-      if (_actionMap[actionId]) _actionMap[actionId]();
-      return;
-    }
     if (e.target.closest('[data-ai-inline-annotate]')) {
       e.stopPropagation();
       if (typeof window.toggleAnnotations === 'function') window.toggleAnnotations();
       return;
     }
     if (e.target.closest('.ai-unified-dropdown button')) return;
+    // Item taps are handled by individual view .onTap() handlers; only toggle dropdown on pill body clicks
+    if (e.target.closest('.ai-unified-item') || e.target.closest('.ai-unified-conv-item')) return;
     e.stopPropagation();
     if (_dropdownOpen) _closeDropdown();
     else _openDropdown();

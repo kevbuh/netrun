@@ -7,7 +7,9 @@ import { icon } from '/js/core/icons.js';
 import ChatEngine from '/js/chat-engine.js';
 import ChatRender from '/js/chat-render.js';
 import { _aetherCommands, _aetherFilterCommands, _aetherHideAgentDropdown, _aetherHideCmdDropdown, _aetherHideHistoryDropdown, _aetherHideModelDropdown, _aetherHideTabDropdown, _aetherRenderAgentDropdown, _aetherRenderCmdDropdown, _aetherRenderHistoryDropdown, _aetherRenderModelDropdown, _aetherSelectAgent, _aetherSelectHistory, _aetherSelectModel, _aetherSelectTab, _aetherSwitchToTab, _doAetherAgent, _doAetherCapture, _doAetherHelp, _doAetherHistory, _doAetherModel, _doAetherSearchNewTab, _doAetherTab, _doAetherTabs } from '/js/panel-commands.js';
-import { _browseRenderTabs, _updateIslandNavButtons, browseNavigate } from '/js/browse/browse-island.js';
+import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
+import { browseNavigate } from '/js/toolbar/toolbar-url.js';
+const _updateIslandNavButtons = (...args) => window._updateIslandNavButtons?.(...args);
 import { _browseSetUrlDisplay } from '/js/browse-urlbar.js';
 import { _browseUpdateNewTabPage } from '/js/browse/browse-passwords.js';
 import { _ttsStopAll } from '/js/panel-tts.js';
@@ -640,12 +642,13 @@ export function openChatPage(threadId) {
 
 function _openChatListPage(tab) {
   // Tear down existing special pages
-  if (tab._historyPage || tab._helpPage || tab._chatPage) {
+  if (tab._historyPage || tab._helpPage || tab._chatPage || tab._bookmarksPage) {
     if (tab.el) tab.el.remove();
     tab.el = null;
     delete tab._historyPage;
     delete tab._helpPage;
     delete tab._chatPage;
+    delete tab._bookmarksPage;
   } else if (tab.el) {
     tab.el.remove();
     tab.el = null;
@@ -853,42 +856,12 @@ function _chatViewRenderMessages(isFinal) {
   const messages = _chatViewSession.messages;
   const total = messages.length;
 
-  // Build branch navigation indicators on messages
-  let messagesHtml = messages.map((m, i) => {
-    const html = ChatRender.renderMessageHTML(m, i, total, isFinal);
-    const branchNav = _chatViewBranchNav(m, i);
-    return `<div class="chat-view-msg chat-view-msg-${m.role || 'user'}">${branchNav}<div class="chat-view-msg-content">${html}</div></div>`;
-  }).join('');
-
-  // Append stats bar after last assistant message
-  const statsHtml = ChatRender.renderChatStats(messages, _chatViewSession.streamStart);
-  if (statsHtml) {
-    messagesHtml += `<div class="chat-view-stats">${statsHtml}</div>`;
-  }
-
-  AetherUI.mount(RawHTML(messagesHtml), list);
-
-  // Render the tree rail alongside the message list
-  _chatViewRenderTreeRail(list);
-
-  // Attach branch nav click handlers
-  list.querySelectorAll('.chat-branch-btn').forEach(btn => {
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      const msgId = btn.getAttribute('data-navigate-to');
-      if (msgId && _chatViewSession) {
-        _chatViewSession.navigateTo(msgId).then(() => _chatViewRenderMessages(true));
-      }
-    });
-  });
-
-  // Attach handlers via ChatRender
-  ChatRender.attachMessageHandlers(list, {
+  // Build message opts with handlers
+  const msgOpts = {
     onRedo() {
       if (!_chatViewSession) return;
       _chatViewSession.redo().then(text => {
         if (text) {
-          // Redo = branch from parent of last user msg, resend same text
           _chatViewRenderMessages(true);
           _chatViewSend(text);
         }
@@ -898,7 +871,6 @@ function _chatViewRenderMessages(isFinal) {
       if (!_chatViewSession) return;
       _chatViewSession.editFrom(msgIdx).then(text => {
         if (text != null) {
-          // Edit = branch from parent of the edited msg, let user type new text
           const input = document.querySelector('.browse-ntp.chat-mode #search-query');
           if (input) { input.value = text; input.focus(); }
           _chatViewRenderMessages(true);
@@ -912,7 +884,6 @@ function _chatViewRenderMessages(isFinal) {
       _chatViewSend(text);
     },
     onSpeak(btn) {
-      // Delegate to panel TTS if available
       if (typeof _ttsStopAll === 'function' && (typeof window._ttsAudio !== 'undefined' && window._ttsAudio || (typeof window._ttsChunks !== 'undefined' && window._ttsChunks.length > 0))) {
         const wasToggling = btn.classList.contains('doc-msg-speaking');
         _ttsStopAll();
@@ -935,6 +906,39 @@ function _chatViewRenderMessages(isFinal) {
         }).catch(() => { btn.classList.remove('doc-msg-speaking'); });
       }
     },
+  };
+
+  // Build View tree with branch navigation wrappers
+  const msgViews = messages.map((m, i) => {
+    const msgView = ChatRender.renderMessage(m, i, total, isFinal, msgOpts);
+    const branchNav = _chatViewBranchNav(m, i);
+    const wrapper = VStack(
+      branchNav ? RawHTML(branchNav) : null,
+      new View('div').className('chat-view-msg-content').add(msgView)
+    ).className('chat-view-msg chat-view-msg-' + (m.role || 'user'));
+    return wrapper;
+  });
+
+  // Append stats
+  const statsView = ChatRender.renderChatStats(messages, _chatViewSession.streamStart);
+  if (statsView) {
+    msgViews.push(new View('div').className('chat-view-stats').add(statsView));
+  }
+
+  AetherUI.mount(VStack(...msgViews), list);
+
+  // Render the tree rail alongside the message list
+  _chatViewRenderTreeRail(list);
+
+  // Attach branch nav click handlers (these come from RawHTML branchNav)
+  list.querySelectorAll('.chat-branch-btn').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const msgId = btn.getAttribute('data-navigate-to');
+      if (msgId && _chatViewSession) {
+        _chatViewSession.navigateTo(msgId).then(() => _chatViewRenderMessages(true));
+      }
+    });
   });
 
   // Scroll to bottom

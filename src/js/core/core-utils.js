@@ -7,8 +7,9 @@ import { _wmToggleTiling, goHome } from '/js/core/core-views.js';
 import { _aetherShowCursor } from '/js/panel-commands.js';
 import { browseCloseTab } from '/js/browse/browse-passwords.js';
 import { browseNewTab, openBrowse } from '/js/browse/browse-windows.js';
-import { browsePrintPage } from '/js/browse/browse-menu.js';
+import { browsePrintPage } from '/js/toolbar/toolbar-menu.js';
 import { openSearchHistoryPage } from '/js/browse-urlbar.js';
+import { View, HStack, RawHTML } from '/aether/ui/aether-ui.js';
 
 // ── Utilities ──
 export function formatDate(d) {
@@ -25,15 +26,15 @@ export function formatDate(d) {
 }
 
 export function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  const view = new View('div');
+  view.el.textContent = str;
+  return view.el.innerHTML;
 }
 
 export function decodeHtml(str) {
-  const el = document.createElement('textarea');
-  el.innerHTML = str;
-  return el.value;
+  const view = new View('textarea');
+  view.el.innerHTML = str;
+  return view.el.value;
 }
 
 export function fmtNum(n) {
@@ -131,17 +132,26 @@ export function renderStarRating(link, opts) {
   const size = opts?.size || 'sm';
   const interactive = opts?.interactive !== false;
   const cls = size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5';
-  let html = `<span class="inline-flex items-center gap-px paper-rating" data-link="${escapeAttr(nLink)}">`;
+
+  const stars = [];
   for (let i = 1; i <= 5; i++) {
     const filled = i <= rating;
     const fill = filled ? 'var(--nr-accent)' : 'none';
     const stroke = filled ? 'var(--nr-accent)' : 'currentColor';
     const opacity = filled ? '' : 'opacity:0.3;';
-    const click = interactive ? ` onclick="event.stopPropagation();ratePaper('${escapeAttr(nLink)}',${i})" style="cursor:pointer;${opacity}"` : ` style="${opacity}"`;
-    html += `<svg class="${cls}"${click} viewBox="0 0 24 24" fill="${fill}" stroke="${stroke}" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const svgStr = `<svg class="${cls}" viewBox="0 0 24 24" fill="${fill}" stroke="${stroke}" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const starView = RawHTML(svgStr).className(cls).attr('data-star-index', String(i));
+    if (interactive) {
+      starView.cssText(`cursor:pointer;${opacity}`);
+      starView.onTap((e) => { e.stopPropagation(); ratePaper(nLink, i); });
+    } else {
+      starView.cssText(opacity);
+    }
+    stars.push(starView);
   }
-  html += '</span>';
-  return html;
+
+  const container = HStack(...stars).className('inline-flex items-center gap-px paper-rating').attr('data-link', nLink);
+  return container.el.outerHTML;
 }
 
 export function ratePaper(link, rating) {
@@ -164,9 +174,9 @@ export function truncate(str, max) {
 }
 
 export function stripHtml(html) {
-  const tmp = document.createElement('div');
-  tmp.innerHTML = html;
-  return tmp.textContent || tmp.innerText || '';
+  const view = new View('div');
+  view.el.innerHTML = html;
+  return view.el.textContent || view.el.innerText || '';
 }
 
 export function renderLatexInEl(el) {

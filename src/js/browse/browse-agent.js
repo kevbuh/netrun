@@ -1,4 +1,4 @@
-import { browseBack, browseForward } from '/js/browse/browse-island.js';
+import { browseBack, browseForward } from '/js/toolbar/toolbar-nav.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
 /* browse-agent.js — Browser automation primitives for agentic control.
    Provides DOM extraction (accessible tree), click, type, scroll actions.

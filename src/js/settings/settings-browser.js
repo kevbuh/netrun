@@ -1,12 +1,21 @@
 import Settings from '../core/core-settings.js';
 import { icon } from '/js/core/icons.js';
 import { _SITE_PERM_ICONS, _SITE_PERM_KEYS, _SITE_PERM_LABELS, _browseApplyAdaptiveColor, _browseResetAdaptiveColor, _browseUrlOnBlur, _clearSitePermissions, _getAllSitePermissions, _getUrlBarSections, _saveUrlBarSections, _setSitePermission } from '/js/browse-urlbar.js';
-import { _getDoomScrollSites, _saveDoomScrollSites } from '/js/browse/browse-downloads.js';
+import { _getDoomScrollSites, _saveDoomScrollSites } from '/js/browse/browse-doom-scroll.js';
 import { _settingBtnGroup, _settingCard, _settingGroupContent, _settingRow, _settingToggle } from '/js/settings/settings-helpers.js';
 import { resetAdBlockRules } from '/js/settings/settings-theme.js';
 import { logger } from '/js/logger.js';
 
 // ─── Browser Settings ──────────────────────────────────────
+
+// Refs to the current doom-scroll input elements (updated each render)
+var _doomScrollInputRefs = { domain: null, mode: null, minutes: null };
+// Ref to the urlbar-section-list element (updated each render)
+var _urlBarSectionListEl = null;
+// Ref to the settings-passwords container element (updated each render)
+var _settingsPasswordsEl = null;
+// Ref to the bookmark-import-browsers container element (updated each render)
+var _bookmarkImportContainerEl = null;
 
 export function _renderDoomScrollSites() {
   const sites = typeof _getDoomScrollSites === 'function' ? _getDoomScrollSites() : [];
@@ -26,14 +35,19 @@ export function _renderDoomScrollSites() {
 
   const domainInput = new window.View('input');
   domainInput.el.type = 'text';
-  domainInput.el.id = 'doom-scroll-new-domain';
   domainInput.el.placeholder = 'domain.com';
   domainInput.className('flex-1 text-[0.8rem] px-2 py-1.5 rounded-md bg-transparent border border-border-input text-primary placeholder:text-dimmer focus:outline-none focus:border-accent');
   domainInput.styles({ minWidth: '0' });
-  domainInput.el.addEventListener('keydown', function(e) { if (e.key === 'Enter') _addDoomScrollSite(); });
+
+  const minutesInput = new window.View('input');
+  minutesInput.el.type = 'number';
+  minutesInput.el.value = '5';
+  minutesInput.el.min = '1';
+  minutesInput.el.max = '120';
+  minutesInput.className('text-[0.8rem] px-2 py-1.5 rounded-md bg-transparent border border-border-input text-primary focus:outline-none focus:border-accent');
+  minutesInput.styles({ width: '52px' });
 
   const modeSelect = new window.View('select');
-  modeSelect.el.id = 'doom-scroll-new-mode';
   modeSelect.className('text-[0.78rem] px-2 py-1.5 rounded-md bg-card border border-border-input text-primary focus:outline-none focus:border-accent');
   modeSelect.styles({ color: 'var(--nr-text-primary)', background: 'var(--nr-bg-surface)' });
   modeSelect.add(
@@ -41,22 +55,31 @@ export function _renderDoomScrollSites() {
     new window.View('option').attr('value', 'block').text('Block'),
   );
   modeSelect.el.addEventListener('change', function() {
-    const minEl = document.getElementById('doom-scroll-new-minutes');
-    if (minEl) minEl.style.display = this.value === 'block' ? 'none' : '';
+    minutesInput.el.style.display = this.value === 'block' ? 'none' : '';
   });
 
-  const minutesInput = new window.View('input');
-  minutesInput.el.type = 'number';
-  minutesInput.el.id = 'doom-scroll-new-minutes';
-  minutesInput.el.value = '5';
-  minutesInput.el.min = '1';
-  minutesInput.el.max = '120';
-  minutesInput.className('text-[0.8rem] px-2 py-1.5 rounded-md bg-transparent border border-border-input text-primary focus:outline-none focus:border-accent');
-  minutesInput.styles({ width: '52px' });
+  // Store refs so _addDoomScrollSite() can read current values
+  _doomScrollInputRefs.domain = domainInput.el;
+  _doomScrollInputRefs.mode = modeSelect.el;
+  _doomScrollInputRefs.minutes = minutesInput.el;
+
+  function doAdd() {
+    const domain = domainInput.el.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    if (!domain) return;
+    const mode = modeSelect.el.value;
+    const minutes = parseInt(minutesInput.el.value) || 5;
+    const sitesArr = _getDoomScrollSites();
+    if (sitesArr.some(s => s.domain === domain)) return;
+    sitesArr.push({ domain, mode, minutes });
+    _saveDoomScrollSites(sitesArr);
+    AetherUI.mount(_renderDoomScrollSites(), '#doom-scroll-sites-list');
+  }
+
+  domainInput.el.addEventListener('keydown', function(e) { if (e.key === 'Enter') doAdd(); });
 
   const addBtn = window.Button('Add').className('text-[0.78rem] px-3 py-1.5 rounded-md border border-border-input bg-card text-primary hover:border-accent hover:text-accent transition-colors cursor-pointer');
   addBtn.styles({ background: 'var(--nr-bg-surface)' });
-  addBtn.onTap(function() { _addDoomScrollSite(); });
+  addBtn.onTap(doAdd);
 
   const inputRow = window.HStack(domainInput, modeSelect, minutesInput, addBtn)
     .spacing(2).className('flex items-center mt-2 pt-2 border-t border-border-subtle');
@@ -73,14 +96,15 @@ export function _renderDoomScrollSites() {
 }
 
 export function _addDoomScrollSite() {
-  const domainInput = document.getElementById('doom-scroll-new-domain');
-  const modeSelect = document.getElementById('doom-scroll-new-mode');
-  const minutesInput = document.getElementById('doom-scroll-new-minutes');
-  if (!domainInput) return;
-  const domain = domainInput.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  // Delegates to stored input refs from most recent render of _renderDoomScrollSites
+  const domainEl = _doomScrollInputRefs.domain;
+  const modeEl = _doomScrollInputRefs.mode;
+  const minutesEl = _doomScrollInputRefs.minutes;
+  if (!domainEl) return;
+  const domain = domainEl.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
   if (!domain) return;
-  const mode = modeSelect ? modeSelect.value : 'nudge';
-  const minutes = minutesInput ? parseInt(minutesInput.value) || 5 : 5;
+  const mode = modeEl ? modeEl.value : 'nudge';
+  const minutes = minutesEl ? parseInt(minutesEl.value) || 5 : 5;
   const sites = _getDoomScrollSites();
   if (sites.some(s => s.domain === domain)) return;
   sites.push({ domain, mode, minutes });
@@ -178,7 +202,7 @@ export function _renderUrlBarSectionsSettings() {
     return row;
   });
   const list = VStack(rows);
-  list.el.id = 'urlbar-section-list';
+  _urlBarSectionListEl = list.el;
   return list;
 }
 
@@ -190,7 +214,7 @@ export function _toggleUrlBarSection(key, enabled) {
 }
 
 export function _urlBarSectionDragSetup() {
-  const list = document.getElementById('urlbar-section-list');
+  const list = _urlBarSectionListEl;
   if (!list) return;
   let dragEl = null;
   let dragGhost = null;
@@ -258,7 +282,7 @@ export function _urlBarSectionDragSetup() {
 export const _expandedPwDomain = null;
 
 export function _loadSettingsPasswords() {
-  const container = document.getElementById('settings-passwords');
+  const container = _settingsPasswordsEl;
   if (!container) return;
   if (!window.electronAPI || !window.electronAPI.pwList) {
     AetherUI.mount(window.Text('Password storage requires the desktop app.').className('text-dimmer text-[0.75rem]'), container);
@@ -325,18 +349,13 @@ export function _pwDeleteEntry(id) {
 
 export function _renderBrowserSettings() {
   // Ad blocker
-  const adBlockChildren = [
-    window.electronAPI
-      ? (function() { var sk = window.Skeleton().lines(2); sk.el.id = 'adblock-rules-info'; sk.el.className += ' mb-3'; return sk; })()
-      : window.RawHTML('<div id="adblock-rules-info" class="text-dimmer text-[0.75rem] mb-3">Filter list management requires Electron.</div>')
-  ];
-  if (window.electronAPI) {
-    const updateBtn = new window.View('button');
-    updateBtn.text('Update filter lists');
-    updateBtn.className('text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors');
-    updateBtn.onTap(function() { resetAdBlockRules(); });
-    adBlockChildren.push(updateBtn);
-  }
+  const adBlockInfoView = window.electronAPI
+    ? (function() { var sk = window.Skeleton().lines(2); sk.el.id = 'adblock-rules-info'; sk.el.className += ' mb-3'; return sk; })()
+    : window.Text('Filter list management requires Electron.').className('text-dimmer text-[0.75rem] mb-3');
+  const adBlockUpdateBtn = window.electronAPI
+    ? window.Button('Update filter lists').className('text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors')
+    : null;
+  if (adBlockUpdateBtn) adBlockUpdateBtn.onTap(function() { resetAdBlockRules(); });
   const adBlockHeader = window.HStack(
     window.Text('Ad Blocker').className('text-white_ text-sm font-semibold'),
     window.Text('Always On').className('text-[0.75rem] font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-400')
@@ -344,8 +363,9 @@ export function _renderBrowserSettings() {
   const adBlockSection = window.VStack(
     adBlockHeader,
     window.Text('Blocks ads and trackers ' + (window.electronAPI ? 'natively at the network level via Electron' : 'via a server-side proxy') + '.').className('text-dim text-[0.8rem] mb-3'),
-    VStack().content(function() { return adBlockChildren; })
-  );
+    adBlockInfoView,
+    adBlockUpdateBtn
+  ).styles({ gap: '0' });
 
   // YT Shorts
   const ytSection = _settingToggle('Hide YouTube Shorts', 'Hides Shorts from the homepage, sidebar, search, and channel pages.',
@@ -446,7 +466,12 @@ export function _renderBrowserSettings() {
   const sitePermContent = sitePermWrap;
 
   // Passwords
-  const pwContent = (function() { var w = new window.View('div'); w.el.id = 'settings-passwords'; w.add(window.Skeleton().lines(3)); return w; })();
+  const pwContent = (function() {
+    var w = new window.View('div');
+    w.add(window.Skeleton().lines(3));
+    _settingsPasswordsEl = w.el;
+    return w;
+  })();
 
   return window.VStack(
     _settingCard('Layout', [
@@ -484,7 +509,12 @@ export function _renderBrowserSettings() {
     _settingCard('Import Bookmarks', [
       _settingGroupContent([
         window.Text('Import bookmarks from other browsers into your reading list.').className('text-dim text-[0.8rem] mb-3'),
-        (function() { var w = window.RawHTML('<div id="bookmark-import-browsers"></div>'); AetherUI.mount(window.Skeleton().lines(2), w.el); return w; })(),
+        (function() {
+          var w = new window.View('div');
+          w.add(window.Skeleton().lines(2));
+          _bookmarkImportContainerEl = w.el;
+          return w;
+        })(),
       ]),
     ])
   );
@@ -494,10 +524,11 @@ export function _renderBrowserSettings() {
 
 var _bmSelectedUrls = {};  // browserId → Set of selected URLs
 var _bmParsedData = {};    // browserId → array of bookmarks
+var _bmLoadError = {};     // browserId → boolean error flag
 var _bmExpandedId = null;  // currently expanded browser
 
 export function _loadBookmarkImport() {
-  var container = document.getElementById('bookmark-import-browsers');
+  var container = _bookmarkImportContainerEl;
   if (!container) return;
   if (!window.electronAPI || !window.electronAPI.dbQuery) {
     AetherUI.mount(window.Text('Bookmark import requires the desktop app.').className('text-dimmer text-[0.75rem]'), container);
@@ -519,8 +550,8 @@ function _bmRenderBrowserList(container, browsers) {
     var isExpanded = _bmExpandedId === b.id;
     var chevron = window.RawHTML(icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') }));
     var nameView = window.Text(b.name).styles({ flex: '1', fontSize: '0.82rem', color: 'var(--nr-text-primary)', fontWeight: '500' });
-    var countView = new window.View('span').id('bm-count-' + b.id).styles({ fontSize: '0.68rem', color: 'var(--nr-text-quaternary)' });
-    if (_bmParsedData[b.id]) countView.text(_bmParsedData[b.id].length + ' bookmarks');
+    var countText = _bmParsedData[b.id] ? _bmParsedData[b.id].length + ' bookmarks' : '';
+    var countView = window.Text(countText).styles({ fontSize: '0.68rem', color: 'var(--nr-text-quaternary)' });
 
     var header = window.HStack(chevron, nameView, countView)
       .spacing(2).styles({ padding: '8px 12px', cursor: 'pointer' });
@@ -528,8 +559,10 @@ function _bmRenderBrowserList(container, browsers) {
 
     var items = [header];
     if (isExpanded) {
-      var detail = new window.View('div').id('bm-detail-' + b.id).styles({ padding: '0 12px 10px', borderTop: '1px solid var(--nr-border-subtle)' });
-      if (_bmParsedData[b.id]) {
+      var detail = new window.View('div').styles({ padding: '0 12px 10px', borderTop: '1px solid var(--nr-border-subtle)' });
+      if (_bmLoadError[b.id]) {
+        AetherUI.mount(window.Text('Failed to load bookmarks.').className('text-dimmer text-[0.72rem]').styles({ padding: '10px 0' }), detail.el);
+      } else if (_bmParsedData[b.id]) {
         _bmRenderBookmarkList(detail.el, b.id);
       } else {
         AetherUI.mount(window.Text('Loading bookmarks...').className('text-dimmer text-[0.72rem]').styles({ padding: '10px 0' }), detail.el);
@@ -558,15 +591,11 @@ function _bmToggleExpand(browserId, container, browsers) {
       _bmParsedData[browserId] = bookmarks;
       // Select all by default
       _bmSelectedUrls[browserId] = new Set(bookmarks.map(function(bm) { return bm.url; }));
-      // Update count
-      var countEl = document.getElementById('bm-count-' + browserId);
-      if (countEl) countEl.textContent = bookmarks.length + ' bookmarks';
-      // Render list
-      var detail = document.getElementById('bm-detail-' + browserId);
-      if (detail) _bmRenderBookmarkList(detail, browserId);
+      // Re-render the list so count and detail reflect the loaded data
+      _bmRenderBrowserList(container, browsers);
     }).catch(function() {
-      var detail = document.getElementById('bm-detail-' + browserId);
-      if (detail) AetherUI.mount(window.Text('Failed to load bookmarks.').className('text-dimmer text-[0.72rem]').styles({ padding: '10px 0' }), detail);
+      _bmLoadError[browserId] = true;
+      _bmRenderBrowserList(container, browsers);
     });
   }
 }
@@ -583,8 +612,7 @@ function _bmRenderBookmarkList(container, browserId) {
 
   // Select all / deselect all
   var allSelected = selectedCount === bookmarks.length;
-  var toggleAllBtn = new window.View('button').styles({ fontSize: '0.7rem', color: 'var(--nr-accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '0' });
-  toggleAllBtn.text(allSelected ? 'Deselect all' : 'Select all');
+  var toggleAllBtn = window.Button(allSelected ? 'Deselect all' : 'Select all').styles({ fontSize: '0.7rem', color: 'var(--nr-accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '0' });
   toggleAllBtn.onTap(function() {
     if (allSelected) {
       _bmSelectedUrls[browserId] = new Set();
@@ -639,56 +667,69 @@ function _bmRenderBookmarkList(container, browserId) {
   var listWrap = VStack(rows);
   listWrap.styles({ maxHeight: '240px', overflowY: 'auto' });
 
-  // Import button
-  var statusView = new window.View('span').id('bm-import-status-' + browserId).styles({ fontSize: '0.72rem', color: 'var(--nr-text-quaternary)' });
-  var importBtn = window.Button('Import ' + selectedCount + ' bookmarks').id('bm-import-btn-' + browserId).styles({
+  // Import button — use State signals to avoid DOM id lookups
+  var importBtnLabel = window.State('Import ' + selectedCount + ' bookmarks');
+  var importBtnDisabled = window.State(selectedCount === 0);
+  var importBtnDone = window.State(false);
+  var importStatusText = window.State('');
+
+  var statusView = window.Text('').styles({ fontSize: '0.72rem', color: 'var(--nr-text-quaternary)' });
+  window.Effect(function() { statusView.el.textContent = importStatusText.get(); });
+
+  var importBtn = window.Button('').styles({
     padding: '6px 16px', borderRadius: '6px', border: 'none', flex: '1',
-    background: selectedCount > 0 ? 'var(--nr-accent)' : 'var(--nr-bg-surface)',
-    color: selectedCount > 0 ? '#fff' : 'var(--nr-text-quaternary)',
-    fontSize: '0.78rem', fontWeight: '500', cursor: selectedCount > 0 ? 'pointer' : 'default',
-    opacity: selectedCount > 0 ? '1' : '0.5'
+    fontSize: '0.78rem', fontWeight: '500'
   });
-  importBtn.el.disabled = selectedCount === 0;
-  importBtn.onTap(function() { _bmDoImport(browserId, container); });
+  window.Effect(function() {
+    var label = importBtnLabel.get();
+    var disabled = importBtnDisabled.get();
+    var done = importBtnDone.get();
+    importBtn.el.textContent = label;
+    importBtn.el.disabled = disabled;
+    importBtn.el.style.background = done ? 'var(--nr-bg-surface)' : (disabled ? 'var(--nr-bg-surface)' : 'var(--nr-accent)');
+    importBtn.el.style.color = done ? 'var(--nr-text-secondary)' : (disabled ? 'var(--nr-text-quaternary)' : '#fff');
+    importBtn.el.style.cursor = disabled ? 'default' : 'pointer';
+    importBtn.el.style.opacity = disabled ? '0.5' : '1';
+  });
+  importBtn.onTap(function() {
+    if (importBtnDisabled.get() || importBtnDone.get()) return;
+    importBtnLabel.set('Importing...');
+    importBtnDisabled.set(true);
+    var googleId = window._authUserInfo && window._authUserInfo.google_id;
+    if (!googleId) {
+      importStatusText.set('Not signed in');
+      importBtnLabel.set('Import ' + selectedCount + ' bookmarks');
+      importBtnDisabled.set(false);
+      return;
+    }
+    var sel = _bmSelectedUrls[browserId];
+    var selectedUrls = sel ? Array.from(sel) : [];
+    window.electronAPI.dbQuery('bookmark-import', browserId, googleId, selectedUrls).then(function(result) {
+      if (result && result.ok) {
+        importStatusText.set(result.imported + ' imported' + (result.skipped ? ', ' + result.skipped + ' skipped' : ''));
+        importBtnLabel.set('Done');
+        importBtnDone.set(true);
+        // Sync localStorage
+        window.electronAPI.dbQuery('user-data-get', googleId, 'savedPosts').then(function(data) {
+          if (data && data.value) {
+            var val = typeof data.value === 'string' ? data.value : JSON.stringify(data.value);
+            localStorage.setItem('savedPosts', val);
+          }
+        }).catch(function() {});
+      } else {
+        importStatusText.set(result && result.error ? result.error : 'Import failed');
+        importBtnLabel.set('Retry');
+        importBtnDisabled.set(false);
+      }
+    }).catch(function() {
+      importStatusText.set('Error');
+      importBtnLabel.set('Retry');
+      importBtnDisabled.set(false);
+    });
+  });
 
   var footer = window.HStack(importBtn, statusView).spacing(2).styles({ paddingTop: '8px', borderTop: '1px solid var(--nr-border-subtle)', marginTop: '4px' });
 
   AetherUI.mount(window.VStack(headerRow, listWrap, footer), container);
-}
-
-function _bmDoImport(browserId, container) {
-  var btn = document.getElementById('bm-import-btn-' + browserId);
-  var status = document.getElementById('bm-import-status-' + browserId);
-  if (btn) { btn.textContent = 'Importing...'; btn.disabled = true; }
-
-  var googleId = window._authUserInfo && window._authUserInfo.google_id;
-  if (!googleId) {
-    if (status) status.textContent = 'Not signed in';
-    if (btn) { btn.textContent = 'Import'; btn.disabled = false; }
-    return;
-  }
-
-  var selected = _bmSelectedUrls[browserId];
-  var selectedUrls = selected ? Array.from(selected) : [];
-
-  window.electronAPI.dbQuery('bookmark-import', browserId, googleId, selectedUrls).then(function(result) {
-    if (result && result.ok) {
-      if (status) status.textContent = result.imported + ' imported' + (result.skipped ? ', ' + result.skipped + ' skipped' : '');
-      if (btn) { btn.textContent = 'Done'; btn.disabled = true; btn.style.background = 'var(--nr-bg-surface)'; btn.style.color = 'var(--nr-text-secondary)'; }
-      // Sync localStorage
-      window.electronAPI.dbQuery('user-data-get', googleId, 'savedPosts').then(function(data) {
-        if (data && data.value) {
-          var val = typeof data.value === 'string' ? data.value : JSON.stringify(data.value);
-          localStorage.setItem('savedPosts', val);
-        }
-      }).catch(function() {});
-    } else {
-      if (status) status.textContent = result && result.error ? result.error : 'Import failed';
-      if (btn) { btn.textContent = 'Retry'; btn.disabled = false; }
-    }
-  }).catch(function() {
-    if (status) status.textContent = 'Error';
-    if (btn) { btn.textContent = 'Retry'; btn.disabled = false; }
-  });
 }
 

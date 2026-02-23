@@ -8,8 +8,16 @@ import { islandRemove } from '/js/core/core-ui.js';
 import { _updateNowPlayingContext } from '/js/core/core-audio.js';
 import { openResearch, wmOpen } from '/js/core/core-views.js';
 import { _annotationsEnabled, _showAnnotateOfferPill, _updateAnnotateButtonState } from '/js/browse/browse-annotations.js';
-import { _browseApplyZoom, _browseRenderTabs, _browseZoomLevel, _browseZoomPanX, _browseZoomPanY, _pillMicClick, _pillSyncUrl, browseBack, browseForward, browseNavigate } from '/js/browse/browse-island.js';
-import { _browseBindFrame, _browseDownloadIdCounter, _browseDownloads, _browseRenderDownloads, _browseUpdateDownloadBadge, _checkFocusTimer, _saveBrowseDownloads } from '/js/browse/browse-downloads.js';
+import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
+import { _pillSyncUrl, browseNavigate } from '/js/toolbar/toolbar-url.js';
+import { _browseApplyZoom, browseBack, browseForward } from '/js/toolbar/toolbar-nav.js';
+var _browseZoomLevel = window._browseZoomLevel ?? 1.0;
+var _browseZoomPanX = window._browseZoomPanX ?? 0;
+var _browseZoomPanY = window._browseZoomPanY ?? 0;
+var _pillMicClick = function() { if (typeof window._pillMicClick === 'function') window._pillMicClick(); };
+import { _browseBindFrame } from '/js/browse/browse-frame-bind.js';
+import { _browseDownloadIdCounter, _browseDownloads, _browseRenderDownloads, _browseUpdateDownloadBadge, _saveBrowseDownloads } from '/js/browse/browse-download-mgr.js';
+import { _checkFocusTimer } from '/js/browse/browse-doom-scroll.js';
 import { _browseCloseFindBar, _browseFindBarActive, _browseUpdateSaveBtn } from '/js/browse/browse-features.js';
 import { _browseCreateFrame, handleNtpFileInput, handleNtpFileUpload } from '/js/browse/browse-ntp.js';
 import { _browseEnsureTabFrame, _browseFocusPane, _browseGetFocusedPane, _browseGetSplitPanes, _browseIsSplitMode, _browsePaneForTab, _browseRebuildSplitLayout, _browseSetSplitPanes, browseUnsplitPane } from '/js/browse/browse-split-panes.js';
@@ -403,42 +411,50 @@ export function browseSelectTab(id) {
   // Restore history page tab if needed
   if (tab && tab._historyPage && !tab.el) {
     const container = document.getElementById('browse-content');
-    const el = document.createElement('div');
-    el.id = 'browse-history-' + tab.id;
-    el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;';
-    container.appendChild(el);
-    tab.el = el;
-    _renderWebSearchHistoryPage(el);
+    const pageView = new window.View('div').id('browse-history-' + tab.id)
+      .cssText('width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;');
+    container.appendChild(pageView.el);
+    tab.el = pageView.el;
+    _renderWebSearchHistoryPage(pageView.el);
   }
 
   // Restore help page tab if needed
   if (tab && tab._helpPage && !tab.el) {
     const container = document.getElementById('browse-content');
-    const el = document.createElement('div');
-    el.id = 'browse-help-' + tab.id;
-    el.style.cssText = 'width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;';
-    container.appendChild(el);
-    tab.el = el;
-    _renderHelpPage(el);
+    const pageView = new window.View('div').id('browse-help-' + tab.id)
+      .cssText('width:100%;height:100%;position:absolute;top:0;left:0;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);z-index:3;');
+    container.appendChild(pageView.el);
+    tab.el = pageView.el;
+    _renderHelpPage(pageView.el);
   }
 
   // Restore netrun hub page tab if needed
   if (tab && tab._netrunPage && !tab.el) {
     const container = document.getElementById('browse-content');
-    const el = document.createElement('div');
-    el.id = 'browse-netrun-' + tab.id;
-    el.className = 'nr-hub-scroll';
-    el.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;';
-    container.appendChild(el);
-    tab.el = el;
-    if (typeof window._renderNetrunPage === 'function') window._renderNetrunPage(el);
+    const pageView = new window.View('div').id('browse-netrun-' + tab.id)
+      .className('nr-hub-scroll')
+      .cssText('position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;');
+    container.appendChild(pageView.el);
+    tab.el = pageView.el;
+    if (typeof window._renderNetrunPage === 'function') window._renderNetrunPage(pageView.el);
+  }
+
+  // Restore bookmarks page tab if needed
+  if (tab && tab._bookmarksPage && !tab.el) {
+    const container = document.getElementById('browse-content');
+    const pageView = new window.View('div').id('browse-bookmarks-' + tab.id)
+      .className('nr-bm-layout')
+      .cssText('position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;');
+    container.appendChild(pageView.el);
+    tab.el = pageView.el;
+    if (typeof window.openBookmarks === 'function') window.openBookmarks();
   }
 
   win.tabs.forEach(t => {
     if (t.el) t.el.style.display = t.id === id ? '' : 'none';
   });
   const urlInput = document.getElementById('browse-url-input');
-  _browseSetUrlDisplay(urlInput, tab ? (tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : tab._netrunPage ? 'netrun://' : tab._terminalPage ? 'terminal://' : tab.url) : '');
+  _browseSetUrlDisplay(urlInput, tab ? (tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : tab._netrunPage ? 'netrun://' : tab._bookmarksPage ? 'netrun://bookmarks' : tab._terminalPage ? 'terminal://' : tab.url) : '');
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   window._browseSaveTabs();
@@ -545,28 +561,95 @@ export function _browseUpdateNewTabPage(tab) {
       const ntpView = new window.View('div').className('browse-ntp nr-living-gradient');
       ntp = ntpView.el;
 
-      // File input (low-level)
-      const fileInput = document.createElement('input');
-      fileInput.type = 'file'; fileInput.id = 'browse-pdf-file-input'; fileInput.multiple = true;
-      fileInput.style.display = 'none';
-      fileInput.onchange = function() { handleNtpFileInput(fileInput); };
-      ntp.appendChild(fileInput);
+      // File input (low-level — kept as plain input for .click() / .files API)
+      const fileInput = new window.View('input').attr('type', 'file').attr('id', 'browse-pdf-file-input')
+        .attr('multiple', '')
+        .cssText('display:none;');
+      fileInput.on('change', function() { handleNtpFileInput(fileInput.el); });
+      ntpView.add(fileInput);
 
       // SVGs
       const submitSvg = icon('arrowUp', {strokeWidth: '2.5'});
       const plusSvg = icon('plus', {});
       const micSvg = icon('microphone', {});
 
-      // Search input (low-level form element)
-      const searchInput = document.createElement('input');
-      searchInput.type = 'text'; searchInput.id = 'search-query';
-      searchInput.placeholder = 'Ask anything...'; searchInput.autocomplete = 'off';
-      searchInput.className = 'ntp-search-input';
+      // + button (dropdown menu)
+      const addBtn = new window.View('button').className('ntp-add-btn').attr('type', 'button').attr('title', 'More options')
+        .add(window.RawHTML(plusSvg));
+      addBtn.on('mousedown', function(e) { e.preventDefault(); _browseUrlCancelHide(); });
+      Menu(addBtn, function() {
+        return [
+          { icon: icon('attachment', {strokeWidth: '1.5'}), label: 'Add files', handler: function() { fileInput.el.click(); } },
+          { divider: true },
+          { icon: icon('chatDots', {strokeWidth: '1.5'}), label: 'Chat', handler: function() {
+            var input = document.getElementById('search-query');
+            var text = input ? input.value.trim() : '';
+            if (text && typeof chatViewNewThread === 'function') chatViewNewThread(text);
+            else if (typeof openChatPage === 'function') openChatPage();
+          }},
+          { icon: icon('documentSearch', {strokeWidth: '1.5'}), label: 'Research', handler: function() {
+            if (typeof openResearch === 'function') openResearch();
+          }},
+          { icon: icon('terminal', {strokeWidth: '1.5'}), label: 'Terminal', handler: function() {
+            if (typeof wmOpen === 'function') wmOpen('terminal');
+          }}
+        ];
+      });
+
+      // Mic button
+      const micBtn = new window.View('button').className('ntp-mic-btn').attr('type', 'button').attr('title', 'Voice input')
+        .add(window.RawHTML(micSvg));
+      micBtn.on('mousedown', function(e) { e.preventDefault(); });
+      micBtn.onTap(function() { if (typeof _pillMicClick === 'function') _pillMicClick(); });
+
+      // Submit button
+      const submitBtn = new window.View('button').className('ntp-action-submit').attr('title', 'Search').attr('type', 'submit')
+        .add(window.RawHTML(submitSvg));
+
+      // Chat history button
+      const chatHistBtn = new window.View('button').className('ntp-chat-history-btn').attr('type', 'button').attr('title', 'All chats')
+        .add(window.RawHTML(icon('chatHistory', { size: 18 })));
+      chatHistBtn.on('mousedown', function(e) { e.preventDefault(); });
+      chatHistBtn.onTap(function() {
+        if (typeof openChatPage === 'function') openChatPage();
+      });
+
+      // AI mode chip for NTP
+      const _ntpAiCloud = State(Settings.get('aiProvider') === 'openrouter');
+      const _cloudSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5h4.5l-3.5 2.5 1.5 4.5-4-3-4 3 1.5-4.5-3.5-2.5h4.5z"/></svg>';
+      const _localSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
+      const ntpAiChip = new window.View('button').attr('type', 'button').attr('title', 'Toggle Local/Cloud AI');
+      Effect(function() {
+        var cloud = _ntpAiCloud.value;
+        ntpAiChip.className('ai-mode-chip' + (cloud ? ' ai-mode-cloud' : ''));
+        AetherUI.mount(
+          window.HStack([window.RawHTML(cloud ? _cloudSvg : _localSvg), window.Text(cloud ? 'Cloud' : 'Local')]),
+          ntpAiChip.el
+        );
+      });
+      ntpAiChip.on('mousedown', function(e) { e.preventDefault(); });
+      ntpAiChip.onTap(function() {
+        var cur = Settings.get('aiProvider') || 'ollama';
+        var next = cur === 'openrouter' ? 'ollama' : 'openrouter';
+        Settings.set('aiProvider', next);
+        if (window.electronAPI && window.electronAPI.providerSetDefault) window.electronAPI.providerSetDefault(next);
+        window.dispatchEvent(new CustomEvent('aimode-changed', { detail: { provider: next } }));
+      });
+      window.addEventListener('aimode-changed', function() {
+        _ntpAiCloud.value = Settings.get('aiProvider') === 'openrouter';
+      });
+
+      // Single-row search bar: [+] [input] [ai-mode] [chat-history] [mic] [send]
+      // searchInput is a plain DOM element (needs value/focus/select APIs), wrap inline
+      const searchInputView = new window.View('input').attr('type', 'text').attr('id', 'search-query')
+        .attr('placeholder', 'Ask anything...').attr('autocomplete', 'off')
+        .className('ntp-search-input');
+      const searchInput = searchInputView.el;
       searchInput.oninput = function() { onSearchInput(); };
       searchInput.onfocus = function() { _browseUrlCancelHide(); searchInput.select(); _browseUrlShowHistory(); };
       searchInput.onblur = function() { _browseUrlScheduleHide(); };
       searchInput.onkeydown = function(ev) { _browseUrlKeydown(ev); };
-      searchInput.addEventListener('paste', function(ev) {
+      searchInputView.on('paste', function(ev) {
         if (!ev.clipboardData) return;
         var imageFile = null;
         // Check clipboardData.items for image types
@@ -616,110 +699,50 @@ export function _browseUpdateNewTabPage(tab) {
         reader.readAsDataURL(imageFile);
       });
 
-      // + button (dropdown menu)
-      const addBtn = new window.View('button').className('ntp-add-btn').attr('type', 'button').attr('title', 'More options')
-        .add(window.RawHTML(plusSvg));
-      addBtn.on('mousedown', function(e) { e.preventDefault(); _browseUrlCancelHide(); });
-      Menu(addBtn, function() {
-        return [
-          { icon: icon('attachment', {strokeWidth: '1.5'}), label: 'Add files', handler: function() { fileInput.click(); } },
-          { divider: true },
-          { icon: icon('chatDots', {strokeWidth: '1.5'}), label: 'Chat', handler: function() {
-            var input = document.getElementById('search-query');
-            var text = input ? input.value.trim() : '';
-            if (text && typeof chatViewNewThread === 'function') chatViewNewThread(text);
-            else if (typeof openChatPage === 'function') openChatPage();
-          }},
-          { icon: icon('documentSearch', {strokeWidth: '1.5'}), label: 'Research', handler: function() {
-            if (typeof openResearch === 'function') openResearch();
-          }},
-          { icon: icon('terminal', {strokeWidth: '1.5'}), label: 'Terminal', handler: function() {
-            if (typeof wmOpen === 'function') wmOpen('terminal');
-          }}
-        ];
-      });
-
-      // Mic button
-      const micBtn = new window.View('button').className('ntp-mic-btn').attr('type', 'button').attr('title', 'Voice input')
-        .add(window.RawHTML(micSvg));
-      micBtn.on('mousedown', function(e) { e.preventDefault(); });
-      micBtn.onTap(function() { if (typeof _pillMicClick === 'function') _pillMicClick(); });
-
-      // Submit button
-      const submitBtn = new window.View('button').className('ntp-action-submit').attr('title', 'Search').attr('type', 'submit')
-        .add(window.RawHTML(submitSvg));
-
-      // Chat history button
-      const chatHistBtn = new window.View('button').className('ntp-chat-history-btn').attr('type', 'button').attr('title', 'All chats')
-        .add(window.RawHTML(icon('chatHistory', { size: 18 })));
-      chatHistBtn.on('mousedown', function(e) { e.preventDefault(); });
-      chatHistBtn.onTap(function() {
-        if (typeof openChatPage === 'function') openChatPage();
-      });
-
-      // AI mode chip for NTP
-      const ntpAiChip = new window.View('button').className('ai-mode-chip').attr('type', 'button').attr('title', 'Toggle Local/Cloud AI');
-      function _updateNtpAiChip() {
-        var cloud = Settings.get('aiProvider') === 'openrouter';
-        ntpAiChip.el.innerHTML = (cloud ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5h4.5l-3.5 2.5 1.5 4.5-4-3-4 3 1.5-4.5-3.5-2.5h4.5z"/></svg>' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>') + '<span>' + (cloud ? 'Cloud' : 'Local') + '</span>';
-        ntpAiChip.el.classList.toggle('ai-mode-cloud', cloud);
-      }
-      _updateNtpAiChip();
-      ntpAiChip.on('mousedown', function(e) { e.preventDefault(); });
-      ntpAiChip.onTap(function() {
-        var cur = Settings.get('aiProvider') || 'ollama';
-        var next = cur === 'openrouter' ? 'ollama' : 'openrouter';
-        Settings.set('aiProvider', next);
-        if (window.electronAPI && window.electronAPI.providerSetDefault) window.electronAPI.providerSetDefault(next);
-        window.dispatchEvent(new CustomEvent('aimode-changed', { detail: { provider: next } }));
-      });
-      window.addEventListener('aimode-changed', _updateNtpAiChip);
-
-      // Single-row search bar: [+] [input] [ai-mode] [chat-history] [mic] [send]
-      const searchRow = new window.View('div').className('ntp-search-row');
-      searchRow.el.appendChild(addBtn.el);
-      searchRow.el.appendChild(searchInput);
-      searchRow.el.appendChild(ntpAiChip.el);
-      searchRow.el.appendChild(chatHistBtn.el);
-      searchRow.el.appendChild(micBtn.el);
-      searchRow.el.appendChild(submitBtn.el);
+      const searchRow = new window.View('div').className('ntp-search-row')
+        .add(addBtn)
+        .add(searchInputView)
+        .add(ntpAiChip)
+        .add(chatHistBtn)
+        .add(micBtn)
+        .add(submitBtn);
 
       const histDropdown = new window.View('div').attr('id', 'search-history-dropdown-view').className('ntp-dropdown');
       histDropdown.styles({ display: 'none' });
 
       const fileChips = new window.View('div').attr('id', 'ntp-file-chips').className('ntp-file-chips-container');
 
-      const searchBox = new window.View('div').className('ntp-search-box max-w-[680px] mx-auto');
-      searchBox.el.appendChild(searchRow.el);
+      const searchBox = new window.View('div').className('ntp-search-box max-w-[680px] mx-auto')
+        .add(searchRow);
 
-      const form = new window.View('form').attr('id', 'search-form');
+      const form = new window.View('form').attr('id', 'search-form')
+        .add(searchBox)
+        .add(histDropdown)
+        .add(fileChips);
       form.on('submit', function(e) { e.preventDefault(); submitSearch(); });
-      form.el.appendChild(searchBox.el);
-      form.el.appendChild(histDropdown.el);
-      form.el.appendChild(fileChips.el);
 
-      const center = new window.View('div').className('browse-ntp-center');
-      center.el.appendChild(form.el);
+      const center = new window.View('div').className('browse-ntp-center')
+        .add(form);
 
-      const inner = new window.View('div').className('browse-ntp-inner');
-      inner.el.appendChild(center.el);
-      ntp.appendChild(inner.el);
+      const inner = new window.View('div').className('browse-ntp-inner')
+        .add(center);
+      ntpView.add(inner);
 
       const versionEl = window.Text('netrun').className('browse-ntp-version');
       versionEl.cssText('position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:var(--nr-text-quaternary);font-size:11px;font-family:monospace;user-select:none;letter-spacing:0.08em;cursor:pointer;transition:color 0.15s;');
-      versionEl.el.title = 'netrun://';
-      versionEl.el.addEventListener('mouseenter', function() { this.style.color = 'var(--nr-text-secondary)'; });
-      versionEl.el.addEventListener('mouseleave', function() { this.style.color = ''; });
-      versionEl.el.addEventListener('click', function() { browseNavigate('netrun://'); });
-      ntp.appendChild(versionEl.el);
+      versionEl.attr('title', 'netrun://');
+      versionEl.on('mouseenter', function() { versionEl.el.style.color = 'var(--nr-text-secondary)'; });
+      versionEl.on('mouseleave', function() { versionEl.el.style.color = ''; });
+      versionEl.onTap(function() { browseNavigate('netrun://'); });
+      ntpView.add(versionEl);
       container.appendChild(ntp);
       apiGet('/api/version').then(v => {
         const el = ntp.querySelector('.browse-ntp-version');
         if (el && v.version) el.textContent = 'netrun v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
       }).catch(() => {});
-      ntp.addEventListener('dragover', function(e) { e.preventDefault(); ntp.style.outline = '2px dashed var(--nr-accent)'; });
-      ntp.addEventListener('dragleave', function() { ntp.style.outline = ''; });
-      ntp.addEventListener('drop', function(e) {
+      ntpView.on('dragover', function(e) { e.preventDefault(); ntp.style.outline = '2px dashed var(--nr-accent)'; });
+      ntpView.on('dragleave', function() { ntp.style.outline = ''; });
+      ntpView.on('drop', function(e) {
         e.preventDefault();
         ntp.style.outline = '';
         const files = e.dataTransfer.files;

@@ -7,6 +7,34 @@ export let _vibeData = {};
 export const _vibeCmdLog = [];
 export const _vibeSelectedIdx = {};
 
+// ── Reactive state signals ──
+const _vibeActivePaneState = window.State(0);
+const _vibeSelectionState = window.State({ pane: -1, idx: -1 });
+
+// Effect: drive active-pane CSS class reactively
+window.Effect(function() {
+  const active = _vibeActivePaneState.value;
+  const paneIds = ['vibe-pane-status', 'vibe-pane-files', 'vibe-pane-branches', 'vibe-pane-commits', 'vibe-pane-stash', 'vibe-pane-detail'];
+  paneIds.forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('vibe-pane-active');
+  });
+  const activeEl = document.getElementById(paneIds[active]);
+  if (activeEl) activeEl.classList.add('vibe-pane-active');
+});
+
+// Effect: drive row-selection CSS class reactively
+window.Effect(function() {
+  const sel = _vibeSelectionState.value;
+  if (sel.pane < 0) return;
+  const rows = document.querySelectorAll('.vibe-selectable[data-pane="' + sel.pane + '"]');
+  rows.forEach(function(r) { r.classList.remove('vibe-row-selected'); });
+  if (rows[sel.idx]) {
+    rows[sel.idx].classList.add('vibe-row-selected');
+    rows[sel.idx].scrollIntoView({ block: 'nearest' });
+  }
+});
+
 // ── Git data fetching ──
 
 export async function _vibeGit(cmd, args) {
@@ -292,20 +320,12 @@ export function _vibeClickPane(idx) {
 }
 
 export function _vibeUpdateActivePane() {
-  document.querySelectorAll('.vibe-pane').forEach(p => p.classList.remove('vibe-pane-active'));
-  const paneIds = ['vibe-pane-status', 'vibe-pane-files', 'vibe-pane-branches', 'vibe-pane-commits', 'vibe-pane-stash', 'vibe-pane-detail'];
-  const activeEl = document.getElementById(paneIds[_vibeActivePane]);
-  if (activeEl) activeEl.classList.add('vibe-pane-active');
+  _vibeActivePaneState.value = _vibeActivePane;
 }
 
 export function _vibeUpdateSelection(paneIdx) {
-  const rows = document.querySelectorAll(`.vibe-selectable[data-pane="${paneIdx}"]`);
-  rows.forEach(r => r.classList.remove('vibe-row-selected'));
   const idx = _vibeSelectedIdx[paneIdx] || 0;
-  if (rows[idx]) {
-    rows[idx].classList.add('vibe-row-selected');
-    rows[idx].scrollIntoView({ block: 'nearest' });
-  }
+  _vibeSelectionState.value = { pane: paneIdx, idx: idx };
 }
 
 // ── Keyboard navigation (only when git mode is active in vault) ──
@@ -368,10 +388,17 @@ export function _vibeKeyHandler(e) {
 export function _vibeMoveSelection(delta) {
   const pane = _vibeActivePane;
   if (pane >= 5) return;
-  const rows = document.querySelectorAll(`.vibe-selectable[data-pane="${pane}"]`);
-  if (!rows.length) return;
+  const paneCounts = [
+    (_vibeData.status && (_vibeData.status.output || '').split('\n').filter(Boolean).length) || 0,
+    (_vibeData.files && _vibeData.files.files && _vibeData.files.files.length) || 0,
+    (_vibeData.branches && _vibeData.branches.branches && _vibeData.branches.branches.length) || 0,
+    (_vibeData.log && _vibeData.log.commits && _vibeData.log.commits.length) || 0,
+    (_vibeData.stash && _vibeData.stash.entries && _vibeData.stash.entries.length) || 0,
+  ];
+  const count = paneCounts[pane] || 0;
+  if (!count) return;
   let idx = (_vibeSelectedIdx[pane] || 0) + delta;
-  idx = Math.max(0, Math.min(rows.length - 1, idx));
+  idx = Math.max(0, Math.min(count - 1, idx));
   _vibeSelectedIdx[pane] = idx;
   _vibeUpdateSelection(pane);
 }

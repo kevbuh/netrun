@@ -9,7 +9,7 @@ import { FEED_CATALOG } from '/js/core/core-views.js';
 import { _annotationsEnabled, _hideAnnotationTooltip, _showAnnotateOfferPill, _showAnnotationTooltip, _updateAnnotateButtonState, _pickerEnabled } from '/js/browse/browse-annotations.js';
 import { _browseApplyAdaptiveColor, _browseSetUrlDisplay, _browseUpdateAdBlockBadge, _browseUrlDomain, _saveBrowseVisit } from '/js/browse-urlbar.js';
 import { _browseCollapseEmptyWindows, browseNewTab } from '/js/browse/browse-windows.js';
-import { _browseFaviconUrl, _browseNavDirection, _clearBrowseNavDirection, _browseRenderTabs, _browseTitleFromUrl, _updateIslandNavButtons } from '/js/browse/browse-island.js';
+import { _browseFaviconUrl, _browseRenderTabs, _browseTitleFromUrl, _updateIslandNavButtons } from '/js/browse/browse-island.js';
 import { _browseToggleFindBar, _browseUpdateSaveBtn, _swipeCommit, _switchTabLeft, _switchTabRight, _magnifyFromWebview, _magnifyFromWebviewGestureStart, _magnifyFromWebviewGestureChange, _magnifyFromWebviewGestureEnd } from '/js/browse/browse-features.js';
 import { _updateAudioIndicator } from '/js/browse/browse-audio.js';
 import { _pageInfoOnPageLoad, _pageInfoCleanup, _pageInfoUpdateScroll, _pageInfoUpdateTokens } from '/js/browse/browse-pageinfo.js';
@@ -61,6 +61,23 @@ export let _focusTimerInterval = null;
 export let _focusTimerDomain = '';
 export let _focusTimerWarnMinutes = 0;
 
+// @signal — reactive focus timer state
+const _focusTimerText = State('');
+const _focusTimerActive = State(false);
+const _focusTimerWarn = State(false);
+
+// Bind reactive state to the pill-focus-timer element once DOM is ready
+Effect(function() {
+  const text = _focusTimerText.value;
+  const active = _focusTimerActive.value;
+  const warn = _focusTimerWarn.value;
+  const el = document.getElementById('pill-focus-timer');
+  if (!el) return;
+  el.textContent = text;
+  if (active) el.classList.add('active'); else el.classList.remove('active');
+  if (warn) el.classList.add('warn'); else el.classList.remove('warn');
+});
+
 // Restore persisted start times from sessionStorage (survives reload)
 try {
   const saved = JSON.parse(sessionStorage.getItem('focusTimerStarts') || '{}');
@@ -100,21 +117,22 @@ export function _startFocusTimer(domain, warnMinutes) {
 export function _hideFocusTimerPill() {
   if (_focusTimerInterval) { clearInterval(_focusTimerInterval); _focusTimerInterval = null; }
   _focusTimerDomain = '';
-  const el = document.getElementById('pill-focus-timer');
-  if (el) { el.classList.remove('active', 'warn'); el.textContent = ''; }
+  batch(function() {
+    _focusTimerText.value = '';
+    _focusTimerActive.value = false;
+    _focusTimerWarn.value = false;
+  });
 }
 
 export function _updateFocusTimerPill() {
-  const el = document.getElementById('pill-focus-timer');
-  if (!el || !_focusTimerDomain) return;
+  if (!_focusTimerDomain) return;
   const elapsed = _focusTimerElapsed();
-  el.textContent = _formatFocusTime(elapsed);
-  el.classList.add('active');
-  if (_focusTimerWarnMinutes > 0 && elapsed >= _focusTimerWarnMinutes * 60 * 1000) {
-    el.classList.add('warn');
-  } else {
-    el.classList.remove('warn');
-  }
+  const isWarn = _focusTimerWarnMinutes > 0 && elapsed >= _focusTimerWarnMinutes * 60 * 1000;
+  batch(function() {
+    _focusTimerText.value = _formatFocusTime(elapsed);
+    _focusTimerActive.value = true;
+    _focusTimerWarn.value = isWarn;
+  });
 }
 
 export function _checkFocusTimer(url) {
@@ -132,6 +150,35 @@ export const DOWNLOAD_RETENTION_MS = 60 * 60 * 1000; // 1 hour
 export let _browseDownloads = []; // { id, filename, url, state: 'progressing'|'completed'|'cancelled', receivedBytes, totalBytes, startTime }
 export let _browseDownloadIdCounter = 0;
 export let _browseDownloadsLastSeenCount = 0;
+
+// @signal — reactive download badge state
+const _dlBtnVisible = State(false);
+const _dlBadgeText = State('');
+const _dlBadgeVisible = State(false);
+const _dlRingVisible = State(false);
+const _dlDropdownOpen = State(false);
+
+// Bind reactive state to download badge DOM elements
+Effect(function() {
+  var btn = document.getElementById('browse-downloads-btn');
+  if (btn) btn.style.display = _dlBtnVisible.value ? 'block' : 'none';
+});
+Effect(function() {
+  var badge = document.getElementById('browse-download-badge');
+  if (!badge) return;
+  var text = _dlBadgeText.value;
+  var visible = _dlBadgeVisible.value;
+  badge.textContent = text;
+  badge.style.display = visible ? 'flex' : 'none';
+});
+Effect(function() {
+  var ring = document.getElementById('browse-download-progress-ring');
+  if (ring) ring.style.display = _dlRingVisible.value ? 'block' : 'none';
+});
+Effect(function() {
+  var dropdown = document.getElementById('browse-downloads-dropdown');
+  if (dropdown) dropdown.style.display = _dlDropdownOpen.value ? 'block' : 'none';
+});
 
 export function _loadBrowseDownloads() {
   try {
@@ -170,31 +217,17 @@ setTimeout(() => {
 }, 100);
 
 export function _browseUpdateDownloadBadge() {
-  const btn = document.getElementById('browse-downloads-btn');
-  const badge = document.getElementById('browse-download-badge');
-  const ring = document.getElementById('browse-download-progress-ring');
-
   const count = _browseDownloads.length;
   const newDownloads = count - _browseDownloadsLastSeenCount;
+  const hasNewActive = newDownloads > 0 && _browseDownloads.some(d => d.state === 'progressing');
 
-  // Show/hide download button
-  if (btn) btn.style.display = count > 0 ? 'block' : 'none';
-
-  // Show badge only for new downloads
-  if (badge) {
-    if (newDownloads > 0) {
-      badge.textContent = newDownloads > 99 ? '99+' : newDownloads;
-      badge.style.display = 'flex';
-    } else {
-      badge.style.display = 'none';
-    }
-  }
-
-  // Show progress ring only for new active downloads
-  if (ring) {
-    const hasNewActive = newDownloads > 0 && _browseDownloads.some(d => d.state === 'progressing');
-    ring.style.display = hasNewActive ? 'block' : 'none';
-  }
+  // Update reactive signals — Effects handle DOM updates
+  batch(function() {
+    _dlBtnVisible.value = count > 0;
+    _dlBadgeVisible.value = newDownloads > 0;
+    _dlBadgeText.value = newDownloads > 0 ? (newDownloads > 99 ? '99+' : String(newDownloads)) : '';
+    _dlRingVisible.value = hasNewActive;
+  });
 
   // Dynamic Island: show download progress (persists until dismissed)
   if (typeof islandUpdate === 'function') {
@@ -307,8 +340,7 @@ export function _formatBytes(bytes) {
 }
 
 export function _closeBrowseDownloadsDropdown() {
-  const dropdown = document.getElementById('browse-downloads-dropdown');
-  if (dropdown) dropdown.style.display = 'none';
+  _dlDropdownOpen.value = false;
   document.removeEventListener('click', _closeBrowseDownloadsOnClick);
   window.removeEventListener('blur', _closeBrowseDownloadsOnBlur);
 }
@@ -316,19 +348,14 @@ export function _closeBrowseDownloadsDropdown() {
 export function toggleBrowseDownloads(event) {
   if (event) event.stopPropagation();
 
-  const dropdown = document.getElementById('browse-downloads-dropdown');
-  if (!dropdown) return;
-
-  if (dropdown.style.display === 'none') {
+  if (!_dlDropdownOpen.value) {
     _browseRenderDownloads();
-    dropdown.style.display = 'block';
+    _dlDropdownOpen.value = true;
 
     // Mark all downloads as seen
     _browseDownloadsLastSeenCount = _browseDownloads.length;
     _saveBrowseDownloads();
-
-    const badge = document.getElementById('browse-download-badge');
-    if (badge) badge.style.display = 'none';
+    _dlBadgeVisible.value = false;
 
     // Add close listeners
     requestAnimationFrame(() => {

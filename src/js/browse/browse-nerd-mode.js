@@ -7,6 +7,7 @@ import { showPanelForView, hidePanel, _invalidatePanelRender, ensurePanelVisible
 import { _pdfViewerInit, _pdfViewerDestroy, _pdfViewerGetText } from '/js/browse/browse-pdf-viewer.js';
 import { _nerdPanelRegister, _nerdPanelRefresh } from '/js/browse/browse-nerd-panel.js';
 import { _browseResetAdaptiveColor, _browseApplyAdaptiveColor } from '/js/browse-urlbar.js';
+import { View } from '/aether/ui/aether-ui.js';
 
 // ── Per-tab state ──
 export const _nerdModeEnabled = new Map(); // tabId → bool
@@ -73,15 +74,16 @@ function _nerdModeEnable(tab) {
   var container = document.getElementById('browse-content');
   if (!container) return;
 
-  var viewerEl = document.createElement('div');
-  viewerEl.id = 'nerd-pdf-viewer-' + tab.id;
-  viewerEl.className = 'pdf-viewer-container';
-  viewerEl.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;z-index:3;';
-  container.appendChild(viewerEl);
-  tab._nerdViewerEl = viewerEl;
+  // Create viewer container using AetherUI
+  var viewerView = new View()
+    .id('nerd-pdf-viewer-' + tab.id)
+    .className('pdf-viewer-container')
+    .cssText('position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;z-index:3;');
+  container.appendChild(viewerView.el);
+  tab._nerdViewerEl = viewerView.el;
 
   var pdfUrl = _getPdfUrl(tab);
-  _pdfViewerInit(tab, viewerEl, pdfUrl);
+  _pdfViewerInit(tab, viewerView.el, pdfUrl);
 
   // Show lookup panel
   ensurePanelVisible();

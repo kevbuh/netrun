@@ -1,6 +1,7 @@
 // draw-view.js — Whiteboard / drawing canvas as an NTP morph (draw:// protocol)
 // Uses fabric.js (loaded globally) for canvas drawing.
-import { _browseRenderTabs, _updateIslandNavButtons } from '/js/browse/browse-island.js';
+import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
+const _updateIslandNavButtons = (...args) => window._updateIslandNavButtons?.(...args);
 import { _browseSetUrlDisplay } from '/js/browse-urlbar.js';
 import { _browseUpdateNewTabPage } from '/js/browse/browse-passwords.js';
 import { openBrowse } from '/js/browse/browse-windows.js';
@@ -8,18 +9,25 @@ import { openBrowse } from '/js/browse/browse-windows.js';
 let _drawId = null;
 let _drawCanvas = null;       // fabric.Canvas instance
 let _drawContainer = null;    // .draw-view-container element
-let _drawToolbar = null;      // .draw-toolbar element
+let _drawToolbarView = null;  // AetherUI View for toolbar
 let _drawResizeObs = null;    // ResizeObserver
 let _drawSaveTimer = null;
 let _drawUndoStack = [];
 let _drawRedoStack = [];
 let _drawUndoLock = false;    // prevents recording undo during undo/redo
-let _drawCurrentTool = 'pen';
-let _drawColor = '#ffffff';
-let _drawStrokeWidth = 3;
+
+// @signal — reactive drawing state
+let _drawCurrentTool = null;  // State signal (initialized in _buildToolbar)
+let _drawColorState = null;   // State signal
+let _drawStrokeWidthState = null; // State signal
+
+// Plain values kept in sync with signals for canvas operations
+let _drawCurrentToolVal = 'pen';
+let _drawColorVal = '#ffffff';
+let _drawStrokeWidthVal = 3;
+
 let _drawShapeStart = null;   // { x, y } for shape drawing
 let _drawActiveShape = null;  // live shape being drawn
-let _drawPopover = null;      // active popover element
 
 // ── SVG icons for toolbar ──
 const _icons = {
@@ -49,8 +57,8 @@ export function openDrawPage(drawingId) {
 
   const container = document.getElementById('browse-content');
 
-  // Tear down any special page (netrun, history, help, chat, terminal) so the NTP can appear
-  if (tab._historyPage || tab._helpPage || tab._netrunPage || tab._chatPage || tab._terminalPage) {
+  // Tear down any special page (netrun, history, help, chat, terminal, bookmarks) so the NTP can appear
+  if (tab._historyPage || tab._helpPage || tab._netrunPage || tab._chatPage || tab._terminalPage || tab._bookmarksPage) {
     if (tab.el) { tab.el.remove(); tab.el = null; }
     delete tab._historyPage;
     delete tab._helpPage;
@@ -58,6 +66,7 @@ export function openDrawPage(drawingId) {
     delete tab._chatPage;
     delete tab._chatThreadId;
     delete tab._terminalPage;
+    delete tab._bookmarksPage;
   }
 
   // If already in draw mode, tear down first
@@ -137,9 +146,9 @@ export function drawViewUnmorph() {
 async function _morphNTP(ntp, drawingId) {
   ntp.classList.add('draw-mode');
 
-  // Create container + canvas element
-  _drawContainer = document.createElement('div');
-  _drawContainer.className = 'draw-view-container';
+  // Create container using AetherUI View
+  const containerView = new View('div').className('draw-view-container');
+  _drawContainer = containerView.el;
 
   const canvasEl = document.createElement('canvas');
   canvasEl.id = 'draw-canvas-' + drawingId;
@@ -169,9 +178,9 @@ async function _morphNTP(ntp, drawingId) {
   _drawResizeObs = new ResizeObserver(_resizeCanvas);
   _drawResizeObs.observe(_drawContainer);
 
-  // Build toolbar
+  // Build toolbar and append to container
   _buildToolbar();
-  _drawContainer.appendChild(_drawToolbar);
+  _drawContainer.appendChild(_drawToolbarView.el);
 
   // Load existing drawing
   try {
@@ -220,9 +229,6 @@ function _resizeCanvas() {
 // ── Cleanup morph DOM ──
 
 function _drawViewCleanupMorph() {
-  // Dismiss any popover
-  _dismissPopover();
-
   // Save before cleanup
   _saveNow();
 
@@ -248,7 +254,12 @@ function _drawViewCleanupMorph() {
     _drawContainer.remove();
     _drawContainer = null;
   }
-  _drawToolbar = null;
+  _drawToolbarView = null;
+
+  // Reset signals so they get re-created fresh next time
+  _drawCurrentTool = null;
+  _drawColorState = null;
+  _drawStrokeWidthState = null;
 
   const container = document.getElementById('browse-content');
   const ntp = container?.querySelector('.browse-ntp');
@@ -318,7 +329,8 @@ function _saveNow() {
 // ── Tool management ──
 
 function _setTool(tool) {
-  _drawCurrentTool = tool;
+  _drawCurrentToolVal = tool;
+  if (_drawCurrentTool) _drawCurrentTool.value = tool;
   if (!_drawCanvas) return;
 
   // Unbind shape drawing handlers
@@ -339,10 +351,10 @@ function _setTool(tool) {
   } else if (tool === 'eraser') {
     _drawCanvas.isDrawingMode = true;
     _drawCanvas.selection = false;
-    // Eraser = white brush (since background is dark)
+    // Eraser = black brush (since background is dark)
     _drawCanvas.freeDrawingBrush = new fabric.PencilBrush(_drawCanvas);
     _drawCanvas.freeDrawingBrush.color = 'rgba(0,0,0,1)';
-    _drawCanvas.freeDrawingBrush.width = _drawStrokeWidth * 4;
+    _drawCanvas.freeDrawingBrush.width = _drawStrokeWidthVal * 4;
   } else if (tool === 'text') {
     _drawCanvas.isDrawingMode = false;
     _drawCanvas.selection = false;
@@ -357,15 +369,13 @@ function _setTool(tool) {
     _drawCanvas.on('mouse:move', _shapeMouseMove);
     _drawCanvas.on('mouse:up', _shapeMouseUp);
   }
-
-  _updateToolbarActive();
 }
 
 function _applyBrush() {
   if (!_drawCanvas) return;
   _drawCanvas.freeDrawingBrush = new fabric.PencilBrush(_drawCanvas);
-  _drawCanvas.freeDrawingBrush.color = _drawColor;
-  _drawCanvas.freeDrawingBrush.width = _drawStrokeWidth;
+  _drawCanvas.freeDrawingBrush.color = _drawColorVal;
+  _drawCanvas.freeDrawingBrush.width = _drawStrokeWidthVal;
   _drawCanvas.freeDrawingBrush.decimate = 4;
 }
 
@@ -378,7 +388,7 @@ function _textMouseDown(opt) {
     left: pointer.x,
     top: pointer.y,
     fontSize: 20,
-    fill: _drawColor,
+    fill: _drawColorVal,
     fontFamily: 'system-ui, -apple-system, sans-serif',
   });
   _drawCanvas.add(text);
@@ -396,13 +406,13 @@ function _shapeMouseDown(opt) {
   const pointer = _drawCanvas.getPointer(opt.e);
   _drawShapeStart = { x: pointer.x, y: pointer.y };
 
-  const common = { stroke: _drawColor, strokeWidth: _drawStrokeWidth, fill: 'transparent', selectable: false, evented: false };
+  const common = { stroke: _drawColorVal, strokeWidth: _drawStrokeWidthVal, fill: 'transparent', selectable: false, evented: false };
 
-  if (_drawCurrentTool === 'line') {
+  if (_drawCurrentToolVal === 'line') {
     _drawActiveShape = new fabric.Line([pointer.x, pointer.y, pointer.x, pointer.y], common);
-  } else if (_drawCurrentTool === 'rect') {
+  } else if (_drawCurrentToolVal === 'rect') {
     _drawActiveShape = new fabric.Rect({ left: pointer.x, top: pointer.y, width: 0, height: 0, ...common });
-  } else if (_drawCurrentTool === 'ellipse') {
+  } else if (_drawCurrentToolVal === 'ellipse') {
     _drawActiveShape = new fabric.Ellipse({ left: pointer.x, top: pointer.y, rx: 0, ry: 0, ...common });
   }
 
@@ -416,13 +426,13 @@ function _shapeMouseMove(opt) {
   const pointer = _drawCanvas.getPointer(opt.e);
   const sx = _drawShapeStart.x, sy = _drawShapeStart.y;
 
-  if (_drawCurrentTool === 'line') {
+  if (_drawCurrentToolVal === 'line') {
     _drawActiveShape.set({ x2: pointer.x, y2: pointer.y });
-  } else if (_drawCurrentTool === 'rect') {
+  } else if (_drawCurrentToolVal === 'rect') {
     const left = Math.min(sx, pointer.x);
     const top = Math.min(sy, pointer.y);
     _drawActiveShape.set({ left, top, width: Math.abs(pointer.x - sx), height: Math.abs(pointer.y - sy) });
-  } else if (_drawCurrentTool === 'ellipse') {
+  } else if (_drawCurrentToolVal === 'ellipse') {
     const rx = Math.abs(pointer.x - sx) / 2;
     const ry = Math.abs(pointer.y - sy) / 2;
     _drawActiveShape.set({ left: Math.min(sx, pointer.x), top: Math.min(sy, pointer.y), rx, ry });
@@ -493,104 +503,7 @@ function _drawKeydown(e) {
   }
 }
 
-// ── Build toolbar ──
-
-function _buildToolbar() {
-  _drawToolbar = document.createElement('div');
-  _drawToolbar.className = 'draw-toolbar';
-
-  const tools = [
-    { id: 'select', icon: _icons.select, title: 'Select (V)' },
-    { id: 'pen', icon: _icons.pen, title: 'Pen (P)' },
-    { id: 'line', icon: _icons.line, title: 'Line (L)' },
-    { id: 'rect', icon: _icons.rect, title: 'Rectangle (R)' },
-    { id: 'ellipse', icon: _icons.ellipse, title: 'Ellipse (E)' },
-    { id: 'text', icon: _icons.text, title: 'Text (T)' },
-    { id: 'eraser', icon: _icons.eraser, title: 'Eraser (X)' },
-  ];
-
-  tools.forEach(t => {
-    const btn = document.createElement('button');
-    btn.className = 'draw-toolbar-btn';
-    btn.dataset.tool = t.id;
-    btn.title = t.title;
-    btn.innerHTML = t.icon;
-    btn.addEventListener('click', () => _setTool(t.id));
-    _drawToolbar.appendChild(btn);
-  });
-
-  // Separator
-  _drawToolbar.appendChild(_sep());
-
-  // Color swatch
-  const swatch = document.createElement('div');
-  swatch.className = 'draw-color-swatch';
-  swatch.style.background = _drawColor;
-  swatch.title = 'Color';
-  swatch.addEventListener('click', (e) => _showColorPopover(e, swatch));
-  _drawToolbar.appendChild(swatch);
-
-  // Stroke width
-  const strokeBtn = document.createElement('div');
-  strokeBtn.className = 'draw-stroke-display';
-  strokeBtn.textContent = _drawStrokeWidth + 'px';
-  strokeBtn.title = 'Stroke width';
-  strokeBtn.addEventListener('click', (e) => _showStrokePopover(e, strokeBtn));
-  _drawToolbar.appendChild(strokeBtn);
-
-  // Separator
-  _drawToolbar.appendChild(_sep());
-
-  // Undo / Redo
-  const undoBtn = _makeBtn(_icons.undo, 'Undo (Cmd+Z)');
-  undoBtn.addEventListener('click', _undo);
-  _drawToolbar.appendChild(undoBtn);
-
-  const redoBtn = _makeBtn(_icons.redo, 'Redo (Cmd+Shift+Z)');
-  redoBtn.addEventListener('click', _redo);
-  _drawToolbar.appendChild(redoBtn);
-
-  // Separator
-  _drawToolbar.appendChild(_sep());
-
-  // Delete selected
-  const trashBtn = _makeBtn(_icons.trash, 'Delete selected');
-  trashBtn.addEventListener('click', () => {
-    if (!_drawCanvas) return;
-    const sel = _drawCanvas.getActiveObjects();
-    if (sel.length) {
-      sel.forEach(o => _drawCanvas.remove(o));
-      _drawCanvas.discardActiveObject();
-      _drawCanvas.renderAll();
-    }
-  });
-  _drawToolbar.appendChild(trashBtn);
-
-  _updateToolbarActive();
-}
-
-function _sep() {
-  const el = document.createElement('div');
-  el.className = 'draw-toolbar-sep';
-  return el;
-}
-
-function _makeBtn(iconHtml, title) {
-  const btn = document.createElement('button');
-  btn.className = 'draw-toolbar-btn';
-  btn.title = title;
-  btn.innerHTML = iconHtml;
-  return btn;
-}
-
-function _updateToolbarActive() {
-  if (!_drawToolbar) return;
-  _drawToolbar.querySelectorAll('.draw-toolbar-btn[data-tool]').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tool === _drawCurrentTool);
-  });
-}
-
-// ── Color popover ──
+// ── Build toolbar (AetherUI) ──
 
 const _colorPalette = [
   '#ffffff', '#aaaaaa', '#555555', '#000000',
@@ -598,66 +511,188 @@ const _colorPalette = [
   '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899',
 ];
 
-function _showColorPopover(e, swatch) {
-  e.stopPropagation();
-  _dismissPopover();
-  const pop = document.createElement('div');
-  pop.className = 'draw-color-popover';
+function _buildToolbar() {
+  // Initialize reactive signals
+  _drawCurrentTool = State(_drawCurrentToolVal);
+  _drawColorState = State(_drawColorVal);
+  _drawStrokeWidthState = State(_drawStrokeWidthVal);
 
-  _colorPalette.forEach(c => {
-    const opt = document.createElement('div');
-    opt.className = 'draw-color-option' + (c === _drawColor ? ' active' : '');
-    opt.style.background = c;
-    opt.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      _drawColor = c;
-      swatch.style.background = c;
-      if (_drawCurrentTool === 'pen') _applyBrush();
-      _dismissPopover();
+  const tools = [
+    { id: 'select', icon: _icons.select, title: 'Select (V)' },
+    { id: 'pen',    icon: _icons.pen,    title: 'Pen (P)' },
+    { id: 'line',   icon: _icons.line,   title: 'Line (L)' },
+    { id: 'rect',   icon: _icons.rect,   title: 'Rectangle (R)' },
+    { id: 'ellipse',icon: _icons.ellipse,title: 'Ellipse (E)' },
+    { id: 'text',   icon: _icons.text,   title: 'Text (T)' },
+    { id: 'eraser', icon: _icons.eraser, title: 'Eraser (X)' },
+  ];
+
+  // Tool buttons — each reactively updates its active class
+  const toolBtns = tools.map(t => {
+    const btn = new View('button')
+      .className('draw-toolbar-btn')
+      .attr('data-tool', t.id)
+      .attr('title', t.title)
+      .add(RawHTML(t.icon))
+      .onTap(() => _setTool(t.id));
+
+    // Reactive active class
+    Effect(() => {
+      btn.el.classList.toggle('active', _drawCurrentTool.value === t.id);
     });
-    pop.appendChild(opt);
+
+    return btn;
   });
 
-  _drawToolbar.appendChild(pop);
-  _drawPopover = pop;
+  // Color swatch — reactively updates background
+  const swatchView = new View('div')
+    .className('draw-color-swatch')
+    .attr('title', 'Color');
+
+  Effect(() => {
+    swatchView.el.style.background = _drawColorState.value;
+  });
+
+  swatchView.onTap((e) => {
+    e.stopPropagation();
+    _showColorPopover(e, swatchView.el);
+  });
+
+  // Stroke width display — reactively shows current width
+  const strokeDisplayView = new View('div')
+    .className('draw-stroke-display')
+    .attr('title', 'Stroke width');
+
+  Effect(() => {
+    strokeDisplayView.el.textContent = _drawStrokeWidthState.value + 'px';
+  });
+
+  strokeDisplayView.onTap((e) => {
+    e.stopPropagation();
+    _showStrokePopover(e, strokeDisplayView.el);
+  });
+
+  // Undo button
+  const undoBtn = new View('button')
+    .className('draw-toolbar-btn')
+    .attr('title', 'Undo (Cmd+Z)')
+    .add(RawHTML(_icons.undo))
+    .onTap(_undo);
+
+  // Redo button
+  const redoBtn = new View('button')
+    .className('draw-toolbar-btn')
+    .attr('title', 'Redo (Cmd+Shift+Z)')
+    .add(RawHTML(_icons.redo))
+    .onTap(_redo);
+
+  // Delete selected button
+  const trashBtn = new View('button')
+    .className('draw-toolbar-btn')
+    .attr('title', 'Delete selected')
+    .add(RawHTML(_icons.trash))
+    .onTap(() => {
+      if (!_drawCanvas) return;
+      const sel = _drawCanvas.getActiveObjects();
+      if (sel.length) {
+        sel.forEach(o => _drawCanvas.remove(o));
+        _drawCanvas.discardActiveObject();
+        _drawCanvas.renderAll();
+      }
+    });
+
+  // Assemble toolbar using HStack
+  const toolbarView = HStack(
+    ...toolBtns,
+    _sepView(),
+    swatchView,
+    strokeDisplayView,
+    _sepView(),
+    undoBtn,
+    redoBtn,
+    _sepView(),
+    trashBtn,
+  ).className('draw-toolbar');
+
+  _drawToolbarView = toolbarView;
+}
+
+function _sepView() {
+  return new View('div').className('draw-toolbar-sep');
+}
+
+// ── Color popover (AetherUI) ──
+
+let _drawPopoverEl = null; // raw DOM element for active popover
+
+function _showColorPopover(e, anchorEl) {
+  _dismissPopover();
+
+  // Build color grid using AetherUI
+  const colorOptions = _colorPalette.map(c => {
+    const opt = new View('div').className('draw-color-option').styles({ background: c });
+
+    Effect(() => {
+      opt.el.classList.toggle('active', _drawColorState.value === c);
+    });
+
+    opt.onTap((ev) => {
+      ev.stopPropagation();
+      _drawColorVal = c;
+      _drawColorState.value = c;
+      if (_drawCurrentToolVal === 'pen') _applyBrush();
+      _dismissPopover();
+    });
+
+    return opt;
+  });
+
+  const popView = new View('div')
+    .className('draw-color-popover')
+    .add(...colorOptions);
+
+  _drawToolbarView.el.appendChild(popView.el);
+  _drawPopoverEl = popView.el;
+
   setTimeout(() => document.addEventListener('mousedown', _dismissPopoverOnOutside, { once: true }), 0);
 }
 
-function _showStrokePopover(e, strokeBtn) {
-  e.stopPropagation();
+function _showStrokePopover(e, anchorEl) {
   _dismissPopover();
-  const pop = document.createElement('div');
-  pop.className = 'draw-stroke-popover';
 
-  const slider = document.createElement('input');
-  slider.type = 'range';
-  slider.min = '1';
-  slider.max = '40';
-  slider.value = String(_drawStrokeWidth);
-  const label = document.createElement('span');
-  label.className = 'draw-stroke-label';
-  label.textContent = _drawStrokeWidth + 'px';
+  // Reactive stroke width signal bound to slider
+  const strokeBinding = _drawStrokeWidthState;
 
-  slider.addEventListener('input', () => {
-    _drawStrokeWidth = parseInt(slider.value);
-    label.textContent = _drawStrokeWidth + 'px';
-    strokeBtn.textContent = _drawStrokeWidth + 'px';
-    if (_drawCurrentTool === 'pen') _applyBrush();
+  const sliderView = Slider(strokeBinding, { min: 1, max: 40, step: 1 });
+
+  sliderView.on('input', () => {
+    const val = parseInt(sliderView.el.value);
+    _drawStrokeWidthVal = val;
+    _drawStrokeWidthState.value = val;
+    if (_drawCurrentToolVal === 'pen') _applyBrush();
   });
 
-  pop.appendChild(slider);
-  pop.appendChild(label);
-  _drawToolbar.appendChild(pop);
-  _drawPopover = pop;
+  const labelView = Text('').className('draw-stroke-label');
+  Effect(() => {
+    labelView.el.textContent = _drawStrokeWidthState.value + 'px';
+  });
+
+  const popView = new View('div')
+    .className('draw-stroke-popover')
+    .add(sliderView, labelView);
+
+  _drawToolbarView.el.appendChild(popView.el);
+  _drawPopoverEl = popView.el;
+
   setTimeout(() => document.addEventListener('mousedown', _dismissPopoverOnOutside, { once: true }), 0);
 }
 
 function _dismissPopover() {
-  if (_drawPopover) { _drawPopover.remove(); _drawPopover = null; }
+  if (_drawPopoverEl) { _drawPopoverEl.remove(); _drawPopoverEl = null; }
 }
 
 function _dismissPopoverOnOutside(e) {
-  if (_drawPopover && !_drawPopover.contains(e.target)) {
+  if (_drawPopoverEl && !_drawPopoverEl.contains(e.target)) {
     _dismissPopover();
   }
 }

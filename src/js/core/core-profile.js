@@ -13,13 +13,18 @@ import { getFeedSources } from '/js/feed.js';
 import { openSettings, renderSettingsView } from '/js/settings/settings-core.js';
 import { logger } from '/js/logger.js';
 
+// ── Module-level refs for message form (set by renderUserProfile, used by showProfileMessageForm/sendProfileMessage) ──
+var _msgFormEl = null;       // raw DOM element for the #profile-message-form container
+var _msgTextareaEl = null;   // raw DOM element for the textarea (set when form is rendered)
+var _msgStatusState = null;  // State({ text, color }) for status line
+
 // ── User Profile ──
 
 export async function openUserProfile(username) {
   hideAllViews();
   const view = await ensureView('profile-view');
-  view.classList.add('active');
-  view.style.display = 'block';
+  view.classList.add('active');  // raw DOM node from ensureView — classList manipulation is necessary here
+  view.style.display = 'block';  // raw DOM node from ensureView — style manipulation is necessary here
   if (username) {
     window.location.hash = 'profile/' + encodeURIComponent(username);
   } else {
@@ -62,60 +67,58 @@ export async function renderUserProfile(username) {
 
   // No username → search/browse mode
   if (!username) {
-    const searchInput = window.TextField('Search by username...').id('profile-search-input')
+    const searchInput = window.TextField('Search by username...')
       .className('w-full bg-input border border-border-input rounded-lg px-4 py-2.5 text-primary text-sm outline-none focus:border-accent mb-4');
+    const searchResultsView = new window.View('div');
+    const allUsersView = new window.View('div');
     AetherUI.mount(window.VStack(
       window.Text('Find a user').className('text-[1.3rem] font-semibold text-white_ mb-5'),
       searchInput,
-      new window.View('div').id('profile-search-results'),
-      new window.View('div').id('profile-all-users')
+      searchResultsView,
+      allUsersView
     ), el);
 
     // Load all users immediately
-    const allUsersEl = document.getElementById('profile-all-users');
-    AetherUI.mount(window.Text('Loading users...').className('text-dimmer text-sm'), allUsersEl);
+    AetherUI.mount(window.Text('Loading users...').className('text-dimmer text-sm'), allUsersView.el);
     try {
       const users = await apiGet('/api/users');
       if (!users.length) {
-        AetherUI.mount(window.Text('No users yet').className('text-dimmer text-sm'), allUsersEl);
+        AetherUI.mount(window.Text('No users yet').className('text-dimmer text-sm'), allUsersView.el);
       } else {
         const grid = new window.View('div');
         grid.el.className = 'grid gap-3';
         grid.styles({ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' });
         users.forEach(function(u) { AetherUI.append(_profileUserCard(u, 'grid'), grid.el); });
-        AetherUI.mount(grid, allUsersEl);
+        AetherUI.mount(grid, allUsersView.el);
       }
     } catch (e) {
-      AetherUI.mount(window.Text('Failed to load users').className('text-dimmer text-sm'), allUsersEl);
+      AetherUI.mount(window.Text('Failed to load users').className('text-dimmer text-sm'), allUsersView.el);
       logger.error('Load users error', e);
     }
 
-    const input = document.getElementById('profile-search-input');
-    let debounce = null;
-    input.addEventListener('input', () => {
-      clearTimeout(debounce);
-      debounce = setTimeout(async () => {
-        const q = input.value.trim();
-        const results = document.getElementById('profile-search-results');
-        const allUsers = document.getElementById('profile-all-users');
+    let debounceTimer = null;
+    searchInput.el.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        const q = searchInput.el.value.trim();
         if (!q) {
-          results.innerHTML = '';
-          allUsers.style.display = '';
+          AetherUI.mount(new window.View('div'), searchResultsView.el);
+          allUsersView.el.style.display = '';
           return;
         }
-        allUsers.style.display = 'none';
+        allUsersView.el.style.display = 'none';
         try {
           const users = await apiGet('/api/users?q=' + encodeURIComponent(q));
           if (!users.length) {
-            AetherUI.mount(window.Text('No users found').className('text-dimmer text-sm'), results);
+            AetherUI.mount(window.Text('No users found').className('text-dimmer text-sm'), searchResultsView.el);
             return;
           }
-          results.innerHTML = '';
-          users.forEach(function(u) { AetherUI.append(_profileUserCard(u, 'list'), results); });
+          AetherUI.mount(new window.View('div'), searchResultsView.el);
+          users.forEach(function(u) { AetherUI.append(_profileUserCard(u, 'list'), searchResultsView.el); });
         } catch (e) { logger.error('User search error', e); }
       }, 300);
     });
-    setTimeout(() => input.focus(), 50);
+    setTimeout(() => searchInput.el.focus(), 50);
     return;
   }
 
@@ -146,7 +149,7 @@ export async function renderUserProfile(username) {
       AetherUI.mount(window.VStack(
         privAvatar,
         window.HStack(window.Text(profile.username).className('text-[1.2rem] font-semibold text-white_')).spacing(2).className('mb-2'),
-        window.HStack(Icon('lock', 14), window.Text('This profile is private').className('text-sm')).spacing(1.5).className('text-dimmer')
+        window.HStack(window.RawHTML(icon('lock', { size: 14 })), window.Text('This profile is private').className('text-sm')).spacing(1.5).className('text-dimmer')
       ).className('flex flex-col items-center justify-center py-16'), el);
       return;
     }
@@ -238,7 +241,10 @@ export async function renderUserProfile(username) {
     }
 
     sections.push(window.HStack(avatarWrap, nameCol, window.Spacer(), actionBtn).spacing(4).className('mb-6 -mt-12 relative z-10 px-2'));
-    sections.push(new window.View('div').id('profile-message-form').className('hidden mb-6'));
+    const msgFormView = new window.View('div').className('hidden mb-6');
+    _msgFormEl = msgFormView.el;
+    _msgStatusState = null; // reset on each profile render
+    sections.push(msgFormView);
 
     // ── Stats row ──
     const statsItems = [];
@@ -256,7 +262,7 @@ export async function renderUserProfile(username) {
     }
     statsItems.push(_statLink(comments.length, 'comments', 'profile-section-comments'));
     statsItems.push(_statLink(reposts.length, 'reposts', 'profile-section-reposts'));
-    sections.push(HStack(statsItems).spacing(6).className('mb-8 text-[0.82rem]'));
+    sections.push(window.HStack(statsItems).spacing(6).className('mb-8 text-[0.82rem]'));
 
     // ── Achievements section ──
     if (achievements.length) {
@@ -273,7 +279,7 @@ export async function renderUserProfile(username) {
         return achCard;
       });
       sections.push(_profileSection('Achievements', 'profile-section-achievements',
-        HStack(achItems).className('flex flex-wrap gap-2')));
+        window.HStack(achItems).className('flex flex-wrap gap-2')));
     }
 
     // ── Feeds section ──
@@ -307,7 +313,7 @@ export async function renderUserProfile(username) {
       for (const cf of customFeeds) {
         feedChips.push(window.Text(cf.name || cf.url).className('inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border-card bg-card text-sm text-primary'));
       }
-      sections.push(_profileSection('Feeds', null, HStack(feedChips).className('flex flex-wrap gap-2')));
+      sections.push(_profileSection('Feeds', null, window.HStack(feedChips).className('flex flex-wrap gap-2')));
     }
 
     // ── Recent comments section ──
@@ -323,7 +329,7 @@ export async function renderUserProfile(username) {
         card.onTap(function() { location.hash = '#paper/' + encodeURIComponent(c.paperLink); });
         return card;
       });
-      sections.push(_profileSection('Recent Comments', 'profile-section-comments', VStack(commentCards).spacing(2)));
+      sections.push(_profileSection('Recent Comments', 'profile-section-comments', window.VStack(commentCards).spacing(2)));
     }
 
     // ── Reposts section ──
@@ -333,21 +339,21 @@ export async function renderUserProfile(username) {
         let hostname = '';
         try { hostname = new URL(r.paperLink).hostname.replace(/^www\./, ''); } catch (e) {}
         const card = window.VStack(
-          window.HStack(Icon('repost', 14).className('text-green-400 shrink-0'), window.Text(r.paperTitle || r.paperLink).className('text-[0.78rem] text-primary leading-relaxed truncate')).spacing(2),
+          window.HStack(window.RawHTML(icon('repost', { size: 14 })).className('text-green-400 shrink-0'), window.Text(r.paperTitle || r.paperLink).className('text-[0.78rem] text-primary leading-relaxed truncate')).spacing(2),
           window.Text((hostname ? hostname + ' \u00b7 ' : '') + tAgo).className('text-dimmer text-[0.7rem] mt-1')
         );
         card.className('block px-4 py-3 rounded-lg border border-border-card bg-card hover:border-accent/40 transition-colors cursor-pointer');
         card.onTap(function() { location.hash = '#view/' + encodeURIComponent(r.paperLink); });
         return card;
       });
-      sections.push(_profileSection('Reposts', 'profile-section-reposts', VStack(repostCards).spacing(2)));
+      sections.push(_profileSection('Reposts', 'profile-section-reposts', window.VStack(repostCards).spacing(2)));
     }
 
     if (!comments.length && !reposts.length && !catalogFeeds.length && !customFeeds.length) {
       sections.push(window.Text('No shared activity yet.').className('text-dimmer text-sm mt-4'));
     }
 
-    AetherUI.mount(VStack(sections), el);
+    AetherUI.mount(window.VStack(sections), el);
 
     // Render status pet thumbnails
     if (typeof _renderPetThumb === 'function') {
@@ -380,16 +386,24 @@ export function _profileSubscribeFeed(key, btn) {
 }
 
 export function showProfileMessageForm(username) {
-  const el = document.getElementById('profile-message-form');
+  const el = _msgFormEl;
   if (!el) return;
   if (!el.classList.contains('hidden')) { el.classList.add('hidden'); return; }
   el.classList.remove('hidden');
 
   const textarea = new window.View('textarea');
-  textarea.id('profile-msg-textarea');
   textarea.className('w-full text-[0.82rem] bg-input border border-border-input rounded-lg px-3 py-2 text-primary resize-none outline-none focus:border-accent');
   textarea.el.rows = 3;
   textarea.el.placeholder = 'Write a message to ' + username + '...';
+  _msgTextareaEl = textarea.el;
+
+  _msgStatusState = window.State({ text: '', color: '' });
+  const statusText = window.Text('').className('text-[0.75rem] ml-2');
+  window.Effect(function() {
+    const s = _msgStatusState.value;
+    statusText.el.textContent = s.text;
+    statusText.el.style.color = s.color;
+  });
 
   AetherUI.mount(window.VStack(
     textarea,
@@ -397,30 +411,29 @@ export function showProfileMessageForm(username) {
       window.Button('Send').className('px-3 py-1 rounded-md text-[0.78rem] bg-accent text-white border-none cursor-pointer hover:bg-accent-hover transition-colors')
         .onTap(function() { sendProfileMessage(username); }),
       window.Button('Cancel').className('px-3 py-1 rounded-md text-[0.78rem] border border-border-input text-muted bg-transparent cursor-pointer hover:text-primary transition-colors')
-        .onTap(function() { document.getElementById('profile-message-form').classList.add('hidden'); }),
-      window.Text('').className('text-[0.75rem] ml-2').id('profile-msg-status')
+        .onTap(function() { if (_msgFormEl) _msgFormEl.classList.add('hidden'); }),
+      statusText
     ).spacing(2).className('mt-2')
   ).className('p-4 rounded-lg border border-border-card bg-card'), el);
 
-  setTimeout(() => document.getElementById('profile-msg-textarea')?.focus(), 50);
+  setTimeout(function() { if (_msgTextareaEl) _msgTextareaEl.focus(); }, 50);
 }
 
 export async function sendProfileMessage(username) {
-  const textarea = document.getElementById('profile-msg-textarea');
-  const status = document.getElementById('profile-msg-status');
-  const content = (textarea?.value || '').trim();
+  const textarea = _msgTextareaEl;
+  const content = (textarea ? textarea.value : '').trim();
   if (!content) return;
   try {
     const data = await apiPost('/api/messages', { to_username: username, content });
     if (data.error) {
-      if (status) { status.style.color = 'var(--nr-text-secondary)'; status.textContent = data.error; }
+      if (_msgStatusState) _msgStatusState.value = { text: data.error, color: 'var(--nr-text-secondary)' };
     } else {
-      if (status) { status.style.color = 'var(--nr-accent)'; status.textContent = 'Message sent!'; }
+      if (_msgStatusState) _msgStatusState.value = { text: 'Message sent!', color: 'var(--nr-accent)' };
       textarea.value = '';
-      setTimeout(() => document.getElementById('profile-message-form')?.classList.add('hidden'), 1500);
+      setTimeout(function() { if (_msgFormEl) _msgFormEl.classList.add('hidden'); }, 1500);
     }
   } catch (err) {
-    if (status) { status.style.color = 'var(--nr-text-secondary)'; status.textContent = 'Failed to send'; }
+    if (_msgStatusState) _msgStatusState.value = { text: 'Failed to send', color: 'var(--nr-text-secondary)' };
   }
 }
 

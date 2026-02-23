@@ -291,21 +291,6 @@
       padding-bottom: 12px;
     }
 
-    /* Sidebar resize handle */
-    .sidebar-resize-handle {
-      position: absolute;
-      left: -3px;
-      top: 0;
-      bottom: 0;
-      width: 6px;
-      cursor: col-resize;
-      z-index: 10;
-    }
-    .sidebar-resize-handle:hover,
-    .sidebar-resize-handle.dragging {
-      background: var(--nr-accent);
-      opacity: 0.3;
-    }
 
     /* ── Citation hover overlay ── */
     .pdf-citation-layer {
@@ -330,13 +315,6 @@
     }
     .pdf-annot-link[data-dest]:hover {
       background: rgba(180, 69, 26, 0.2) !important;
-    }
-    .pdf-citation-link {
-      cursor: pointer !important;
-      border-radius: 2px;
-    }
-    .pdf-citation-link:hover {
-      background: rgba(180, 69, 26, 0.25) !important;
     }
     .citation-popup {
       position: fixed;
@@ -468,13 +446,6 @@
       opacity: 1;
     }
 
-    /* ── References list ── */
-    .reference-item {
-      border-left: 2px solid transparent;
-    }
-    .reference-item:hover {
-      border-left-color: var(--nr-accent);
-    }
     .line-clamp-2 {
       display: -webkit-box;
       -webkit-line-clamp: 2;

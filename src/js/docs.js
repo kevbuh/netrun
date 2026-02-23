@@ -271,26 +271,24 @@ const PREVIEWS = {
 
 // ── Renderer ──
 
-let _activeNavItem = null;
-let _searchQuery = '';
+let _activeNavEl = null;
+let _searchQuery = State('');
 let _rootView = null;
 
 function _buildSidebar(data) {
   const sidebar = VStack().className('docs-sidebar');
 
   // Search
-  const searchWrap = document.createElement('div');
-  searchWrap.className = 'docs-search';
-  const searchInput = document.createElement('input');
-  searchInput.type = 'text';
-  searchInput.placeholder = 'Search docs...';
-  searchInput.value = _searchQuery;
-  searchInput.addEventListener('input', () => {
-    _searchQuery = searchInput.value;
-    _renderContent(data);
+  const searchWrap = new View('div').className('docs-search');
+  const searchInput = new View('input')
+    .attr('type', 'text')
+    .attr('placeholder', 'Search docs...');
+  searchInput.el.value = _searchQuery.value;
+  searchInput.on('input', () => {
+    _searchQuery.value = searchInput.el.value;
   });
-  searchWrap.appendChild(searchInput);
-  sidebar.el.appendChild(searchWrap);
+  searchWrap.add(searchInput);
+  sidebar.add(searchWrap);
 
   // Nav items
   for (const cat of data.categoryOrder) {
@@ -300,46 +298,42 @@ function _buildSidebar(data) {
       if (cat !== 'Modifiers') continue;
     }
 
-    const catEl = document.createElement('div');
-    catEl.className = 'docs-nav-category';
-    catEl.textContent = cat;
-    sidebar.el.appendChild(catEl);
+    const catEl = new View('div').className('docs-nav-category');
+    catEl.el.textContent = cat;
+    sidebar.add(catEl);
 
     if (cat === 'Modifiers') {
-      const navItem = document.createElement('div');
-      navItem.className = 'docs-nav-item';
-      navItem.textContent = 'View Modifiers (' + data.modifiers.length + ')';
-      navItem.addEventListener('click', () => {
-        _setActiveNav(navItem, 'modifiers');
+      const navItem = new View('div').className('docs-nav-item');
+      navItem.el.textContent = 'View Modifiers (' + data.modifiers.length + ')';
+      navItem.onTap(() => {
+        _setActiveNav(navItem.el, 'modifiers');
         _scrollToItem('modifiers');
       });
-      sidebar.el.appendChild(navItem);
+      sidebar.add(navItem);
       continue;
     }
 
     if (cat === 'Help') {
       for (const sec of _HELP_SECTIONS) {
-        const navItem = document.createElement('div');
-        navItem.className = 'docs-nav-item';
-        navItem.textContent = sec.title;
-        navItem.addEventListener('click', () => {
-          _setActiveNav(navItem, 'help-' + sec.id);
+        const navItem = new View('div').className('docs-nav-item');
+        navItem.el.textContent = sec.title;
+        navItem.onTap(() => {
+          _setActiveNav(navItem.el, 'help-' + sec.id);
           _scrollToItem('help-' + sec.id);
         });
-        sidebar.el.appendChild(navItem);
+        sidebar.add(navItem);
       }
       continue;
     }
 
     for (const item of items) {
-      const navItem = document.createElement('div');
-      navItem.className = 'docs-nav-item';
-      navItem.textContent = item.name;
-      navItem.addEventListener('click', () => {
-        _setActiveNav(navItem, item.name);
+      const navItem = new View('div').className('docs-nav-item');
+      navItem.el.textContent = item.name;
+      navItem.onTap(() => {
+        _setActiveNav(navItem.el, item.name);
         _scrollToItem(item.name);
       });
-      sidebar.el.appendChild(navItem);
+      sidebar.add(navItem);
     }
   }
 
@@ -347,8 +341,8 @@ function _buildSidebar(data) {
 }
 
 function _setActiveNav(el, name) {
-  if (_activeNavItem) _activeNavItem.classList.remove('active');
-  _activeNavItem = el;
+  if (_activeNavEl) _activeNavEl.classList.remove('active');
+  _activeNavEl = el;
   if (el) el.classList.add('active');
 }
 
@@ -360,85 +354,76 @@ function _scrollToItem(name) {
 }
 
 function _matchesSearch(item) {
-  if (!_searchQuery) return true;
-  const q = _searchQuery.toLowerCase();
-  if (item.name.toLowerCase().includes(q)) return true;
-  if (item.category && item.category.toLowerCase().includes(q)) return true;
-  if (item.params && item.params.toLowerCase().includes(q)) return true;
+  const q = _searchQuery.value;
+  if (!q) return true;
+  const ql = q.toLowerCase();
+  if (item.name.toLowerCase().includes(ql)) return true;
+  if (item.category && item.category.toLowerCase().includes(ql)) return true;
+  if (item.params && item.params.toLowerCase().includes(ql)) return true;
   if (item.methods) {
     for (const m of item.methods) {
-      if (m.name.toLowerCase().includes(q)) return true;
+      if (m.name.toLowerCase().includes(ql)) return true;
     }
   }
   return false;
 }
 
 function _buildComponentCard(item) {
-  const card = document.createElement('div');
-  card.className = 'docs-card';
-  card.id = 'docs-item-' + item.name;
+  const card = new View('div').className('docs-card');
+  card.el.id = 'docs-item-' + item.name;
 
   // Title
-  const title = document.createElement('h2');
-  title.className = 'docs-card-title';
-  title.textContent = item.name;
-  card.appendChild(title);
+  const title = new View('h2').className('docs-card-title');
+  title.el.textContent = item.name;
+  card.add(title);
 
   // File path
-  const fileEl = document.createElement('div');
-  fileEl.className = 'docs-card-file';
-  fileEl.textContent = item.file;
-  card.appendChild(fileEl);
+  const fileEl = new View('div').className('docs-card-file');
+  fileEl.el.textContent = item.file;
+  card.add(fileEl);
 
   // Description
   if (item.description) {
-    const desc = document.createElement('div');
-    desc.className = 'docs-card-desc';
-    desc.textContent = item.description;
-    card.appendChild(desc);
+    const desc = new View('div').className('docs-card-desc');
+    desc.el.textContent = item.description;
+    card.add(desc);
   }
 
   // Signature
-  const sig = document.createElement('div');
-  sig.className = 'docs-signature';
-  sig.innerHTML = '<span class="sig-fn">' + item.name + '</span>(<span class="sig-param">' +
+  const sig = new View('div').className('docs-signature');
+  sig.el.innerHTML = '<span class="sig-fn">' + item.name + '</span>(<span class="sig-param">' +
     _escapeHtml(item.params || '') + '</span>)';
-  card.appendChild(sig);
+  card.add(sig);
 
   // Instance methods
   if (item.methods.length > 0) {
-    const methodsTitle = document.createElement('div');
-    methodsTitle.className = 'docs-methods-title';
-    methodsTitle.textContent = 'Methods';
-    card.appendChild(methodsTitle);
+    const methodsTitle = new View('div').className('docs-methods-title');
+    methodsTitle.el.textContent = 'Methods';
+    card.add(methodsTitle);
 
     for (const m of item.methods) {
-      const mEl = document.createElement('div');
-      mEl.className = 'docs-method';
-      mEl.innerHTML = '<span class="docs-method-name">.' + m.name + '</span>' +
+      const mEl = new View('div').className('docs-method');
+      mEl.el.innerHTML = '<span class="docs-method-name">.' + m.name + '</span>' +
         '<span class="docs-method-params">(' + _escapeHtml(m.params) + ')</span>';
-      card.appendChild(mEl);
+      card.add(mEl);
     }
   }
 
   // Live preview
   if (PREVIEWS[item.name]) {
     try {
-      const preview = document.createElement('div');
-      preview.className = 'docs-preview';
-      const header = document.createElement('div');
-      header.className = 'docs-preview-header';
-      header.textContent = 'Live Preview';
-      preview.appendChild(header);
-      const body = document.createElement('div');
-      body.className = 'docs-preview-body';
+      const preview = new View('div').className('docs-preview');
+      const header = new View('div').className('docs-preview-header');
+      header.el.textContent = 'Live Preview';
+      preview.add(header);
+      const body = new View('div').className('docs-preview-body');
       const view = PREVIEWS[item.name]();
       if (view instanceof View) {
-        AetherUI.append(view, body);
+        AetherUI.append(view, body.el);
         for (let k = 0; k < view._onAppearFns.length; k++) view._onAppearFns[k]();
       }
-      preview.appendChild(body);
-      card.appendChild(preview);
+      preview.add(body);
+      card.add(preview);
     } catch (e) {
       // Preview failed, skip it
     }
@@ -448,24 +433,20 @@ function _buildComponentCard(item) {
 }
 
 function _buildModifiersCard(modifiers) {
-  const card = document.createElement('div');
-  card.className = 'docs-card';
-  card.id = 'docs-item-modifiers';
+  const card = new View('div').className('docs-card');
+  card.el.id = 'docs-item-modifiers';
 
-  const title = document.createElement('h2');
-  title.className = 'docs-card-title';
-  title.textContent = 'View Modifiers';
-  card.appendChild(title);
+  const title = new View('h2').className('docs-card-title');
+  title.el.textContent = 'View Modifiers';
+  card.add(title);
 
-  const fileEl = document.createElement('div');
-  fileEl.className = 'docs-card-file';
-  fileEl.textContent = '/aether/ui/view.js';
-  card.appendChild(fileEl);
+  const fileEl = new View('div').className('docs-card-file');
+  fileEl.el.textContent = '/aether/ui/view.js';
+  card.add(fileEl);
 
-  const desc = document.createElement('div');
-  desc.className = 'docs-card-desc';
-  desc.textContent = 'Chainable modifiers available on all views. Returns this for chaining.';
-  card.appendChild(desc);
+  const desc = new View('div').className('docs-card-desc');
+  desc.el.textContent = 'Chainable modifiers available on all views. Returns this for chaining.';
+  card.add(desc);
 
   // Group modifiers by section
   const sections = {};
@@ -476,25 +457,22 @@ function _buildModifiersCard(modifiers) {
   }
 
   for (const [sec, items] of Object.entries(sections)) {
-    if (!_searchQuery || items.some(it => _matchesModifier(it))) {
-      const secTitle = document.createElement('div');
-      secTitle.className = 'docs-methods-title';
-      secTitle.textContent = sec;
-      secTitle.style.marginTop = '12px';
-      card.appendChild(secTitle);
+    if (!_searchQuery.value || items.some(it => _matchesModifier(it))) {
+      const secTitle = new View('div').className('docs-methods-title');
+      secTitle.el.textContent = sec;
+      secTitle.el.style.marginTop = '12px';
+      card.add(secTitle);
 
-      const grid = document.createElement('div');
-      grid.className = 'docs-modifier-grid';
+      const grid = new View('div').className('docs-modifier-grid');
       for (const m of items) {
-        if (_searchQuery && !_matchesModifier(m)) continue;
-        const mEl = document.createElement('div');
-        mEl.className = 'docs-modifier-item';
-        mEl.innerHTML = '<span class="docs-modifier-dot"></span>' +
+        if (_searchQuery.value && !_matchesModifier(m)) continue;
+        const mEl = new View('div').className('docs-modifier-item');
+        mEl.el.innerHTML = '<span class="docs-modifier-dot"></span>' +
           '<span class="docs-method-name">.' + m.name + '</span>' +
           '<span class="docs-method-params">(' + _escapeHtml(m.params) + ')</span>';
-        grid.appendChild(mEl);
+        grid.add(mEl);
       }
-      card.appendChild(grid);
+      card.add(grid);
     }
   }
 
@@ -502,9 +480,10 @@ function _buildModifiersCard(modifiers) {
 }
 
 function _matchesModifier(m) {
-  if (!_searchQuery) return true;
-  const q = _searchQuery.toLowerCase();
-  return m.name.toLowerCase().includes(q) || (m.params && m.params.toLowerCase().includes(q));
+  const q = _searchQuery.value;
+  if (!q) return true;
+  const ql = q.toLowerCase();
+  return m.name.toLowerCase().includes(ql) || (m.params && m.params.toLowerCase().includes(ql));
 }
 
 // ── Help Reference Sections ──
@@ -529,56 +508,100 @@ const _HELP_SECTIONS = [
   { id: 'models', title: 'AI Models', subtitle: 'Local Ollama models. All optional \u2014 features degrade gracefully.', headers: ['Model', 'Used for'], mono: true, get rows() { return _HELP_DATA.aiModels; } },
 ];
 
-function _buildHelpCard(sec) {
-  const card = document.createElement('div');
-  card.className = 'docs-card';
-  card.id = 'docs-item-help-' + sec.id;
+function _buildTableView(headers, rows, mono) {
+  const table = new View('table').className('nr-hub-table');
+  table.el.style.width = '100%';
 
-  const title = document.createElement('h2');
-  title.className = 'docs-card-title';
-  title.textContent = sec.title;
-  card.appendChild(title);
+  const thead = new View('tr');
+  for (const h of headers) {
+    const th = new View('th').className('nr-hub-th');
+    th.el.textContent = h;
+    thead.add(th);
+  }
+  table.add(thead);
+
+  for (const [key, val] of rows) {
+    const tr = new View('tr').className('nr-hub-tr');
+    const tdKey = new View('td').className('nr-hub-td-key');
+    if (mono) {
+      const code = new View('code');
+      code.el.style.fontSize = '0.8rem';
+      code.el.textContent = key;
+      tdKey.add(code);
+    } else {
+      tdKey.el.textContent = key;
+    }
+    tr.add(tdKey);
+    const tdVal = new View('td').className('nr-hub-td-val');
+    tdVal.el.textContent = val;
+    tr.add(tdVal);
+    table.add(tr);
+  }
+
+  return table;
+}
+
+function _buildHelpCard(sec) {
+  const card = new View('div').className('docs-card');
+  card.el.id = 'docs-item-help-' + sec.id;
+
+  const title = new View('h2').className('docs-card-title');
+  title.el.textContent = sec.title;
+  card.add(title);
 
   if (sec.subtitle) {
-    const desc = document.createElement('div');
-    desc.className = 'docs-card-desc';
-    desc.textContent = sec.subtitle;
-    card.appendChild(desc);
+    const desc = new View('div').className('docs-card-desc');
+    desc.el.textContent = sec.subtitle;
+    card.add(desc);
   }
 
   // Aether Panel — special content
   if (sec.isPanel) {
-    const panelDesc = document.createElement('div');
-    panelDesc.className = 'docs-card-desc';
-    panelDesc.style.lineHeight = '1.7';
-    panelDesc.innerHTML = '<strong>Right-click</strong> anywhere to open the panel.<br>Type to <strong>chat with AI</strong> about the current page.<br><strong>Select text</strong> \u2192 highlight, quote, or define.<br><strong>Drag</strong> while panel is open to capture a screenshot region.';
-    card.appendChild(panelDesc);
+    const panelDesc = new View('div').className('docs-card-desc');
+    panelDesc.el.style.lineHeight = '1.7';
+    panelDesc.el.innerHTML = '<strong>Right-click</strong> anywhere to open the panel.<br>Type to <strong>chat with AI</strong> about the current page.<br><strong>Select text</strong> \u2192 highlight, quote, or define.<br><strong>Drag</strong> while panel is open to capture a screenshot region.';
+    card.add(panelDesc);
     return card;
   }
 
   // Keyboard Shortcuts — special table with section headers and Kbd rendering
   if (sec.isShortcuts) {
-    const table = document.createElement('table');
-    table.className = 'nr-hub-table';
-    table.style.width = '100%';
-    const thead = document.createElement('tr');
-    for (const h of ['Key', 'Action']) { const th = document.createElement('th'); th.className = 'nr-hub-th'; th.textContent = h; thead.appendChild(th); }
-    table.appendChild(thead);
+    const table = new View('table').className('nr-hub-table');
+    table.el.style.width = '100%';
+
+    const thead = new View('tr');
+    for (const h of ['Key', 'Action']) {
+      const th = new View('th').className('nr-hub-th');
+      th.el.textContent = h;
+      thead.add(th);
+    }
+    table.add(thead);
 
     for (const [key, val] of _HELP_DATA.shortcuts) {
-      const tr = document.createElement('tr');
-      tr.className = 'nr-hub-tr';
+      const tr = new View('tr').className('nr-hub-tr');
       if (!key) {
-        const td = document.createElement('td'); td.colSpan = 2; td.style.cssText = 'padding:12px 12px 4px;'; td.innerHTML = val; tr.appendChild(td);
+        const td = new View('td');
+        td.el.colSpan = 2;
+        td.el.style.cssText = 'padding:12px 12px 4px;';
+        td.el.innerHTML = val;
+        tr.add(td);
       } else {
-        const tdKey = document.createElement('td'); tdKey.className = 'nr-hub-td-key';
-        if (window.Kbd) { AetherUI.append(window.Kbd(key), tdKey); } else { const kbd = document.createElement('kbd'); kbd.className = 'nr-hub-kbd'; kbd.textContent = key; tdKey.appendChild(kbd); }
-        tr.appendChild(tdKey);
-        const tdVal = document.createElement('td'); tdVal.className = 'nr-hub-td-val'; tdVal.textContent = val; tr.appendChild(tdVal);
+        const tdKey = new View('td').className('nr-hub-td-key');
+        if (window.Kbd) {
+          AetherUI.append(window.Kbd(key), tdKey.el);
+        } else {
+          const kbd = new View('kbd').className('nr-hub-kbd');
+          kbd.el.textContent = key;
+          tdKey.add(kbd);
+        }
+        tr.add(tdKey);
+        const tdVal = new View('td').className('nr-hub-td-val');
+        tdVal.el.textContent = val;
+        tr.add(tdVal);
       }
-      table.appendChild(tr);
+      table.add(tr);
     }
-    card.appendChild(table);
+    card.add(table);
     return card;
   }
 
@@ -586,56 +609,39 @@ function _buildHelpCard(sec) {
   const rows = sec.rows;
   if (!rows || rows.length === 0) return null;
 
-  const table = document.createElement('table');
-  table.className = 'nr-hub-table';
-  table.style.width = '100%';
-  const thead = document.createElement('tr');
-  for (const h of sec.headers) { const th = document.createElement('th'); th.className = 'nr-hub-th'; th.textContent = h; thead.appendChild(th); }
-  table.appendChild(thead);
-
-  for (const [key, val] of rows) {
-    const tr = document.createElement('tr'); tr.className = 'nr-hub-tr';
-    const tdKey = document.createElement('td'); tdKey.className = 'nr-hub-td-key';
-    if (sec.mono) { const code = document.createElement('code'); code.style.fontSize = '0.8rem'; code.textContent = key; tdKey.appendChild(code); }
-    else tdKey.textContent = key;
-    tr.appendChild(tdKey);
-    const tdVal = document.createElement('td'); tdVal.className = 'nr-hub-td-val'; tdVal.textContent = val; tr.appendChild(tdVal);
-    table.appendChild(tr);
-  }
-  card.appendChild(table);
+  card.add(_buildTableView(sec.headers, rows, sec.mono));
   return card;
 }
 
 function _matchesHelpSearch(sec) {
-  if (!_searchQuery) return true;
-  const q = _searchQuery.toLowerCase();
-  if (sec.title.toLowerCase().includes(q)) return true;
-  if (sec.subtitle && sec.subtitle.toLowerCase().includes(q)) return true;
+  const q = _searchQuery.value;
+  if (!q) return true;
+  const ql = q.toLowerCase();
+  if (sec.title.toLowerCase().includes(ql)) return true;
+  if (sec.subtitle && sec.subtitle.toLowerCase().includes(ql)) return true;
   if (sec.rows) {
     for (const [key, val] of sec.rows) {
-      if (key.toLowerCase().includes(q) || val.toLowerCase().includes(q)) return true;
+      if (key.toLowerCase().includes(ql) || val.toLowerCase().includes(ql)) return true;
     }
   }
   if (sec.isShortcuts) {
     for (const [key, val] of _HELP_DATA.shortcuts) {
-      if ((key && key.toLowerCase().includes(q)) || val.toLowerCase().includes(q)) return true;
+      if ((key && key.toLowerCase().includes(ql)) || val.toLowerCase().includes(ql)) return true;
     }
   }
   return false;
 }
 
-function _renderContent(data) {
-  const main = document.querySelector('.docs-main');
-  if (!main) return;
-  main.innerHTML = '';
+function _buildMainContent(data) {
+  const main = new View('div').className('docs-main');
 
   let hasResults = false;
 
   for (const cat of data.categoryOrder) {
     if (cat === 'Modifiers') {
       const filtered = data.modifiers.filter(m => _matchesModifier(m));
-      if (filtered.length > 0 || !_searchQuery) {
-        main.appendChild(_buildModifiersCard(_searchQuery ? filtered : data.modifiers));
+      if (filtered.length > 0 || !_searchQuery.value) {
+        main.add(_buildModifiersCard(_searchQuery.value ? filtered : data.modifiers));
         hasResults = true;
       }
       continue;
@@ -645,7 +651,7 @@ function _renderContent(data) {
       for (const sec of _HELP_SECTIONS) {
         if (!_matchesHelpSearch(sec)) continue;
         const card = _buildHelpCard(sec);
-        if (card) { main.appendChild(card); hasResults = true; }
+        if (card) { main.add(card); hasResults = true; }
       }
       continue;
     }
@@ -655,16 +661,17 @@ function _renderContent(data) {
     hasResults = true;
 
     for (const item of items) {
-      main.appendChild(_buildComponentCard(item));
+      main.add(_buildComponentCard(item));
     }
   }
 
   if (!hasResults) {
-    const empty = document.createElement('div');
-    empty.className = 'docs-empty';
-    empty.textContent = 'No results for "' + _searchQuery + '"';
-    main.appendChild(empty);
+    const empty = new View('div').className('docs-empty');
+    empty.el.textContent = 'No results for "' + _searchQuery.value + '"';
+    main.add(empty);
   }
+
+  return main;
 }
 
 function _escapeHtml(str) {
@@ -691,21 +698,33 @@ async function renderDocs() {
 
   // Force re-parse to pick up source changes on reload
   _parsedData = null;
+  _searchQuery.value = '';
   const data = await parseAll();
 
-  container.innerHTML = '';
-
-  // Sidebar
+  // Build sidebar + main together, wiring search reactivity
   const sidebar = _buildSidebar(data);
-  AetherUI.append(sidebar, container);
 
-  // Main content area
-  const main = document.createElement('div');
-  main.className = 'docs-main';
-  container.appendChild(main);
+  // Main content slot — rebuild on search change
+  const mainSlot = new View('div').cssText('flex:1;display:contents;');
 
-  _renderContent(data);
+  const layout = HStack(sidebar, mainSlot).cssText('display:flex;flex:1;overflow:hidden;height:100%;');
+
+  AetherUI.mount(layout, container);
+
+  // Render initial content
+  _mountMainContent(data, mainSlot.el);
+
+  // Re-render main content when search changes
+  Effect(() => {
+    _searchQuery.value; // subscribe
+    _mountMainContent(data, mainSlot.el);
+  });
+
   _docsRendered = true;
+}
+
+function _mountMainContent(data, slot) {
+  AetherUI.mount(_buildMainContent(data), slot);
 }
 
 // Expose for window manager

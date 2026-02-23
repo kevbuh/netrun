@@ -1,7 +1,8 @@
 // netrun-page.js — netrun:// hub page (home + full dashboard)
 
 import { _browseSetUrlDisplay } from '/js/browse-urlbar.js';
-import { _browseRenderTabs, browseNavigate } from '/js/browse/browse-island.js';
+import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
+import { browseNavigate } from '/js/toolbar/toolbar-url.js';
 import { _browseUpdateNewTabPage, browseSelectTab } from '/js/browse/browse-passwords.js';
 import { browseSelectWindow, openBrowse } from '/js/browse/browse-windows.js';
 import { _browseWindows, getBrowseActiveWindow } from '/js/browse/browse-state.js';
@@ -63,8 +64,6 @@ export function openNetrunPage() {
 
 export function _renderNetrunPage(el) {
   if (!el) return;
-  el.innerHTML = '';
-  el.className = 'nr-hub-scroll';
 
   const dashSlot = new View('div');
   const content = VStack(
@@ -85,9 +84,10 @@ export function _renderNetrunPage(el) {
 // ─── Hero ────────────────────────────────────────────────────
 
 function _buildHero() {
-  const versionText = Text('').className('nr-hub-hero-version');
+  const versionStr = State('');
+  const versionText = Text(versionStr).className('nr-hub-hero-version');
   apiGet('/api/version').then(v => {
-    if (v && v.version) versionText.el.textContent = 'v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
+    if (v && v.version) versionStr.value = 'v' + v.version + (v.sha ? ' (' + v.sha + ')' : '');
   }).catch(() => {});
   return VStack(
     RawHTML('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 11a2 2 0 1 1-4 0 4 4 0 0 1 8 0 6 6 0 0 1-12 0 8 8 0 0 1 16 0 10 10 0 1 1-20 0 11.93 11.93 0 0 1 2.42-7.22 2 2 0 1 1 3.16 2.44"/></svg>').className('nr-hub-hero-logo'),
@@ -104,6 +104,7 @@ const _FEATURES = [
   { icon: 'chatBubble', title: 'Chat',      desc: 'AI assistant with tools. Search, fetch, navigate.',    action: () => browseNavigate('chat://') },
   { icon: 'edit',       title: 'Draw',      desc: 'Whiteboard with pen, shapes, text.',                   action: () => browseNavigate('draw://') },
   { icon: 'feed',       title: 'Feed',      desc: '125+ sources. arXiv, HN, RSS, and more.',              action: () => wmOpen('feed') },
+  { icon: 'bookmark',   title: 'Library',   desc: 'Saved bookmarks, groups, and reading list.',             action: () => browseNavigate('netrun://bookmarks') },
   { icon: 'clock',      title: 'History',   desc: 'Browse and search history.',                            action: () => browseNavigate('netrun://history') },
   { icon: 'terminal',   title: 'Terminal',   desc: 'Shell with tabs, splits, and themes.',                   action: () => openTerminalPage() },
   { icon: 'research',   title: 'Docs',      desc: 'API reference, shortcuts, and help.',                     action: () => browseNavigate('netrun://docs') },
@@ -441,7 +442,7 @@ function _buildReadingList(savedEntries, savedCount) {
 
     if (savedCount > 8) {
       children.push(
-        Text('View all ' + savedCount + ' saved \u2192').className('nr-hub-dash-more').onTap(() => browseNavigate('netrun://'))
+        Text('View all ' + savedCount + ' saved \u2192').className('nr-hub-dash-more').onTap(() => browseNavigate('netrun://bookmarks'))
       );
     }
   } else {
@@ -516,7 +517,8 @@ function _buildReposts(reposts) {
 // ── Add Event Form ──
 
 function _showAddEventForm(card) {
-  if (card.el.querySelector('.nr-hub-cal-form')) return;
+  if (card._calFormOpen) return;
+  card._calFormOpen = true;
 
   const titleInput = new View('input').className('nr-hub-cal-input').attr('placeholder', 'Event title');
   const dateInput = new View('input').className('nr-hub-cal-input').attr('type', 'date');
@@ -524,15 +526,13 @@ function _showAddEventForm(card) {
   const descInput = new View('input').className('nr-hub-cal-input').attr('placeholder', 'Description (optional)');
 
   const colors = ['#60a5fa', '#34d399', '#f97316', '#a78bfa', '#fb923c', '#f43f5e'];
-  let selectedColor = colors[0];
+  const selectedColor = State(colors[0]);
   const swatchViews = colors.map(c => {
-    const sw = new View('div').className('nr-hub-cal-swatch' + (c === selectedColor ? ' active' : ''))
-      .style('background', c);
-    sw.onTap(() => {
-      swatchesView.el.querySelectorAll('.nr-hub-cal-swatch').forEach(s => s.classList.remove('active'));
-      sw.el.classList.add('active');
-      selectedColor = c;
+    const sw = new View('div').style('background', c);
+    Effect(() => {
+      sw.el.className = 'nr-hub-cal-swatch' + (selectedColor.value === c ? ' active' : '');
     });
+    sw.onTap(() => { selectedColor.value = c; });
     return sw;
   });
   const swatchesView = new View('div').className('nr-hub-cal-swatches').add(...swatchViews);
@@ -545,19 +545,20 @@ function _showAddEventForm(card) {
     new View('div').className('nr-hub-cal-actions').add(cancelBtn, saveBtn),
   ).className('nr-hub-cal-form');
 
-  cancelBtn.onTap(() => form.el.remove());
+  const dismiss = () => { card._calFormOpen = false; form.el.remove(); };
+
+  cancelBtn.onTap(dismiss);
   saveBtn.onTap(async () => {
     const t = titleInput.el.value.trim();
     if (!t) return;
-    await addCalendarEvent({ title: t, date: dateInput.el.value, description: descInput.el.value.trim() || undefined, color: selectedColor });
-    form.el.remove();
+    await addCalendarEvent({ title: t, date: dateInput.el.value, description: descInput.el.value.trim() || undefined, color: selectedColor.value });
+    dismiss();
     const hubEl = card.el.closest('.nr-hub-scroll');
     if (hubEl) _renderNetrunPage(hubEl);
   });
 
-  const titleRow = card.el.querySelector('.nr-hub-dash-card-header');
-  if (titleRow && titleRow.nextSibling) card.el.insertBefore(form.el, titleRow.nextSibling);
-  else card.el.appendChild(form.el);
+  // Insert form after the header row (first child), before any existing event rows
+  card.el.insertBefore(form.el, card.el.children[1] || null);
   titleInput.el.focus();
 }
 

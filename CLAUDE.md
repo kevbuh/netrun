@@ -8,6 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run build:core        # TypeScript src/core/ → dist/main/
 npm run start             # Build + launch Electron
 npm run start:dev         # Launch without rebuild (faster iteration)
+npm run feedserver:build  # Go build → dist/feedserver
+npm run feedserver:start  # Build feedserver + start electron
+npm run feedserver:start-dev  # go run (no build) + electron
 ```
 
 ## Testing
@@ -39,7 +42,7 @@ npm run lint:fix          # Auto-fix both
 
 **Electron desktop app** with three layers:
 
-1. **Main process** (`electron/main.js`, `electron/preload.js`) — window management, IPC routing, static file server on port 8000, adblock engine, keyboard shortcuts, webview management
+1. **Main process** (`electron/main.js`, `electron/preload.js`) — window management, IPC routing, static file server on port 8000, adblock engine, keyboard shortcuts, webview management, privacy hardening (WebRTC leak prevention, permission handler, favicon proxy, encrypted API key storage via `safeStorage`)
 2. **Renderer** (`src/index.html` + `src/js/`) — SPA loaded from localhost:8000. Four main views: Dashboard, Feed, Chat, Browse. Plain browser JS (not ES modules in `src/js/`, ES modules in `src/aether/ui/`)
 3. **Core backend** (`src/core/` → compiled to `dist/main/`) — TypeScript, registered at app startup via `src/core/init.ts`. Provides tool registry, agent runtime, LLM providers, database, IPC handlers
 
@@ -52,6 +55,15 @@ window.electronAPI.dbQuery('query-name', ...args)
 ```
 
 IPC handlers live in `src/core/ipc/` (one file per subsystem). Tool execution goes through `src/core/tools/registry.ts`.
+
+### Feed Server
+
+Standalone Go microservice at `feedserver/` — sole feed data path (replaces old IPC feed handlers):
+- Packages: `internal/api`, `internal/fetch`, `internal/model`, `internal/rank`, `internal/store`
+- Default port: `8400` (configurable via `--port` flag or `FEEDSERVER_PORT` env var)
+- Own SQLite DB at `feedserver/feedserver.db`
+- Auto-refreshes all sources every 10 minutes + initial refresh on startup
+- Frontend (`src/js/feed.js`) connects directly to `http://localhost:8400`
 
 ### Aether Design System
 
@@ -66,13 +78,24 @@ Custom design system with CSS tokens + JS framework:
 
 SolidJS-style reactive UI: `State(val)`, `Computed(fn)`, `Effect(fn)`, `Store(obj)`, `batch(fn)`
 
-Views: `VStack`, `HStack`, `ZStack`, `Text`, `Button`, `TextField`, `Toggle`, `Slider`, `Picker`, `ForEach`, `List`, `Section`
+Views: `VStack`, `HStack`, `ZStack`, `Text`, `Button`, `TextField`, `Toggle`, `Slider`, `Picker`, `ForEach`, `List`, `Section`, `Grid`, `ScrollView`, `Label`, `Kbd`, `RawHTML`, `Checkbox`, `RadioGroup`, `Textarea`, `ProgressBar`, `Pill`, `FormField`, `SearchField`, `Spinner`, `Disclosure`, `Badge`, `SegmentedControl`, `Skeleton`, `Group`, `Show`, `EmptyState`, `VirtualList`, `Toast`
+
+Additional state primitives: `untrack(fn)`, `Context`
 
 Overlays: `Sheet`, `Alert`, `Popover`, `Menu`
 
 Modifiers resolve to tokens: `.padding(4)` → `var(--nr-space-4)`, `.background('surface')` → `var(--nr-bg-surface)`
 
-Adding children after construction: use `view.add(child1, child2)` (public API, returns `this`). For appending a View into a raw DOM element: `AetherUI.append(view, domEl)`. Never call `._appendChildren()` or `.build()` directly in consumer code.
+Key APIs:
+- `view.add(child1, child2)` — append children post-construction (returns `this`)
+- `AetherUI.append(view, domEl)` — append a View into a raw DOM element
+- `AetherUI.mount(view, targetEl)` — mount a View, disposing any previously mounted view
+- `AetherUI.serialize(view)` — walk a view tree into a semantic indented string (useful for AI context)
+- `RawHTML(htmlString)` — wrap trusted HTML (e.g. SVG icons) as a View
+- `view.id('myId')` — set `el.id` via modifier API
+- `view.el` — the live DOM element, already built at construction
+
+Never call `._appendChildren()` or `.build()` in consumer code. Use `view.el` to access the DOM element directly.
 
 Menu API supports anchor-toggle (`Menu(anchor, items)`), context-menu positioning (`Menu(null, items)` + `menu.showAt(x, y)`), icon items (`{ icon, label, handler }`), custom view rows (`{ view: fn }`), trailing content (`{ trailing: fn }`), and dividers (`{ divider: true }`).
 
@@ -87,6 +110,16 @@ Settings navigation is reactive: `_settingsSection` is a `State()` signal drivin
 - Uses Semantic Scholar + Papers With Code APIs for metadata
 - Per-tab state stored on `tab._pdfDoc`, `tab._pdfHighlights`, etc.
 - First 20 pages injected into `window._pendingTabContexts` for AI chat context
+- S2 data cached in DB with cache age indicator; IPC: `db:s2-cache-age`, `db:s2-cache-clear`
+
+**Pinch-to-Magnify** — gesture relay for webview iframes:
+- Content script injected into webviews relays gesture events via `console.log` messages (`__AETHER_MAGNIFY_*` protocol)
+- Persistent magnification (no snap-back), centered on cursor, max 5x zoom
+- PDF viewer has its own pinch-to-zoom (scale range 0.5–4.0), magnify system skips it
+
+**Page Info Pill** (`src/js/browse/browse-pageinfo.js`, `src/js/toolbar/toolbar-ai-pill.js`):
+- `_getPageInfoState()` → `{ label, badges, meta }` — relative age, reading time, scroll %, token count
+- Unified AI pill consolidates mic/AI/audio/pulse/pageinfo states with priority ordering
 
 **PDF Conversion** — IPC subsystem for PDF operations via Python subprocess:
 - `src/core/ipc/pdf-convert.ts` + `src/core/python/pdf-convert.py`
@@ -95,11 +128,7 @@ Settings navigation is reactive: `_settingsSection` is a `State()` signal drivin
 
 ### Feeds
 
-- Catalog system in `src/core/ipc/feeds.ts` — multi-source feed aggregator
-- Sources: `{ key, url?, special? }` where special can be `'arxiv'`, `'hn'`, `'polymarket'`
-- Freshness: 10-minute stale threshold per source, on-demand fetching
-- Custom RSS/Atom XML parsing (no external lib)
-- API route: `POST /api/feed-items/catalog` with `{ entries: [...], limit? }`
+Now served by the Go feed server (see Feed Server section above). Legacy IPC feed handlers have been removed.
 
 ### Tool & Agent System
 
@@ -120,5 +149,9 @@ better-sqlite3 with WAL mode. Connection singleton in `src/core/db/connection.ts
 - Guard Aether calls: `if (window.Aether && Aether.materials) { ... }`
 - `.onAppear()` and `.animation()` stack (array-based), never overwrite
 - Use `view.add(child)` to append children, never `view._appendChildren()` or `parent.el.appendChild(child.build())`
+- Never call `.build()` on a view in consumer code; use `view.el` for the live DOM element
+- Use `AetherUI.mount(view, target)` instead of `target.innerHTML = ''; target.appendChild(view.build())`
+- Use `RawHTML(svgString)` instead of `el.innerHTML = svgString` for icon SVGs inside View trees
 - `TabView` caches rendered tabs via `display:none`, not rebuild
 - `Store` is deep reactive: use `store.get('path')`, `store.set('path', val)`, `store.update('path', fn)`
+- `@signal` comment annotation marks `State()` signals in source (e.g. `core-state.js`, `browse-state.js`)

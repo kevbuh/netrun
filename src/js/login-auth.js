@@ -12,6 +12,15 @@ fetch('/api/client-config').then(r => {
   if (c && c.googleClientId) GOOGLE_CLIENT_ID = c.googleClientId;
 }).catch(() => {});
 
+// ── Reactive state ──
+
+const _authError = State('');
+
+Effect(() => {
+  const errEl = document.getElementById('auth-error');
+  if (errEl) errEl.textContent = _authError.value;
+});
+
 // ── Google Sign-In button ──
 
 let _gisRetries = 0;
@@ -23,7 +32,9 @@ function _renderGoogleButton() {
     if (_gisRetries < 50) {
       setTimeout(_renderGoogleButton, 200);
     } else {
-      container.innerHTML = '<p style="color:#999;font-size:13px;">Google Sign-In failed to load. Check that accounts.google.com is reachable.</p>';
+      const msg = Text('Google Sign-In failed to load. Check that accounts.google.com is reachable.')
+        .styles({ color: '#999', fontSize: '13px' });
+      AetherUI.mount(msg, container);
     }
     return;
   }
@@ -32,8 +43,9 @@ function _renderGoogleButton() {
       client_id: GOOGLE_CLIENT_ID,
       callback: _handleGoogleCredential,
     });
-    container.innerHTML = '<div id="google-btn-real"></div>';
-    google.accounts.id.renderButton(document.getElementById('google-btn-real'), {
+    const btnWrapper = new View('div').attr('id', 'google-btn-real');
+    AetherUI.mount(btnWrapper, container);
+    google.accounts.id.renderButton(btnWrapper.el, {
       type: 'standard',
       theme: 'filled_black',
       size: 'large',
@@ -42,15 +54,16 @@ function _renderGoogleButton() {
       width: 280,
     });
   } catch (e) {
-    container.innerHTML = '<p style="color:#999;font-size:13px;">Google Sign-In error: ' + e.message + '</p>';
+    const errMsg = Text('Google Sign-In error: ' + e.message)
+      .styles({ color: '#999', fontSize: '13px' });
+    AetherUI.mount(errMsg, container);
   }
 }
 
 // ── Handle credential response ──
 
 async function _handleGoogleCredential(response) {
-  const errEl = document.getElementById('auth-error');
-  if (errEl) errEl.textContent = '';
+  _authError.value = '';
   try {
     const data = await apiPost('/api/auth/google', { credential: response.credential });
     localStorage.setItem('authToken', data.token);
@@ -68,7 +81,7 @@ async function _handleGoogleCredential(response) {
       window.location.href = '/';
     }
   } catch (e) {
-    if (errEl) errEl.textContent = e.message;
+    _authError.value = e.message;
   }
 }
 

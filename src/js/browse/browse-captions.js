@@ -13,6 +13,11 @@ import { toggleTabMute } from '/js/browse/browse-audio.js';
 export let _ccPillDismissed = false;
 export function _resetCcPillDismissed() { _ccPillDismissed = false; }
 
+// Reactive state for caption overlay
+let _ccOverlayView = null;
+let _ccTextState = null;
+let _ccFadedState = null;
+
 export function _updateCCButton() {
   const hasAudio = window._browseIsElectron && window._browseAudioTabs.size > 0;
   const browseView = document.getElementById('browse-view');
@@ -22,7 +27,7 @@ export function _updateCCButton() {
   const ccBtn = document.getElementById('browse-cc-btn');
   if (ccBtn) {
     ccBtn.style.display = (hasAudio && isOnBrowse) ? '' : 'none';
-    ccBtn.style.color = window._ccActive ? 'var(--nr-accent)' : '';
+    ccBtn.classList.toggle('active', !!window._ccActive);
   }
 
   // CC state in unified audio pill
@@ -66,7 +71,7 @@ export async function toggleCaptions() {
   // Update island and highlight CC button
   if (typeof _updateAudioUnified === 'function') _updateAudioUnified('cc', { label: 'CC Live', detail: 'Listening…', active: true });
   const ccBtn = document.getElementById('browse-cc-btn');
-  if (ccBtn) ccBtn.style.color = 'var(--nr-accent)';
+  if (ccBtn) ccBtn.classList.add('active');
 
   try {
     // Tell main process to route this webview's audio
@@ -173,15 +178,19 @@ export function stopCaptions() {
   }
 
   // Remove overlay
-  const overlay = document.getElementById('browse-cc-overlay');
-  if (overlay) overlay.remove();
+  if (_ccOverlayView) {
+    _ccOverlayView.el.remove();
+    _ccOverlayView = null;
+    _ccTextState = null;
+    _ccFadedState = null;
+  }
   if (window._ccFadeTimer) { clearTimeout(window._ccFadeTimer); window._ccFadeTimer = null; }
   window._ccCaptionLines = [];
   window._ccTabId = null;
 
   // Reset CC button and island
   const ccBtn = document.getElementById('browse-cc-btn');
-  if (ccBtn) ccBtn.style.color = '';
+  if (ccBtn) ccBtn.classList.remove('active');
   if (typeof _clearAudioUnified === 'function') _clearAudioUnified('cc');
 }
 
@@ -192,15 +201,26 @@ export function _showCaption(text) {
   const container = document.getElementById('browse-content');
   if (!container) return;
 
-  let overlay = document.getElementById('browse-cc-overlay');
-  if (!overlay) {
-    const overlayView = new window.View('div').id('browse-cc-overlay');
-    AetherUI.append(overlayView, container);
-    overlay = overlayView.el;
+  if (!_ccOverlayView) {
+    // Bootstrap reactive state on first caption
+    _ccTextState = window.State('');
+    _ccFadedState = window.State(false);
+
+    _ccOverlayView = window.Text('').id('browse-cc-overlay');
+
+    // Drive text content and fade class reactively
+    window.Effect(() => {
+      _ccOverlayView.el.textContent = _ccTextState.value;
+    });
+    window.Effect(() => {
+      _ccOverlayView.el.classList.toggle('fade-out', _ccFadedState.value);
+    });
+
+    AetherUI.append(_ccOverlayView, container);
   }
 
-  overlay.textContent = window._ccCaptionLines.join(' ');
-  overlay.classList.remove('fade-out');
+  _ccTextState.value = window._ccCaptionLines.join(' ');
+  _ccFadedState.value = false;
 
   // Update unified audio pill with latest caption snippet
   if (typeof _updateAudioUnified === 'function') {
@@ -211,7 +231,7 @@ export function _showCaption(text) {
   // Reset fade timer
   if (window._ccFadeTimer) clearTimeout(window._ccFadeTimer);
   window._ccFadeTimer = setTimeout(() => {
-    if (overlay) overlay.classList.add('fade-out');
+    if (_ccFadedState) _ccFadedState.value = true;
   }, 8000);
 }
 

@@ -326,27 +326,74 @@ export function _paperMergeIntoPill(tabId, state) {
 export let _refTooltipEl = null;
 export let _refTooltipHideTimer = null;
 
+// Reactive state driving the tooltip's content
+let _refTooltipAuthors = null;  // State() — author string or null
+let _refTooltipDetails = null;  // State() — details string or null
+let _refTooltipLoading = null;  // State() — boolean
+
+function _ensureRefTooltip() {
+  if (_refTooltipEl) return;
+
+  _refTooltipAuthors = window.State(null);
+  _refTooltipDetails = window.State(null);
+  _refTooltipLoading = window.State(false);
+
+  const numText = window.State('');
+  const titleText = window.State('');
+  const bodyText = window.State('');
+
+  _refTooltipEl = { numText, titleText, bodyText };
+
+  const numView = new window.View('div').className('nr-ref-tooltip-num').text(numText);
+  const titleView = window.Show(
+    window.Computed(() => !!titleText.value),
+    () => new window.View('div').className('nr-ref-tooltip-title').text(titleText)
+  );
+  const bodyView = window.Show(
+    window.Computed(() => !titleText.value && !!bodyText.value),
+    () => new window.View('div').className('nr-ref-tooltip-text').text(bodyText)
+  );
+  const authorsView = window.Show(
+    window.Computed(() => !!_refTooltipAuthors.value),
+    () => new window.View('div').className('nr-ref-tooltip-authors').text(_refTooltipAuthors)
+  );
+  const detailsView = window.Show(
+    window.Computed(() => !!_refTooltipDetails.value),
+    () => new window.View('div').className('nr-ref-tooltip-details').text(_refTooltipDetails)
+  );
+  const loadingView = window.Show(
+    _refTooltipLoading,
+    () => new window.View('div').className('nr-ref-tooltip-loading').text('Looking up\u2026')
+  );
+
+  const tooltipView = new window.View('div')
+    .attr('id', 'aether-ref-tooltip')
+    .className('nr-ref-tooltip')
+    .add(
+      window.VStack([numView, titleView, bodyView, authorsView, detailsView, loadingView])
+    );
+
+  _refTooltipEl._el = tooltipView.el;
+  _refTooltipEl._el.style.display = 'none';
+  _refTooltipEl.numText = numText;
+  _refTooltipEl.titleText = titleText;
+  _refTooltipEl.bodyText = bodyText;
+  document.body.appendChild(_refTooltipEl._el);
+}
+
 export function _paperShowRefTooltip(data, frame) {
   if (_refTooltipHideTimer) { clearTimeout(_refTooltipHideTimer); _refTooltipHideTimer = null; }
-  if (!_refTooltipEl) {
-    const tooltipView = new window.View('div').attr('id', 'aether-ref-tooltip').className('nr-ref-tooltip');
-    _refTooltipEl = tooltipView.el;
-    document.body.appendChild(_refTooltipEl);
-  }
+  _ensureRefTooltip();
 
-  const tip = _refTooltipEl;
-  const refNum = data.refNum;
-
-  const tipChildren = [
-    new window.View('div').className('nr-ref-tooltip-num')._bindText('[' + refNum + ']')
-  ];
-  if (data.title) {
-    tipChildren.push(new window.View('div').className('nr-ref-tooltip-title')._bindText(escapeHtml(data.title)));
-  } else if (data.text) {
-    tipChildren.push(new window.View('div').className('nr-ref-tooltip-text')._bindText(escapeHtml(data.text.slice(0, 200))));
-  }
-  tipChildren.push(new window.View('div').className('nr-ref-tooltip-loading')._bindText('Looking up\u2026'));
-  AetherUI.mount(window.VStack(tipChildren), tip);
+  const tip = _refTooltipEl._el;
+  window.batch(() => {
+    _refTooltipEl.numText.value = '[' + data.refNum + ']';
+    _refTooltipEl.titleText.value = data.title ? escapeHtml(data.title) : '';
+    _refTooltipEl.bodyText.value = (!data.title && data.text) ? escapeHtml(data.text.slice(0, 200)) : '';
+    _refTooltipAuthors.value = null;
+    _refTooltipDetails.value = null;
+    _refTooltipLoading.value = true;
+  });
   tip.style.display = 'block';
 
   const fRect = frame.getBoundingClientRect();
@@ -364,51 +411,41 @@ export function _paperShowRefTooltip(data, frame) {
 }
 
 export async function _paperLookupRef(data, frame) {
-  if (!data.title) return;
+  if (!data.title) {
+    if (_refTooltipLoading) _refTooltipLoading.value = false;
+    return;
+  }
   const result = await _s2SearchPaper(data.title);
-  if (!_refTooltipEl || _refTooltipEl.style.display === 'none') return;
+  if (!_refTooltipEl || _refTooltipEl._el.style.display === 'none') return;
 
-  const loading = _refTooltipEl.querySelector('.nr-ref-tooltip-loading');
-  if (loading) loading.remove();
+  const authors = result ? (result.authors || []).slice(0, 3).map(a => a.name) : [];
+  if (result && result.authors && result.authors.length > 3) authors.push('et al.');
 
+  const details = [];
   if (result) {
-    const extraEls = [];
-    const authors = (result.authors || []).slice(0, 3).map(a => a.name);
-    if (result.authors && result.authors.length > 3) authors.push('et al.');
-    if (authors.length) {
-      extraEls.push(new window.View('div').className('nr-ref-tooltip-authors')._bindText(escapeHtml(authors.join(', '))));
-    }
-    const details = [];
     if (result.year) details.push(result.year);
     if (result.venue) details.push(result.venue);
     if (result.citationCount != null) details.push(result.citationCount + ' citations');
-    if (details.length) {
-      extraEls.push(new window.View('div').className('nr-ref-tooltip-details')._bindText(escapeHtml(details.join(' \u00b7 '))));
-    }
-
-    const titleEl = _refTooltipEl.querySelector('.nr-ref-tooltip-title, .nr-ref-tooltip-text');
-    const insertPoint = titleEl || _refTooltipEl.lastElementChild || _refTooltipEl;
-    extraEls.forEach(function(v) {
-      if (titleEl && titleEl.nextSibling) {
-        titleEl.parentNode.insertBefore(v.el, titleEl.nextSibling);
-      } else {
-        _refTooltipEl.appendChild(v.el);
-      }
-    });
-
-    const fRect = frame.getBoundingClientRect();
-    const cy = data.y + fRect.top;
-    const tipH = _refTooltipEl.offsetHeight;
-    let top = cy - tipH - 10;
-    if (top < 4) top = cy + 24;
-    _refTooltipEl.style.top = top + 'px';
   }
+
+  window.batch(() => {
+    _refTooltipLoading.value = false;
+    _refTooltipAuthors.value = authors.length ? escapeHtml(authors.join(', ')) : null;
+    _refTooltipDetails.value = details.length ? escapeHtml(details.join(' \u00b7 ')) : null;
+  });
+
+  const fRect = frame.getBoundingClientRect();
+  const cy = data.y + fRect.top;
+  const tipH = _refTooltipEl._el.offsetHeight;
+  let top = cy - tipH - 10;
+  if (top < 4) top = cy + 24;
+  _refTooltipEl._el.style.top = top + 'px';
 }
 
 export function _paperHideRefTooltip() {
   if (_refTooltipHideTimer) clearTimeout(_refTooltipHideTimer);
   _refTooltipHideTimer = setTimeout(() => {
-    if (_refTooltipEl) _refTooltipEl.style.display = 'none';
+    if (_refTooltipEl) _refTooltipEl._el.style.display = 'none';
   }, 150);
 }
 

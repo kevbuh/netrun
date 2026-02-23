@@ -11,7 +11,7 @@ let _nrKonamiListener = null;
 
 // Canvas & rendering
 const _nrW = 900, _nrH = 300;
-let _nrCanvas = null, _nrCtx = null, _nrOverlay = null;
+let _nrCanvas = null, _nrCtx = null, _nrOverlayView = null;
 let _nrPetCanvas = null, _nrPetCtx = null;
 
 // Game state
@@ -92,19 +92,17 @@ export function startNetrunner() {
   _nrBooting = true;
   _nrHighScore = Settings.getJSON('netrunnerHighScore', 0);
 
-  // Create overlay
-  _nrOverlay = document.createElement('div');
-  _nrOverlay.className = 'nr-netrunner-overlay';
-
-  // Create canvas
+  // Create canvas element imperatively — must call getContext('2d')
   _nrCanvas = document.createElement('canvas');
   _nrCanvas.className = 'nr-netrunner-canvas';
   _nrCanvas.width = _nrW;
   _nrCanvas.height = _nrH;
   _nrCtx = _nrCanvas.getContext('2d');
-  _nrOverlay.appendChild(_nrCanvas);
 
-  document.body.appendChild(_nrOverlay);
+  // Build overlay with AetherUI and append live canvas via view.el
+  _nrOverlayView = ZStack().className('nr-netrunner-overlay');
+  AetherUI.append(_nrOverlayView, document.body);
+  _nrOverlayView.el.appendChild(_nrCanvas);
 
   // Pet offscreen canvas
   _nrPetCanvas = document.createElement('canvas');
@@ -145,10 +143,10 @@ export function stopNetrunner() {
   if (_nrRafId) { cancelAnimationFrame(_nrRafId); _nrRafId = null; }
   document.removeEventListener('keydown', _nrOnKeyDown);
   document.removeEventListener('keyup', _nrOnKeyUp);
-  if (_nrOverlay && _nrOverlay.parentNode) {
-    _nrOverlay.parentNode.removeChild(_nrOverlay);
+  if (_nrOverlayView && _nrOverlayView.el && _nrOverlayView.el.parentNode) {
+    _nrOverlayView.el.parentNode.removeChild(_nrOverlayView.el);
   }
-  _nrOverlay = null;
+  _nrOverlayView = null;
   _nrCanvas = null;
   _nrCtx = null;
 }

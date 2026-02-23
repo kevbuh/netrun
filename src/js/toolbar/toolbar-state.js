@@ -1,6 +1,7 @@
 // toolbar-state.js — Reactive state for the toolbar system
 // All signals, stores, and derived state live here. No DOM.
 import Settings from '/js/core/core-settings.js';
+import { _getCurrentWindow } from '/js/browse/browse-state.js';
 
 // ── Primary signals ──
 var browseActive = State(false);
@@ -17,7 +18,7 @@ var historyDropdown = State(null); // null | { direction, anchor }
 var activeTabData = Computed(function() {
   // Re-read on tabListVersion bump
   var _v = tabListVersion.value;
-  var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
+  var win = _getCurrentWindow();
   if (!win || !win.tabs) return null;
   var activeId = win.activeTab;
   return win.tabs.find(function(t) { return t.id === activeId; }) || null;
@@ -27,9 +28,8 @@ var canGoBack = Computed(function() {
   var tab = activeTabData.value;
   if (!tab) return false;
   if (tab.backStack && tab.backStack.length > 0) return true;
-  try {
-    if (window._browseIsElectron && tab.el && tab.el.canGoBack && tab.el.canGoBack()) return true;
-  } catch(e) {}
+  // Show back button when tab came from feed (will close tab + return to feed)
+  if (tab.origin === 'feed') return true;
   return false;
 });
 
@@ -37,9 +37,6 @@ var canGoForward = Computed(function() {
   var tab = activeTabData.value;
   if (!tab) return false;
   if (tab.forwardStack && tab.forwardStack.length > 0) return true;
-  try {
-    if (window._browseIsElectron && tab.el && tab.el.canGoForward && tab.el.canGoForward()) return true;
-  } catch(e) {}
   return false;
 });
 
@@ -104,17 +101,17 @@ function _isAIActive() {
 // ── Tab data helpers ──
 
 function getCurrentTabs() {
-  var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
+  var win = _getCurrentWindow();
   return win ? win.tabs : [];
 }
 
 function getCurrentGroups() {
-  var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
+  var win = _getCurrentWindow();
   return win ? (win.groups || []) : [];
 }
 
 function getActiveTabId() {
-  var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
+  var win = _getCurrentWindow();
   return win ? win.activeTab : null;
 }
 

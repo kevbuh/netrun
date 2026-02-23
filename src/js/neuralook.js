@@ -216,7 +216,33 @@ export function renderNeuralookView() {
     }
   }
 
-  container.innerHTML = `
+  const mpStatusHTML = _nlMpModelReady
+    ? icon('check', { size: 14, class: 'text-green-400 flex-shrink-0', strokeWidth: '2.5' }) + '<span class="text-[0.75rem] text-green-400">MediaPipe ready</span>'
+    : _nlMpModelLoading
+      ? '<svg class="w-3.5 h-3.5 flex-shrink-0 animate-spin text-accent" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="text-[0.75rem] text-accent">Loading face model...</span>'
+      : _nlMpCdnLoaded
+        ? icon('check', { size: 14, class: 'text-green-400 flex-shrink-0', strokeWidth: '2.5' }) + '<span class="text-[0.75rem] text-muted">MediaPipe loaded</span>'
+        : '<svg class="w-3.5 h-3.5 flex-shrink-0 animate-spin text-muted" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="text-[0.75rem] text-dimmer">Loading MediaPipe...</span>';
+
+  const rightColHTML = _nlTracking ? _nlRenderDashboardColumn() : `<div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
+        <div class="bg-card border border-border-card rounded-xl p-3" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;">
+          <div id="nl-camera-preview" class="rounded-lg overflow-hidden bg-black" style="flex:1;min-height:0;max-height:100%;display:flex;align-items:center;justify-content:center;position:relative;">
+            <span class="text-dimmer text-[0.75rem]" id="nl-camera-placeholder">${_nlCameraOn ? 'Starting...' : 'Camera off'}</span>
+          </div>
+          <div class="flex justify-center mt-2">
+            <button id="nl-camera-toggle" onclick="_nlToggleCamera()" class="px-4 py-1.5 rounded-lg border border-border-input bg-card text-primary text-[0.78rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors">
+              ${_nlCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-card border border-border-card rounded-xl p-4" style="flex-shrink:0;">
+          <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Model Info</h3>
+          <div id="nl-model-stats" class="grid grid-cols-2 gap-x-6 gap-y-2 text-[0.78rem]"></div>
+        </div>
+      </div>`;
+
+  const mainHTML = `
     ${bannerHTML}
     <div style="display:grid;grid-template-columns:200px 1fr;gap:16px;height:${showTrainBanner ? 'calc(100% - 60px - 52px)' : 'calc(100% - 60px)'};box-sizing:border-box;">
       <div class="flex flex-col gap-3">
@@ -226,14 +252,7 @@ export function renderNeuralookView() {
             <span class="text-[0.82rem] text-primary font-medium">${statusText}</span>
           </div>
           <div id="nl-mp-status" class="flex items-center gap-2 mb-2">
-            ${_nlMpModelReady
-              ? icon('check', { size: 14, class: 'text-green-400 flex-shrink-0', strokeWidth: '2.5' }) + '<span class="text-[0.75rem] text-green-400">MediaPipe ready</span>'
-              : _nlMpModelLoading
-                ? '<svg class="w-3.5 h-3.5 flex-shrink-0 animate-spin text-accent" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="text-[0.75rem] text-accent">Loading face model...</span>'
-                : _nlMpCdnLoaded
-                  ? icon('check', { size: 14, class: 'text-green-400 flex-shrink-0', strokeWidth: '2.5' }) + '<span class="text-[0.75rem] text-muted">MediaPipe loaded</span>'
-                  : '<svg class="w-3.5 h-3.5 flex-shrink-0 animate-spin text-muted" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span class="text-[0.75rem] text-dimmer">Loading MediaPipe...</span>'
-            }
+            ${mpStatusHTML}
           </div>
           <div id="nl-error-msg" class="text-[0.75rem] text-red-400 mb-2" style="display:none"></div>
           <div class="flex rounded-lg border border-border-input overflow-hidden mb-2" style="height:30px;">
@@ -255,25 +274,10 @@ export function renderNeuralookView() {
         </div>
       </div>
 
-      ${_nlTracking ? _nlRenderDashboardColumn() : `<div style="display:flex;flex-direction:column;gap:12px;min-height:0;">
-        <div class="bg-card border border-border-card rounded-xl p-3" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;">
-          <div id="nl-camera-preview" class="rounded-lg overflow-hidden bg-black" style="flex:1;min-height:0;max-height:100%;display:flex;align-items:center;justify-content:center;position:relative;">
-            <span class="text-dimmer text-[0.75rem]" id="nl-camera-placeholder">${_nlCameraOn ? 'Starting...' : 'Camera off'}</span>
-          </div>
-          <div class="flex justify-center mt-2">
-            <button id="nl-camera-toggle" onclick="_nlToggleCamera()" class="px-4 py-1.5 rounded-lg border border-border-input bg-card text-primary text-[0.78rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors">
-              ${_nlCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
-            </button>
-          </div>
-        </div>
-
-        <div class="bg-card border border-border-card rounded-xl p-4" style="flex-shrink:0;">
-          <h3 class="text-[0.85rem] font-semibold text-primary mb-3">Model Info</h3>
-          <div id="nl-model-stats" class="grid grid-cols-2 gap-x-6 gap-y-2 text-[0.78rem]"></div>
-        </div>
-      </div>`}
+      ${rightColHTML}
     </div>
   `;
+  AetherUI.mount(RawHTML(mainHTML), container);
 
   if (_nlTracking) {
     requestAnimationFrame(() => _nlRefreshDashboard());
@@ -306,7 +310,21 @@ export function _nlRenderTrainDetailView(container) {
   else if (_nlTrainPhase === 'evaluating') { phaseLabel = 'Evaluating'; phaseColor = '#60a5fa'; }
   else { phaseLabel = 'Training'; phaseColor = 'var(--nr-accent, #b4451a)'; }
 
-  container.innerHTML = `
+  const statsOrResultHTML = isDone && _nlTrainResult ? `
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;margin-bottom:8px;">
+                  <div><div class="text-[1.2rem] font-bold" style="color:${_nlTrainResult.val_error_px < 80 ? '#4ade80' : _nlTrainResult.val_error_px < 150 ? '#fbbf24' : '#f87171'}">${_nlTrainResult.val_error_px}px</div><div class="text-[0.65rem] text-dimmer">Val Error</div></div>
+                  <div><div class="text-[1.2rem] font-bold text-primary">${_nlTrainResult.train_error_px}px</div><div class="text-[0.65rem] text-dimmer">Train Error</div></div>
+                  <div><div class="text-[1.2rem] font-bold text-primary">${_nlTrainResult.stopped_epoch}</div><div class="text-[0.65rem] text-dimmer">Epoch</div></div>
+                </div>
+                <div class="flex justify-center"><button onclick="_nlTrainPhase='';renderNeuralookView();" class="px-4 py-1.5 rounded-lg bg-accent text-white text-[0.75rem] font-medium cursor-pointer hover:opacity-90 transition-opacity">Continue to Tracking</button></div>
+              ` : isError && _nlTrainResult ? `
+                <div class="text-[0.78rem] text-red-400 mb-2">${_nlTrainResult.error}</div>
+                <div class="flex justify-center"><button onclick="_nlTrainPhase='';renderNeuralookView();" class="px-4 py-1.5 rounded-lg border border-border-input bg-card text-primary text-[0.75rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors">Back</button></div>
+              ` : `
+                <div id="nl-train-details" class="grid grid-cols-2 gap-x-6 gap-y-1 text-[0.72rem]"></div>
+              `;
+
+  const trainDetailHTML = `
     <div style="display:flex;height:calc(100% - 60px);box-sizing:border-box;gap:0;">
       <!-- Training details -->
       <div style="flex:1;min-width:0;display:flex;flex-direction:column;padding:12px 16px;gap:10px;overflow:hidden;">
@@ -365,19 +383,7 @@ export function _nlRenderTrainDetailView(container) {
             </div>
             <!-- Stats + result -->
             <div class="bg-card border border-border-card rounded-xl p-3" style="flex-shrink:0;">
-              ${isDone && _nlTrainResult ? `
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;margin-bottom:8px;">
-                  <div><div class="text-[1.2rem] font-bold" style="color:${_nlTrainResult.val_error_px < 80 ? '#4ade80' : _nlTrainResult.val_error_px < 150 ? '#fbbf24' : '#f87171'}">${_nlTrainResult.val_error_px}px</div><div class="text-[0.65rem] text-dimmer">Val Error</div></div>
-                  <div><div class="text-[1.2rem] font-bold text-primary">${_nlTrainResult.train_error_px}px</div><div class="text-[0.65rem] text-dimmer">Train Error</div></div>
-                  <div><div class="text-[1.2rem] font-bold text-primary">${_nlTrainResult.stopped_epoch}</div><div class="text-[0.65rem] text-dimmer">Epoch</div></div>
-                </div>
-                <div class="flex justify-center"><button onclick="_nlTrainPhase='';renderNeuralookView();" class="px-4 py-1.5 rounded-lg bg-accent text-white text-[0.75rem] font-medium cursor-pointer hover:opacity-90 transition-opacity">Continue to Tracking</button></div>
-              ` : isError && _nlTrainResult ? `
-                <div class="text-[0.78rem] text-red-400 mb-2">${_nlTrainResult.error}</div>
-                <div class="flex justify-center"><button onclick="_nlTrainPhase='';renderNeuralookView();" class="px-4 py-1.5 rounded-lg border border-border-input bg-card text-primary text-[0.75rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors">Back</button></div>
-              ` : `
-                <div id="nl-train-details" class="grid grid-cols-2 gap-x-6 gap-y-1 text-[0.72rem]"></div>
-              `}
+              ${statsOrResultHTML}
             </div>
           </div>
 
@@ -394,6 +400,7 @@ export function _nlRenderTrainDetailView(container) {
 
     </div>
   `;
+  AetherUI.mount(RawHTML(trainDetailHTML), container);
 
   // Populate log from history
   const logEl = document.getElementById('nl-train-log');
@@ -511,7 +518,7 @@ export function _nlRefreshTrainDetails() {
   const row = (label, value) =>
     `<div class="text-muted">${label}</div><div class="text-primary font-medium tabular-nums">${value}</div>`;
 
-  el.innerHTML =
+  const detailsHTML =
     row('Architecture', _nlModelType === 'mobilenet' ? 'MobileNet + temporal LSTM (2ch 64x128 + hp+iris → proj 64 → LSTM 32 → 16 → 2)' : 'CNN + temporal LSTM (2ch 64x128 + hp+iris → proj 128 → LSTM 64 → 32 → 2)') +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 channels`) +
     row('Calibration Frames', `${_nlCalibData.length}`) +
@@ -522,6 +529,7 @@ export function _nlRefreshTrainDetails() {
     row('ETA', etaStr) +
     row('Best Val Loss', bestLoss != null ? bestLoss.toFixed(6) : '—') +
     row('Loss History', `${_nlTrainLossHistory.length} points`);
+  AetherUI.mount(RawHTML(detailsHTML), el);
 }
 
 export function _nlDrawTrainLossGraph() {
@@ -1926,7 +1934,7 @@ export function _nlRefreshStats() {
     : _nlAutoRefineEnabled ? '<span style="color:#4ade80">Active</span>'
     : '<span class="text-dimmer">Off</span>';
 
-  el.innerHTML =
+  const statsHTML =
     row('Model', `${_nlModelLabel()} v${_nlModelVersion} + temporal LSTM`) +
     row('Input', `Eye crops ${_NL_EYE_W}x${_NL_EYE_H} x2 + aux(9)`) +
     row('Calibration', `${_nlCalibData.length} frames (${_NL_CAL_POSITIONS.length} points)`) +
@@ -1943,6 +1951,7 @@ export function _nlRefreshStats() {
     row('Best val error', bestError) +
     row('Confidence radius', `${_nlAdaptiveRadius}px`) +
     (_nlImplicitCount > 0 && !_nlTraining && _nlModelTrained ? `<div class="col-span-2 mt-1"><button onclick="_nlRefineModel()" class="px-3 py-1 rounded-lg border border-border-input bg-card text-primary text-[0.75rem] font-medium cursor-pointer hover:border-accent hover:text-accent transition-colors w-full">Refine Model (${_nlImplicitCount} clicks)</button></div>` : '');
+  AetherUI.mount(RawHTML(statsHTML), el);
 
   // Update banner detail if training is in progress
   _nlRefreshBanner();

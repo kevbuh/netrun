@@ -12,8 +12,9 @@ import { _addScreenshotToPanel, _browserCaptureRect, _handleImagePaste, _maybeDi
 import { _aetherExecCommand, _aetherFilterCommands, _aetherHideAgentDropdown, _aetherHideCmdDropdown, _aetherHideCursorOverlay, _aetherHideHistoryDropdown, _aetherHideModelDropdown, _aetherHideTabDropdown, _aetherRenderAgentDropdown, _aetherRenderCmdDropdown, _aetherRenderHistoryDropdown, _aetherRenderModelDropdown, _aetherRestoreFocus, _aetherSelectAgent, _aetherSelectHistory, _aetherSelectModel, _aetherSelectTab, _aetherShowCursor, _aetherSwitchToTab, _doAetherAgent, _doAetherCapture, _doAetherHelp, _doAetherHistory, _doAetherLinks, _doAetherModel, _doAetherTab, _doAetherTabs, _doAetherWebSearch, _fetchAuthorPreview, _fetchWikipediaPreview, _isAetherEligible, _isAuthorEligible } from '/js/panel-commands.js';
 import { _browseToggleFindBar, _switchTabLeft, _switchTabRight } from '/js/browse/browse-features.js';
 import { _extractTextFromFrame, injectSingleAnnotation } from '/js/browse/browse-annotations.js';
-import { _setBrowseReturnView, browseNewTab, openBrowse } from '/js/browse/browse-windows.js';
-import { _tabHoverDismissTimeout, browseNavigate } from '/js/browse/browse-island.js';
+import { browseNewTab, openBrowse } from '/js/browse/browse-windows.js';
+import { browseNavigate } from '/js/toolbar/toolbar-url.js';
+var _tabHoverDismissTimeout = window._tabHoverDismissTimeout ?? null;
 import { _ttsChunkText, _ttsFetchAndQueue, _ttsStopAll, _ttsUpdateBtnIcon } from '/js/panel-tts.js';
 import { allPapers, getSavedPosts, lastFilteredPapers, markPostAsRead } from '/js/feed.js';
 import { openBrowseWithPaper } from '/js/browse/browse-ntp.js';
@@ -1927,13 +1928,11 @@ export function openPaper(index, e) {
   if (!paper) return;
   if (_isNewTabClick(e)) { _openInNewTab(paper.link); return; }
   markPostAsRead(paper.link);
-  _setBrowseReturnView(Settings.get('_lastActiveView') || 'feed');
   openBrowseWithPaper(paper.link, paper);
 }
 
 export function openPaperByUrl(url, e) {
   if (_isNewTabClick(e)) { _openInNewTab(url); return; }
-  _setBrowseReturnView(Settings.get('_lastActiveView') || 'feed');
   const paper = (typeof searchResultsCache !== 'undefined' && searchResultsCache || []).find(r => r && r.link === url)
     || (typeof getSavedPosts === 'function' && getSavedPosts()[url]?.paper)
     || (typeof allPapers !== 'undefined' && allPapers.find(p => p.link === url))

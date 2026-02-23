@@ -10,6 +10,7 @@
   max-width: 100%;
   padding-left: 0;
   padding-right: 0;
+  position: relative;
 }
 
 /* Search box slides from center (margin-top:40vh) to bottom (margin-top:auto) */
@@ -666,10 +667,6 @@
 /* ══════════════════════════════════════════════════
    Conversation minimap rail (right side)
    ══════════════════════════════════════════════════ */
-
-.browse-ntp.chat-mode .browse-ntp-inner {
-  position: relative;
-}
 
 .chat-tree-rail {
   position: absolute;

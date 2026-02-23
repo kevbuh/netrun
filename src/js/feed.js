@@ -468,11 +468,11 @@ export async function cachePostOffline(link, paper, btnEl) {
     const cached = getOfflineCachedSet();
     cached.add(link);
     setLS('offlineCached', [...cached]);
-    if (btnEl) { btnEl.innerHTML = _offlineCachedIcon(); btnEl.classList.add('cached'); }
+    if (btnEl) { AetherUI.mount(RawHTML(_offlineCachedIcon()), btnEl); btnEl.classList.add('cached'); }
   } catch (e) {
     logger.error('cachePostOffline error', e);
     if (btnEl) {
-      btnEl.innerHTML = _offlineDownloadIcon();
+      AetherUI.mount(RawHTML(_offlineDownloadIcon()), btnEl);
       btnEl.disabled = false;
     }
   }
@@ -492,6 +492,17 @@ export function getSavedPosts() {
 export function savePosts(data) { setLS('savedPosts', data); }
 export function isPostSaved(link) { return !!getSavedPosts()[link]; }
 
+function _detectContentType(url) {
+  if (!url) return 'link';
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.includes('twitter.com') || host.includes('x.com') || host.includes('nitter')) return 'twitter';
+    if (host.includes('youtube.com') || host.includes('youtu.be')) return 'youtube';
+    if (/\.pdf($|\?)/i.test(url) || host.includes('arxiv.org')) return 'pdf';
+  } catch {}
+  return 'link';
+}
+
 export function toggleSavePost(paper, event) {
   if (event) event.stopPropagation();
   const saved = getSavedPosts();
@@ -500,7 +511,7 @@ export function toggleSavePost(paper, event) {
     delete saved[paper.link];
     _feedDelete('/api/save', { link: paper.link });
   } else {
-    saved[paper.link] = { paper, savedAt: Date.now(), read: false };
+    saved[paper.link] = { paper, savedAt: Date.now(), read: false, groupId: 'uncategorized', contentType: _detectContentType(paper.link), thumbnail: paper.image || null, tags: [] };
     _feedPost('/api/save', { link: paper.link });
     if (typeof petReact === 'function') petReact('happy');
   }
@@ -595,8 +606,11 @@ export const _viewModeIcons = {
 export function toggleViewMode() {
   const idx = _viewModes.indexOf(feedViewMode);
   feedViewMode = _viewModes[(idx + 1) % _viewModes.length];
-  const icon = document.getElementById('view-mode-icon');
-  if (icon) icon.innerHTML = _viewModeIcons[feedViewMode];
+  const iconEl = document.getElementById('view-mode-icon');
+  if (iconEl) {
+    const svg = RawHTML('<svg id="view-mode-icon" class="w-4 h-4 fill-current" viewBox="0 0 24 24">' + _viewModeIcons[feedViewMode] + '</svg>');
+    iconEl.replaceWith(svg.el);
+  }
   renderPapers();
 }
 
@@ -676,12 +690,11 @@ export function renderSourceBubbles() {
 }
 
 export function _fitArxivSelect(sel) {
-  const span = document.createElement('span');
-  span.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font-size:0.78rem;';
-  span.textContent = sel.options[sel.selectedIndex].text;
-  document.body.appendChild(span);
-  sel.style.width = (span.offsetWidth + 24) + 'px'; // 24px for chevron padding
-  document.body.removeChild(span);
+  const span = new View('span').styles({ position: 'absolute', visibility: 'hidden', whiteSpace: 'nowrap', fontSize: '0.78rem' });
+  span.el.textContent = sel.options[sel.selectedIndex].text;
+  AetherUI.append(span, document.body);
+  sel.style.width = (span.el.offsetWidth + 24) + 'px'; // 24px for chevron padding
+  span.el.remove();
 }
 
 export function setSortMode(mode) {
@@ -1351,12 +1364,10 @@ export function populateCategories() {
   const freq = {};
   allPapers.forEach(p => { const cats = Array.isArray(p.categories) ? p.categories : []; cats.forEach(c => { freq[c] = (freq[c] || 0) + 1; }); });
   const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
-  select.innerHTML = '<option value="">All</option>';
+  AetherUI.mount(new View('option').attr('value', '').text('All'), select);
   sorted.forEach(([cat, count]) => {
-    const opt = document.createElement('option');
-    opt.value = cat;
-    opt.textContent = `${cat} (${count})`;
-    select.appendChild(opt);
+    const opt = new View('option').attr('value', cat).text(`${cat} (${count})`);
+    AetherUI.append(opt, select);
   });
   select.value = current;
 }
@@ -1760,8 +1771,6 @@ export function _renderFilteredPapers(filtered, ctx) {
     return;
   }
 
-  container.innerHTML = '';
-
   const cards = visible.map(function(p, i) {
     if (feedViewMode === 'compact') return _renderPaperCompactRow(p, i, ctx);
     if (feedViewMode === 'verbose') return _renderPaperVerboseCard(p, i, ctx);
@@ -1773,10 +1782,12 @@ export function _renderFilteredPapers(filtered, ctx) {
     const wrapClass = feedViewMode === 'twitter' ? 'flex flex-col max-w-[600px] mx-auto' : 'flex flex-col' + (feedViewMode === 'verbose' ? ' gap-3' : '');
     const wrap = VStack(cards).className(wrapClass);
     wrap.styles({ gridColumn: '1 / -1' });
-    AetherUI.append(wrap, container);
+    AetherUI.mount(wrap, container);
   } else {
     // Block view: cards are direct children of container for CSS columns
-    cards.forEach(function(c) { AetherUI.append(c, container); });
+    const frag = new View('div').className('contents');
+    cards.forEach(function(c) { frag.add(c); });
+    AetherUI.mount(frag, container);
   }
 
   // Animate cards that are new since the last render
@@ -1788,10 +1799,9 @@ export function _renderFilteredPapers(filtered, ctx) {
       if (!prevLinks.has(el.dataset.link)) {
         Motion.fadeIn(el, { y: 8, delay: _feedNewIdx * Motion.stagger.tight });
         _feedNewIdx++;
-        const dot = document.createElement('span');
-        dot.className = 'feed-new-dot';
+        const dot = new View('span').className('feed-new-dot');
         el.style.position = 'relative';
-        el.appendChild(dot);
+        AetherUI.append(dot, el);
       }
     });
   }
@@ -1933,7 +1943,7 @@ export async function _toggleTweetComments(link, idx) {
   if (!container) return;
   if (_tweetCommentsOpen.has(link)) {
     _tweetCommentsOpen.delete(link);
-    container.innerHTML = '';
+    AetherUI.mount(new View('div'), container);
     container.style.display = 'none';
     return;
   }

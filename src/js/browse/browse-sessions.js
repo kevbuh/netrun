@@ -4,7 +4,7 @@ import Settings from '/js/core/core-settings.js';
 import { truncate } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { _browseCreateTabInWindow, _createBrowseWindow, _destroyTab, browseNewTab } from '/js/browse/browse-windows.js';
-import { _browseRenderTabs } from '/js/browse/browse-island.js';
+import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
 
 // ── Tab Sessions (save/restore named tab groups) ──
@@ -17,6 +17,9 @@ export function _saveTabSessions(sessions) {
   Settings.setJSON(window._getBrowseStorageKey('browseTabSessions'), sessions);
 }
 
+// Module-level ref to the name input view so confirmSaveTabSession can access it
+var _tabSessionNameInput = null;
+
 export function toggleTabStateDropdown() {
   const dd = document.getElementById('tab-state-dropdown');
   if (!dd) return;
@@ -24,8 +27,7 @@ export function toggleTabStateDropdown() {
   _renderTabStateDropdown();
   dd.style.display = '';
   setTimeout(() => {
-    const ni = document.getElementById('tab-session-name-input');
-    if (ni) ni.focus();
+    if (_tabSessionNameInput) _tabSessionNameInput.el.focus();
   }, 50);
   setTimeout(() => {
     const handler = (e) => {
@@ -45,12 +47,13 @@ export function _renderTabStateDropdown() {
   const openTabs = _browseTabs.filter(t => !t.blank && t.url);
   const canSave = openTabs.length > 0;
 
-  // Save row
+  // Save row — store ref so confirmSaveTabSession can read the value without getElementById
   const nameInput = new window.View('input').id('tab-session-name-input')
     .attr('type', 'text').attr('placeholder', 'Session name\u2026')
     .cssText('flex:1;min-width:0;padding:5px 8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-input);color:var(--nr-text-primary);font-size:0.78rem;border-radius:6px;outline:none;')
     .on('keydown', function(e) { if (e.key === 'Enter') confirmSaveTabSession(); });
   if (!canSave) nameInput.attr('disabled', true);
+  _tabSessionNameInput = nameInput;
 
   const saveBtn = new window.View('button');
   saveBtn.text('Save ' + openTabs.length + ' tab' + (openTabs.length !== 1 ? 's' : ''));
@@ -104,10 +107,11 @@ export function _renderTabStateDropdown() {
 }
 
 export function confirmSaveTabSession() {
-  const input = document.getElementById('tab-session-name-input');
-  if (!input) return;
-  const name = input.value.trim();
-  if (!name) { input.focus(); return; }
+  // Prefer the module-level ref; fall back to getElementById for robustness
+  const inputEl = _tabSessionNameInput ? _tabSessionNameInput.el : document.getElementById('tab-session-name-input');
+  if (!inputEl) return;
+  const name = inputEl.value.trim();
+  if (!name) { inputEl.focus(); return; }
   const openTabs = _browseTabs.filter(t => !t.blank && t.url);
   if (!openTabs.length) return;
   const sessions = _getTabSessions();
@@ -118,9 +122,9 @@ export function confirmSaveTabSession() {
   });
   _saveTabSessions(sessions);
   _renderTabStateDropdown();
-  // Focus the new input after re-render
+  // Clear the new input after re-render
   setTimeout(() => {
-    const ni = document.getElementById('tab-session-name-input');
+    const ni = _tabSessionNameInput ? _tabSessionNameInput.el : null;
     if (ni) ni.value = '';
   }, 0);
 }
@@ -129,7 +133,7 @@ export function loadTabSession(index) {
   const sessions = _getTabSessions();
   const session = sessions[index];
   if (!session) return;
-  // Close dropdown
+  // Close dropdown via display toggle (container is pre-existing DOM managed by toolbar)
   const dd = document.getElementById('tab-state-dropdown');
   if (dd) dd.style.display = 'none';
 
@@ -175,29 +179,21 @@ export function saveAllWindowsAsSession(name) {
   _saveTabSessions(sessions);
 }
 
+// Module-level state for the toolbar sessions dropdown open/closed
+var _toolbarSessionsOpen = null; // State() — lazily initialised on first render
+
 // Toggle sessions dropdown
 export function _toggleSessionsDropdown() {
-  const menu = document.querySelector('.browse-sessions-menu');
-  const toggle = document.querySelector('.browse-sessions-toggle');
-  if (!menu) return;
-  const isOpen = menu.style.display !== 'none';
-  menu.style.display = isOpen ? 'none' : 'block';
-  if (toggle) toggle.classList.toggle('open', !isOpen);
-
-  if (!isOpen) {
-    // Close on click outside
-    setTimeout(() => {
-      const handler = (e) => {
-        if (!e.target.closest('.browse-sessions-dropdown.nr-menu')) {
-          menu.style.display = 'none';
-          if (toggle) toggle.classList.remove('open');
-          document.removeEventListener('mousedown', handler);
-        }
-      };
-      document.addEventListener('mousedown', handler);
-    }, 0);
+  if (_toolbarSessionsOpen) {
+    _toolbarSessionsOpen.value = !_toolbarSessionsOpen.value;
+  } else {
+    // Fallback: re-render so the state gets created and toggled
+    _renderToolbarSessions();
   }
 }
+
+// Module-level ref to the input view for the inline save-session row
+var _overviewSessionInputView = null;
 
 // Render sessions dropdown in toolbar
 export function _renderToolbarSessions() {
@@ -208,11 +204,21 @@ export function _renderToolbarSessions() {
   const totalTabs = window._browseWindows.reduce(function(n, w) { return n + w.tabs.filter(function(t) { return !t.blank && t.url; }).length; }, 0);
   const canSave = totalTabs > 0;
 
+  // Reactive open/closed state — create fresh each render so re-mounts are self-consistent
+  _toolbarSessionsOpen = window.State(false);
+
   // Toggle button
-  const toggleBtn = window.RawHTML('<button class="browse-sessions-toggle" onclick="_toggleSessionsDropdown()">' +
-    icon('bookmark', {size: 16, strokeWidth: '1.5'}) +
-    icon('chevronDown', {size: 12}) +
-    '</button>');
+  const toggleBtn = new window.View('button').className('browse-sessions-toggle')
+    .add(
+      window.RawHTML(icon('bookmark', {size: 16, strokeWidth: '1.5'})),
+      window.RawHTML(icon('chevronDown', {size: 12}))
+    )
+    .onTap(function() { _toolbarSessionsOpen.value = !_toolbarSessionsOpen.value; });
+
+  // Keep toggle button "open" class in sync with state
+  window.Effect(function() {
+    toggleBtn.el.classList.toggle('open', _toolbarSessionsOpen.value);
+  });
 
   // Save current button
   const saveCurrentBtn = new window.View('button').className('browse-save-session-btn')
@@ -251,13 +257,31 @@ export function _renderToolbarSessions() {
   }
 
   const sessionsList = window.VStack(listChildren).className('browse-sessions-list');
-  const menuDiv = window.VStack([header, sessionsList]).className('browse-sessions-menu').styles({display:'none'});
+  const menuDiv = window.VStack([header, sessionsList]).className('browse-sessions-menu');
+
+  // Drive menu visibility reactively
+  window.Effect(function() {
+    menuDiv.el.style.display = _toolbarSessionsOpen.value ? 'block' : 'none';
+  });
+
+  // Close on click outside when open
+  window.Effect(function() {
+    if (!_toolbarSessionsOpen.value) return;
+    const handler = function(e) {
+      if (!e.target.closest('.browse-sessions-dropdown.nr-menu')) {
+        _toolbarSessionsOpen.value = false;
+        document.removeEventListener('mousedown', handler);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+  });
+
   const wrapper = window.VStack([toggleBtn, menuDiv]);
 
   AetherUI.mount(wrapper, container);
 }
 
-// Prompt to save session from overview - show inline input in sessions menu
+// Prompt to save session from overview — inserts inline input row at top of sessions list
 export function _promptSaveSessionFromOverview() {
   const totalTabs = window._browseWindows.reduce((n, w) => n + w.tabs.filter(t => !t.blank && t.url).length, 0);
   if (!totalTabs) return;
@@ -265,21 +289,27 @@ export function _promptSaveSessionFromOverview() {
   const sessionsList = document.querySelector('.browse-sessions-list');
   if (!sessionsList) return;
 
-  // Check if input already exists
+  // Bail if an input row already exists
   if (sessionsList.querySelector('.browse-session-input-row')) return;
 
-  // Create input row at top
-  const inputView = new window.View('input').attr('type', 'text').attr('placeholder', 'Session name...').attr('autofocus', true);
+  const inputView = new window.View('input')
+    .attr('type', 'text')
+    .attr('placeholder', 'Session name...')
+    .attr('autofocus', true);
+  _overviewSessionInputView = inputView;
 
   const doSave = () => {
     const name = inputView.el.value.trim();
     if (!name) { inputView.el.focus(); return; }
     saveAllWindowsAsSession(name);
+    _overviewSessionInputView = null;
     _renderToolbarSessions();
   };
 
-  let inputRow; // forward declaration for doCancel
-  const doCancel = () => inputRow.el.remove();
+  const doCancel = () => {
+    _overviewSessionInputView = null;
+    inputRow.el.remove();
+  };
 
   const confirmBtnView = new window.View('button').className('save-confirm').text('Save')
     .onTap(function(e) { e.stopPropagation(); doSave(); });
@@ -293,14 +323,15 @@ export function _promptSaveSessionFromOverview() {
     if (e.key === 'Escape') doCancel();
   });
 
-  const inputRow = window.HStack([inputView, confirmBtnView, cancelBtnView]).className('browse-session-input-row');
+  var inputRow = window.HStack([inputView, confirmBtnView, cancelBtnView])
+    .className('browse-session-input-row');
+
   sessionsList.insertBefore(inputRow.el, sessionsList.firstChild);
 
   inputView.el.focus();
 }
 
-// Save a single window as a session - show inline input
-// Load session from overview (replaces current windows)
+// Load session from overview (replaces current windows or adds to existing)
 export function _loadSessionFromOverview(index, addToExisting = false) {
   const sessions = _getTabSessions();
   const session = sessions[index];
@@ -328,7 +359,7 @@ export function _loadSessionFromOverview(index, addToExisting = false) {
       if (newWin.tabs.length) newWin.activeTab = newWin.tabs[0].id;
     }
   } else if (session.tabs) {
-    // Legacy format - create one window
+    // Legacy format — create one window
     const newWin = _createBrowseWindow('Window 1');
     for (const t of session.tabs) {
       _browseCreateTabInWindow(newWin.id, t.url);
@@ -346,4 +377,3 @@ export function _loadSessionFromOverview(index, addToExisting = false) {
   window._browseSaveTabs();
   _browseRenderTabs();
 }
-

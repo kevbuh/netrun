@@ -2,9 +2,9 @@
 // Depends on: browse-state.js
 import { escapeHtml } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
-import { _browseBindFrame } from '/js/browse/browse-downloads.js';
+import { _browseBindFrame } from '/js/browse/browse-frame-bind.js';
 import { _browseIsSplitMode } from '/js/browse/browse-split-panes.js';
-import { _browseRenderTabs } from '/js/browse/browse-island.js';
+import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
 import { _browseUpdateAdBlockBadge, _getEffectivePermissions } from '/js/browse-urlbar.js';
 import { _injectIframeChatHandler } from '/js/panel.js';
 import { browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
@@ -153,13 +153,17 @@ export function openBrowseWithPaper(url, paper) {
   const created = browseNewPaperTab(url, paper);
   if (!created) {
     browseNewTab(url);
-    return;
   }
-  // Close initial blank tab if one was just created by openBrowse
+  // Set origin on the newly opened tab
   const win = window._getCurrentWindow();
-  if (win && win.tabs.length > 1) {
-    const blank = win.tabs.find(t => t.blank && t.id !== win.activeTab);
-    if (blank) browseCloseTab(blank.id);
+  if (win) {
+    const activeTab = win.tabs.find(t => t.id === win.activeTab);
+    if (activeTab) activeTab.origin = 'feed';
+    // Close initial blank tab if one was just created by openBrowse
+    if (win.tabs.length > 1) {
+      const blank = win.tabs.find(t => t.blank && t.id !== win.activeTab);
+      if (blank) browseCloseTab(blank.id);
+    }
   }
 }
 

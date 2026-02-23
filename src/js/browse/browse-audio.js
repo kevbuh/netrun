@@ -1,7 +1,7 @@
 // browse-audio.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
 import { _clearAudioUnified, _updateAudioUnified } from '/js/core/core-audio.js';
-import { _browseRenderTabs } from '/js/browse/browse-island.js';
+import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
 import { _updateCCButton } from '/js/browse/browse-captions.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
 import { browseSelectWindow, openBrowse } from '/js/browse/browse-windows.js';

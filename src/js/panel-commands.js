@@ -5,14 +5,15 @@ import { escapeHtml, truncate } from '/js/core/core-utils.js';
 import { showAchievement } from '/js/core/core-ui.js';
 import { _openInNewTab } from '/js/core/core-layout.js';
 import { _addScreenshotToPanel, _addTabContextToPanel, _browserCaptureRect, _renderPopupChat } from '/js/panel-chat.js';
-import { _browseFaviconUrl, browseBack, browseForward, browseNavigate, browseReload, browseZoom } from '/js/browse/browse-island.js';
+import { browseNavigate } from '/js/toolbar/toolbar-url.js';
+import { _browseFaviconUrl, browseBack, browseForward, browseReload, browseZoom } from '/js/toolbar/toolbar-nav.js';
 import { _browseToggleFindBar, browseSaveToReadingList, browseShare } from '/js/browse/browse-features.js';
 import { _getBrowseHistory, openSearchHistoryPage } from '/js/browse-urlbar.js';
 import { _relativeTime } from '/js/search.js';
 import { _repositionSelectionPopup } from '/js/panel.js';
 import { browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
 import { browseNewTab, browseSelectWindow, openBrowse, openLocalPdf } from '/js/browse/browse-windows.js';
-import { browsePrintPage } from '/js/browse/browse-menu.js';
+import { browsePrintPage } from '/js/toolbar/toolbar-menu.js';
 import { toggleTabMute } from '/js/browse/browse-audio.js';
 import { logger } from '/js/logger.js';
 

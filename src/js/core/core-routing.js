@@ -7,6 +7,7 @@ import { openUserProfile } from '/js/core/core-profile.js';
 import { openResearch, wmOpen } from '/js/core/core-views.js';
 import { _settingsFeedTab, _settingsSection } from '/js/settings/settings-core.js';
 import { openNetrunPage } from '/js/netrun-page.js';
+import { openTerminalPage } from '/js/terminal.js';
 
 // ── Route table — exact hash → action ──
 const _ROUTE_TABLE = {
@@ -21,12 +22,14 @@ const _ROUTE_TABLE = {
   '#saved':       () => { openNetrunPage(); },
   '#browse':      () => wmOpen('browse'),
   '#search':      () => { openResearch('search'); },
-  '#terminal':    () => { openTerminal(); },
+  '#terminal':    () => { openTerminalPage(); },
   '#neuralook':   () => wmOpen('neuralook'),
   '#dev':         () => wmOpen('dev'),
   '#docs':        () => wmOpen('docs'),
   '#vibe':        () => wmOpen('browse'),
   '#feed':        () => wmOpen('feed'),
+  '#bookmarks':   () => { if (typeof window.openBookmarks === 'function') window.openBookmarks(); },
+  '#library':     () => { if (typeof window.openBookmarks === 'function') window.openBookmarks(); },
 };
 
 // ── Prefix route handlers — hash prefix → handler(remainder) ──

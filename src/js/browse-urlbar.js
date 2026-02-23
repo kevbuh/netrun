@@ -5,14 +5,16 @@ import { escapeHtml } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { openUserProfile } from '/js/core/core-profile.js';
 import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
-import { _BANGS, _browseFaviconUrl, _browseRenderTabs, _browseTitleFromUrl, _pillSyncUrl, _pillUrlKeydown, browseBack, browseForward, browseNavigate, browseReload } from '/js/browse/browse-island.js';
+import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
+import { _BANGS, _pillSyncUrl, _pillUrlKeydown, browseNavigate } from '/js/toolbar/toolbar-url.js';
+import { _browseFaviconUrl, _browseTitleFromUrl, browseBack, browseForward, browseReload } from '/js/toolbar/toolbar-nav.js';
 import { _HELP_DATA } from '/js/settings/settings-helpers.js';
 import { _aetherShowCursor } from '/js/panel-commands.js';
 import { _browseApplyPermissions, _browseProxyUrl } from '/js/browse/browse-ntp.js';
 import { _browseUpdateNewTabPage, browseCloseTab, browseReopenTab, browseSelectTab } from '/js/browse/browse-passwords.js';
 import { _relativeTime, submitSearch } from '/js/search.js';
 import { browseNewTab, browseSelectWindow, openBrowse, openLocalPdfDialog } from '/js/browse/browse-windows.js';
-import { browsePrintPage } from '/js/browse/browse-menu.js';
+import { browsePrintPage } from '/js/toolbar/toolbar-menu.js';
 import { chatViewNewThread, chatViewUnmorph, openChatPage } from '/js/chat-view.js';
 import { drawViewUnmorph } from '/js/draw-view.js';
 
@@ -689,32 +691,45 @@ export function _browseUrlRenderHistoryCommand(dd, input) {
   }
 
   if (!hist.length) {
-    dd.innerHTML = '<div style="padding:12px;font-size:0.8rem;color:var(--nr-text-secondary);text-align:center;">No browsing history</div>';
+    AetherUI.mount(
+      Text('No browsing history').cssText('padding:12px;font-size:0.8rem;color:var(--nr-text-secondary);text-align:center;'),
+      dd
+    );
     dd.style.display = '';
     dd.classList.remove('hidden');
     return;
   }
 
-  const rowStyle = 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--nr-text-primary);transition:background 0.1s;';
-  const hoverOn = "this.style.background='var(--nr-bg-raised)'";
-  const hoverOff = "if(this.dataset.idx!=window._browseUrlHistIdx)this.style.background='none'";
-
-  let html = '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
-  html += hist.map((h, i) => {
+  const header = Text('Recent Sites').cssText('padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;');
+  const rows = VStack(header);
+  hist.forEach((h, i) => {
     const favicon = _browseFaviconUrl(h.url);
     let domain = '';
     try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
-    const safeUrl = escapeHtml(h.url).replace(/"/g, '&quot;');
     const time = _relativeTime(h.ts);
-    return `<div data-idx="${i}" data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); var _i=_getOmniInput().input; if(_i)_i.value='${escapeHtml(h.url).replace(/'/g, "\\'")}'; _browseUrlHideHistory(); browseNavigate('${escapeHtml(h.url).replace(/'/g, "\\'")}');">
-      <img src="${escapeHtml(favicon)}" style="width:14px;height:14px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.title || domain)}</span>
-      <span style="font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
-      <span style="font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;">${escapeHtml(time)}</span>
-    </div>`;
-  }).join('');
+    const img = new View('img').attr('src', favicon).cssText('width:14px;height:14px;flex-shrink:0;border-radius:2px;');
+    img.el.onerror = function() { this.style.display = 'none'; };
+    const row = HStack(
+      img,
+      Text(h.title || domain).cssText('flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'),
+      Text(domain).cssText('font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;'),
+      Text(time).cssText('font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;')
+    ).cssText('display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--nr-text-primary);transition:background 0.1s;');
+    row.el.dataset.idx = String(i);
+    row.el.dataset.histq = h.url;
+    row.on('mouseenter', function() { this.style.background = 'var(--nr-bg-raised)'; });
+    row.on('mouseleave', function() { if (this.dataset.idx != window._browseUrlHistIdx) this.style.background = 'none'; });
+    row.on('mousedown', function(ev) {
+      ev.preventDefault();
+      const _i = _getOmniInput().input;
+      if (_i) _i.value = h.url;
+      _browseUrlHideHistory();
+      browseNavigate(h.url);
+    });
+    rows.add(row);
+  });
 
-  dd.innerHTML = html;
+  AetherUI.mount(rows, dd);
   dd.style.display = '';
   dd.classList.remove('hidden');
 }
@@ -727,6 +742,43 @@ export const _BANG_LABELS = {
   py: 'PyPI', crates: 'crates.io', hn: 'Hacker News', wa: 'Wolfram Alpha',
   nix: 'Nix Packages',
 };
+
+// ── Dropdown row helper — creates a styled HStack with hover + mousedown ──
+function _ddRow(opts) {
+  // opts: { histq, rowStyle, hoverBg, children[], onMousedown }
+  const row = HStack(...opts.children).cssText(opts.rowStyle);
+  row.el.dataset.histq = opts.histq;
+  if (opts.className) row.el.className = opts.className;
+  if (opts.extraStyle) row.cssText(opts.rowStyle + opts.extraStyle);
+  row.on('mouseenter', function() { this.style.background = opts.hoverBg; });
+  row.on('mouseleave', function() { this.style.background = opts.hoverOffBg || 'none'; });
+  row.on('mousedown', opts.onMousedown);
+  return row;
+}
+
+function _ddSectionHeader(label) {
+  return Text(label).cssText('padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;');
+}
+
+function _ddSvgIcon(svgInner, size, color) {
+  return RawHTML('<svg style="width:' + size + ';height:' + size + ';color:' + (color || 'var(--nr-text-quaternary)') + ';flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">' + svgInner + '</svg>');
+}
+
+function _ddFaviconWithFallback(faviconUrl, size) {
+  const img = new View('img').attr('src', faviconUrl).cssText('width:' + size + ';height:' + size + ';flex-shrink:0;border-radius:3px;');
+  const fallback = _ddSvgIcon('<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-linecap="round" stroke-linejoin="round"/>', size, 'var(--nr-text-quaternary)');
+  fallback.cssText(fallback.el.style.cssText + 'display:none;');
+  img.el.onerror = function() { this.style.display = 'none'; this.nextElementSibling.style.display = ''; };
+  return { img, fallback };
+}
+
+const _SEARCH_SVG = '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/>';
+const _CHAT_SVG = '<path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>';
+const _CLOCK_SVG = '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/>';
+const _BOLT_SVG = '<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>';
+const _STAR_SVG = '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>';
+const _USER_SVG = '<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>';
+const _FLASK_SVG = '<path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/>';
 
 export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, showBrowse) {
   showBrowse = showBrowse || [];
@@ -764,7 +816,6 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
   _browseUrlHistIdx = -1;
 
   if (ntp) {
-    // NTP: inline inside the search box, no fixed positioning
     dd.style.position = '';
     dd.style.left = '';
     dd.style.top = '';
@@ -772,7 +823,6 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
     dd.style.maxHeight = '320px';
     dd.style.overflowY = 'auto';
   } else if (isIslandCenter) {
-    // Island expanded: render dropdown inside the center column (replacing page info)
     dd.style.position = '';
     dd.style.left = '';
     dd.style.top = '';
@@ -780,7 +830,6 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
     dd.style.maxHeight = '';
     dd.style.overflowY = 'auto';
   } else if (isIsland) {
-    // Island mode (collapsed): dropdown flows below the pill
     dd.style.position = '';
     dd.style.left = '';
     dd.style.top = '';
@@ -802,121 +851,163 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
     ? 'display:flex;align-items:center;gap:10px;padding:8px 4px;cursor:pointer;font-size:0.85rem;color:var(--nr-text-primary);transition:background 0.12s;border-radius:8px;margin:0 -4px;'
     : 'display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:0.8rem;color:var(--nr-text-primary);transition:background 0.1s;';
   const hoverBg = ntp ? 'color-mix(in srgb, var(--nr-accent) 12%, transparent)' : 'var(--nr-bg-raised)';
-  const hoverOn = "this.style.background='" + hoverBg + "'";
-  const hoverOff = "this.style.background='none'";
+  const iconSize = ntp ? '16px' : '14px';
+  const smallIconSize = ntp ? '16px' : '13px';
+  const trailSize = ntp ? '0.75rem' : '0.68rem';
 
-  // Section renderers — each returns HTML string or '' if nothing to show
+  // Section renderers — each returns a View or null
   const _urlBarRenderers = {
     quickopen: () => {
-      if (!quickOpenMatches.length) return '';
-      const iconSize = ntp ? '16px' : '14px';
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Open</div>';
-      h += quickOpenMatches.map(v => {
-        let action;
-        if (v.action === 'history') {
-          action = `event.preventDefault(); var _i=_getOmniInput().input; if(_i){_i.value='/history';} _browseUrlShowHistory();`;
-        } else if (v.action === 'terminal') {
-          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof toggleBottomTerminal==='function') toggleBottomTerminal();`;
-        } else if (v.action === 'research') {
-          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof openResearch==='function') openResearch();`;
-        } else if (v.action === 'downloads') {
-          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof toggleBrowseDownloads==='function') toggleBrowseDownloads();`;
-        } else if (v.action === 'newtab') {
-          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof browseNewTab==='function') browseNewTab();`;
-        } else if (v.action === 'pixelpet') {
-          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof togglePixelPet==='function') togglePixelPet(true);`;
-        } else if (v.action === 'netrunner') {
-          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof startNetrunner==='function') startNetrunner();`;
-        } else if (v.action && v.action.startsWith('settings:')) {
-          const section = v.action.split(':')[1];
-          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof wmOpen==='function') wmOpen('settings'); if(typeof _setSettingsSection==='function') setTimeout(function(){_setSettingsSection('${section}');},50);`;
-        } else if (v.key === 'draw') {
-          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof openDrawPage==='function') openDrawPage();`;
-        } else {
-          action = `event.preventDefault(); _browseUrlHideHistory(); if(typeof wmOpen==='function') wmOpen('${v.key}');`;
-        }
-        return `<div data-histq="open:${v.key}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${action}">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-accent);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">${v.icon}</svg>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;">Open ${escapeHtml(v.label)}</span>
-          <span style="font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;">View</span>
-        </div>`;
-      }).join('');
-      return h;
+      if (!quickOpenMatches.length) return null;
+      const qoSize = ntp ? '16px' : '14px';
+      const container = VStack();
+      if (!ntp) container.add(_ddSectionHeader('Open'));
+      quickOpenMatches.forEach(v => {
+        const actionFn = _resolveQuickOpenAction(v);
+        const row = _ddRow({
+          histq: 'open:' + v.key, rowStyle, hoverBg,
+          children: [
+            RawHTML('<svg style="width:' + qoSize + ';height:' + qoSize + ';color:var(--nr-accent);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">' + v.icon + '</svg>'),
+            Text('Open ' + v.label).cssText('flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;'),
+            Text('View').cssText('font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;')
+          ],
+          onMousedown: function(ev) { ev.preventDefault(); actionFn(); }
+        });
+        container.add(row);
+      });
+      return container;
     },
     chat: () => {
-      if (!filter || !ntp) return '';
-      const safeFilter = escapeHtml(filter).replace(/'/g, "\\'");
-      const iconSize = '16px';
-      return `<div class="ntp-chat-row" data-histq="chat:${escapeHtml(filter).replace(/"/g, '&quot;')}" style="${rowStyle}background:color-mix(in srgb, var(--nr-accent) 20%, transparent);font-weight:500;" onmouseenter="this.style.background='color-mix(in srgb, var(--nr-accent) 30%, transparent)'" onmouseleave="this.style.background='color-mix(in srgb, var(--nr-accent) 20%, transparent)'" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof chatViewNewThread==='function') chatViewNewThread('${safeFilter}');">
-        <svg style="width:${iconSize};height:${iconSize};color:var(--nr-accent);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(filter)} <span style="color:var(--nr-text-secondary);font-weight:400;">\u2014 Chat</span></span>
-      </div>`;
+      if (!filter || !ntp) return null;
+      const row = _ddRow({
+        histq: 'chat:' + filter, rowStyle, hoverBg: 'color-mix(in srgb, var(--nr-accent) 30%, transparent)',
+        hoverOffBg: 'color-mix(in srgb, var(--nr-accent) 20%, transparent)',
+        extraStyle: 'background:color-mix(in srgb, var(--nr-accent) 20%, transparent);font-weight:500;',
+        className: 'ntp-chat-row',
+        children: [
+          _ddSvgIcon(_CHAT_SVG, '16px', 'var(--nr-accent)'),
+          RawHTML('<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(filter) + ' <span style="color:var(--nr-text-secondary);font-weight:400;">\u2014 Chat</span></span>')
+        ],
+        onMousedown: function(ev) { ev.preventDefault(); _browseUrlHideHistory(); if (typeof chatViewNewThread === 'function') chatViewNewThread(filter); }
+      });
+      return row;
     },
     search: () => {
-      if (!filter || !ntp) return '';
-      const safeFilter = escapeHtml(filter).replace(/'/g, "\\'");
-      const iconSize = '16px';
-      return `<div data-histq="${escapeHtml(filter).replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); document.getElementById('search-query').value='${safeFilter}'; _browseUrlHideHistory(); submitSearch();">
-        <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(filter)} <span style="color:var(--nr-text-secondary);">\u2014 Google</span></span>
-      </div>`;
+      if (!filter || !ntp) return null;
+      return _ddRow({
+        histq: filter, rowStyle, hoverBg,
+        children: [
+          _ddSvgIcon(_SEARCH_SVG, '16px'),
+          RawHTML('<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(filter) + ' <span style="color:var(--nr-text-secondary);">\u2014 Google</span></span>')
+        ],
+        onMousedown: function(ev) {
+          ev.preventDefault();
+          const sq = document.getElementById('search-query');
+          if (sq) sq.value = filter;
+          _browseUrlHideHistory();
+          submitSearch();
+        }
+      });
     },
     bangs: () => {
-      if (!matchedBangs.length) return '';
-      const iconSize = ntp ? '16px' : '13px';
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Bangs</div>';
-      h += matchedBangs.map(key => {
+      if (!matchedBangs.length) return null;
+      const container = VStack();
+      if (!ntp) container.add(_ddSectionHeader('Bangs'));
+      matchedBangs.forEach(key => {
         const label = _BANG_LABELS[key] || key;
         const fillValue = '!' + key + ' ';
-        const setInput = ntp
-          ? `event.preventDefault(); var el=document.getElementById('search-query'); el.value='${fillValue}'; el.focus(); _browseUrlShowHistory();`
-          : `event.preventDefault(); var el=document.getElementById('browse-url-input'); el.value='${fillValue}'; el.focus(); _browseUrlShowHistory();`;
-        return `<div data-histq="bang:${escapeHtml(key)}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${setInput}">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span style="font-weight:600;color:var(--nr-accent);">!${escapeHtml(key)}</span> <span style="color:var(--nr-text-secondary);">${escapeHtml(label)}</span></span>
-        </div>`;
-      }).join('');
-      return h;
+        const row = _ddRow({
+          histq: 'bang:' + key, rowStyle, hoverBg,
+          children: [
+            _ddSvgIcon(_BOLT_SVG, smallIconSize),
+            RawHTML('<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span style="font-weight:600;color:var(--nr-accent);">!' + escapeHtml(key) + '</span> <span style="color:var(--nr-text-secondary);">' + escapeHtml(label) + '</span></span>')
+          ],
+          onMousedown: function(ev) {
+            ev.preventDefault();
+            const el = ntp ? document.getElementById('search-query') : document.getElementById('browse-url-input');
+            if (el) { el.value = fillValue; el.focus(); }
+            _browseUrlShowHistory();
+          }
+        });
+        container.add(row);
+      });
+      return container;
     },
     lucky: () => {
-      if (!showLucky) return '';
+      if (!showLucky) return null;
       const hasText = !!_feelingLuckyQuery;
       const waiting = _feelingLuckyLoading && !hasText;
       if (!_feelingLuckyQuery && !_feelingLuckyLoading) setTimeout(_browseUrlFeelingLucky, 0);
-      const displayText = hasText ? escapeHtml(_feelingLuckyQuery) : (waiting ? '<span style="color:var(--nr-text-quaternary);">Thinking\u2026</span>' : '');
-      return `<div class="browse-lucky-row" data-histq="${escapeHtml(_feelingLuckyQuery || '')}" style="${rowStyle}border-bottom:1px solid var(--nr-border-default);${waiting ? 'opacity:0.7;cursor:wait;' : ''}">
-        <svg style="width:14px;height:14px;flex-shrink:0;color:var(--nr-text-quaternary);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
-          <span style="font-weight:600;color:var(--nr-text-primary);">Feeling Lucky</span>
-          <span class="browse-lucky-text" style="margin-left:6px;color:var(--nr-text-secondary);font-size:0.75rem;">${displayText}</span>
-        </span>
-        ${hasText && !_feelingLuckyLoading ? '<span class="browse-lucky-redo" style="flex-shrink:0;cursor:pointer;padding:2px 4px;border-radius:4px;color:var(--nr-text-quaternary);font-size:0.7rem;">\u21BB</span>' : ''}
-      </div>`;
+
+      const starIcon = _ddSvgIcon(_STAR_SVG, '14px');
+      const labelSpan = Text('Feeling Lucky').cssText('font-weight:600;color:var(--nr-text-primary);');
+      const luckyText = hasText
+        ? Text(_feelingLuckyQuery).cssText('margin-left:6px;color:var(--nr-text-secondary);font-size:0.75rem;')
+        : (waiting ? RawHTML('<span style="margin-left:6px;color:var(--nr-text-quaternary);font-size:0.75rem;">Thinking\u2026</span>') : Text('').cssText('margin-left:6px;'));
+      luckyText.el.className = 'browse-lucky-text';
+
+      const textWrap = HStack(labelSpan, luckyText).cssText('flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;');
+
+      const children = [starIcon, textWrap];
+      if (hasText && !_feelingLuckyLoading) {
+        const redo = Text('\u21BB').cssText('flex-shrink:0;cursor:pointer;padding:2px 4px;border-radius:4px;color:var(--nr-text-quaternary);font-size:0.7rem;');
+        redo.el.className = 'browse-lucky-redo';
+        redo.on('mousedown', function(ev) { ev.preventDefault(); ev.stopPropagation(); _browseUrlFeelingLucky(); });
+        redo.on('mouseenter', function() { this.style.color = 'var(--nr-accent)'; });
+        redo.on('mouseleave', function() { this.style.color = 'var(--nr-text-quaternary)'; });
+        children.push(redo);
+      }
+
+      const row = HStack(...children).cssText(rowStyle + 'border-bottom:1px solid var(--nr-border-default);' + (waiting ? 'opacity:0.7;cursor:wait;' : ''));
+      row.el.className = 'browse-lucky-row';
+      row.el.dataset.histq = _feelingLuckyQuery || '';
+      row.on('mousedown', function(ev) {
+        if (ev.target.closest('.browse-lucky-redo')) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (_feelingLuckyQuery) {
+          const inp = document.getElementById('browse-url-input');
+          if (inp) inp.value = _feelingLuckyQuery;
+          _browseUrlHideHistory();
+          browseNavigate(_feelingLuckyQuery);
+        }
+      });
+      return row;
     },
     definition: () => {
-      if (!hasDef) return '';
+      if (!hasDef) return null;
       const entry = _currentDef;
-      let h = '<div style="padding:10px 14px;border-bottom:1px solid var(--nr-border-default);">';
-      h += '<div style="display:flex;align-items:baseline;gap:8px;">';
-      h += '<span style="font-size:1rem;font-weight:700;color:var(--nr-text-primary);">' + escapeHtml(entry.word) + '</span>';
+      const container = VStack();
+      container.cssText('padding:10px 14px;border-bottom:1px solid var(--nr-border-default);');
+
+      const headerRow = HStack(
+        Text(entry.word).cssText('font-size:1rem;font-weight:700;color:var(--nr-text-primary);')
+      ).cssText('display:flex;align-items:baseline;gap:8px;');
+
       const phonetic = entry.phonetics?.find(p => p.text)?.text;
-      if (phonetic) h += '<span style="font-size:0.78rem;color:var(--nr-text-secondary);">' + escapeHtml(phonetic) + '</span>';
+      if (phonetic) headerRow.add(Text(phonetic).cssText('font-size:0.78rem;color:var(--nr-text-secondary);'));
       const audio = entry.phonetics?.find(p => p.audio);
-      if (audio) h += '<button onclick="event.stopPropagation();event.preventDefault();new Audio(\'' + escapeHtml(audio.audio) + '\').play()" style="background:none;border:none;cursor:pointer;color:var(--nr-text-quaternary);padding:0;margin-left:2px;" title="Listen"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>';
-      h += '</div>';
+      if (audio) {
+        const playBtn = Button(RawHTML('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>'))
+          .cssText('background:none;border:none;cursor:pointer;color:var(--nr-text-quaternary);padding:0;margin-left:2px;')
+          .attr('title', 'Listen');
+        playBtn.onTap(function(ev) { ev.stopPropagation(); ev.preventDefault(); new Audio(audio.audio).play(); });
+        headerRow.add(playBtn);
+      }
+      container.add(headerRow);
+
       for (const meaning of (entry.meanings || []).slice(0, 2)) {
-        h += '<div style="margin-top:6px;"><span style="font-size:0.65rem;font-weight:600;color:var(--nr-accent);text-transform:uppercase;letter-spacing:0.04em;">' + escapeHtml(meaning.partOfSpeech) + '</span></div>';
+        container.add(Text(meaning.partOfSpeech).cssText('margin-top:6px;font-size:0.65rem;font-weight:600;color:var(--nr-accent);text-transform:uppercase;letter-spacing:0.04em;'));
         for (const def of (meaning.definitions || []).slice(0, 1)) {
-          h += '<div style="font-size:0.8rem;color:var(--nr-text-primary);line-height:1.45;margin-top:2px;padding-left:8px;border-left:2px solid color-mix(in srgb, var(--nr-accent) 30%, transparent);">' + escapeHtml(def.definition) + '</div>';
-          if (def.example) h += '<div style="font-size:0.72rem;color:var(--nr-text-secondary);font-style:italic;margin-top:1px;padding-left:8px;">"' + escapeHtml(def.example) + '"</div>';
+          container.add(Text(def.definition).cssText('font-size:0.8rem;color:var(--nr-text-primary);line-height:1.45;margin-top:2px;padding-left:8px;border-left:2px solid color-mix(in srgb, var(--nr-accent) 30%, transparent);'));
+          if (def.example) container.add(Text('"' + def.example + '"').cssText('font-size:0.72rem;color:var(--nr-text-secondary);font-style:italic;margin-top:1px;padding-left:8px;'));
         }
       }
-      h += '</div>';
-      return h;
+      return container;
     },
     instant: () => {
-      if (!hasInstant) return '';
-      return _instantAnswer.html;
+      if (!hasInstant) return null;
+      return RawHTML(_instantAnswer.html);
     },
     recent: () => {
       // On NTP with no filter, merge browse history and recent chat threads sorted by recency
@@ -925,151 +1016,186 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
           ...showBrowse.map(bh => ({ type: 'browse', data: bh, ts: bh.ts || 0 })),
           ..._currentChatThreads.map(t => ({ type: 'thread', data: t, ts: (t.updated_at || 0) * 1000 })),
         ].sort((a, b) => b.ts - a.ts).slice(0, 8);
-        if (!merged.length) return '';
-        const iconSize = '16px';
-        const navFn = (url) => `event.preventDefault(); _browseUrlHideHistory(); browseNavigate('${url}');`;
-        return merged.map(item => {
+        if (!merged.length) return null;
+        const container = VStack();
+        merged.forEach(item => {
           if (item.type === 'browse') {
             const bh = item.data;
             const favicon = _browseFaviconUrl(bh.url);
             let domain = '';
             try { domain = new URL(bh.url).hostname.replace('www.', ''); } catch {}
-            const safeUrl = escapeHtml(bh.url).replace(/"/g, '&quot;');
-            const displayTitle = escapeHtml(bh.title || domain);
-            return `<div data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${navFn(escapeHtml(bh.url).replace(/'/g, "\\'"))}">
-              <img src="${escapeHtml(favicon)}" style="width:${iconSize};height:${iconSize};flex-shrink:0;border-radius:3px;" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
-              <svg style="width:${iconSize};height:${iconSize};flex-shrink:0;color:var(--nr-text-quaternary);display:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displayTitle}</span>
-              <span style="font-size:0.75rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
-            </div>`;
+            const { img, fallback } = _ddFaviconWithFallback(favicon, iconSize);
+            const row = _ddRow({
+              histq: bh.url, rowStyle, hoverBg,
+              children: [
+                img, fallback,
+                Text(bh.title || domain).cssText('flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'),
+                Text(domain).cssText('font-size:0.75rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;')
+              ],
+              onMousedown: function(ev) { ev.preventDefault(); _browseUrlHideHistory(); browseNavigate(bh.url); }
+            });
+            container.add(row);
           } else {
             const t = item.data;
-            const safeId = escapeHtml(t.id).replace(/'/g, "\\'");
-            const title = escapeHtml(t.title || 'Untitled');
             const time = _relativeTime(t.updated_at * 1000);
-            return `<div data-histq="thread:${escapeHtml(t.id)}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof openChatPage==='function') openChatPage('${safeId}');">
-              <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title} <span style="color:var(--nr-text-secondary);">\u2014 Chat</span></span>
-              <span style="font-size:0.75rem;color:var(--nr-text-quaternary);flex-shrink:0;">${escapeHtml(time)}</span>
-            </div>`;
+            const row = _ddRow({
+              histq: 'thread:' + t.id, rowStyle, hoverBg,
+              children: [
+                _ddSvgIcon(_CHAT_SVG, iconSize),
+                RawHTML('<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(t.title || 'Untitled') + ' <span style="color:var(--nr-text-secondary);">\u2014 Chat</span></span>'),
+                Text(time).cssText('font-size:0.75rem;color:var(--nr-text-quaternary);flex-shrink:0;')
+              ],
+              onMousedown: function(ev) { ev.preventDefault(); _browseUrlHideHistory(); if (typeof openChatPage === 'function') openChatPage(t.id); }
+            });
+            container.add(row);
           }
-        }).join('');
+        });
+        return container;
       }
-      if (!showBrowse.length) return '';
-      const iconSize = ntp ? '16px' : '14px';
-      const navFn = ntp
-        ? (url) => `event.preventDefault(); _browseUrlHideHistory(); browseNavigate('${url}');`
-        : (url) => `event.preventDefault(); document.getElementById('browse-url-input').value='${url}'; _browseUrlHideHistory(); browseNavigate('${url}');`;
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Recent Sites</div>';
-      h += showBrowse.map(bh => {
+      if (!showBrowse.length) return null;
+      const container = VStack();
+      if (!ntp) container.add(_ddSectionHeader('Recent Sites'));
+      showBrowse.forEach(bh => {
         const favicon = _browseFaviconUrl(bh.url);
         let domain = '';
         try { domain = new URL(bh.url).hostname.replace('www.', ''); } catch {}
-        const safeUrl = escapeHtml(bh.url).replace(/"/g, '&quot;');
-        const displayTitle = escapeHtml(bh.title || domain);
-        return `<div data-histq="${safeUrl}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${navFn(escapeHtml(bh.url).replace(/'/g, "\\'"))}">
-          <img src="${escapeHtml(favicon)}" style="width:${iconSize};height:${iconSize};flex-shrink:0;border-radius:3px;" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
-          <svg style="width:${iconSize};height:${iconSize};flex-shrink:0;color:var(--nr-text-quaternary);display:none;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${displayTitle}</span>
-          <span style="font-size:${ntp ? '0.75rem' : '0.68rem'};color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">${escapeHtml(domain)}</span>
-        </div>`;
-      }).join('');
-      return h;
+        const { img, fallback } = _ddFaviconWithFallback(favicon, iconSize);
+        const row = _ddRow({
+          histq: bh.url, rowStyle, hoverBg,
+          children: [
+            img, fallback,
+            Text(bh.title || domain).cssText('flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'),
+            Text(domain).cssText('font-size:' + trailSize + ';color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;')
+          ],
+          onMousedown: function(ev) {
+            ev.preventDefault();
+            if (!ntp) { const ui = document.getElementById('browse-url-input'); if (ui) ui.value = bh.url; }
+            _browseUrlHideHistory();
+            browseNavigate(bh.url);
+          }
+        });
+        container.add(row);
+      });
+      return container;
     },
     suggestions: () => {
-      if (!suggestions.length) return '';
-      const iconSize = ntp ? '16px' : '13px';
-      const navFn = ntp
-        ? (q) => `event.preventDefault(); document.getElementById('search-query').value='${q}'; _browseUrlHideHistory(); submitSearch();`
-        : (q) => `event.preventDefault(); document.getElementById('browse-url-input').value='${q}'; _browseUrlHideHistory(); browseNavigate('${q}');`;
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Suggestions</div>';
-      h += suggestions.map(s => {
-        const safeS = escapeHtml(s);
-        return `<div data-histq="${safeS.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${navFn(safeS.replace(/'/g, "\\'"))}">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeS}</span>
-        </div>`;
-      }).join('');
-      return h;
+      if (!suggestions.length) return null;
+      const container = VStack();
+      if (!ntp) container.add(_ddSectionHeader('Suggestions'));
+      suggestions.forEach(s => {
+        const row = _ddRow({
+          histq: s, rowStyle, hoverBg,
+          children: [
+            _ddSvgIcon(_SEARCH_SVG, smallIconSize),
+            Text(s).cssText('flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;')
+          ],
+          onMousedown: function(ev) {
+            ev.preventDefault();
+            if (ntp) { const sq = document.getElementById('search-query'); if (sq) sq.value = s; _browseUrlHideHistory(); submitSearch(); }
+            else { const ui = document.getElementById('browse-url-input'); if (ui) ui.value = s; _browseUrlHideHistory(); browseNavigate(s); }
+          }
+        });
+        container.add(row);
+      });
+      return container;
     },
     projects: () => {
-      if (!projects.length) return '';
-      const iconSize = ntp ? '16px' : '13px';
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Projects</div>';
-      h += projects.map(exp => {
-        const safeId = escapeHtml(exp.id);
+      if (!projects.length) return null;
+      const container = VStack();
+      if (!ntp) container.add(_ddSectionHeader('Projects'));
+      projects.forEach(exp => {
         const updated = exp.lastUpdated ? _relativeTime(exp.lastUpdated) : '';
-        return `<div data-histq="project:${safeId}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof openExperimentDetail==='function') openExperimentDetail('${safeId}');">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/></svg>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(exp.title)}</span>
-          ${updated ? `<span style="font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;">${escapeHtml(updated)}</span>` : ''}
-        </div>`;
-      }).join('');
-      return h;
+        const children = [
+          _ddSvgIcon(_FLASK_SVG, smallIconSize),
+          Text(exp.title).cssText('flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;')
+        ];
+        if (updated) children.push(Text(updated).cssText('font-size:0.68rem;color:var(--nr-text-quaternary);flex-shrink:0;'));
+        const row = _ddRow({
+          histq: 'project:' + exp.id, rowStyle, hoverBg, children,
+          onMousedown: function(ev) { ev.preventDefault(); _browseUrlHideHistory(); if (typeof openExperimentDetail === 'function') openExperimentDetail(exp.id); }
+        });
+        container.add(row);
+      });
+      return container;
     },
     users: () => {
-      if (!filter) return '';
+      if (!filter) return null;
       const unique = [];
       const matched = unique.filter(u => u.toLowerCase().includes(filter)).slice(0, 5);
-      if (!matched.length) return '';
-      const iconSize = ntp ? '16px' : '13px';
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Users</div>';
-      h += matched.map(username => {
-        const safeU = escapeHtml(username);
-        return `<div data-histq="user:${safeU}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof openUserProfile==='function') openUserProfile('${safeU.replace(/'/g, "\\'")}');">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeU}</span>
-        </div>`;
-      }).join('');
-      return h;
+      if (!matched.length) return null;
+      const container = VStack();
+      if (!ntp) container.add(_ddSectionHeader('Users'));
+      matched.forEach(username => {
+        const row = _ddRow({
+          histq: 'user:' + username, rowStyle, hoverBg,
+          children: [
+            _ddSvgIcon(_USER_SVG, smallIconSize),
+            Text(username).cssText('flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;')
+          ],
+          onMousedown: function(ev) { ev.preventDefault(); _browseUrlHideHistory(); if (typeof openUserProfile === 'function') openUserProfile(username); }
+        });
+        container.add(row);
+      });
+      return container;
     },
     threads: () => {
-      if (!_currentChatThreads.length || !ntp) return '';
-      if (!filter) return ''; // no-filter threads are mixed into 'recent' section
-      const iconSize = '16px';
-      let h = '';
-      h += _currentChatThreads.map(t => {
-        const safeId = escapeHtml(t.id).replace(/'/g, "\\'");
-        const title = escapeHtml(t.title || 'Untitled');
+      if (!_currentChatThreads.length || !ntp) return null;
+      if (!filter) return null; // no-filter threads are mixed into 'recent' section
+      const container = VStack();
+      _currentChatThreads.forEach(t => {
         const time = _relativeTime(t.updated_at * 1000);
-        return `<div data-histq="thread:${escapeHtml(t.id)}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="event.preventDefault(); _browseUrlHideHistory(); if(typeof openChatPage==='function') openChatPage('${safeId}');">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title} <span style="color:var(--nr-text-secondary);">\u2014 Chat</span></span>
-          <span style="font-size:0.75rem;color:var(--nr-text-quaternary);flex-shrink:0;">${escapeHtml(time)}</span>
-        </div>`;
-      }).join('');
-      return h;
+        const row = _ddRow({
+          histq: 'thread:' + t.id, rowStyle, hoverBg,
+          children: [
+            _ddSvgIcon(_CHAT_SVG, '16px'),
+            RawHTML('<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(t.title || 'Untitled') + ' <span style="color:var(--nr-text-secondary);">\u2014 Chat</span></span>'),
+            Text(time).cssText('font-size:0.75rem;color:var(--nr-text-quaternary);flex-shrink:0;')
+          ],
+          onMousedown: function(ev) { ev.preventDefault(); _browseUrlHideHistory(); if (typeof openChatPage === 'function') openChatPage(t.id); }
+        });
+        container.add(row);
+      });
+      return container;
     },
-    notes: () => '',
+    notes: () => null,
     history: () => {
-      if (!showHist.length) return '';
-      const iconSize = ntp ? '16px' : '13px';
-      const navFn = ntp
-        ? (q) => `event.preventDefault(); document.getElementById('search-query').value='${q}'; _browseUrlHideHistory(); submitSearch();`
-        : (q) => `event.preventDefault(); document.getElementById('browse-url-input').value='${q}'; _browseUrlHideHistory(); browseNavigate('${q}');`;
-      let h = ntp ? '' : '<div style="padding:4px 12px 2px;font-size:0.65rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;">Recent Searches</div>';
-      h += showHist.map(sh => {
+      if (!showHist.length) return null;
+      const container = VStack();
+      if (!ntp) container.add(_ddSectionHeader('Recent Searches'));
+      showHist.forEach(sh => {
         const time = _relativeTime(sh.ts);
-        const safeQ = escapeHtml(sh.q);
-        return `<div data-histq="${safeQ.replace(/"/g, '&quot;')}" style="${rowStyle}" onmouseenter="${hoverOn}" onmouseleave="${hoverOff}" onmousedown="${navFn(safeQ.replace(/'/g, "\\'"))}">
-          <svg style="width:${iconSize};height:${iconSize};color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/></svg>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safeQ}</span>
-          <span style="font-size:${ntp ? '0.75rem' : '0.68rem'};color:var(--nr-text-quaternary);flex-shrink:0;">${escapeHtml(time)}</span>
-        </div>`;
-      }).join('');
-      return h;
+        const row = _ddRow({
+          histq: sh.q, rowStyle, hoverBg,
+          children: [
+            _ddSvgIcon(_CLOCK_SVG, smallIconSize),
+            Text(sh.q).cssText('flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'),
+            Text(time).cssText('font-size:' + trailSize + ';color:var(--nr-text-quaternary);flex-shrink:0;')
+          ],
+          onMousedown: function(ev) {
+            ev.preventDefault();
+            if (ntp) { const sq = document.getElementById('search-query'); if (sq) sq.value = sh.q; _browseUrlHideHistory(); submitSearch(); }
+            else { const ui = document.getElementById('browse-url-input'); if (ui) ui.value = sh.q; _browseUrlHideHistory(); browseNavigate(sh.q); }
+          }
+        });
+        container.add(row);
+      });
+      return container;
     },
   };
 
-  let html = '';
+  const root = VStack();
   const sections = _getUrlBarSections();
+  let hasContent = false;
   for (const sec of sections) {
     if (sec.enabled === false) continue;
     const renderer = _urlBarRenderers[sec.key];
-    if (renderer) html += renderer();
+    if (renderer) {
+      const view = renderer();
+      if (view) { root.add(view); hasContent = true; }
+    }
   }
 
-  if (!html) {
+  if (!hasContent) {
     if (isIslandCenter) {
       _islandCenterRestorePageInfo();
     } else {
@@ -1089,49 +1215,37 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
     if (actionsRow) actionsRow.style.display = 'none';
     if (titleEl) titleEl.style.display = 'none';
     if (navRow) navRow.style.display = 'none';
-    // Also hide the center column's own content
     dd.classList.add('island-center-dd-active');
     let ddWrap = document.getElementById('island-center-dropdown');
     if (!ddWrap) {
-      ddWrap = document.createElement('div');
-      ddWrap.id = 'island-center-dropdown';
+      ddWrap = new View('div').attr('id', 'island-center-dropdown').el;
       const pillWrapEl = document.getElementById('pill-url-wrap');
       if (pillWrapEl) pillWrapEl.appendChild(ddWrap);
     }
-    ddWrap.innerHTML = html;
+    AetherUI.mount(root, ddWrap);
     ddWrap.style.display = '';
-    dd = ddWrap;
   } else {
-    dd.innerHTML = html;
+    AetherUI.mount(root, dd);
     dd.style.display = '';
     dd.classList.remove('hidden');
   }
+}
 
-  // Attach feeling lucky click handlers (must be after innerHTML)
-  const luckyRow = dd.querySelector('.browse-lucky-row');
-  if (luckyRow) {
-    luckyRow.addEventListener('mousedown', (ev) => {
-      if (ev.target.closest('.browse-lucky-redo')) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (_feelingLuckyQuery) {
-        const inp = document.getElementById('browse-url-input');
-        if (inp) inp.value = _feelingLuckyQuery;
-        _browseUrlHideHistory();
-        browseNavigate(_feelingLuckyQuery);
-      }
-    });
-    const redo = luckyRow.querySelector('.browse-lucky-redo');
-    if (redo) {
-      redo.addEventListener('mousedown', (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        _browseUrlFeelingLucky();
-      });
-      redo.addEventListener('mouseenter', () => { redo.style.color = 'var(--nr-accent)'; });
-      redo.addEventListener('mouseleave', () => { redo.style.color = 'var(--nr-text-quaternary)'; });
-    }
+// Resolve quick-open action to a function
+function _resolveQuickOpenAction(v) {
+  if (v.action === 'history') return function() { const _i = _getOmniInput().input; if (_i) { _i.value = '/history'; } _browseUrlShowHistory(); };
+  if (v.action === 'terminal') return function() { _browseUrlHideHistory(); if (typeof toggleBottomTerminal === 'function') toggleBottomTerminal(); };
+  if (v.action === 'research') return function() { _browseUrlHideHistory(); if (typeof openResearch === 'function') openResearch(); };
+  if (v.action === 'downloads') return function() { _browseUrlHideHistory(); if (typeof toggleBrowseDownloads === 'function') toggleBrowseDownloads(); };
+  if (v.action === 'newtab') return function() { _browseUrlHideHistory(); if (typeof browseNewTab === 'function') browseNewTab(); };
+  if (v.action === 'pixelpet') return function() { _browseUrlHideHistory(); if (typeof togglePixelPet === 'function') togglePixelPet(true); };
+  if (v.action === 'netrunner') return function() { _browseUrlHideHistory(); if (typeof startNetrunner === 'function') startNetrunner(); };
+  if (v.action && v.action.startsWith('settings:')) {
+    const section = v.action.split(':')[1];
+    return function() { _browseUrlHideHistory(); if (typeof wmOpen === 'function') wmOpen('settings'); if (typeof _setSettingsSection === 'function') setTimeout(function() { _setSettingsSection(section); }, 50); };
   }
+  if (v.key === 'draw') return function() { _browseUrlHideHistory(); if (typeof openDrawPage === 'function') openDrawPage(); };
+  return function() { _browseUrlHideHistory(); if (typeof wmOpen === 'function') wmOpen(v.key); };
 }
 
 export function _fetchSearchSuggestions(query) {
@@ -1711,148 +1825,153 @@ export function openHelpPage() {
 
 export function _renderHelpPage(el) {
   if (!el) return;
-  const s = 'style';
-  const section = `${s}="margin-bottom:24px;"`;
-  const h2 = `${s}="font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);margin-bottom:10px;"`;
-  const table = `${s}="width:100%;border-collapse:collapse;font-size:0.82rem;"`;
-  const th = `${s}="text-align:left;padding:6px 12px;font-size:0.7rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--nr-border-default);"`;
-  const td = `${s}="padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);"`;
-  const tdk = `${s}="padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);color:var(--nr-text-primary);font-weight:500;white-space:nowrap;"`;
-  const tdv = `${s}="padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);color:var(--nr-text-secondary);"`;
+  const secStyle = 'margin-bottom:24px;';
+  const h2Style = 'font-size:1.05rem;font-weight:700;color:var(--nr-text-primary);margin-bottom:10px;';
+  const tableStyle = 'width:100%;border-collapse:collapse;font-size:0.82rem;';
+  const thStyle = 'text-align:left;padding:6px 12px;font-size:0.7rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--nr-border-default);';
+  const tdkStyle = 'padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);color:var(--nr-text-primary);font-weight:500;white-space:nowrap;';
+  const tdvStyle = 'padding:6px 12px;border-bottom:1px solid var(--nr-border-subtle);color:var(--nr-text-secondary);';
+  const descStyle = 'font-size:0.78rem;color:var(--nr-text-secondary);margin-bottom:8px;';
 
-  let html = '<div style="max-width:640px;margin:0 auto;padding:40px 24px;">';
-  html += '<h1 style="font-size:1.4rem;font-weight:700;color:var(--nr-text-primary);margin-bottom:4px;">Help</h1>';
-  html += '<p style="font-size:0.82rem;color:var(--nr-text-secondary);margin-bottom:32px;">Everything you can do from the URL bar and aether panel.</p>';
+  // Helper: build a two-column table from rows
+  function helpTable(headers, rows) {
+    const tbl = new View('table').cssText(tableStyle);
+    const headTr = new View('tr');
+    headers.forEach(h => {
+      const thEl = new View('th').cssText(thStyle);
+      thEl.el.textContent = h;
+      headTr.add(thEl);
+    });
+    tbl.add(headTr);
+    rows.forEach(([k, v, opts]) => {
+      const tr = new View('tr');
+      if (opts && opts.spanRow) {
+        const td = new View('td').attr('colspan', '2').cssText('padding:10px 12px 4px;');
+        td.add(RawHTML(v));
+        tr.add(td);
+      } else {
+        const tdk = new View('td').cssText(tdkStyle);
+        tdk.add(RawHTML(k));
+        const tdv = new View('td').cssText(tdvStyle);
+        tdv.add(RawHTML(v));
+        tr.add(tdk, tdv);
+      }
+      tbl.add(tr);
+    });
+    return tbl;
+  }
+
+  function helpSection(title, desc, tbl) {
+    const sec = VStack().cssText(secStyle);
+    sec.add(Text(title).cssText(h2Style));
+    if (desc) sec.add(Text(desc).cssText(descStyle));
+    if (tbl) sec.add(tbl);
+    return sec;
+  }
+
+  const page = VStack().cssText('max-width:640px;margin:0 auto;padding:40px 24px;');
+  page.add(RawHTML('<h1 style="font-size:1.4rem;font-weight:700;color:var(--nr-text-primary);margin-bottom:4px;">Help</h1>'));
+  page.add(Text('Everything you can do from the URL bar and aether panel.').cssText('font-size:0.82rem;color:var(--nr-text-secondary);margin-bottom:32px;'));
 
   // Instant Answers
-  html += `<div ${section}><div ${h2}>Instant Answers</div>`;
-  html += '<p style="font-size:0.78rem;color:var(--nr-text-secondary);margin-bottom:8px;">Type in the URL bar — results appear inline as you type.</p>';
-  html += `<table ${table}>`;
-  html += `<tr><th ${th}>Type</th><th ${th}>Try</th></tr>`;
-  _HELP_DATA.instantAnswers.forEach(([k, v]) => {
-    html += `<tr><td ${tdk}>${k}</td><td ${tdv}>${v}</td></tr>`;
-  });
-  html += '</table></div>';
+  page.add(helpSection('Instant Answers', 'Type in the URL bar \u2014 results appear inline as you type.',
+    helpTable(['Type', 'Try'], _HELP_DATA.instantAnswers)));
 
   // Search Syntax
-  html += `<div ${section}><div ${h2}>Search Syntax</div>`;
-  html += '<p style="font-size:0.78rem;color:var(--nr-text-secondary);margin-bottom:8px;">Use these in the Papers search on new tab pages.</p>';
-  html += `<table ${table}>`;
-  html += `<tr><th ${th}>Syntax</th><th ${th}>Effect</th></tr>`;
-  _HELP_DATA.searchSyntax.forEach(([k, v]) => {
-    html += `<tr><td ${tdk}><code style="font-size:0.8rem;">${k}</code></td><td ${tdv}>${v}</td></tr>`;
-  });
-  html += '</table></div>';
+  page.add(helpSection('Search Syntax', 'Use these in the Papers search on new tab pages.',
+    helpTable(['Syntax', 'Effect'], _HELP_DATA.searchSyntax.map(([k, v]) => ['<code style="font-size:0.8rem;">' + k + '</code>', v]))));
 
   // Bangs
   const bangs = _HELP_DATA.getBangs();
   if (bangs.length) {
-    html += `<div ${section}><div ${h2}>Bangs</div>`;
-    html += '<p style="font-size:0.78rem;color:var(--nr-text-secondary);margin-bottom:8px;">Type <code style="font-size:0.8rem;">!</code> followed by a shortcut and your query to search a specific site. Works at the start or end of input.</p>';
-    html += `<table ${table}>`;
-    html += `<tr><th ${th}>Bang</th><th ${th}>Site</th></tr>`;
-    bangs.forEach(([k, v]) => {
-      html += `<tr><td ${tdk}><code style="font-size:0.8rem;">${k}</code></td><td ${tdv}>${v}</td></tr>`;
-    });
-    html += '</table></div>';
+    const bangSec = helpSection('Bangs', 'Type <code style="font-size:0.8rem;">!</code> followed by a shortcut and your query to search a specific site.',
+      helpTable(['Bang', 'Site'], bangs.map(([k, v]) => ['<code style="font-size:0.8rem;">' + k + '</code>', v])));
+    page.add(bangSec);
   }
 
   // Slash Commands
-  html += `<div ${section}><div ${h2}>Slash Commands</div>`;
-  html += '<p style="font-size:0.78rem;color:var(--nr-text-secondary);margin-bottom:8px;">Right-click → type / in the aether panel.</p>';
-  html += `<table ${table}>`;
-  html += `<tr><th ${th}>Command</th><th ${th}>Action</th></tr>`;
-  _HELP_DATA.slashCommands.forEach(([k, v]) => {
-    html += `<tr><td ${tdk}>${k}</td><td ${tdv}>${v}</td></tr>`;
-  });
-  html += '</table></div>';
+  page.add(helpSection('Slash Commands', 'Right-click \u2192 type / in the aether panel.',
+    helpTable(['Command', 'Action'], _HELP_DATA.slashCommands)));
 
   // Keyboard Shortcuts
-  html += `<div ${section}><div ${h2}>Keyboard Shortcuts</div>`;
-  html += `<table ${table}>`;
-  html += `<tr><th ${th}>Key</th><th ${th}>Action</th></tr>`;
-  _HELP_DATA.shortcuts.forEach(([k, v]) => {
-    if (!k) {
-      html += `<tr><td colspan="2" style="padding:10px 12px 4px;">${v}</td></tr>`;
-    } else {
-      html += `<tr><td ${tdk}><kbd style="font-family:inherit;font-size:0.78rem;padding:1px 6px;border-radius:4px;border:1px solid var(--nr-border-default);background:var(--nr-bg-surface);">${k}</kbd></td><td ${tdv}>${v}</td></tr>`;
-    }
+  const shortcutRows = _HELP_DATA.shortcuts.map(([k, v]) => {
+    if (!k) return ['', v, { spanRow: true }];
+    return ['<kbd style="font-family:inherit;font-size:0.78rem;padding:1px 6px;border-radius:4px;border:1px solid var(--nr-border-default);background:var(--nr-bg-surface);">' + k + '</kbd>', v];
   });
-  html += '</table></div>';
+  page.add(helpSection('Keyboard Shortcuts', null, helpTable(['Key', 'Action'], shortcutRows)));
 
   // Aether Panel
-  html += `<div ${section}><div ${h2}>Aether Panel</div>`;
-  html += '<div style="font-size:0.82rem;color:var(--nr-text-secondary);line-height:1.6;">';
-  html += '<strong style="color:var(--nr-text-primary);">Right-click</strong> anywhere to open the panel.<br>';
-  html += 'Type to <strong style="color:var(--nr-text-primary);">chat with AI</strong> about the current page.<br>';
-  html += '<strong style="color:var(--nr-text-primary);">Select text</strong> → highlight, quote, or define.<br>';
-  html += '<strong style="color:var(--nr-text-primary);">Drag</strong> while panel is open to capture a screenshot region.';
-  html += '</div></div>';
+  const aetherSec = VStack().cssText(secStyle);
+  aetherSec.add(Text('Aether Panel').cssText(h2Style));
+  aetherSec.add(RawHTML('<div style="font-size:0.82rem;color:var(--nr-text-secondary);line-height:1.6;"><strong style="color:var(--nr-text-primary);">Right-click</strong> anywhere to open the panel.<br>Type to <strong style="color:var(--nr-text-primary);">chat with AI</strong> about the current page.<br><strong style="color:var(--nr-text-primary);">Select text</strong> \u2192 highlight, quote, or define.<br><strong style="color:var(--nr-text-primary);">Drag</strong> while panel is open to capture a screenshot region.</div>'));
+  page.add(aetherSec);
 
   // Chat Tools
-  html += `<div ${section}><div ${h2}>Chat Tools</div>`;
-  html += '<p style="font-size:0.78rem;color:var(--nr-text-secondary);margin-bottom:8px;">When enabled, the chat assistant can use these tools autonomously. Requires qwen3:8b.</p>';
-  html += `<table ${table}>`;
-  html += `<tr><th ${th}>Tool</th><th ${th}>Description</th></tr>`;
-  _HELP_DATA.chatTools.forEach(([k, v]) => {
-    html += `<tr><td ${tdk}>${k}</td><td ${tdv}>${v}</td></tr>`;
-  });
-  html += '</table></div>';
+  page.add(helpSection('Chat Tools', 'When enabled, the chat assistant can use these tools autonomously. Requires qwen3:8b.',
+    helpTable(['Tool', 'Description'], _HELP_DATA.chatTools)));
 
   // Internal Pages
-  html += `<div ${section}><div ${h2}>Internal Pages</div>`;
-  html += `<table ${table}>`;
-  html += `<tr><th ${th}>URL</th><th ${th}>Page</th></tr>`;
-  html += `<tr><td ${tdk}>netrun://help</td><td ${tdv}>This page</td></tr>`;
-  html += `<tr><td ${tdk}>netrun://history</td><td ${tdv}>Browsing & search history</td></tr>`;
-  html += '</table></div>';
+  page.add(helpSection('Internal Pages', null,
+    helpTable(['URL', 'Page'], [['netrun://help', 'This page'], ['netrun://history', 'Browsing & search history']])));
 
-  html += '</div>';
-  el.innerHTML = html;
+  AetherUI.mount(page, el);
 }
 
-export const _historyPageTab = 'browse'; // 'browse' or 'search'
+export let _historyPageTab = 'browse'; // 'browse' or 'search'
 
 export function _renderWebSearchHistoryPage(el) {
   if (!el) return;
   const searchHist = _getWebSearchHistory();
   const browseHist = _getBrowseHistory();
   const isBrowse = _historyPageTab === 'browse';
-
-  let html = '<div style="max-width:680px;margin:0 auto;padding:32px 24px 64px;">';
-
-  // Header with tabs
-  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">';
-  html += '<div style="display:flex;align-items:center;gap:10px;">';
-  html += icon('clock', {size: 20, style: 'color:var(--nr-text-quaternary);'});
-  html += '<span style="font-size:1.1rem;font-weight:600;color:var(--nr-text-primary);">History</span>';
-  html += '</div>';
-  const clearFn = isBrowse
-    ? '_clearBrowseHistory(); _renderWebSearchHistoryPage(this.closest(\'[id^=browse-history-]\'));'
-    : '_clearWebSearchHistory(); _renderWebSearchHistoryPage(this.closest(\'[id^=browse-history-]\'));';
   const activeHist = isBrowse ? browseHist : searchHist;
+
+  const tabStyle = (active) => 'padding:6px 14px;border:none;border-bottom:2px solid ' + (active ? 'var(--nr-accent)' : 'transparent') + ';background:none;color:' + (active ? 'var(--nr-text-primary)' : 'var(--nr-text-secondary)') + ';font-size:0.82rem;cursor:pointer;font-weight:' + (active ? '600' : '400') + ';';
+
+  // Header
+  const headerLeft = HStack(
+    RawHTML(icon('clock', {size: 20, style: 'color:var(--nr-text-quaternary);'})),
+    Text('History').cssText('font-size:1.1rem;font-weight:600;color:var(--nr-text-primary);')
+  ).cssText('display:flex;align-items:center;gap:10px;');
+
+  const headerRow = HStack(headerLeft).cssText('display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;');
   if (activeHist.length) {
-    html += '<button onclick="' + clearFn + '" style="padding:4px 10px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-secondary);font-size:0.75rem;cursor:pointer;">Clear all</button>';
+    const clearBtn = Button('Clear all').cssText('padding:4px 10px;border-radius:6px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-secondary);font-size:0.75rem;cursor:pointer;');
+    clearBtn.onTap(function() {
+      if (isBrowse) _clearBrowseHistory(); else _clearWebSearchHistory();
+      _renderWebSearchHistoryPage(el);
+    });
+    headerRow.add(clearBtn);
   }
-  html += '</div>';
 
   // Tab switcher
-  const tabStyle = (active) => `padding:6px 14px;border:none;border-bottom:2px solid ${active ? 'var(--nr-accent)' : 'transparent'};background:none;color:${active ? 'var(--nr-text-primary)' : 'var(--nr-text-secondary)'};font-size:0.82rem;cursor:pointer;font-weight:${active ? '600' : '400'};`;
-  html += '<div style="display:flex;gap:0;border-bottom:1px solid var(--nr-border-strong);margin-bottom:16px;">';
-  html += `<button onclick="_historyPageTab='browse';_renderWebSearchHistoryPage(this.closest('[id^=browse-history-]'));" style="${tabStyle(isBrowse)}">Sites <span style="font-size:0.7rem;color:var(--nr-text-quaternary);">${browseHist.length}</span></button>`;
-  html += `<button onclick="_historyPageTab='search';_renderWebSearchHistoryPage(this.closest('[id^=browse-history-]'));" style="${tabStyle(!isBrowse)}">Searches <span style="font-size:0.7rem;color:var(--nr-text-quaternary);">${searchHist.length}</span></button>`;
-  html += '</div>';
+  const browseTab = Button(
+    RawHTML('Sites <span style="font-size:0.7rem;color:var(--nr-text-quaternary);">' + browseHist.length + '</span>')
+  ).cssText(tabStyle(isBrowse));
+  browseTab.onTap(function() { _historyPageTab = 'browse'; _renderWebSearchHistoryPage(el); });
+
+  const searchTab = Button(
+    RawHTML('Searches <span style="font-size:0.7rem;color:var(--nr-text-quaternary);">' + searchHist.length + '</span>')
+  ).cssText(tabStyle(!isBrowse));
+  searchTab.onTap(function() { _historyPageTab = 'search'; _renderWebSearchHistoryPage(el); });
+
+  const tabBar = HStack(browseTab, searchTab).cssText('display:flex;gap:0;border-bottom:1px solid var(--nr-border-strong);margin-bottom:16px;');
 
   // Filter
-  html += '<div style="position:relative;margin-bottom:16px;">';
-  html += icon('search', {size: 14, style: 'position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--nr-text-quaternary);pointer-events:none;'});
-  html += '<input type="text" id="history-page-filter" placeholder="Filter history..." oninput="_filterWebSearchHistory()" style="width:100%;padding:7px 12px 7px 32px;border-radius:8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.82rem;outline:none;" />';
-  html += '</div>';
+  const filterWrap = new View('div').cssText('position:relative;margin-bottom:16px;');
+  const filterIcon = RawHTML(icon('search', {size: 14, style: 'position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--nr-text-quaternary);pointer-events:none;'}));
+  const filterInput = new View('input').attr('type', 'text').attr('id', 'history-page-filter').attr('placeholder', 'Filter history...');
+  filterInput.cssText('width:100%;padding:7px 12px 7px 32px;border-radius:8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.82rem;outline:none;');
+  filterInput.on('input', function() { _filterWebSearchHistory(); });
+  filterWrap.add(filterIcon, filterInput);
 
-  html += '<div id="history-page-list">';
-  html += isBrowse ? _renderBrowseHistoryList(browseHist) : _renderWebSearchHistoryList(searchHist);
-  html += '</div></div>';
-  el.innerHTML = html;
+  // List
+  const listContainer = new View('div').attr('id', 'history-page-list');
+  const listView = isBrowse ? _renderBrowseHistoryListView(browseHist) : _renderWebSearchHistoryListView(searchHist);
+  if (listView) listContainer.add(listView);
+
+  const page = VStack(headerRow, tabBar, filterWrap, listContainer).cssText('max-width:680px;margin:0 auto;padding:32px 24px 64px;');
+  AetherUI.mount(page, el);
 }
 
 export function _filterWebSearchHistory() {
@@ -1862,116 +1981,117 @@ export function _filterWebSearchHistory() {
   if (_historyPageTab === 'browse') {
     const hist = _getBrowseHistory();
     const filtered = filter ? hist.filter(h => (h.title || '').toLowerCase().includes(filter) || (h.url || '').toLowerCase().includes(filter)) : hist;
-    list.innerHTML = _renderBrowseHistoryList(filtered);
+    const view = _renderBrowseHistoryListView(filtered);
+    AetherUI.mount(view || VStack(), list);
   } else {
     const hist = _getWebSearchHistory();
     const filtered = filter ? hist.filter(h => h.q.toLowerCase().includes(filter)) : hist;
-    list.innerHTML = _renderWebSearchHistoryList(filtered);
+    const view = _renderWebSearchHistoryListView(filtered);
+    AetherUI.mount(view || VStack(), list);
   }
 }
 
-export function _renderWebSearchHistoryList(hist) {
-  if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--nr-text-secondary);font-size:0.85rem;">No searches found</div>';
-
-  // Group by date
+// Helper: group history items by date label
+function _groupHistByDate(hist) {
   const groups = [];
   const groupMap = {};
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const yesterday = today - 86400000;
   const weekAgo = today - 604800000;
-
-  // Need original indices for deletion
-  const allHist = _getWebSearchHistory();
-
   hist.forEach(h => {
     let label;
-    if (!h.ts) { label = 'Older'; }
-    else if (h.ts >= today) { label = 'Today'; }
-    else if (h.ts >= yesterday) { label = 'Yesterday'; }
-    else if (h.ts >= weekAgo) { label = 'This Week'; }
-    else {
-      const d = new Date(h.ts);
-      label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    }
+    const ts = h.ts || 0;
+    if (!ts) { label = 'Older'; }
+    else if (ts >= today) { label = 'Today'; }
+    else if (ts >= yesterday) { label = 'Yesterday'; }
+    else if (ts >= weekAgo) { label = 'This Week'; }
+    else { label = new Date(ts).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); }
     if (!groupMap[label]) { groupMap[label] = []; groups.push(label); }
     groupMap[label].push(h);
   });
+  return { groups, groupMap };
+}
 
-  let html = '';
+const _CLOSE_SVG = '<svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+
+export function _renderWebSearchHistoryListView(hist) {
+  if (!hist.length) return Text('No searches found').cssText('text-align:center;padding:48px 0;color:var(--nr-text-secondary);font-size:0.85rem;');
+
+  const allHist = _getWebSearchHistory();
+  const { groups, groupMap } = _groupHistByDate(hist);
+
+  const root = VStack();
   for (const label of groups) {
-    html += '<div style="margin-bottom:16px;">';
-    html += '<div style="font-size:0.7rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;padding:0 4px;">' + escapeHtml(label) + '</div>';
+    const group = VStack().cssText('margin-bottom:16px;');
+    group.add(Text(label).cssText('font-size:0.7rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;padding:0 4px;'));
     groupMap[label].forEach(h => {
       const origIdx = allHist.findIndex(a => a.q === h.q && a.ts === h.ts);
       const time = _relativeTime(h.ts);
-      const safeQ = escapeHtml(h.q).replace(/'/g, '&#39;');
-      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--nr-bg-raised)';this.querySelector('.hist-del').style.opacity='1'" onmouseleave="this.style.background='none';this.querySelector('.hist-del').style.opacity='0'" onclick="browseNewTab('${safeQ}')">
-        <svg style="width:14px;height:14px;color:var(--nr-text-quaternary);flex-shrink:0;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" stroke-linecap="round"/></svg>
-        <span style="font-size:0.82rem;color:var(--nr-text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.q)}</span>
-        <span style="font-size:0.7rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">${escapeHtml(time)}</span>
-        <button class="hist-del" onclick="event.stopPropagation(); _removeWebSearch(${origIdx}); _filterWebSearchHistory();" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);opacity:0;flex-shrink:0;transition:opacity 0.15s;">
-          <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>`;
+      const delBtn = Button(RawHTML(_CLOSE_SVG))
+        .cssText('background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);opacity:0;flex-shrink:0;transition:opacity 0.15s;');
+      delBtn.el.className = 'hist-del';
+      delBtn.onTap(function(ev) { ev.stopPropagation(); _removeWebSearch(origIdx); _filterWebSearchHistory(); });
+
+      const row = HStack(
+        _ddSvgIcon(_SEARCH_SVG, '14px'),
+        Text(h.q).cssText('font-size:0.82rem;color:var(--nr-text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'),
+        Text(time).cssText('font-size:0.7rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;'),
+        delBtn
+      ).cssText('display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;');
+      row.on('mouseenter', function() { this.style.background = 'var(--nr-bg-raised)'; this.querySelector('.hist-del').style.opacity = '1'; });
+      row.on('mouseleave', function() { this.style.background = 'none'; this.querySelector('.hist-del').style.opacity = '0'; });
+      row.on('click', function() { browseNewTab(h.q); });
+      group.add(row);
     });
-    html += '</div>';
+    root.add(group);
   }
-  return html;
+  return root;
 }
 
-export function _renderBrowseHistoryList(hist) {
-  if (!hist.length) return '<div style="text-align:center;padding:48px 0;color:var(--nr-text-secondary);font-size:0.85rem;">No browsing history</div>';
-
-  const groups = [];
-  const groupMap = {};
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const yesterday = today - 86400000;
-  const weekAgo = today - 604800000;
+export function _renderBrowseHistoryListView(hist) {
+  if (!hist.length) return Text('No browsing history').cssText('text-align:center;padding:48px 0;color:var(--nr-text-secondary);font-size:0.85rem;');
 
   const allHist = _getBrowseHistory();
+  const { groups, groupMap } = _groupHistByDate(hist);
 
-  hist.forEach(h => {
-    let label;
-    if (!h.ts) { label = 'Older'; }
-    else if (h.ts >= today) { label = 'Today'; }
-    else if (h.ts >= yesterday) { label = 'Yesterday'; }
-    else if (h.ts >= weekAgo) { label = 'This Week'; }
-    else {
-      const d = new Date(h.ts);
-      label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    }
-    if (!groupMap[label]) { groupMap[label] = []; groups.push(label); }
-    groupMap[label].push(h);
-  });
-
-  let html = '';
+  const root = VStack();
   for (const label of groups) {
-    html += '<div style="margin-bottom:16px;">';
-    html += '<div style="font-size:0.7rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;padding:0 4px;">' + escapeHtml(label) + '</div>';
+    const group = VStack().cssText('margin-bottom:16px;');
+    group.add(Text(label).cssText('font-size:0.7rem;color:var(--nr-text-quaternary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;padding:0 4px;'));
     groupMap[label].forEach(h => {
       const origIdx = allHist.findIndex(a => a.url === h.url && a.ts === h.ts);
       const time = _relativeTime(h.ts);
       let domain = '';
       try { domain = new URL(h.url).hostname.replace('www.', ''); } catch {}
       const favicon = _browseFaviconUrl(h.url);
-      const safeUrl = escapeHtml(h.url).replace(/'/g, '&#39;');
-      html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--nr-bg-raised)';this.querySelector('.hist-del').style.opacity='1'" onmouseleave="this.style.background='none';this.querySelector('.hist-del').style.opacity='0'" onclick="browseNewTab('${safeUrl}')">
-        <img src="${escapeHtml(favicon)}" style="width:16px;height:16px;flex-shrink:0;border-radius:2px;" onerror="this.style.display='none'">
-        <div style="flex:1;overflow:hidden;min-width:0;">
-          <div style="font-size:0.82rem;color:var(--nr-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(h.title || domain)}</div>
-          <div style="font-size:0.7rem;color:var(--nr-text-quaternary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(domain)}</div>
-        </div>
-        <span style="font-size:0.7rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;">${escapeHtml(time)}</span>
-        <button class="hist-del" onclick="event.stopPropagation(); _removeBrowseVisit(${origIdx}); _filterWebSearchHistory();" style="background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);opacity:0;flex-shrink:0;transition:opacity 0.15s;">
-          <svg style="width:14px;height:14px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>`;
+
+      const img = new View('img').attr('src', favicon).cssText('width:16px;height:16px;flex-shrink:0;border-radius:2px;');
+      img.el.onerror = function() { this.style.display = 'none'; };
+
+      const info = VStack(
+        Text(h.title || domain).cssText('font-size:0.82rem;color:var(--nr-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'),
+        Text(domain).cssText('font-size:0.7rem;color:var(--nr-text-quaternary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;')
+      ).cssText('flex:1;overflow:hidden;min-width:0;');
+
+      const delBtn = Button(RawHTML(_CLOSE_SVG))
+        .cssText('background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);opacity:0;flex-shrink:0;transition:opacity 0.15s;');
+      delBtn.el.className = 'hist-del';
+      delBtn.onTap(function(ev) { ev.stopPropagation(); _removeBrowseVisit(origIdx); _filterWebSearchHistory(); });
+
+      const row = HStack(
+        img, info,
+        Text(time).cssText('font-size:0.7rem;color:var(--nr-text-quaternary);flex-shrink:0;white-space:nowrap;'),
+        delBtn
+      ).cssText('display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;transition:background 0.15s;');
+      row.on('mouseenter', function() { this.style.background = 'var(--nr-bg-raised)'; this.querySelector('.hist-del').style.opacity = '1'; });
+      row.on('mouseleave', function() { this.style.background = 'none'; this.querySelector('.hist-del').style.opacity = '0'; });
+      row.on('click', function() { browseNewTab(h.url); });
+      group.add(row);
     });
-    html += '</div>';
+    root.add(group);
   }
-  return html;
+  return root;
 }
 
 // ── Browsing History ──
@@ -2222,6 +2342,7 @@ export function _showPermissionPrompt(domain, permKey) {
       window.HStack(
         window.Button('Block').cssText('padding:6px 20px;border-radius:8px;border:1px solid var(--nr-border-strong);background:var(--nr-bg-surface);color:var(--nr-text-primary);font-size:0.82rem;font-weight:500;cursor:pointer;').onTap(function() {
           if (_getRememberVal() === 'always') _setSitePermission(domain, permKey, 'block');
+          if (typeof _resolvePendingPermissionRequest === 'function') _resolvePendingPermissionRequest(domain, permKey, false);
           _browseApplyPermissions();
           _dismissPrompt();
           _renderSitePermissionsDropdown();
@@ -2233,6 +2354,7 @@ export function _showPermissionPrompt(domain, permKey) {
             _sessionPermissions[domain] = _sessionPermissions[domain] || {};
             _sessionPermissions[domain][permKey] = 'allow';
           }
+          if (typeof _resolvePendingPermissionRequest === 'function') _resolvePendingPermissionRequest(domain, permKey, true);
           _browseApplyPermissions();
           _dismissPrompt();
           _renderSitePermissionsDropdown();
@@ -2276,47 +2398,68 @@ export function _renderSitePermissionsDropdown(container) {
   const domain = _getCurrentBrowseDomain();
 
   if (!domain) {
-    dd.innerHTML = '<div style="padding:12px;text-align:center;font-size:0.78rem;color:var(--aether-text-dim);">Navigate to a site first</div>';
+    AetherUI.mount(
+      Text('Navigate to a site first').cssText('padding:12px;text-align:center;font-size:0.78rem;color:var(--aether-text-dim);'),
+      dd
+    );
     return;
   }
 
   const perms = _getSitePermissions(domain);
   const effective = _getEffectivePermissions(domain);
-  let html = '';
-  html += '<div style="padding:6px 8px 4px;font-size:0.72rem;color:var(--aether-text-dimmer);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(domain) + '</div>';
-  html += '<div style="padding:0 8px 4px;font-size:0.65rem;color:var(--aether-text-dimmest);line-height:1.3;">Blocked by default. Click Allow to grant access.</div>';
+
+  const root = VStack(
+    Text(domain).cssText('padding:6px 8px 4px;font-size:0.72rem;color:var(--aether-text-dimmer);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'),
+    Text('Blocked by default. Click Allow to grant access.').cssText('padding:0 8px 4px;font-size:0.65rem;color:var(--aether-text-dimmest);line-height:1.3;')
+  );
 
   for (const key of _SITE_PERM_KEYS) {
     const current = effective[key] || 'ask';
     const label = _SITE_PERM_LABELS[key];
-    const icon = _SITE_PERM_ICONS[key];
+    const permIcon = _SITE_PERM_ICONS[key];
     const isSession = !perms[key] && (_sessionPermissions[domain] || {})[key];
-    html += '<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;">';
-    html += '<span style="color:var(--aether-text-dimmer);flex-shrink:0;">' + icon + '</span>';
-    html += '<span style="flex:1;font-size:0.75rem;color:var(--aether-text);">' + label + '</span>';
-    if (isSession) {
-      html += '<span style="font-size:0.58rem;color:var(--aether-text-dimmest);margin-right:2px;">session</span>';
-    }
-    html += '<div style="display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--aether-border);">';
+
+    const btnGroup = HStack().cssText('display:flex;border-radius:6px;overflow:hidden;border:1px solid var(--aether-border);');
     for (const val of ['ask', 'allow', 'block']) {
       const active = current === val;
       const bg = active ? (val === 'allow' ? 'color-mix(in srgb, #22c55e 20%, var(--aether-dropdown-bg))' : val === 'block' ? 'color-mix(in srgb, #ef4444 20%, var(--aether-dropdown-bg))' : 'color-mix(in srgb, var(--nr-accent) 20%, var(--aether-dropdown-bg))') : 'var(--aether-dropdown-bg)';
       const fg = active ? (val === 'allow' ? '#22c55e' : val === 'block' ? '#ef4444' : 'var(--nr-accent)') : 'var(--aether-text-dimmer)';
-      const safeDomain = escapeHtml(domain).replace(/'/g, "\\'");
-      const onclick = val === 'allow'
-        ? '_showPermissionPrompt(\'' + safeDomain + '\',\'' + key + '\');'
-        : '_setSitePermission(\'' + safeDomain + '\',\'' + key + '\',\'' + val + '\'); delete (_sessionPermissions[\'' + safeDomain + '\'] || {})[\'' + key + '\']; _renderSitePermissionsDropdown(); _browseApplyPermissions();';
-      html += '<button onclick="' + onclick + '" style="padding:2px 7px;font-size:0.65rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;">' + val + '</button>';
+      const btn = Button(val).cssText('padding:2px 7px;font-size:0.65rem;border:none;cursor:pointer;background:' + bg + ';color:' + fg + ';font-weight:' + (active ? '600' : '400') + ';text-transform:capitalize;');
+      btn.onTap(function() {
+        if (val === 'allow') {
+          _showPermissionPrompt(domain, key);
+        } else {
+          _setSitePermission(domain, key, val);
+          if (_sessionPermissions[domain]) delete _sessionPermissions[domain][key];
+          _renderSitePermissionsDropdown();
+          _browseApplyPermissions();
+        }
+      });
+      btnGroup.add(btn);
     }
-    html += '</div></div>';
+
+    const row = HStack(
+      RawHTML('<span style="color:var(--aether-text-dimmer);flex-shrink:0;">' + permIcon + '</span>'),
+      Text(label).cssText('flex:1;font-size:0.75rem;color:var(--aether-text);')
+    ).cssText('display:flex;align-items:center;gap:6px;padding:4px 8px;');
+    if (isSession) row.add(Text('session').cssText('font-size:0.58rem;color:var(--aether-text-dimmest);margin-right:2px;'));
+    row.add(btnGroup);
+    root.add(row);
   }
 
-  const safeDomain2 = escapeHtml(domain).replace(/'/g, "\\'");
-  html += '<div style="padding:4px 8px 6px;border-top:1px solid var(--aether-border);margin-top:2px;">';
-  html += '<button onclick="_clearSitePermissions(\'' + safeDomain2 + '\'); delete _sessionPermissions[\'' + safeDomain2 + '\']; _renderSitePermissionsDropdown(); _browseApplyPermissions();" style="width:100%;padding:4px;border-radius:6px;border:1px solid var(--aether-border);background:var(--aether-dropdown-bg);color:var(--aether-text-dim);font-size:0.72rem;cursor:pointer;">Reset all to default</button>';
-  html += '</div>';
+  // Reset button
+  const resetWrap = new View('div').cssText('padding:4px 8px 6px;border-top:1px solid var(--aether-border);margin-top:2px;');
+  const resetBtn = Button('Reset all to default').cssText('width:100%;padding:4px;border-radius:6px;border:1px solid var(--aether-border);background:var(--aether-dropdown-bg);color:var(--aether-text-dim);font-size:0.72rem;cursor:pointer;');
+  resetBtn.onTap(function() {
+    _clearSitePermissions(domain);
+    delete _sessionPermissions[domain];
+    _renderSitePermissionsDropdown();
+    _browseApplyPermissions();
+  });
+  resetWrap.add(resetBtn);
+  root.add(resetWrap);
 
-  dd.innerHTML = html;
+  AetherUI.mount(root, dd);
 }
 
 // Initialize button state on load

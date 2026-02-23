@@ -1,8 +1,8 @@
 // browse-split-panes.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
-import { _browseBindFrame } from '/js/browse/browse-downloads.js';
+import { _browseBindFrame } from '/js/browse/browse-frame-bind.js';
 import { _browseCreateFrame } from '/js/browse/browse-ntp.js';
-import { _browseRenderTabs } from '/js/browse/browse-island.js';
+import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
 import { _browseSetUrlDisplay, _renderHelpPage, _renderWebSearchHistoryPage } from '/js/browse-urlbar.js';
 import { _renderNetrunPage } from '/js/netrun-page.js';
 import { _browseUpdateSaveBtn } from '/js/browse/browse-features.js';
@@ -109,39 +109,39 @@ export function _browseEnsureTabFrame(tab) {
   if (!container) return;
   if (tab.blank) return;
   if (tab._historyPage) {
-    const el = document.createElement('div');
-    el.id = 'browse-history-' + tab.id;
-    el.style.cssText = 'width:100%;height:100%;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);';
-    container.appendChild(el);
-    tab.el = el;
-    _renderWebSearchHistoryPage(el);
+    const wrapper = new window.View('div');
+    wrapper.attr('id', 'browse-history-' + tab.id);
+    wrapper.styles({ width: '100%', height: '100%', overflowY: 'auto', background: 'var(--nr-bg-body)', color: 'var(--nr-text-primary)' });
+    container.appendChild(wrapper.el);
+    tab.el = wrapper.el;
+    _renderWebSearchHistoryPage(wrapper.el);
     return;
   }
   if (tab._helpPage) {
-    const el = document.createElement('div');
-    el.id = 'browse-help-' + tab.id;
-    el.style.cssText = 'width:100%;height:100%;overflow-y:auto;background:var(--nr-bg-body);color:var(--nr-text-primary);';
-    container.appendChild(el);
-    tab.el = el;
-    _renderHelpPage(el);
+    const wrapper = new window.View('div');
+    wrapper.attr('id', 'browse-help-' + tab.id);
+    wrapper.styles({ width: '100%', height: '100%', overflowY: 'auto', background: 'var(--nr-bg-body)', color: 'var(--nr-text-primary)' });
+    container.appendChild(wrapper.el);
+    tab.el = wrapper.el;
+    _renderHelpPage(wrapper.el);
     return;
   }
   if (tab._netrunPage) {
-    const el = document.createElement('div');
-    el.id = 'browse-netrun-' + tab.id;
-    el.className = 'nr-hub-scroll';
-    el.style.cssText = 'width:100%;height:100%;';
-    container.appendChild(el);
-    tab.el = el;
-    _renderNetrunPage(el);
+    const wrapper = new window.View('div');
+    wrapper.attr('id', 'browse-netrun-' + tab.id);
+    wrapper.className('nr-hub-scroll');
+    wrapper.styles({ width: '100%', height: '100%' });
+    container.appendChild(wrapper.el);
+    tab.el = wrapper.el;
+    _renderNetrunPage(wrapper.el);
     return;
   }
   if (tab.paper && tab.contentType) {
-    const el = document.createElement('div');
-    el.id = 'browse-paper-' + tab.id;
-    el.style.cssText = 'width:100%;height:100%;overflow:hidden;';
-    container.appendChild(el);
-    tab.el = el;
+    const wrapper = new window.View('div');
+    wrapper.attr('id', 'browse-paper-' + tab.id);
+    wrapper.styles({ width: '100%', height: '100%', overflow: 'hidden' });
+    container.appendChild(wrapper.el);
+    tab.el = wrapper.el;
     return;
   }
   if (!tab.url) return;
@@ -185,22 +185,18 @@ export function browseExitSplitMode() {
   const container = document.getElementById('browse-content');
   if (!container) return;
 
-  // Remove pane wrappers and dividers
-  container.querySelectorAll('.browse-split-pane, .browse-split-divider').forEach(el => {
-    // Move children (frames) back to container before removing wrapper
-    if (el.classList.contains('browse-split-pane')) {
-      while (el.firstChild) {
-        if (!el.firstChild.classList?.contains('browse-pane-close')) {
-          container.appendChild(el.firstChild);
-        } else {
-          el.firstChild.remove();
-        }
+  // Remove pane wrappers and dividers — move frames back to container first
+  container.querySelectorAll('.browse-split-pane').forEach(paneEl => {
+    Array.from(paneEl.childNodes).forEach(child => {
+      if (!child.classList?.contains('browse-pane-close')) {
+        container.appendChild(child);
       }
-    }
-    el.remove();
+    });
+    paneEl.remove();
   });
+  container.querySelectorAll('.browse-split-divider').forEach(el => el.remove());
 
-  // Reset container style
+  // Reset container layout
   container.style.display = '';
 
   _browseSetSplitPanes([]);
@@ -240,13 +236,11 @@ export function _browseRebuildSplitLayout() {
 
   // Remove existing pane wrappers and dividers (move frames back first)
   container.querySelectorAll('.browse-split-pane').forEach(wrapper => {
-    while (wrapper.firstChild) {
-      if (!wrapper.firstChild.classList?.contains('browse-pane-close')) {
-        container.appendChild(wrapper.firstChild);
-      } else {
-        wrapper.firstChild.remove();
+    Array.from(wrapper.childNodes).forEach(child => {
+      if (!child.classList?.contains('browse-pane-close')) {
+        container.appendChild(child);
       }
-    }
+    });
     wrapper.remove();
   });
   container.querySelectorAll('.browse-split-divider').forEach(d => d.remove());
@@ -262,6 +256,7 @@ export function _browseRebuildSplitLayout() {
   // Build pane wrappers
   panes.forEach(function(pane, i) {
     const tab = win.tabs.find(function(t) { return t.id === pane.tabId; });
+
     const wrapper = new window.View('div');
     wrapper.className('browse-split-pane' + (pane.id === focusedPaneId ? ' focused' : ''));
     wrapper.attr('data-pane', pane.id);
@@ -271,7 +266,7 @@ export function _browseRebuildSplitLayout() {
     const closeBtn = window.Button('\u00d7').className('browse-pane-close');
     closeBtn.el.title = 'Close split pane';
     closeBtn.onTap(function(e) { e.stopPropagation(); browseUnsplitPane(pane.id); });
-    wrapper.el.appendChild(closeBtn.el);
+    wrapper.add(closeBtn);
 
     // Move tab's frame into wrapper
     if (tab && tab.el) {
@@ -284,7 +279,7 @@ export function _browseRebuildSplitLayout() {
       wrapper.el.appendChild(tab.el);
     }
 
-    // Click to focus
+    // Click to focus pane
     wrapper.on('mousedown', function() {
       if (_browseGetFocusedPane() !== pane.id) {
         _browseFocusPane(pane.id);
@@ -295,12 +290,12 @@ export function _browseRebuildSplitLayout() {
 
     // Insert divider between panes (not after last)
     if (i < panes.length - 1) {
-      const divider = document.createElement('div');
-      divider.className = 'browse-split-divider';
-      divider.dataset.leftPane = pane.id;
-      divider.dataset.rightPane = panes[i + 1].id;
-      _browseAttachDividerDrag(divider, pane.id, panes[i + 1].id);
-      container.appendChild(divider);
+      const divider = new window.View('div');
+      divider.className('browse-split-divider');
+      divider.attr('data-left-pane', pane.id);
+      divider.attr('data-right-pane', panes[i + 1].id);
+      _browseAttachDividerDrag(divider.el, pane.id, panes[i + 1].id);
+      container.appendChild(divider.el);
     }
   });
 
@@ -320,7 +315,7 @@ export function _browseFocusPane(paneId) {
   const win = window._getCurrentWindow();
   if (win) win.activeTab = pane.tabId;
 
-  // Update visual focus indicator
+  // Update visual focus indicator on pane wrappers
   const container = document.getElementById('browse-content');
   if (container) {
     container.querySelectorAll('.browse-split-pane').forEach(el => {
@@ -365,7 +360,7 @@ export function _browseAttachDividerDrag(divider, leftPaneId, rightPaneId) {
       leftPane.width = newLeft;
       rightPane.width = newRight;
 
-      // Update DOM widths
+      // Update DOM widths directly for smooth drag performance
       const leftEl = container.querySelector(`.browse-split-pane[data-pane="${leftPaneId}"]`);
       const rightEl = container.querySelector(`.browse-split-pane[data-pane="${rightPaneId}"]`);
       if (leftEl) leftEl.style.width = newLeft + '%';
@@ -383,4 +378,3 @@ export function _browseAttachDividerDrag(divider, leftPaneId, rightPaneId) {
     document.addEventListener('mouseup', onUp);
   });
 }
-

@@ -9,6 +9,7 @@
   --nr-bg-raised:  #1e1e1e;
   --nr-bg-sunken:  #0d0d0d;
   --nr-bg-overlay: #181818;
+  --nr-bg-hover:   rgba(255, 255, 255, 0.08);
   --nr-bg-input:   #1a1a1a;
 
   /* ── Text ── */

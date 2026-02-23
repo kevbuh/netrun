@@ -5,7 +5,7 @@ import { getLS, setLS } from '/js/core/core-auth.js';
 import { getSelectedSpinner } from '/js/core/core-layout.js';
 import { CLICK_SOUND_PRESETS, NOISE_PRESETS, setClickSoundType, setRainFreq, setRainNoiseType, setRainVolume, toggleClickSound, getRainNoiseType, getRainVolume, getRainFreq } from '/js/core/core-sounds.js';
 import { _settingBtnGroup, _settingCard, _settingGroupContent, _settingRow, _settingToggle } from '/js/settings/settings-helpers.js';
-import { cycleSpinner, setAccentColor, setAetherColor } from '/js/settings/settings-colors.js';
+import { cycleSpinner, setAccentColor, setAetherColor, _accentColorState } from '/js/settings/settings-colors.js';
 import { renderSettingsView } from '/js/settings/settings-core.js';
 import { setEditorTheme, setIconSize, setTheme } from '/js/settings/settings-theme.js';
 import { setPixelPetType, togglePixelPet } from '/js/pixel-pet.js';
@@ -93,7 +93,6 @@ export function _sbDragEnd() {
 
 export function _renderAppearanceSettings() {
   const currentTheme = Settings.get('theme') || 'light';
-  const currentAccent = Settings.get('accentColor') || '#b4451a';
   const accentColors = [
     { color: '#b4451a', name: 'Orange' }, { color: '#e53e3e', name: 'Red' },
     { color: '#d69e2e', name: 'Gold' }, { color: '#38a169', name: 'Green' },
@@ -102,18 +101,24 @@ export function _renderAppearanceSettings() {
     { color: '#111111', name: 'Black' },
   ];
 
-  // Accent color swatches
+  // Accent color swatches — ring state is driven reactively by _accentColorState
   const accentSwatches = accentColors.map(function(a) {
     const swatch = new window.View('button');
-    swatch.className('w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110' +
-      (currentAccent === a.color ? ' scale-110 ring-2 ring-offset-2' : ''));
     swatch.styles({ background: a.color });
-    if (currentAccent === a.color) {
-      swatch.el.style.setProperty('--tw-ring-color', a.color);
-      swatch.el.style.setProperty('--tw-ring-offset-color', 'var(--nr-bg-body)');
-    }
     swatch.el.title = a.name;
     swatch.onTap(function() { setAccentColor(a.color); });
+    Effect(function() {
+      const active = _accentColorState.value === a.color;
+      swatch.el.className = 'w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110' +
+        (active ? ' scale-110 ring-2 ring-offset-2' : '');
+      if (active) {
+        swatch.el.style.setProperty('--tw-ring-color', a.color);
+        swatch.el.style.setProperty('--tw-ring-offset-color', 'var(--nr-bg-body)');
+      } else {
+        swatch.el.style.removeProperty('--tw-ring-color');
+        swatch.el.style.removeProperty('--tw-ring-offset-color');
+      }
+    });
     return swatch;
   });
 

@@ -3,6 +3,9 @@
 import Settings from '/js/core/core-settings.js';
 import { icon } from '/js/core/icons.js';
 import { moreMenuOpen } from '/js/toolbar/toolbar-state.js';
+import { browseSaveToReadingList, browseShare } from '/js/browse/browse-features.js';
+import { isPostSaved } from '/js/feed.js';
+import { agentGetAccessibleDOM } from '/js/browse/browse-agent.js';
 
 // ── Browse More Menu (three dots) ──
 
@@ -34,7 +37,8 @@ export function toggleBrowseMoreMenu() {
     btn.add(row);
     btn.padding('6px', '12px')
       .foreground(opts.disabled ? 'quaternary' : 'primary')
-      .styles({ width: '100%', textAlign: 'left', border: 'none', background: 'none', fontSize: '0.78rem', cursor: opts.disabled ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' });
+      .cornerRadius('sm')
+      .styles({ width: 'calc(100% - 8px)', margin: '0 4px', textAlign: 'left', border: 'none', background: 'none', fontSize: '0.78rem', cursor: opts.disabled ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' });
     if (opts.color && !opts.disabled) btn.styles({ color: opts.color });
     if (opts.disabled) btn.el.disabled = true;
     if (opts.dataOverflowId) btn.el.setAttribute('data-overflow-id', opts.dataOverflowId);
@@ -69,9 +73,9 @@ export function toggleBrowseMoreMenu() {
     items.push(_mBtn(icon('chevronLeft', {size: 16, strokeWidth: '1.5'}), 'Back', function() { if (typeof window.browseBack === 'function') window.browseBack(); _closeMenu(); }, { disabled: !hasTab }));
     items.push(_mBtn(icon('chevronRight', {size: 16, strokeWidth: '1.5'}), 'Forward', function() { if (typeof window.browseForward === 'function') window.browseForward(); _closeMenu(); }, { disabled: !hasTab }));
     items.push(_mBtn(icon('reloadFilled', {size: 16}), 'Reload', function() { if (typeof window.browseReload === 'function') window.browseReload(); _closeMenu(); }, { disabled: !hasTab }));
-    var isSaved = hasTab && typeof window.isPostSaved === 'function' && window.isPostSaved(tab.url);
-    items.push(_mBtn(icon('bookmark', {size: 16, fill: isSaved ? 'var(--nr-accent)' : 'none', stroke: isSaved ? 'var(--nr-accent)' : 'currentColor'}), isSaved ? 'Saved' : 'Save to Reading List', function() { if (typeof window.browseSaveToReadingList === 'function') window.browseSaveToReadingList(); _refreshOverflowBookmark(this); }));
-    items.push(_mBtn(icon('share', {size: 16, strokeWidth: '1.5'}), 'Share', function() { if (typeof window.browseShare === 'function') window.browseShare(); _closeMenu(); }, { disabled: !hasTab }));
+    var isSaved = hasTab && isPostSaved(tab.url);
+    items.push(_mBtn(icon('bookmark', {size: 16, fill: isSaved ? 'var(--nr-accent)' : 'none', stroke: isSaved ? 'var(--nr-accent)' : 'currentColor'}), isSaved ? 'Saved' : 'Save to Reading List', function() { browseSaveToReadingList(); _closeMenu(); }));
+    items.push(_mBtn(icon('share', {size: 16, strokeWidth: '1.5'}), 'Share', function() { browseShare(); _closeMenu(); }, { disabled: !hasTab }));
 
     // Privacy Section
     items.push(new window.View('div').styles({borderTop:'1px solid var(--nr-border-default, var(--aether-border))'}).margin('2px', '0'));
@@ -172,9 +176,9 @@ export function toggleBrowseMoreMenu() {
       var iconHtml = svgEl ? svgEl.outerHTML.replace(/w-5 h-5/g, 'w-4 h-4') : '';
 
       if (id === 'browse-save-btn') {
-        var isSav = tab && !tab.blank && tab.url && typeof window.isPostSaved === 'function' && window.isPostSaved(tab.url);
+        var isSav = tab && !tab.blank && tab.url && isPostSaved(tab.url);
         iconHtml = window.icon('bookmark', {size: 16, fill: isSav ? 'var(--nr-accent)' : 'none', stroke: isSav ? 'var(--nr-accent)' : 'currentColor'});
-        items.push(_mBtn(iconHtml, isSav ? 'Saved' : 'Save to Reading List', function() { if (typeof window.browseSaveToReadingList === 'function') window.browseSaveToReadingList(); _refreshOverflowBookmark(this); }, { dataOverflowId: id }));
+        items.push(_mBtn(iconHtml, isSav ? 'Saved' : 'Save to Reading List', function() { browseSaveToReadingList(); _closeMenu(); }, { dataOverflowId: id }));
       } else {
         var btn = _mBtn(iconHtml, label, function() { _closeMenu(); try { el.click(); } catch(e) {} }, { dataOverflowId: id });
         items.push(btn);
@@ -229,7 +233,7 @@ export function toggleBrowseMoreMenu() {
     .border('border-default')
     .shadow('popup')
     .cornerRadius('lg')
-    .zIndex('overlay')
+    .zIndex('max')
     .padding('4px', '0')
     .frame({ minWidth: 180 });
 
@@ -249,12 +253,18 @@ export function toggleBrowseMoreMenu() {
   setTimeout(function() {
     var handler = function(e) {
       if (!dd.contains(e.target) && !e.target.closest('[onclick*="toggleBrowseMoreMenu"]') && !e.target.closest('#pill-browse-more') && !e.target.closest('#pill-browse-hamburger')) {
-        dd.style.display = 'none';
-        document.body.classList.remove('island-dropdown-guard');
-        document.removeEventListener('mousedown', handler, true);
+        cleanup();
       }
     };
+    var blurHandler = function() { cleanup(); };
+    function cleanup() {
+      dd.style.display = 'none';
+      document.body.classList.remove('island-dropdown-guard');
+      document.removeEventListener('mousedown', handler, true);
+      window.removeEventListener('blur', blurHandler);
+    }
     document.addEventListener('mousedown', handler, true);
+    window.addEventListener('blur', blurHandler);
   }, 0);
 }
 
@@ -286,7 +296,7 @@ export function _toggleConvertInMenu(e) {
 
 function _renderConvertPanel(panel) {
   var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
-  if (!tab) { panel.innerHTML = ''; return; }
+  if (!tab) { AetherUI.mount(new window.View('div'), panel); return; }
 
   function _cBtn(svgHtml, label, action) {
     var btn = new window.View('button');
@@ -555,8 +565,8 @@ export function browseShowAIView() {
     ? _browseTabs.find(function(t) { return t.id === _browseActiveTab; }) : null;
   if (!tab || !tab.el) return;
 
-  if (typeof window.agentGetAccessibleDOM !== 'function') return;
-  window.agentGetAccessibleDOM(tab).then(function(dom) {
+  if (typeof agentGetAccessibleDOM !== 'function') return;
+  agentGetAccessibleDOM(tab).then(function(dom) {
     if (!dom || dom.error) return;
     var text = dom.elements || '(empty page)';
     var elCount = dom.elementCount || 0;
@@ -595,7 +605,7 @@ export function browseShowAIView() {
     AetherUI.mount(window.RawHTML(highlighted), contentEl.el);
 
     var overlayView = window.VStack([headerEl, contentEl]).id('ai-view-overlay')
-      .position('fixed').zIndex('modal').background('primary')
+      .position('fixed').zIndex('modal').background('overlay')
       .styles({ inset: '0', paddingTop: '48px' });
 
     AetherUI.append(overlayView, document.body);
@@ -618,13 +628,14 @@ export function _showTextOverlay(title, text, subtitle, tab) {
   var badgeEl = window.Text(subtitle + ' \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars')
     .font('caption2').foreground('secondary').styles({ marginLeft: '8px', fontVariantNumeric: 'tabular-nums' });
 
-  var copyBtn = window.Button('Copy').foreground('secondary').font('caption2').cornerRadius('sm')
+  var _copyLabel = window.State('Copy');
+  var copyBtn = window.Button(_copyLabel).foreground('secondary').font('caption2').cornerRadius('sm')
     .padding('3px', '10px')
     .styles({ background: 'none', border: '1px solid var(--nr-border-default)', cursor: 'pointer', marginRight: '8px' });
   copyBtn.onTap(function() {
     navigator.clipboard.writeText(text).then(function() {
-      copyBtn.el.textContent = 'Copied!';
-      setTimeout(function() { copyBtn.el.textContent = 'Copy'; }, 1500);
+      _copyLabel.value = 'Copied!';
+      setTimeout(function() { _copyLabel.value = 'Copy'; }, 1500);
       if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
     });
   });
@@ -644,10 +655,10 @@ export function _showTextOverlay(title, text, subtitle, tab) {
   contentEl.el.textContent = text;
 
   var overlayView = window.VStack([headerEl, contentEl]).id('pdf-text-overlay')
-    .position('fixed').zIndex('modal').background('primary')
+    .position('fixed').zIndex('modal').background('overlay')
     .styles({ inset: '0', paddingTop: '48px' });
 
-  document.body.appendChild(overlayView.el);
+  AetherUI.append(overlayView, document.body);
 
   function onKey(e) { if (e.key === 'Escape') { overlayView.el.remove(); document.removeEventListener('keydown', onKey); } }
   document.addEventListener('keydown', onKey);
@@ -682,8 +693,9 @@ function _formatBytes(bytes) {
 }
 
 export function _refreshOverflowBookmark(btn) {
+  if (!btn) return;
   var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
-  var isSaved = tab && !tab.blank && tab.url && typeof window.isPostSaved === 'function' && window.isPostSaved(tab.url);
+  var isSaved = tab && !tab.blank && tab.url && isPostSaved(tab.url);
   var svg = btn.querySelector('svg');
   if (svg) {
     svg.setAttribute('fill', isSaved ? 'var(--nr-accent)' : 'none');

@@ -3,8 +3,12 @@
 import Settings from '/js/core/core-settings.js';
 import { icon } from '/js/core/icons.js';
 import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
-import { _browseActiveEl, _browseApplyZoom, _browseZoomLevel, _browseZoomPanX, _browseZoomPanY, browseBack, browseForward, browseZoom } from '/js/browse/browse-island.js';
-import { _getActiveTabBar } from '/js/browse/browse-pill.js';
+import { _browseApplyZoom, browseBack, browseForward, browseZoom } from '/js/toolbar/toolbar-nav.js';
+function _browseActiveEl() { var tabs = typeof _browseTabs !== 'undefined' ? _browseTabs : []; var tab = tabs.find(function(t) { return t.id === (typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : -1); }); return tab ? tab.el : null; }
+var _browseZoomLevel = window._browseZoomLevel ?? 1.0;
+var _browseZoomPanX = window._browseZoomPanX ?? 0;
+var _browseZoomPanY = window._browseZoomPanY ?? 0;
+import { _getActiveTabBar } from '/js/toolbar/toolbar-tabs.js';
 import { _showBookmarkFly, getSavedPosts, isPostSaved, savePosts, updateSavedBadge } from '/js/feed.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
 import { petReact } from '/js/pixel-pet.js';

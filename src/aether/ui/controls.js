@@ -623,7 +623,7 @@ function SearchField(binding, placeholder) {
   // Clear button
   var clearBtn = document.createElement('span');
   clearBtn.style.cssText = 'position:absolute;right:var(--nr-space-2);cursor:pointer;color:var(--nr-text-tertiary);display:none;align-items:center;';
-  if (window.icon) clearBtn.innerHTML = window.icon('x', { size: 14 });
+  if (window.icon) clearBtn.innerHTML = window.icon('close', { size: 14 });
   else clearBtn.textContent = '\u2715';
 
   v.el.appendChild(searchIcon);

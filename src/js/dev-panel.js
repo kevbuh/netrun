@@ -228,22 +228,18 @@ export async function _renderDevOverview() {
     window.Text('Real-time metrics and performance monitoring').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
   const statsCards = new window.View('div');
-  statsCards.className('dev-stats-cards').id('dev-stats-cards');
+  statsCards.className('dev-stats-cards');
   const chartArea = new window.View('div');
-  chartArea.id('dev-loc-chart');
   AetherUI.mount(window.VStack(header, statsCards, chartArea), contentPane);
 
-  const cards = document.getElementById('dev-stats-cards');
-  const chart = document.getElementById('dev-loc-chart');
-
-  AetherUI.mount(window.Text('Loading\u2026').className('text-sm').foreground('quaternary'), cards);
+  AetherUI.mount(window.Text('Loading\u2026').className('text-sm').foreground('quaternary'), statsCards.el);
 
   let data;
   try {
     data = await apiGet('/api/dev-stats');
     if (data.error) throw new Error(data.error);
   } catch (e) {
-    AetherUI.mount(window.Text('Error: ' + e.message).className('text-sm').foreground('quaternary'), cards);
+    AetherUI.mount(window.Text('Error: ' + e.message).className('text-sm').foreground('quaternary'), statsCards.el);
     return;
   }
 
@@ -253,19 +249,20 @@ export async function _renderDevOverview() {
     { value: data.total_loc.toLocaleString(), label: 'Total Lines' },
     { value: data.files, label: 'Files' },
     { value: (data.total_commits || 0).toLocaleString(), label: 'Commits' },
-    { value: '—', label: 'FPS', id: 'dev-fps-value' },
+    { value: '—', label: 'FPS', fps: true },
     { value: (data.ram_mb || 0) + ' MB', label: 'RAM' },
     { value: (data.project_mb || 0) + ' MB', label: 'Size' },
   ];
+  let fpsValView = null;
   const cardsView = window.HStack(stats.map(function(s) {
     const valView = window.Text(String(s.value)).className('dev-stat-value');
-    if (s.id) valView.id(s.id);
+    if (s.fps) fpsValView = valView;
     return window.VStack(valView, window.Text(s.label).className('dev-stat-label')).className('dev-stat-card');
   }));
-  AetherUI.mount(cardsView, cards);
+  AetherUI.mount(cardsView, statsCards.el);
 
   // FPS counter
-  const fpsEl = document.getElementById('dev-fps-value');
+  const fpsEl = fpsValView ? fpsValView.el : null;
   if (fpsEl) {
     const frameTimes = [];
     let lastUpdate = performance.now();
@@ -314,9 +311,28 @@ export async function _renderDevOverview() {
     '<div class="dev-loc-chart">' + commitsChart + '</div>' +
     '<div class="dev-loc-chart">' + toolChart + '</div>' +
     '<div class="dev-loc-chart">' + aetherChart + '</div>' +
-  '</div>'), chart);
+  '</div>'), chartArea.el);
   _devBindCharts();
 }
+
+// Module-level view references for async mutation (avoids getElementById round-trips)
+export var _devFnRegBtn = null;
+export var _devFnRegStatus = null;
+export var _devFnRegResults = null;
+export var _devLoadOrdBtn = null;
+export var _devLoadOrdStatus = null;
+export var _devLoadOrdResults = null;
+export var _devDepGraphBtn = null;
+export var _devDepGraphStatus = null;
+export var _devDepGraphContainer = null;
+export var _devGraphLevelFileBtn = null;
+export var _devGraphLevelFuncBtn = null;
+export var _devGraphFuncControls = null;
+export var _devGraphFileFilter = null;
+export var _devGraphShowUnused = null;
+export var _devAchSelect = null;
+export var _devGitLogContainer = null;
+export var _devGitLoadMoreBtn = null;
 
 // ── Function Registry Section ──
 export function _renderDevFunctionRegistry() {
@@ -328,14 +344,13 @@ export function _renderDevFunctionRegistry() {
     window.Text('Analyze global functions, duplicates, and unused code across all vanilla JS files.').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
 
-  const analyzeBtn = window.Button('Analyze Functions').className('dev-btn-primary').id('dev-fn-reg-btn').onTap(function() { _devRunFunctionRegistry(); });
+  _devFnRegBtn = window.Button('Analyze Functions').className('dev-btn-primary').onTap(function() { _devRunFunctionRegistry(); });
   const reportBtn = window.Button('Open HTML Report').className('dev-btn-secondary').onTap(function() { _devOpenFunctionRegistryReport(); });
-  const statusEl = window.Text('').id('dev-fn-reg-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
-  const controls = window.HStack(analyzeBtn, reportBtn, statusEl).gap('8px').wrap().styles({marginBottom:'16px'});
-  const results = new window.View('div');
-  results.id('dev-fn-reg-results');
+  _devFnRegStatus = window.Text('').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
+  const controls = window.HStack(_devFnRegBtn, reportBtn, _devFnRegStatus).gap('8px').wrap().styles({marginBottom:'16px'});
+  _devFnRegResults = new window.View('div');
 
-  AetherUI.mount(window.VStack(header, controls, results), contentPane);
+  AetherUI.mount(window.VStack(header, controls, _devFnRegResults), contentPane);
 }
 
 // ── Load Order Section ──
@@ -348,13 +363,12 @@ export function _renderDevLoadOrder() {
     window.Text('Analyze script dependencies and detect forward references or circular dependencies.').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
 
-  const runBtn = window.Button('Run Analysis').className('dev-btn-primary').id('dev-load-ord-btn').onTap(function() { _devRunLoadOrderAnalysis(); });
-  const statusEl = window.Text('').id('dev-load-ord-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
-  const controls = window.HStack(runBtn, statusEl).gap('8px').styles({marginBottom:'16px'});
-  const results = new window.View('div');
-  results.id('dev-load-ord-results');
+  _devLoadOrdBtn = window.Button('Run Analysis').className('dev-btn-primary').onTap(function() { _devRunLoadOrderAnalysis(); });
+  _devLoadOrdStatus = window.Text('').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
+  const controls = window.HStack(_devLoadOrdBtn, _devLoadOrdStatus).gap('8px').styles({marginBottom:'16px'});
+  _devLoadOrdResults = new window.View('div');
 
-  AetherUI.mount(window.VStack(header, controls, results), contentPane);
+  AetherUI.mount(window.VStack(header, controls, _devLoadOrdResults), contentPane);
 }
 
 // ── Dependency Graph Section ──
@@ -368,35 +382,34 @@ export function _renderDevDependencyGraph() {
   ).styles({marginBottom:'24px'});
 
   // Controls Row 1
-  const loadBtn = window.Button('Load Graph').className('dev-btn-primary').id('dev-dep-graph-btn').onTap(function() { _devLoadDependencyGraph(); });
-  const fileToggle = window.Button('Files').id('dev-graph-level-file')
+  _devDepGraphBtn = window.Button('Load Graph').className('dev-btn-primary').onTap(function() { _devLoadDependencyGraph(); });
+  _devGraphLevelFileBtn = window.Button('Files')
     .styles({background:'var(--nr-accent)', color:'#fff', border:'none', padding:'6px 14px', fontSize:'0.75rem', fontWeight:'600', transition:'all var(--motion-fast) var(--motion-smooth)'})
     .cursor().onTap(function() { _devSetGraphLevel('file'); });
-  const funcToggle = window.Button('Functions').id('dev-graph-level-function')
+  _devGraphLevelFuncBtn = window.Button('Functions')
     .styles({background:'transparent', color:'var(--nr-text-primary)', border:'none', padding:'6px 14px', fontSize:'0.75rem', transition:'all var(--motion-fast) var(--motion-smooth)'})
     .cursor().onTap(function() { _devSetGraphLevel('function'); });
-  const toggleGroup = window.HStack(fileToggle, funcToggle)
+  const toggleGroup = window.HStack(_devGraphLevelFileBtn, _devGraphLevelFuncBtn)
     .styles({background:'var(--nr-bg-surface)', border:'1px solid var(--nr-border-default)', borderRadius:'6px', overflow:'hidden'});
-  const resetBtn = window.Button('Reset Zoom').className('dev-btn-secondary').id('dev-graph-reset-btn').visible(false)
+  const resetBtn = window.Button('Reset Zoom').className('dev-btn-secondary').visible(false)
     .onTap(function() { _devResetGraphZoom(); });
-  const statusEl = window.Text('').id('dev-dep-graph-status').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
-  const controlsRow1 = window.HStack(loadBtn, toggleGroup, resetBtn, statusEl)
+  _devDepGraphStatus = window.Text('').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem'});
+  const controlsRow1 = window.HStack(_devDepGraphBtn, toggleGroup, resetBtn, _devDepGraphStatus)
     .gap('8px').styles({marginBottom:'12px'}).wrap();
 
   // Controls Row 2 (function view)
-  const searchInput = new window.View('input').id('dev-graph-search').className('dev-input')
+  const searchInput = new window.View('input').className('dev-input')
     .attr('type', 'text').attr('placeholder', 'Search functions...')
     .on('input', function() { _devGraphSearch(searchInput.el.value); });
-  const fileFilter = new window.View('select').id('dev-graph-file-filter').className('dev-input')
+  _devGraphFileFilter = new window.View('select').className('dev-input')
     .add(window.RawHTML('<option value="">All Files</option>'));
-  fileFilter.onChange(function() { _devGraphFilterByFile(fileFilter.el.value); });
-  const unusedCb = new window.View('input').attr('type', 'checkbox').id('dev-graph-show-unused');
-  unusedCb.onChange(function() { _devGraphToggleUnused(unusedCb.el.checked); });
+  _devGraphFileFilter.onChange(function() { _devGraphFilterByFile(_devGraphFileFilter.el.value); });
+  _devGraphShowUnused = new window.View('input').attr('type', 'checkbox');
+  _devGraphShowUnused.onChange(function() { _devGraphToggleUnused(_devGraphShowUnused.el.checked); });
   const unusedLabel = new window.View('label')
     .styles({display:'flex', alignItems:'center', gap:'4px', fontSize:'0.75rem', color:'var(--nr-text-quaternary)'})
-    .add(unusedCb, window.Text('Show unused'));
-  const controlsRow2 = window.HStack(searchInput, fileFilter, unusedLabel)
-    .id('dev-graph-function-controls')
+    .add(_devGraphShowUnused, window.Text('Show unused'));
+  _devGraphFuncControls = window.HStack(searchInput, _devGraphFileFilter, unusedLabel)
     .styles({display:'none', marginBottom:'12px'}).gap('8px').wrap();
 
   // Legend
@@ -411,34 +424,32 @@ export function _renderDevDependencyGraph() {
   ).gap('16px').styles({marginBottom:'12px', fontSize:'0.65rem', color:'var(--nr-text-quaternary)'}).wrap();
 
   // Graph container
-  const graphContainer = new window.View('div');
-  graphContainer.id('dev-dep-graph-container')
+  _devDepGraphContainer = new window.View('div');
+  _devDepGraphContainer
     .styles({background:'var(--nr-bg-surface)', border:'1px solid var(--nr-border-default)', borderRadius:'6px', padding:'16px', maxHeight:'600px', overflowY:'auto', fontFamily:'monospace', fontSize:'12px', lineHeight:'1.6'});
-  AetherUI.mount(window.Text('Click "Load Graph" to start...').foreground('quaternary'), graphContainer.el);
+  AetherUI.mount(window.Text('Click "Load Graph" to start...').foreground('quaternary'), _devDepGraphContainer.el);
 
-  AetherUI.mount(window.VStack(header, controlsRow1, controlsRow2, legend, graphContainer), contentPane);
+  AetherUI.mount(window.VStack(header, controlsRow1, _devGraphFuncControls, legend, _devDepGraphContainer), contentPane);
 }
 
 export function _devSetGraphLevel(level) {
   _devGraphLevel = level;
 
-  // Update button styles
-  const fileBtn = document.getElementById('dev-graph-level-file');
-  const funcBtn = document.getElementById('dev-graph-level-function');
-  const funcControls = document.getElementById('dev-graph-function-controls');
-
-  if (level === 'file') {
-    fileBtn.style.background = 'var(--nr-accent)';
-    fileBtn.style.color = '#fff';
-    funcBtn.style.background = 'transparent';
-    funcBtn.style.color = 'var(--nr-text-primary)';
-    funcControls.style.display = 'none';
-  } else {
-    fileBtn.style.background = 'transparent';
-    fileBtn.style.color = 'var(--nr-text-primary)';
-    funcBtn.style.background = 'var(--nr-accent)';
-    funcBtn.style.color = '#fff';
-    funcControls.style.display = 'flex';
+  // Update button styles using view references
+  if (_devGraphLevelFileBtn && _devGraphLevelFuncBtn && _devGraphFuncControls) {
+    if (level === 'file') {
+      _devGraphLevelFileBtn.el.style.background = 'var(--nr-accent)';
+      _devGraphLevelFileBtn.el.style.color = '#fff';
+      _devGraphLevelFuncBtn.el.style.background = 'transparent';
+      _devGraphLevelFuncBtn.el.style.color = 'var(--nr-text-primary)';
+      _devGraphFuncControls.el.style.display = 'none';
+    } else {
+      _devGraphLevelFileBtn.el.style.background = 'transparent';
+      _devGraphLevelFileBtn.el.style.color = 'var(--nr-text-primary)';
+      _devGraphLevelFuncBtn.el.style.background = 'var(--nr-accent)';
+      _devGraphLevelFuncBtn.el.style.color = '#fff';
+      _devGraphFuncControls.el.style.display = 'flex';
+    }
   }
 
   // Reload if data already loaded
@@ -448,38 +459,37 @@ export function _devSetGraphLevel(level) {
 }
 
 export async function _devLoadDependencyGraph() {
-  const btn = document.getElementById('dev-dep-graph-btn');
-  const status = document.getElementById('dev-dep-graph-status');
-  const container = document.getElementById('dev-dep-graph-container');
+  const btn = _devDepGraphBtn;
+  const status = _devDepGraphStatus;
+  const container = _devDepGraphContainer;
 
   if (!btn || !status || !container) return;
 
-  btn.disabled = true;
-  btn.textContent = 'Loading...';
-  status.textContent = 'Generating graph data...';
+  btn.el.disabled = true;
+  btn.el.textContent = 'Loading...';
+  status.el.textContent = 'Generating graph data...';
 
   try {
     const data = await apiGet(`/api/dependency-graph?level=${_devGraphLevel}`);
 
     if (data.status === 'error') {
-      status.textContent = 'Error: ' + data.message;
-      status.style.color = 'var(--nr-text-error, #ef4444)';
+      status.el.textContent = 'Error: ' + data.message;
+      status.el.style.color = 'var(--nr-text-error, #ef4444)';
       return;
     }
 
     _devGraphData = data;
 
     // Update file filter dropdown for function view
-    if (_devGraphLevel === 'function') {
-      const fileFilter = document.getElementById('dev-graph-file-filter');
+    if (_devGraphLevel === 'function' && _devGraphFileFilter) {
       const files = [...new Set(data.nodes.map(n => n.file))].sort();
       AetherUI.mount(window.RawHTML('<option value="">All Files</option>' +
-        files.map(f => `<option value="${f}">${f}</option>`).join('')), fileFilter);
+        files.map(f => `<option value="${f}">${f}</option>`).join('')), _devGraphFileFilter.el);
     }
 
     const nodeLabel = _devGraphLevel === 'file' ? 'files' : 'functions';
-    status.textContent = `${data.nodes.length} ${nodeLabel}, ${data.edges.length} dependencies`;
-    status.style.color = 'var(--nr-text-success, #22c55e)';
+    status.el.textContent = `${data.nodes.length} ${nodeLabel}, ${data.edges.length} dependencies`;
+    status.el.style.color = 'var(--nr-text-success, #22c55e)';
 
     // Render the tree
     if (_devGraphLevel === 'file') {
@@ -489,18 +499,18 @@ export async function _devLoadDependencyGraph() {
     }
 
   } catch (e) {
-    status.textContent = 'Error: ' + e.message;
-    status.style.color = 'var(--nr-text-error, #ef4444)';
+    status.el.textContent = 'Error: ' + e.message;
+    status.el.style.color = 'var(--nr-text-error, #ef4444)';
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Reload Graph';
+    btn.el.disabled = false;
+    btn.el.textContent = 'Reload Graph';
   }
 }
 
 export var _devCollapsedFiles = new Set();
 
 export function _devRenderFileTree(nodes, edges) {
-  const container = document.getElementById('dev-dep-graph-container');
+  const container = _devDepGraphContainer ? _devDepGraphContainer.el : null;
   if (!container) return;
 
   nodes.sort((a, b) => a.order - b.order);
@@ -601,11 +611,11 @@ export function _devCollapseAllFiles() {
 }
 
 export function _devRenderFunctionTree(allNodes, allEdges) {
-  const container = document.getElementById('dev-dep-graph-container');
+  const container = _devDepGraphContainer ? _devDepGraphContainer.el : null;
   if (!container) return;
 
-  const showUnused = document.getElementById('dev-graph-show-unused')?.checked || false;
-  const fileFilter = document.getElementById('dev-graph-file-filter')?.value || '';
+  const showUnused = _devGraphShowUnused ? _devGraphShowUnused.el.checked : false;
+  const fileFilter = _devGraphFileFilter ? _devGraphFileFilter.el.value : '';
 
   const nodes = allNodes.filter(n => {
     if (fileFilter && n.file !== fileFilter) return false;
@@ -761,12 +771,10 @@ export async function _renderDevGitLog() {
     window.Text('Git History').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
     window.Text('Recent commit activity').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
-  const logContainer = new window.View('div');
-  logContainer.id('dev-git-log-container');
-  AetherUI.mount(window.VStack(header, logContainer), contentPane);
+  _devGitLogContainer = new window.View('div');
+  AetherUI.mount(window.VStack(header, _devGitLogContainer), contentPane);
 
-  const container = document.getElementById('dev-git-log-container');
-  AetherUI.mount(window.Text('Loading\u2026').className('text-sm').foreground('quaternary'), container);
+  AetherUI.mount(window.Text('Loading\u2026').className('text-sm').foreground('quaternary'), _devGitLogContainer.el);
 
   try {
     const data = await apiGet('/api/dev-stats');
@@ -776,15 +784,15 @@ export async function _renderDevGitLog() {
       function() {
         _devGitLogState = window.State(log);
         _devGitLogOffset = log.length;
-        const logList = new window.View('div').id('dev-git-log-list').className('dev-git-log-list');
+        const logList = new window.View('div').className('dev-git-log-list');
         logList.add(window.ForEach(_devGitLogState, function(c) { return c.sha; }, _devCommitRow));
         return logList;
       },
       function() { return window.Text('No commits found').className('text-sm').foreground('quaternary'); }
-    ), container);
+    ), _devGitLogContainer.el);
     if (log.length >= 20) _devAppendLoadMoreBtn();
   } catch (e) {
-    AetherUI.mount(window.Text('Error: ' + e.message).className('text-sm').foreground('quaternary'), container);
+    AetherUI.mount(window.Text('Error: ' + e.message).className('text-sm').foreground('quaternary'), _devGitLogContainer.el);
   }
 }
 
@@ -884,8 +892,9 @@ export function _renderDevTools() {
     window.Text('Testing utilities and debugging tools').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
 
-  const achSelect = new window.View('select').id('dev-ach-select').className('dev-input').styles({minWidth:'180px'})
+  _devAchSelect = new window.View('select').className('dev-input').styles({minWidth:'180px'})
     .add(window.RawHTML('<option value="bookworm">Bookworm</option><option value="curator">Curator</option><option value="critic">Critic</option><option value="explorer">Explorer</option><option value="model_switch">Model Swapper</option><option value="pixel_parent">Pixel Parent</option>'));
+  const achSelect = _devAchSelect;
 
   const showBtn = window.Button('Show').onTap(function() { _devTestAchievement(); })
     .styles({background:'linear-gradient(135deg,#b8860b,#ffd700)', color:'#1a1400', border:'none', borderRadius:'6px', padding:'6px 14px', fontSize:'0.75rem', fontWeight:'600'}).cursor();
@@ -911,9 +920,8 @@ export var _devAchievements = {
 };
 
 export function _devTestAchievement() {
-  const sel = document.getElementById('dev-ach-select');
-  if (!sel) return;
-  const ach = _devAchievements[sel.value];
+  if (!_devAchSelect) return;
+  const ach = _devAchievements[_devAchSelect.el.value];
   if (!ach) return;
   islandRemove('achievement');
   setTimeout(function() { showAchievement(ach.name, ach.desc); }, 50);
@@ -926,27 +934,27 @@ export function _devResetAchievements() {
 }
 
 export async function _devRunFunctionRegistry() {
-  const btn = document.getElementById('dev-fn-reg-btn');
-  const status = document.getElementById('dev-fn-reg-status');
-  const results = document.getElementById('dev-fn-reg-results');
+  const btn = _devFnRegBtn;
+  const status = _devFnRegStatus;
+  const results = _devFnRegResults;
   if (!btn || !status || !results) return;
 
-  btn.disabled = true;
-  btn.textContent = 'Analyzing...';
-  status.textContent = 'Running analysis...';
-  AetherUI.mount(window.Text(''), results);
+  btn.el.disabled = true;
+  btn.el.textContent = 'Analyzing...';
+  status.el.textContent = 'Running analysis...';
+  AetherUI.mount(window.Text(''), results.el);
 
   try {
     const data = await apiGet('/api/function-registry');
 
     if (data.error) {
-      status.textContent = 'Error: ' + data.error;
-      status.style.color = 'var(--nr-text-error, #ef4444)';
+      status.el.textContent = 'Error: ' + data.error;
+      status.el.style.color = 'var(--nr-text-error, #ef4444)';
       return;
     }
 
-    status.textContent = 'Analysis complete';
-    status.style.color = 'var(--nr-text-success, #22c55e)';
+    status.el.textContent = 'Analysis complete';
+    status.el.style.color = 'var(--nr-text-success, #22c55e)';
 
     const summary = data.summary;
 
@@ -993,13 +1001,13 @@ export async function _devRunFunctionRegistry() {
       detailsHtml += `<div style="margin-top:12px;padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px"><div style="color:var(--nr-text-primary);font-size:0.7rem;font-weight:600;margin-bottom:8px">Most Called Functions</div>${topFuncs.map(([name, info], i) => `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:0.65rem"><span><span style="color:var(--nr-accent);font-weight:600">#${i + 1}</span><code style="color:#60a5fa;background:var(--nr-bg-raised);padding:2px 6px;border-radius:3px;margin-left:8px">${escapeHtml(name)}()</code></span><span style="color:var(--nr-text-quaternary)">${info.callCount} calls</span></div>`).join('')}</div>`;
     }
     if (detailsHtml) parts.push(window.RawHTML(detailsHtml));
-    AetherUI.mount(VStack(parts), results);
+    AetherUI.mount(window.VStack(parts), results.el);
   } catch (e) {
-    status.textContent = 'Error: ' + e.message;
-    status.style.color = 'var(--nr-text-error, #ef4444)';
+    status.el.textContent = 'Error: ' + e.message;
+    status.el.style.color = 'var(--nr-text-error, #ef4444)';
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Analyze Functions';
+    btn.el.disabled = false;
+    btn.el.textContent = 'Analyze Functions';
   }
 }
 
@@ -1014,28 +1022,28 @@ export function _devOpenFunctionRegistryReport() {
 }
 
 export async function _devRunLoadOrderAnalysis() {
-  const btn = document.getElementById('dev-load-ord-btn');
-  const status = document.getElementById('dev-load-ord-status');
-  const results = document.getElementById('dev-load-ord-results');
+  const btn = _devLoadOrdBtn;
+  const status = _devLoadOrdStatus;
+  const results = _devLoadOrdResults;
   if (!btn || !status || !results) return;
 
-  btn.disabled = true;
-  btn.textContent = 'Analyzing...';
-  status.textContent = 'Running analysis...';
-  AetherUI.mount(window.Text(''), results);
+  btn.el.disabled = true;
+  btn.el.textContent = 'Analyzing...';
+  status.el.textContent = 'Running analysis...';
+  AetherUI.mount(window.Text(''), results.el);
 
   try {
     const data = await apiGet('/api/validate-load-order');
 
     if (data.status === 'error' && data.message) {
-      status.textContent = 'Error: ' + data.message;
-      status.style.color = 'var(--nr-text-error, #ef4444)';
+      status.el.textContent = 'Error: ' + data.message;
+      status.el.style.color = 'var(--nr-text-error, #ef4444)';
       return;
     }
 
     const isOptimal = data.warnings.length === 0;
-    status.textContent = isOptimal ? 'Load order optimal' : `${data.warnings.length} warning${data.warnings.length === 1 ? '' : 's'} found`;
-    status.style.color = isOptimal ? '#34d399' : '#f59e0b';
+    status.el.textContent = isOptimal ? 'Load order optimal' : `${data.warnings.length} warning${data.warnings.length === 1 ? '' : 's'} found`;
+    status.el.style.color = isOptimal ? '#34d399' : '#f59e0b';
 
     const loadOrderParts = [
       _devStatGrid(
@@ -1057,13 +1065,13 @@ export async function _devRunLoadOrderAnalysis() {
       loadOrderHtml += `<details style="margin-bottom:12px"><summary style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-radius:6px;cursor:pointer;color:var(--nr-text-primary);font-size:0.7rem;font-weight:600">Circular Dependencies (${data.cycles.length})</summary><div style="padding:12px;background:var(--nr-bg-surface);border:1px solid var(--nr-border-default);border-top:none;border-radius:0 0 6px 6px"><div style="color:var(--nr-text-quaternary);font-size:0.65rem">${data.cycles.slice(0, 10).map(cycle => `<div style="margin-bottom:4px">${cycle.join(' \u2192 ')}</div>`).join('')}${data.cycles.length > 10 ? `<div style="margin-top:8px">...and ${data.cycles.length - 10} more</div>` : ''}</div></div></details>`;
     }
     loadOrderParts.push(window.RawHTML(loadOrderHtml));
-    AetherUI.mount(VStack(loadOrderParts), results);
+    AetherUI.mount(window.VStack(loadOrderParts), results.el);
   } catch (e) {
-    status.textContent = 'Error: ' + e.message;
-    status.style.color = 'var(--nr-text-error, #ef4444)';
+    status.el.textContent = 'Error: ' + e.message;
+    status.el.style.color = 'var(--nr-text-error, #ef4444)';
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Run Analysis';
+    btn.el.disabled = false;
+    btn.el.textContent = 'Run Analysis';
   }
 }
 
@@ -1089,16 +1097,16 @@ export function _devRenderCommitRows(log) {
 }
 
 export function _devAppendLoadMoreBtn() {
-  const container = document.getElementById('dev-git-log-container');
-  if (!container) return;
-  const old = document.getElementById('dev-git-load-more');
-  if (old) old.remove();
-  const btnView = window.Button('Load more commits').className('dev-git-load-more-btn').attr('id', 'dev-git-load-more');
-  btnView.onTap(function() { _devLoadMoreCommits(btnView.el); });
-  AetherUI.append(btnView, container);
+  if (!_devGitLogContainer) return;
+  if (_devGitLoadMoreBtn) _devGitLoadMoreBtn.el.remove();
+  _devGitLoadMoreBtn = window.Button('Load more commits').className('dev-git-load-more-btn');
+  _devGitLoadMoreBtn.onTap(function() { _devLoadMoreCommits(); });
+  AetherUI.append(_devGitLoadMoreBtn, _devGitLogContainer.el);
 }
 
-export async function _devLoadMoreCommits(btn) {
+export async function _devLoadMoreCommits() {
+  if (!_devGitLoadMoreBtn) return;
+  const btn = _devGitLoadMoreBtn.el;
   btn.textContent = 'Loading\u2026';
   btn.disabled = true;
   try {
@@ -1110,6 +1118,7 @@ export async function _devLoadMoreCommits(btn) {
     }
     if (!data.has_more || !log.length) {
       btn.remove();
+      _devGitLoadMoreBtn = null;
     } else {
       btn.textContent = 'Load more commits';
       btn.disabled = false;

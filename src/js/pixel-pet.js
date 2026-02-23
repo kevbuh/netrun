@@ -2,6 +2,34 @@ import Settings from '/js/core/core-settings.js';
 import { showAchievement } from '/js/core/core-ui.js';
 import { renderSettingsView } from '/js/settings/settings-core.js';
 
+// ── DOM element accessors (lazy-cached, .el convention mirrors AetherUI View API) ──
+let _petFreeEl = null;
+let _petSbEl = null;
+let _petCanvasEl = null;
+let _petSbCanvasEl = null;
+let _sidebarNavEl = null;
+
+function _getFreeEl() {
+  if (!_petFreeEl) _petFreeEl = document.getElementById('pixel-pet');
+  return _petFreeEl;
+}
+function _getSbEl() {
+  if (!_petSbEl) _petSbEl = document.getElementById('pixel-pet-sidebar');
+  return _petSbEl;
+}
+function _getPetCanvas() {
+  if (!_petCanvasEl) _petCanvasEl = document.getElementById('pet-canvas');
+  return _petCanvasEl;
+}
+function _getSbCanvas() {
+  if (!_petSbCanvasEl) _petSbCanvasEl = document.getElementById('pet-canvas-sb');
+  return _petSbCanvasEl;
+}
+function _getNavEl() {
+  if (!_sidebarNavEl) _sidebarNavEl = document.getElementById('sidebar-nav');
+  return _sidebarNavEl;
+}
+
 // ── Pixel Pet System ──
 export const PET_FPS = 20;
 export const G = 16; // pixel grid size
@@ -450,7 +478,7 @@ export function petTick() {
   // Eye direction follows mouse
   if (--petEyeTimer <= 0) {
     if (_mouseX >= 0 && Math.random() < 0.85) {
-      const el = document.getElementById('pixel-pet');
+      const el = _getFreeEl();
       const ex = petX + (el ? el.offsetWidth / 2 : 0);
       const ey = petY + (el ? el.offsetHeight / 2 : 0);
       const dx = _mouseX - ex, dy = _mouseY - ey;
@@ -491,7 +519,7 @@ export function petTick() {
 
   // Mouse hover → happy (free mode)
   if (_mouseX >= 0 && petState !== 'sleep' && petState !== 'happy') {
-    const el = document.getElementById('pixel-pet');
+    const el = _getFreeEl();
     if (el) {
       const rect = el.getBoundingClientRect();
       if (_mouseX >= rect.left && _mouseX <= rect.right && _mouseY >= rect.top && _mouseY <= rect.bottom) {
@@ -550,12 +578,11 @@ export function petTick() {
 }
 
 export function drawPetFree() {
-  const container = document.getElementById('pixel-pet');
-  const canvas = document.getElementById('pet-canvas');
+  const container = _getFreeEl();
+  const canvas = _getPetCanvas();
   if (!container || !canvas) return;
 
-  container.style.left = petX + 'px';
-  container.style.top = petY + 'px';
+  Object.assign(container.style, { left: petX + 'px', top: petY + 'px' });
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, CPX, CPX);
 
@@ -615,7 +642,7 @@ export function sidebarTick() {
   // Eye direction follows mouse in sidebar too
   if (--petEyeTimer <= 0) {
     if (_mouseX >= 0 && Math.random() < 0.85) {
-      const el = document.getElementById('pixel-pet-sidebar');
+      const el = _getSbEl();
       if (el) {
         const rect = el.getBoundingClientRect();
         const ex = rect.left + rect.width / 2;
@@ -643,7 +670,7 @@ export function sidebarTick() {
   }
   // Mouse hover → happy (sidebar mode)
   if (_mouseX >= 0 && petState !== 'sleep' && petState !== 'happy') {
-    const el = document.getElementById('pixel-pet-sidebar');
+    const el = _getSbEl();
     if (el) {
       const rect = el.getBoundingClientRect();
       if (_mouseX >= rect.left && _mouseX <= rect.right && _mouseY >= rect.top && _mouseY <= rect.bottom) {
@@ -663,7 +690,7 @@ export function sidebarTick() {
     }
   }
 
-  const canvas = document.getElementById('pet-canvas-sb');
+  const canvas = _getSbCanvas();
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, CPX, CPX);
@@ -699,7 +726,7 @@ export function onDragStart(e) {
   if (e.button !== 0) return;
   e.preventDefault();
   e.stopPropagation();
-  const container = document.getElementById('pixel-pet');
+  const container = _getFreeEl();
   if (!container) return;
   _dragging = true;
   _dragPrevState = petState;
@@ -711,17 +738,16 @@ export function onDragStart(e) {
 }
 
 export function _isOverSidebar(x, y) {
-  const nav = document.getElementById('sidebar-nav');
+  const nav = _getNavEl();
   if (!nav) return false;
   const r = nav.getBoundingClientRect();
   return x >= r.left - 5 && x <= r.right + 5 && y >= r.top - 5 && y <= r.bottom + 5;
 }
 
 export function _showSidebarDropHint(show) {
-  const nav = document.getElementById('sidebar-nav');
+  const nav = _getNavEl();
   if (!nav) return;
-  if (show) nav.style.outline = '2px solid var(--nr-accent)';
-  else nav.style.outline = '';
+  nav.style.outline = show ? '2px solid var(--nr-accent)' : '';
 }
 
 export function onDragMove(e) {
@@ -738,7 +764,7 @@ export function onDragEnd(e) {
   if (!_dragging) return;
   _dragging = false;
   _showSidebarDropHint(false);
-  const container = document.getElementById('pixel-pet');
+  const container = _getFreeEl();
   if (container) container.style.cursor = 'grab';
   document.removeEventListener('mousemove', onDragMove);
   document.removeEventListener('mouseup', onDragEnd);
@@ -771,7 +797,7 @@ export function onSidebarDragStart(e) {
   _sbDragReordering = false;
   _dragging = false;
 
-  const sbEl = document.getElementById('pixel-pet-sidebar');
+  const sbEl = _getSbEl();
   const rect = sbEl ? sbEl.getBoundingClientRect() : { left: 0, top: 0 };
   _dragOffX = e.clientX - rect.left;
   _dragOffY = e.clientY - rect.top;
@@ -781,15 +807,15 @@ export function onSidebarDragStart(e) {
 }
 
 export function _saveSidebarOrder() {
-  const nav = document.getElementById('sidebar-nav');
+  const nav = _getNavEl();
   if (!nav) return;
   const ids = Array.from(nav.querySelectorAll('.sidebar-draggable')).map(b => b.id);
   Settings.setJSON('sidebarOrder', ids);
 }
 
 export function onSidebarDragMove(e) {
-  const sbEl = document.getElementById('pixel-pet-sidebar');
-  const nav = document.getElementById('sidebar-nav');
+  const sbEl = _getSbEl();
+  const nav = _getNavEl();
   if (!sbEl || !nav) return;
 
   const dx = e.clientX - (_dragOffX + sbEl.getBoundingClientRect().left + sbEl.offsetWidth / 2);
@@ -800,10 +826,9 @@ export function onSidebarDragMove(e) {
     _sbDragFloating = true;
     _dragging = true;
     if (_sbDragGhost) { _sbDragGhost.remove(); _sbDragGhost = null; }
-    sbEl.style.opacity = '';
-    sbEl.style.visibility = 'hidden';
-    const freeEl = document.getElementById('pixel-pet');
-    if (freeEl) { freeEl.style.display = ''; freeEl.style.cursor = 'grabbing'; }
+    Object.assign(sbEl.style, { opacity: '', visibility: 'hidden' });
+    const freeEl = _getFreeEl();
+    if (freeEl) { Object.assign(freeEl.style, { display: '', cursor: 'grabbing' }); }
     const rect = sbEl.getBoundingClientRect();
     petX = rect.left;
     petY = rect.top;
@@ -823,7 +848,7 @@ export function onSidebarDragEnd(e) {
 
   if (_sbDragGhost) { _sbDragGhost.remove(); _sbDragGhost = null; }
 
-  const sbEl = document.getElementById('pixel-pet-sidebar');
+  const sbEl = _getSbEl();
 
   if (_sbDragFloating) {
     _dragging = false;
@@ -839,7 +864,7 @@ export function onSidebarDragEnd(e) {
       return;
     }
     // Snap back to nest → restart in sidebar mode
-    const freeEl = document.getElementById('pixel-pet');
+    const freeEl = _getFreeEl();
     if (freeEl) freeEl.style.display = 'none';
     if (sbEl) sbEl.style.visibility = '';
     window.setPixelPetMode('sidebar');
@@ -911,8 +936,8 @@ export function onPetClick(e) {
 export function startPixelPet() {
   if (_petLoop) return;
   const mode = getPetMode();
-  const freeContainer = document.getElementById('pixel-pet');
-  const sbContainer = document.getElementById('pixel-pet-sidebar');
+  const freeContainer = _getFreeEl();
+  const sbContainer = _getSbEl();
 
   if (mode === 'sidebar') {
     if (freeContainer) freeContainer.style.display = 'none';
@@ -920,16 +945,15 @@ export function startPixelPet() {
     petState = 'idle'; petStateTimer = PET_FPS * 5;
     _petLoop = setInterval(sidebarTick, 1000 / PET_FPS);
     if (sbContainer) {
-      sbContainer.onmousedown = onPetMouseDown;
-      sbContainer.onclick = onPetClick;
+      sbContainer.addEventListener('mousedown', onPetMouseDown);
+      sbContainer.addEventListener('click', onPetClick);
     }
   } else {
     // Show empty bed in sidebar even when pet is free-floating
     if (sbContainer) {
       sbContainer.style.display = '';
-      sbContainer.onmousedown = null;
-      sbContainer.onclick = function() { window.setPixelPetMode('sidebar'); };
-      const sbCanvas = document.getElementById('pet-canvas-sb');
+      sbContainer.addEventListener('click', _onSbClickToSidebar);
+      const sbCanvas = _getSbCanvas();
       if (sbCanvas) {
         const sbCtx = sbCanvas.getContext('2d');
         sbCtx.clearRect(0, 0, CPX, CPX);
@@ -937,8 +961,7 @@ export function startPixelPet() {
       }
     }
     if (freeContainer) {
-      freeContainer.style.display = '';
-      freeContainer.style.cursor = 'grab';
+      Object.assign(freeContainer.style, { display: '', cursor: 'grab' });
     }
     const edge = Math.floor(Math.random() * 4);
     if (edge === 0) { petX = Math.random() * window.innerWidth; petY = 20; }
@@ -949,18 +972,29 @@ export function startPixelPet() {
     petStateTimer = PET_FPS * 3;
     _petLoop = setInterval(petTick, 1000 / PET_FPS);
     if (freeContainer) {
-      freeContainer.onmousedown = onPetMouseDown;
-      freeContainer.onclick = onPetClick;
+      freeContainer.addEventListener('mousedown', onPetMouseDown);
+      freeContainer.addEventListener('click', onPetClick);
     }
   }
 }
 
+function _onSbClickToSidebar() { window.setPixelPetMode('sidebar'); }
+
 export function stopPixelPet() {
   if (_petLoop) { clearInterval(_petLoop); _petLoop = null; }
-  const freeContainer = document.getElementById('pixel-pet');
-  const sbContainer = document.getElementById('pixel-pet-sidebar');
-  if (freeContainer) { freeContainer.style.display = 'none'; freeContainer.onmousedown = null; freeContainer.onclick = null; }
-  if (sbContainer) { sbContainer.style.display = 'none'; sbContainer.onmousedown = null; sbContainer.onclick = null; }
+  const freeContainer = _getFreeEl();
+  const sbContainer = _getSbEl();
+  if (freeContainer) {
+    freeContainer.style.display = 'none';
+    freeContainer.removeEventListener('mousedown', onPetMouseDown);
+    freeContainer.removeEventListener('click', onPetClick);
+  }
+  if (sbContainer) {
+    sbContainer.style.display = 'none';
+    sbContainer.removeEventListener('mousedown', onPetMouseDown);
+    sbContainer.removeEventListener('click', onPetClick);
+    sbContainer.removeEventListener('click', _onSbClickToSidebar);
+  }
 }
 
 export function togglePixelPet(on) {

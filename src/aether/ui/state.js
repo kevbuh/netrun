@@ -9,6 +9,7 @@ var _batchQueue = [];
 var _errorHandler = null;
 var _autoBatch = false;
 var _microBatchQueue = null;
+var _currentScope = null; // disposal scope — Component sets this during render
 
 function _track(signal) {
   if (_currentSubscriber) {
@@ -46,6 +47,16 @@ function untrack(fn) {
   _currentSubscriber = null;
   try { return fn(); }
   finally { _currentSubscriber = prev; }
+}
+
+// ─── Disposal Scope — captures State/Effect/Computed for auto-cleanup ──
+
+function runWithScope(fn) {
+  var disposables = [];
+  var prev = _currentScope;
+  _currentScope = disposables;
+  try { return { result: fn(), disposables: disposables }; }
+  finally { _currentScope = prev; }
 }
 
 // ─── Dev Mode Counters ───────────────────────────────────
@@ -87,6 +98,7 @@ function State(initial, opts) {
       if (_allSignals) { _allSignals.delete(signal); _signalCount--; }
     }
   };
+  if (_currentScope) _currentScope.push(signal);
   if (window._AETHER_DEV) { _devInit(); _signalCount++; if (_allSignals) _allSignals.add(signal); }
   return signal;
 }
@@ -140,6 +152,8 @@ function Computed(fn) {
     signal._subscribers.clear();
   };
 
+  if (_currentScope) _currentScope.push(signal);
+
   // Initial computation to set up subscriptions
   var prev = _currentSubscriber;
   _currentSubscriber = signal;
@@ -186,6 +200,7 @@ function Effect(fn) {
     }
   };
 
+  if (_currentScope) _currentScope.push(effect);
   if (window._AETHER_DEV) { _devInit(); _effectCount++; if (_allEffects) _allEffects.add(effect); }
 
   // Run immediately to set up subscriptions
@@ -450,4 +465,4 @@ window.Store = Store;
 window.batch = batch;
 window.untrack = untrack;
 
-export { State, Computed, Effect, Binding, Store, batch, untrack, Context, isSignal, isBinding, resolve };
+export { State, Computed, Effect, Binding, Store, batch, untrack, Context, isSignal, isBinding, resolve, runWithScope };

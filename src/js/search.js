@@ -4,16 +4,17 @@ import { _browseUrlHideHistory, _browseUrlShowHistory } from '/js/browse-urlbar.
 import { _renderNtpFileChips } from '/js/browse/browse-ntp.js';
 import { _sendPopupChatMessage } from '/js/panel-chat.js';
 import { _showPanel } from '/js/panel.js';
-import { browseNavigate } from '/js/browse/browse-island.js';
+import { browseNavigate } from '/js/toolbar/toolbar-url.js';
+
 export function onSearchInput() {
   const input = document.getElementById('search-query');
   const query = (input?.value || '').trim();
   // If input cleared on new-tab page, hide dropdown but keep input focused
   if (!query && input && input.closest('.browse-ntp')) {
-    if (typeof _browseUrlHideHistory === 'function') _browseUrlHideHistory();
+    _browseUrlHideHistory();
     return;
   }
-  if (typeof _browseUrlShowHistory === 'function') _browseUrlShowHistory();
+  _browseUrlShowHistory();
 }
 
 export function submitSearch() {
@@ -21,36 +22,33 @@ export function submitSearch() {
   if (!query) return;
 
   // If files are uploaded on NTP, open Aether panel with file/image context
-  if (typeof window._ntpUploadedFiles !== 'undefined' && window._ntpUploadedFiles.length > 0) {
+  if (window._ntpUploadedFiles?.length > 0) {
     const imageEntries = window._ntpUploadedFiles.filter(f => f.isImage && f.base64);
     const fileEntries = window._ntpUploadedFiles.filter(f => !f.isImage).map(f => ({ name: f.name, content: f.content || '' }));
     window._ntpUploadedFiles = [];
     _renderNtpFileChips();
-    if (typeof _showPanel === 'function') {
-      _showPanel({ anchor: { x: window.innerWidth / 2 - 200, y: 120 }, initialValue: query, finalized: true });
-      // Set file contexts AFTER _showPanel (which clears them during reset)
-      if (typeof window._pendingFileContexts !== 'undefined') {
-        for (const f of fileEntries) window._pendingFileContexts.push(f);
-      }
-      // Add images as screenshots for vision
-      if (typeof window._pendingScreenshots !== 'undefined') {
-        for (const img of imageEntries) window._pendingScreenshots.push(img.base64);
-      }
-      // Auto-send the query
-      setTimeout(() => {
-        const popup = document.getElementById('doc-chat-ask-float');
-        if (popup) {
-          const input = popup.querySelector('.doc-ask-inline-input');
-          if (input) { input.value = query; }
-          if (typeof _sendPopupChatMessage === 'function') _sendPopupChatMessage(popup);
-        }
-      }, 50);
+    _showPanel({ anchor: { x: window.innerWidth / 2 - 200, y: 120 }, initialValue: query, finalized: true });
+    // Set file contexts AFTER _showPanel (which clears them during reset)
+    if (window._pendingFileContexts) {
+      for (const f of fileEntries) window._pendingFileContexts.push(f);
     }
+    // Add images as screenshots for vision
+    if (window._pendingScreenshots) {
+      for (const img of imageEntries) window._pendingScreenshots.push(img.base64);
+    }
+    // Auto-send the query once the panel has mounted
+    setTimeout(() => {
+      const popup = document.getElementById('doc-chat-ask-float');
+      if (!popup) return;
+      const input = popup.querySelector('.doc-ask-inline-input');
+      if (input) input.value = query;
+      _sendPopupChatMessage(popup);
+    }, 50);
     return;
   }
 
   // Default: navigate via browseNavigate (Google search or URL)
-  if (typeof browseNavigate === 'function') browseNavigate(query);
+  browseNavigate(query);
 }
 
 // ── Relative time helper (used across modules) ──

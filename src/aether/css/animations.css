@@ -116,16 +116,6 @@
 
 @keyframes eval-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-@keyframes wizFinaleIn {
-  0% { transform: scale(0); opacity: 0; }
-  70% { transform: scale(1.1); }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes wizCheckDraw {
-  0% { opacity: 0; transform: scale(0.5); }
-  100% { opacity: 1; transform: scale(1); }
-}
 
 @keyframes pulse-flash-glow {
   0%, 100% { opacity: 0.6; }
@@ -209,14 +199,6 @@
   0% { background-position: 200% 0; }
   100% { background-position: -100% 0; }
 }
-
-@keyframes fork-spin {
-  0% { transform: rotate(0deg) scale(1); }
-  50% { transform: rotate(180deg) scale(1.2); }
-  100% { transform: rotate(360deg) scale(1); }
-}
-
-@keyframes ppFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 @keyframes island-press-scale {
   0% { scale: 1; }

@@ -81,6 +81,13 @@ if (_browseIsElectron && window.electronAPI.cookieBlockSetEnabled) {
 // When a webview requests camera/mic/location/notifications, main process sends
 // 'permission-request' here. We check stored permissions and either respond
 // immediately or show the permission prompt UI and respond when the user decides.
+export var _permissionPromptActive = State(false);  // @signal — AetherUI-driven state
+window._permissionPromptActive = _permissionPromptActive;
+
+// Store pending permission requests waiting for user decision
+export const _pendingPermissionRequests = new Map(); // requestId → { domain, permKey }
+window._pendingPermissionRequests = _pendingPermissionRequests;
+
 if (_browseIsElectron && window.electronAPI.onPermissionRequest) {
   window.electronAPI.onPermissionRequest((_event, data) => {
     const { requestId, domain, permKey } = data;
@@ -104,39 +111,44 @@ if (_browseIsElectron && window.electronAPI.onPermissionRequest) {
     // We hook into the existing prompt by temporarily patching the allow/block callbacks
     if (typeof window._showPermissionPrompt === 'function') {
       // Store the requestId so the prompt callbacks can respond
-      window._pendingElectronPermRequest = requestId;
+      _pendingPermissionRequests.set(requestId, { domain, permKey });
+      _permissionPromptActive.value = true;
       window._showPermissionPrompt(domain, permKey);
-      // The prompt's Allow/Block buttons call _setSitePermission. We also need them to
-      // resolve the Electron permission request. Monkey-patch the dismiss to respond with deny.
-      const existing = document.getElementById('site-permission-prompt');
-      if (existing) {
-        // Watch for prompt removal — if dismissed without action, deny
-        const observer = new MutationObserver(() => {
-          if (!document.getElementById('site-permission-prompt') && window._pendingElectronPermRequest === requestId) {
-            window._pendingElectronPermRequest = null;
-            // Check if a decision was stored (allow/block) during prompt
-            const updated = Settings.getJSON('sitePermissions', {});
-            const updatedPerms = updated[domain] || {};
-            const sessionPerms = (window._sessionPermissions && window._sessionPermissions[domain]) || {};
-            if (updatedPerms[permKey] === 'allow' || sessionPerms[permKey] === 'allow') {
-              window.electronAPI.permissionResponse(requestId, true);
-            } else {
-              window.electronAPI.permissionResponse(requestId, false);
-            }
-            observer.disconnect();
+      // Schedule a timeout: if prompt wasn't resolved via allow/block, deny
+      // The prompt's Allow/Block buttons will call _resolvePendingPermissionRequest
+      setTimeout(() => {
+        if (_pendingPermissionRequests.has(requestId)) {
+          const req = _pendingPermissionRequests.get(requestId);
+          _pendingPermissionRequests.delete(requestId);
+          if (_pendingPermissionRequests.size === 0) {
+            _permissionPromptActive.value = false;
           }
-        });
-        observer.observe(document.body, { childList: true, subtree: true });
-      } else {
-        // Prompt didn't appear — deny
-        window.electronAPI.permissionResponse(requestId, false);
-      }
+          // Default deny if still unresolved
+          window.electronAPI.permissionResponse(requestId, false);
+        }
+      }, 60000); // 60-second timeout
     } else {
       // No prompt available — deny by default
       window.electronAPI.permissionResponse(requestId, false);
     }
   });
 }
+
+// Helper to resolve pending permission requests
+export function _resolvePendingPermissionRequest(domain, permKey, allowed) {
+  for (const [requestId, req] of _pendingPermissionRequests.entries()) {
+    if (req.domain === domain && req.permKey === permKey) {
+      _pendingPermissionRequests.delete(requestId);
+      if (_pendingPermissionRequests.size === 0) {
+        _permissionPromptActive.value = false;
+      }
+      if (window.electronAPI && window.electronAPI.permissionResponse) {
+        window.electronAPI.permissionResponse(requestId, allowed);
+      }
+    }
+  }
+}
+window._resolvePendingPermissionRequest = _resolvePendingPermissionRequest;
 
 // Audio tracking: { tabId: { windowId, muted } }
 export const _browseAudioTabs = new Map();
@@ -206,8 +218,6 @@ export function getBrowseNextPaneId() { return _browseNextPaneId; }
 export function setBrowseNextPaneId(v) { _browseNextPaneId = v; }
 _bridge('_browseNextPaneId', () => _browseNextPaneId, v => { _browseNextPaneId = v; });
 
-// Return view for "back" button — backed by Settings.get('_browseReturnView')
-
 // Convenience getters for current window's tabs (backward compatibility)
 // NOTE: read _browseActiveWindow via the local var (getter/setter bridge keeps it in sync)
 export function _getCurrentWindow() {
@@ -260,6 +270,7 @@ export function _browseSaveTabsNow() {
       if (t.lastVisited) saved.lastVisited = t.lastVisited;
       if (t.pinned) saved.pinned = true;
       if (t.groupId != null) saved.groupId = t.groupId;
+      if (t.origin) saved.origin = t.origin;
       if (t.backStack && t.backStack.length) saved.backStack = t.backStack.slice(-50);
       if (t.forwardStack && t.forwardStack.length) saved.forwardStack = t.forwardStack.slice(-50);
       if (t._aiPanel && t._aiPanel.threadId) saved._aiPanelThreadId = t._aiPanel.threadId;
@@ -278,6 +289,5 @@ export function _browseSaveTabsNow() {
 
 window._getCurrentWindow = _getCurrentWindow;
 window._getBrowseStorageKey = _getBrowseStorageKey;
-_bridge('_browseSaveTabsTimer', () => _browseSaveTabsTimer, v => { _browseSaveTabsTimer = v; });
 window._browseSaveTabs = _browseSaveTabs;
 window._browseSaveTabsNow = _browseSaveTabsNow;

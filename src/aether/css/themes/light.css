@@ -6,6 +6,7 @@
   --nr-bg-raised:  #f0f0f0;
   --nr-bg-sunken:  #fafafa;
   --nr-bg-overlay: #fff;
+  --nr-bg-hover:   rgba(0, 0, 0, 0.05);
   --nr-bg-input:   #f8f8f8;
 
   --nr-text-primary:    #333;

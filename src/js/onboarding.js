@@ -108,8 +108,7 @@ function _wizardAnimateHeight(wizard, step) {
 function _wizardBackView(stepIndex) {
   if (stepIndex === 0) return null;
   const prevStep = stepIndex - 1;
-  const btn = new window.View('button').className('wizard-back');
-  btn.el.title = 'Back';
+  const btn = new window.View('button').className('wizard-back').attr('title', 'Back');
   btn.add(window.RawHTML(icon('chevronLeft', {strokeWidth: '2'})));
   btn.onTap(function() { _renderWizardStep(prevStep, 'back'); });
   return btn;
@@ -149,7 +148,7 @@ function _buildWizardStep(wizard, stepIndex) {
   if (backView) AetherUI.append(backView, step);
   AetherUI.append(_wizardDotsView(stepIndex), step);
   if (contentView) AetherUI.append(contentView, step);
-  wizard.append(step);
+  AetherUI.append(stepView, wizard);
 
   requestAnimationFrame(function() {
     requestAnimationFrame(function() {
@@ -191,16 +190,11 @@ function _wizardWelcomeView() {
   const pic = window._authUserInfo && window._authUserInfo.picture;
   let avatarView;
   if (pic) {
-    const img = new window.View('img').className('wizard-welcome-avatar');
-    img.el.src = pic;
-    img.el.referrerPolicy = 'no-referrer';
-    avatarView = img;
+    avatarView = new window.View('img').className('wizard-welcome-avatar').attr('src', pic).attr('referrerpolicy', 'no-referrer');
   } else {
-    avatarView = new window.View('div').className('wizard-welcome-letter');
-    avatarView.el.textContent = firstName[0].toUpperCase();
+    avatarView = window.Text(firstName[0].toUpperCase()).className('wizard-welcome-letter');
   }
-  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
-  continueBtn.el.textContent = 'Get started';
+  const continueBtn = window.Button('Get started').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.onTap(function() { _renderWizardStep(1, 'forward'); });
   return window.VStack(
     avatarView,
@@ -213,13 +207,10 @@ function _wizardWelcomeView() {
 // ── Step 1: Username ──
 
 function _wizardUsernameView() {
-  const input = new window.View('input').id('wiz-username');
-  input.el.type = 'text';
-  input.el.maxLength = 20;
-  input.el.placeholder = 'username';
-  input.cssText('width:100%;box-sizing:border-box;padding:10px 14px;font-size:15px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--nr-text-primary,#e0e0e0);outline:none;text-align:center;');
-  const submitBtn = new window.View('button').id('wiz-username-btn').className('nr-btn nr-btn-primary nr-btn-lg').styles({marginTop:'4px'});
-  submitBtn.el.textContent = 'Continue';
+  const input = new window.View('input').id('wiz-username')
+    .attr('type', 'text').attr('maxlength', '20').attr('placeholder', 'username')
+    .cssText('width:100%;box-sizing:border-box;padding:10px 14px;font-size:15px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--nr-text-primary,#e0e0e0);outline:none;text-align:center;');
+  const submitBtn = window.Button('Continue').id('wiz-username-btn').className('nr-btn nr-btn-primary nr-btn-lg').styles({marginTop:'4px'});
   submitBtn.el.disabled = true;
   submitBtn.onTap(function() { _wizardSubmitUsername(); });
   return window.VStack(
@@ -291,8 +282,7 @@ function _wizardAccentView() {
     btn.onTap(function() { _wizardPickAccent(a.color, btn.el); });
     return btn;
   });
-  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
-  continueBtn.el.textContent = 'Continue';
+  const continueBtn = window.Button('Continue').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.onTap(function() { _wizardAccentContinue(); });
   return window.VStack(
     window.Text('Pick your color').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
@@ -351,8 +341,7 @@ function _wizardThemeView() {
     btn.onTap(function() { _wizardPickTheme(t.id, btn.el); });
     return btn;
   });
-  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
-  continueBtn.el.textContent = 'Continue';
+  const continueBtn = window.Button('Continue').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.onTap(function() { _wizardThemeContinue(); });
   return window.VStack(
     window.Text('Choose a theme').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
@@ -402,11 +391,9 @@ let _wizBmExpandedId = null;
 let _wizBmBrowsers = [];
 
 function _wizardBookmarkImportView() {
-  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
-  continueBtn.el.textContent = 'Continue';
+  const continueBtn = window.Button('Continue').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.onTap(function() { _renderWizardStep(6, 'forward'); });
-  const skipBtn = new window.View('button').className('nr-btn nr-btn-ghost');
-  skipBtn.el.textContent = 'Skip';
+  const skipBtn = window.Button('Skip').className('nr-btn nr-btn-ghost');
   skipBtn.onTap(function() { _renderWizardStep(6, 'forward'); });
   return window.VStack(
     window.Text('Import bookmarks').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
@@ -446,8 +433,8 @@ function _wizBmRenderList(container) {
     var isExpanded = _wizBmExpandedId === b.id;
     var chevron = window.RawHTML(icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') }));
     var nameView = window.Text(b.name).styles({fontSize:'0.85rem', fontWeight:'500', color:'var(--nr-text-primary,#e0e0e0)', flex:'1'});
-    var countView = new window.View('span').id('wiz-bm-count-' + b.id).styles({fontSize:'0.68rem', color:'var(--nr-text-quaternary)'});
-    if (_wizBmParsed[b.id]) countView.el.textContent = _wizBmParsed[b.id].length + ' bookmarks';
+    var countText = _wizBmParsed[b.id] ? _wizBmParsed[b.id].length + ' bookmarks' : '';
+    var countView = window.Text(countText).id('wiz-bm-count-' + b.id).styles({fontSize:'0.68rem', color:'var(--nr-text-quaternary)'});
 
     var header = window.HStack(
       window.RawHTML('<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;">' + icon('globe', {size: 18, stroke: 'var(--nr-text-secondary,#999)'}) + '</div>'),
@@ -515,8 +502,7 @@ function _wizBmRenderBookmarks(container, browserId) {
 
   // Select all / deselect all
   var allSelected = selectedCount === bookmarks.length;
-  var toggleAllBtn = new window.View('button').styles({fontSize:'0.7rem', color:'var(--accent,#b4451a)', background:'none', border:'none', cursor:'pointer', padding:'0'});
-  toggleAllBtn.el.textContent = allSelected ? 'Deselect all' : 'Select all';
+  var toggleAllBtn = window.Button(allSelected ? 'Deselect all' : 'Select all').styles({fontSize:'0.7rem', color:'var(--accent,#b4451a)', background:'none', border:'none', cursor:'pointer', padding:'0'});
   toggleAllBtn.onTap(function() {
     if (allSelected) _wizBmSelected[browserId] = new Set();
     else _wizBmSelected[browserId] = new Set(bookmarks.map(function(bm) { return bm.url; }));
@@ -555,7 +541,7 @@ function _wizBmRenderBookmarks(container, browserId) {
     row.el.addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.04)'; });
     row.el.addEventListener('mouseleave', function() { this.style.background = 'transparent'; });
     (function(url) {
-      row.el.addEventListener('click', function() {
+      row.onTap(function() {
         if (selected.has(url)) selected.delete(url);
         else selected.add(url);
         _wizBmRenderBookmarks(container, browserId);
@@ -576,7 +562,7 @@ function _wizBmRenderBookmarks(container, browserId) {
     fontSize:'0.78rem', fontWeight:'500', cursor: selectedCount > 0 ? 'pointer' : 'default',
     opacity: selectedCount > 0 ? '1' : '0.5'
   });
-  importBtn.el.disabled = selectedCount === 0;
+  if (selectedCount === 0) importBtn.el.disabled = true;
   importBtn.onTap(function() { _wizBmDoImport(browserId, container); });
 
   var footer = window.HStack(importBtn, statusView).spacing(2).styles({paddingTop:'8px', borderTop:'1px solid rgba(255,255,255,0.06)', marginTop:'4px'});
@@ -625,8 +611,7 @@ const _wizardFeedSelected = new Set();
 let _wizardFeedCategory = null;
 
 function _wizardFeedsView() {
-  const continueBtn = new window.View('button').id('wiz-feed-continue').className('nr-btn nr-btn-primary nr-btn-lg');
-  continueBtn.el.textContent = 'Continue';
+  const continueBtn = window.Button('Continue').id('wiz-feed-continue').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.onTap(function() { _renderWizardStep(7, 'forward'); });
   return window.VStack(
     window.Text('Choose your feeds').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
@@ -651,13 +636,11 @@ function _wizardFeedRenderTabs() {
   const cats = [];
   FEED_CATALOG.forEach(function(f) { if (cats.indexOf(f.cat) === -1) cats.push(f.cat); });
   const tabs = [];
-  const allTab = new window.View('button').className('wizard-feed-tab' + (_wizardFeedCategory === null ? ' active' : ''));
-  allTab.el.textContent = 'All';
+  const allTab = window.Button('All').className('wizard-feed-tab' + (_wizardFeedCategory === null ? ' active' : ''));
   allTab.onTap(function() { _wizardFeedSelectCategory(null); });
   tabs.push(allTab);
   cats.forEach(function(cat) {
-    const tab = new window.View('button').className('wizard-feed-tab' + (_wizardFeedCategory === cat ? ' active' : ''));
-    tab.el.textContent = cat;
+    const tab = window.Button(cat).className('wizard-feed-tab' + (_wizardFeedCategory === cat ? ' active' : ''));
     tab.onTap(function() { _wizardFeedSelectCategory(cat); });
     tabs.push(tab);
   });
@@ -692,8 +675,7 @@ function _wizardFeedRenderGrid() {
     // Category header
     const catLabel = window.Text(cat).styles({fontSize:'0.72rem', color:'var(--nr-text-secondary,#999)', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:'500'});
     const sep = new window.View('span').flex(1).styles({height:'1px', background:'rgba(255,255,255,0.06)'});
-    var toggleAllBtn = new window.View('button').styles({fontSize:'0.68rem', color:'var(--nr-text-secondary,#777)', background:'none', border:'none'}).cursor();
-    toggleAllBtn.el.textContent = allOn ? 'Deselect all' : 'Select all';
+    var toggleAllBtn = window.Button(allOn ? 'Deselect all' : 'Select all').styles({fontSize:'0.68rem', color:'var(--nr-text-secondary,#777)', background:'none', border:'none'}).cursor();
     (function(c) { toggleAllBtn.onTap(function() { _wizardFeedToggleCategory(c); }); })(cat);
     const header = window.HStack(catLabel, sep, toggleAllBtn).spacing(2).className('items-center').styles({padding:'0 4px', marginBottom:'4px'});
 
@@ -714,7 +696,7 @@ function _wizardFeedRenderGrid() {
       if (checkSvg) checkCircle.add(window.RawHTML(checkSvg));
       const row = window.HStack(faviconView, textCol, checkCircle).spacing(2.5).styles({padding:'6px 10px', borderRadius:'8px', transition:'background 0.15s', background: sel ? 'rgba(255,255,255,0.04)' : 'transparent'}).cursor();
       (function(key, isSel) {
-        row.el.addEventListener('click', function() { _wizardFeedToggle(key); });
+        row.onTap(function() { _wizardFeedToggle(key); });
         row.el.addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.06)'; });
         row.el.addEventListener('mouseleave', function() { this.style.background = isSel ? 'rgba(255,255,255,0.04)' : 'transparent'; });
       })(f.key, sel);
@@ -748,8 +730,7 @@ function _wizardFeedToggleCategory(cat) {
 // ── Step 7: Chat Model ──
 
 function _wizardChatModelView() {
-  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
-  continueBtn.el.textContent = 'Continue';
+  const continueBtn = window.Button('Continue').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.onTap(function() { _renderWizardStep(8, 'forward'); });
   return window.VStack(
     window.Text('Choose a model').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
@@ -777,8 +758,7 @@ async function _wizardChatModelInit() {
 
   const current = Settings.get('chatModel') || 'qwen2.5:3b';
   const btns = _wizardModelList.map(function(m) {
-    const btn = new window.View('button').className('wizard-model-option' + (m === current ? ' selected' : ''));
-    btn.el.textContent = m;
+    const btn = window.Button(m).className('wizard-model-option' + (m === current ? ' selected' : ''));
     (function(model) {
       btn.onTap(function() { _wizardPickModel(model, btn.el); });
     })(m);
@@ -820,8 +800,7 @@ function _wizardPixelPetView() {
   noneBtn.onTap(function() { _wizardPickPet('none', noneBtn.el); });
   petBtns.push(noneBtn);
 
-  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
-  continueBtn.el.textContent = 'Continue';
+  const continueBtn = window.Button('Continue').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.onTap(function() { _renderWizardStep(9, 'forward'); });  // → Cursor step
   return window.VStack(
     window.Text('Pick a companion').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
@@ -980,8 +959,7 @@ function _wizardCursorView() {
     btn.onTap(function() { _wizardPickCursor(id, btn.el); });
     return btn;
   }
-  const continueBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
-  continueBtn.el.textContent = 'Continue';
+  const continueBtn = window.Button('Continue').className('nr-btn nr-btn-primary nr-btn-lg');
   continueBtn.onTap(function() { _renderWizardStep(10, 'forward'); });
   return window.VStack(
     window.Text('Cursor style').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
@@ -1014,11 +992,9 @@ function _wizardPickCursor(id, el) {
 // ── Step 10: Neuralook (optional) ──
 
 function _wizardNeuralookView() {
-  const calibrateBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
-  calibrateBtn.el.textContent = 'Calibrate now';
+  const calibrateBtn = window.Button('Calibrate now').className('nr-btn nr-btn-primary nr-btn-lg');
   calibrateBtn.onTap(function() { _wizardStartNeuralook(); });
-  const skipBtn = new window.View('button').className('nr-btn nr-btn-ghost');
-  skipBtn.el.textContent = 'Set up later';
+  const skipBtn = window.Button('Set up later').className('nr-btn nr-btn-ghost');
   skipBtn.onTap(function() { _renderWizardStep(11, 'forward'); });
   return window.VStack(
     window.Text('Eye tracking').styles({fontSize:'20px', fontWeight:'600', color:'var(--nr-text-primary,#e0e0e0)', marginBottom:'4px'}),
@@ -1058,8 +1034,7 @@ async function _wizardStartNeuralook() {
 
 function _wizardFinaleView() {
   const username = _wizardPendingUsername || (window._authUserInfo && window._authUserInfo.username) || 'you';
-  const enterBtn = new window.View('button').className('nr-btn nr-btn-primary nr-btn-lg');
-  enterBtn.el.textContent = 'Enter the Net';
+  const enterBtn = window.Button('Enter the Net').className('nr-btn nr-btn-primary nr-btn-lg');
   enterBtn.onTap(function() { _wizardFinish(); });
   return window.VStack(
     window.RawHTML('<div class="wizard-finale-check">' + icon('check', {size: 28, stroke: '#fff', strokeWidth: '2.5'}) + '</div>'),

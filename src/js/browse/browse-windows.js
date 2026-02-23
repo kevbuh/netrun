@@ -1,20 +1,20 @@
 // browse-windows.js — Window management
 // Depends on: browse-state.js
-import Settings from '/js/core/core-settings.js';
-import { navBack, hidePanel } from '/js/core/core-nav.js';
+import { hidePanel } from '/js/core/core-nav.js';
 import { setSidebarActive } from '/js/core/core-layout.js';
-import { goHome, hideAllViews, openSearch, wmOpen } from '/js/core/core-views.js';
-import { _applyBrowseTabLayout, _browseFaviconUrl, _browseRenderTabs, _browseResolveUrl, _browseTitleFromUrl } from '/js/browse/browse-island.js';
+import { hideAllViews, wmOpen } from '/js/core/core-views.js';
+import { _applyBrowseTabLayout } from '/js/toolbar/toolbar-island.js';
+import { _browseResolveUrl } from '/js/toolbar/toolbar-url.js';
+import { _browseFaviconUrl, _browseTitleFromUrl } from '/js/toolbar/toolbar-nav.js';
+import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
 import { _browseApplyAdaptiveColor, _saveBrowseVisit, openHelpPage, openSearchHistoryPage } from '/js/browse-urlbar.js';
-import { _browseBindFrame } from '/js/browse/browse-downloads.js';
+import { _browseBindFrame } from '/js/browse/browse-frame-bind.js';
 import { _browseCreateFrame } from '/js/browse/browse-ntp.js';
 import { _browseInstallKeyGuard, _browseInstallPinchOverlay } from '/js/browse/browse-features.js';
 import { _browseRestoreTabs } from '/js/browse/browse-core.js';
 import { _browseUpdateNewTabPage, browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
 import { _showAnnotateOfferPill } from '/js/browse/browse-annotations.js';
 import { openChatPage } from '/js/chat-view.js';
-import { openNeuralook } from '/js/neuralook.js';
-import { openSettings } from '/js/settings/settings-core.js';
 import { stopCaptions } from '/js/browse/browse-captions.js';
 
 // Window management
@@ -117,7 +117,8 @@ export function _browseCreateTabInWindow(windowId, url) {
     blank: false,
     deferred: true,
     backStack: [],
-    forwardStack: []
+    forwardStack: [],
+    origin: null
   };
   win.tabs.push(tab);
   if (resolved) _saveBrowseVisit(resolved, tab.title);
@@ -157,22 +158,6 @@ export function _animateWindowSwitch(direction, callback) {
   Motion.swap(content, 'y', callback, { distance: dist });
 }
 
-export function _setBrowseReturnView(view) {
-  if (view) Settings.set('_browseReturnView', view);
-  else Settings.remove('_browseReturnView');
-}
-
-export function _browseGoBack() {
-  // Try nav history first — it knows the full path
-  if (typeof navBack === 'function' && navBack()) {
-    _setBrowseReturnView(null);
-    return;
-  }
-  const nav = { feed: goHome, search: openSearch, inbox: typeof openInbox === 'function' ? openInbox : null, settings: typeof openSettings === 'function' ? openSettings : null, neuralook: typeof openNeuralook === 'function' ? openNeuralook : null };
-  const fn = nav[Settings.get('_browseReturnView')];
-  _setBrowseReturnView(null);
-  if (fn) fn(); else goHome();
-}
 
 export function openBrowse(url) {
   const view = document.getElementById('browse-view');
@@ -264,7 +249,7 @@ export function browseNewTab(url) {
     container.appendChild(el);
   }
 
-  const tab = { id, url: resolved, title: isBlank ? 'New Tab' : _browseTitleFromUrl(resolved), favicon: isBlank ? '' : _browseFaviconUrl(resolved), el, blank: isBlank, backStack: [], forwardStack: [] };
+  const tab = { id, url: resolved, title: isBlank ? 'New Tab' : _browseTitleFromUrl(resolved), favicon: isBlank ? '' : _browseFaviconUrl(resolved), el, blank: isBlank, backStack: [], forwardStack: [], origin: null };
   // New tabs inserted at top (after pinned tabs)
   const firstUnpinned = win.tabs.findIndex(t => !t.pinned);
   if (firstUnpinned >= 0) win.tabs.splice(firstUnpinned, 0, tab);
@@ -328,7 +313,6 @@ window.browseNewTab = browseNewTab;
 registerActions({
   browseCreateWindow: () => browseCreateWindow(),
   browseNewTab: () => browseNewTab(),
-  _browseGoBack: () => _browseGoBack(),
   closeActiveTab: (e) => {
     e.stopPropagation();
     const tabs = typeof _browseTabs !== 'undefined' ? _browseTabs : [];

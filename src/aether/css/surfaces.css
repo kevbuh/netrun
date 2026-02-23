@@ -1,31 +1,5 @@
 /* Aether Surfaces — surface hierarchy + material blur/glass layers */
 
-/* ── Surface Hierarchy ── */
-
-.nr-surface {
-  background: var(--nr-bg-surface);
-  border: 1px solid var(--nr-border-default);
-  border-radius: var(--nr-radius-lg);
-}
-
-.nr-surface-raised {
-  background: var(--nr-bg-raised);
-  border: 1px solid var(--nr-border-default);
-  border-radius: var(--nr-radius-lg);
-}
-
-.nr-surface-sunken {
-  background: var(--nr-bg-sunken);
-  border-radius: var(--nr-radius-md);
-}
-
-.nr-surface-overlay {
-  background: var(--nr-bg-overlay);
-  border: 1px solid var(--nr-border-subtle);
-  border-radius: var(--nr-radius-xl);
-  box-shadow: 0 16px 48px var(--nr-shadow-popup);
-}
-
 /* ── Material Layers (vibrancy/translucency) ── */
 
 .nr-material-ultra-thin {

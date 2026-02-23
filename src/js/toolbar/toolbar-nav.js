@@ -1,16 +1,19 @@
 // toolbar-nav.js — Back/Forward/Reload buttons + history dropdown
-import { canGoBack, canGoForward, activeTabData, tabListVersion } from '/js/toolbar/toolbar-state.js';
+import { canGoBack, canGoForward, activeTabData, tabListVersion, notifyTabsChanged } from '/js/toolbar/toolbar-state.js';
 import { icon } from '/js/core/icons.js';
 import { _browseProxyUrl, _browseSetFrameAllow } from '/js/browse/browse-ntp.js';
-import { _browseUpdateNewTabPage } from '/js/browse/browse-passwords.js';
+import { browseCloseTab, _browseUpdateNewTabPage } from '/js/browse/browse-passwords.js';
 import { _browseSetUrlDisplay } from '/js/browse-urlbar.js';
 import { _browseUpdateSaveBtn } from '/js/browse/browse-features.js';
+import { goHome } from '/js/core/core-views.js';
 
 // ── Navigation functions (ported from browse-island.js) ──
 
-// Direction flag read by did-navigate handler to distinguish back/forward from normal nav
-var _browseNavDirection = null;
-export function _clearBrowseNavDirection() { _browseNavDirection = null; }
+// Flag set by browseBack()/browseForward() before changing el.src — tells
+// the did-navigate handler to skip stack manipulation (caller already did it)
+var _browseStackNavigation = false;
+export function _isBrowseStackNavigation() { return _browseStackNavigation; }
+export function _clearBrowseStackNavigation() { _browseStackNavigation = false; }
 
 function _browseActiveEl() {
   var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
@@ -48,17 +51,24 @@ export function browseBack() {
     if (urlInput) _browseSetUrlDisplay(urlInput, 'ntp://');
     return;
   }
-  var el = _browseActiveEl();
-  if (window._browseIsElectron && el && el.canGoBack && el.canGoBack()) { _browseNavDirection = 'back'; el.goBack(); return; }
   var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
-  if (tab && tab.backStack && tab.backStack.length) {
+  if (!tab) return;
+  // If tab has no back history and came from feed → close tab + go to feed
+  if ((!tab.backStack || !tab.backStack.length) && tab.origin === 'feed') {
+    browseCloseTab(tab.id);
+    goHome();
+    return;
+  }
+  if (tab.backStack && tab.backStack.length) {
     if (!tab.forwardStack) tab.forwardStack = [];
     tab.forwardStack.push(tab.url);
     var prevUrl = tab.backStack.pop();
     tab.url = prevUrl;
     tab.title = _browseTitleFromUrl(prevUrl);
     tab.favicon = _browseFaviconUrl(prevUrl);
+    var el = _browseActiveEl();
     if (el) {
+      _browseStackNavigation = true;
       _browseSetFrameAllow(el, prevUrl);
       var proxied = _browseProxyUrl(prevUrl);
       el.dataset.originalUrl = prevUrl;
@@ -69,14 +79,12 @@ export function browseBack() {
     if (typeof window._browseRenderTabs === 'function') window._browseRenderTabs();
     _browseUpdateSaveBtn();
     window._browseSaveTabs();
+    notifyTabsChanged();
     return;
   }
 }
 
 export function browseForward() {
-  var el = _browseActiveEl();
-  if (!el) return;
-  if (window._browseIsElectron && el.canGoForward && el.canGoForward()) { _browseNavDirection = 'forward'; el.goForward(); return; }
   var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
   if (!tab || !tab.forwardStack || !tab.forwardStack.length) return;
   if (!tab.backStack) tab.backStack = [];
@@ -85,15 +93,20 @@ export function browseForward() {
   tab.url = nextUrl;
   tab.title = _browseTitleFromUrl(nextUrl);
   tab.favicon = _browseFaviconUrl(nextUrl);
-  _browseSetFrameAllow(el, nextUrl);
-  var proxied = _browseProxyUrl(nextUrl);
-  el.dataset.originalUrl = nextUrl;
-  el.src = proxied;
+  var el = _browseActiveEl();
+  if (el) {
+    _browseStackNavigation = true;
+    _browseSetFrameAllow(el, nextUrl);
+    var proxied = _browseProxyUrl(nextUrl);
+    el.dataset.originalUrl = nextUrl;
+    el.src = proxied;
+  }
   var urlInput = document.getElementById('browse-url-input');
   if (urlInput) _browseSetUrlDisplay(urlInput, nextUrl);
   if (typeof window._browseRenderTabs === 'function') window._browseRenderTabs();
   _browseUpdateSaveBtn();
   window._browseSaveTabs();
+  notifyTabsChanged();
 }
 
 export function browseReload() {

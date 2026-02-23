@@ -9,7 +9,10 @@ import { _clearAudioUnified, _updateAudioUnified } from '/js/core/core-audio.js'
 import ChatEngine from '/js/chat-engine.js';
 import ChatRender from '/js/chat-render.js';
 import { _aetherShowCursor } from '/js/panel-commands.js';
-import { _browseCloseOtherTabs, browseAddTabToGroup, browseAddTabToNewGroup, browseNavigate, browseReload, browseRemoveTabFromGroup, browseTogglePin } from '/js/browse/browse-island.js';
+import { browseAddTabToGroup, browseAddTabToNewGroup, browseRemoveTabFromGroup, browseTogglePin } from '/js/toolbar/toolbar-tabs.js';
+import { browseNavigate } from '/js/toolbar/toolbar-url.js';
+import { browseReload } from '/js/toolbar/toolbar-nav.js';
+const _browseCloseOtherTabs = (...args) => window._browseCloseOtherTabs?.(...args);
 import { _currentPaperViewPaper } from '/js/views.js';
 import { _docText } from '/js/chat-threads.js';
 import { _repositionSelectionPopup, _showPanel } from '/js/panel.js';
@@ -447,87 +450,14 @@ export function _updateContextBar(popup) {
   // Removed — context bar no longer shown
 }
 
-export function _renderLatexInElement(element) {
-  // Process LaTeX in text nodes, handling both inline ($...$) and display ($$...$$) math
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
-  const nodesToProcess = [];
-  let node;
-  while (node = walker.nextNode()) {
-    // Skip if parent is code, pre, or already processed
-    if (node.parentElement && !node.parentElement.closest('code, pre, .katex')) {
-      nodesToProcess.push(node);
-    }
-  }
 
-  nodesToProcess.forEach(textNode => {
-    const text = textNode.textContent;
-    // Match both display ($$...$$) and inline ($...$) LaTeX
-    const regex = /(\$\$[^$]+?\$\$|\$[^$]+?\$)/g;
-    const matches = text.match(regex);
-    if (!matches) return;
-
-    const parts = text.split(regex);
-    const fragment = document.createDocumentFragment();
-
-    parts.forEach(part => {
-      if (part.startsWith('$$') && part.endsWith('$$')) {
-        // Display math
-        const math = part.slice(2, -2);
-        const span = document.createElement('span');
-        try {
-          katex.render(math, span, { displayMode: true, throwOnError: false });
-          fragment.appendChild(span);
-        } catch (e) {
-          fragment.appendChild(document.createTextNode(part));
-        }
-      } else if (part.startsWith('$') && part.endsWith('$')) {
-        // Inline math
-        const math = part.slice(1, -1);
-        const span = document.createElement('span');
-        try {
-          katex.render(math, span, { displayMode: false, throwOnError: false });
-          fragment.appendChild(span);
-        } catch (e) {
-          fragment.appendChild(document.createTextNode(part));
-        }
-      } else {
-        fragment.appendChild(document.createTextNode(part));
-      }
-    });
-
-    textNode.parentNode.replaceChild(fragment, textNode);
-  });
-}
-
-export function _renderCtxPills(sources, msg) {
-  if (!sources || !sources.length) return '';
-  return '<div class="doc-msg-context-sources">' + sources.map(s => {
-    const label = typeof s === 'string' ? s : s.label;
-    let content = typeof s === 'object' ? s.content : null;
-    // "tools" pill shows tools that were actually called
-    if (label === 'tools' && msg && msg._toolsCalled && msg._toolsCalled.length) {
-      content = msg._toolsCalled.join('\n');
-    }
-    if (content) {
-      const truncated = content.length > 4000 ? content.slice(0, 4000) + '\n…truncated' : content;
-      return '<details class="doc-ctx-details"><summary><span class="doc-ctx-pill">' +
-        escapeHtml(label) + '</span></summary><pre class="doc-ctx-raw">' +
-        escapeHtml(truncated) + '</pre></details>';
-    }
-    return '<span class="doc-ctx-pill">' + escapeHtml(label) + '</span>';
-  }).join('') + '</div>';
-}
 
 export function _renderPopupChat(popup, final) {
   const container = popup.querySelector('.doc-popup-chat-messages');
   if (!container) return;
-  const total = window._popupChatMessages.length;
-  AetherUI.mount(window.RawHTML(window._popupChatMessages.map((m, i) =>
-    ChatRender.renderMessageHTML(m, i, total, final)
-  ).join('')), container);
 
-  // Attach all handlers via ChatRender
-  ChatRender.attachMessageHandlers(container, {
+  // Build message views with handlers directly attached via ChatRender.renderMessages
+  AetherUI.mount(ChatRender.renderMessages(window._popupChatMessages, final, {
     onNavigate() {
       const p = document.getElementById('doc-chat-ask-float');
       if (p) { window._aetherTrackMode = false; p.remove(); }
@@ -605,7 +535,7 @@ export function _renderPopupChat(popup, final) {
         _renderPopupChat(popup, true);
       }
     },
-  });
+  }), container);
 
   // Update send/stop button state
   const sendBtn = popup.querySelector('.doc-ask-inline-send');
@@ -648,30 +578,12 @@ export function _updateChatStats(popup, final) {
   const statsEl = popup.querySelector('.doc-chat-stats');
   if (!statsEl) return;
   _updateContextUsage(popup);
-  if (window._popupChatMessages.length === 0) { statsEl.textContent = ''; return; }
-  const lastAi = [...window._popupChatMessages].reverse().find(m => m.role === 'assistant' && !m._thinking);
-  if (!lastAi) { statsEl.textContent = ''; return; }
-  const parts = [];
-  // Token count: use actual usage if available, else estimate from streamed text
-  if (lastAi._usage) {
-    const u = lastAi._usage;
-    const total = (u.prompt_tokens || 0) + (u.completion_tokens || 0);
-    if (total) parts.push(total >= 1000 ? (total / 1000).toFixed(1) + 'k tokens' : total + ' tokens');
-  } else if (lastAi.content) {
-    const est = Math.round(lastAi.content.length / 4);
-    if (est > 0) parts.push('~' + (est >= 1000 ? (est / 1000).toFixed(1) + 'k' : est) + ' tokens');
+  const statsView = ChatRender.renderChatStats(window._popupChatMessages, window._chatStreamStart);
+  if (statsView) {
+    AetherUI.mount(statsView, statsEl);
+  } else {
+    statsEl.textContent = '';
   }
-  // Timing: use server duration if final, else live elapsed
-  if (lastAi._usage && lastAi._usage.duration_ms) {
-    const ms = lastAi._usage.duration_ms;
-    parts.push(ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms');
-  } else if (window._chatStreamStart) {
-    const elapsed = Date.now() - window._chatStreamStart;
-    parts.push(elapsed >= 1000 ? (elapsed / 1000).toFixed(1) + 's' : elapsed + 'ms');
-  }
-  // Model name
-  if (lastAi._usage && lastAi._usage.model) parts.push(lastAi._usage.model);
-  statsEl.textContent = parts.join(' \u00B7 ');
 }
 
 export function _savePopupChatToHighlight(popup) {

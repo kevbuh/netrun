@@ -471,8 +471,11 @@ export function _islandShowDetailCard(pill, activity) {
     trayWrapView.add(T(fallbackText).styles({ padding: '8px', opacity: '0.4', fontSize: '0.72rem', whiteSpace: 'pre-line' }));
   }
   var cardView = new V('div').className('island-detail-card').add(headerView, trayWrapView);
+  cardView.on('click', function(e) {
+    _islandHandleTrayClicks(e, pill, activity);
+  });
+  AetherUI.append(cardView, document.body);
   const card = cardView.el;
-  document.body.appendChild(card);
   // Position below pill, clamped to viewport edges
   const pillRect = pill.getBoundingClientRect();
   let left = pillRect.left + pillRect.width / 2 - card.offsetWidth / 2;
@@ -486,10 +489,6 @@ export function _islandShowDetailCard(pill, activity) {
   // Animate in
   Motion.animate(card, { spring: 'smooth', from: { opacity: 0, scale: 0.92, y: -8 }, to: { opacity: 1, scale: 1, y: 0 } });
   _activeDetailCard = card;
-  // Attach click handlers on the card's interactive elements
-  card.onclick = function(e) {
-    _islandHandleTrayClicks(e, pill, activity);
-  };
   // Close on outside click (deferred so this click doesn't close it)
   setTimeout(function() {
     document.addEventListener('mousedown', function _detailOutside(e) {
@@ -921,7 +920,8 @@ export function _islandRender() {
         // Add or update +N badge
         let badge = pill.querySelector('.island-stack-badge');
         if (!badge) {
-          badge = new window.View('span').className('island-stack-badge').el;
+          const badgeView = new window.View('span').className('island-stack-badge');
+          badge = badgeView.el;
           const content = pill.querySelector('.pill-island-content');
           if (content) content.appendChild(badge);
         }

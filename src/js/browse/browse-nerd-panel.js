@@ -119,7 +119,6 @@ function _getState() {
 }
 
 function _renderInfoTab(container) {
-  container.replaceChildren();
   var tab = _getTab();
   var state = _getState();
 
@@ -131,7 +130,7 @@ function _renderInfoTab(container) {
     } else {
       wrap.add(Text('Loading paper info...').className('nerd-empty'));
     }
-    AetherUI.append(wrap, container);
+    AetherUI.mount(wrap, container);
     if (tab) {
       setTimeout(function() { _renderInfoTab(container); }, 2000);
     }
@@ -228,18 +227,17 @@ function _renderInfoTab(container) {
   });
 
   wrap.add(citeSectionView);
-  AetherUI.append(wrap, container);
+  AetherUI.mount(wrap, container);
 }
 
 function _renderRefsTab(container) {
-  container.replaceChildren();
   var state = _getState();
 
   var wrap = new View('div').className('nerd-tab-wrap');
 
   if (!state || !state.refs || !state.refs.length) {
     wrap.add(Text('No references available').className('nerd-empty'));
-    AetherUI.append(wrap, container);
+    AetherUI.mount(wrap, container);
     return;
   }
 
@@ -266,18 +264,17 @@ function _renderRefsTab(container) {
     wrap.add(item);
   });
 
-  AetherUI.append(wrap, container);
+  AetherUI.mount(wrap, container);
 }
 
 function _renderAuthorsTab(container) {
-  container.replaceChildren();
   var state = _getState();
 
   var wrap = new View('div').className('nerd-tab-wrap');
 
   if (!state || !state.s2Data || !state.s2Data.authors || !state.s2Data.authors.length) {
     wrap.add(Text('No author data available').className('nerd-empty'));
-    AetherUI.append(wrap, container);
+    AetherUI.mount(wrap, container);
     return;
   }
 
@@ -327,19 +324,17 @@ function _renderAuthorsTab(container) {
     wrap.add(card);
   });
 
-  AetherUI.append(wrap, container);
+  AetherUI.mount(wrap, container);
 }
 
 function _renderRelatedTab(container) {
-  container.replaceChildren();
   var state = _getState();
 
   var wrap = new View('div').className('nerd-tab-wrap');
-  var wrapEl = wrap.el;
 
   if (!state || !state.s2Data || !state.s2Data.paperId) {
     wrap.add(Text('No paper identified').className('nerd-empty'));
-    AetherUI.append(wrap, container);
+    AetherUI.mount(wrap, container);
     return;
   }
 
@@ -348,16 +343,16 @@ function _renderRelatedTab(container) {
   } else {
     wrap.add(Text('Loading recommendations...').className('nerd-empty'));
   }
-  AetherUI.append(wrap, container);
+  AetherUI.mount(wrap, container);
 
   _s2Fetch('https://api.semanticscholar.org/recommendations/v1/papers/forpaper/' + state.s2Data.paperId + '?limit=10&fields=title,authors,year,citationCount,venue').then(function(data) {
-    wrapEl.replaceChildren();
     var papers = data && data.recommendedPapers ? data.recommendedPapers : [];
     if (!papers.length) {
-      AetherUI.mount(Text('No recommendations found').className('nerd-empty'), wrapEl);
+      AetherUI.mount(Text('No recommendations found').className('nerd-empty'), container);
       return;
     }
 
+    var resultWrap = new View('div').className('nerd-tab-wrap');
     papers.forEach(function(paper) {
       var item = new View('div').className('nerd-paper-item');
       item.add(Text(paper.title || 'Untitled').className('nerd-paper-item-title line-clamp-2'));
@@ -378,22 +373,22 @@ function _renderRelatedTab(container) {
         if (typeof window.browseNewTab === 'function') window.browseNewTab(url);
       });
 
-      AetherUI.append(item, wrapEl);
+      resultWrap.add(item);
     });
+    AetherUI.mount(resultWrap, container);
   }).catch(function() {
-    AetherUI.mount(Text('Failed to load recommendations').className('nerd-empty'), wrapEl);
+    AetherUI.mount(Text('Failed to load recommendations').className('nerd-empty'), container);
   });
 }
 
 function _renderHighlightsTab(container) {
-  container.replaceChildren();
   var tab = _getTab();
 
   var wrap = new View('div').className('nerd-tab-wrap');
 
   if (!tab || !tab._pdfHighlights || !tab._pdfHighlights.length) {
     wrap.add(Text('No highlights yet. Select text in the PDF to highlight.').className('nerd-empty'));
-    AetherUI.append(wrap, container);
+    AetherUI.mount(wrap, container);
     return;
   }
 
@@ -443,7 +438,7 @@ function _renderHighlightsTab(container) {
     // Note textarea
     var note = new View('textarea').className('pdf-hl-card-note').attr('rows', '1').attr('placeholder', 'Add a note...');
     note.el.value = hl.note || '';
-    note.el.addEventListener('input', function() {
+    note.on('input', function() {
       hl.note = note.el.value;
     });
     card.add(note);
@@ -451,11 +446,10 @@ function _renderHighlightsTab(container) {
     wrap.add(card);
   });
 
-  AetherUI.append(wrap, container);
+  AetherUI.mount(wrap, container);
 }
 
 function _renderSearchTab(container) {
-  container.replaceChildren();
   var tab = _getTab();
 
   var wrap = new View('div').className('nerd-search-wrap');
@@ -471,19 +465,17 @@ function _renderSearchTab(container) {
   wrap.add(resultsView);
   var resultsEl = resultsView.el;
 
-  AetherUI.append(wrap, container);
+  AetherUI.mount(wrap, container);
 
   var searchTimer = null;
-  input.el.addEventListener('input', function() {
+  input.on('input', function() {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(function() {
       var query = input.el.value.trim();
       if (!query || !tab || !tab._pdfDoc) {
-        resultsEl.replaceChildren();
         AetherUI.mount(Text('Type to search the full document').className('nerd-empty'), resultsEl);
         return;
       }
-      resultsEl.replaceChildren();
       AetherUI.mount(Text('Searching...').className('nerd-empty'), resultsEl);
       _searchFullText(tab, query, resultsEl);
     }, 400);
@@ -519,13 +511,13 @@ function _searchFullText(tab, query, results) {
   }
 
   Promise.all(promises).then(function() {
-    results.replaceChildren();
     if (!matches.length) {
       AetherUI.mount(Text('No matches found').className('nerd-empty'), results);
       return;
     }
 
-    AetherUI.append(Text(matches.length + ' match' + (matches.length !== 1 ? 'es' : '') + ' found').className('nerd-search-count'), results);
+    var resultsWrap = new View('div').className('nerd-search-results-inner');
+    resultsWrap.add(Text(matches.length + ' match' + (matches.length !== 1 ? 'es' : '') + ' found').className('nerd-search-count'));
 
     matches.forEach(function(m) {
       var item = new View('div').className('nerd-paper-item').add(
@@ -535,27 +527,27 @@ function _searchFullText(tab, query, results) {
         _pdfViewerScrollToPage(tab, m.pageNum);
       });
 
-      AetherUI.append(item, results);
+      resultsWrap.add(item);
     });
+
+    AetherUI.mount(resultsWrap, results);
   });
 }
 
 // ── Code Tab (Papers With Code) ──
 
 function _renderCodeTab(container) {
-  container.replaceChildren();
   var state = _getState();
   var wrap = new View('div').className('nerd-tab-wrap');
-  var wrapEl = wrap.el;
 
   if (!state || !state.s2Data || !state.s2Data.title) {
     wrap.add(Text('No paper identified').className('nerd-empty'));
-    AetherUI.append(wrap, container);
+    AetherUI.mount(wrap, container);
     return;
   }
 
   wrap.add(Text('Searching for implementations...').className('nerd-empty'));
-  AetherUI.append(wrap, container);
+  AetherUI.mount(wrap, container);
 
   var query = encodeURIComponent(state.s2Data.title);
   var _pwcFetch = function(url) {
@@ -566,12 +558,12 @@ function _renderCodeTab(container) {
   };
   _pwcFetch('https://paperswithcode.com/api/v1/papers/?q=' + query + '&items_per_page=5')
     .then(function(data) {
-      wrapEl.replaceChildren();
       var results = data && data.results ? data.results : [];
       if (!results.length) {
-        AetherUI.mount(Text('No implementations found').className('nerd-empty'), wrapEl);
+        AetherUI.mount(Text('No implementations found').className('nerd-empty'), container);
         return;
       }
+      var cards = [];
       var foundAny = false;
       var pending = results.length;
       results.forEach(function(paper) {
@@ -593,18 +585,24 @@ function _renderCodeTab(container) {
                 if (typeof window.browseNewTab === 'function') window.browseNewTab(repo.url);
               });
 
-              AetherUI.append(card, wrapEl);
+              cards.push(card);
             });
             pending--;
-            if (pending <= 0 && !foundAny) {
-              AetherUI.mount(Text('No implementations found').className('nerd-empty'), wrapEl);
+            if (pending <= 0) {
+              if (!foundAny) {
+                AetherUI.mount(Text('No implementations found').className('nerd-empty'), container);
+              } else {
+                var repoWrap = new View('div').className('nerd-tab-wrap');
+                cards.forEach(function(c) { repoWrap.add(c); });
+                AetherUI.mount(repoWrap, container);
+              }
             }
           })
           .catch(function() { pending--; });
       });
     })
     .catch(function() {
-      AetherUI.mount(Text('Failed to search implementations').className('nerd-empty'), wrapEl);
+      AetherUI.mount(Text('Failed to search implementations').className('nerd-empty'), container);
     });
 }
 

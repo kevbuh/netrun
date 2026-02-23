@@ -38,11 +38,6 @@ function _readingTime(wordCount) {
   return mins + ' min read';
 }
 
-function _formatTokens(count) {
-  if (!count || count <= 0) return '';
-  return count >= 1000 ? Math.round(count / 1000) + 'k tok' : count + ' tok';
-}
-
 // ── Build pill label ──
 function _buildLabel(meta) {
   // Primary: relative age from publish date
@@ -62,7 +57,6 @@ function _buildLabel(meta) {
 function _buildBadges() {
   const parts = [];
   if (_scrollPct > 0) parts.push(_scrollPct + '%');
-  if (_tokenCount > 0) parts.push(_formatTokens(_tokenCount));
   return parts.join(' · ');
 }
 
@@ -238,7 +232,6 @@ export function _pageInfoRestoreForTab(tab) {
   _scrollPct = -1;
   _tokenCount = 0;
   const cached = _pageInfoCache.get(url);
-  console.log('[pageinfo] restoreForTab url:', url, 'cached:', !!cached, 'cacheKeys:', [..._pageInfoCache.keys()]);
   if (cached && (Date.now() - cached.ts) < _CACHE_TTL) {
     _pushPill(cached.data);
   } else {

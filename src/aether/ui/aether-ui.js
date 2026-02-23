@@ -9,7 +9,7 @@ import { VStack, HStack, ZStack, Grid, Spacer, Divider, ScrollView, Text, Label,
 import { Button, TextField, Textarea, Toggle, Checkbox, RadioGroup, Slider, Picker, Stepper, TabView, ProgressBar, Pill, FormField, SearchField, Spinner, Disclosure, Badge, SegmentedControl, Skeleton } from '/aether/ui/controls.js';
 import { ForEach, List, Group, Section, Show, Switch, EmptyState } from '/aether/ui/containers.js';
 import { Sheet, Alert, Popover, Menu, Toast } from '/aether/ui/overlay.js';
-import { defineComponent, getComponent, listComponents } from '/aether/ui/component.js';
+import { Component, defineComponent, getComponent, listComponents } from '/aether/ui/component.js';
 import { VirtualList } from '/aether/ui/virtual.js';
 
 // ─── Mount / Append ───────────────────────────────────────
@@ -198,6 +198,7 @@ var AetherUI = {
   Toast: Toast,
 
   // Component
+  Component: Component,
   defineComponent: defineComponent,
   getComponent: getComponent,
   listComponents: listComponents,
@@ -237,7 +238,7 @@ var AetherUI = {
       'Disclosure', 'Badge', 'SegmentedControl', 'Skeleton',
       'ForEach', 'List', 'Group', 'Section', 'Show', 'Switch', 'EmptyState', 'VirtualList',
       'Sheet', 'Alert', 'Popover', 'Menu', 'Toast',
-      'defineComponent'
+      'Component', 'defineComponent'
     ];
     for (var i = 0; i < names.length; i++) {
       if (AetherUI[names[i]]) window[names[i]] = AetherUI[names[i]];
@@ -256,3 +257,13 @@ if (window.Aether) {
 }
 
 export { AetherUI };
+export {
+  State, Computed, Effect, Binding, Store, batch, untrack, Context,
+  View,
+  VStack, HStack, ZStack, Grid, Spacer, Divider, ScrollView, Text, Label, Link, Image, Icon, Kbd, RawHTML,
+  Button, TextField, Textarea, Toggle, Checkbox, RadioGroup, Slider, Picker, Stepper, TabView, ProgressBar, Pill, FormField, SearchField, Spinner, Disclosure, Badge, SegmentedControl, Skeleton,
+  ForEach, List, Group, Section, Show, Switch, EmptyState, VirtualList,
+  Sheet, Alert, Popover, Menu, Toast,
+  Component, defineComponent, getComponent, listComponents,
+  mount, append, serialize
+};

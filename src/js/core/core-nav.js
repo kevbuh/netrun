@@ -1,7 +1,7 @@
 // core-nav.js — Navigation history, side panel
 // Extracted from core.js
 import Settings from '/js/core/core-settings.js';
-import { browseBack, browseForward } from '/js/browse/browse-island.js';
+import { browseBack, browseForward } from '/js/toolbar/toolbar-nav.js';
 
 // ── Navigation history stack (survives Cmd+Shift+R via localStorage) ──
 

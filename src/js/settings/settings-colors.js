@@ -420,21 +420,13 @@ export function stopDaylightTheme() {
   }
 }
 
+// @signal — tracks the active accent color for reactive swatch highlighting
+export var _accentColorState = State(Settings.get('accentColor') || '#b4451a');
+
 export function setAccentColor(color) {
   Settings.set('accentColor', color);
   applyAccentColor(color);
-  // Update swatch rings
-  document.querySelectorAll('[onclick^="setAccentColor"]').forEach(btn => {
-    const isActive = btn.getAttribute('onclick') === `setAccentColor('${color}')`;
-    btn.className = `w-6 h-6 rounded-full cursor-pointer transition-transform hover:scale-110 ${isActive ? 'scale-110 ring-2 ring-offset-2' : ''}`;
-    if (isActive) {
-      btn.style.setProperty('--tw-ring-color', color);
-      btn.style.setProperty('--tw-ring-offset-color', 'var(--nr-bg-body)');
-    } else {
-      btn.style.removeProperty('--tw-ring-color');
-      btn.style.removeProperty('--tw-ring-offset-color');
-    }
-  });
+  _accentColorState.value = color;
 }
 
 export let _spinnerPreviewInterval = null;

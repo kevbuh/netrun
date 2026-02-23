@@ -1,6 +1,6 @@
 import Settings from '/js/core/core-settings.js';
 import { icon } from '/js/core/icons.js';
-import { _browseRenderTabs } from '/js/browse/browse-island.js';
+import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
 import { _browseSetUrlDisplay } from '/js/browse-urlbar.js';
 import { _browseUpdateNewTabPage, browseSelectTab } from '/js/browse/browse-passwords.js';
 import { browseSelectWindow, openBrowse } from '/js/browse/browse-windows.js';
@@ -36,12 +36,12 @@ export function openTerminalPage() {
   if (tab.el) tab.el.remove();
 
   const container = document.getElementById('browse-content');
-  const el = document.createElement('div');
-  el.id = 'browse-terminal-' + tab.id;
-  el.className = 'nr-terminal-page';
-  el.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;display:flex;flex-direction:column;';
-  container.appendChild(el);
-  tab.el = el;
+  const page = new window.View('div')
+    .id('browse-terminal-' + tab.id)
+    .className('nr-terminal-page')
+    .cssText('position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;display:flex;flex-direction:column;');
+  container.appendChild(page.el);
+  tab.el = page.el;
 
   _browseUpdateNewTabPage(tab);
   _browseRenderTabs();
@@ -49,74 +49,60 @@ export function openTerminalPage() {
   const urlInput = document.getElementById('browse-url-input');
   _browseSetUrlDisplay(urlInput, 'terminal://');
 
-  _renderTerminalPage(el);
+  _renderTerminalPage(page.el);
 }
 
 function _renderTerminalPage(el) {
   _loadTerminalState();
 
-  // Tab bar
-  const tabBar = document.createElement('div');
-  tabBar.className = 'nr-terminal-page-tabs';
-  el.appendChild(tabBar);
-
-  // Terminal pane
-  const pane = document.createElement('div');
-  pane.className = 'nr-terminal-page-pane';
-  el.appendChild(pane);
+  const tabBar = new window.View('div').className('nr-terminal-page-tabs');
+  const pane = new window.View('div').className('nr-terminal-page-pane');
+  el.appendChild(tabBar.el);
+  el.appendChild(pane.el);
 
   // Create first terminal if none exist
   if (_terminals.length === 0) {
     createTerminal();
   }
 
-  _renderTerminalPageTabs(tabBar);
-  _renderTerminalPagePane(pane);
+  _renderTerminalPageTabs(tabBar.el);
+  _renderTerminalPagePane(pane.el);
 }
 
 function _renderTerminalPageTabs(tabBar) {
   tabBar.innerHTML = '';
   _terminals.forEach(function(t) {
     const tabSvg = icon('terminal', { size: 12, class: 'shrink-0 text-dimmer', strokeWidth: '1.5' });
-    const tab = document.createElement('div');
-    tab.className = 'term-tab' + (t.id === _activeTerminalId ? ' active' : '');
-    tab.dataset.termId = t.id;
-    tab.addEventListener('click', function() {
+    const tab = new window.View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
+    tab.attr('data-term-id', t.id);
+    tab.onTap(function() {
       _activeTerminalId = t.id;
       _renderTerminalPageTabs(tabBar);
       _renderTerminalPagePane(tabBar.nextElementSibling);
       _saveTerminalState();
     });
-    tab.innerHTML = tabSvg;
-    const title = document.createElement('span');
-    title.className = 'term-tab-title';
-    title.textContent = t.name;
-    tab.appendChild(title);
+    tab.add(window.RawHTML(tabSvg));
+    const title = window.Text(t.name).className('term-tab-title');
+    tab.add(title);
     if (_terminals.length > 1) {
-      const closeBtn = document.createElement('button');
-      closeBtn.className = 'term-tab-close';
-      closeBtn.textContent = '\u00d7';
-      closeBtn.title = 'Close';
-      closeBtn.addEventListener('click', function(e) {
+      const closeBtn = window.Button('\u00d7').className('term-tab-close').attr('title', 'Close');
+      closeBtn.onTap(function(e) {
         e.stopPropagation();
         destroyTerminal(t.id);
         _renderTerminalPageTabs(tabBar);
         _renderTerminalPagePane(tabBar.nextElementSibling);
       });
-      tab.appendChild(closeBtn);
+      tab.add(closeBtn);
     }
-    tabBar.appendChild(tab);
+    tabBar.appendChild(tab.el);
   });
-  const newBtn = document.createElement('button');
-  newBtn.className = 'term-tab-new';
-  newBtn.textContent = '+';
-  newBtn.title = 'New Tab';
-  newBtn.addEventListener('click', function() {
+  const newBtn = window.Button('+').className('term-tab-new').attr('title', 'New Tab');
+  newBtn.onTap(function() {
     createTerminal();
     _renderTerminalPageTabs(tabBar);
     _renderTerminalPagePane(tabBar.nextElementSibling);
   });
-  tabBar.appendChild(newBtn);
+  tabBar.appendChild(newBtn.el);
 }
 
 function _renderTerminalPagePane(container) {
@@ -297,10 +283,11 @@ export function createTerminal(name, skipLayoutUpdate = false) {
   const id = _nextTerminalId();
   const termName = name || `Terminal ${id}`;
 
-  const container = document.createElement('div');
-  container.className = 'term-pane';
-  container.dataset.termId = id;
-  container.style.cssText = 'width:100%;height:100%;position:relative;';
+  const containerView = new window.View('div')
+    .className('term-pane')
+    .attr('data-term-id', id)
+    .cssText('width:100%;height:100%;position:relative;');
+  const container = containerView.el;
 
   const theme = TERMINAL_THEMES[_termSettings.theme] || TERMINAL_THEMES.dark;
   const term = new Terminal({
@@ -472,13 +459,11 @@ export function _renderTabs() {
     const tab = new window.View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
     tab.attr('data-term-id', t.id);
     tab.onTap(function() { selectTerminal(t.id); });
-    tab.el.appendChild(window.RawHTML(tabSvg).el);
     const title = window.Text(t.name).className('term-tab-title');
     title.on('dblclick', function(e) { e.stopPropagation(); _startRenameTab(t.id); });
-    tab.el.appendChild(title.el);
     const closeBtn = window.Button('\u00d7').className('term-tab-close').attr('title', 'Close');
     closeBtn.onTap(function(e) { e.stopPropagation(); destroyTerminal(t.id); });
-    tab.el.appendChild(closeBtn.el);
+    tab.add(window.RawHTML(tabSvg), title, closeBtn);
     tabsEl.appendChild(tab.el);
   });
   const newBtn = window.Button('+').className('term-tab-new').attr('title', 'New Tab');
@@ -493,22 +478,23 @@ export function _startRenameTab(id) {
   const tabEl = document.querySelector(`.term-tab[data-term-id="${id}"] .term-tab-title`);
   if (!tabEl) return;
 
-  const input = document.createElement('input');
-  input.type = 'text';
+  const inputView = new window.View('input')
+    .className('term-tab-rename-input')
+    .attr('type', 'text')
+    .cssText('width:80px;background:var(--nr-bg-input);border:1px solid var(--nr-accent);border-radius:3px;padding:1px 4px;font-size:0.75rem;color:var(--nr-text-primary);outline:none;');
+  const input = inputView.el;
   input.value = t.name;
-  input.className = 'term-tab-rename-input';
-  input.style.cssText = 'width:80px;background:var(--nr-bg-input);border:1px solid var(--nr-accent);border-radius:3px;padding:1px 4px;font-size:0.75rem;color:var(--nr-text-primary);outline:none;';
 
   const finish = () => {
     const newName = input.value.trim() || t.name;
     renameTerminal(id, newName);
   };
 
-  input.onblur = finish;
-  input.onkeydown = (e) => {
+  inputView.on('blur', finish);
+  inputView.on('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
     if (e.key === 'Escape') { input.value = t.name; input.blur(); }
-  };
+  });
 
   tabEl.innerHTML = '';
   tabEl.appendChild(input);
@@ -594,9 +580,7 @@ export function _renderLayout() {
         ? 'height:' + ((1 - ratio) * 100) + '%;width:100%;overflow:hidden;'
         : 'width:' + ((1 - ratio) * 100) + '%;height:100%;overflow:hidden;');
 
-      wrapper.el.appendChild(pane1.el);
-      wrapper.el.appendChild(handle.el);
-      wrapper.el.appendChild(pane2.el);
+      wrapper.add(pane1, handle, pane2);
       parentEl.appendChild(wrapper.el);
 
       render(node.children[0], pane1.el);
@@ -1100,13 +1084,12 @@ export function _renderBottomTerminalTabs() {
     const tab = new window.View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
     tab.attr('data-term-id', t.id);
     tab.onTap(function() { _bottomSelectTerminal(t.id); });
-    tab.el.appendChild(window.RawHTML(tabSvg).el);
     const title = window.Text(t.name).className('term-tab-title');
-    tab.el.appendChild(title.el);
+    tab.add(window.RawHTML(tabSvg), title);
     if (_terminals.length > 1) {
       const closeBtn = window.Button('\u00d7').className('term-tab-close').attr('title', 'Close');
       closeBtn.onTap(function(e) { e.stopPropagation(); destroyTerminal(t.id); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); });
-      tab.el.appendChild(closeBtn.el);
+      tab.add(closeBtn);
     }
     tabsEl.appendChild(tab.el);
   });

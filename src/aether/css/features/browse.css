@@ -1,16 +1,4 @@
 /* ── Browse tabs, sessions, audio, CC ── */
-    /* Tab & group context menu */
-    .browse-ctx-menu {
-      background: var(--nr-bg-surface); border: 1px solid var(--nr-border-default);
-      border-radius: 8px; padding: 4px 0; min-width: 160px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.35); font-size: 0.75rem;
-    }
-    .browse-ctx-item {
-      padding: 6px 12px; cursor: pointer; color: var(--nr-text-quaternary);
-      display: flex; align-items: center; gap: 6px;
-    }
-    .browse-ctx-item:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
-    .browse-ctx-sep { height: 1px; background: var(--nr-border-default); margin: 3px 8px; }
     .browse-ctx-color-dot {
       display: inline-block; width: 14px; height: 14px; border-radius: 50%; cursor: pointer;
       border: 2px solid transparent; transition: border-color 0.1s;
@@ -225,30 +213,6 @@
       transform: scale(1.08);
     }
 
-    /* ── NTP Plus Menu ── */
-    .ntp-plus-menu {
-      min-width: 200px;
-      padding: 6px 0;
-      border-radius: var(--nr-radius-lg);
-      background: var(--nr-bg-raised);
-      border: 1px solid var(--nr-border);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    }
-    .ntp-plus-menu-item {
-      padding: 10px 16px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      color: var(--nr-text-primary);
-      transition: background 0.1s;
-    }
-    .ntp-plus-menu-item:hover {
-      background: var(--nr-bg-hover);
-    }
-    .ntp-plus-menu-divider {
-      height: 1px;
-      background: var(--nr-border);
-      margin: 4px 12px;
-    }
 
     /* ── NTP File Cards ── */
     .ntp-file-chips-container {

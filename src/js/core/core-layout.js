@@ -4,14 +4,24 @@
 import Settings from '/js/core/core-settings.js';
 import { apiGet } from '/js/api.js';
 import { browseNewTab, openBrowse } from '/js/browse/browse-windows.js';
+import { Effect } from '/aether/ui/state.js';
+import {
+  getBoundsCache, setBoundsCache,
+  getSpinnerData, setSpinnerData, _spinnerNames, getSpinnerInterval, setSpinnerInterval,
+  getLazyImageObserver, setLazyImageObserver,
+  getSidebarFocused, setSidebarFocused,
+  getSidebarSelectedIndex, setSidebarSelectedIndex,
+  getSidebarNavClicking, setSidebarNavClicking,
+  _sidebarFocused, _sidebarSelectedIndex,
+} from '/js/core/core-state.js';
 
 // ── Content safe bounds for popups ──
 // Returns {top, left, right, bottom} — the usable area where popups may appear,
 // avoiding the tab row, URL bar, and macOS traffic lights.
-export function _invalidateBoundsCache() { _boundsCache = null; }
+export function _invalidateBoundsCache() { setBoundsCache(null); }
 window.addEventListener('resize', _invalidateBoundsCache);
 export function _popupSafeBounds() {
-  if (window._boundsCache) return window._boundsCache;
+  if (getBoundsCache()) return getBoundsCache();
   const tabRow = document.getElementById('browse-tab-row');
   const bar = document.getElementById('browse-bar');
   const pillBar = document.getElementById('sidebar-nav');
@@ -29,8 +39,9 @@ export function _popupSafeBounds() {
     top = Math.max(top, 42);
     if (left < 80 && top <= 42) left = Math.max(left, 80);
   }
-  window._boundsCache = { top, left, right: window.innerWidth, bottom: window.innerHeight };
-  return window._boundsCache;
+  const bounds = { top, left, right: window.innerWidth, bottom: window.innerHeight };
+  setBoundsCache(bounds);
+  return bounds;
 }
 
 // ── Cmd/Ctrl+click → open in new browse tab ──
@@ -133,7 +144,7 @@ export function dismissDownloadBanner() {
   }
 }
 
-// Update Browse button tooltip when not in Electron
+// Update Browse button tooltip when not in Electron — reactive text node
 function updateBrowseButtonTooltip() {
   const isElectron = window.electronAPI && window.electronAPI.isElectron;
   if (!isElectron) {
@@ -144,6 +155,16 @@ function updateBrowseButtonTooltip() {
     }
   }
 }
+
+// Reactive Effect: keep tooltip text in sync if Electron state changes at runtime
+Effect(() => {
+  const isElectron = window.electronAPI && window.electronAPI.isElectron;
+  if (!isElectron) {
+    const browseBtn = document.getElementById('sb-browse');
+    const tooltip = browseBtn?.querySelector('.sidebar-tooltip');
+    if (tooltip) tooltip.textContent = 'Browse (Desktop only)';
+  }
+});
 
 // Show banner after DOM is loaded
 if (document.readyState === 'loading') {
@@ -169,28 +190,31 @@ export function setSelectedSpinner(name) {
 
 export function loadSpinners() {
   return apiGet('/spinners.json').then(data => {
-    window._spinnerData = data;
-    window._spinnerNames = Object.keys(data);
+    setSpinnerData(data);
+    _spinnerNames.length = 0;
+    Object.keys(data).forEach(k => _spinnerNames.push(k));
     restartSpinners();
     return data;
   });
 }
 
 export function restartSpinners() {
-  if (window._spinnerInterval) { clearInterval(window._spinnerInterval); window._spinnerInterval = null; }
-  if (!window._spinnerData) return;
+  const interval = getSpinnerInterval();
+  if (interval) { clearInterval(interval); setSpinnerInterval(null); }
+  const data = getSpinnerData();
+  if (!data) return;
   const name = getSelectedSpinner();
-  const spinner = window._spinnerData[name];
+  const spinner = data[name];
   if (!spinner) return;
   const frames = spinner.frames;
-  const interval = spinner.interval;
+  const intervalMs = spinner.interval;
   let i = 0;
   function tick() {
     const els = document.querySelectorAll('.spinner');
     if (!els.length) {
       // No spinners in DOM — stop interval so MutationObserver can restart when new ones appear
-      clearInterval(window._spinnerInterval);
-      window._spinnerInterval = null;
+      clearInterval(getSpinnerInterval());
+      setSpinnerInterval(null);
       return;
     }
     els.forEach(el => { el.textContent = frames[i]; });
@@ -198,13 +222,13 @@ export function restartSpinners() {
   }
   tick();
   if (document.querySelectorAll('.spinner').length) {
-    window._spinnerInterval = setInterval(tick, interval);
+    setSpinnerInterval(setInterval(tick, intervalMs));
   }
 }
 
 const _spinnerMO = new MutationObserver(() => {
   const els = document.querySelectorAll('.spinner');
-  if (els.length && !window._spinnerInterval && window._spinnerData) restartSpinners();
+  if (els.length && !getSpinnerInterval() && getSpinnerData()) restartSpinners();
 });
 _spinnerMO.observe(document.documentElement, { childList: true, subtree: true });
 
@@ -224,10 +248,7 @@ export function debounce(fn, ms) {
 
 export function setSidebarActive(id) {
   if (id && window._sidebarToView[id]) { Settings.set('_lastActiveView', window._sidebarToView[id]); }
-  document.querySelectorAll('.sidebar-icon').forEach(b => {
-    b.classList.remove('active');
-    // Don't remove sb-loading here - let animation finish on its own
-  });
+  document.querySelectorAll('.sidebar-icon').forEach(b => b.classList.remove('active'));
   const desktopEl = document.getElementById(id);
   if (desktopEl) desktopEl.classList.add('active');
 }
@@ -242,40 +263,32 @@ function _getSidebarItems() {
   const nav = document.getElementById('sidebar-nav');
   if (!nav) return [];
   // Get all visible sidebar icons in DOM order
-  return Array.from(nav.querySelectorAll('.sidebar-icon')).filter(el => {
-    // Filter out hidden elements
-    return el.offsetParent !== null;
-  });
+  return Array.from(nav.querySelectorAll('.sidebar-icon')).filter(el => el.offsetParent !== null);
 }
 
 function _focusSidebar() {
-  window._sidebarFocused = true;
-  const nav = document.getElementById('sidebar-nav');
-  if (nav) nav.classList.add('sidebar-focused');
+  setSidebarFocused(true);
 
   // If no selection, select the currently active item
-  if (window._sidebarSelectedIndex < 0) {
+  if (getSidebarSelectedIndex() < 0) {
     const items = _getSidebarItems();
     const activeIdx = items.findIndex(el => el.classList.contains('active'));
-    window._sidebarSelectedIndex = activeIdx >= 0 ? activeIdx : 0;
+    setSidebarSelectedIndex(activeIdx >= 0 ? activeIdx : 0);
   }
-  _renderSidebarSelection();
 }
 
 function _blurSidebar() {
-  window._sidebarFocused = false;
-  window._sidebarSelectedIndex = -1;
-  const nav = document.getElementById('sidebar-nav');
-  if (nav) nav.classList.remove('sidebar-focused');
-  _getSidebarItems().forEach(el => el.classList.remove('sidebar-kbd-selected'));
+  setSidebarFocused(false);
+  setSidebarSelectedIndex(-1);
 }
 
 function _renderSidebarSelection() {
   const items = _getSidebarItems();
-  items.forEach(el => el.classList.remove('sidebar-kbd-selected'));
+  const idx = getSidebarSelectedIndex();
+  items.forEach((el, i) => el.classList.toggle('sidebar-kbd-selected', i === idx));
   // Scroll into view if needed
-  if (window._sidebarSelectedIndex >= 0 && items[window._sidebarSelectedIndex]) {
-    items[window._sidebarSelectedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  if (idx >= 0 && items[idx]) {
+    items[idx].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 }
 
@@ -283,24 +296,38 @@ function _sidebarNavigate(direction) {
   const items = _getSidebarItems();
   if (!items.length) return;
 
-  window._sidebarSelectedIndex += direction;
-  if (window._sidebarSelectedIndex < 0) window._sidebarSelectedIndex = items.length - 1;
-  if (window._sidebarSelectedIndex >= items.length) window._sidebarSelectedIndex = 0;
-  _renderSidebarSelection();
+  let idx = getSidebarSelectedIndex() + direction;
+  if (idx < 0) idx = items.length - 1;
+  if (idx >= items.length) idx = 0;
+  setSidebarSelectedIndex(idx);
   // Immediately open the selected view
-  if (items[window._sidebarSelectedIndex]) {
-    window._sidebarNavClicking = true;
-    items[window._sidebarSelectedIndex].click();
-    window._sidebarNavClicking = false;
+  if (items[idx]) {
+    setSidebarNavClicking(true);
+    items[idx].click();
+    setSidebarNavClicking(false);
   }
 }
 
 function _sidebarActivateSelected() {
   const items = _getSidebarItems();
-  if (window._sidebarSelectedIndex >= 0 && items[window._sidebarSelectedIndex]) {
-    items[window._sidebarSelectedIndex].click();
-  }
+  const idx = getSidebarSelectedIndex();
+  if (idx >= 0 && items[idx]) items[idx].click();
 }
+
+// Reactive Effects: sync DOM classes from State signals
+Effect(() => {
+  const focused = _sidebarFocused.value;
+  const nav = document.getElementById('sidebar-nav');
+  if (nav) nav.classList.toggle('sidebar-focused', focused);
+  if (!focused) {
+    _getSidebarItems().forEach(el => el.classList.remove('sidebar-kbd-selected'));
+  }
+});
+
+Effect(() => {
+  // Re-render selection highlight whenever selected index changes
+  _renderSidebarSelection();
+});
 
 // Install global keyboard handler for sidebar navigation
 (function initSidebarKeyNav() {
@@ -309,13 +336,13 @@ function _sidebarActivateSelected() {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
 
     // Press [ to focus sidebar
-    if (e.key === '[' && !window._sidebarFocused) {
+    if (e.key === '[' && !getSidebarFocused()) {
       e.preventDefault();
       _focusSidebar();
       return;
     }
 
-    if (!window._sidebarFocused) return;
+    if (!getSidebarFocused()) return;
 
     if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
       e.preventDefault();
@@ -335,11 +362,9 @@ function _sidebarActivateSelected() {
 
   // Click outside sidebar blurs it
   document.addEventListener('mousedown', (e) => {
-    if (!window._sidebarFocused) return;
+    if (!getSidebarFocused()) return;
     const nav = document.getElementById('sidebar-nav');
-    if (nav && !nav.contains(e.target)) {
-      _blurSidebar();
-    }
+    if (nav && !nav.contains(e.target)) _blurSidebar();
   });
 })();
 
@@ -347,11 +372,11 @@ function _sidebarActivateSelected() {
 function _installSidebarClickFocus() {
   document.querySelectorAll('.sidebar-icon').forEach(el => {
     el.addEventListener('click', () => {
-      if (window._sidebarNavClicking) return;
+      if (getSidebarNavClicking()) return;
       const items = _getSidebarItems();
       const idx = items.indexOf(el);
       if (idx >= 0) {
-        window._sidebarSelectedIndex = idx;
+        setSidebarSelectedIndex(idx);
         _focusSidebar();
       }
     });
@@ -375,7 +400,7 @@ export function initLazyImageLoading() {
     return;
   }
 
-  window._lazyImageObserver = new IntersectionObserver((entries, observer) => {
+  setLazyImageObserver(new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         const img = entry.target;
@@ -388,15 +413,13 @@ export function initLazyImageLoading() {
     });
   }, {
     rootMargin: '50px' // Start loading 50px before image enters viewport
-  });
+  }));
 }
 
 export function observeLazyImages() {
-  if (!window._lazyImageObserver) return;
-
-  document.querySelectorAll('img[data-src]').forEach(img => {
-    window._lazyImageObserver.observe(img);
-  });
+  const observer = getLazyImageObserver();
+  if (!observer) return;
+  document.querySelectorAll('img[data-src]').forEach(img => observer.observe(img));
 }
 
 // Initialize on load

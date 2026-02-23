@@ -185,7 +185,7 @@ export function _islandRenderPill(a) {
         favImg.on('error', function() {
           var globe = R(icon('globe', { size: 16, strokeWidth: '1.5', class: _cls }));
           globe.attr('data-island-tab', t.id);
-          this.replaceWith(globe.el);
+          favImg.el.replaceWith(globe.el);
         });
         if (t.active) {
           var wrap = new V('span').className('island-strip-fav-wrap').attr('data-island-tab', t.id);
@@ -257,7 +257,7 @@ export function _islandBuildTray(a, isBrowse) {
   function _favImg(src) {
     var img = new V('img').frame({ width: 14, height: 14 }).cornerRadius('xs').styles({ flexShrink: '0' });
     img.el.src = src;
-    img.on('error', function() { this.style.display = 'none'; });
+    img.on('error', function() { img.el.style.display = 'none'; });
     return img;
   }
   function _tabRow(item, showClose) {
@@ -513,14 +513,14 @@ function _togglePillTray(pillEl, act) {
 
   // Position tray below pill
   var pillRect = pillEl.getBoundingClientRect();
-  tray.style.top = pillRect.height + 'px';
+  trayView.el.style.top = pillRect.height + 'px';
 
   // Close on outside click
   setTimeout(function() {
     var handler = function(e) {
       if (!pillEl.contains(e.target)) {
         pillEl.classList.remove('island-tray-open');
-        tray.remove();
+        trayView.el.remove();
         document.removeEventListener('mousedown', handler, true);
       }
     };

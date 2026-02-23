@@ -101,8 +101,15 @@ export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
   _ensurePdfjsLegacy().then(function() {
     _pdfViewerLoadDoc(tab, pdfUrl);
   }).catch(function(err) {
-    var msg = viewerEl.querySelector('.pdf-pages-container');
-    if (msg) msg.innerHTML = '<div style="padding:40px;color:var(--nr-text-secondary);text-align:center;">Failed to load PDF.js: ' + err.message + '</div>';
+    var msg = tab._pdfPagesContainer;
+    if (msg) {
+      AetherUI.mount(
+        new View('div')
+          .styles({ padding: '40px', color: 'var(--nr-text-secondary)', textAlign: 'center' })
+          .text('Failed to load PDF.js: ' + err.message),
+        msg
+      );
+    }
   });
 }
 
@@ -122,42 +129,43 @@ function _buildViewerDOM(tab, viewerEl) {
   viewerEl.innerHTML = '';
 
   // Toolbar
-  var toolbar = document.createElement('div');
-  toolbar.className = 'pdf-toolbar';
-  viewerEl.appendChild(toolbar);
-  tab._pdfToolbar = toolbar;
-  _buildToolbar(tab, toolbar);
+  var toolbarView = new View('div').className('pdf-toolbar');
+  viewerEl.appendChild(toolbarView.el);
+  tab._pdfToolbar = toolbarView.el;
+  _buildToolbar(tab, toolbarView);
 
   // Body wrapper (left panel + pages)
-  var bodyWrapper = document.createElement('div');
-  bodyWrapper.className = 'pdf-body-wrapper';
-  viewerEl.appendChild(bodyWrapper);
+  var bodyWrapper = new View('div').className('pdf-body-wrapper');
+  viewerEl.appendChild(bodyWrapper.el);
 
   // Left panel
-  var leftPanel = document.createElement('div');
-  leftPanel.className = 'pdf-left-panel';
-  bodyWrapper.appendChild(leftPanel);
-  tab._pdfLeftPanel = leftPanel;
-  _buildLeftPanel(tab, leftPanel);
+  var leftPanelView = new View('div').className('pdf-left-panel');
+  bodyWrapper.add(leftPanelView);
+  tab._pdfLeftPanel = leftPanelView.el;
+  _buildLeftPanel(tab, leftPanelView);
 
   // Pages container
-  var pagesContainer = document.createElement('div');
-  pagesContainer.className = 'pdf-pages-container';
+  var pagesContainer = new View('div').className('pdf-pages-container');
   if (window.Skeleton) {
-    AetherUI.mount(window.Skeleton().lines(5).padding(4), pagesContainer);
+    AetherUI.mount(window.Skeleton().lines(5).padding(4), pagesContainer.el);
   } else {
-    pagesContainer.innerHTML = '<div style="padding:40px;color:var(--nr-text-secondary);text-align:center;">Loading PDF...</div>';
+    AetherUI.mount(
+      new View('div')
+        .styles({ padding: '40px', color: 'var(--nr-text-secondary)', textAlign: 'center' })
+        .text('Loading PDF...'),
+      pagesContainer.el
+    );
   }
-  bodyWrapper.appendChild(pagesContainer);
-  tab._pdfPagesContainer = pagesContainer;
+  bodyWrapper.add(pagesContainer);
+  tab._pdfPagesContainer = pagesContainer.el;
 
   // Scroll listener for page tracking
-  pagesContainer.addEventListener('scroll', function() {
+  pagesContainer.on('scroll', function() {
     _pdfViewerOnScroll(tab);
   });
 
   // Pinch-to-zoom: Chrome/Firefox trackpad pinch fires wheel with ctrlKey
-  pagesContainer.addEventListener('wheel', function(e) {
+  pagesContainer.el.addEventListener('wheel', function(e) {
     if (!e.ctrlKey) return;
     e.preventDefault();
     var delta = -e.deltaY * 0.01;
@@ -167,108 +175,110 @@ function _buildViewerDOM(tab, viewerEl) {
 
   // Pinch-to-zoom: Safari native gesture events
   var gestureBaseZoom = 1;
-  pagesContainer.addEventListener('gesturestart', function(e) {
+  pagesContainer.el.addEventListener('gesturestart', function(e) {
     e.preventDefault();
     gestureBaseZoom = tab._pdfZoom;
   }, { passive: false });
-  pagesContainer.addEventListener('gesturechange', function(e) {
+  pagesContainer.el.addEventListener('gesturechange', function(e) {
     e.preventDefault();
     var newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, gestureBaseZoom * e.scale));
     _pdfViewerSetZoom(tab, newZoom);
   }, { passive: false });
-  pagesContainer.addEventListener('gestureend', function(e) {
+  pagesContainer.el.addEventListener('gestureend', function(e) {
     e.preventDefault();
   }, { passive: false });
 }
 
-function _buildToolbar(tab, toolbar) {
+function _buildToolbar(tab, toolbarView) {
   // Left panel toggle
-  var thumbToggle = _tbBtn(tab, 'pdf-thumb-toggle', icon('sidebarToggle', { size: 16 }), 'Thumbnails', function() {
+  var thumbToggle = _tbBtn(icon('sidebarToggle', { size: 16 }), 'Thumbnails', function() {
     tab._pdfLeftPanelVisible = !tab._pdfLeftPanelVisible;
     tab._pdfLeftPanel.style.display = tab._pdfLeftPanelVisible ? '' : 'none';
-    thumbToggle.classList.toggle('active', tab._pdfLeftPanelVisible);
+    thumbToggle.el.classList.toggle('active', tab._pdfLeftPanelVisible);
   });
-  thumbToggle.classList.add('active');
-  toolbar.appendChild(thumbToggle);
+  thumbToggle.el.id = 'pdf-thumb-toggle';
+  thumbToggle.el.classList.add('active');
+  toolbarView.add(thumbToggle);
 
-  toolbar.appendChild(_tbSep());
+  toolbarView.add(_tbSep());
 
   // Page nav
-  var prevBtn = _tbBtn(tab, null, icon('chevronLeft', { size: 16 }), 'Previous page', function() {
+  var prevBtn = _tbBtn(icon('chevronLeft', { size: 16 }), 'Previous page', function() {
     _pdfViewerGoToPage(tab, tab._pdfCurrentPage - 1);
   });
-  toolbar.appendChild(prevBtn);
+  toolbarView.add(prevBtn);
 
-  var pageIndicator = document.createElement('span');
-  pageIndicator.className = 'pdf-page-indicator';
-  pageIndicator.textContent = '1 / ?';
-  toolbar.appendChild(pageIndicator);
-  tab._pdfPageIndicator = pageIndicator;
+  var pageIndicator = new View('span')
+    .className('pdf-page-indicator')
+    .text('1 / ?');
+  toolbarView.add(pageIndicator);
+  tab._pdfPageIndicator = pageIndicator.el;
 
-  var nextBtn = _tbBtn(tab, null, icon('chevronRight', { size: 16 }), 'Next page', function() {
+  var nextBtn = _tbBtn(icon('chevronRight', { size: 16 }), 'Next page', function() {
     _pdfViewerGoToPage(tab, tab._pdfCurrentPage + 1);
   });
-  toolbar.appendChild(nextBtn);
+  toolbarView.add(nextBtn);
 
-  toolbar.appendChild(_tbSep());
+  toolbarView.add(_tbSep());
 
   // Zoom
-  var zoomOut = _tbBtn(tab, null, icon('minus', { size: 16 }), 'Zoom out', function() {
+  var zoomOut = _tbBtn(icon('minus', { size: 16 }), 'Zoom out', function() {
     _pdfViewerSetZoom(tab, tab._pdfZoom - 0.25);
   });
-  toolbar.appendChild(zoomOut);
+  toolbarView.add(zoomOut);
 
-  var zoomLabel = document.createElement('button');
-  zoomLabel.className = 'pdf-zoom-label';
-  zoomLabel.textContent = Math.round(tab._pdfZoom * 100) + '%';
-  zoomLabel.title = 'Zoom';
-  zoomLabel.addEventListener('click', function() { _pdfViewerToggleZoomDropdown(tab, zoomLabel); });
-  toolbar.appendChild(zoomLabel);
-  tab._pdfZoomLabel = zoomLabel;
+  var zoomLabel = new View('button')
+    .className('pdf-zoom-label')
+    .text(Math.round(tab._pdfZoom * 100) + '%')
+    .attr('title', 'Zoom')
+    .onTap(function() { _pdfViewerToggleZoomDropdown(tab, zoomLabel.el); });
+  toolbarView.add(zoomLabel);
+  tab._pdfZoomLabel = zoomLabel.el;
 
-  var zoomIn = _tbBtn(tab, null, icon('plus', { size: 16 }), 'Zoom in', function() {
+  var zoomIn = _tbBtn(icon('plus', { size: 16 }), 'Zoom in', function() {
     _pdfViewerSetZoom(tab, tab._pdfZoom + 0.25);
   });
-  toolbar.appendChild(zoomIn);
+  toolbarView.add(zoomIn);
 
-  toolbar.appendChild(_tbSep());
+  toolbarView.add(_tbSep());
 
   // Dark mode toggle
-  var darkToggle = _tbBtn(tab, null, icon('moon', { size: 16 }), 'Dark mode', function() {
+  var darkToggle = _tbBtn(icon('moon', { size: 16 }), 'Dark mode', function() {
     tab._pdfDarkMode = !tab._pdfDarkMode;
     tab._pdfPagesContainer.classList.toggle('pdf-dark-render', tab._pdfDarkMode);
-    darkToggle.classList.toggle('active', tab._pdfDarkMode);
+    darkToggle.el.classList.toggle('active', tab._pdfDarkMode);
   });
-  toolbar.appendChild(darkToggle);
+  toolbarView.add(darkToggle);
 
   // Highlight mode toggle
-  var hlToggle = _tbBtn(tab, 'pdf-hl-mode-toggle', icon('highlighter', { size: 16 }), 'Highlight mode', function() {
+  var hlToggle = _tbBtn(icon('highlighter', { size: 16 }), 'Highlight mode', function() {
     var active = tab._pdfPagesContainer.classList.toggle('pdf-hl-mode');
-    hlToggle.classList.toggle('active', active);
+    hlToggle.el.classList.toggle('active', active);
   });
-  toolbar.appendChild(hlToggle);
+  hlToggle.el.id = 'pdf-hl-mode-toggle';
+  toolbarView.add(hlToggle);
 
   // HUD mode toggle
-  var hudToggle = _tbBtn(tab, null, icon('crosshair', { size: 16 }), 'HUD mode', function() {
+  var hudToggle = _tbBtn(icon('crosshair', { size: 16 }), 'HUD mode', function() {
     tab._pdfHudMode = !tab._pdfHudMode;
     var viewer = tab._nerdViewerEl || tab._pdfViewerEl;
     if (viewer) viewer.classList.toggle('nerd-hud-active', tab._pdfHudMode);
     document.body.classList.toggle('nerd-hud-active', tab._pdfHudMode);
-    hudToggle.classList.toggle('hud-active', tab._pdfHudMode);
+    hudToggle.el.classList.toggle('hud-active', tab._pdfHudMode);
   });
-  toolbar.appendChild(hudToggle);
+  toolbarView.add(hudToggle);
 
   // Bookmark button
-  var bookmarkBtn = _tbBtn(tab, null, icon('bookmark', { size: 16 }), 'Save to Reading List', function() {
+  var bookmarkBtn = _tbBtn(icon('bookmark', { size: 16 }), 'Save to Reading List', function() {
     if (typeof window.browseSaveToReadingList === 'function') window.browseSaveToReadingList();
   });
-  toolbar.appendChild(bookmarkBtn);
+  toolbarView.add(bookmarkBtn);
 
   // TTS — Read aloud
-  var ttsBtn = _tbBtn(tab, 'pdf-tts-btn', icon('speaker', { size: 16 }), 'Read aloud', function() {
+  var ttsBtn = _tbBtn(icon('speaker', { size: 16 }), 'Read aloud', function() {
     if (window._ttsAudio || (window._ttsChunks && window._ttsChunks.length > 0)) {
       if (typeof window._ttsStopAll === 'function') window._ttsStopAll();
-      ttsBtn.classList.remove('active');
+      ttsBtn.el.classList.remove('active');
       return;
     }
     _pdfViewerGetText(tab).then(function(text) {
@@ -282,85 +292,74 @@ function _buildToolbar(tab, toolbar) {
       window._ttsRemainingDurations = [];
       window._ttsQueue = [];
       if (typeof window._ttsFetchAndQueue === 'function') window._ttsFetchAndQueue();
-      ttsBtn.classList.add('active');
+      ttsBtn.el.classList.add('active');
     });
   });
-  toolbar.appendChild(ttsBtn);
+  ttsBtn.el.id = 'pdf-tts-btn';
+  toolbarView.add(ttsBtn);
 
   // Spacer
-  var spacer = document.createElement('div');
-  spacer.style.flex = '1';
-  toolbar.appendChild(spacer);
+  var spacer = new View('div').style('flex', '1');
+  toolbarView.add(spacer);
 
   // Search
-  var searchBtn = _tbBtn(tab, null, icon('search', { size: 16 }), 'Search in PDF', function() {
+  var searchBtn = _tbBtn(icon('search', { size: 16 }), 'Search in PDF', function() {
     _pdfViewerToggleSearch(tab);
   });
-  toolbar.appendChild(searchBtn);
+  toolbarView.add(searchBtn);
 }
 
-function _tbBtn(tab, id, svgHtml, title, onClick) {
-  var btn = document.createElement('button');
-  btn.className = 'pdf-tb-btn';
-  if (id) btn.id = id;
-  btn.innerHTML = svgHtml;
-  btn.title = title;
-  btn.addEventListener('click', onClick);
-  return btn;
+function _tbBtn(svgHtml, title, onClick) {
+  return new View('button')
+    .className('pdf-tb-btn')
+    .attr('title', title)
+    .add(RawHTML(svgHtml))
+    .onTap(onClick);
 }
 
 function _tbSep() {
-  var sep = document.createElement('div');
-  sep.className = 'pdf-tb-sep';
-  return sep;
+  return new View('div').className('pdf-tb-sep');
 }
 
 // ── Left Panel ──
 
-function _buildLeftPanel(tab, leftPanel) {
+function _buildLeftPanel(tab, leftPanelView) {
   // Tab bar
-  var tabBar = document.createElement('div');
-  tabBar.className = 'pdf-left-panel-tabs';
+  var tabBar = new View('div').className('pdf-left-panel-tabs');
 
-  var thumbTab = document.createElement('button');
-  thumbTab.className = 'pdf-left-panel-tab active';
-  thumbTab.textContent = 'Thumbnails';
-  thumbTab.addEventListener('click', function() {
-    thumbTab.classList.add('active');
-    outlineTab.classList.remove('active');
-    thumbScroll.style.display = '';
-    outlineScroll.style.display = 'none';
-  });
-  tabBar.appendChild(thumbTab);
+  var thumbScroll = new View('div').className('pdf-thumb-scroll');
+  var outlineScroll = new View('div').className('pdf-outline-scroll').style('display', 'none');
 
-  var outlineTab = document.createElement('button');
-  outlineTab.className = 'pdf-left-panel-tab';
-  outlineTab.textContent = 'Outline';
-  outlineTab.addEventListener('click', function() {
-    outlineTab.classList.add('active');
-    thumbTab.classList.remove('active');
-    outlineScroll.style.display = '';
-    thumbScroll.style.display = 'none';
-  });
-  tabBar.appendChild(outlineTab);
-  leftPanel.appendChild(tabBar);
+  tab._pdfThumbScroll = thumbScroll.el;
+  tab._pdfOutlineScroll = outlineScroll.el;
+
+  var thumbTab = new View('button')
+    .className('pdf-left-panel-tab active')
+    .text('Thumbnails')
+    .onTap(function() {
+      thumbTab.el.classList.add('active');
+      outlineTab.el.classList.remove('active');
+      thumbScroll.el.style.display = '';
+      outlineScroll.el.style.display = 'none';
+    });
+
+  var outlineTab = new View('button')
+    .className('pdf-left-panel-tab')
+    .text('Outline')
+    .onTap(function() {
+      outlineTab.el.classList.add('active');
+      thumbTab.el.classList.remove('active');
+      outlineScroll.el.style.display = '';
+      thumbScroll.el.style.display = 'none';
+    });
+
+  tabBar.add(thumbTab, outlineTab);
+  leftPanelView.add(tabBar);
 
   // Content area
-  var content = document.createElement('div');
-  content.className = 'pdf-left-panel-content';
-
-  var thumbScroll = document.createElement('div');
-  thumbScroll.className = 'pdf-thumb-scroll';
-  content.appendChild(thumbScroll);
-  tab._pdfThumbScroll = thumbScroll;
-
-  var outlineScroll = document.createElement('div');
-  outlineScroll.className = 'pdf-outline-scroll';
-  outlineScroll.style.display = 'none';
-  content.appendChild(outlineScroll);
-  tab._pdfOutlineScroll = outlineScroll;
-
-  leftPanel.appendChild(content);
+  var content = new View('div').className('pdf-left-panel-content');
+  content.add(thumbScroll, outlineScroll);
+  leftPanelView.add(content);
 }
 
 // ── Load Document ──
@@ -384,7 +383,12 @@ function _pdfViewerLoadDoc(tab, url) {
 
   }).catch(function(err) {
     if (tab._pdfPagesContainer) {
-      tab._pdfPagesContainer.innerHTML = '<div style="padding:40px;color:var(--nr-text-secondary);text-align:center;">Failed to load PDF: ' + (err.message || err) + '</div>';
+      AetherUI.mount(
+        new View('div')
+          .styles({ padding: '40px', color: 'var(--nr-text-secondary)', textAlign: 'center' })
+          .text('Failed to load PDF: ' + (err.message || err)),
+        tab._pdfPagesContainer
+      );
     }
   });
 }
@@ -404,6 +408,7 @@ function _pdfViewerRenderAllPages(tab) {
 }
 
 function _pdfViewerCreatePageSlot(tab, pageNum) {
+  // Page slots are raw DOM — they host canvas + textLayer which must be imperative
   var wrapper = document.createElement('div');
   wrapper.className = 'pdf-page-wrapper';
   wrapper.setAttribute('data-page-num', pageNum);
@@ -428,7 +433,7 @@ function _pdfViewerRenderPage(tab, pageNum) {
     wrapper.style.minHeight = '';
     wrapper.style.setProperty('--scale-factor', scale);
 
-    // Canvas
+    // Canvas — stays imperative (PDF.js rendering)
     var canvas = document.createElement('canvas');
     canvas.width = viewport.width * (window.devicePixelRatio || 1);
     canvas.height = viewport.height * (window.devicePixelRatio || 1);
@@ -441,7 +446,7 @@ function _pdfViewerRenderPage(tab, pageNum) {
 
     page.render({ canvasContext: ctx, viewport: viewport });
 
-    // Text layer for selection
+    // Text layer for selection — stays imperative (PDF.js textLayer API)
     var textLayerDiv = document.createElement('div');
     textLayerDiv.className = 'textLayer';
     textLayerDiv.style.width = viewport.width + 'px';
@@ -461,7 +466,7 @@ function _pdfViewerRenderPage(tab, pageNum) {
       }
     });
 
-    // Highlight layer
+    // Highlight layer — stays imperative (pixel-positioned rects over canvas)
     var hlLayer = document.createElement('div');
     hlLayer.className = 'pdf-highlight-layer';
     hlLayer.style.width = viewport.width + 'px';
@@ -471,7 +476,7 @@ function _pdfViewerRenderPage(tab, pageNum) {
     // Render existing highlights for this page
     _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer, viewport);
 
-    // Annotation layer (internal PDF links)
+    // Annotation layer (internal PDF links) — stays imperative (pixel-positioned over canvas)
     page.getAnnotations().then(function(annotations) {
       if (!annotations || !annotations.length) return;
       var annotLayer = document.createElement('div');
@@ -488,26 +493,26 @@ function _pdfViewerRenderPage(tab, pageNum) {
         var width = Math.abs(rect[2] - rect[0]);
         var height = Math.abs(rect[3] - rect[1]);
 
-        var link = document.createElement('div');
-        link.className = 'pdf-annot-link';
-        link.style.cssText = 'left:' + left + 'px;top:' + top + 'px;width:' + width + 'px;height:' + height + 'px;';
+        var link = new View('div')
+          .className('pdf-annot-link')
+          .cssText('left:' + left + 'px;top:' + top + 'px;width:' + width + 'px;height:' + height + 'px;');
 
         if (ann.dest) {
-          link.setAttribute('data-dest', JSON.stringify(ann.dest));
-          link.addEventListener('click', function() {
-            tab._pdfDoc.getDestination(ann.dest).then(function(dest) {
-              if (!dest) return;
-              tab._pdfDoc.getPageIndex(dest[0]).then(function(idx) {
-                _pdfViewerGoToPage(tab, idx + 1);
-              });
-            }).catch(function() {});
-          });
+          link.attr('data-dest', JSON.stringify(ann.dest))
+            .onTap(function() {
+              tab._pdfDoc.getDestination(ann.dest).then(function(dest) {
+                if (!dest) return;
+                tab._pdfDoc.getPageIndex(dest[0]).then(function(idx) {
+                  _pdfViewerGoToPage(tab, idx + 1);
+                });
+              }).catch(function() {});
+            });
         } else if (ann.url) {
-          link.addEventListener('click', function() {
+          link.onTap(function() {
             if (typeof browseNewTab === 'function') window.browseNewTab(ann.url);
           });
         }
-        annotLayer.appendChild(link);
+        annotLayer.appendChild(link.el);
       });
     });
 
@@ -592,45 +597,20 @@ function _pdfViewerSetZoom(tab, newZoom) {
   _pdfViewerOnScroll(tab);
 }
 
-function _pdfViewerToggleZoomDropdown(tab, label) {
+function _pdfViewerToggleZoomDropdown(tab, labelEl) {
   var existing = tab._pdfToolbar.querySelector('.pdf-zoom-dropdown');
   if (existing) { existing.remove(); return; }
 
-  var dropdown = document.createElement('div');
-  dropdown.className = 'pdf-zoom-dropdown';
-
   var levels = [50, 75, 100, 125, 150, 200, 300, 400];
-  levels.forEach(function(pct) {
-    var btn = document.createElement('button');
-    btn.textContent = pct + '%';
-    btn.addEventListener('click', function() {
-      _pdfViewerSetZoom(tab, pct / 100);
-      dropdown.remove();
-    });
-    dropdown.appendChild(btn);
+  var menuItems = levels.map(function(pct) {
+    return {
+      label: pct + '%',
+      handler: function() { _pdfViewerSetZoom(tab, pct / 100); }
+    };
   });
 
-  // Position relative to label
-  var labelWrapper = document.createElement('div');
-  labelWrapper.style.cssText = 'position:relative;display:inline-block;';
-  label.parentNode.insertBefore(labelWrapper, label);
-  labelWrapper.appendChild(label);
-  labelWrapper.appendChild(dropdown);
-
-  setTimeout(function() {
-    function closeDropdown(e) {
-      if (!dropdown.contains(e.target) && e.target !== label) {
-        dropdown.remove();
-        // Move label back out of wrapper
-        if (labelWrapper.parentNode) {
-          labelWrapper.parentNode.insertBefore(label, labelWrapper);
-          labelWrapper.remove();
-        }
-        document.removeEventListener('mousedown', closeDropdown);
-      }
-    }
-    document.addEventListener('mousedown', closeDropdown);
-  }, 0);
+  var menu = Menu(labelEl, menuItems);
+  menu.show();
 }
 
 // ── Dark Mode ──
@@ -649,14 +629,14 @@ function _pdfViewerRenderThumbnails(tab) {
 
   for (var i = 1; i <= tab._pdfPageCount; i++) {
     (function(pageNum) {
-      var item = document.createElement('div');
-      item.className = 'pdf-thumb-item' + (pageNum === 1 ? ' active' : '');
-      item.style.position = 'relative';
-      item.setAttribute('data-thumb-page', pageNum);
-      item.tabIndex = 0;
-      item.addEventListener('click', function() { _pdfViewerGoToPage(tab, pageNum); });
+      var item = new View('div')
+        .className('pdf-thumb-item' + (pageNum === 1 ? ' active' : ''))
+        .style('position', 'relative')
+        .attr('data-thumb-page', pageNum)
+        .attr('tabIndex', '0')
+        .onTap(function() { _pdfViewerGoToPage(tab, pageNum); });
 
-      // Render thumb asynchronously
+      // Render thumb canvas asynchronously — stays imperative (PDF.js canvas rendering)
       tab._pdfDoc.getPage(pageNum).then(function(page) {
         var vp = page.getViewport({ scale: 0.3 });
         var canvas = document.createElement('canvas');
@@ -664,18 +644,16 @@ function _pdfViewerRenderThumbnails(tab) {
         canvas.height = vp.height;
         canvas.style.width = '100%';
         canvas.style.display = 'block';
-        item.appendChild(canvas);
+        item.el.appendChild(canvas);
 
-        var label = document.createElement('div');
-        label.className = 'pdf-thumb-label';
-        label.textContent = String(pageNum);
-        item.appendChild(label);
+        var labelEl = new View('div').className('pdf-thumb-label').text(String(pageNum));
+        item.add(labelEl);
 
         var ctx = canvas.getContext('2d');
         page.render({ canvasContext: ctx, viewport: vp });
       });
 
-      tab._pdfThumbScroll.appendChild(item);
+      tab._pdfThumbScroll.appendChild(item.el);
     })(i);
   }
 }
@@ -697,10 +675,10 @@ function _pdfViewerExtractOutline(tab) {
   tab._pdfDoc.getOutline().then(function(outline) {
     tab._pdfOutlineScroll.innerHTML = '';
     if (!outline || !outline.length) {
-      var empty = document.createElement('div');
-      empty.className = 'pdf-outline-empty';
-      empty.textContent = 'No outline available';
-      tab._pdfOutlineScroll.appendChild(empty);
+      AetherUI.append(
+        new View('div').className('pdf-outline-empty').text('No outline available'),
+        tab._pdfOutlineScroll
+      );
       return;
     }
     _renderOutlineItems(tab, outline, tab._pdfOutlineScroll, 0);
@@ -709,27 +687,27 @@ function _pdfViewerExtractOutline(tab) {
 
 function _renderOutlineItems(tab, items, container, level) {
   items.forEach(function(item) {
-    var el = document.createElement('div');
-    el.className = 'pdf-toc-item';
-    el.style.paddingLeft = (6 + level * 14) + 'px';
-    el.textContent = item.title;
-    el.addEventListener('click', function() {
-      if (item.dest) {
-        if (typeof item.dest === 'string') {
-          tab._pdfDoc.getDestination(item.dest).then(function(dest) {
-            if (!dest) return;
-            tab._pdfDoc.getPageIndex(dest[0]).then(function(idx) {
+    var el = new View('div')
+      .className('pdf-toc-item')
+      .style('paddingLeft', (6 + level * 14) + 'px')
+      .text(item.title)
+      .onTap(function() {
+        if (item.dest) {
+          if (typeof item.dest === 'string') {
+            tab._pdfDoc.getDestination(item.dest).then(function(dest) {
+              if (!dest) return;
+              tab._pdfDoc.getPageIndex(dest[0]).then(function(idx) {
+                _pdfViewerGoToPage(tab, idx + 1);
+              });
+            });
+          } else if (Array.isArray(item.dest)) {
+            tab._pdfDoc.getPageIndex(item.dest[0]).then(function(idx) {
               _pdfViewerGoToPage(tab, idx + 1);
             });
-          });
-        } else if (Array.isArray(item.dest)) {
-          tab._pdfDoc.getPageIndex(item.dest[0]).then(function(idx) {
-            _pdfViewerGoToPage(tab, idx + 1);
-          });
+          }
         }
-      }
-    });
-    container.appendChild(el);
+      });
+    container.appendChild(el.el);
 
     if (item.items && item.items.length) {
       _renderOutlineItems(tab, item.items, container, level + 1);
@@ -744,14 +722,17 @@ function _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer, viewport) {
   tab._pdfHighlights.forEach(function(hl) {
     if (hl.pageNum !== pageNum || !hl.rects) return;
     hl.rects.forEach(function(r) {
-      var rect = document.createElement('div');
-      rect.className = 'pdf-highlight-rect';
-      rect.style.left = r.left + 'px';
-      rect.style.top = r.top + 'px';
-      rect.style.width = r.width + 'px';
-      rect.style.height = r.height + 'px';
-      rect.style.background = hl.color || _PDF_HL_COLORS[0].color;
-      hlLayer.appendChild(rect);
+      // Highlight rects are pixel-positioned over canvas — append raw DOM elements directly
+      var rect = new View('div')
+        .className('pdf-highlight-rect')
+        .styles({
+          left: r.left + 'px',
+          top: r.top + 'px',
+          width: r.width + 'px',
+          height: r.height + 'px',
+          background: hl.color || _PDF_HL_COLORS[0].color
+        });
+      hlLayer.appendChild(rect.el);
     });
   });
 }
@@ -826,37 +807,37 @@ function _showHighlightPopup(tab, x, y, text, pageNum, rects) {
   var old = document.querySelector('.pdf-highlight-popup');
   if (old) old.remove();
 
-  var popup = document.createElement('div');
-  popup.className = 'pdf-highlight-popup';
-  popup.style.cssText = 'position:fixed;z-index:10001;left:' + x + 'px;top:' + (y - 50) + 'px;';
+  var popup = new View('div')
+    .className('pdf-highlight-popup')
+    .cssText('position:fixed;z-index:10001;left:' + x + 'px;top:' + (y - 50) + 'px;');
 
   _PDF_HL_COLORS.forEach(function(c) {
-    var btn = document.createElement('button');
-    btn.className = 'pdf-hl-color-btn';
-    btn.style.background = c.color;
-    btn.title = c.name;
-    btn.addEventListener('click', function() {
-      _pdfViewerAddHighlight(tab, {
-        text: text,
-        pageNum: pageNum,
-        rects: rects,
-        color: c.color,
-        note: '',
-        ts: Date.now()
+    var btn = new View('button')
+      .className('pdf-hl-color-btn')
+      .style('background', c.color)
+      .attr('title', c.name)
+      .onTap(function() {
+        _pdfViewerAddHighlight(tab, {
+          text: text,
+          pageNum: pageNum,
+          rects: rects,
+          color: c.color,
+          note: '',
+          ts: Date.now()
+        });
+        popup.el.remove();
+        window.getSelection().removeAllRanges();
       });
-      popup.remove();
-      window.getSelection().removeAllRanges();
-    });
-    popup.appendChild(btn);
+    popup.add(btn);
   });
 
-  document.body.appendChild(popup);
+  document.body.appendChild(popup.el);
 
   // Auto-close
   setTimeout(function() {
     function close(e) {
-      if (!popup.contains(e.target)) {
-        popup.remove();
+      if (!popup.el.contains(e.target)) {
+        popup.el.remove();
         document.removeEventListener('mousedown', close);
       }
     }
@@ -877,46 +858,63 @@ function _pdfViewerToggleSearch(tab) {
     return;
   }
 
-  _searchBar = document.createElement('div');
-  _searchBar.style.cssText = 'display:flex;gap:6px;align-items:center;padding:6px 12px;background:var(--nr-bg-surface);border-bottom:1px solid var(--nr-border-dim);';
+  var countLabel = new View('span').styles({
+    fontSize: '0.72rem',
+    color: 'var(--nr-text-quaternary)',
+    minWidth: '40px'
+  });
 
-  var input = document.createElement('input');
-  input.type = 'text';
-  input.placeholder = 'Search in PDF...';
-  input.style.cssText = 'flex:1;background:var(--nr-bg-input);border:1px solid var(--nr-border-default);border-radius:6px;padding:4px 8px;font-size:0.78rem;color:var(--nr-text-primary);outline:none;';
-  _searchBar.appendChild(input);
+  var input = new View('input')
+    .attr('type', 'text')
+    .attr('placeholder', 'Search in PDF...')
+    .styles({
+      flex: '1',
+      background: 'var(--nr-bg-input)',
+      border: '1px solid var(--nr-border-default)',
+      borderRadius: '6px',
+      padding: '4px 8px',
+      fontSize: '0.78rem',
+      color: 'var(--nr-text-primary)',
+      outline: 'none'
+    });
 
-  var countLabel = document.createElement('span');
-  countLabel.style.cssText = 'font-size:0.72rem;color:var(--nr-text-quaternary);min-width:40px;';
-  _searchBar.appendChild(countLabel);
+  var closeBtn = _tbBtn(icon('close', { size: 14 }), 'Close search', function() {
+    _pdfViewerToggleSearch(tab);
+  });
 
-  var closeBtn = document.createElement('button');
-  closeBtn.className = 'pdf-tb-btn';
-  closeBtn.innerHTML = icon('close', { size: 14 });
-  closeBtn.addEventListener('click', function() { _pdfViewerToggleSearch(tab); });
-  _searchBar.appendChild(closeBtn);
+  var searchBarView = new HStack()
+    .styles({
+      gap: '6px',
+      alignItems: 'center',
+      padding: '6px 12px',
+      background: 'var(--nr-bg-surface)',
+      borderBottom: '1px solid var(--nr-border-dim)'
+    })
+    .add(input, countLabel, closeBtn);
+
+  _searchBar = searchBarView.el;
 
   // Insert after toolbar
   tab._pdfToolbar.parentNode.insertBefore(_searchBar, tab._pdfToolbar.nextSibling);
-  input.focus();
+  input.el.focus();
 
   var searchTimer = null;
-  input.addEventListener('input', function() {
+  input.on('input', function() {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(function() {
-      _pdfViewerDoSearch(tab, input.value.trim(), countLabel);
+      _pdfViewerDoSearch(tab, input.el.value.trim(), countLabel.el);
     }, 300);
   });
-  input.addEventListener('keydown', function(e) {
+  input.on('keydown', function(e) {
     if (e.key === 'Escape') _pdfViewerToggleSearch(tab);
-    if (e.key === 'Enter') _pdfViewerDoSearch(tab, input.value.trim(), countLabel);
+    if (e.key === 'Enter') _pdfViewerDoSearch(tab, input.el.value.trim(), countLabel.el);
   });
 }
 
-function _pdfViewerDoSearch(tab, query, countLabel) {
+function _pdfViewerDoSearch(tab, query, countLabelEl) {
   // Clear previous
   tab._pdfPagesContainer.querySelectorAll('.pdf-search-highlight').forEach(function(el) { el.remove(); });
-  if (!query || !tab._pdfDoc) { countLabel.textContent = ''; return; }
+  if (!query || !tab._pdfDoc) { countLabelEl.textContent = ''; return; }
 
   var matchCount = 0;
   var promises = [];
@@ -930,13 +928,13 @@ function _pdfViewerDoSearch(tab, query, countLabel) {
             var pageText = textContent.items.map(function(it) { return it.str; }).join(' ');
             if (pageText.toLowerCase().indexOf(queryLower) !== -1) {
               matchCount++;
-              // Highlight: mark wrapper
+              // Highlight: mark wrapper border
               var wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
               if (wrapper) {
-                var mark = document.createElement('div');
-                mark.className = 'pdf-search-highlight';
-                mark.style.cssText = 'position:absolute;inset:0;border:2px solid var(--nr-accent);border-radius:2px;pointer-events:none;z-index:5;';
-                wrapper.appendChild(mark);
+                var mark = new View('div')
+                  .className('pdf-search-highlight')
+                  .cssText('position:absolute;inset:0;border:2px solid var(--nr-accent);border-radius:2px;pointer-events:none;z-index:5;');
+                wrapper.appendChild(mark.el);
               }
             }
           });
@@ -946,7 +944,7 @@ function _pdfViewerDoSearch(tab, query, countLabel) {
   }
 
   Promise.all(promises).then(function() {
-    countLabel.textContent = matchCount + ' page' + (matchCount !== 1 ? 's' : '');
+    countLabelEl.textContent = matchCount + ' page' + (matchCount !== 1 ? 's' : '');
   });
 }
 
@@ -985,6 +983,7 @@ function _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv) {
       return;
     }
 
+    // Citation overlays are pixel-positioned over the canvas — imperative DOM needed
     var citLayer = document.createElement('div');
     citLayer.className = 'pdf-citation-layer';
     wrapper.appendChild(citLayer);
@@ -1036,23 +1035,22 @@ function _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv) {
         for (var r = 0; r < rects.length; r++) {
           var cr = rects[r];
           if (cr.width < 1 || cr.height < 1) continue;
-          var overlay = document.createElement('div');
-          overlay.className = 'pdf-citation-ref';
-          overlay.style.cssText =
-            'position:absolute;pointer-events:auto;cursor:pointer;' +
-            'left:' + (cr.left - wrapperRect.left) + 'px;' +
-            'top:' + (cr.top - wrapperRect.top) + 'px;' +
-            'width:' + cr.width + 'px;' +
-            'height:' + cr.height + 'px;';
+          var overlay = new View('div')
+            .className('pdf-citation-ref')
+            .cssText(
+              'position:absolute;pointer-events:auto;cursor:pointer;' +
+              'left:' + (cr.left - wrapperRect.left) + 'px;' +
+              'top:' + (cr.top - wrapperRect.top) + 'px;' +
+              'width:' + cr.width + 'px;' +
+              'height:' + cr.height + 'px;'
+            );
           (function(nums) {
-            overlay.addEventListener('mouseenter', function(e) {
-              _showCitationPopup(tab, nums, e.clientX, e.clientY);
-            });
-            overlay.addEventListener('mouseleave', function() {
-              _scheduleCitationHide();
-            });
+            overlay.onHover(
+              function(e) { _showCitationPopup(tab, nums, e.clientX, e.clientY); },
+              function() { _scheduleCitationHide(); }
+            );
           })(refNums);
-          citLayer.appendChild(overlay);
+          citLayer.appendChild(overlay.el);
         }
       }
     });
@@ -1064,54 +1062,57 @@ function _showCitationPopup(tab, refNums, x, y) {
   if (_citationHideTimer) { clearTimeout(_citationHideTimer); _citationHideTimer = null; }
   if (_citationPopup) _citationPopup.remove();
 
-  var popup = document.createElement('div');
-  popup.className = 'citation-popup';
-  _citationPopup = popup;
+  var popup = new View('div').className('citation-popup');
+  _citationPopup = popup.el;
 
   _populateCitationPopup(popup, tab, refNums);
 
-  document.body.appendChild(popup);
-  var pw = popup.offsetWidth;
-  var ph = popup.offsetHeight;
+  document.body.appendChild(popup.el);
+  var pw = popup.el.offsetWidth;
+  var ph = popup.el.offsetHeight;
   var left = Math.max(8, Math.min(x - pw / 2, window.innerWidth - pw - 8));
   var top = y - ph - 12;
   if (top < 8) top = y + 20;
-  popup.style.left = left + 'px';
-  popup.style.top = top + 'px';
+  popup.el.style.left = left + 'px';
+  popup.el.style.top = top + 'px';
 
-  popup.addEventListener('mouseenter', function() {
-    if (_citationHideTimer) { clearTimeout(_citationHideTimer); _citationHideTimer = null; }
-  });
-  popup.addEventListener('mouseleave', function() {
-    _scheduleCitationHide();
-  });
+  popup.onHover(
+    function() {
+      if (_citationHideTimer) { clearTimeout(_citationHideTimer); _citationHideTimer = null; }
+    },
+    function() { _scheduleCitationHide(); }
+  );
 }
 
-function _populateCitationPopup(popup, tab, refNums) {
+function _populateCitationPopup(popupView, tab, refNums) {
   var state = _paperState.get(tab.id);
   var refs = state && state.refs ? state.refs : null;
 
-  popup.innerHTML = '';
+  popupView.el.innerHTML = '';
 
   if (!refs || !refs.length) {
-    popup.innerHTML = '<div class="citation-popup-loading">[' + refNums.join(', ') + '] Loading references\u2026</div>';
+    AetherUI.append(
+      new View('div').className('citation-popup-loading')
+        .text('[' + refNums.join(', ') + '] Loading references\u2026'),
+      popupView.el
+    );
     // Poll until refs arrive
     var pollCount = 0;
     var pollTimer = setInterval(function() {
       pollCount++;
-      if (pollCount > 20 || !_citationPopup || _citationPopup !== popup) {
+      if (pollCount > 20 || !_citationPopup || _citationPopup !== popupView.el) {
         clearInterval(pollTimer);
         return;
       }
       var s = _paperState.get(tab.id);
       if (s && s.refs && s.refs.length) {
         clearInterval(pollTimer);
-        _populateCitationPopup(popup, tab, refNums);
+        _populateCitationPopup(popupView, tab, refNums);
         // Reposition after content change
-        var ph = popup.offsetHeight;
-        var curTop = parseFloat(popup.style.top);
+        var ph = popupView.el.offsetHeight;
+        var curTop = parseFloat(popupView.el.style.top);
         if (curTop + ph > window.innerHeight - 8) {
-          popup.style.top = Math.max(8, window.innerHeight - ph - 8) + 'px';
+          popupView.el.style.top = Math.max(8, window.innerHeight - ph - 8) + 'px';
         }
       }
     }, 500);
@@ -1123,20 +1124,23 @@ function _populateCitationPopup(popup, tab, refNums) {
     if (!ref) return;
 
     if (idx > 0) {
-      var sep = document.createElement('div');
-      sep.style.cssText = 'border-top:1px solid var(--nr-border-dim);margin:8px 0;';
-      popup.appendChild(sep);
+      AetherUI.append(
+        new View('div').styles({ borderTop: '1px solid var(--nr-border-dim)', margin: '8px 0' }),
+        popupView.el
+      );
     }
 
-    var numEl = document.createElement('div');
-    numEl.style.cssText = 'font-size:0.68rem;font-weight:600;color:var(--nr-text-quaternary);margin-bottom:2px;';
-    numEl.textContent = '[' + num + ']';
-    popup.appendChild(numEl);
+    AetherUI.append(
+      new View('div')
+        .styles({ fontSize: '0.68rem', fontWeight: '600', color: 'var(--nr-text-quaternary)', marginBottom: '2px' })
+        .text('[' + num + ']'),
+      popupView.el
+    );
 
-    var titleEl = document.createElement('div');
-    titleEl.className = 'citation-popup-title';
-    titleEl.textContent = ref.title || 'Untitled';
-    popup.appendChild(titleEl);
+    AetherUI.append(
+      new View('div').className('citation-popup-title').text(ref.title || 'Untitled'),
+      popupView.el
+    );
 
     var meta = [];
     if (ref.authors && ref.authors.length) {
@@ -1146,22 +1150,22 @@ function _populateCitationPopup(popup, tab, refNums) {
     if (ref.venue) meta.push(ref.venue);
     if (ref.citationCount != null) meta.push(ref.citationCount + ' citations');
     if (meta.length) {
-      var metaEl = document.createElement('div');
-      metaEl.className = 'citation-popup-meta';
-      metaEl.textContent = meta.join(' \u00b7 ');
-      popup.appendChild(metaEl);
+      AetherUI.append(
+        new View('div').className('citation-popup-meta').text(meta.join(' \u00b7 ')),
+        popupView.el
+      );
     }
 
-    var linkEl = document.createElement('a');
-    linkEl.className = 'citation-popup-link';
-    linkEl.textContent = 'Search on Google Scholar \u2192';
-    linkEl.href = '#';
-    linkEl.addEventListener('click', function(e) {
-      e.preventDefault();
-      if (typeof window.browseNewTab === 'function') window.browseNewTab('https://scholar.google.com/scholar?q=' + encodeURIComponent(ref.title));
-      if (_citationPopup) { _citationPopup.remove(); _citationPopup = null; }
-    });
-    popup.appendChild(linkEl);
+    var linkEl = new View('a')
+      .className('citation-popup-link')
+      .text('Search on Google Scholar \u2192')
+      .attr('href', '#')
+      .onTap(function(e) {
+        e.preventDefault();
+        if (typeof window.browseNewTab === 'function') window.browseNewTab('https://scholar.google.com/scholar?q=' + encodeURIComponent(ref.title));
+        if (_citationPopup) { _citationPopup.remove(); _citationPopup = null; }
+      });
+    AetherUI.append(linkEl, popupView.el);
   });
 }
 

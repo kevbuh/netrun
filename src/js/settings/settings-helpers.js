@@ -1,5 +1,5 @@
 import Settings from '../core/core-settings.js';
-import { _BANGS } from '/js/browse/browse-island.js';
+import { _BANGS } from '/js/toolbar/toolbar-url.js';
 import { _BANG_LABELS, _renderHelpPage } from '/js/browse-urlbar.js';
 import { _renderHelpSettings } from '/js/settings/settings-help.js';
 

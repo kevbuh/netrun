@@ -453,7 +453,7 @@ export function _showAnnotationTooltip(data, frame, pinned) {
       .styles({zIndex:'999999', pointerEvents:'auto'});
     tipView.on('mousedown', function(ev) { ev.stopPropagation(); });
     tip = tipView.el;
-    document.body.appendChild(tip);
+    AetherUI.append(tipView, document.body);
   }
   _annTooltipPinned = !!pinned;
   tip.style.position = 'fixed';
@@ -497,16 +497,16 @@ export function _showAnnotationTooltip(data, frame, pinned) {
 
   const labelChildren = [window.Text(data.label || data.type)];
   if (data.confidence != null) {
-    labelChildren.push(new window.View('span').className('aether-ann-confidence')._bindText(data.confidence + '%'));
+    labelChildren.push(window.Text(data.confidence + '%').className('aether-ann-confidence'));
   }
   const labelEl = window.HStack(labelChildren).className('aether-ann-label')
     .styles({color: data.labelColor || '#4caf50', paddingRight: '36px'});
 
-  const explEl = new window.View('div').className('aether-ann-explanation')._bindText(data.explanation);
+  const explEl = new window.View('div').className('aether-ann-explanation').text(data.explanation);
 
   const tipChildren = [rateRow, labelEl, explEl];
   if (data.conflictsWith) {
-    tipChildren.push(new window.View('div').className('aether-ann-conflict')._bindText('Conflicts with: ' + data.conflictsWith));
+    tipChildren.push(new window.View('div').className('aether-ann-conflict').text('Conflicts with: ' + data.conflictsWith));
   }
 
   AetherUI.mount(window.VStack(tipChildren), tip);

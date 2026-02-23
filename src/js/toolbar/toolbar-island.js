@@ -21,6 +21,11 @@ export function _syncIslandPillPosition() {
     island.querySelector('.pill-island[data-island-id="tabs"]');
   if (isIsland) {
     if (island.parentElement !== urlWrap) urlWrap.insertBefore(island, urlWrap.firstChild);
+    // Keep pill-island-left (tabs anchor container) as first child so tabs render on the left
+    var leftCol = document.getElementById('pill-island-left');
+    if (leftCol && leftCol.parentElement === urlWrap && urlWrap.firstChild !== leftCol) {
+      urlWrap.insertBefore(leftCol, urlWrap.firstChild);
+    }
     if (isNtpActive && tabsPill && tabsPill.parentElement !== island) island.insertBefore(tabsPill, island.firstChild);
     if (!isNtpActive && tabsPill && tabsAnchor && tabsPill.parentElement !== tabsAnchor) tabsAnchor.insertBefore(tabsPill, tabsAnchor.firstChild);
   } else {
@@ -96,8 +101,8 @@ export function _collapseIsland() {
   var aiFull = document.getElementById('pill-island-ai-full');
   var utilityRow = document.getElementById('pill-island-utility-row');
   var actionsRow = document.getElementById('pill-island-actions-row');
-  if (aiFull) aiFull.innerHTML = '';
-  if (utilityRow) utilityRow.innerHTML = '';
+  if (aiFull) AetherUI.mount(new View('div'), aiFull);
+  if (utilityRow) AetherUI.mount(new View('div'), utilityRow);
   if (actionsRow) actionsRow.remove();
   var tabsAnchor = document.getElementById('pill-island-tabs-anchor');
   if (tabsAnchor) tabsAnchor.style.display = '';
@@ -123,9 +128,9 @@ function _restoreElementsFromIsland() {
   var aiPill = document.getElementById('pill-ai-unified');
   if (aiPill) aiPill.style.display = '';
   var leftCol = document.getElementById('pill-island-left');
-  if (leftCol) { leftCol.innerHTML = ''; leftCol.onclick = null; }
+  if (leftCol) { AetherUI.mount(new View('div'), leftCol); leftCol.onclick = null; }
   var rightCol = document.getElementById('pill-island-right-col');
-  if (rightCol) { rightCol.innerHTML = ''; rightCol.onclick = null; }
+  if (rightCol) { AetherUI.mount(new View('div'), rightCol); rightCol.onclick = null; }
 }
 
 // ── Sub-state management ──
@@ -154,7 +159,7 @@ function _renderIslandTabPill() {
   if (tabsAnchor) tabsAnchor.style.display = 'none';
 
   var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
-  if (!win || !win.tabs || !win.tabs.length) { leftCol.innerHTML = ''; return; }
+  if (!win || !win.tabs || !win.tabs.length) { AetherUI.mount(new View('div'), leftCol); return; }
   var activeTabId = win.activeTab;
 
   var globeSvg = '<svg style="width:16px;height:16px;opacity:0.4;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
@@ -162,9 +167,6 @@ function _renderIslandTabPill() {
 
   var rows = win.tabs.map(function(t) {
     var isActive = t.id === activeTabId;
-    var favHtml = t.favicon
-      ? '<img class="island-vtab-item" src="' + t.favicon.replace(/"/g, '&quot;') + '" style="width:16px;height:16px;border-radius:3px;flex-shrink:0;object-fit:contain" onerror="this.style.display=\'none\'">'
-      : globeSvg;
     var title = t.title || 'New Tab';
     var truncTitle = title.length > 20 ? title.slice(0, 18) + '\u2026' : title;
     var favView = t.favicon
@@ -300,7 +302,7 @@ function _closeIslandTabsDropdown() {
 function _renderIslandAIFull() {
   var container = document.getElementById('pill-island-ai-full');
   if (!container) return;
-  container.innerHTML = '';
+  AetherUI.mount(new View('div'), container);
   if (typeof window.renderAIPanelContent === 'function') {
     window.renderAIPanelContent(container, function() { _setIslandSubState('default'); });
   }
@@ -387,7 +389,7 @@ function _renderIslandActions() {
 
   var container = VS(rows).styles({ gap: '2px', alignItems: 'flex-start', padding: '0 4px' });
   container.id(actionsId);
-  centerCol.appendChild(container.el);
+  AetherUI.append(container, centerCol);
 }
 
 // ── Render utility row ──

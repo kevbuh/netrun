@@ -50,18 +50,6 @@
 
 /* ── Aether chat panel ── */
     /* ── Document Chat Panel ── */
-    .doc-chat-bar {
-      padding: 8px 0;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--nr-text-secondary);
-      font-size: 0.82rem;
-      user-select: none;
-      flex-shrink: 0;
-    }
-    .doc-chat-bar:hover { color: var(--nr-text-primary); }
     .doc-chat-panel.hidden { display: none !important; }
     .doc-chat-status {
       padding: 4px 0;
@@ -86,19 +74,10 @@
       font-size: 0.82rem;
       max-width: 80%;
       word-break: break-word;
-    }
-    .doc-msg-user.doc-msg-editing {
-      padding: 3px 6px;
-    }
-    .doc-msg-edit-input {
-      background: transparent;
-      border: none;
-      outline: none;
-      color: var(--nr-text-primary);
-      font-size: inherit;
-      font-family: inherit;
-      width: 100%;
-      padding: 2px 0;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
     .doc-msg-ai {
       align-self: flex-start;
@@ -128,14 +107,6 @@
       gap: 4px;
       margin-top: 4px;
     }
-    .doc-msg-action-btn {
-      background: none; border: none; color: var(--nr-text-secondary); cursor: pointer;
-      padding: 2px; border-radius: 3px; transition: color 0.15s, transform 0.15s;
-      line-height: 1;
-    }
-    .doc-msg-action-btn:hover { color: var(--nr-accent); }
-    .doc-msg-action-btn:active { transform: scale(0.8); }
-    .doc-msg-action-btn.doc-msg-btn-clicked { animation: msg-btn-pop 0.3s ease-out; }
 
     .doc-msg-speaking { opacity: 1 !important; color: var(--nr-accent); animation: mic-pulse 1s ease-in-out infinite; }
     .doc-msg-ai p { margin: 0.3em 0; }
@@ -231,12 +202,6 @@
     .doc-msg-edit-btn:active {
       transform: scale(0.9);
     }
-    .doc-msg-user {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
     .doc-msg-user-text {
       flex: 1;
     }
@@ -315,19 +280,6 @@
     }
     .chat-clear-btn:hover { opacity: 1; }
 
-    /* Thread tree navigator */
-    #doc-chat-thread-nav {
-      padding: 6px 8px;
-      border-bottom: 1px solid var(--nr-border-default);
-      overflow-x: auto;
-      flex-shrink: 0;
-    }
-    #doc-chat-thread-nav.hidden { display: none; }
-    .thread-tree-svg {
-      display: block;
-    }
-    .thread-tree-svg .thread-node:hover { r: 6; }
-    .thread-tree-svg .thread-label:hover { fill: var(--nr-accent) !important; }
 
     body.aether-hide-cursor, body.aether-hide-cursor * { cursor: none !important; }
     body.aether-hide-cursor .nr-cursor-dot,
@@ -1073,7 +1025,6 @@
       padding: 0 8px 2px;
       min-height: 0;
     }
-    .aether-info-row { display: none; }
     .aether-top-actions {
       border-top: none;
       border-bottom: none;
