@@ -397,7 +397,7 @@ function _renderIslandUtilityRow() {
   if (!row) return;
   var buttons = [
     { iconName: 'plus', label: 'New Tab', handler: function() { _collapseIsland(); if (typeof window.browseNewTab === 'function') window.browseNewTab(); } },
-    { iconName: 'close', label: 'Close', handler: function() { if (typeof window.browseCloseTab === 'function') window.browseCloseTab(_browseActiveTab); setTimeout(_renderIslandTabPill, 50); } },
+    { iconName: 'close', label: 'Close', handler: function() { browseCloseTab(_browseActiveTab); setTimeout(_renderIslandTabPill, 50); } },
     { id: 'pill-island-bookmark-btn', iconName: 'bookmark', label: 'Save', handler: function() { if (typeof window.browseSaveToReadingList === 'function') window.browseSaveToReadingList(); _syncUtilityBookmark(); } },
   ];
   var btnViews = buttons.map(function(b) {
@@ -477,6 +477,25 @@ export function _closePillMenuHover() {
 export function _cancelPillMenuClose() {
   if (_pillMenuLeaveTimer) { clearTimeout(_pillMenuLeaveTimer); _pillMenuLeaveTimer = null; }
 }
+
+// ── Favicon click → navigate to tab (capture phase, fires before expand) ──
+
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('pill-url-wrap');
+  if (!wrap || wrap.classList.contains('island-expanded')) return;
+  var favEl = e.target.closest('[data-island-tab]');
+  if (!favEl || !wrap.contains(favEl)) return;
+  // Close button inside a favicon wrap
+  if (e.target.closest('[data-island-tab-close]')) {
+    e.stopPropagation();
+    var closeId = +e.target.closest('[data-island-tab-close]').getAttribute('data-island-tab-close');
+    browseCloseTab(closeId);
+    return;
+  }
+  e.stopPropagation();
+  var tabId = +favEl.getAttribute('data-island-tab');
+  browseSelectTab(tabId);
+}, true);
 
 // ── Click handler for capsule expand ──
 

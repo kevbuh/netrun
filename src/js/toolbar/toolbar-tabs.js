@@ -1,6 +1,7 @@
 // toolbar-tabs.js — TabStrip, TabItem, GroupChip, drag-to-reorder
 import { tabListVersion, notifyTabsChanged, getCurrentTabs, getCurrentGroups, getActiveTabId } from '/js/toolbar/toolbar-state.js';
 import { icon } from '/js/core/icons.js';
+import { browseSelectTab, browseCloseTab } from '/js/browse/browse-passwords.js';
 
 // ── Tab rendering ──
 
@@ -139,7 +140,7 @@ export function _browseCloseGroup(groupId) {
   var toClose = win.tabs.filter(function(t) { return t.groupId === groupId; }).map(function(t) { return t.id; });
   win.groups = (win.groups || []).filter(function(g) { return g.id !== groupId; });
   for (var i = toClose.length - 1; i >= 0; i--) {
-    if (typeof window.browseCloseTab === 'function') window.browseCloseTab(toClose[i]);
+    browseCloseTab(toClose[i]);
   }
 }
 
@@ -175,7 +176,7 @@ export function _browseCloseOtherTabs(keepId) {
   if (!win) return;
   var toClose = win.tabs.filter(function(t) { return t.id !== keepId && !t.pinned; }).map(function(t) { return t.id; });
   for (var i = toClose.length - 1; i >= 0; i--) {
-    if (typeof window.browseCloseTab === 'function') window.browseCloseTab(toClose[i]);
+    browseCloseTab(toClose[i]);
   }
 }
 
@@ -357,7 +358,7 @@ export function _tabDragEnd(e) {
     window._browseSaveTabs();
   } else {
     if (typeof window._focusBrowseTabBar === 'function') window._focusBrowseTabBar();
-    if (typeof window.browseSelectTab === 'function') window.browseSelectTab(tabId);
+    browseSelectTab(tabId);
   }
 }
 

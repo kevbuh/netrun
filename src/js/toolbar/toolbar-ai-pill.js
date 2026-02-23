@@ -4,6 +4,7 @@ import Settings from '/js/core/core-settings.js';
 import { escapeHtml } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { aiPillState } from '/js/toolbar/toolbar-state.js';
+import { browseSelectTab } from '/js/browse/browse-passwords.js';
 
 // ── State ──
 var _dirty = false;
@@ -225,7 +226,7 @@ function _renderDropdown(dropdown, state) {
         var streamDot = streaming ? '<span class="ai-unified-conv-stream nr-breathe"></span>' : '';
         var activeCls = isActive ? ' ai-unified-conv-active' : '';
         var id = '_aia_' + (++_actionCounter);
-        _actionMap[id] = function() { _closeDropdown(); if (typeof window.browseSelectTab === 'function') window.browseSelectTab(ct.tabId); };
+        _actionMap[id] = function() { _closeDropdown(); browseSelectTab(ct.tabId); };
         items.push('<div class="ai-unified-conv-item' + activeCls + '" data-ai-action="' + id + '">'
           + '<div class="ai-unified-conv-title">' + title + '</div>'
           + '<div class="ai-unified-conv-preview">' + preview + '</div>'
@@ -336,7 +337,6 @@ function _renderDropdown(dropdown, state) {
   items.push(_dropdownItem(icon('speaker', { size: 14 }), 'Read aloud', function() { _closeDropdown(); if (typeof window._readPageAloud === 'function') window._readPageAloud(); }));
 
   // 4. Page Info section
-  console.log('[pill-dropdown] pageInfoState:', JSON.stringify(pageInfoState), 'direct call:', JSON.stringify(window._getPageInfoState()));
   if (pageInfoState.label || pageInfoState.badges || (pageInfoState.meta && Object.keys(pageInfoState.meta).length)) {
     items.push('<div class="ai-unified-divider"></div>');
     items.push('<div class="ai-unified-section-label">Page Info</div>');

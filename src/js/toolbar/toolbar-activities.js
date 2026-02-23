@@ -3,6 +3,7 @@
 import Settings from '/js/core/core-settings.js';
 import { icon } from '/js/core/icons.js';
 import { visibleActivities, notifyTabsChanged } from '/js/toolbar/toolbar-state.js';
+import { browseSelectTab, browseCloseTab } from '/js/browse/browse-passwords.js';
 
 // ── Pulse state provider for unified AI pill ──
 var _pulseFlashTimer = null;
@@ -434,10 +435,10 @@ export function _islandAttachHandlers() {
     if (tabEl) {
       var tabId = parseInt(tabEl.dataset.islandTab, 10);
       if (e.target.closest('[data-island-tab-close]')) {
-        if (typeof window.browseCloseTab === 'function') window.browseCloseTab(tabId);
+        browseCloseTab(tabId);
         return;
       }
-      if (typeof window.browseSelectTab === 'function') window.browseSelectTab(tabId);
+      browseSelectTab(tabId);
       return;
     }
     // New tab

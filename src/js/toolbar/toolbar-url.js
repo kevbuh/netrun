@@ -4,8 +4,8 @@ import { isNtp, islandExpanded, tabListVersion, notifyTabsChanged } from '/js/to
 import { _browseTitleFromUrl, _browseFaviconUrl } from '/js/toolbar/toolbar-nav.js';
 import { _browseSetUrlDisplay, _browseUrlKeydown, _browseUrlHideHistory, _browseApplyAdaptiveColor, _saveBrowseVisit, _saveWebSearch } from '/js/browse-urlbar.js';
 import { _browseCreateFrame, _browseProxyUrl, _browseSetFrameAllow } from '/js/browse/browse-ntp.js';
-import { _browseBindFrame } from '/js/browse/browse-downloads.js';
-import { _browseUpdateNewTabPage } from '/js/browse/browse-passwords.js';
+import { _browseBindFrame } from '/js/browse/browse-frame-bind.js';
+import { _browseUpdateNewTabPage, browseSelectTab, browseCloseTab } from '/js/browse/browse-passwords.js';
 import { _browseUpdateSaveBtn } from '/js/browse/browse-features.js';
 
 // ── Bang shortcuts ──
@@ -77,6 +77,10 @@ export function browseNavigate(input) {
     if (typeof window.openDocs === 'function') window.openDocs();
     return;
   }
+  if (cmd === '/bookmarks' || cmd === '/library' || cmd === 'netrun://bookmarks' || cmd === 'netrun://bookmarks/' || cmd === 'netrun://library' || cmd === 'netrun://library/') {
+    if (typeof window.openBookmarks === 'function') window.openBookmarks();
+    return;
+  }
   if (cmd === '/upload') {
     var fi = document.getElementById('browse-pdf-file-input');
     if (fi) { fi.click(); return; }
@@ -108,7 +112,7 @@ export function browseNavigate(input) {
   var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
   if (!tab) { if (typeof window.browseNewTab === 'function') window.browseNewTab(url); return; }
   // Tear down special pages
-  if (tab._historyPage || tab._helpPage || tab._netrunPage || tab._chatPage || tab._terminalPage) {
+  if (tab._historyPage || tab._helpPage || tab._netrunPage || tab._chatPage || tab._terminalPage || tab._bookmarksPage) {
     if (tab._chatPage && typeof window.chatViewCleanupMorph === 'function') {
       var ntpMorphed = document.getElementById('browse-content');
       var morphEl = ntpMorphed ? ntpMorphed.querySelector('.browse-ntp.chat-mode') : null;
@@ -118,6 +122,7 @@ export function browseNavigate(input) {
     tab.el = null;
     delete tab._historyPage; delete tab._helpPage; delete tab._netrunPage;
     delete tab._chatPage; delete tab._chatThreadId; delete tab._terminalPage;
+    delete tab._bookmarksPage;
   }
   // Push current URL onto back stack
   if (tab.url && !tab.blank && !/^#/.test(tab.url) && !/^about:/.test(tab.url)) {
@@ -236,12 +241,12 @@ export function _showTabsInPillDropdown() {
       .onHover(function() { closeBtn.el.style.opacity = '1'; }, function() { closeBtn.el.style.opacity = '0.5'; })
       .onTap(function(e) {
         e.stopPropagation();
-        if (typeof window.browseCloseTab === 'function') window.browseCloseTab(t.id);
+        browseCloseTab(t.id);
         setTimeout(_showTabsInPillDropdown, 50);
       });
     var row = _ddRow([favView, titleView, closeBtn], { bg: isActive ? 'var(--nr-bg-raised)' : '' });
     row.onTap(function() {
-      if (typeof window.browseSelectTab === 'function') window.browseSelectTab(t.id);
+      browseSelectTab(t.id);
       _browseUrlHideHistory();
     });
     return row;
