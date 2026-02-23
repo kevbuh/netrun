@@ -70,7 +70,6 @@ export function _expandIsland() {
   _moveElementsIntoIsland();
   _renderIslandTabPill();
   _renderIslandActions();
-  _renderIslandUtilityRow();
   _pillSyncUrl();
   _collapseIslandCleanup();
   _islandExpandedOutsideHandler = function(e) {
@@ -116,41 +115,11 @@ function _collapseIslandCleanup() {
 }
 
 function _moveElementsIntoIsland() {
-  var navRow = document.getElementById('pill-island-nav-row');
-  if (navRow) {
-    var back = document.getElementById('pill-browse-back');
-    var reload = document.getElementById('pill-browse-reload');
-    var fwd = document.getElementById('pill-browse-fwd');
-    if (back && back.parentElement !== navRow) navRow.appendChild(back);
-    if (reload && reload.parentElement !== navRow) navRow.appendChild(reload);
-    if (fwd && fwd.parentElement !== navRow) navRow.appendChild(fwd);
-  }
   var aiPill = document.getElementById('pill-ai-unified');
   if (aiPill) aiPill.style.display = 'none';
 }
 
 function _restoreElementsFromIsland() {
-  var pillBar = document.getElementById('sidebar-nav');
-  if (!pillBar) return;
-  var navRow = document.getElementById('pill-island-nav-row');
-  var back = document.getElementById('pill-browse-back');
-  var fwd = document.getElementById('pill-browse-fwd');
-  var pillUrl = document.getElementById('pill-browse-url');
-  if (back && navRow && navRow.contains(back)) {
-    if (pillUrl) pillBar.insertBefore(back, pillUrl);
-    else pillBar.appendChild(back);
-  }
-  if (fwd && navRow && navRow.contains(fwd)) {
-    if (pillUrl) pillBar.insertBefore(fwd, pillUrl.nextSibling);
-    else pillBar.appendChild(fwd);
-  }
-  var reload = document.getElementById('pill-browse-reload');
-  var urlWrap = document.getElementById('pill-url-wrap');
-  var closeBtn = document.getElementById('pill-close-tab-btn');
-  if (reload && navRow && navRow.contains(reload) && urlWrap) {
-    if (closeBtn) urlWrap.insertBefore(reload, closeBtn);
-    else urlWrap.appendChild(reload);
-  }
   var aiPill = document.getElementById('pill-ai-unified');
   if (aiPill) aiPill.style.display = '';
   var leftCol = document.getElementById('pill-island-left');
@@ -402,19 +371,6 @@ function _renderIslandActions() {
       WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden' }));
   }
 
-  // ── Action icons ──
-  var iconNames = ['chatBubble', 'annotate', 'speaker', 'eye', 'microphone', 'rain'];
-  var btns = iconNames.map(function(name) {
-    var btn = new V('button').className('island-expanded-action').html(icon(name, { size: 16 }))
-      .opacity(0.6).styles({ pointerEvents: 'none' });
-    if (name === 'annotate') {
-      var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
-      if (tab && typeof window._annotationsEnabled !== 'undefined' && window._annotationsEnabled.get(tab.id)) btn.className('active');
-    }
-    return btn;
-  });
-  rows.push(H(btns).styles({ marginTop: '6px', cursor: 'pointer' })
-    .onTap(function(e) { e.stopPropagation(); _setIslandSubState('ai'); }));
 
   var container = VS(rows).styles({ gap: '2px', alignItems: 'flex-start', padding: '0 4px' });
   container.id(actionsId);

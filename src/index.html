@@ -98,9 +98,7 @@
   <!-- Aether Design System CSS -->
   <link rel="stylesheet" href="/aether/css/tokens.css">
   <link rel="stylesheet" href="/aether/css/reset.css">
-  <link rel="stylesheet" href="/aether/css/typography.css">
   <link rel="stylesheet" href="/aether/css/surfaces.css">
-  <link rel="stylesheet" href="/aether/css/layout.css">
   <link rel="stylesheet" href="/aether/css/ambient.css">
   <link rel="stylesheet" href="/aether/css/animations.css">
   <link rel="stylesheet" href="/aether/css/components/buttons.css">
@@ -119,7 +117,6 @@
   <!-- Feature CSS -->
   <link rel="stylesheet" href="/aether/css/features/electron.css">
   <link rel="stylesheet" href="/aether/css/features/scrollbar.css">
-  <link rel="stylesheet" href="/aether/css/features/reader.css">
   <link rel="stylesheet" href="/aether/css/features/toolbar.css">
   <link rel="stylesheet" href="/aether/css/features/browse.css">
   <link rel="stylesheet" href="/aether/css/features/feed.css">
@@ -137,7 +134,6 @@
   <link rel="stylesheet" href="/aether/css/features/onboarding.css">
   <link rel="stylesheet" href="/aether/css/features/dev-panel.css">
   <link rel="stylesheet" href="/aether/css/features/cursor.css">
-  <link rel="stylesheet" href="/aether/css/features/print-preview.css">
   <link rel="stylesheet" href="/aether/css/features/chat-view.css">
   <link rel="stylesheet" href="/aether/css/features/draw-view.css">
   <link rel="stylesheet" href="/aether/css/features/netrun-page.css">
@@ -478,12 +474,6 @@
     <button id="pill-menu-btn" class="sidebar-icon" data-action-click="_togglePillMenu" data-action-mouseenter="_openPillMenuHover" data-action-mouseleave="_closePillMenuHover" title="Menu">
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="transform:rotate(90deg)"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
     </button>
-    <button id="pill-browse-back" class="sidebar-icon pill-island-nav" data-action-click="browseBack" data-action-mouseenter="showHistoryDropdown" data-action-mouseleave="scheduleHideHistoryDropdown" data-action-arg="back" title="Back">
-      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
-    </button>
-    <button id="pill-browse-fwd" class="sidebar-icon pill-island-nav" data-action-click="browseForward" data-action-mouseenter="showHistoryDropdown" data-action-mouseleave="scheduleHideHistoryDropdown" data-action-arg="forward" title="Forward">
-      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
-    </button>
     <div id="pill-browse-url"></div>
     <div id="pill-island" class="pill-island-container"></div>
     <div id="pill-nav-icons">
@@ -515,6 +505,9 @@
     <div id="pill-url-wrap">
       <!-- URL input — top row spanning full width in expanded mode -->
       <input id="pill-browse-url-input" type="text" placeholder="Search or enter URL…">
+      <button id="pill-browse-reload" class="sidebar-icon pill-island-nav" data-action-click="browseReload" title="Refresh">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"/></svg>
+      </button>
       <!-- Left: tab list -->
       <div id="pill-island-left">
         <div id="pill-island-tabs-anchor"></div>
@@ -534,10 +527,6 @@
       <div id="pill-island-ai-full"></div>
       <!-- Row 3: utility buttons (new tab, close, bookmark, more) -->
       <div id="pill-island-utility-row"></div>
-      <!-- Reload + Close tab + new tab (visible in horizontal pill, moved by JS in island mode) -->
-      <button id="pill-browse-reload" class="sidebar-icon pill-island-nav" data-action-click="browseReload" title="Refresh">
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"/></svg>
-      </button>
       <button id="pill-close-tab-btn" class="pill-close-tab-btn" data-action-click="closeActiveTab" title="Close tab">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>

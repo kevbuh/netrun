@@ -45,6 +45,26 @@ export function toggleBrowseMoreMenu() {
 
   var items = [];
 
+  // Nav icons row (Home, Feed, Browse, Neuralook, Dev, Settings)
+  var _navItems = [
+    { ic: 'home', label: 'Home', action: function() { if (typeof window.wmOpen === 'function') window.wmOpen('browse'); _closeMenu(); } },
+    { ic: 'feed', label: 'Feed', action: function() { if (typeof window.wmOpen === 'function') window.wmOpen('feed'); _closeMenu(); } },
+    { ic: 'globe', label: 'Browse', action: function() { if (typeof window.wmOpen === 'function') window.wmOpen('browse'); _closeMenu(); } },
+    { ic: 'eye', label: 'Neuralook', action: function() { if (typeof window.wmOpen === 'function') window.wmOpen('neuralook'); _closeMenu(); } },
+    { ic: 'code', label: 'Dev', action: function() { if (typeof window.wmOpen === 'function') window.wmOpen('dev'); _closeMenu(); } },
+    { ic: 'settings', label: 'Settings', action: function() { location.hash = '#settings'; _closeMenu(); } },
+  ];
+  var _navBtns = _navItems.map(function(item) {
+    var btn = new window.View('button').attr('title', item.label)
+      .html(icon(item.ic, {size: 16, strokeWidth: '1.5'}))
+      .styles({ background: 'none', border: 'none', padding: '6px', borderRadius: '8px', cursor: 'pointer', color: 'var(--nr-text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.12s, color 0.12s' });
+    btn.onHover(function() { btn.el.style.background = 'var(--nr-bg-hover)'; btn.el.style.color = 'var(--nr-text-primary)'; }, function() { btn.el.style.background = 'none'; btn.el.style.color = 'var(--nr-text-secondary)'; });
+    btn.onTap(item.action);
+    return btn;
+  });
+  items.push(window.HStack(_navBtns).spacing(1).alignment('center').styles({ justifyContent: 'center', padding: '4px 8px' }));
+  items.push(new window.View('div').styles({borderTop:'1px solid var(--nr-border-default, var(--aether-border))'}).margin('2px', '0'));
+
   if (isIsland) {
     items.push(_mBtn(icon('chevronLeft', {size: 16, strokeWidth: '1.5'}), 'Back', function() { if (typeof window.browseBack === 'function') window.browseBack(); _closeMenu(); }, { disabled: !hasTab }));
     items.push(_mBtn(icon('chevronRight', {size: 16, strokeWidth: '1.5'}), 'Forward', function() { if (typeof window.browseForward === 'function') window.browseForward(); _closeMenu(); }, { disabled: !hasTab }));
