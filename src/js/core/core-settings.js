@@ -159,11 +159,6 @@ const Settings = (function() {
   define('clickSound',         { default: 'off',   sync: true  }); // @persisted
   define('clickSoundType',     { default: 'thud',  sync: true  }); // @persisted
   define('clickAether',        { default: 'on',    sync: true  }); // @persisted
-  define('rainNoiseType',      { default: 'rain',  sync: true  }); // @persisted
-  define('rainVolume',         { default: '0.3',   sync: true  }); // @persisted
-  define('rainFreq',           { default: '0',     sync: true  }); // @persisted
-  define('rainOn',             { default: '0',     sync: false }); // @local
-  define('rainSidebarVisible', { default: null,    sync: true  }); // @persisted
 
   // Read Aloud
   define('ttsSpeed',     { default: '1',    sync: false }); // @local

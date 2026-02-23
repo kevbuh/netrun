@@ -4,7 +4,6 @@ import Settings from '/js/core/core-settings.js';
 import { apiPost } from '/js/api.js';
 import { icon } from '/js/core/icons.js';
 import { islandRemove } from '/js/core/core-ui.js';
-import { NOISE_PRESETS, setRainNoiseType, startRain, stopRain, getRainNoiseType, getRainOn } from '/js/core/core-sounds.js';
 import { _browseUrlHideHistory } from '/js/browse-urlbar.js';
 import { _paperState } from '/js/browse/browse-paper.js';
 import { _showTabsInPillDropdown } from '/js/toolbar/toolbar-url.js';
@@ -37,20 +36,10 @@ function _islandInitGuard() {
 export function _getAudioState() {
   const { tab, tts, cc, mic } = window._audioUnifiedState.value;
   const micRecording = !!window._pillMicRecorder;
-  const rainActive = getRainOn();
-  const rainNoiseType = getRainNoiseType();
-  return { tab, tts, cc, mic, micRecording, rainActive, rainNoiseType };
+  return { tab, tts, cc, mic, micRecording };
 }
 window._getAudioState = _getAudioState;
-
-export function _pillNoiseCycle() {
-  const types = typeof NOISE_PRESETS !== 'undefined' ? Object.keys(NOISE_PRESETS) : [];
-  if (!types.length) return;
-  const cur = getRainNoiseType();
-  const idx = types.indexOf(cur);
-  const next = types[(idx + 1) % types.length];
-  setRainNoiseType(next);
-}
+window._readPageAloud = _readPageAloud;
 
 export function _ttsCycleSpeed() {
   const cur = parseFloat(Settings.get('ttsSpeed')) || 1;

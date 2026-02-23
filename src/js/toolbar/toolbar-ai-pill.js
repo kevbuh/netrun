@@ -5,6 +5,7 @@ import { escapeHtml } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { aiPillState } from '/js/toolbar/toolbar-state.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
+import { toggleAnnotations, _annotationsEnabled } from '/js/browse/browse-annotations.js';
 
 // ── State ──
 var _dirty = false;
@@ -242,12 +243,12 @@ function _renderDropdown(dropdown, state) {
   // 2. AI section
   var tab = _getActiveTab();
   var hasTab = tab && !tab.blank && tab.url;
-  var annEnabled = hasTab && typeof window._annotationsEnabled !== 'undefined' && window._annotationsEnabled.get(tab.id);
+  var annEnabled = hasTab && _annotationsEnabled.get(tab.id);
 
   children.push(_dropdownItem(
     icon('annotate', { size: 14 }),
     annEnabled ? 'Remove Annotations' : 'Annotate Page',
-    function() { _closeDropdown(); if (typeof window.toggleAnnotations === 'function') window.toggleAnnotations(); },
+    function() { _closeDropdown(); toggleAnnotations(); },
     { disabled: !hasTab, color: annEnabled ? 'var(--nr-accent)' : undefined }
   ));
   children.push(_dropdownItem(
@@ -256,13 +257,6 @@ function _renderDropdown(dropdown, state) {
     function() { _closeDropdown(); if (typeof window._readPageAloud === 'function') window._readPageAloud(); },
     { disabled: !hasTab }
   ));
-  children.push(_dropdownItem(
-    icon('eye', { size: 14 }),
-    'AI View',
-    function() { _closeDropdown(); if (typeof window.browseShowAIView === 'function') window.browseShowAIView(); },
-    { disabled: !hasTab }
-  ));
-
   // 3. Audio section
   children.push(_divider());
   children.push(_sectionLabel('Audio'));
@@ -318,20 +312,6 @@ function _renderDropdown(dropdown, state) {
     ));
   } else {
     children.push(_dropdownItem(icon('microphone', { size: 14 }), 'Voice input', function() { _closeDropdown(); if (typeof window._pillMicClick === 'function') window._pillMicClick(); }));
-  }
-
-  // White noise
-  if (audioState.rainActive) {
-    var noiseLabel = (typeof window.NOISE_PRESETS !== 'undefined' && audioState.rainNoiseType && window.NOISE_PRESETS[audioState.rainNoiseType]) ? window.NOISE_PRESETS[audioState.rainNoiseType].label : 'White noise';
-    children.push(_dropdownItem(
-      icon('rain', { size: 14 }),
-      escapeHtml(noiseLabel),
-      function() { _pillNoiseCycle(); _scheduleRender(); },
-      { color: 'var(--nr-accent)' }
-    ));
-    children.push(_dropdownItem(icon('close', { size: 14 }), 'Stop noise', function() { if (typeof window.stopRain === 'function') window.stopRain(); _scheduleRender(); }));
-  } else {
-    children.push(_dropdownItem(icon('rain', { size: 14 }), 'White noise', function() { if (typeof window.startRain === 'function') window.startRain(); _scheduleRender(); }));
   }
 
   // Read aloud
@@ -406,17 +386,6 @@ function _infoRow(label, value) {
     Text(escapeHtml(label)).className('ai-unified-info-label'),
     Text(escapeHtml(value)).className('ai-unified-info-value')
   ).className('ai-unified-info-row');
-}
-
-// ── Noise cycle ──
-function _pillNoiseCycle() {
-  var types = typeof window.NOISE_PRESETS !== 'undefined' ? Object.keys(window.NOISE_PRESETS) : [];
-  if (!types.length) return;
-  var audioState = typeof window._getAudioState === 'function' ? window._getAudioState() : {};
-  var cur = audioState.rainNoiseType || 'rain';
-  var idx = types.indexOf(cur);
-  var next = types[(idx + 1) % types.length];
-  if (typeof window.setRainNoiseType === 'function') window.setRainNoiseType(next);
 }
 
 // ── Collect tabs with active AI conversations ──
@@ -522,7 +491,7 @@ export function _initUnifiedPill() {
   el.addEventListener('click', function(e) {
     if (e.target.closest('[data-ai-inline-annotate]')) {
       e.stopPropagation();
-      if (typeof window.toggleAnnotations === 'function') window.toggleAnnotations();
+      toggleAnnotations();
       return;
     }
     if (e.target.closest('.ai-unified-dropdown button')) return;

@@ -3,7 +3,7 @@ import { icon } from '/js/core/icons.js';
 import { applySidebarVisibility, getSidebarOrder, applySidebarOrder } from '/js/core/core-sidebar.js';
 import { getLS, setLS } from '/js/core/core-auth.js';
 import { getSelectedSpinner } from '/js/core/core-layout.js';
-import { CLICK_SOUND_PRESETS, NOISE_PRESETS, setClickSoundType, setRainFreq, setRainNoiseType, setRainVolume, toggleClickSound, getRainNoiseType, getRainVolume, getRainFreq } from '/js/core/core-sounds.js';
+import { CLICK_SOUND_PRESETS, setClickSoundType, toggleClickSound } from '/js/core/core-sounds.js';
 import { _settingBtnGroup, _settingCard, _settingGroupContent, _settingRow, _settingToggle } from '/js/settings/settings-helpers.js';
 import { cycleSpinner, setAccentColor, setAetherColor, _accentColorState } from '/js/settings/settings-colors.js';
 import { renderSettingsView } from '/js/settings/settings-core.js';
@@ -158,52 +158,6 @@ export function _renderAppearanceSettings() {
     (!petOn ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
   petNone.onTap(function() { togglePixelPet(false); renderSettingsView(); });
   petBtns.push(petNone);
-  // White noise
-  const noiseBtns = Object.entries(NOISE_PRESETS).map(function(pair) {
-    const key = pair[0], p = pair[1];
-    const sel = getRainNoiseType() === key;
-    const b = new window.View('button');
-    b.text(p.label);
-    b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
-      (sel ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
-    b.onTap(function() { setRainNoiseType(key); renderSettingsView(); });
-    return b;
-  });
-  const noiseWrap = HStack(noiseBtns).className('flex flex-wrap gap-1 mt-2');
-
-  const volSlider = new window.View('input');
-  volSlider.el.type = 'range'; volSlider.el.min = '0'; volSlider.el.max = '100';
-  volSlider.el.value = Math.round(getRainVolume() * 100);
-  volSlider.className('flex-1 h-1 accent-accent');
-  const volLabel = window.Text(Math.round(getRainVolume() * 100) + '%').className('text-[0.7rem] text-dimmer font-mono w-10 text-right');
-  volLabel.el.id = 'rain-volume-value';
-  volSlider.el.addEventListener('input', function() { setRainVolume(this.value / 100); volLabel.el.textContent = this.value + '%'; });
-  const volRow = window.HStack(window.Text('Volume').className('text-[0.7rem] text-dimmer whitespace-nowrap'), volSlider, volLabel).spacing(2).className('mt-2');
-
-  const freqSlider = new window.View('input');
-  freqSlider.el.type = 'range'; freqSlider.el.min = '20'; freqSlider.el.max = '5000'; freqSlider.el.step = '10';
-  freqSlider.el.value = getRainFreq() || 1000;
-  freqSlider.className('flex-1 h-1 accent-accent');
-  freqSlider.el.id = 'rain-freq-slider';
-  if (getRainFreq() === 0) { freqSlider.el.disabled = true; freqSlider.styles({ opacity: '0.3' }); }
-  const freqLabel = window.Text(getRainFreq() > 0 ? getRainFreq() + ' Hz' : 'Auto').className('text-[0.7rem] text-dimmer font-mono w-14 text-right');
-  freqLabel.el.id = 'rain-freq-label';
-  freqSlider.el.addEventListener('input', function() { setRainFreq(this.value); freqLabel.el.textContent = this.value + ' Hz'; });
-  const freqAutoBtn = new window.View('button');
-  freqAutoBtn.text('Auto');
-  freqAutoBtn.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
-    (getRainFreq() === 0 ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
-  freqAutoBtn.onTap(function() {
-    if (getRainFreq() === 0) { setRainFreq(1000); freqSlider.el.disabled = false; freqSlider.el.style.opacity = '1'; freqSlider.el.value = 1000; freqLabel.el.textContent = '1000 Hz'; }
-    else { setRainFreq(0); freqSlider.el.disabled = true; freqSlider.el.style.opacity = '0.3'; freqLabel.el.textContent = 'Auto'; }
-  });
-  const freqRow = window.HStack(window.Text('Tone').className('text-[0.7rem] text-dimmer whitespace-nowrap'), freqSlider, freqLabel, freqAutoBtn).spacing(2).className('mt-2');
-
-  const noiseSection = window.VStack(
-    window.Text('White Noise').className('text-primary text-sm'),
-    noiseWrap, volRow, freqRow
-  ).className('mt-4');
-
   // Button sounds
   const soundBtns = Object.entries(CLICK_SOUND_PRESETS).map(function(pair) {
     const key = pair[0], p = pair[1];
@@ -290,9 +244,6 @@ export function _renderAppearanceSettings() {
   // Pet row in group-row format
   const petGroupRow = _settingRow('Pixel Pet', null, HStack(petBtns).spacing(0.5));
 
-  // Noise as freeform content
-  const noiseContent = _settingGroupContent([noiseSection]);
-
   // Sound row in group-row format
   const soundGroupRow = _settingRow('Button Sounds', null, HStack(soundBtns).spacing(0.5));
 
@@ -314,7 +265,6 @@ export function _renderAppearanceSettings() {
         }),
     ]),
     _settingCard('Ambient', [
-      noiseContent,
       soundGroupRow,
     ]),
     _settingCard('Read Aloud', [
