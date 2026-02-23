@@ -71,7 +71,11 @@ export function registerContextIPC(): void {
   });
 
   ipcMain.handle('insight:analyze', (event, data) => {
-    insightPipeline.processPage(data, event.sender, { manual: true });
+    return insightPipeline.processPage(data, event.sender, { manual: true });
+  });
+
+  ipcMain.handle('insight:stop', (_event, tabId: string) => {
+    insightPipeline.stopTab(tabId);
   });
 
   ipcMain.handle('insight:set-enabled', (_event, enabled: boolean) => {

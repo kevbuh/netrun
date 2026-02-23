@@ -7,10 +7,12 @@ import { icon } from '/js/core/icons.js';
 import { _updateAudioUnified } from '/js/core/core-audio.js';
 import { islandUpdate } from '/js/core/core-ui.js';
 import { _ttsChunkText, _ttsFetchAndQueue, _ttsStopAll, _ttsUpdateBtnIcon } from '/js/panel-tts.js';
+import { registerActions } from '/js/core/core-actions.js';
 
 // ── Insight state ──
 
 export const _annotationsEnabled = new Map(); // tabId → bool
+export const _insightAnalyzing = new Map();   // tabId → bool (true while analysis in-flight)
 export const _insightCache = new Map();       // url → { insight, annotations, related, ts }
 
 // Restore insight cache from localStorage on load
@@ -39,7 +41,7 @@ export function _triggerInsight(tab) {
   if (!url || url.startsWith('about:') || url.startsWith('chrome:')) return;
 
   // Ensure this is the current active tab
-  if (tab.id !== _browseActiveTab) return;
+  if (tab.id !== window._browseActiveTab) return;
 
   // If we have a cached result for this URL, restore it directly
   if (_restoreInsightPill(tab)) return;
@@ -56,6 +58,9 @@ export async function _triggerInsightExtract(tab) {
     const pageText = await _extractTextFromFrame(tab);
     if (!pageText || pageText.length < 100) return;
 
+    // Mark as analyzing
+    _insightAnalyzing.set(tab.id, true);
+
     // Show loading pill immediately
     if (typeof islandUpdate === 'function') {
       islandUpdate('insight', {
@@ -68,7 +73,7 @@ export async function _triggerInsightExtract(tab) {
 
     // Capture screenshot for OCR if enabled — only for the active tab
     let screenshot = null;
-    if (Settings.get('insightOcr') !== 'off' && tab.id === _browseActiveTab) {
+    if (Settings.get('insightOcr') !== 'off' && tab.id === window._browseActiveTab) {
       // Wait for webview guest process to be ready (getWebContentsId returns 0 until loaded)
       let wc = tab.el.getWebContentsId ? tab.el.getWebContentsId() : null;
       if (!wc) {
@@ -168,8 +173,22 @@ export function _showAnnotateOfferPill(tab) {
 // ── Toggle annotations (clear/restore) ──
 
 export function toggleAnnotations() {
-  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  const tab = window._browseTabs.find(t => t.id === window._browseActiveTab);
   if (!tab || tab.blank) return;
+
+  // If currently analyzing, stop the analysis
+  if (_insightAnalyzing.get(tab.id)) {
+    _insightAnalyzing.delete(tab.id);
+    _annotationsEnabled.delete(tab.id);
+    _updateAnnotateButtonState();
+    if (window.electronAPI && window.electronAPI.insightStop) {
+      window.electronAPI.insightStop(tab.id);
+    }
+    clearAnnotations(tab);
+    _showAnnotateOfferPill(tab);
+    return;
+  }
+
   const enabled = !_annotationsEnabled.get(tab.id);
   _annotationsEnabled.set(tab.id, enabled);
   _updateAnnotateButtonState();
@@ -194,6 +213,9 @@ export async function _manualInsightAnalyze(tab) {
   // Clear cache for this URL
   _insightCache.delete(tab.url);
   clearAnnotations(tab);
+
+  // Mark as analyzing
+  _insightAnalyzing.set(tab.id, true);
 
   // Show loading
   if (typeof islandUpdate === 'function') {
@@ -251,8 +273,11 @@ export function _initInsightListener() {
   window.electronAPI.onInsightResult(function (_event, result) {
     if (!result || !result.tabId) return;
 
+    // Analysis complete — clear analyzing state
+    _insightAnalyzing.delete(result.tabId);
+
     // Only process if this is for the currently active tab
-    if (typeof _browseActiveTab !== 'undefined' && result.tabId !== _browseActiveTab) return;
+    if (typeof window._browseActiveTab !== 'undefined' && result.tabId !== window._browseActiveTab) return;
 
     // Handle error (manual trigger, Ollama down)
     if (result.error) {
@@ -267,7 +292,7 @@ export function _initInsightListener() {
       return;
     }
 
-    const tab = _browseTabs.find(function(t) { return t.id === result.tabId; });
+    const tab = window._browseTabs.find(function(t) { return t.id === result.tabId; });
     const annotations = result.annotations || [];
     const insight = result.insight || null;
     const related = result.related || [];
@@ -314,11 +339,11 @@ export function _initInsightPartialListener() {
 
   window.electronAPI.onInsightPartial(function (_event, partial) {
     if (!partial || !partial.tabId) return;
-    if (typeof _browseActiveTab !== 'undefined' && partial.tabId !== _browseActiveTab) return;
+    if (typeof window._browseActiveTab !== 'undefined' && partial.tabId !== window._browseActiveTab) return;
 
     // Inject streamed annotation incrementally only if user enabled for this tab
     if (partial.annotation) {
-      const tab = _browseTabs.find(function(t) { return t.id === partial.tabId; });
+      const tab = window._browseTabs.find(function(t) { return t.id === partial.tabId; });
       if (tab && _annotationsEnabled.get(tab.id)) {
         injectSingleAnnotation(tab, partial.annotation);
         _updateAnnotateButtonState();
@@ -471,7 +496,7 @@ export function _showAnnotationTooltip(data, frame, pinned) {
     btn.onTap(function(ev) {
       ev.stopPropagation(); ev.preventDefault();
       if (btn.el.disabled) return;
-      const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+      const tab = window._browseTabs.find(function(t) { return t.id === window._browseActiveTab; });
       apiPost('/api/annotation-feedback', { quote: data.quote || data.explanation || '', explanation: data.explanation || '', annType: data.type || '', rating: rating, url: (tab && tab.url) || '', pageTitle: (tab && tab.title) || '' })
         .then(function() {
           btn.el.style.opacity = '1';
@@ -812,7 +837,7 @@ export function injectSingleAnnotation(tab, ann) {
 }
 
 export function scrollToAnnotation(idx) {
-  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  const tab = window._browseTabs.find(t => t.id === window._browseActiveTab);
   if (!tab || !tab.el) return;
   const frame = tab.el;
   const script = `(function() {
@@ -832,7 +857,7 @@ export function scrollToAnnotation(idx) {
 export function _updateAnnotateButtonState() {
   const btn = document.getElementById('browse-annotate-btn');
   if (!btn) return;
-  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  const tab = window._browseTabs.find(t => t.id === window._browseActiveTab);
   const enabled = tab && _annotationsEnabled.get(tab.id);
   btn.classList.toggle('text-accent', !!enabled);
   btn.classList.toggle('text-dimmer', !enabled);
@@ -843,7 +868,7 @@ export function _updateAnnotateButtonState() {
 export const _pickerEnabled = new Map(); // tabId → bool
 
 export function toggleElementPicker() {
-  const tab = _browseTabs.find(t => t.id === _browseActiveTab);
+  const tab = window._browseTabs.find(t => t.id === window._browseActiveTab);
   if (!tab || tab.blank) return;
   const enabled = !_pickerEnabled.get(tab.id);
   _pickerEnabled.set(tab.id, enabled);

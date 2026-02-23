@@ -85,6 +85,13 @@ export class PageInsightPipeline {
     }
   }
 
+  stopTab(tabId: string): void {
+    this.abortControllers.get(tabId)?.abort();
+    this.abortControllers.delete(tabId);
+    const timer = this.debounceTimers.get(tabId);
+    if (timer) { clearTimeout(timer); this.debounceTimers.delete(tabId); }
+  }
+
   onPageLoaded(data: PageData, sender: WebContents): void {
     if (!this.enabled) return;
     if (!data?.url || !data?.text) return;

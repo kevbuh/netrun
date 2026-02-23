@@ -134,6 +134,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Insight (unified ambient + annotations) ──
   insightPageLoaded: (data) => ipcRenderer.invoke('insight:page-loaded', data),
   insightAnalyze: (data) => ipcRenderer.invoke('insight:analyze', data),
+  insightStop: (tabId) => ipcRenderer.invoke('insight:stop', tabId),
   insightSetEnabled: (enabled) => ipcRenderer.invoke('insight:set-enabled', enabled),
   onInsightResult: (cb) => ipcRenderer.on('insight:result', cb),
   removeInsightResultListener: (cb) => ipcRenderer.removeListener('insight:result', cb),

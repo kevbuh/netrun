@@ -5,7 +5,7 @@ import { escapeHtml } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { aiPillState } from '/js/toolbar/toolbar-state.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
-import { toggleAnnotations, _annotationsEnabled } from '/js/browse/browse-annotations.js';
+import { toggleAnnotations, _annotationsEnabled, _insightAnalyzing } from '/js/browse/browse-annotations.js';
 
 // ── State ──
 var _dirty = false;
@@ -243,13 +243,15 @@ function _renderDropdown(dropdown, state) {
   // 2. AI section
   var tab = _getActiveTab();
   var hasTab = tab && !tab.blank && tab.url;
-  var annEnabled = hasTab && _annotationsEnabled.get(tab.id);
+  var annAnalyzing = hasTab && _insightAnalyzing.get(tab.id);
+  var annEnabled = hasTab && !annAnalyzing && _annotationsEnabled.get(tab.id);
+  var annLabel = annAnalyzing ? 'Stop Analyzing' : annEnabled ? 'Remove Annotations' : 'Annotate Page';
 
   children.push(_dropdownItem(
     icon('annotate', { size: 14 }),
-    annEnabled ? 'Remove Annotations' : 'Annotate Page',
+    annLabel,
     function() { _closeDropdown(); toggleAnnotations(); },
-    { disabled: !hasTab, color: annEnabled ? 'var(--nr-accent)' : undefined }
+    { disabled: !hasTab, color: (annEnabled || annAnalyzing) ? 'var(--nr-accent)' : undefined }
   ));
   children.push(_dropdownItem(
     icon('speaker', { size: 14 }),

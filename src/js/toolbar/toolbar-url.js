@@ -7,6 +7,7 @@ import { _browseCreateFrame, _browseProxyUrl, _browseSetFrameAllow } from '/js/b
 import { _browseBindFrame } from '/js/browse/browse-frame-bind.js';
 import { _browseUpdateNewTabPage, browseSelectTab, browseCloseTab } from '/js/browse/browse-passwords.js';
 import { _browseUpdateSaveBtn } from '/js/browse/browse-features.js';
+import { _annotationsEnabled, _updateAnnotateButtonState } from '/js/browse/browse-annotations.js';
 
 // ── Bang shortcuts ──
 
@@ -132,9 +133,9 @@ export function browseNavigate(input) {
     tab.forwardStack = [];
   }
   // Clear annotations on navigation
-  if (typeof window._annotationsEnabled !== 'undefined' && window._annotationsEnabled.get(tab.id)) {
-    window._annotationsEnabled.set(tab.id, false);
-    if (typeof window._updateAnnotateButtonState === 'function') window._updateAnnotateButtonState();
+  if (_annotationsEnabled.get(tab.id)) {
+    _annotationsEnabled.set(tab.id, false);
+    _updateAnnotateButtonState();
   }
   tab.url = url;
   tab.title = _browseTitleFromUrl(url);
