@@ -318,3 +318,24 @@
   letter-spacing: 0.05em;
   font-weight: 600;
 }
+
+.nerd-panel-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-right: var(--nr-space-2);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--nr-text-quaternary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.nerd-panel-close-btn:hover {
+  color: var(--nr-text-primary);
+  background: var(--nr-bg-raised);
+}

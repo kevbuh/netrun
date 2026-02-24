@@ -1,0 +1,240 @@
+/* ── Implementation Session Workspace ── */
+
+.impl-workspace {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--nr-bg-body);
+  z-index: 4;
+}
+
+.impl-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--nr-bg-surface);
+  border-bottom: 1px solid var(--nr-border-dim);
+  flex-shrink: 0;
+  min-height: 38px;
+}
+
+.impl-toolbar-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--nr-text-primary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.impl-toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  color: var(--nr-text-secondary);
+  background: transparent;
+  border: 1px solid var(--nr-border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.impl-toolbar-btn:hover {
+  color: var(--nr-text-primary);
+  background: var(--nr-bg-raised);
+  border-color: var(--nr-border-strong);
+}
+
+.impl-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── File Tree ── */
+
+.impl-file-tree {
+  width: 200px;
+  min-width: 140px;
+  max-width: 320px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 1px solid var(--nr-border-dim);
+  background: var(--nr-bg-sunken);
+  padding: 4px 0;
+}
+
+.impl-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  color: var(--nr-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.1s, color 0.1s;
+  user-select: none;
+}
+
+.impl-tree-row:hover {
+  background: var(--nr-bg-raised);
+  color: var(--nr-text-primary);
+}
+
+.impl-tree-row.active {
+  background: var(--nr-accent);
+  color: #fff;
+}
+
+.impl-tree-icon {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+
+.impl-tree-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.impl-tree-terminal {
+  font-weight: 600;
+  color: var(--nr-text-primary);
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--nr-border-dim);
+  padding-bottom: 5px;
+}
+
+.impl-tree-terminal .impl-tree-icon {
+  opacity: 1;
+}
+
+/* ── Terminal Area ── */
+
+.impl-terminal {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  background: #0d0d0d;
+}
+
+.impl-terminal .xterm {
+  height: 100%;
+  padding: 4px;
+}
+
+/* ── File Preview Overlay ── */
+
+.impl-preview-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 50%;
+  height: 100%;
+  background: var(--nr-bg-surface);
+  border-left: 1px solid var(--nr-border-dim);
+  display: flex;
+  flex-direction: column;
+  z-index: 5;
+}
+
+.impl-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--nr-bg-raised);
+  border-bottom: 1px solid var(--nr-border-dim);
+  flex-shrink: 0;
+}
+
+.impl-preview-title {
+  font-size: 0.72rem;
+  color: var(--nr-text-primary);
+  font-weight: 500;
+  flex: 1;
+}
+
+.impl-preview-close {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--nr-text-quaternary);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.impl-preview-close:hover {
+  background: var(--nr-bg-surface);
+  color: var(--nr-text-primary);
+}
+
+.impl-preview-content {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 12px;
+  font-family: var(--nr-font-mono, 'SF Mono', 'Fira Code', monospace);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--nr-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── Session cards in code tab ── */
+
+.impl-session-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--nr-bg-surface);
+  border: 1px solid var(--nr-border-default);
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 6px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.impl-session-card:hover {
+  border-color: var(--nr-accent);
+  background: var(--nr-bg-raised);
+}
+
+.impl-session-card-title {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--nr-text-primary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.impl-session-card-meta {
+  font-size: 0.68rem;
+  color: var(--nr-text-tertiary);
+  flex-shrink: 0;
+}

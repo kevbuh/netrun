@@ -121,6 +121,11 @@ function _nerdModeDisable(tab) {
   // Remove HUD mode if active
   document.body.classList.remove('nerd-hud-active');
 
+  // Tear down impl session if active
+  if (window._isImplSessionActive && window._isImplSessionActive(tab.id)) {
+    window._implSessionDisable && window._implSessionDisable(tab);
+  }
+
   // Destroy PDF viewer
   _pdfViewerDestroy(tab);
   if (tab._nerdViewerEl) {
@@ -159,9 +164,17 @@ export function _nerdModeOnTabSelect(tab) {
     // Reset adaptive color so glass surfaces use native theme colors
     _browseResetAdaptiveColor();
 
-    // Show this tab's nerd viewer
-    if (tab._nerdViewerEl) {
-      tab._nerdViewerEl.style.display = 'flex';
+    // If impl session is active, show workspace instead of PDF viewer
+    if (window._isImplSessionActive && window._isImplSessionActive(tab.id)) {
+      if (tab._implWorkspaceEl) tab._implWorkspaceEl.style.display = 'flex';
+      if (tab._nerdViewerEl) tab._nerdViewerEl.style.display = 'none';
+      if (tab.el) tab.el.style.display = 'none';
+    } else {
+      // Show this tab's nerd viewer
+      if (tab._nerdViewerEl) {
+        tab._nerdViewerEl.style.display = 'flex';
+      }
+      if (tab._implWorkspaceEl) tab._implWorkspaceEl.style.display = 'none';
     }
     if (tab.el) tab.el.style.display = 'none';
 
@@ -192,6 +205,14 @@ export function _nerdModeOnTabSelect(tab) {
 export function _nerdModeOnTabClose(tabId) {
   _nerdModeSticky.delete(tabId);
   if (_nerdModeEnabled.has(tabId)) {
+    // Clean up impl session state
+    var win = window._getCurrentWindow();
+    if (win) {
+      var tab = win.tabs.find(function(t) { return t.id === tabId; });
+      if (tab && window._isImplSessionActive && window._isImplSessionActive(tabId)) {
+        window._implSessionDisable && window._implSessionDisable(tab);
+      }
+    }
     _nerdModeEnabled.delete(tabId);
     islandRemove('nerd');
   }

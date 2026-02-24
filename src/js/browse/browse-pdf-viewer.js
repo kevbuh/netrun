@@ -337,6 +337,12 @@ function _buildToolbar(tab, toolbarView) {
   ttsBtn.el.id = 'pdf-tts-btn';
   toolbarView.add(ttsBtn);
 
+  // Implement this paper
+  var implBtn = _tbBtn(icon('code', { size: 16 }), 'Implement this paper', function() {
+    if (window._implSessionEnable) window._implSessionEnable(tab);
+  });
+  toolbarView.add(implBtn);
+
   // Spacer
   var spacer = new View('div').style('flex', '1');
   toolbarView.add(spacer);

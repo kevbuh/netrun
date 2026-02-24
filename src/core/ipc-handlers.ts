@@ -12,6 +12,7 @@ import { registerTerminalIPC } from './ipc/terminal.js';
 import { registerSettingsIPC } from './ipc/settings.js';
 import { registerPdfConvertIPC } from './ipc/pdf-convert.js';
 import { registerBookmarkImportIPC } from './ipc/bookmark-import.js';
+import { registerImplSessionIPC } from './ipc/impl-session.js';
 
 /**
  * Register all IPC handlers for the tool system and agent runtime.
@@ -31,4 +32,5 @@ export function registerToolIPC(): void {
   registerSettingsIPC();
   registerPdfConvertIPC();
   registerBookmarkImportIPC();
+  registerImplSessionIPC();
 }

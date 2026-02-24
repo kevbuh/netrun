@@ -280,4 +280,18 @@ export function initSchema(db: Database.Database): void {
       updated REAL NOT NULL
     );
   `);
+
+  // ── Implementation sessions (paper → code workspace) ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS impl_sessions (
+      id TEXT PRIMARY KEY,
+      paper_url TEXT NOT NULL DEFAULT '',
+      paper_title TEXT NOT NULL DEFAULT '',
+      paper_abstract TEXT NOT NULL DEFAULT '',
+      folder_path TEXT NOT NULL,
+      agent_type TEXT NOT NULL DEFAULT 'claude',
+      created_at REAL NOT NULL,
+      updated_at REAL NOT NULL
+    );
+  `);
 }

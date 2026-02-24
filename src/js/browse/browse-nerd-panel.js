@@ -2,7 +2,7 @@
 // Registers panel tabs: Info, References, Authors, Highlights, Search
 // Depends on: core-nav.js, browse-paper.js, browse-pdf-viewer.js
 import { icon } from '/js/core/icons.js';
-import { registerPanelTabs } from '/js/core/core-nav.js';
+import { registerPanelTabs, togglePanel } from '/js/core/core-nav.js';
 import { _paperState, _s2Cache, _s2Fetch, _s2GetAuthor, _s2GetAuthorFull, _extractArxivId, _s2LookupByArxivId, _s2SearchPaper } from '/js/browse/browse-paper.js';
 import { _pdfViewerScrollToPage, _pdfViewerGetText } from '/js/browse/browse-pdf-viewer.js';
 import { _nerdModeEnabled } from '/js/browse/browse-nerd-mode.js';
@@ -28,7 +28,14 @@ export function _nerdPanelRegister() {
       { id: 'nerd-search',     label: 'Search',     icon: icon('search', { size: 14 }),    render: _renderSearchTab },
     ],
     header: function(el) {
-      AetherUI.append(Text('Nerd Mode').className('nerd-header-label'), el);
+      var row = new HStack().styles({ width: '100%', alignItems: 'center', justifyContent: 'space-between' });
+      row.add(Text('Nerd Mode').className('nerd-header-label'));
+      var closeBtn = new View('button').className('nerd-panel-close-btn')
+        .attr('title', 'Hide panel')
+        .add(RawHTML(icon('x', { size: 14 })))
+        .onTap(function() { togglePanel(); });
+      row.add(closeBtn);
+      AetherUI.append(row, el);
     }
   });
 }
@@ -562,6 +569,33 @@ function _renderCodeTab(container) {
     wrap.add(Text('No paper identified').className('nerd-empty'));
     AetherUI.mount(wrap, container);
     return;
+  }
+
+  // Previous sessions
+  if (window.electronAPI && window.electronAPI.implList && tab) {
+    electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
+      if (sessions && !sessions.error && sessions.length) {
+        var sessView = new View('div').className('nerd-section').add(
+          Text('Previous Sessions').className('nerd-section-title')
+        );
+        sessions.forEach(function(s) {
+          var age = (Date.now() / 1000 - s.created_at);
+          var ageStr = age < 3600 ? Math.floor(age / 60) + 'm ago' : age < 86400 ? Math.floor(age / 3600) + 'h ago' : Math.floor(age / 86400) + 'd ago';
+          sessView.add(new View('div').className('impl-session-card').add(
+            Text(s.folder_path.split('/').pop()).className('impl-session-card-title'),
+            Text(ageStr).className('impl-session-card-meta')
+          ).onTap(function() {
+            if (window._implSessionEnable) window._implSessionEnable(tab, s.id);
+          }));
+        });
+        // Prepend sessions into wrap
+        if (wrap.el.firstChild) {
+          wrap.el.insertBefore(sessView.el, wrap.el.firstChild);
+        } else {
+          wrap.el.appendChild(sessView.el);
+        }
+      }
+    });
   }
 
   wrap.add(Text('Searching for implementations...').className('nerd-empty'));

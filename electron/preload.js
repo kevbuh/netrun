@@ -154,6 +154,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pdfMdToPdf: (inputPath, outputPath) => ipcRenderer.invoke('pdf:md-to-pdf', inputPath, outputPath),
   pdfToMd: (inputPath, outputPath) => ipcRenderer.invoke('pdf:to-md', inputPath, outputPath),
 
+  // ── Implementation sessions ──
+  implCreate: (opts) => ipcRenderer.invoke('impl:create', opts),
+  implList: (opts) => ipcRenderer.invoke('impl:list', opts),
+  implGet: (id) => ipcRenderer.invoke('impl:get', id),
+  implDelete: (id, deleteFiles) => ipcRenderer.invoke('impl:delete', id, deleteFiles),
+  implWatchStart: (sessionId, folderPath) => ipcRenderer.invoke('impl:watch-start', sessionId, folderPath),
+  implWatchStop: (sessionId) => ipcRenderer.invoke('impl:watch-stop', sessionId),
+  implReadTree: (folderPath) => ipcRenderer.invoke('impl:read-tree', folderPath),
+  implReadFile: (folderPath, relativePath) => ipcRenderer.invoke('impl:read-file', folderPath, relativePath),
+  implChooseDir: () => ipcRenderer.invoke('impl:choose-dir'),
+  onImplFileChanged: (callback) => ipcRenderer.on('impl:file-changed', callback),
+  removeImplFileListeners: () => ipcRenderer.removeAllListeners('impl:file-changed'),
+
   // ── DB query shortcuts (direct IPC, no Flask) ──
   dbQuery: (channel, ...args) => ipcRenderer.invoke('db:' + channel, ...args),
 });
