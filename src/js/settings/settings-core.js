@@ -12,6 +12,7 @@ import { _renderAccountSettings } from '/js/settings/settings-profile.js';
 import { _renderAppearanceSettings } from '/js/settings/settings-appearance.js';
 import { _renderFeedSettings } from '/js/settings/settings-feed.js';
 import { _renderHelpSettings } from '/js/settings/settings-help.js';
+import { _renderDownloadsSettings } from '/js/settings/settings-downloads.js';
 import { updateSpinnerPreview } from '/js/settings/settings-colors.js';
 
 // Migrate old section keys
@@ -34,6 +35,7 @@ export const _SETTINGS_SECTIONS = [
   { key: 'browser', label: 'Browser', icon: icon('browse', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
   { key: 'ai', label: 'AI', icon: icon('star', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
   { key: 'feed', label: 'Feed', icon: icon('feedReading', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
+  { key: 'downloads', label: 'Downloads', icon: icon('download', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
   { type: 'label', text: 'Advanced' },
   { key: 'context', label: 'Context', icon: icon('document', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
   { key: 'help', label: 'Help', icon: icon('help', { size: 16, class: 'w-4 h-4', strokeWidth: '1.5' }) },
@@ -104,7 +106,7 @@ export function renderSettingsView() {
   // ── Content pane (reactive title + reactive Switch) ──
   const pane = document.getElementById('settings-content-pane');
   if (pane) {
-    const titles = { profile: 'Profile', appearance: 'Appearance', browser: 'Browser', ai: 'AI', feed: 'Feed', context: 'Context', help: 'Help' };
+    const titles = { profile: 'Profile', appearance: 'Appearance', browser: 'Browser', ai: 'AI', feed: 'Feed', downloads: 'Downloads', context: 'Context', help: 'Help' };
     var titleView = Text('').font('1.2rem').fontWeight(600).foreground('primary').cssText('margin-bottom:20px;');
     titleView._bindText(function() { return titles[_settingsSection.value] || 'Settings'; });
 
@@ -114,6 +116,7 @@ export function renderSettingsView() {
       browser: function() { return _renderBrowserSettings(); },
       ai: function() { return _renderAISettings(); },
       feed: function() { return _renderFeedSettings(); },
+      downloads: function() { return _renderDownloadsSettings(); },
       context: function() { return _renderContextSettings(); },
       help: function() { return _renderHelpSettings(); },
     }).transition('fade');
