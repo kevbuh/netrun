@@ -631,56 +631,27 @@ function _renderCitedByTab(container) {
 
 // ── Code Tab (Papers With Code + GitHub fallback) ──
 
-function _searchPwc(title) {
-  var query = encodeURIComponent(title);
-  var _pwcFetch = function(url) {
-    if (window.electronAPI && window.electronAPI.dbQuery) {
-      return window.electronAPI.dbQuery('pwc-proxy', url);
-    }
-    return fetch(url).then(function(r) { return r.json(); });
-  };
-  return _pwcFetch('https://paperswithcode.com/api/v1/papers/?q=' + query + '&items_per_page=5')
-    .then(function(data) {
-      var results = data && data.results ? data.results : [];
-      if (!results.length) return null;
-      var cards = [];
-      var pending = results.length;
-      return new Promise(function(resolve) {
-        results.forEach(function(paper) {
-          _pwcFetch('https://paperswithcode.com/api/v1/papers/' + paper.id + '/repositories/')
-            .then(function(repoData) {
-              var repos = repoData && repoData.results ? repoData.results : [];
-              repos.forEach(function(repo) {
-                var repoName = repo.url ? repo.url.split('/').slice(-2).join('/') : 'Repository';
-                var parts = [];
-                if (repo.stars != null) parts.push(repo.stars + ' stars');
-                if (repo.framework) parts.push(repo.framework);
-                if (repo.is_official) parts.push('Official');
-                cards.push({ name: repoName, meta: parts.join(' \u00b7 '), url: repo.url });
-              });
-              pending--;
-              if (pending <= 0) resolve(cards.length ? cards : null);
-            })
-            .catch(function() {
-              pending--;
-              if (pending <= 0) resolve(cards.length ? cards : null);
-            });
-        });
-      });
-    })
-    .catch(function() { return null; });
+function _proxyFetch(proxyName, url) {
+  if (window.electronAPI && window.electronAPI.dbQuery) {
+    return window.electronAPI.dbQuery(proxyName, url);
+  }
+  return fetch(url).then(function(r) { return r.json(); });
+}
+
+function _searchHuggingFace(arxivId) {
+  if (!arxivId) return Promise.resolve(null);
+  var url = 'https://huggingface.co/api/papers/' + arxivId;
+  return _proxyFetch('pwc-proxy', url).then(function(data) {
+    if (!data || data.error) return null;
+    // HF paper API returns { id, title, upvotes, ... } — the paper page itself links to models/spaces/datasets
+    return { id: data.id || arxivId, title: data.title || '', upvotes: data.upvotes || 0 };
+  }).catch(function() { return null; });
 }
 
 function _searchGithub(title) {
   var query = encodeURIComponent('"' + title + '"');
   var url = 'https://api.github.com/search/repositories?q=' + query + '&sort=stars&per_page=8';
-  var _ghFetch = function(u) {
-    if (window.electronAPI && window.electronAPI.dbQuery) {
-      return window.electronAPI.dbQuery('github-proxy', u);
-    }
-    return fetch(u, { headers: { 'Accept': 'application/vnd.github.v3+json' } }).then(function(r) { return r.json(); });
-  };
-  return _ghFetch(url).then(function(data) {
+  return _proxyFetch('github-proxy', url).then(function(data) {
     if (!data || !data.items || !data.items.length) return null;
     return data.items.map(function(repo) {
       return {
@@ -695,9 +666,33 @@ function _searchGithub(title) {
   }).catch(function() { return null; });
 }
 
+function _codeTabLinks(arxivId, title) {
+  var links = new HStack().styles({ gap: '12px', marginBottom: '8px' });
+  if (arxivId) {
+    links.add(
+      Text('Hugging Face \u2192').className('nerd-paper-item-meta').styles({ cursor: 'pointer', color: 'var(--nr-accent)' })
+        .onTap(function() { if (typeof window.browseNewTab === 'function') window.browseNewTab('https://huggingface.co/papers/' + arxivId); })
+    );
+  }
+  links.add(
+    Text('GitHub \u2192').className('nerd-paper-item-meta').styles({ cursor: 'pointer', color: 'var(--nr-accent)' })
+      .onTap(function() {
+        var ghUrl = 'https://github.com/search?q=' + encodeURIComponent('"' + title + '"') + '&type=repositories&s=stars&o=desc';
+        if (typeof window.browseNewTab === 'function') window.browseNewTab(ghUrl);
+      }),
+    Text('Web \u2192').className('nerd-paper-item-meta').styles({ cursor: 'pointer', color: 'var(--nr-accent)' })
+      .onTap(function() {
+        var webUrl = 'https://www.google.com/search?q=' + encodeURIComponent('"' + title + '" implementation');
+        if (typeof window.browseNewTab === 'function') window.browseNewTab(webUrl);
+      })
+  );
+  return links;
+}
+
 function _renderCodeTab(container) {
   ++_renderGeneration;
   var state = _getState();
+  var tab = _getTab();
   var wrap = new View('div').className('nerd-tab-wrap');
 
   if (!state || !state.s2Data || !state.s2Data.title) {
@@ -710,41 +705,68 @@ function _renderCodeTab(container) {
   AetherUI.mount(wrap, container);
 
   var title = state.s2Data.title;
-  _searchPwc(title).then(function(pwcCards) {
-    if (pwcCards && pwcCards.length) {
-      var repoWrap = new View('div').className('nerd-tab-wrap');
-      pwcCards.forEach(function(c) {
-        var card = new View('div').className('nerd-repo-card').add(
-          Text(c.name).className('nerd-repo-name'),
-          Text(c.meta).className('nerd-repo-meta')
-        ).onTap(function() {
-          if (typeof window.browseNewTab === 'function') window.browseNewTab(c.url);
-        });
-        repoWrap.add(card);
+  var arxivId = tab ? _extractArxivId(tab.url) : null;
+
+  // Try Hugging Face first (arXiv papers), then GitHub fallback
+  _searchHuggingFace(arxivId).then(function(hfPaper) {
+    if (hfPaper) {
+      var hfWrap = new View('div').className('nerd-tab-wrap');
+      hfWrap.add(_codeTabLinks(arxivId, title));
+
+      var hfCard = new View('div').className('nerd-repo-card').add(
+        Text(hfPaper.title || title).className('nerd-repo-name'),
+        Text('Hugging Face Paper' + (hfPaper.upvotes ? ' \u00b7 ' + hfPaper.upvotes + ' upvotes' : '')).className('nerd-repo-meta')
+      ).onTap(function() {
+        if (typeof window.browseNewTab === 'function') window.browseNewTab('https://huggingface.co/papers/' + hfPaper.id);
       });
-      AetherUI.mount(repoWrap, container);
+      hfWrap.add(hfCard);
+
+      // Also search GitHub for repos
+      _searchGithub(title).then(function(ghRepos) {
+        if (ghRepos && ghRepos.length) {
+          ghRepos.forEach(function(repo) {
+            var meta = [];
+            if (repo.stars != null) meta.push(repo.stars + ' stars');
+            if (repo.language) meta.push(repo.language);
+            if (repo.forks != null) meta.push(repo.forks + ' forks');
+            hfWrap.add(new View('div').className('nerd-repo-card').add(
+              Text(repo.name).className('nerd-repo-name'),
+              Text(repo.description).className('nerd-repo-desc line-clamp-2'),
+              Text(meta.join(' \u00b7 ')).className('nerd-repo-meta')
+            ).onTap(function() {
+              if (typeof window.browseNewTab === 'function') window.browseNewTab(repo.url);
+            }));
+          });
+        }
+        AetherUI.mount(hfWrap, container);
+      });
       return;
     }
-    // Fallback to GitHub
+
+    // No HF paper — try GitHub directly
     _searchGithub(title).then(function(ghRepos) {
       if (!ghRepos || !ghRepos.length) {
-        AetherUI.mount(Text('No implementations found').className('nerd-empty'), container);
+        var emptyWrap = new View('div').className('nerd-tab-wrap').add(
+          Text('No implementations found').className('nerd-empty'),
+          _codeTabLinks(arxivId, title).styles({ justifyContent: 'center', marginTop: '8px' })
+        );
+        AetherUI.mount(emptyWrap, container);
         return;
       }
       var ghWrap = new View('div').className('nerd-tab-wrap');
+      ghWrap.add(_codeTabLinks(arxivId, title));
       ghRepos.forEach(function(repo) {
         var meta = [];
         if (repo.stars != null) meta.push(repo.stars + ' stars');
         if (repo.language) meta.push(repo.language);
         if (repo.forks != null) meta.push(repo.forks + ' forks');
-        var card = new View('div').className('nerd-repo-card').add(
+        ghWrap.add(new View('div').className('nerd-repo-card').add(
           Text(repo.name).className('nerd-repo-name'),
           Text(repo.description).className('nerd-repo-desc line-clamp-2'),
           Text(meta.join(' \u00b7 ')).className('nerd-repo-meta')
         ).onTap(function() {
           if (typeof window.browseNewTab === 'function') window.browseNewTab(repo.url);
-        });
-        ghWrap.add(card);
+        }));
       });
       AetherUI.mount(ghWrap, container);
     });
