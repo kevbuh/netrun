@@ -98,9 +98,9 @@ function _nerdModeEnable(tab) {
   // Island pill
   islandUpdate('nerd', {
     type: 'nerd',
-    label: 'Nerd Mode',
+    label: 'PDF view',
     icon: icon('glasses', { size: 14 }),
-    onTap: function() { toggleNerdMode(tab); }
+    action: function() { toggleNerdMode(tab); }
   });
 
   // Inject PDF text as context for AI chat
@@ -171,9 +171,9 @@ export function _nerdModeOnTabSelect(tab) {
     // Show nerd pill
     islandUpdate('nerd', {
       type: 'nerd',
-      label: 'Nerd Mode',
+      label: 'PDF view',
       icon: icon('glasses', { size: 14 }),
-      onTap: function() { toggleNerdMode(tab); }
+      action: function() { toggleNerdMode(tab); }
     });
 
     // Show panel
