@@ -6,12 +6,15 @@ import { icon } from '/js/core/icons.js';
 import { aiPillState } from '/js/toolbar/toolbar-state.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
 import { toggleAnnotations, _annotationsEnabled, _insightAnalyzing } from '/js/browse/browse-annotations.js';
+import { toggleCaptions } from '/js/browse/browse-captions.js';
 
 // ── State ──
 var _dirty = false;
 var _rafPending = false;
 var _dropdownOpen = false;
 var _outsideClickBound = false;
+var _dropdownStateKey = '';  // fingerprint to avoid unnecessary dropdown re-renders
+var _expandedStateKey = '';  // fingerprint for expanded island right column
 
 // Category colors for pulse events
 var _pulseCatColors = { ai: '#a78bfa', feed: '#f97316', network: '#94a3b8', system: '#e879f9' };
@@ -110,10 +113,31 @@ function _renderUnifiedPill() {
   var secContainer = el.querySelector('.ai-unified-secondary');
   if (secContainer) _renderSecondaryDots(secContainer, state.secondary);
 
-  // Dropdown
+  // Dropdown — only re-render when audio/mic/tts/cc state actually changed
   if (_dropdownOpen) {
     var dropdown = el.querySelector('.ai-unified-dropdown');
-    if (dropdown) _renderDropdown(dropdown, state);
+    if (dropdown) {
+      var as = state.audioState;
+      var key = [state.primary, !!as.tab, !!as.tts, as.tts && as.tts.paused, !!as.cc, !!as.mic, as.micRecording].join(',');
+      if (key !== _dropdownStateKey) {
+        _dropdownStateKey = key;
+        _renderDropdown(dropdown, state);
+      }
+    }
+  }
+
+  // Expanded island right column — re-render when state changes
+  var rightCol = document.getElementById('pill-island-right-col');
+  if (rightCol && rightCol.children.length > 0) {
+    var wrap = document.getElementById('pill-url-wrap');
+    if (wrap && wrap.classList.contains('island-expanded')) {
+      var as2 = state.audioState;
+      var key2 = [state.primary, !!as2.tab, !!as2.tts, as2.tts && as2.tts.paused, !!as2.cc, !!as2.mic, as2.micRecording].join(',');
+      if (key2 !== _expandedStateKey) {
+        _expandedStateKey = key2;
+        _renderDropdown(rightCol, state);
+      }
+    }
   }
 }
 
@@ -294,11 +318,11 @@ function _renderDropdown(dropdown, state) {
     children.push(_dropdownItem(
       icon('cc', { size: 14 }),
       escapeHtml(audioState.cc.label || 'CC'),
-      function() { _closeDropdown(); if (typeof window.toggleCaptions === 'function') window.toggleCaptions(); },
+      function() { toggleCaptions(); _scheduleRender(); },
       { color: 'var(--nr-accent)' }
     ));
   } else if (audioState.tab) {
-    children.push(_dropdownItem(icon('cc', { size: 14 }), 'Captions', function() { _closeDropdown(); if (typeof window.toggleCaptions === 'function') window.toggleCaptions(); }));
+    children.push(_dropdownItem(icon('cc', { size: 14 }), 'Captions', function() { toggleCaptions(); _scheduleRender(); }));
   }
 
   // Mic
@@ -317,7 +341,7 @@ function _renderDropdown(dropdown, state) {
       { disabled: true }
     ));
   } else {
-    children.push(_dropdownItem(icon('microphone', { size: 14 }), 'Voice input', function() { _closeDropdown(); if (typeof window._pillMicClick === 'function') window._pillMicClick(); }));
+    children.push(_dropdownItem(icon('microphone', { size: 14 }), 'Voice input', function() { if (typeof window._pillMicClick === 'function') window._pillMicClick(); _scheduleRender(); }));
   }
 
   // 4. Page Info — shown in expanded island, not here
@@ -457,6 +481,7 @@ function _closeDropdown() {
   var el = document.getElementById('pill-ai-unified');
   if (!el) return;
   _dropdownOpen = false;
+  _dropdownStateKey = '';
   el.classList.remove('ai-unified-open');
   document.body.classList.remove('island-dropdown-guard');
   document.removeEventListener('mousedown', _onOutsideClick);

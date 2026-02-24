@@ -556,6 +556,11 @@ app.whenReady().then(() => {
     if (permission === 'fullscreen' || permission === 'pointerLock') return callback(true);
     if (permission === 'openExternal') return callback(false);
 
+    // Auto-grant media permissions for the app's own renderer
+    if (permission === 'media' && mainWindow && !mainWindow.isDestroyed() && webContentsObj === mainWindow.webContents) {
+      return callback(true);
+    }
+
     let permKey;
     if (permission === 'media') {
       const types = details?.mediaTypes || [];
@@ -587,9 +592,21 @@ app.whenReady().then(() => {
     }, 60000);
   });
 
-  session.defaultSession.setPermissionCheckHandler((_webContentsObj, permission, _requestingOrigin, details) => {
+  session.defaultSession.setPermissionCheckHandler((webContentsObj, permission, _requestingOrigin, details) => {
     if (permission === 'fullscreen' || permission === 'pointerLock') return true;
     if (permission === 'openExternal') return false;
+
+    // Allow media permissions for the app's own renderer (main window)
+    if (permission === 'media') {
+      if (mainWindow && !mainWindow.isDestroyed() && webContentsObj === mainWindow.webContents) {
+        return true;
+      }
+      const origin = _requestingOrigin || '';
+      if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
+        return true;
+      }
+    }
+
     let permKey;
     if (permission === 'media') {
       const type = details?.mediaType;

@@ -151,7 +151,17 @@ export function _islandRenderPill(a) {
     var spd = parseFloat(Settings.get('ttsSpeed')) || 1;
     var spdBadge = T(spd.toFixed(1).replace(/\.0$/, '') + 'x').className('island-tts-speed').attr('title', 'Click to change speed')
       .onTap(function(e) { e.stopPropagation(); if (typeof window._ttsCycleSpeed === 'function') window._ttsCycleSpeed(); });
-    return H([R(ttsIconHtml), T(a.label || ''), spdBadge]);
+    var chunkText = a.chunkText || a.label || '';
+    if (chunkText.length > 40) chunkText = chunkText.slice(0, 38) + '\u2026';
+    var pauseBtn = R(icon(a.paused ? 'play' : 'pause', { size: 12 })).className('island-tts-ctrl')
+      .attr('title', a.paused ? 'Resume' : 'Pause')
+      .onTap(function(e) { e.stopPropagation(); if (typeof window._ttsPauseResume === 'function') window._ttsPauseResume(); });
+    var stopBtn = R(icon('close', { size: 12 })).className('island-tts-ctrl island-tts-stop')
+      .attr('title', 'Stop')
+      .onTap(function(e) { e.stopPropagation(); if (typeof window._ttsStopAll === 'function') window._ttsStopAll(); });
+    return H([R(ttsIconHtml), T(chunkText).className('island-tts-chunk').truncate(), pauseBtn, stopBtn, spdBadge]);
+  } else if (a.type === 'mic') {
+    return H([R(icon('microphone', { size: 14, stroke: '#ef4444' })).className('island-mic-icon'), T(a.label || 'Listening\u2026').foreground('#ef4444')]);
   } else if (a.type === 'audio') {
     return H([R(window._islandAudioBars), T(a.label || '')]);
   } else if (a.type === 'ai') {
@@ -359,7 +369,7 @@ export function _islandRender() {
   }
 
   // Sort by priority then timestamp
-  var priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, rss: 2.6, bookmark: 2.55, 'feed-notif': 2, audio: 2, qf: 2, pageinfo: 1.5, feed: 1, context: 0, tabs: 10, nowplaying: 9 };
+  var priority = { achievement: 5, download: 4, mic: 3.8, calendar: 3.5, cc: 3, tts: 3, rss: 2.6, bookmark: 2.55, 'feed-notif': 2, audio: 2, qf: 2, pageinfo: 1.5, feed: 1, context: 0, tabs: 10, nowplaying: 9 };
   filtered.sort(function(a, b) {
     var pa = priority[a.data.type] || 0;
     var pb = priority[b.data.type] || 0;

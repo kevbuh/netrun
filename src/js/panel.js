@@ -1545,62 +1545,103 @@ export function _panelBuildChatInput(popup, config) {
   });
   askInput.on('mousedown', (ev) => ev.stopPropagation());
 
-  // Mic button for voice input (MediaRecorder + Parakeet TDT via IPC)
-  let micRecorder = null;
+  // Mic button for voice input (AudioWorklet streaming + Parakeet TDT via IPC)
+  let _micStream = null;
+  let _micAudioCtx = null;
+  let _micWorklet = null;
+  let _micAccum = [];
+  let _micActive = false;
+
   const micBtn = new window.View('button').className('aether-input-btn doc-ask-mic-btn')
     .html(icon('microphone', { size: 14 }))
     .attr('title', 'Voice input')
     .on('mousedown', (ev) => ev.stopPropagation())
     .on('click', (ev) => {
       ev.stopPropagation(); ev.preventDefault();
-      if (micRecorder) {
-        micRecorder.stop();
-        return;
-      }
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-        const chunks = [];
-        micRecorder = recorder;
-        micBtn.el.classList.add('doc-ask-mic-active');
-        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-        recorder.onstop = async () => {
-          micRecorder = null;
-          micBtn.el.classList.remove('doc-ask-mic-active');
-          stream.getTracks().forEach(t => t.stop());
-          const blob = new Blob(chunks, { type: 'audio/webm' });
-          const prevPlaceholder = askInput.el.placeholder;
-          askInput.el.placeholder = 'Transcribing…';
-          islandUpdate('ai-transcribe', { type: 'ai', label: 'parakeet', detail: 'Transcribing · parakeet' });
-          try {
-            const arrayBuf = await blob.arrayBuffer();
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-            const decoded = await audioCtx.decodeAudioData(arrayBuf);
-            const pcmFloat32 = decoded.getChannelData(0);
-            audioCtx.close();
-            const bytes = new Uint8Array(pcmFloat32.buffer);
-            let binary = '';
-            for (let i = 0; i < bytes.length; i += 8192) {
-              binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
-            }
-            const pcmBase64 = btoa(binary);
-            const data = await electronAPI.captionsTranscribe(pcmBase64, 16000);
-            islandRemove('ai-transcribe');
-            askInput.el.placeholder = prevPlaceholder;
-            if (data && data.text) {
-              askInput.el.value = askInput.el.value + (askInput.el.value ? ' ' : '') + data.text;
-              askInput.el.focus();
-              if (Settings.get('voiceAutoSend') === 'on') {
-                setTimeout(() => _sendPopupChatMessage(popup, capturedText), 50);
-              }
-            }
-          } catch {
-            islandRemove('ai-transcribe');
-            askInput.el.placeholder = prevPlaceholder;
-          }
-        };
-        recorder.start();
-      }).catch(() => {});
+      if (_micActive) { _micStop(); return; }
+      _micStart();
     });
+
+  async function _micStop() {
+    _micActive = false;
+    if (_micWorklet) { try { _micWorklet.disconnect(); } catch (_e) {} _micWorklet = null; }
+    if (_micAudioCtx) { try { _micAudioCtx.close(); } catch (_e) {} _micAudioCtx = null; }
+    if (_micStream) { _micStream.getTracks().forEach(t => t.stop()); _micStream = null; }
+    micBtn.el.classList.remove('doc-ask-mic-active');
+    window._pillMicRecorder = null;
+    if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
+    if (typeof window.hideTeleprompter === 'function') window.hideTeleprompter('mic');
+    if (typeof window.islandRemove === 'function') window.islandRemove('mic');
+    // Insert accumulated text
+    const text = _micAccum.join(' ').trim();
+    _micAccum = [];
+    if (text) {
+      askInput.el.value = askInput.el.value + (askInput.el.value ? ' ' : '') + text;
+      askInput.el.focus();
+      if (Settings.get('voiceAutoSend') === 'on') {
+        setTimeout(() => _sendPopupChatMessage(popup, text), 50);
+      }
+    }
+  }
+
+  async function _micStart() {
+    try {
+      _micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (_e) { return; }
+    _micActive = true;
+    _micAccum = [];
+    micBtn.el.classList.add('doc-ask-mic-active');
+    window._pillMicRecorder = true;
+    if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
+    if (typeof window.showTeleprompter === 'function') window.showTeleprompter('mic');
+    if (typeof window.islandUpdate === 'function') window.islandUpdate('mic', { type: 'mic', label: 'Listening\u2026' });
+
+    _micAudioCtx = new AudioContext({ sampleRate: 16000 });
+    const processorCode = `
+      class MicProcessor extends AudioWorkletProcessor {
+        constructor() { super(); this._buf = new Float32Array(24000); this._pos = 0; }
+        process(inputs) {
+          const ch = inputs[0] && inputs[0][0];
+          if (!ch) return true;
+          for (let i = 0; i < ch.length; i++) {
+            this._buf[this._pos++] = ch[i];
+            if (this._pos >= 24000) {
+              this.port.postMessage(this._buf.buffer.slice(0));
+              this._pos = 0;
+            }
+          }
+          return true;
+        }
+      }
+      registerProcessor('mic-processor', MicProcessor);
+    `;
+    const blob = new Blob([processorCode], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    await _micAudioCtx.audioWorklet.addModule(url);
+    URL.revokeObjectURL(url);
+
+    _micWorklet = new AudioWorkletNode(_micAudioCtx, 'mic-processor');
+    _micWorklet.port.onmessage = async (e) => {
+      if (!_micActive || !window.electronAPI) return;
+      try {
+        const bytes = new Uint8Array(e.data);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        const base64 = btoa(binary);
+        const result = await window.electronAPI.captionsTranscribe(base64, 16000);
+        if (result && result.text && _micActive) {
+          _micAccum.push(result.text);
+          if (typeof window.teleprompterAppend === 'function') window.teleprompterAppend(result.text);
+        }
+      } catch (_e) {}
+    };
+
+    const source = _micAudioCtx.createMediaStreamSource(_micStream);
+    source.connect(_micWorklet);
+  }
+
+  // Expose mic toggle for toolbar pill
+  window._pillMicClick = function() { if (_micActive) _micStop(); else _micStart(); };
 
   askWrap.add(askInput);
   popup.append(askWrap.el);

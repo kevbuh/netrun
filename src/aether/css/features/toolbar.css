@@ -731,7 +731,7 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
               background 0.2s ease, color 0.2s ease;
   text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
 }
-.browse-mode.island-mode #pill-browse-url-input:hover { background: rgba(255,255,255,0.06); cursor: pointer; }
+.browse-mode.island-mode #pill-browse-url-input:hover { cursor: pointer; }
 .browse-mode.island-mode #pill-browse-url-input:focus { cursor: text; }
 
 
@@ -863,25 +863,19 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 
 /* Expanded URL input */
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input {
-  grid-column: 1 / 3 !important; grid-row: 1 !important;
+  grid-column: 1 / -1 !important; grid-row: 1 !important;
   display: block !important; opacity: 1 !important; max-width: none !important;
   width: 100% !important; height: auto !important; min-width: 0;
   transition: none !important; font-size: 0.8rem; color: var(--nr-text-secondary);
   padding: 8px 14px; border-radius: 12px; background: transparent;
-  border: none; text-align: left;
+  border: none; text-align: center;
   box-sizing: border-box; overflow: visible; white-space: normal;
 }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:hover { background: transparent; color: var(--nr-text-primary); }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:focus { color: var(--nr-text-primary); background: rgba(255,255,255,0.04); }
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:hover { color: var(--nr-text-primary); }
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:focus { color: var(--nr-text-primary); }
 
-/* Expanded: reload visible to the right of URL input */
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-reload {
-  display: flex !important; width: auto; height: auto; padding: 6px; opacity: 0.5;
-  overflow: visible; margin: 0; flex-shrink: 0; grid-row: 1; grid-column: 3;
-  border-radius: 8px; align-self: center; transition: opacity 0.15s, background 0.15s;
-}
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-reload:hover { opacity: 1; background: var(--nr-bg-raised); }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-reload svg { width: 16px; height: 16px; }
+/* Expanded: hide reload */
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-reload { display: none !important; }
 
 /* Hide stray children in expanded mode */
 #pill-url-wrap.island-expanded > #pill-island { display: none; }
@@ -898,7 +892,7 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
   box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px var(--nr-border-default);
 }
 .browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within #pill-browse-url-input {
-  font-size: 0.82rem; max-width: none; padding: 6px 12px; border-radius: 12px; background: rgba(255,255,255,0.04);
+  font-size: 0.82rem; max-width: none; padding: 6px 12px; border-radius: 12px;
 }
 
 
@@ -1441,4 +1435,110 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
     animation-duration: 0.01s !important;
     transition-duration: 0.01s !important;
   }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   26. TELEPROMPTER — live text dropdown below AI pill
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.nr-teleprompter {
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 10000;
+  width: 400px;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 14px;
+  padding: 10px 16px 12px;
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0;
+  scale: 0.96;
+  transition: opacity 0.25s ease, scale 0.25s var(--motion-snappy, cubic-bezier(0.4, 0, 0.2, 1));
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+.nr-teleprompter-visible {
+  opacity: 1;
+  scale: 1;
+}
+
+.nr-teleprompter-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 6px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.nr-teleprompter-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.nr-teleprompter-dot-mic {
+  background: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
+  animation: nr-tele-pulse 1.5s ease-in-out infinite;
+}
+.nr-teleprompter-dot-cc {
+  background: var(--nr-accent, #b4451a);
+  box-shadow: 0 0 6px var(--nr-accent, #b4451a);
+}
+.nr-teleprompter-sep {
+  opacity: 0.3;
+  margin: 0 2px;
+}
+
+.nr-teleprompter-lines {
+  max-height: 5.6em;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.4) 15%, black 40%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.4) 15%, black 40%, black 100%);
+}
+
+.nr-teleprompter-line {
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #fff;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+  transition: opacity 0.3s ease;
+}
+
+@keyframes nr-tele-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Mic activity pill ── */
+.island-mic-icon { animation: island-mic-pulse 1.2s ease-in-out infinite; }
+@keyframes island-mic-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── TTS pill controls ── */
+.island-tts-ctrl {
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+  margin-left: 2px;
+  display: flex;
+  align-items: center;
+}
+.island-tts-ctrl:hover { opacity: 1; }
+.island-tts-stop:hover { color: #ef4444; }
+.island-tts-chunk {
+  max-width: 120px;
+  opacity: 0.7;
+  font-size: 0.7rem;
 }

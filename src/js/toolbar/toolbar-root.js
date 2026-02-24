@@ -30,6 +30,8 @@ import { islandUpdate, islandRemove, showAchievement, _islandRender,
 
 import { _initUnifiedPill, renderAIPanelContent } from '/js/toolbar/toolbar-ai-pill.js';
 
+import { showTeleprompter, hideTeleprompter, teleprompterAppend } from '/js/toolbar/toolbar-teleprompter.js';
+
 import { toggleBrowseMoreMenu, _togglePermissionsInMenu, _toggleConvertInMenu,
          browsePrintPage, browseShowAIView, _showTextOverlay,
          _getPdfPath, _pdfParseAction, _pdfExtractAction, _pdfSplitAction,
@@ -93,6 +95,11 @@ window._clearIslandActivity = _clearIslandActivity;
 
 // AI pill
 window.renderAIPanelContent = renderAIPanelContent;
+
+// Teleprompter
+window.showTeleprompter = showTeleprompter;
+window.hideTeleprompter = hideTeleprompter;
+window.teleprompterAppend = teleprompterAppend;
 
 // Menu
 window.toggleBrowseMoreMenu = toggleBrowseMoreMenu;

@@ -72,6 +72,7 @@ export async function toggleCaptions() {
   if (typeof _updateAudioUnified === 'function') _updateAudioUnified('cc', { label: 'CC Live', detail: 'Listening…', active: true });
   const ccBtn = document.getElementById('browse-cc-btn');
   if (ccBtn) ccBtn.classList.add('active');
+  if (typeof window.showTeleprompter === 'function') window.showTeleprompter('cc');
 
   try {
     // Tell main process to route this webview's audio
@@ -192,9 +193,11 @@ export function stopCaptions() {
   const ccBtn = document.getElementById('browse-cc-btn');
   if (ccBtn) ccBtn.classList.remove('active');
   if (typeof _clearAudioUnified === 'function') _clearAudioUnified('cc');
+  if (typeof window.hideTeleprompter === 'function') window.hideTeleprompter('cc');
 }
 
 export function _showCaption(text) {
+  if (typeof window.teleprompterAppend === 'function') window.teleprompterAppend(text);
   window._ccCaptionLines.push(text);
   if (window._ccCaptionLines.length > 3) window._ccCaptionLines.shift();
 
