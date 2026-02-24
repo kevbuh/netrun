@@ -1010,6 +1010,23 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
   display: flex; align-items: center; gap: 4px; flex-shrink: 0;
 }
 
+/* ── Satellite pill containers ── */
+.pill-satellite-container {
+  display: none; position: absolute; top: 50%; transform: translateY(-50%);
+  align-items: center; gap: 4px; pointer-events: auto;
+}
+.browse-mode.island-mode #pill-satellite-left {
+  display: flex; flex-direction: row-reverse;
+  right: calc(100% + 6px); left: auto;
+}
+.browse-mode.island-mode #pill-satellite-right {
+  display: flex; flex-direction: row;
+  left: calc(100% + 6px); right: auto;
+}
+/* Hide satellites when island expands to full panel */
+.island-expanded > .pill-satellite-container,
+.browse-mode.island-mode.ntp-active .pill-satellite-container { display: none !important; }
+
 /* Island-mode tray: clean dropdown style */
 .browse-mode.island-mode #pill-island-tabs-anchor .island-ctx-tray {
   border-radius: 10px; background: var(--aether-dropdown-bg) !important;
@@ -1269,13 +1286,15 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .pill-island[data-island-id="annotate"].island-compact.island-active:hover .pill-island-content span { max-width: 200px; opacity: 1; }
 
 .pill-island[data-island-id="rss"] { cursor: pointer; }
-.pill-island[data-island-id="rss"].island-compact.island-active {
-  max-width: 34px; padding: 0 5px;
-  transition: max-width 0.45s var(--motion-snappy), padding 0.3s ease, opacity 0.3s ease;
+/* RSS satellite: icon-only, expand label on hover */
+.pill-satellite-container .pill-island[data-island-id="rss"] .pill-rss-label {
+  max-width: 0; overflow: hidden; opacity: 0;
+  transition: max-width 0.3s var(--motion-snappy), opacity 0.2s ease, margin 0.3s ease;
+  margin-left: 0; white-space: nowrap;
 }
-.pill-island[data-island-id="rss"].island-compact.island-active .pill-island-content span { max-width: 0; overflow: hidden; opacity: 0; transition: max-width 0.3s ease, opacity 0.2s ease; }
-.pill-island[data-island-id="rss"].island-compact.island-active:hover { max-width: 400px; padding: 0 6px; }
-.pill-island[data-island-id="rss"].island-compact.island-active:hover .pill-island-content span { max-width: 200px; opacity: 1; }
+.pill-satellite-container .pill-island[data-island-id="rss"]:hover .pill-rss-label {
+  max-width: 200px; opacity: 1; margin-left: 0;
+}
 
 /* Generic compact for right overflow */
 #pill-island-right .pill-island.island-compact.island-active {

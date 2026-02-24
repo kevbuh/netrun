@@ -57,10 +57,19 @@ export function islandUpdate(id, data) {
 }
 
 export function islandRemove(id) {
-  var el = document.querySelector('.pill-island[data-island-id="' + id + '"]');
+  var sel = '.pill-island[data-island-id="' + id + '"]';
+  var el = document.querySelector(sel);
   if (!el) {
     var anchor = document.getElementById('pill-island-tabs-anchor');
-    if (anchor) el = anchor.querySelector('.pill-island[data-island-id="' + id + '"]');
+    if (anchor) el = anchor.querySelector(sel);
+  }
+  if (!el) {
+    var sl = document.getElementById('pill-satellite-left');
+    if (sl) el = sl.querySelector(sel);
+  }
+  if (!el) {
+    var sr = document.getElementById('pill-satellite-right');
+    if (sr) el = sr.querySelector(sel);
   }
   if (window._islandDismissTimers && window._islandDismissTimers[id]) {
     clearTimeout(window._islandDismissTimers[id]);
@@ -175,7 +184,7 @@ export function _islandRenderPill(a) {
     var rssIconHtml = a.subscribed
       ? icon('check', { size: 14, stroke: '#22c55e' })
       : icon('rssFeed', { size: 14, stroke: '#f97316' });
-    return H([R(rssIconHtml), T(a.label || '').foreground(a.subscribed ? '#22c55e' : 'var(--aether-text)')]);
+    return H([R(rssIconHtml), T(a.label || '').className('pill-rss-label').foreground(a.subscribed ? '#22c55e' : 'var(--aether-text)')]);
   } else if (a.type === 'tabs') {
     var tabItems = a.items || [];
     var nonBlank = [];
@@ -358,6 +367,9 @@ export function _islandRender() {
   var container = document.getElementById('pill-island');
   if (!container) return;
 
+  var satLeft = document.getElementById('pill-satellite-left');
+  var satRight = document.getElementById('pill-satellite-right');
+
   var activities = window._islandActivities ? window._islandActivities.value : {};
   var isBrowse = false;
   var keys = Object.keys(activities);
@@ -379,13 +391,37 @@ export function _islandRender() {
     return pb - pa || (b.data._ts || 0) - (a.data._ts || 0);
   });
 
-  // Reconcile existing DOM pills with current activities
-  var existingPills = container.querySelectorAll('.pill-island');
-  var existingById = {};
-  for (var i = 0; i < existingPills.length; i++) {
-    existingById[existingPills[i].dataset.islandId] = existingPills[i];
+  // Determine if we're in island mode (satellites only apply there)
+  var nav = document.getElementById('sidebar-nav');
+  var isIslandMode = nav && nav.classList.contains('island-mode');
+
+  // Partition pills: tabs stay inline, others become satellites in island mode
+  var leftTypes = { rss: 1, bookmark: 1, 'feed-notif': 1, context: 1, achievement: 1 };
+  var inlinePills = [], leftPills = [], rightPills = [];
+  for (var i = 0; i < filtered.length; i++) {
+    var f = filtered[i];
+    if (!isIslandMode || !satLeft || !satRight || f.data.type === 'tabs') {
+      inlinePills.push(f);
+    } else if (leftTypes[f.data.type]) {
+      leftPills.push(f);
+    } else {
+      rightPills.push(f);
+    }
   }
 
+  // Collect all containers for stale-pill cleanup
+  var allContainers = [container];
+  if (satLeft) allContainers.push(satLeft);
+  if (satRight) allContainers.push(satRight);
+
+  // Reconcile existing DOM pills across all containers
+  var existingById = {};
+  for (var ci = 0; ci < allContainers.length; ci++) {
+    var pills = allContainers[ci].querySelectorAll('.pill-island');
+    for (var pi = 0; pi < pills.length; pi++) {
+      existingById[pills[pi].dataset.islandId] = pills[pi];
+    }
+  }
   // Also check tabs anchor
   var tabsAnchor = document.getElementById('pill-island-tabs-anchor');
   if (tabsAnchor) {
@@ -396,18 +432,21 @@ export function _islandRender() {
   }
 
   var activeIds = {};
-  for (var i = 0; i < filtered.length; i++) {
-    var f = filtered[i];
+
+  // Render helper: place pill in target container, create if needed
+  function _renderPillInto(f, target) {
     activeIds[f.id] = true;
     var pillEl = existingById[f.id];
+    if (pillEl && pillEl.parentNode !== target) {
+      // Pill exists but in wrong container — move it
+      target.appendChild(pillEl);
+    }
     if (!pillEl) {
-      // Create new pill
       var pillView = new window.View('div').className('pill-island' + (f.data.cssClass ? ' ' + f.data.cssClass : ''))
         .attr('data-island-id', f.id);
-      AetherUI.append(pillView, container);
+      AetherUI.append(pillView, target);
       pillEl = pillView.el;
     }
-    // Render pill content — preserve tray if open (mount wipes innerHTML)
     var existingTray = pillEl.querySelector('.island-ctx-tray');
     var hadTrayOpen = pillEl.classList.contains('island-tray-open');
     if (existingTray) existingTray.remove();
@@ -420,13 +459,14 @@ export function _islandRender() {
       pillEl.appendChild(existingTray);
       pillEl.classList.add('island-tray-open');
     }
-    // Mark active
     pillEl.classList.toggle('island-active', true);
-    // Apply has-items class
-    container.classList.toggle('island-has-items', filtered.length > 0);
   }
 
-  // Remove stale pills
+  for (var i = 0; i < inlinePills.length; i++) _renderPillInto(inlinePills[i], container);
+  for (var i = 0; i < leftPills.length; i++) _renderPillInto(leftPills[i], satLeft);
+  for (var i = 0; i < rightPills.length; i++) _renderPillInto(rightPills[i], satRight);
+
+  // Remove stale pills from all containers
   for (var id in existingById) {
     if (!activeIds[id] && id !== 'tabs') {
       var stale = existingById[id];
@@ -436,7 +476,7 @@ export function _islandRender() {
     }
   }
 
-  container.classList.toggle('island-has-items', filtered.length > 0);
+  container.classList.toggle('island-has-items', inlinePills.length > 0);
 
   // Update unified AI pill
   if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
@@ -495,7 +535,19 @@ export function _islandAttachHandlers() {
   if (!container || container._islandHandlersBound) return;
   container._islandHandlersBound = true;
 
-  container.addEventListener('click', function(e) {
+  // Also bind satellite containers
+  var satContainers = [document.getElementById('pill-satellite-left'), document.getElementById('pill-satellite-right')];
+  for (var si = 0; si < satContainers.length; si++) {
+    if (satContainers[si] && !satContainers[si]._islandHandlersBound) {
+      satContainers[si]._islandHandlersBound = true;
+      satContainers[si].addEventListener('click', _islandPillClickHandler);
+    }
+  }
+
+  container.addEventListener('click', _islandPillClickHandler);
+}
+
+function _islandPillClickHandler(e) {
     // Tab click
     var tabEl = e.target.closest('[data-island-tab]');
     if (tabEl) {
@@ -553,7 +605,6 @@ export function _islandAttachHandlers() {
         _togglePillTray(pill, act);
       }
     }
-  });
 }
 
 // ── Tray toggle ──
