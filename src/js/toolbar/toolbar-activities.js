@@ -54,6 +54,8 @@ export function _clearIslandActivity(id) {
 export function islandUpdate(id, data) {
   _setIslandActivity(id, data);
   _islandRender();
+  // Auto-open or live-update tray for mic pill
+  if (data && data._autoTray && id !== 'cc') _updateLiveTray(id);
 }
 
 export function islandRemove(id) {
@@ -160,6 +162,9 @@ export function _islandRenderPill(a) {
       .attr('title', 'Stop')
       .onTap(function(e) { e.stopPropagation(); if (typeof window._ttsStopAll === 'function') window._ttsStopAll(); });
     return H([R(ttsIconHtml), T(chunkText).className('island-tts-chunk').truncate(), pauseBtn, stopBtn, spdBadge]);
+  } else if (a.type === 'cc') {
+    var ccDot = new V('span').frame({ width: 6, height: 6 }).cornerRadius('full').styles({ background: 'var(--nr-accent)', boxShadow: '0 0 6px var(--nr-accent)', flexShrink: '0' });
+    return H([ccDot, T(a.label || 'CC Live').foreground('var(--nr-accent)')]);
   } else if (a.type === 'mic') {
     return H([R(icon('microphone', { size: 14, stroke: '#ef4444' })).className('island-mic-icon'), T(a.label || 'Listening\u2026').foreground('#ef4444')]);
   } else if (a.type === 'audio') {
@@ -284,7 +289,30 @@ export function _islandBuildTray(a, isBrowse) {
     return H(children).className('island-ctx-item' + (item.active ? ' active' : '')).attr('data-island-tab', item.id);
   }
 
-  if (a.type === 'context' && a.items && a.items.length) {
+  if (a.type === 'mic') {
+    var lines = a.lines || [];
+    var visibleCount = 4;
+    var start = Math.max(0, lines.length - visibleCount);
+    var visible = lines.slice(start);
+    var rows = [];
+    // Status row
+    rows.push(H([
+      new V('span').frame({ width: 6, height: 6 }).cornerRadius('full').className('island-cc-dot-mic'),
+      T('Listening\u2026').styles({ fontSize: '0.65rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.3px' }).opacity(0.5)
+    ]).className('island-cc-status').spacing(2));
+    // Caption lines
+    var linesContainer = VS([]).className('island-cc-lines');
+    for (var li = 0; li < visible.length; li++) {
+      var fromEnd = visible.length - 1 - li;
+      var op = fromEnd === 0 ? '1' : fromEnd === 1 ? '0.7' : fromEnd === 2 ? '0.45' : '0.25';
+      linesContainer.add(T(visible[li]).className('island-cc-line').opacity(op));
+    }
+    if (visible.length === 0) {
+      linesContainer.add(T('Waiting for audio\u2026').className('island-cc-line').opacity(0.3));
+    }
+    rows.push(linesContainer);
+    return VS(rows).className('island-cc-tray-content');
+  } else if (a.type === 'context' && a.items && a.items.length) {
     var rows = [];
     if (isBrowse) {
       rows.push(H([R(icon('plus', { size: 12 })), T('New tab')]).className('island-tab-newtab').attr('data-island-tab-new', '1'));
@@ -404,11 +432,18 @@ export function _islandRender() {
       AetherUI.append(pillView, container);
       pillEl = pillView.el;
     }
-    // Render pill content
+    // Render pill content — preserve tray if open (mount wipes innerHTML)
+    var existingTray = pillEl.querySelector('.island-ctx-tray');
+    var hadTrayOpen = pillEl.classList.contains('island-tray-open');
+    if (existingTray) existingTray.remove();
     var contentView = _islandRenderPill(f.data);
     if (contentView) {
       contentView.font('caption2');
       AetherUI.mount(contentView, pillEl);
+    }
+    if (existingTray && hadTrayOpen) {
+      pillEl.appendChild(existingTray);
+      pillEl.classList.add('island-tray-open');
     }
     // Mark active
     pillEl.classList.toggle('island-active', true);
@@ -492,7 +527,7 @@ export function _islandAttachHandlers() {
       var act = window._islandActivities ? window._islandActivities.value[id] : null;
       if (act && act.action) {
         act.action();
-      } else if (act && (act.items || act.type === 'download' || act.type === 'insight')) {
+      } else if (act && (act.items || act.type === 'download' || act.type === 'insight' || act.type === 'mic')) {
         _togglePillTray(pill, act);
       }
     }
@@ -507,6 +542,7 @@ function _togglePillTray(pillEl, act) {
   var allPills = document.querySelectorAll('.pill-island.island-tray-open');
   for (var i = 0; i < allPills.length; i++) {
     allPills[i].classList.remove('island-tray-open');
+    allPills[i]._trayUserClosed = true;
     var tray = allPills[i].querySelector('.island-ctx-tray');
     if (tray) tray.remove();
   }
@@ -520,6 +556,7 @@ function _togglePillTray(pillEl, act) {
   AetherUI.mount(trayContent, trayView.el);
   AetherUI.append(trayView, pillEl);
   pillEl.classList.add('island-tray-open');
+  pillEl._trayUserClosed = false;
 
   // Position tray below pill
   var pillRect = pillEl.getBoundingClientRect();
@@ -530,12 +567,35 @@ function _togglePillTray(pillEl, act) {
     var handler = function(e) {
       if (!pillEl.contains(e.target)) {
         pillEl.classList.remove('island-tray-open');
+        pillEl._trayUserClosed = true;
         trayView.el.remove();
         document.removeEventListener('mousedown', handler, true);
       }
     };
     document.addEventListener('mousedown', handler, true);
   }, 0);
+}
+
+// ── Live tray update for CC/mic ──
+
+export function _updateLiveTray(id) {
+  var pill = document.querySelector('.pill-island[data-island-id="' + id + '"]');
+  if (!pill) return;
+  var act = window._islandActivities ? window._islandActivities.value[id] : null;
+  if (!act) return;
+  // Auto-open tray when _autoTray flag set and tray not yet open (and user hasn't manually closed it)
+  if (act._autoTray && !pill.classList.contains('island-tray-open') && !pill._trayUserClosed) {
+    _togglePillTray(pill, act);
+    return;
+  }
+  // If tray is open, re-render content
+  if (pill.classList.contains('island-tray-open')) {
+    var trayEl = pill.querySelector('.island-ctx-tray');
+    if (trayEl) {
+      var trayContent = _islandBuildTray(act, false);
+      if (trayContent) AetherUI.mount(trayContent, trayEl);
+    }
+  }
 }
 
 // ── Webview pointer guard ──

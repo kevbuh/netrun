@@ -1570,7 +1570,6 @@ export function _panelBuildChatInput(popup, config) {
     micBtn.el.classList.remove('doc-ask-mic-active');
     window._pillMicRecorder = null;
     if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
-    if (typeof window.hideTeleprompter === 'function') window.hideTeleprompter('mic');
     if (typeof window.islandRemove === 'function') window.islandRemove('mic');
     // Insert accumulated text
     const text = _micAccum.join(' ').trim();
@@ -1593,8 +1592,7 @@ export function _panelBuildChatInput(popup, config) {
     micBtn.el.classList.add('doc-ask-mic-active');
     window._pillMicRecorder = true;
     if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
-    if (typeof window.showTeleprompter === 'function') window.showTeleprompter('mic');
-    if (typeof window.islandUpdate === 'function') window.islandUpdate('mic', { type: 'mic', label: 'Listening\u2026' });
+    if (typeof window.islandUpdate === 'function') window.islandUpdate('mic', { type: 'mic', label: 'Listening\u2026', lines: [], _autoTray: true });
 
     _micAudioCtx = new AudioContext({ sampleRate: 16000 });
     const processorCode = `
@@ -1631,7 +1629,12 @@ export function _panelBuildChatInput(popup, config) {
         const result = await window.electronAPI.captionsTranscribe(base64, 16000);
         if (result && result.text && _micActive) {
           _micAccum.push(result.text);
-          if (typeof window.teleprompterAppend === 'function') window.teleprompterAppend(result.text);
+          // Update island mic pill lines
+          var micAct = window._islandActivities ? window._islandActivities.value.mic : null;
+          var micLines = (micAct && micAct.lines) ? micAct.lines.slice() : [];
+          micLines.push(result.text);
+          if (micLines.length > 12) micLines.shift();
+          if (typeof window.islandUpdate === 'function') window.islandUpdate('mic', { type: 'mic', label: 'Listening\u2026', lines: micLines, _autoTray: true });
         }
       } catch (_e) {}
     };

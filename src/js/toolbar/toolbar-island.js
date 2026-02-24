@@ -6,6 +6,7 @@ import { _pillSyncUrl } from '/js/toolbar/toolbar-url.js';
 import { _browseRenderTabs, _getActiveTabBar } from '/js/toolbar/toolbar-tabs.js';
 import { icon } from '/js/core/icons.js';
 import { browseSelectTab, browseCloseTab } from '/js/browse/browse-passwords.js';
+import { toggleCaptions } from '/js/browse/browse-captions.js';
 
 // ── Island pill position sync ──
 
@@ -320,7 +321,7 @@ function _renderIslandAIColumn() {
 
 // ── Render action icons ──
 
-function _renderIslandActions() {
+export function _renderIslandActions() {
   var centerCol = document.getElementById('pill-island-center');
   if (!centerCol) return;
   // Remove any previous actions/pageinfo content
@@ -329,6 +330,46 @@ function _renderIslandActions() {
   if (existing) existing.remove();
 
   var V = window.View, T = window.Text, H = window.HStack, VS = window.VStack;
+
+  // ── CC Live mode: replace center column with captions ──
+  if (window._ccActive) {
+    var ccAct = window._islandActivities ? window._islandActivities.value.cc : null;
+    var lines = (ccAct && ccAct.lines) ? ccAct.lines : [];
+    var visibleCount = 6;
+    var start = Math.max(0, lines.length - visibleCount);
+    var visible = lines.slice(start);
+
+    var ccRows = [];
+    // Header
+    var stopBtn = T('Stop').styles({ fontSize: '0.7rem', cursor: 'pointer', color: '#ef4444' })
+      .onTap(function() { toggleCaptions(); });
+    ccRows.push(H([
+      H([
+        new V('span').frame({ width: 6, height: 6 }).cornerRadius('full')
+          .styles({ background: 'var(--nr-accent)', boxShadow: '0 0 6px var(--nr-accent)' }),
+        T('CC Live').styles({ fontSize: '0.65rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.3px' }).opacity(0.5)
+      ]).spacing(1),
+      stopBtn
+    ]).styles({ justifyContent: 'space-between', width: '100%' }));
+
+    // Lines
+    var linesView = VS([]).className('ai-unified-cc-lines');
+    for (var ci = 0; ci < visible.length; ci++) {
+      var fromEnd = visible.length - 1 - ci;
+      var op = fromEnd === 0 ? '1' : fromEnd === 1 ? '0.7' : fromEnd === 2 ? '0.45' : '0.25';
+      linesView.add(T(visible[ci]).className('ai-unified-cc-line').opacity(op));
+    }
+    if (visible.length === 0) {
+      linesView.add(T('Waiting for audio\u2026').className('ai-unified-cc-line').opacity(0.3));
+    }
+    ccRows.push(linesView);
+
+    var ccContainer = VS(ccRows).className('ai-unified-cc-tray').styles({ gap: '6px', alignItems: 'stretch', padding: '0 4px' });
+    ccContainer.id(actionsId);
+    AetherUI.append(ccContainer, centerCol);
+    return;
+  }
+
   var rows = [];
 
   // ── Page info section ──

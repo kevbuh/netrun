@@ -68,11 +68,11 @@ export async function toggleCaptions() {
   window._ccActive = true;
   window._ccCaptionLines = [];
 
-  // Update island and highlight CC button
+  // Update island CC pill and highlight CC button
   if (typeof _updateAudioUnified === 'function') _updateAudioUnified('cc', { label: 'CC Live', detail: 'Listening…', active: true });
   const ccBtn = document.getElementById('browse-cc-btn');
   if (ccBtn) ccBtn.classList.add('active');
-  if (typeof window.showTeleprompter === 'function') window.showTeleprompter('cc');
+  if (typeof window.islandUpdate === 'function') window.islandUpdate('cc', { type: 'cc', label: 'CC Live', lines: [], action: function() { toggleCaptions(); } });
 
   try {
     // Tell main process to route this webview's audio
@@ -193,11 +193,19 @@ export function stopCaptions() {
   const ccBtn = document.getElementById('browse-cc-btn');
   if (ccBtn) ccBtn.classList.remove('active');
   if (typeof _clearAudioUnified === 'function') _clearAudioUnified('cc');
-  if (typeof window.hideTeleprompter === 'function') window.hideTeleprompter('cc');
+  if (typeof window.islandRemove === 'function') window.islandRemove('cc');
 }
 
 export function _showCaption(text) {
-  if (typeof window.teleprompterAppend === 'function') window.teleprompterAppend(text);
+  // Update island CC pill lines
+  var act = window._islandActivities ? window._islandActivities.value.cc : null;
+  var lines = (act && act.lines) ? act.lines.slice() : [];
+  lines.push(text);
+  if (lines.length > 12) lines.shift();
+  var snippet = text.length > 30 ? text.slice(0, 30) + '…' : text;
+  if (typeof window.islandUpdate === 'function') window.islandUpdate('cc', { type: 'cc', label: 'CC Live', lines: lines, detail: snippet, action: function() { if (typeof window.toggleCaptions === 'function') window.toggleCaptions(); } });
+
+  // Keep browse overlay for in-page captions
   window._ccCaptionLines.push(text);
   if (window._ccCaptionLines.length > 3) window._ccCaptionLines.shift();
 
@@ -205,33 +213,22 @@ export function _showCaption(text) {
   if (!container) return;
 
   if (!_ccOverlayView) {
-    // Bootstrap reactive state on first caption
     _ccTextState = window.State('');
     _ccFadedState = window.State(false);
-
     _ccOverlayView = window.Text('').id('browse-cc-overlay');
-
-    // Drive text content and fade class reactively
-    window.Effect(() => {
-      _ccOverlayView.el.textContent = _ccTextState.value;
-    });
-    window.Effect(() => {
-      _ccOverlayView.el.classList.toggle('fade-out', _ccFadedState.value);
-    });
-
+    window.Effect(() => { _ccOverlayView.el.textContent = _ccTextState.value; });
+    window.Effect(() => { _ccOverlayView.el.classList.toggle('fade-out', _ccFadedState.value); });
     AetherUI.append(_ccOverlayView, container);
   }
 
   _ccTextState.value = window._ccCaptionLines.join(' ');
   _ccFadedState.value = false;
 
-  // Update unified audio pill with latest caption snippet
+  // Update unified audio pill
   if (typeof _updateAudioUnified === 'function') {
-    const snippet = text.length > 30 ? text.slice(0, 30) + '…' : text;
     _updateAudioUnified('cc', { label: 'CC Live', detail: snippet, active: true });
   }
 
-  // Reset fade timer
   if (window._ccFadeTimer) clearTimeout(window._ccFadeTimer);
   window._ccFadeTimer = setTimeout(() => {
     if (_ccFadedState) _ccFadedState.value = true;

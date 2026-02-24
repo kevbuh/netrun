@@ -15,6 +15,7 @@ var _dropdownOpen = false;
 var _outsideClickBound = false;
 var _dropdownStateKey = '';  // fingerprint to avoid unnecessary dropdown re-renders
 var _expandedStateKey = '';  // fingerprint for expanded island right column
+var _ccCenterKey = null;     // fingerprint for CC live captions in center column
 
 // Category colors for pulse events
 var _pulseCatColors = { ai: '#a78bfa', feed: '#f97316', network: '#94a3b8', system: '#e879f9' };
@@ -126,17 +127,34 @@ function _renderUnifiedPill() {
     }
   }
 
-  // Expanded island right column — re-render when state changes
-  var rightCol = document.getElementById('pill-island-right-col');
-  if (rightCol && rightCol.children.length > 0) {
-    var wrap = document.getElementById('pill-url-wrap');
-    if (wrap && wrap.classList.contains('island-expanded')) {
-      var as2 = state.audioState;
+  // Expanded island — re-render columns when state changes
+  var wrap = document.getElementById('pill-url-wrap');
+  if (wrap && wrap.classList.contains('island-expanded')) {
+    var as2 = state.audioState;
+
+    // Right column
+    var rightCol = document.getElementById('pill-island-right-col');
+    if (rightCol && rightCol.children.length > 0) {
       var key2 = [state.primary, !!as2.tab, !!as2.tts, as2.tts && as2.tts.paused, !!as2.cc, !!as2.mic, as2.micRecording].join(',');
       if (key2 !== _expandedStateKey) {
         _expandedStateKey = key2;
         _renderDropdown(rightCol, state);
       }
+    }
+
+    // Center column — re-render when CC is active (live captions)
+    if (as2.cc && as2.cc.active) {
+      var ccAct = window._islandActivities ? window._islandActivities.value.cc : null;
+      var ccLen = ccAct && ccAct.lines ? ccAct.lines.length : 0;
+      var ccKey = 'cc:' + ccLen;
+      if (ccKey !== _ccCenterKey) {
+        _ccCenterKey = ccKey;
+        if (typeof window._renderIslandActions === 'function') window._renderIslandActions();
+      }
+    } else if (_ccCenterKey) {
+      // CC just stopped — restore normal center column
+      _ccCenterKey = null;
+      if (typeof window._renderIslandActions === 'function') window._renderIslandActions();
     }
   }
 }
@@ -221,6 +239,7 @@ function _renderSecondaryDots(container, secondary) {
 function _renderDropdown(dropdown, state) {
   var audioState = state.audioState;
   var pulseState = state.pulseState;
+
   var children = [];
 
   // 1. Ask AI

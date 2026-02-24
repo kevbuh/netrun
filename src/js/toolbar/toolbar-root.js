@@ -21,16 +21,16 @@ import { _getActiveTabBar, _browseRenderTabs,
 
 import { _syncIslandPillPosition, _applyBrowseTabLayout,
          _expandIsland, _collapseIsland,
-         _togglePillMenu, _closePillMenu } from '/js/toolbar/toolbar-island.js';
+         _togglePillMenu, _closePillMenu, _renderIslandActions } from '/js/toolbar/toolbar-island.js';
 
 import { islandUpdate, islandRemove, showAchievement, _islandRender,
          _islandRenderPill, _islandBuildTray, _islandAttachHandlers,
          _islandInitGuard, _getPulseState, _getPageInfoState,
-         _setIslandActivity, _clearIslandActivity } from '/js/toolbar/toolbar-activities.js';
+         _setIslandActivity, _clearIslandActivity, _updateLiveTray } from '/js/toolbar/toolbar-activities.js';
 
 import { _initUnifiedPill, renderAIPanelContent } from '/js/toolbar/toolbar-ai-pill.js';
 
-import { showTeleprompter, hideTeleprompter, teleprompterAppend } from '/js/toolbar/toolbar-teleprompter.js';
+
 
 import { toggleBrowseMoreMenu, _togglePermissionsInMenu, _toggleConvertInMenu,
          browsePrintPage, browseShowAIView, _showTextOverlay,
@@ -78,6 +78,7 @@ window._expandIsland = _expandIsland;
 window._collapseIsland = _collapseIsland;
 window._togglePillMenu = _togglePillMenu;
 window._closePillMenu = _closePillMenu;
+window._renderIslandActions = _renderIslandActions;
 
 // Activities
 window.islandUpdate = islandUpdate;
@@ -96,10 +97,13 @@ window._clearIslandActivity = _clearIslandActivity;
 // AI pill
 window.renderAIPanelContent = renderAIPanelContent;
 
-// Teleprompter
-window.showTeleprompter = showTeleprompter;
-window.hideTeleprompter = hideTeleprompter;
-window.teleprompterAppend = teleprompterAppend;
+// Live tray
+window._updateLiveTray = _updateLiveTray;
+
+// Teleprompter (no-op stubs — teleprompter replaced by island CC/mic trays)
+window.showTeleprompter = function() {};
+window.hideTeleprompter = function() {};
+window.teleprompterAppend = function() {};
 
 // Menu
 window.toggleBrowseMoreMenu = toggleBrowseMoreMenu;

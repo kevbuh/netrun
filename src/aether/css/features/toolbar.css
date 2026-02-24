@@ -1442,82 +1442,57 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
    26. TELEPROMPTER — live text dropdown below AI pill
    ══════════════════════════════════════════════════════════════════════════════ */
 
-.nr-teleprompter {
-  position: fixed;
-  transform: translateX(-50%);
-  z-index: 10000;
-  width: 400px;
-  background: rgba(0, 0, 0, 0.82);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 14px;
-  padding: 10px 16px 12px;
-  pointer-events: auto;
-  cursor: pointer;
-  opacity: 0;
-  scale: 0.96;
-  transition: opacity 0.25s ease, scale 0.25s var(--motion-snappy, cubic-bezier(0.4, 0, 0.2, 1));
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-}
-.nr-teleprompter-visible {
-  opacity: 1;
-  scale: 1;
+/* ── CC Live captions in expanded island right column ── */
+
+.ai-unified-cc-tray {
+  padding: 6px 10px;
+  height: 100%;
 }
 
-.nr-teleprompter-status {
+.ai-unified-cc-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 6px;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-}
-.nr-teleprompter-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.nr-teleprompter-dot-mic {
-  background: #ef4444;
-  box-shadow: 0 0 6px #ef4444;
-  animation: nr-tele-pulse 1.5s ease-in-out infinite;
-}
-.nr-teleprompter-dot-cc {
-  background: var(--nr-accent, #b4451a);
-  box-shadow: 0 0 6px var(--nr-accent, #b4451a);
-}
-.nr-teleprompter-sep {
-  opacity: 0.3;
-  margin: 0 2px;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
-.nr-teleprompter-lines {
-  max-height: 5.6em;
-  overflow: hidden;
-  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.4) 15%, black 40%, black 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.4) 15%, black 40%, black 100%);
+.ai-unified-cc-lines {
+  flex: 1;
+  overflow-y: auto;
+  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.4) 10%, black 30%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.4) 10%, black 30%, black 100%);
 }
 
-.nr-teleprompter-line {
+.ai-unified-cc-line {
   font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
-  font-size: 0.82rem;
-  line-height: 1.4;
-  color: #fff;
-  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--nr-text-primary, #fff);
   white-space: normal;
   word-break: break-word;
   transition: opacity 0.3s ease;
+  padding: 1px 0;
 }
 
-@keyframes nr-tele-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+/* ── Mic tray (island pill dropdown) ── */
+
+.pill-island[data-island-id="mic"] .island-ctx-tray {
+  min-width: 280px; max-width: 360px;
 }
+.island-cc-tray-content { padding: 4px 0; }
+.island-cc-status { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.island-cc-dot-mic { background: #ef4444; box-shadow: 0 0 6px #ef4444; animation: island-mic-tray-pulse 1.5s ease-in-out infinite; }
+.island-cc-lines {
+  max-height: 5.6em; overflow: hidden;
+  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.4) 15%, black 40%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.4) 15%, black 40%, black 100%);
+}
+.island-cc-line {
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 0.82rem; line-height: 1.4; color: var(--nr-text-primary, #fff);
+  white-space: normal; word-break: break-word; transition: opacity 0.3s ease;
+}
+@keyframes island-mic-tray-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 /* ── Mic activity pill ── */
 .island-mic-icon { animation: island-mic-pulse 1.2s ease-in-out infinite; }
