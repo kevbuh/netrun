@@ -372,7 +372,47 @@ export function _renderIslandActions() {
     AetherUI.append(ccContainer, centerCol);
     return;
   }
-  // Not in CC mode — remove CC layout class
+  // ── Mic Live mode: center column becomes sole column with transcript ──
+  if (window._pillMicRecorder) {
+    if (wrap) wrap.classList.add('island-cc-live');
+
+    var micAct = window._islandActivities ? window._islandActivities.value.mic : null;
+    var micLines = (micAct && micAct.lines) ? micAct.lines : [];
+    var micVisibleCount = 6;
+    var micStart = Math.max(0, micLines.length - micVisibleCount);
+    var micVisible = micLines.slice(micStart);
+
+    var micRows = [];
+    // Header
+    var micStopBtn = T('Stop').styles({ fontSize: '0.7rem', cursor: 'pointer', color: '#ef4444' })
+      .onTap(function() { if (typeof window._pillMicClick === 'function') window._pillMicClick(); });
+    micRows.push(H([
+      H([
+        new V('span').frame({ width: 6, height: 6 }).cornerRadius('full')
+          .styles({ background: '#ef4444', boxShadow: '0 0 6px #ef4444' }),
+        T('Listening\u2026').styles({ fontSize: '0.65rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.3px' }).opacity(0.5)
+      ]).spacing(1),
+      micStopBtn
+    ]).styles({ justifyContent: 'space-between', width: '100%' }));
+
+    // Lines
+    var micLinesView = VS([]).className('ai-unified-cc-lines');
+    for (var mi = 0; mi < micVisible.length; mi++) {
+      var micFromEnd = micVisible.length - 1 - mi;
+      var micOp = micFromEnd === 0 ? '1' : micFromEnd === 1 ? '0.7' : micFromEnd === 2 ? '0.45' : '0.25';
+      micLinesView.add(T(micVisible[mi]).className('ai-unified-cc-line').opacity(micOp));
+    }
+    if (micVisible.length === 0) {
+      micLinesView.add(T('Waiting for audio\u2026').className('ai-unified-cc-line').opacity(0.3));
+    }
+    micRows.push(micLinesView);
+
+    var micContainer = VS(micRows).className('ai-unified-cc-tray').styles({ gap: '6px', alignItems: 'stretch', padding: '0 4px' });
+    micContainer.id(actionsId);
+    AetherUI.append(micContainer, centerCol);
+    return;
+  }
+  // Not in CC/mic mode — remove layout class
   if (wrap) wrap.classList.remove('island-cc-live');
 
   var rows = [];

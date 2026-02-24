@@ -54,8 +54,6 @@ export function _clearIslandActivity(id) {
 export function islandUpdate(id, data) {
   _setIslandActivity(id, data);
   _islandRender();
-  // Auto-open or live-update tray for mic pill
-  if (data && data._autoTray && id !== 'cc') _updateLiveTray(id);
 }
 
 export function islandRemove(id) {
@@ -289,30 +287,7 @@ export function _islandBuildTray(a, isBrowse) {
     return H(children).className('island-ctx-item' + (item.active ? ' active' : '')).attr('data-island-tab', item.id);
   }
 
-  if (a.type === 'mic') {
-    var lines = a.lines || [];
-    var visibleCount = 4;
-    var start = Math.max(0, lines.length - visibleCount);
-    var visible = lines.slice(start);
-    var rows = [];
-    // Status row
-    rows.push(H([
-      new V('span').frame({ width: 6, height: 6 }).cornerRadius('full').className('island-cc-dot-mic'),
-      T('Listening\u2026').styles({ fontSize: '0.65rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.3px' }).opacity(0.5)
-    ]).className('island-cc-status').spacing(2));
-    // Caption lines
-    var linesContainer = VS([]).className('island-cc-lines');
-    for (var li = 0; li < visible.length; li++) {
-      var fromEnd = visible.length - 1 - li;
-      var op = fromEnd === 0 ? '1' : fromEnd === 1 ? '0.7' : fromEnd === 2 ? '0.45' : '0.25';
-      linesContainer.add(T(visible[li]).className('island-cc-line').opacity(op));
-    }
-    if (visible.length === 0) {
-      linesContainer.add(T('Waiting for audio\u2026').className('island-cc-line').opacity(0.3));
-    }
-    rows.push(linesContainer);
-    return VS(rows).className('island-cc-tray-content');
-  } else if (a.type === 'context' && a.items && a.items.length) {
+  if (a.type === 'context' && a.items && a.items.length) {
     var rows = [];
     if (isBrowse) {
       rows.push(H([R(icon('plus', { size: 12 })), T('New tab')]).className('island-tab-newtab').attr('data-island-tab-new', '1'));
@@ -477,16 +452,20 @@ function _renderCCSubtitle() {
   if (!wrap) return;
   var isExpanded = wrap.classList.contains('island-expanded');
   var ccAct = window._islandActivities ? window._islandActivities.value.cc : null;
+  var micAct = window._islandActivities ? window._islandActivities.value.mic : null;
   var subEl = document.getElementById('island-cc-subtitle');
 
-  // Show only when collapsed + CC active with lines
-  if (isExpanded || !ccAct || !ccAct.lines || ccAct.lines.length === 0) {
+  // Pick whichever is active (mic takes priority if both)
+  var activeAct = (micAct && micAct.lines && micAct.lines.length > 0) ? micAct : ccAct;
+
+  // Show only when collapsed + active with lines
+  if (isExpanded || !activeAct || !activeAct.lines || activeAct.lines.length === 0) {
     if (subEl) subEl.remove();
     wrap.classList.remove('island-cc-collapsed');
     return;
   }
 
-  var lines = ccAct.lines;
+  var lines = activeAct.lines;
   var visible = lines.slice(Math.max(0, lines.length - 2));
 
   if (!subEl) {
@@ -568,8 +547,9 @@ export function _islandAttachHandlers() {
       var id = pill.dataset.islandId;
       var act = window._islandActivities ? window._islandActivities.value[id] : null;
       if (act && act.action) {
+        e.stopPropagation();
         act.action();
-      } else if (act && (act.items || act.type === 'download' || act.type === 'insight' || act.type === 'mic')) {
+      } else if (act && (act.items || act.type === 'download' || act.type === 'insight')) {
         _togglePillTray(pill, act);
       }
     }

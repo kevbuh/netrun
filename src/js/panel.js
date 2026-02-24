@@ -1592,7 +1592,7 @@ export function _panelBuildChatInput(popup, config) {
     micBtn.el.classList.add('doc-ask-mic-active');
     window._pillMicRecorder = true;
     if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
-    if (typeof window.islandUpdate === 'function') window.islandUpdate('mic', { type: 'mic', label: 'Listening\u2026', lines: [], _autoTray: true });
+    if (typeof window.islandUpdate === 'function') window.islandUpdate('mic', { type: 'mic', label: 'Listening\u2026', lines: [], action: function() { if (typeof window._pillMicClick === 'function') window._pillMicClick(); } });
 
     _micAudioCtx = new AudioContext({ sampleRate: 16000 });
     const processorCode = `
@@ -1634,7 +1634,7 @@ export function _panelBuildChatInput(popup, config) {
           var micLines = (micAct && micAct.lines) ? micAct.lines.slice() : [];
           micLines.push(result.text);
           if (micLines.length > 12) micLines.shift();
-          if (typeof window.islandUpdate === 'function') window.islandUpdate('mic', { type: 'mic', label: 'Listening\u2026', lines: micLines, _autoTray: true });
+          if (typeof window.islandUpdate === 'function') window.islandUpdate('mic', { type: 'mic', label: 'Listening\u2026', lines: micLines, action: function() { if (typeof window._pillMicClick === 'function') window._pillMicClick(); } });
         }
       } catch (_e) {}
     };

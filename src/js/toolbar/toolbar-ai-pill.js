@@ -7,6 +7,7 @@ import { aiPillState } from '/js/toolbar/toolbar-state.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
 import { toggleAnnotations, _annotationsEnabled, _insightAnalyzing } from '/js/browse/browse-annotations.js';
 import { toggleCaptions } from '/js/browse/browse-captions.js';
+import { _showPanel } from '/js/panel.js';
 
 // ── State ──
 var _dirty = false;
@@ -16,6 +17,7 @@ var _outsideClickBound = false;
 var _dropdownStateKey = '';  // fingerprint to avoid unnecessary dropdown re-renders
 var _expandedStateKey = '';  // fingerprint for expanded island right column
 var _ccCenterKey = null;     // fingerprint for CC live captions in center column
+var _micCenterKey = null;    // fingerprint for mic live transcript in center column
 
 // Category colors for pulse events
 var _pulseCatColors = { ai: '#a78bfa', feed: '#f97316', network: '#94a3b8', system: '#e879f9' };
@@ -156,6 +158,21 @@ function _renderUnifiedPill() {
       _ccCenterKey = null;
       if (typeof window._renderIslandActions === 'function') window._renderIslandActions();
     }
+
+    // Center column — re-render when mic is active (live transcript)
+    if (as2.micRecording) {
+      var micAct = window._islandActivities ? window._islandActivities.value.mic : null;
+      var micLen = micAct && micAct.lines ? micAct.lines.length : 0;
+      var micKey = 'mic:' + micLen;
+      if (micKey !== _micCenterKey) {
+        _micCenterKey = micKey;
+        if (typeof window._renderIslandActions === 'function') window._renderIslandActions();
+      }
+    } else if (_micCenterKey) {
+      // Mic just stopped — restore normal center column
+      _micCenterKey = null;
+      if (typeof window._renderIslandActions === 'function') window._renderIslandActions();
+    }
   }
 }
 
@@ -246,7 +263,7 @@ function _renderDropdown(dropdown, state) {
   children.push(_dropdownItem(
     icon('chatBubble', { size: 14 }),
     'Ask AI',
-    function() { _closeDropdown(); if (typeof window._showPanel === 'function') window._showPanel({ anchor: _pillAnchor(), trackCursor: false }); },
+    function() { _closeDropdown(); _showPanel({ anchor: _pillAnchor(), trackCursor: false }); },
     { highlight: true }
   ));
 
@@ -360,7 +377,12 @@ function _renderDropdown(dropdown, state) {
       { disabled: true }
     ));
   } else {
-    children.push(_dropdownItem(icon('microphone', { size: 14 }), 'Voice input', function() { if (typeof window._pillMicClick === 'function') window._pillMicClick(); _scheduleRender(); }));
+    children.push(_dropdownItem(icon('microphone', { size: 14 }), 'Voice input', function() {
+      _closeDropdown();
+      if (typeof window._pillMicClick === 'function') { window._pillMicClick(); }
+      else { _showPanel({ anchor: _pillAnchor(), trackCursor: false }); setTimeout(function() { if (typeof window._pillMicClick === 'function') window._pillMicClick(); }, 100); }
+      _scheduleRender();
+    }));
   }
 
   // 4. Page Info — shown in expanded island, not here
