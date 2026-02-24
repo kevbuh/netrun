@@ -3,13 +3,14 @@
 // Depends on: core-nav.js, browse-paper.js, browse-pdf-viewer.js
 import { icon } from '/js/core/icons.js';
 import { registerPanelTabs } from '/js/core/core-nav.js';
-import { _paperState, _s2Cache, _s2Fetch, _s2GetAuthor, _s2GetAuthorFull, _extractArxivId, _s2LookupByArxivId, _s2SearchPaper } from '/js/browse/browse-paper.js';
+import { _paperState, _s2Cache, _s2Fetch, _s2GetAuthor, _s2GetAuthorFull, _s2GetCitations, _extractArxivId, _s2LookupByArxivId, _s2SearchPaper } from '/js/browse/browse-paper.js';
 import { _pdfViewerScrollToPage, _pdfViewerGetText } from '/js/browse/browse-pdf-viewer.js';
 import { _nerdModeEnabled } from '/js/browse/browse-nerd-mode.js';
 
 // ── State ──
 var _registered = false;
 var _currentTab = null;
+var _renderGeneration = 0; // incremented each time a tab renders, used to cancel stale retries
 
 // ── Register ──
 
@@ -21,6 +22,7 @@ export function _nerdPanelRegister() {
     tabs: [
       { id: 'nerd-info',       label: 'Info',       icon: icon('fileText', { size: 14 }),  render: _renderInfoTab },
       { id: 'nerd-refs',       label: 'References',  icon: icon('link', { size: 14 }),     render: _renderRefsTab },
+      { id: 'nerd-cited-by',   label: 'Cited By',   icon: icon('blockquote', { size: 14 }), render: _renderCitedByTab },
       { id: 'nerd-authors',    label: 'Authors',    icon: icon('user', { size: 14 }),      render: _renderAuthorsTab },
       { id: 'nerd-related',    label: 'Related',    icon: icon('research', { size: 14 }),  render: _renderRelatedTab },
       { id: 'nerd-highlights', label: 'Highlights', icon: icon('highlighter', { size: 14 }), render: _renderHighlightsTab },
@@ -56,10 +58,20 @@ function _fetchPaperData(tab) {
           refs: data.references || null,
           s2Data: data,
           s2UrlPath: s2Path,
-          authorDetails: []
+          authorDetails: [],
+          citedBy: null
         });
         // Fetch author details
         _fetchAuthorDetails(tab, data);
+        // Fetch citations
+        if (data.paperId) {
+          _s2GetCitations(data.paperId).then(function(citData) {
+            var state = _paperState.get(tab.id);
+            if (state && citData && citData.data) {
+              state.citedBy = citData.data.map(function(c) { return c.citingPaper; }).filter(Boolean);
+            }
+          });
+        }
       }
     });
   } else {
@@ -80,9 +92,19 @@ function _fetchPaperData(tab) {
                   refs: full.references || null,
                   s2Data: full,
                   s2UrlPath: fullPath,
-                  authorDetails: []
+                  authorDetails: [],
+                  citedBy: null
                 });
                 _fetchAuthorDetails(tab, full);
+                // Fetch citations
+                if (full.paperId) {
+                  _s2GetCitations(full.paperId).then(function(citData) {
+                    var state = _paperState.get(tab.id);
+                    if (state && citData && citData.data) {
+                      state.citedBy = citData.data.map(function(c) { return c.citingPaper; }).filter(Boolean);
+                    }
+                  });
+                }
               }
             });
           }
@@ -121,6 +143,7 @@ function _getState() {
 function _renderInfoTab(container) {
   var tab = _getTab();
   var state = _getState();
+  var gen = ++_renderGeneration;
 
   var wrap = new View('div').className('nerd-tab-wrap');
 
@@ -132,7 +155,7 @@ function _renderInfoTab(container) {
     }
     AetherUI.mount(wrap, container);
     if (tab) {
-      setTimeout(function() { _renderInfoTab(container); }, 2000);
+      setTimeout(function() { if (gen === _renderGeneration) _renderInfoTab(container); }, 2000);
     }
     return;
   }
@@ -231,6 +254,7 @@ function _renderInfoTab(container) {
 }
 
 function _renderRefsTab(container) {
+  ++_renderGeneration;
   var state = _getState();
 
   var wrap = new View('div').className('nerd-tab-wrap');
@@ -268,6 +292,7 @@ function _renderRefsTab(container) {
 }
 
 function _renderAuthorsTab(container) {
+  ++_renderGeneration;
   var state = _getState();
 
   var wrap = new View('div').className('nerd-tab-wrap');
@@ -328,6 +353,7 @@ function _renderAuthorsTab(container) {
 }
 
 function _renderRelatedTab(container) {
+  ++_renderGeneration;
   var state = _getState();
 
   var wrap = new View('div').className('nerd-tab-wrap');
@@ -382,6 +408,7 @@ function _renderRelatedTab(container) {
 }
 
 function _renderHighlightsTab(container) {
+  ++_renderGeneration;
   var tab = _getTab();
 
   var wrap = new View('div').className('nerd-tab-wrap');
@@ -438,8 +465,15 @@ function _renderHighlightsTab(container) {
     // Note textarea
     var note = new View('textarea').className('pdf-hl-card-note').attr('rows', '1').attr('placeholder', 'Add a note...');
     note.el.value = hl.note || '';
+    var _noteTimer = null;
     note.on('input', function() {
       hl.note = note.el.value;
+      clearTimeout(_noteTimer);
+      _noteTimer = setTimeout(function() {
+        if (hl.id && window.electronAPI && window.electronAPI.dbQuery) {
+          window.electronAPI.dbQuery('highlight-update', hl.id, hl.note);
+        }
+      }, 600);
     });
     card.add(note);
 
@@ -450,6 +484,7 @@ function _renderHighlightsTab(container) {
 }
 
 function _renderSearchTab(container) {
+  ++_renderGeneration;
   var tab = _getTab();
 
   var wrap = new View('div').className('nerd-search-wrap');
@@ -534,9 +569,134 @@ function _searchFullText(tab, query, results) {
   });
 }
 
-// ── Code Tab (Papers With Code) ──
+// ── Cited By Tab ──
+
+function _renderCitedByTab(container) {
+  var state = _getState();
+  var gen = ++_renderGeneration;
+  var wrap = new View('div').className('nerd-tab-wrap');
+
+  if (!state || !state.s2Data || !state.s2Data.paperId) {
+    wrap.add(Text('No paper identified').className('nerd-empty'));
+    AetherUI.mount(wrap, container);
+    return;
+  }
+
+  if (state.citedBy === null || state.citedBy === undefined) {
+    // Still loading
+    if (window.Skeleton) {
+      wrap.add(window.Skeleton().lines(3));
+    } else {
+      wrap.add(Text('Loading citing papers...').className('nerd-empty'));
+    }
+    AetherUI.mount(wrap, container);
+    setTimeout(function() { if (gen === _renderGeneration) _renderCitedByTab(container); }, 2000);
+    return;
+  }
+
+  if (!state.citedBy.length) {
+    wrap.add(Text('No citing papers found').className('nerd-empty'));
+    AetherUI.mount(wrap, container);
+    return;
+  }
+
+  wrap.add(Text(state.citedBy.length + ' citing paper' + (state.citedBy.length !== 1 ? 's' : '')).className('nerd-search-count'));
+
+  state.citedBy.forEach(function(paper) {
+    var item = new View('div').className('nerd-paper-item');
+    item.add(Text(paper.title || 'Untitled').className('nerd-paper-item-title line-clamp-2'));
+
+    var m = [];
+    if (paper.authors && paper.authors.length) {
+      m.push(paper.authors.slice(0, 3).map(function(a) { return a.name; }).join(', ') + (paper.authors.length > 3 ? ' et al.' : ''));
+    }
+    if (paper.year) m.push(String(paper.year));
+    if (paper.citationCount != null) m.push(paper.citationCount + ' cit.');
+    if (paper.venue) m.push(paper.venue);
+    if (m.length) {
+      item.add(Text(m.join(' \u00b7 ')).className('nerd-paper-item-meta'));
+    }
+
+    item.onTap(function() {
+      var query = encodeURIComponent(paper.title);
+      var url = 'https://scholar.google.com/scholar?q=' + query;
+      if (typeof window.browseNewTab === 'function') window.browseNewTab(url);
+    });
+
+    wrap.add(item);
+  });
+
+  AetherUI.mount(wrap, container);
+}
+
+// ── Code Tab (Papers With Code + GitHub fallback) ──
+
+function _searchPwc(title) {
+  var query = encodeURIComponent(title);
+  var _pwcFetch = function(url) {
+    if (window.electronAPI && window.electronAPI.dbQuery) {
+      return window.electronAPI.dbQuery('pwc-proxy', url);
+    }
+    return fetch(url).then(function(r) { return r.json(); });
+  };
+  return _pwcFetch('https://paperswithcode.com/api/v1/papers/?q=' + query + '&items_per_page=5')
+    .then(function(data) {
+      var results = data && data.results ? data.results : [];
+      if (!results.length) return null;
+      var cards = [];
+      var pending = results.length;
+      return new Promise(function(resolve) {
+        results.forEach(function(paper) {
+          _pwcFetch('https://paperswithcode.com/api/v1/papers/' + paper.id + '/repositories/')
+            .then(function(repoData) {
+              var repos = repoData && repoData.results ? repoData.results : [];
+              repos.forEach(function(repo) {
+                var repoName = repo.url ? repo.url.split('/').slice(-2).join('/') : 'Repository';
+                var parts = [];
+                if (repo.stars != null) parts.push(repo.stars + ' stars');
+                if (repo.framework) parts.push(repo.framework);
+                if (repo.is_official) parts.push('Official');
+                cards.push({ name: repoName, meta: parts.join(' \u00b7 '), url: repo.url });
+              });
+              pending--;
+              if (pending <= 0) resolve(cards.length ? cards : null);
+            })
+            .catch(function() {
+              pending--;
+              if (pending <= 0) resolve(cards.length ? cards : null);
+            });
+        });
+      });
+    })
+    .catch(function() { return null; });
+}
+
+function _searchGithub(title) {
+  var query = encodeURIComponent('"' + title + '"');
+  var url = 'https://api.github.com/search/repositories?q=' + query + '&sort=stars&per_page=8';
+  var _ghFetch = function(u) {
+    if (window.electronAPI && window.electronAPI.dbQuery) {
+      return window.electronAPI.dbQuery('github-proxy', u);
+    }
+    return fetch(u, { headers: { 'Accept': 'application/vnd.github.v3+json' } }).then(function(r) { return r.json(); });
+  };
+  return _ghFetch(url).then(function(data) {
+    if (!data || !data.items || !data.items.length) return null;
+    return data.items.map(function(repo) {
+      return {
+        name: repo.full_name,
+        description: repo.description || '',
+        stars: repo.stargazers_count,
+        language: repo.language,
+        forks: repo.forks_count,
+        url: repo.html_url
+      };
+    });
+  }).catch(function() { return null; });
+}
 
 function _renderCodeTab(container) {
+  ++_renderGeneration;
   var state = _getState();
   var wrap = new View('div').className('nerd-tab-wrap');
 
@@ -549,61 +709,46 @@ function _renderCodeTab(container) {
   wrap.add(Text('Searching for implementations...').className('nerd-empty'));
   AetherUI.mount(wrap, container);
 
-  var query = encodeURIComponent(state.s2Data.title);
-  var _pwcFetch = function(url) {
-    if (window.electronAPI && window.electronAPI.dbQuery) {
-      return window.electronAPI.dbQuery('pwc-proxy', url);
+  var title = state.s2Data.title;
+  _searchPwc(title).then(function(pwcCards) {
+    if (pwcCards && pwcCards.length) {
+      var repoWrap = new View('div').className('nerd-tab-wrap');
+      pwcCards.forEach(function(c) {
+        var card = new View('div').className('nerd-repo-card').add(
+          Text(c.name).className('nerd-repo-name'),
+          Text(c.meta).className('nerd-repo-meta')
+        ).onTap(function() {
+          if (typeof window.browseNewTab === 'function') window.browseNewTab(c.url);
+        });
+        repoWrap.add(card);
+      });
+      AetherUI.mount(repoWrap, container);
+      return;
     }
-    return fetch(url).then(function(r) { return r.json(); });
-  };
-  _pwcFetch('https://paperswithcode.com/api/v1/papers/?q=' + query + '&items_per_page=5')
-    .then(function(data) {
-      var results = data && data.results ? data.results : [];
-      if (!results.length) {
+    // Fallback to GitHub
+    _searchGithub(title).then(function(ghRepos) {
+      if (!ghRepos || !ghRepos.length) {
         AetherUI.mount(Text('No implementations found').className('nerd-empty'), container);
         return;
       }
-      var cards = [];
-      var foundAny = false;
-      var pending = results.length;
-      results.forEach(function(paper) {
-        _pwcFetch('https://paperswithcode.com/api/v1/papers/' + paper.id + '/repositories/')
-          .then(function(repoData) {
-            var repos = repoData && repoData.results ? repoData.results : [];
-            repos.forEach(function(repo) {
-              foundAny = true;
-              var repoName = repo.url ? repo.url.split('/').slice(-2).join('/') : 'Repository';
-              var parts = [];
-              if (repo.stars != null) parts.push(repo.stars + ' stars');
-              if (repo.framework) parts.push(repo.framework);
-              if (repo.is_official) parts.push('Official');
-
-              var card = new View('div').className('nerd-repo-card').add(
-                Text(repoName).className('nerd-repo-name'),
-                Text(parts.join(' \u00b7 ')).className('nerd-repo-meta')
-              ).onTap(function() {
-                if (typeof window.browseNewTab === 'function') window.browseNewTab(repo.url);
-              });
-
-              cards.push(card);
-            });
-            pending--;
-            if (pending <= 0) {
-              if (!foundAny) {
-                AetherUI.mount(Text('No implementations found').className('nerd-empty'), container);
-              } else {
-                var repoWrap = new View('div').className('nerd-tab-wrap');
-                cards.forEach(function(c) { repoWrap.add(c); });
-                AetherUI.mount(repoWrap, container);
-              }
-            }
-          })
-          .catch(function() { pending--; });
+      var ghWrap = new View('div').className('nerd-tab-wrap');
+      ghRepos.forEach(function(repo) {
+        var meta = [];
+        if (repo.stars != null) meta.push(repo.stars + ' stars');
+        if (repo.language) meta.push(repo.language);
+        if (repo.forks != null) meta.push(repo.forks + ' forks');
+        var card = new View('div').className('nerd-repo-card').add(
+          Text(repo.name).className('nerd-repo-name'),
+          Text(repo.description).className('nerd-repo-desc line-clamp-2'),
+          Text(meta.join(' \u00b7 ')).className('nerd-repo-meta')
+        ).onTap(function() {
+          if (typeof window.browseNewTab === 'function') window.browseNewTab(repo.url);
+        });
+        ghWrap.add(card);
       });
-    })
-    .catch(function() {
-      AetherUI.mount(Text('Failed to search implementations').className('nerd-empty'), container);
+      AetherUI.mount(ghWrap, container);
     });
+  });
 }
 
 // ── Helpers ──

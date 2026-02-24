@@ -6,6 +6,7 @@ import * as socialQueries from '../db/queries/social.js';
 import * as contentQueries from '../db/queries/content.js';
 import * as socialExtQueries from '../db/queries/social-extended.js';
 import * as drawingQueries from '../db/queries/drawings.js';
+import * as highlightQueries from '../db/queries/highlights.js';
 import { GOOGLE_CLIENT_ID } from './shared.js';
 
 export function registerDbQueriesIPC(): void {
@@ -221,6 +222,20 @@ export function registerDbQueriesIPC(): void {
   });
   ipcMain.handle('db:draw-update-title', (_event, id: string, title: string) => {
     drawingQueries.updateDrawingTitle(id, title);
+  });
+
+  // ── PDF Highlights ──
+  ipcMain.handle('db:highlights-list', (_event, url: string) => {
+    return highlightQueries.listHighlights(url);
+  });
+  ipcMain.handle('db:highlight-save', (_event, id: string, url: string, pageNum: number, text: string, rectsJson: string, color: string, note: string) => {
+    highlightQueries.saveHighlight(id, url, pageNum, text, rectsJson, color, note);
+  });
+  ipcMain.handle('db:highlight-update', (_event, id: string, note: string) => {
+    highlightQueries.updateHighlightNote(id, note);
+  });
+  ipcMain.handle('db:highlight-delete', (_event, id: string) => {
+    highlightQueries.deleteHighlight(id);
   });
 
   // ── Auth: Google login ──

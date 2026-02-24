@@ -239,6 +239,32 @@ export function registerBrowseIPC(): void {
     return await doFetch();
   });
 
+  // GitHub API proxy with DB caching
+  ipcMain.handle('db:github-proxy', async (_event, url: string) => {
+    if (!url || typeof url !== 'string') return { error: 'url required' };
+    const cached = contentQueries.getCachedGithubResponse(url);
+    if (cached && !cached.isStale) return cached.data;
+
+    const doFetch = async () => {
+      try {
+        const resp = await fetch(url, {
+          headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'Mozilla/5.0' },
+          signal: AbortSignal.timeout(15_000),
+        });
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        contentQueries.setCachedGithubResponse(url, data);
+        return data;
+      } catch { return null; }
+    };
+
+    if (cached && cached.isStale) {
+      doFetch();
+      return cached.data;
+    }
+    return await doFetch();
+  });
+
   // S2 cache info — returns cached_at epoch (seconds) or null
   ipcMain.handle('db:s2-cache-age', (_event, urlPath: string) => {
     if (!urlPath) return null;

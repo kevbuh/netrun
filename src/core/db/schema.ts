@@ -125,6 +125,25 @@ export function initSchema(db: Database.Database): void {
       response_json TEXT NOT NULL,
       cached_at REAL NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS pdf_highlights (
+      id TEXT PRIMARY KEY,
+      url TEXT NOT NULL,
+      page_num INTEGER NOT NULL,
+      text TEXT NOT NULL DEFAULT '',
+      rects_json TEXT NOT NULL DEFAULT '[]',
+      color TEXT NOT NULL DEFAULT 'rgba(255,235,59,0.4)',
+      note TEXT NOT NULL DEFAULT '',
+      created_at REAL NOT NULL,
+      updated_at REAL NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_pdf_highlights_url ON pdf_highlights(url);
+
+    CREATE TABLE IF NOT EXISTS github_response_cache (
+      url TEXT PRIMARY KEY,
+      response_json TEXT NOT NULL,
+      cached_at REAL NOT NULL
+    );
   `);
 
   // ── Feed ──

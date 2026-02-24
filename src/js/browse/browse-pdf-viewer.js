@@ -83,6 +83,12 @@ var _PDF_HL_COLORS = [
   { name: 'orange', color: 'rgba(255,152,0,0.4)' },
 ];
 
+// ── ID helper ──
+
+function _hlId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
 // ── Init ──
 
 export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
@@ -92,11 +98,44 @@ export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
   tab._pdfDarkMode = false;
   tab._pdfLeftPanelVisible = true;
   tab._pdfRenderedPages = new Map();
+  tab._pdfUrl = pdfUrl;
 
   _buildViewerDOM(tab, viewerEl);
 
   // Install text selection → highlight handler
   _pdfViewerInstallHighlightHandler(tab);
+
+  // Load persisted highlights from DB
+  if (window.electronAPI && window.electronAPI.dbQuery) {
+    window.electronAPI.dbQuery('highlights-list', pdfUrl).then(function(rows) {
+      if (!rows || !rows.length) return;
+      rows.forEach(function(row) {
+        var exists = tab._pdfHighlights.some(function(h) { return h.id === row.id; });
+        if (exists) return;
+        tab._pdfHighlights.push({
+          id: row.id,
+          text: row.text,
+          pageNum: row.page_num,
+          rects: JSON.parse(row.rects_json),
+          color: row.color,
+          note: row.note,
+          ts: row.created_at * 1000
+        });
+      });
+      // Re-render highlights on already-rendered pages
+      if (tab._pdfRenderedPages && tab._pdfPagesContainer) {
+        tab._pdfRenderedPages.forEach(function(_, pageNum) {
+          var wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
+          if (!wrapper) return;
+          var hlLayer = wrapper.querySelector('.pdf-highlight-layer');
+          if (hlLayer) {
+            hlLayer.innerHTML = '';
+            _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer);
+          }
+        });
+      }
+    });
+  }
 
   _ensurePdfjsLegacy().then(function() {
     _pdfViewerLoadDoc(tab, pdfUrl);
@@ -474,7 +513,7 @@ function _pdfViewerRenderPage(tab, pageNum) {
     wrapper.appendChild(hlLayer);
 
     // Render existing highlights for this page
-    _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer, viewport);
+    _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer);
 
     // Annotation layer (internal PDF links) — stays imperative (pixel-positioned over canvas)
     page.getAnnotations().then(function(annotations) {
@@ -717,19 +756,22 @@ function _renderOutlineItems(tab, items, container, level) {
 
 // ── Highlights ──
 
-function _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer, viewport) {
+function _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer) {
   if (!tab._pdfHighlights) return;
+  var wrapper = hlLayer.parentElement;
+  var wW = wrapper.offsetWidth;
+  var wH = wrapper.offsetHeight;
   tab._pdfHighlights.forEach(function(hl) {
     if (hl.pageNum !== pageNum || !hl.rects) return;
     hl.rects.forEach(function(r) {
-      // Highlight rects are pixel-positioned over canvas — append raw DOM elements directly
+      // Rects stored as fractions (0–1) of wrapper dimensions
       var rect = new View('div')
         .className('pdf-highlight-rect')
         .styles({
-          left: r.left + 'px',
-          top: r.top + 'px',
-          width: r.width + 'px',
-          height: r.height + 'px',
+          left: (r.left * wW) + 'px',
+          top: (r.top * wH) + 'px',
+          width: (r.width * wW) + 'px',
+          height: (r.height * wH) + 'px',
           background: hl.color || _PDF_HL_COLORS[0].color
         });
       hlLayer.appendChild(rect.el);
@@ -739,15 +781,31 @@ function _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer, viewport) {
 
 export function _pdfViewerAddHighlight(tab, highlight) {
   if (!tab._pdfHighlights) tab._pdfHighlights = [];
-  tab._pdfHighlights.push(highlight);
-  // Re-render the highlight layer for that page
+  highlight.id = _hlId();
+
+  // Normalize rects to fractions (0–1) of wrapper dimensions
   var wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + highlight.pageNum + '"]');
+  if (wrapper && highlight.rects) {
+    var wW = wrapper.offsetWidth;
+    var wH = wrapper.offsetHeight;
+    highlight.rects = highlight.rects.map(function(r) {
+      return { left: r.left / wW, top: r.top / wH, width: r.width / wW, height: r.height / wH };
+    });
+  }
+
+  tab._pdfHighlights.push(highlight);
+
+  // Re-render the highlight layer for that page
   if (wrapper) {
     var hlLayer = wrapper.querySelector('.pdf-highlight-layer');
     if (hlLayer) {
-      var viewport = { width: wrapper.offsetWidth, height: wrapper.offsetHeight };
-      _pdfViewerRenderHighlightsForPage(tab, highlight.pageNum, hlLayer, viewport);
+      _pdfViewerRenderHighlightsForPage(tab, highlight.pageNum, hlLayer);
     }
+  }
+
+  // Persist to DB
+  if (window.electronAPI && window.electronAPI.dbQuery && tab._pdfUrl) {
+    window.electronAPI.dbQuery('highlight-save', highlight.id, tab._pdfUrl, highlight.pageNum, highlight.text || '', JSON.stringify(highlight.rects), highlight.color || '', highlight.note || '');
   }
 }
 
@@ -762,9 +820,12 @@ export function _pdfViewerRemoveHighlight(tab, index) {
     var hlLayer = wrapper.querySelector('.pdf-highlight-layer');
     if (hlLayer) {
       hlLayer.innerHTML = '';
-      var viewport = { width: wrapper.offsetWidth, height: wrapper.offsetHeight };
-      _pdfViewerRenderHighlightsForPage(tab, hl.pageNum, hlLayer, viewport);
+      _pdfViewerRenderHighlightsForPage(tab, hl.pageNum, hlLayer);
     }
+  }
+  // Delete from DB
+  if (hl.id && window.electronAPI && window.electronAPI.dbQuery) {
+    window.electronAPI.dbQuery('highlight-delete', hl.id);
   }
 }
 

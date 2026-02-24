@@ -77,6 +77,26 @@ export function setCachedPwcResponse(url: string, data: unknown): void {
   ).run(url, JSON.stringify(data), Date.now() / 1000);
 }
 
+// ── GitHub response cache ──
+
+const GITHUB_STALE_SECONDS = 3 * 86400; // 3 days
+
+export function getCachedGithubResponse(url: string): { data: unknown; isStale: boolean } | null {
+  const row = prepare('SELECT response_json, cached_at FROM github_response_cache WHERE url = ?').get(url) as { response_json: string; cached_at: number } | undefined;
+  if (!row) return null;
+  try {
+    const data = JSON.parse(row.response_json);
+    const age = Date.now() / 1000 - row.cached_at;
+    return { data, isStale: age > GITHUB_STALE_SECONDS };
+  } catch { return null; }
+}
+
+export function setCachedGithubResponse(url: string, data: unknown): void {
+  prepare(
+    'INSERT OR REPLACE INTO github_response_cache (url, response_json, cached_at) VALUES (?, ?, ?)'
+  ).run(url, JSON.stringify(data), Date.now() / 1000);
+}
+
 // ── Annotation feedback ──
 
 export interface AnnotationFeedback {
