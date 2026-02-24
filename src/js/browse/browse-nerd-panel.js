@@ -6,7 +6,7 @@ import { registerPanelTabs, togglePanel } from '/js/core/core-nav.js';
 import { _paperState, _s2Cache, _s2Fetch, _s2GetAuthor, _s2GetAuthorFull, _extractArxivId, _s2LookupByArxivId, _s2SearchPaper } from '/js/browse/browse-paper.js';
 import { _pdfViewerScrollToPage, _pdfViewerGetText } from '/js/browse/browse-pdf-viewer.js';
 import { _nerdModeEnabled } from '/js/browse/browse-nerd-mode.js';
-import { _startTerminal } from '/js/browse/browse-impl-session.js';
+import { _startTerminal, _renderFilesTab } from '/js/browse/browse-impl-session.js';
 
 // ── State ──
 var _registered = false;
@@ -27,6 +27,7 @@ export function _nerdPanelRegister() {
       { id: 'nerd-highlights', label: 'Highlights', icon: icon('highlighter', { size: 14 }), render: _renderHighlightsTab },
       { id: 'nerd-code',       label: 'Code',       icon: icon('code', { size: 14 }),       render: _renderCodeTab },
       { id: 'nerd-search',     label: 'Search',     icon: icon('search', { size: 14 }),    render: _renderSearchTab },
+      { id: 'nerd-files',      label: 'Files',      icon: icon('file', { size: 14 }),      render: _renderFilesTabProxy },
       { id: 'nerd-terminal',   label: 'Terminal',   icon: icon('code', { size: 14 }),      render: _renderTerminalTab },
     ],
     header: function(el) {
@@ -681,6 +682,14 @@ function _renderCodeTab(container) {
       AetherUI.mount(ghWrap, container);
     });
   });
+}
+
+// ── Files Tab ──
+
+function _renderFilesTabProxy(container) {
+  _clearTerminalOverflow();
+  ++_renderGeneration;
+  _renderFilesTab(container, _getTab);
 }
 
 // ── Terminal Tab ──

@@ -163,6 +163,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   implWatchStop: (sessionId) => ipcRenderer.invoke('impl:watch-stop', sessionId),
   implReadTree: (folderPath) => ipcRenderer.invoke('impl:read-tree', folderPath),
   implReadFile: (folderPath, relativePath) => ipcRenderer.invoke('impl:read-file', folderPath, relativePath),
+  implWriteFile: (folderPath, relativePath, content) => ipcRenderer.invoke('impl:write-file', folderPath, relativePath, content),
   implChooseDir: () => ipcRenderer.invoke('impl:choose-dir'),
   onImplFileChanged: (callback) => ipcRenderer.on('impl:file-changed', callback),
   removeImplFileListeners: () => ipcRenderer.removeAllListeners('impl:file-changed'),

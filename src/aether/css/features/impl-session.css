@@ -1,78 +1,11 @@
-/* ── Implementation Session Workspace ── */
+/* ── Implementation Session ── */
 
-.impl-workspace {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: var(--nr-bg-body);
-  z-index: 4;
-}
+/* ── File Tree (panel variant) ── */
 
-.impl-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: var(--nr-bg-surface);
-  border-bottom: 1px solid var(--nr-border-dim);
-  flex-shrink: 0;
-  min-height: 38px;
-}
-
-.impl-toolbar-title {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--nr-text-primary);
+.impl-file-tree-panel {
   flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.impl-toolbar-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  font-size: 0.72rem;
-  color: var(--nr-text-secondary);
-  background: transparent;
-  border: 1px solid var(--nr-border-default);
-  border-radius: 6px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
-}
-
-.impl-toolbar-btn:hover {
-  color: var(--nr-text-primary);
-  background: var(--nr-bg-raised);
-  border-color: var(--nr-border-strong);
-}
-
-.impl-body {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* ── File Tree ── */
-
-.impl-file-tree {
-  width: 200px;
-  min-width: 140px;
-  max-width: 320px;
-  flex-shrink: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  border-right: 1px solid var(--nr-border-dim);
-  background: var(--nr-bg-sunken);
   padding: 4px 0;
 }
 
@@ -115,15 +48,6 @@
 }
 
 /* ── File Preview ── */
-
-.impl-preview {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--nr-bg-surface);
-  overflow: hidden;
-}
 
 .impl-preview-header {
   display: flex;

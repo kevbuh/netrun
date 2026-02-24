@@ -52,6 +52,78 @@ function readTree(dir: string, depth: number, maxDepth: number): any[] {
   return result;
 }
 
+function buildClaudeMd(opts: {
+  paperTitle?: string; paperUrl?: string; paperAbstract?: string;
+  authors?: string[]; year?: number | string; venue?: string;
+  references?: Array<{ title: string; authors?: Array<{ name: string }>; year?: number; citationCount?: number }>;
+  highlights?: Array<{ text: string; pageNum?: number; note?: string }>;
+}): string {
+  const lines: string[] = [];
+
+  lines.push('# ' + (opts.paperTitle || 'Paper Implementation'));
+  lines.push('');
+
+  // Metadata
+  if (opts.paperUrl) lines.push('**Paper:** ' + opts.paperUrl);
+  if (opts.authors && opts.authors.length) lines.push('**Authors:** ' + opts.authors.join(', '));
+  const meta: string[] = [];
+  if (opts.year) meta.push(String(opts.year));
+  if (opts.venue) meta.push(opts.venue);
+  if (meta.length) lines.push('**Published:** ' + meta.join(', '));
+  if (opts.paperUrl || (opts.authors && opts.authors.length) || meta.length) lines.push('');
+
+  // Abstract
+  if (opts.paperAbstract) {
+    lines.push('## Abstract');
+    lines.push('');
+    lines.push(opts.paperAbstract);
+    lines.push('');
+  }
+
+  // Key References (top 10 by citation count)
+  if (opts.references && opts.references.length) {
+    const sorted = [...opts.references]
+      .filter(r => r.title)
+      .sort((a, b) => (b.citationCount || 0) - (a.citationCount || 0))
+      .slice(0, 10);
+    if (sorted.length) {
+      lines.push('## Key References');
+      lines.push('');
+      for (const ref of sorted) {
+        const refMeta: string[] = [];
+        if (ref.authors && ref.authors.length) {
+          refMeta.push(ref.authors.slice(0, 3).map(a => a.name).join(', ') + (ref.authors.length > 3 ? ' et al.' : ''));
+        }
+        if (ref.year) refMeta.push(String(ref.year));
+        if (ref.citationCount != null) refMeta.push(ref.citationCount + ' citations');
+        lines.push('- **' + ref.title + '**' + (refMeta.length ? ' — ' + refMeta.join(', ') : ''));
+      }
+      lines.push('');
+    }
+  }
+
+  // Implementation Guidance (highlights)
+  if (opts.highlights && opts.highlights.length) {
+    lines.push('## Implementation Guidance');
+    lines.push('');
+    lines.push('User-highlighted passages from the paper:');
+    lines.push('');
+    for (const hl of opts.highlights) {
+      const page = hl.pageNum ? ' (p. ' + hl.pageNum + ')' : '';
+      lines.push('> ' + hl.text + page);
+      if (hl.note) lines.push('> **Note:** ' + hl.note);
+      lines.push('');
+    }
+  }
+
+  lines.push('## Notes');
+  lines.push('');
+  lines.push('Full paper text is available in `paper.md` for reference.');
+  lines.push('');
+
+  return lines.join('\n');
+}
+
 export function registerImplSessionIPC(): void {
   ensureImplDir();
 
@@ -59,6 +131,10 @@ export function registerImplSessionIPC(): void {
   ipcMain.handle('impl:create', (_event, opts: {
     paperUrl?: string; paperTitle?: string; paperAbstract?: string;
     agentType?: string; folderPath?: string;
+    authors?: string[]; year?: number | string; venue?: string;
+    references?: Array<{ title: string; authors?: Array<{ name: string }>; year?: number; citationCount?: number }>;
+    highlights?: Array<{ text: string; pageNum?: number; note?: string }>;
+    fullText?: string;
   }) => {
     try {
       const id = generateId();
@@ -69,19 +145,15 @@ export function registerImplSessionIPC(): void {
 
       fs.mkdirSync(folderPath, { recursive: true });
 
-      // Write README.md with paper context
-      const readme = [
-        '# ' + (opts.paperTitle || 'Paper Implementation'),
-        '',
-        opts.paperUrl ? '**Paper URL:** ' + opts.paperUrl : '',
-        '',
-        opts.paperAbstract ? '## Abstract\n\n' + opts.paperAbstract : '',
-        '',
-        '---',
-        'This folder was created by Netrun for implementing the above paper.',
-        'The coding agent will use this README as context.',
-      ].filter(Boolean).join('\n');
-      fs.writeFileSync(path.join(folderPath, 'README.md'), readme, 'utf-8');
+      // Write CLAUDE.md with rich paper context
+      const claudeMd = buildClaudeMd(opts);
+      fs.writeFileSync(path.join(folderPath, 'CLAUDE.md'), claudeMd, 'utf-8');
+
+      // Write paper.md with full extracted text
+      if (opts.fullText) {
+        const paperMd = '# ' + (opts.paperTitle || 'Paper') + '\n\n' + opts.fullText;
+        fs.writeFileSync(path.join(folderPath, 'paper.md'), paperMd, 'utf-8');
+      }
 
       prepare(`INSERT INTO impl_sessions (id, paper_url, paper_title, paper_abstract, folder_path, agent_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
         id, opts.paperUrl || '', opts.paperTitle || '', opts.paperAbstract || '', folderPath, agentType, now, now
@@ -176,5 +248,15 @@ export function registerImplSessionIPC(): void {
     });
     if (result.canceled || !result.filePaths.length) return { canceled: true };
     return { path: result.filePaths[0] };
+  });
+
+  // ── Write file (path-validated) ──
+  ipcMain.handle('impl:write-file', (_event, folderPath: string, relativePath: string, content: string) => {
+    try {
+      const fullPath = validatePath(folderPath, relativePath);
+      fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+      fs.writeFileSync(fullPath, content, 'utf-8');
+      return { ok: true };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 }

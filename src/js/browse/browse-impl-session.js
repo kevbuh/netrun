@@ -1,12 +1,14 @@
-// browse-impl-session.js — Implementation session workspace for Nerd Mode
-// Spawns a coding CLI agent (claude/opencode) in a terminal with a live file tree
-// Depends on: browse-nerd-mode.js, browse-nerd-panel.js
+// browse-impl-session.js — Implementation session for Nerd Mode
+// No overlay — file tree lives in the panel's Files tab, PDF stays visible
+// Depends on: browse-nerd-mode.js, browse-nerd-panel.js, browse-paper.js, browse-pdf-viewer.js
 import { icon } from '/js/core/icons.js';
 import { _paperState, _extractArxivId } from '/js/browse/browse-paper.js';
+import { _pdfViewerGetText } from '/js/browse/browse-pdf-viewer.js';
+import { switchPanelTab } from '/js/core/core-nav.js';
 import { View } from '/aether/ui/aether-ui.js';
 
 // ── Per-tab state ──
-// tab._implSessionId, tab._implFolderPath, tab._implTermId, tab._implWorkspaceEl
+// tab._implSessionId, tab._implFolderPath, tab._implTermId
 
 // ── Public API ──
 
@@ -21,7 +23,7 @@ export function _implSessionEnable(tab, sessionId) {
 
 export function _implSessionDisable(tab) {
   if (!tab) return;
-  _teardownWorkspace(tab);
+  _teardownSession(tab);
 }
 
 export function _isImplSessionActive(tabId) {
@@ -31,7 +33,7 @@ export function _isImplSessionActive(tabId) {
   return !!(tab && tab._implSessionId);
 }
 
-// ── Create new session ──
+// ── Create new session (with rich context) ──
 
 function _createSession(tab) {
   var state = _paperState.get(tab.id);
@@ -45,20 +47,46 @@ function _createSession(tab) {
     if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('implCreate not available — rebuild & restart needed');
     return;
   }
-  electronAPI.implCreate({
-    paperUrl: url,
-    paperTitle: title,
-    paperAbstract: abstract,
-    agentType: 'claude'
-  }).then(function(result) {
-    console.log('[impl] create result:', result);
-    if (result.error) {
-      if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Failed to create session: ' + result.error);
-      return;
-    }
-    tab._implSessionId = result.id;
-    tab._implFolderPath = result.folderPath;
-    _buildWorkspace(tab);
+
+  // Gather rich context
+  var authors = (s2 && s2.authors) ? s2.authors.map(function(a) { return a.name; }) : [];
+  var year = (s2 && s2.year) || '';
+  var venue = (s2 && s2.venue) || '';
+  var references = (state && state.refs) ? state.refs.slice(0, 20) : [];
+  var highlights = tab._pdfHighlights || [];
+
+  if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Preparing implementation...');
+
+  // Extract full text async, create session in parallel
+  var textPromise = _pdfViewerGetText(tab).then(function(text) { return text || ''; }).catch(function() { return ''; });
+
+  textPromise.then(function(fullText) {
+    electronAPI.implCreate({
+      paperUrl: url,
+      paperTitle: title,
+      paperAbstract: abstract,
+      agentType: 'claude',
+      authors: authors,
+      year: year,
+      venue: venue,
+      references: references,
+      highlights: highlights.map(function(hl) {
+        return { text: hl.text || '', pageNum: hl.pageNum, note: hl.note || '' };
+      }),
+      fullText: fullText
+    }).then(function(result) {
+      console.log('[impl] create result:', result);
+      if (result.error) {
+        if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Failed to create session: ' + result.error);
+        return;
+      }
+      tab._implSessionId = result.id;
+      tab._implFolderPath = result.folderPath;
+
+      // Auto-switch to terminal tab and flag for auto-launch
+      tab._implAutoLaunchClaude = true;
+      switchPanelTab('nerd-terminal');
+    });
   });
 }
 
@@ -72,57 +100,8 @@ function _resumeSession(tab, sessionId) {
     }
     tab._implSessionId = session.id;
     tab._implFolderPath = session.folder_path;
-    _buildWorkspace(tab);
+    switchPanelTab('nerd-terminal');
   });
-}
-
-// ── Build workspace UI ──
-
-function _buildWorkspace(tab) {
-  var container = document.getElementById('browse-content');
-  if (!container) return;
-
-  // Hide PDF viewer and webview
-  if (tab._nerdViewerEl) tab._nerdViewerEl.style.display = 'none';
-  if (tab.el) tab.el.style.display = 'none';
-
-  // Create workspace
-  var workspace = new View('div').className('impl-workspace').id('impl-workspace-' + tab.id);
-
-  // Toolbar
-  var toolbar = new View('div').className('impl-toolbar');
-
-  var backBtn = new View('button').className('impl-toolbar-btn').add(
-    RawHTML(icon('chevronLeft', { size: 12 })),
-    Text('Back to Paper')
-  ).onTap(function() {
-    _implSessionDisable(tab);
-    // Restore PDF viewer
-    if (tab._nerdViewerEl) tab._nerdViewerEl.style.display = 'flex';
-    if (tab.el) tab.el.style.display = 'none';
-  });
-
-  var titleView = Text(tab._implFolderPath ? tab._implFolderPath.split('/').pop() : 'Implementation').className('impl-toolbar-title');
-
-  toolbar.add(backBtn, titleView);
-  workspace.add(toolbar);
-
-  // Body: file tree + preview area
-  var body = new View('div').className('impl-body');
-
-  // File tree
-  var fileTree = new View('div').className('impl-file-tree');
-  body.add(fileTree);
-
-  workspace.add(body);
-  container.appendChild(workspace.el);
-  tab._implWorkspaceEl = workspace.el;
-
-  // Initialize file tree
-  _refreshFileTree(tab, fileTree.el);
-
-  // Start file watcher
-  _startWatcher(tab, fileTree.el);
 }
 
 // ── Terminal ──
@@ -196,21 +175,116 @@ export function _startTerminal(tab, container) {
     tab._implExitHandler = exitHandler;
 
     tab._implTerm = term;
+
+    // Auto-launch claude CLI if flagged
+    if (tab._implAutoLaunchClaude) {
+      tab._implAutoLaunchClaude = false;
+      setTimeout(function() {
+        electronAPI.terminalInput(sessionId, 'claude\n');
+      }, 800);
+    }
   });
+}
+
+// ── Files Panel Tab (rendered inside nerd panel) ──
+
+export function _renderFilesTab(container, getTabFn) {
+  var tab = getTabFn();
+
+  var wrap = new View('div').className('nerd-files-wrap');
+
+  if (!tab || !tab._implSessionId) {
+    wrap.add(Text('Click Implement in the toolbar to start').className('nerd-empty'));
+    AetherUI.mount(wrap, container);
+    return;
+  }
+
+  // Sync highlights button
+  var syncBtn = new View('button').className('nerd-sync-btn').add(
+    RawHTML(icon('highlighter', { size: 12 })),
+    Text('Sync highlights')
+  ).onTap(function() {
+    _syncHighlightsToClaude(tab).then(function(ok) {
+      if (typeof Aether !== 'undefined' && Aether.toast) {
+        Aether.toast(ok ? 'Highlights synced to CLAUDE.md' : 'Failed to sync highlights');
+      }
+    });
+  });
+  wrap.add(syncBtn);
+
+  // File tree container
+  var fileTree = new View('div').className('impl-file-tree-panel');
+  wrap.add(fileTree);
+
+  AetherUI.mount(wrap, container);
+
+  // Load file tree
+  _refreshFileTree(tab, fileTree.el, container, getTabFn);
+
+  // Start file watcher (guard against duplicates)
+  if (!tab._implFileHandler) {
+    _startWatcher(tab, fileTree.el, container, getTabFn);
+  }
+}
+
+// ── Sync Highlights to CLAUDE.md ──
+
+export function _syncHighlightsToClaude(tab) {
+  if (!tab || !tab._implFolderPath) return Promise.resolve(false);
+
+  var highlights = tab._pdfHighlights || [];
+  if (!highlights.length) return Promise.resolve(false);
+
+  return electronAPI.implReadFile(tab._implFolderPath, 'CLAUDE.md').then(function(result) {
+    if (!result || result.error) return false;
+
+    var content = result.content;
+    var hlSection = _buildHighlightsSection(highlights);
+
+    // Replace existing Implementation Guidance section or insert before Notes
+    var guidanceStart = content.indexOf('## Implementation Guidance');
+    var notesStart = content.indexOf('## Notes');
+
+    if (guidanceStart !== -1) {
+      // Find end of guidance section (next ## or end)
+      var guidanceEnd = content.indexOf('\n## ', guidanceStart + 1);
+      if (guidanceEnd === -1) guidanceEnd = content.length;
+      content = content.slice(0, guidanceStart) + hlSection + content.slice(guidanceEnd);
+    } else if (notesStart !== -1) {
+      content = content.slice(0, notesStart) + hlSection + '\n' + content.slice(notesStart);
+    } else {
+      content += '\n' + hlSection;
+    }
+
+    return electronAPI.implWriteFile(tab._implFolderPath, 'CLAUDE.md', content).then(function(res) {
+      return !!(res && res.ok);
+    });
+  }).catch(function() { return false; });
+}
+
+function _buildHighlightsSection(highlights) {
+  var lines = ['## Implementation Guidance', '', 'User-highlighted passages from the paper:', ''];
+  highlights.forEach(function(hl) {
+    var page = hl.pageNum ? ' (p. ' + hl.pageNum + ')' : '';
+    lines.push('> ' + (hl.text || '') + page);
+    if (hl.note) lines.push('> **Note:** ' + hl.note);
+    lines.push('');
+  });
+  return lines.join('\n');
 }
 
 // ── File Tree ──
 
-function _refreshFileTree(tab, container) {
+function _refreshFileTree(tab, treeContainer, panelContainer, getTabFn) {
   if (!tab._implFolderPath) return;
 
   electronAPI.implReadTree(tab._implFolderPath).then(function(tree) {
     if (!tree || tree.error) return;
 
     // Clear
-    while (container.firstChild) container.removeChild(container.firstChild);
+    while (treeContainer.firstChild) treeContainer.removeChild(treeContainer.firstChild);
 
-    _renderTreeNodes(tab, container, tree, 0, '');
+    _renderTreeNodes(tab, treeContainer, tree, 0, '', panelContainer, getTabFn);
   });
 }
 
@@ -220,7 +294,7 @@ function _setTreeActive(treeContainer, activeRow) {
   if (activeRow) activeRow.classList.add('active');
 }
 
-function _renderTreeNodes(tab, container, nodes, depth, parentPath) {
+function _renderTreeNodes(tab, container, nodes, depth, parentPath, panelContainer, getTabFn) {
   nodes.forEach(function(node) {
     var relativePath = parentPath ? parentPath + '/' + node.name : node.name;
     var row = document.createElement('div');
@@ -239,9 +313,8 @@ function _renderTreeNodes(tab, container, nodes, depth, parentPath) {
 
     if (node.type === 'file') {
       row.addEventListener('click', function() {
-        _previewFile(tab, relativePath, node.name);
-        // Find the tree root container and update active state
-        var treeRoot = row.closest('.impl-file-tree');
+        _previewFileInPanel(tab, relativePath, node.name, panelContainer, getTabFn);
+        var treeRoot = row.closest('.impl-file-tree-panel');
         if (treeRoot) _setTreeActive(treeRoot, row);
       });
     }
@@ -252,7 +325,7 @@ function _renderTreeNodes(tab, container, nodes, depth, parentPath) {
     if (node.type === 'dir' && node.children && node.children.length) {
       var expanded = true;
       var childContainer = document.createElement('div');
-      _renderTreeNodes(tab, childContainer, node.children, depth + 1, relativePath);
+      _renderTreeNodes(tab, childContainer, node.children, depth + 1, relativePath, panelContainer, getTabFn);
       container.appendChild(childContainer);
 
       // Toggle on click
@@ -266,13 +339,10 @@ function _renderTreeNodes(tab, container, nodes, depth, parentPath) {
   });
 }
 
-// ── File Preview ──
+// ── File Preview (in panel) ──
 
-function _previewFile(tab, relativePath, fileName) {
+function _previewFileInPanel(tab, relativePath, fileName, panelContainer, getTabFn) {
   if (!tab._implFolderPath) return;
-
-  // Remove existing preview
-  _closePreview(tab);
 
   electronAPI.implReadFile(tab._implFolderPath, relativePath).then(function(result) {
     if (!result || result.error) {
@@ -280,42 +350,26 @@ function _previewFile(tab, relativePath, fileName) {
       return;
     }
 
-    // Hide terminal, show preview in its place
-    var termEl = tab._implWorkspaceEl ? tab._implWorkspaceEl.querySelector('.impl-terminal') : null;
-    var body = tab._implWorkspaceEl ? tab._implWorkspaceEl.querySelector('.impl-body') : null;
-    if (!body) return;
-    if (termEl) termEl.style.display = 'none';
-
-    var preview = new View('div').className('impl-preview');
+    var preview = new View('div').className('nerd-files-wrap');
 
     var header = new View('div').className('impl-preview-header').add(
-      Text(fileName).className('impl-preview-title'),
-      new View('button').className('impl-preview-close').text('\u00d7').onTap(function() {
-        _closePreview(tab);
-      })
+      new View('button').className('impl-preview-close').text('\u2190').onTap(function() {
+        // Back to file tree
+        _renderFilesTab(panelContainer, getTabFn);
+      }),
+      Text(fileName).className('impl-preview-title')
     );
 
     var content = new View('pre').className('impl-preview-content').text(result.content);
 
     preview.add(header, content);
-    body.appendChild(preview.el);
-    tab._implPreviewEl = preview.el;
+    AetherUI.mount(preview, panelContainer);
   });
-}
-
-function _closePreview(tab) {
-  if (tab._implPreviewEl) {
-    tab._implPreviewEl.remove();
-    tab._implPreviewEl = null;
-  }
-  // Restore terminal
-  var termEl = tab._implWorkspaceEl ? tab._implWorkspaceEl.querySelector('.impl-terminal') : null;
-  if (termEl) termEl.style.display = '';
 }
 
 // ── File Watcher ──
 
-function _startWatcher(tab, fileTreeEl) {
+function _startWatcher(tab, fileTreeEl, panelContainer, getTabFn) {
   if (!tab._implSessionId || !tab._implFolderPath) return;
 
   electronAPI.implWatchStart(tab._implSessionId, tab._implFolderPath);
@@ -325,7 +379,7 @@ function _startWatcher(tab, fileTreeEl) {
     if (sid !== tab._implSessionId) return;
     clearTimeout(debounce);
     debounce = setTimeout(function() {
-      _refreshFileTree(tab, fileTreeEl);
+      _refreshFileTree(tab, fileTreeEl, panelContainer, getTabFn);
     }, 500);
   };
   electronAPI.onImplFileChanged(handler);
@@ -334,7 +388,7 @@ function _startWatcher(tab, fileTreeEl) {
 
 // ── Teardown ──
 
-function _teardownWorkspace(tab) {
+function _teardownSession(tab) {
   // Stop watcher
   if (tab._implSessionId) {
     electronAPI.implWatchStop(tab._implSessionId);
@@ -368,15 +422,6 @@ function _teardownWorkspace(tab) {
     electronAPI.removeImplFileListeners();
     tab._implFileHandler = null;
   }
-
-  // Remove workspace element
-  if (tab._implWorkspaceEl) {
-    tab._implWorkspaceEl.remove();
-    tab._implWorkspaceEl = null;
-  }
-
-  // Close preview
-  _closePreview(tab);
 
   // Clear state (keep sessionId for resuming)
   tab._implFolderPath = null;

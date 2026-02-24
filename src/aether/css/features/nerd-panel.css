@@ -361,3 +361,34 @@
   line-height: 1.5;
   background: transparent;
 }
+
+/* ── Files tab ── */
+.nerd-files-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--nr-space-2) 0;
+}
+
+.nerd-sync-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: var(--nr-space-2) var(--nr-space-3) var(--nr-space-2);
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  color: var(--nr-text-secondary);
+  background: transparent;
+  border: 1px solid var(--nr-border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.nerd-sync-btn:hover {
+  color: var(--nr-text-primary);
+  background: var(--nr-bg-raised);
+  border-color: var(--nr-border-strong);
+}

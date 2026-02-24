@@ -164,18 +164,8 @@ export function _nerdModeOnTabSelect(tab) {
     // Reset adaptive color so glass surfaces use native theme colors
     _browseResetAdaptiveColor();
 
-    // If impl session is active, show workspace instead of PDF viewer
-    if (window._isImplSessionActive && window._isImplSessionActive(tab.id)) {
-      if (tab._implWorkspaceEl) tab._implWorkspaceEl.style.display = 'flex';
-      if (tab._nerdViewerEl) tab._nerdViewerEl.style.display = 'none';
-      if (tab.el) tab.el.style.display = 'none';
-    } else {
-      // Show this tab's nerd viewer
-      if (tab._nerdViewerEl) {
-        tab._nerdViewerEl.style.display = 'flex';
-      }
-      if (tab._implWorkspaceEl) tab._implWorkspaceEl.style.display = 'none';
-    }
+    // Always show PDF viewer when nerd mode is on (no more overlay workspace)
+    if (tab._nerdViewerEl) tab._nerdViewerEl.style.display = 'flex';
     if (tab.el) tab.el.style.display = 'none';
 
     // Restore HUD mode class if this tab has it active
