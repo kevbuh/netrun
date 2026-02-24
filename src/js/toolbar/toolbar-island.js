@@ -27,6 +27,7 @@ export function _syncIslandPillPosition() {
     if (leftCol && leftCol.parentElement === urlWrap && urlWrap.firstChild !== leftCol) {
       urlWrap.insertBefore(leftCol, urlWrap.firstChild);
     }
+    // NTP: tabs pill inside island (centered capsule); normal: in tabs anchor
     if (isNtpActive && tabsPill && tabsPill.parentElement !== island) island.insertBefore(tabsPill, island.firstChild);
     if (!isNtpActive && tabsPill && tabsAnchor && tabsPill.parentElement !== tabsAnchor) tabsAnchor.insertBefore(tabsPill, tabsAnchor.firstChild);
   } else {
@@ -601,8 +602,6 @@ document.addEventListener('click', function(e) {
   var wrap = document.getElementById('pill-url-wrap');
   if (!wrap) return;
   if (wrap.classList.contains('island-expanded')) return;
-  var pill = document.getElementById('sidebar-nav');
-  if (pill && pill.classList.contains('ntp-active')) return;
   if (wrap.contains(e.target)) _expandIsland();
 });
 

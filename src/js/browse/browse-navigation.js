@@ -108,18 +108,23 @@ export function _browseHandleNavigation(tab, frame) {
     _browseInjectRemoveCSS(frame);
     // Reset insight pill to offer state on navigation (don't remove it)
     if (typeof _showAnnotateOfferPill === 'function' && tab.id === _browseActiveTab) _showAnnotateOfferPill(tab);
-    // PDF detection pill + auto-open Nerd Mode
+    // Nerd Mode: auto-re-enable if tab had it on, otherwise show offer pill
     if (_isNerdAutoEligible(navUrl)) {
-      if (typeof window._isNerdMode !== 'function' || !window._isNerdMode(tab.id)) {
-        islandUpdate('pdf-detect', {
-          type: 'pdf',
-          label: 'PDF detected',
-          icon: icon('fileText', { size: 14 }),
-          action: function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); islandRemove('pdf-detect'); }
+      if (typeof window._isNerdMode === 'function' && window._isNerdMode(tab.id)) {
+        // Already in nerd mode — will re-init via viewer
+      } else if (window._nerdModeSticky && window._nerdModeSticky.has(tab.id)) {
+        // Tab previously had nerd mode — re-enable automatically
+        setTimeout(function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); }, 300);
+      } else {
+        islandUpdate('nerd-offer', {
+          type: 'nerd',
+          label: 'Nerd Mode?',
+          icon: icon('glasses', { size: 14 }),
+          action: function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); islandRemove('nerd-offer'); }
         });
       }
     } else {
-      islandRemove('pdf-detect');
+      islandRemove('nerd-offer');
     }
     // Update nav buttons so back/forward reflect history stacks
     if (typeof window._updateIslandNavButtons === 'function') window._updateIslandNavButtons();

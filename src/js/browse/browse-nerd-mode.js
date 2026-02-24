@@ -11,6 +11,7 @@ import { View } from '/aether/ui/aether-ui.js';
 
 // ── Per-tab state ──
 export const _nerdModeEnabled = new Map(); // tabId → bool
+export const _nerdModeSticky = new Set(); // tabIds that should auto-enable nerd mode on PDF navigation
 
 // ── Helpers ──
 
@@ -60,6 +61,10 @@ function _nerdModeEnable(tab) {
   }
 
   _nerdModeEnabled.set(tab.id, true);
+  _nerdModeSticky.add(tab.id);
+
+  // Remove offer pill if present
+  islandRemove('nerd-offer');
 
   // Reset adaptive color so glass surfaces use native theme colors
   _browseResetAdaptiveColor();
@@ -94,7 +99,7 @@ function _nerdModeEnable(tab) {
   islandUpdate('nerd', {
     type: 'nerd',
     label: 'Nerd Mode',
-    icon: icon('research', { size: 14 }),
+    icon: icon('glasses', { size: 14 }),
     onTap: function() { toggleNerdMode(tab); }
   });
 
@@ -167,7 +172,7 @@ export function _nerdModeOnTabSelect(tab) {
     islandUpdate('nerd', {
       type: 'nerd',
       label: 'Nerd Mode',
-      icon: icon('research', { size: 14 }),
+      icon: icon('glasses', { size: 14 }),
       onTap: function() { toggleNerdMode(tab); }
     });
 
@@ -185,6 +190,7 @@ export function _nerdModeOnTabSelect(tab) {
 }
 
 export function _nerdModeOnTabClose(tabId) {
+  _nerdModeSticky.delete(tabId);
   if (_nerdModeEnabled.has(tabId)) {
     _nerdModeEnabled.delete(tabId);
     islandRemove('nerd');
@@ -197,6 +203,7 @@ export function _isNerdMode(tabId) {
 
 // ── Window bridge ──
 window._nerdModeEnabled = _nerdModeEnabled;
+window._nerdModeSticky = _nerdModeSticky;
 window.toggleNerdMode = toggleNerdMode;
 window._isNerdMode = _isNerdMode;
 window._isNerdAutoEligible = _isNerdAutoEligible;

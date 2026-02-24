@@ -177,6 +177,9 @@ export function _pillSyncUrl() {
   var isBlankNtp = tab && tab.blank;
   _browseSetUrlDisplay(input, (!isBlankNtp && tab && tab.url) ? tab.url : '');
   isNtp.value = !!isBlankNtp;
+  var pill = document.getElementById('sidebar-nav');
+  if (pill) pill.classList.toggle('ntp-active', !!isBlankNtp);
+  if (typeof window._syncIslandPillPosition === 'function') window._syncIslandPillPosition();
   if (typeof _browseApplyAdaptiveColor === 'function') _browseApplyAdaptiveColor(tab);
 }
 

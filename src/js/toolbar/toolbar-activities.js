@@ -250,6 +250,8 @@ export function _islandRenderPill(a) {
         .styles({ marginLeft: '6px', fontSize: '10px', background: 'rgba(139,92,246,0.15)', color: '#8b5cf6' }));
     }
     return H(children);
+  } else if (a.type === 'nerd') {
+    return H([R(icon('research', { size: 14 })), T(a.label || 'Nerd Mode?')]).spacing(1).styles({ whiteSpace: 'nowrap' });
   } else if (a.type === 'pageinfo') {
     var children = [R(icon('clock', { size: 14, stroke: 'var(--nr-text-secondary)' }))];
     if (a.label) children.push(T(a.label));

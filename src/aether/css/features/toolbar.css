@@ -275,11 +275,25 @@ body.electron-app .browse-mode.island-mode #pill-island-right {
 .browse-mode.ntp-active .pill-url-divider,
 .browse-mode.ntp-active #pill-ai-unified { display: none !important; }
 
-/* Island NTP: capsule becomes transparent centered container */
+/* Island NTP: capsule centered, only tabs pill visible in collapsed state */
 .browse-mode.island-mode.ntp-active #pill-url-wrap {
   background: transparent !important; border: none !important; box-shadow: none !important;
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  height: auto; min-width: 0; padding: 0;
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important;
+  height: auto; min-width: 0; padding: 0; overflow: visible;
+}
+/* NTP expanded: show only the left column (tab list) */
+.browse-mode.island-mode.ntp-active #pill-url-wrap.island-expanded {
+  grid-template-columns: auto;
+  top: 0 !important; transform: translateX(-50%) !important;
+  background: var(--nr-bg-overlay) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.45), 0 0 0 1px var(--nr-border-default) !important;
+}
+.browse-mode.island-mode.ntp-active #pill-url-wrap.island-expanded #pill-browse-url-input,
+.browse-mode.island-mode.ntp-active #pill-url-wrap.island-expanded #pill-island-center,
+.browse-mode.island-mode.ntp-active #pill-url-wrap.island-expanded #pill-island-right-col,
+.browse-mode.island-mode.ntp-active #pill-url-wrap.island-expanded #pill-island-nav-row {
+  display: none !important;
 }
 .browse-mode.ntp-active #pill-nav-icons {
   position: static; flex-direction: row; background: transparent; box-shadow: none;
@@ -1002,6 +1016,13 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .browse-mode.island-mode #pill-island-tabs-anchor:empty::after { display: none; }
 .browse-mode.island-mode.ntp-active #pill-island-tabs-anchor::after,
 #pill-island-tabs-anchor.ntp-hide-divider::after { display: none; }
+/* NTP: hide all island pills except tabs */
+.browse-mode.island-mode.ntp-active #pill-island > .pill-island { display: none !important; }
+.browse-mode.island-mode.ntp-active #pill-island > .pill-island[data-island-id="tabs"] {
+  display: flex !important;
+  background: var(--pill-surface, var(--aether-hover)) !important;
+  border-radius: 12px;
+}
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-tabs-anchor { display: none !important; }
 
 /* Island pill inside capsule */
