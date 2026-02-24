@@ -1,9 +1,9 @@
 // browse-nerd-panel.js — Lookup panel for Nerd Mode
-// Registers panel tabs: Info, References, Authors, Related, Highlights, Search
+// Registers panel tabs: Info, References, Authors, Highlights, Search
 // Depends on: core-nav.js, browse-paper.js, browse-pdf-viewer.js
 import { icon } from '/js/core/icons.js';
 import { registerPanelTabs } from '/js/core/core-nav.js';
-import { _paperState, _s2Cache, _s2Fetch, _s2GetAuthor, _s2GetAuthorFull, _s2GetCitations, _extractArxivId, _s2LookupByArxivId, _s2SearchPaper } from '/js/browse/browse-paper.js';
+import { _paperState, _s2Cache, _s2Fetch, _s2GetAuthor, _s2GetAuthorFull, _extractArxivId, _s2LookupByArxivId, _s2SearchPaper } from '/js/browse/browse-paper.js';
 import { _pdfViewerScrollToPage, _pdfViewerGetText } from '/js/browse/browse-pdf-viewer.js';
 import { _nerdModeEnabled } from '/js/browse/browse-nerd-mode.js';
 
@@ -22,9 +22,7 @@ export function _nerdPanelRegister() {
     tabs: [
       { id: 'nerd-info',       label: 'Info',       icon: icon('fileText', { size: 14 }),  render: _renderInfoTab },
       { id: 'nerd-refs',       label: 'References',  icon: icon('link', { size: 14 }),     render: _renderRefsTab },
-      { id: 'nerd-cited-by',   label: 'Cited By',   icon: icon('blockquote', { size: 14 }), render: _renderCitedByTab },
       { id: 'nerd-authors',    label: 'Authors',    icon: icon('user', { size: 14 }),      render: _renderAuthorsTab },
-      { id: 'nerd-related',    label: 'Related',    icon: icon('research', { size: 14 }),  render: _renderRelatedTab },
       { id: 'nerd-highlights', label: 'Highlights', icon: icon('highlighter', { size: 14 }), render: _renderHighlightsTab },
       { id: 'nerd-code',       label: 'Code',       icon: icon('code', { size: 14 }),       render: _renderCodeTab },
       { id: 'nerd-search',     label: 'Search',     icon: icon('search', { size: 14 }),    render: _renderSearchTab },
@@ -58,20 +56,10 @@ function _fetchPaperData(tab) {
           refs: data.references || null,
           s2Data: data,
           s2UrlPath: s2Path,
-          authorDetails: [],
-          citedBy: null
+          authorDetails: []
         });
         // Fetch author details
         _fetchAuthorDetails(tab, data);
-        // Fetch citations
-        if (data.paperId) {
-          _s2GetCitations(data.paperId).then(function(citData) {
-            var state = _paperState.get(tab.id);
-            if (state && citData && citData.data) {
-              state.citedBy = citData.data.map(function(c) { return c.citingPaper; }).filter(Boolean);
-            }
-          });
-        }
       }
     });
   } else {
@@ -92,19 +80,9 @@ function _fetchPaperData(tab) {
                   refs: full.references || null,
                   s2Data: full,
                   s2UrlPath: fullPath,
-                  authorDetails: [],
-                  citedBy: null
+                  authorDetails: []
                 });
                 _fetchAuthorDetails(tab, full);
-                // Fetch citations
-                if (full.paperId) {
-                  _s2GetCitations(full.paperId).then(function(citData) {
-                    var state = _paperState.get(tab.id);
-                    if (state && citData && citData.data) {
-                      state.citedBy = citData.data.map(function(c) { return c.citingPaper; }).filter(Boolean);
-                    }
-                  });
-                }
               }
             });
           }
@@ -352,61 +330,6 @@ function _renderAuthorsTab(container) {
   AetherUI.mount(wrap, container);
 }
 
-function _renderRelatedTab(container) {
-  ++_renderGeneration;
-  var state = _getState();
-
-  var wrap = new View('div').className('nerd-tab-wrap');
-
-  if (!state || !state.s2Data || !state.s2Data.paperId) {
-    wrap.add(Text('No paper identified').className('nerd-empty'));
-    AetherUI.mount(wrap, container);
-    return;
-  }
-
-  if (window.Skeleton) {
-    wrap.add(window.Skeleton().lines(3));
-  } else {
-    wrap.add(Text('Loading recommendations...').className('nerd-empty'));
-  }
-  AetherUI.mount(wrap, container);
-
-  _s2Fetch('https://api.semanticscholar.org/recommendations/v1/papers/forpaper/' + state.s2Data.paperId + '?limit=10&fields=title,authors,year,citationCount,venue').then(function(data) {
-    var papers = data && data.recommendedPapers ? data.recommendedPapers : [];
-    if (!papers.length) {
-      AetherUI.mount(Text('No recommendations found').className('nerd-empty'), container);
-      return;
-    }
-
-    var resultWrap = new View('div').className('nerd-tab-wrap');
-    papers.forEach(function(paper) {
-      var item = new View('div').className('nerd-paper-item');
-      item.add(Text(paper.title || 'Untitled').className('nerd-paper-item-title line-clamp-2'));
-
-      var m = [];
-      if (paper.authors && paper.authors.length) {
-        m.push(paper.authors.slice(0, 2).map(function(a) { return a.name; }).join(', ') + (paper.authors.length > 2 ? ' et al.' : ''));
-      }
-      if (paper.year) m.push(String(paper.year));
-      if (paper.citationCount != null) m.push(paper.citationCount + ' cit.');
-      if (paper.venue) m.push(paper.venue);
-      if (m.length) {
-        item.add(Text(m.join(' \u00b7 ')).className('nerd-paper-item-meta'));
-      }
-
-      item.onTap(function() {
-        var url = 'https://www.semanticscholar.org/paper/' + paper.paperId;
-        if (typeof window.browseNewTab === 'function') window.browseNewTab(url);
-      });
-
-      resultWrap.add(item);
-    });
-    AetherUI.mount(resultWrap, container);
-  }).catch(function() {
-    AetherUI.mount(Text('Failed to load recommendations').className('nerd-empty'), container);
-  });
-}
-
 function _renderHighlightsTab(container) {
   ++_renderGeneration;
   var tab = _getTab();
@@ -567,66 +490,6 @@ function _searchFullText(tab, query, results) {
 
     AetherUI.mount(resultsWrap, results);
   });
-}
-
-// ── Cited By Tab ──
-
-function _renderCitedByTab(container) {
-  var state = _getState();
-  var gen = ++_renderGeneration;
-  var wrap = new View('div').className('nerd-tab-wrap');
-
-  if (!state || !state.s2Data || !state.s2Data.paperId) {
-    wrap.add(Text('No paper identified').className('nerd-empty'));
-    AetherUI.mount(wrap, container);
-    return;
-  }
-
-  if (state.citedBy === null || state.citedBy === undefined) {
-    // Still loading
-    if (window.Skeleton) {
-      wrap.add(window.Skeleton().lines(3));
-    } else {
-      wrap.add(Text('Loading citing papers...').className('nerd-empty'));
-    }
-    AetherUI.mount(wrap, container);
-    setTimeout(function() { if (gen === _renderGeneration) _renderCitedByTab(container); }, 2000);
-    return;
-  }
-
-  if (!state.citedBy.length) {
-    wrap.add(Text('No citing papers found').className('nerd-empty'));
-    AetherUI.mount(wrap, container);
-    return;
-  }
-
-  wrap.add(Text(state.citedBy.length + ' citing paper' + (state.citedBy.length !== 1 ? 's' : '')).className('nerd-search-count'));
-
-  state.citedBy.forEach(function(paper) {
-    var item = new View('div').className('nerd-paper-item');
-    item.add(Text(paper.title || 'Untitled').className('nerd-paper-item-title line-clamp-2'));
-
-    var m = [];
-    if (paper.authors && paper.authors.length) {
-      m.push(paper.authors.slice(0, 3).map(function(a) { return a.name; }).join(', ') + (paper.authors.length > 3 ? ' et al.' : ''));
-    }
-    if (paper.year) m.push(String(paper.year));
-    if (paper.citationCount != null) m.push(paper.citationCount + ' cit.');
-    if (paper.venue) m.push(paper.venue);
-    if (m.length) {
-      item.add(Text(m.join(' \u00b7 ')).className('nerd-paper-item-meta'));
-    }
-
-    item.onTap(function() {
-      var query = encodeURIComponent(paper.title);
-      var url = 'https://scholar.google.com/scholar?q=' + query;
-      if (typeof window.browseNewTab === 'function') window.browseNewTab(url);
-    });
-
-    wrap.add(item);
-  });
-
-  AetherUI.mount(wrap, container);
 }
 
 // ── Code Tab (Papers With Code + GitHub fallback) ──
