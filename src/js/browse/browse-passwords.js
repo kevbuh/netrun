@@ -334,6 +334,8 @@ export function browseSelectTab(id) {
     }
     // Show annotate offer pill (restores cache or shows clickable "Annotate" pill)
     if (tab && !tab.blank && tab.url && typeof _showAnnotateOfferPill === 'function') _showAnnotateOfferPill(tab);
+    // Update RSS pill for the selected tab (clear if blank/NTP)
+    if (typeof window._browseUpdateRssPill === 'function') window._browseUpdateRssPill(tab || { id: id });
     if (tab && !tab.blank && tab.url) _pageInfoRestoreForTab(tab);
     // Per-tab AI: restore incoming tab's panel state
     if (splitPrevTab && splitPrevTab.id !== id) {
@@ -503,6 +505,8 @@ export function browseSelectTab(id) {
     const act = typeof window._islandActivities !== 'undefined' ? window._islandActivities['insight'] : null;
     if (act) islandRemove('insight');
   }
+  // Update RSS pill for the selected tab (clear if blank/NTP)
+  if (typeof window._browseUpdateRssPill === 'function') window._browseUpdateRssPill(tab || { id: id });
   // Restore page info pill from cache for the selected tab
   if (tab && !tab.blank && tab.url) _pageInfoRestoreForTab(tab);
 
