@@ -140,19 +140,15 @@
   padding: 4px;
 }
 
-/* ── File Preview Overlay ── */
+/* ── File Preview (replaces terminal pane) ── */
 
-.impl-preview-overlay {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 50%;
-  height: 100%;
-  background: var(--nr-bg-surface);
-  border-left: 1px solid var(--nr-border-dim);
+.impl-preview {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  z-index: 5;
+  background: var(--nr-bg-surface);
+  overflow: hidden;
 }
 
 .impl-preview-header {

@@ -110,7 +110,13 @@ function _buildWorkspace(tab) {
     }
   });
 
-  toolbar.add(backBtn, titleView, openBtn);
+  var vscodeBtn = new View('button').className('impl-toolbar-btn').text('Open in VS Code').onTap(function() {
+    if (tab._implTermId && tab._implFolderPath) {
+      electronAPI.terminalInput(tab._implTermId, 'code "' + tab._implFolderPath + '"\n');
+    }
+  });
+
+  toolbar.add(backBtn, titleView, vscodeBtn, openBtn);
   workspace.add(toolbar);
 
   // Body: file tree + terminal
@@ -209,11 +215,6 @@ function _startTerminal(tab, container) {
     tab._implExitHandler = exitHandler;
 
     tab._implTerm = term;
-
-    // Auto-launch agent after shell is ready
-    setTimeout(function() {
-      electronAPI.terminalInput(sessionId, 'claude\n');
-    }, 800);
   });
 }
 
@@ -321,10 +322,13 @@ function _previewFile(tab, relativePath, fileName) {
       return;
     }
 
+    // Hide terminal, show preview in its place
+    var termEl = tab._implWorkspaceEl ? tab._implWorkspaceEl.querySelector('.impl-terminal') : null;
     var body = tab._implWorkspaceEl ? tab._implWorkspaceEl.querySelector('.impl-body') : null;
     if (!body) return;
+    if (termEl) termEl.style.display = 'none';
 
-    var overlay = new View('div').className('impl-preview-overlay');
+    var preview = new View('div').className('impl-preview');
 
     var header = new View('div').className('impl-preview-header').add(
       Text(fileName).className('impl-preview-title'),
@@ -335,9 +339,9 @@ function _previewFile(tab, relativePath, fileName) {
 
     var content = new View('pre').className('impl-preview-content').text(result.content);
 
-    overlay.add(header, content);
-    body.appendChild(overlay.el);
-    tab._implPreviewEl = overlay.el;
+    preview.add(header, content);
+    body.appendChild(preview.el);
+    tab._implPreviewEl = preview.el;
   });
 }
 
@@ -346,6 +350,9 @@ function _closePreview(tab) {
     tab._implPreviewEl.remove();
     tab._implPreviewEl = null;
   }
+  // Restore terminal
+  var termEl = tab._implWorkspaceEl ? tab._implWorkspaceEl.querySelector('.impl-terminal') : null;
+  if (termEl) termEl.style.display = '';
 }
 
 // ── File Watcher ──
