@@ -6,6 +6,7 @@ import { _browseFocusPane, _browseGetFocusedPane, browseUnsplitPane } from '/js/
 import { _focusBrowseTabBar } from '/js/browse/browse-features.js';
 import { browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
 import { toggleTabMute } from '/js/browse/browse-audio.js';
+import Settings from '/js/core/core-settings.js';
 // Depends on: browse-state.js
 
 // ── Closed Captions ──
@@ -205,34 +206,36 @@ export function _showCaption(text) {
   var snippet = text.length > 30 ? text.slice(0, 30) + '…' : text;
   if (typeof window.islandUpdate === 'function') window.islandUpdate('cc', { type: 'cc', label: 'CC Live', lines: lines, detail: snippet, action: function() { if (typeof window.toggleCaptions === 'function') window.toggleCaptions(); } });
 
-  // Keep browse overlay for in-page captions
-  window._ccCaptionLines.push(text);
-  if (window._ccCaptionLines.length > 3) window._ccCaptionLines.shift();
-
-  const container = document.getElementById('browse-content');
-  if (!container) return;
-
-  if (!_ccOverlayView) {
-    _ccTextState = window.State('');
-    _ccFadedState = window.State(false);
-    _ccOverlayView = window.Text('').id('browse-cc-overlay');
-    window.Effect(() => { _ccOverlayView.el.textContent = _ccTextState.value; });
-    window.Effect(() => { _ccOverlayView.el.classList.toggle('fade-out', _ccFadedState.value); });
-    AetherUI.append(_ccOverlayView, container);
-  }
-
-  _ccTextState.value = window._ccCaptionLines.join(' ');
-  _ccFadedState.value = false;
-
   // Update unified audio pill
   if (typeof _updateAudioUnified === 'function') {
     _updateAudioUnified('cc', { label: 'CC Live', detail: snippet, active: true });
   }
 
-  if (window._ccFadeTimer) clearTimeout(window._ccFadeTimer);
-  window._ccFadeTimer = setTimeout(() => {
-    if (_ccFadedState) _ccFadedState.value = true;
-  }, 8000);
+  // Overlay on page — only when setting is 'overlay'
+  if (Settings.get('ccDisplay') === 'overlay') {
+    window._ccCaptionLines.push(text);
+    if (window._ccCaptionLines.length > 3) window._ccCaptionLines.shift();
+
+    const container = document.getElementById('browse-content');
+    if (!container) return;
+
+    if (!_ccOverlayView) {
+      _ccTextState = window.State('');
+      _ccFadedState = window.State(false);
+      _ccOverlayView = window.Text('').id('browse-cc-overlay');
+      window.Effect(() => { _ccOverlayView.el.textContent = _ccTextState.value; });
+      window.Effect(() => { _ccOverlayView.el.classList.toggle('fade-out', _ccFadedState.value); });
+      AetherUI.append(_ccOverlayView, container);
+    }
+
+    _ccTextState.value = window._ccCaptionLines.join(' ');
+    _ccFadedState.value = false;
+
+    if (window._ccFadeTimer) clearTimeout(window._ccFadeTimer);
+    window._ccFadeTimer = setTimeout(() => {
+      if (_ccFadedState) _ccFadedState.value = true;
+    }, 8000);
+  }
 }
 
 export function _browseRenderTabView(t, activeTab) {

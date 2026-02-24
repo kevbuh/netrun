@@ -331,8 +331,11 @@ export function _renderIslandActions() {
 
   var V = window.View, T = window.Text, H = window.HStack, VS = window.VStack;
 
-  // ── CC Live mode: replace center column with captions ──
+  // ── CC Live mode: center column becomes sole column with captions ──
+  var wrap = document.getElementById('pill-url-wrap');
   if (window._ccActive) {
+    if (wrap) wrap.classList.add('island-cc-live');
+
     var ccAct = window._islandActivities ? window._islandActivities.value.cc : null;
     var lines = (ccAct && ccAct.lines) ? ccAct.lines : [];
     var visibleCount = 6;
@@ -369,6 +372,8 @@ export function _renderIslandActions() {
     AetherUI.append(ccContainer, centerCol);
     return;
   }
+  // Not in CC mode — remove CC layout class
+  if (wrap) wrap.classList.remove('island-cc-live');
 
   var rows = [];
 

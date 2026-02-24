@@ -465,6 +465,48 @@ export function _islandRender() {
 
   // Update unified AI pill
   if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
+
+  // CC subtitle beneath collapsed island
+  _renderCCSubtitle();
+}
+
+// ── CC subtitle beneath collapsed island ──
+
+function _renderCCSubtitle() {
+  var wrap = document.getElementById('pill-url-wrap');
+  if (!wrap) return;
+  var isExpanded = wrap.classList.contains('island-expanded');
+  var ccAct = window._islandActivities ? window._islandActivities.value.cc : null;
+  var subEl = document.getElementById('island-cc-subtitle');
+
+  // Show only when collapsed + CC active with lines
+  if (isExpanded || !ccAct || !ccAct.lines || ccAct.lines.length === 0) {
+    if (subEl) subEl.remove();
+    wrap.classList.remove('island-cc-collapsed');
+    return;
+  }
+
+  var lines = ccAct.lines;
+  var visible = lines.slice(Math.max(0, lines.length - 2));
+
+  if (!subEl) {
+    subEl = document.createElement('div');
+    subEl.id = 'island-cc-subtitle';
+    subEl.className = 'island-cc-subtitle';
+    wrap.appendChild(subEl);
+  }
+  wrap.classList.add('island-cc-collapsed');
+
+  var html = '';
+  for (var i = 0; i < visible.length; i++) {
+    var op = i === visible.length - 1 ? '1' : '0.5';
+    html += '<div class="island-cc-subtitle-line" style="opacity:' + op + '">' + _escapeHtml(visible[i]) + '</div>';
+  }
+  subEl.innerHTML = html;
+}
+
+function _escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ── Click handler for island pills ──

@@ -271,6 +271,10 @@ export function _renderAppearanceSettings() {
       ttsHighlight,
       ttsSpeedRow,
     ]),
+    _settingCard('Captions', [
+      _settingToggle('Show overlay on page', 'Display captions as a floating bar at the bottom of the page in addition to the island pill',
+        Settings.get('ccDisplay') === 'overlay', function(on) { Settings.set('ccDisplay', on ? 'overlay' : 'pill'); }),
+    ]),
     menuSection
   );
 }
