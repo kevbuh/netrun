@@ -6,6 +6,7 @@ import { registerPanelTabs, togglePanel } from '/js/core/core-nav.js';
 import { _paperState, _s2Cache, _s2Fetch, _s2GetAuthor, _s2GetAuthorFull, _extractArxivId, _s2LookupByArxivId, _s2SearchPaper } from '/js/browse/browse-paper.js';
 import { _pdfViewerScrollToPage, _pdfViewerGetText } from '/js/browse/browse-pdf-viewer.js';
 import { _nerdModeEnabled } from '/js/browse/browse-nerd-mode.js';
+import { _startTerminal } from '/js/browse/browse-impl-session.js';
 
 // ── State ──
 var _registered = false;
@@ -26,6 +27,7 @@ export function _nerdPanelRegister() {
       { id: 'nerd-highlights', label: 'Highlights', icon: icon('highlighter', { size: 14 }), render: _renderHighlightsTab },
       { id: 'nerd-code',       label: 'Code',       icon: icon('code', { size: 14 }),       render: _renderCodeTab },
       { id: 'nerd-search',     label: 'Search',     icon: icon('search', { size: 14 }),    render: _renderSearchTab },
+      { id: 'nerd-terminal',   label: 'Terminal',   icon: icon('code', { size: 14 }),      render: _renderTerminalTab },
     ],
     header: function(el) {
       var row = new HStack().styles({ width: '100%', alignItems: 'center', justifyContent: 'space-between' });
@@ -113,6 +115,11 @@ function _fetchAuthorDetails(tab, s2Data) {
 
 // ── Tab renderers ──
 
+function _clearTerminalOverflow() {
+  var panelContent = document.getElementById('universal-panel-content');
+  if (panelContent) panelContent.classList.remove('nerd-terminal-active');
+}
+
 function _getTab() {
   if (_currentTab) return _currentTab;
   var win = window._getCurrentWindow();
@@ -126,6 +133,7 @@ function _getState() {
 }
 
 function _renderInfoTab(container) {
+  _clearTerminalOverflow();
   var tab = _getTab();
   var state = _getState();
   var gen = ++_renderGeneration;
@@ -239,6 +247,7 @@ function _renderInfoTab(container) {
 }
 
 function _renderRefsTab(container) {
+  _clearTerminalOverflow();
   ++_renderGeneration;
   var state = _getState();
 
@@ -277,6 +286,7 @@ function _renderRefsTab(container) {
 }
 
 function _renderAuthorsTab(container) {
+  _clearTerminalOverflow();
   ++_renderGeneration;
   var state = _getState();
 
@@ -338,6 +348,7 @@ function _renderAuthorsTab(container) {
 }
 
 function _renderHighlightsTab(container) {
+  _clearTerminalOverflow();
   ++_renderGeneration;
   var tab = _getTab();
 
@@ -414,6 +425,7 @@ function _renderHighlightsTab(container) {
 }
 
 function _renderSearchTab(container) {
+  _clearTerminalOverflow();
   ++_renderGeneration;
   var tab = _getTab();
 
@@ -560,6 +572,7 @@ function _codeTabLinks(arxivId, title) {
 }
 
 function _renderCodeTab(container) {
+  _clearTerminalOverflow();
   ++_renderGeneration;
   var state = _getState();
   var tab = _getTab();
@@ -668,6 +681,52 @@ function _renderCodeTab(container) {
       AetherUI.mount(ghWrap, container);
     });
   });
+}
+
+// ── Terminal Tab ──
+
+function _renderTerminalTab(container) {
+  ++_renderGeneration;
+  var tab = _getTab();
+
+  // Disable scroll on panel content — xterm needs fixed height
+  var panelContent = document.getElementById('universal-panel-content');
+  if (panelContent) panelContent.classList.add('nerd-terminal-active');
+
+  if (!tab || !tab._implSessionId) {
+    // No impl session active — show empty state
+    var wrap = new View('div').className('nerd-terminal-wrap');
+    wrap.add(Text('Click Implement in the toolbar to start').className('nerd-terminal-empty'));
+    AetherUI.mount(wrap, container);
+    return;
+  }
+
+  var wrap = new View('div').className('nerd-terminal-wrap');
+  AetherUI.mount(wrap, container);
+
+  if (tab._implTerm) {
+    // Reparent existing xterm element
+    var xtermEl = tab._implTerm.element;
+    if (xtermEl) {
+      wrap.el.appendChild(xtermEl);
+      // Refit after reparent
+      requestAnimationFrame(function() {
+        if (tab._implTerm && tab._implTerm._addonManager) {
+          try {
+            var fitAddon = new FitAddon.FitAddon();
+            tab._implTerm.loadAddon(fitAddon);
+            fitAddon.fit();
+            if (tab._implTermId) {
+              electronAPI.terminalResize(tab._implTermId, tab._implTerm.cols, tab._implTerm.rows);
+            }
+          } catch (e) { /* ignore */ }
+        }
+      });
+    }
+  } else {
+    // No terminal yet — start one
+    _startTerminal(tab, wrap.el);
+  }
 }
 
 // ── Helpers ──

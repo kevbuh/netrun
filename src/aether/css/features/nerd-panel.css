@@ -339,3 +339,25 @@
   color: var(--nr-text-primary);
   background: var(--nr-bg-raised);
 }
+
+/* ── Terminal tab ── */
+.nerd-terminal-wrap {
+  height: 100%;
+  background: #0d0d0d;
+  display: flex;
+  flex-direction: column;
+}
+
+.nerd-terminal-wrap .xterm {
+  flex: 1;
+  padding: 4px;
+}
+
+.nerd-terminal-empty {
+  color: var(--nr-text-quaternary);
+  padding: var(--nr-space-8) var(--nr-space-4);
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  background: transparent;
+}

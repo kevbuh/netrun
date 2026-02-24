@@ -341,6 +341,8 @@ function _buildToolbar(tab, toolbarView) {
   var implBtn = _tbBtn(icon('code', { size: 16 }), 'Implement this paper', function() {
     if (window._implSessionEnable) window._implSessionEnable(tab);
   });
+  implBtn.el.classList.add('pdf-tb-labeled');
+  implBtn.add(Text('Implement').cssText('font-size:0.68rem;'));
   toolbarView.add(implBtn);
 
   // Spacer

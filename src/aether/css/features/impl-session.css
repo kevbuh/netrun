@@ -114,33 +114,7 @@
   text-overflow: ellipsis;
 }
 
-.impl-tree-terminal {
-  font-weight: 600;
-  color: var(--nr-text-primary);
-  margin-bottom: 2px;
-  border-bottom: 1px solid var(--nr-border-dim);
-  padding-bottom: 5px;
-}
-
-.impl-tree-terminal .impl-tree-icon {
-  opacity: 1;
-}
-
-/* ── Terminal Area ── */
-
-.impl-terminal {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  background: #0d0d0d;
-}
-
-.impl-terminal .xterm {
-  height: 100%;
-  padding: 4px;
-}
-
-/* ── File Preview (replaces terminal pane) ── */
+/* ── File Preview ── */
 
 .impl-preview {
   flex: 1;

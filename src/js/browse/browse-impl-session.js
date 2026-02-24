@@ -104,31 +104,15 @@ function _buildWorkspace(tab) {
 
   var titleView = Text(tab._implFolderPath ? tab._implFolderPath.split('/').pop() : 'Implementation').className('impl-toolbar-title');
 
-  var openBtn = new View('button').className('impl-toolbar-btn').text('Open Folder').onTap(function() {
-    if (tab._implFolderPath && electronAPI.showItemInFolder) {
-      electronAPI.showItemInFolder(tab._implFolderPath);
-    }
-  });
-
-  var vscodeBtn = new View('button').className('impl-toolbar-btn').text('Open in VS Code').onTap(function() {
-    if (tab._implTermId && tab._implFolderPath) {
-      electronAPI.terminalInput(tab._implTermId, 'code "' + tab._implFolderPath + '"\n');
-    }
-  });
-
-  toolbar.add(backBtn, titleView, vscodeBtn, openBtn);
+  toolbar.add(backBtn, titleView);
   workspace.add(toolbar);
 
-  // Body: file tree + terminal
+  // Body: file tree + preview area
   var body = new View('div').className('impl-body');
 
   // File tree
   var fileTree = new View('div').className('impl-file-tree');
   body.add(fileTree);
-
-  // Terminal
-  var termContainer = new View('div').className('impl-terminal');
-  body.add(termContainer);
 
   workspace.add(body);
   container.appendChild(workspace.el);
@@ -137,16 +121,13 @@ function _buildWorkspace(tab) {
   // Initialize file tree
   _refreshFileTree(tab, fileTree.el);
 
-  // Start terminal
-  _startTerminal(tab, termContainer.el);
-
   // Start file watcher
   _startWatcher(tab, fileTree.el);
 }
 
 // ── Terminal ──
 
-function _startTerminal(tab, container) {
+export function _startTerminal(tab, container) {
   if (!window.Terminal) {
     // xterm.js not loaded yet, retry
     setTimeout(function() { _startTerminal(tab, container); }, 500);
@@ -228,29 +209,6 @@ function _refreshFileTree(tab, container) {
 
     // Clear
     while (container.firstChild) container.removeChild(container.firstChild);
-
-    // Synthetic "Terminal" row at top
-    var termRow = document.createElement('div');
-    termRow.className = 'impl-tree-row impl-tree-terminal active';
-    var termIcon = document.createElement('span');
-    termIcon.className = 'impl-tree-icon';
-    termIcon.textContent = '\u25B8';
-    termRow.appendChild(termIcon);
-    var termName = document.createElement('span');
-    termName.className = 'impl-tree-name';
-    termName.textContent = 'Terminal';
-    termRow.appendChild(termName);
-    termRow.addEventListener('click', function() {
-      // Close file preview if open
-      _closePreview(tab);
-      // Focus terminal pane
-      var termEl = tab._implWorkspaceEl ? tab._implWorkspaceEl.querySelector('.impl-terminal') : null;
-      if (termEl) termEl.style.display = '';
-      if (tab._implTerm) tab._implTerm.focus();
-      // Update active state
-      _setTreeActive(container, termRow);
-    });
-    container.appendChild(termRow);
 
     _renderTreeNodes(tab, container, tree, 0, '');
   });
