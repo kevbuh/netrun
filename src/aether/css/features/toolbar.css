@@ -1623,6 +1623,22 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 }
 .island-tts-ctrl:hover { opacity: 1; }
 .island-tts-stop:hover { color: #ef4444; }
+/* ── Voice result pill + dropdown ── */
+.island-voice-mic { cursor: pointer; opacity: 0.7; transition: opacity 0.15s ease; }
+.island-voice-mic:hover { opacity: 1; }
+.island-voice-transcript {
+  padding: 8px 12px; max-width: 280px; white-space: normal; line-height: 1.4;
+  font-size: 0.75rem; font-style: italic; opacity: 0.7;
+}
+.island-voice-action {
+  padding: 6px 12px; gap: 8px; cursor: pointer; font-size: 0.75rem;
+  transition: background 0.12s;
+}
+.island-voice-action:hover { background: var(--nr-bg-raised); }
+.island-voice-sep {
+  height: 1px; background: var(--nr-border-dim); margin: 4px 0;
+}
+
 .island-tts-chunk {
   max-width: 120px;
   opacity: 0.7;

@@ -15,7 +15,7 @@
   align-items: center;
   gap: var(--nr-space-2);
   padding: 6px 12px;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--nr-text-primary);
   cursor: pointer;
   transition: background 0.1s ease;

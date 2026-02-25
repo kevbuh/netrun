@@ -58,7 +58,7 @@
   gap: var(--nr-space-2);
   padding: var(--nr-space-2) var(--nr-space-3);
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   border-radius: var(--nr-radius-sm);
   white-space: nowrap;
 }

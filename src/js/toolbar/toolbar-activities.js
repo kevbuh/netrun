@@ -174,6 +174,14 @@ export function _islandRenderPill(a) {
     return H([ccDot, T(a.label || 'CC Live').foreground('var(--nr-accent)')]);
   } else if (a.type === 'mic') {
     return H([R(icon('microphone', { size: 14, stroke: '#ef4444' })).className('island-mic-icon'), T(a.label || 'Listening\u2026').foreground('#ef4444')]);
+  } else if (a.type === 'voice-result') {
+    var vText = a.text || '';
+    var micIcon = R(icon('microphone', { size: 14 })).className('island-voice-mic').attr('title', 'Voice transcript')
+      .onTap(function(e) {
+        e.stopPropagation();
+        _toggleVoiceResultDropdown(micIcon.el, vText);
+      });
+    return micIcon;
   } else if (a.type === 'audio') {
     return H([R(window._islandAudioBars), T(a.label || '')]);
   } else if (a.type === 'ai') {
@@ -450,7 +458,7 @@ export function _islandRender() {
   }
 
   // Sort by priority then timestamp
-  var priority = { achievement: 5, download: 4, mic: 3.8, calendar: 3.5, cc: 3, tts: 3, rss: 2.6, bookmark: 2.55, 'feed-notif': 2, audio: 2, qf: 2, pageinfo: 1.5, feed: 1, context: 0, tabs: 10, nowplaying: 9 };
+  var priority = { achievement: 5, download: 4, 'voice-result': 4, mic: 3.8, calendar: 3.5, cc: 3, tts: 3, rss: 2.6, bookmark: 2.55, 'feed-notif': 2, audio: 2, qf: 2, pageinfo: 1.5, feed: 1, context: 0, tabs: 10, nowplaying: 9 };
   filtered.sort(function(a, b) {
     var pa = priority[a.data.type] || 0;
     var pb = priority[b.data.type] || 0;
@@ -799,6 +807,77 @@ export function _updateLiveTray(id) {
       if (trayContent) AetherUI.mount(trayContent, trayEl);
     }
   }
+}
+
+// ── Voice result dropdown ──
+var _voiceDropdownEl = null;
+var _voiceDropdownOutside = null;
+
+function _closeVoiceDropdown() {
+  if (_voiceDropdownEl) { _voiceDropdownEl.remove(); _voiceDropdownEl = null; }
+  if (_voiceDropdownOutside) { document.removeEventListener('mousedown', _voiceDropdownOutside, true); _voiceDropdownOutside = null; }
+  window.removeEventListener('blur', _closeVoiceDropdown);
+}
+
+function _toggleVoiceResultDropdown(pillEl, vText) {
+  if (_voiceDropdownEl) { _closeVoiceDropdown(); return; }
+  var V = window.View, T = window.Text, H = window.HStack, VS = window.VStack, R = window.RawHTML;
+  var vLabel = vText.length > 120 ? vText.slice(0, 118) + '\u2026' : vText;
+
+  var pillRect = pillEl.getBoundingClientRect();
+  var panel = new V('div').className('island-voice-dropdown')
+    .position('fixed')
+    .background('overlay')
+    .cornerRadius('lg')
+    .shadow('popup')
+    .border('border-default')
+    .colorScheme('dark')
+    .frame({ minWidth: 200, maxWidth: 300 })
+    .zIndex('modal')
+    .padding('6px', '0')
+    .styles({
+      right: Math.round(window.innerWidth - pillRect.right) + 'px',
+      top: Math.round(pillRect.bottom + 6) + 'px'
+    });
+
+  // Transcript text
+  var transcript = T('\u201c' + vLabel + '\u201d').className('island-voice-transcript');
+
+  // Action rows
+  function _row(iconName, label, handler) {
+    return H([R(icon(iconName, { size: 14 })).opacity(0.5), T(label)])
+      .className('island-voice-action')
+      .onTap(function(e) { e.stopPropagation(); _closeVoiceDropdown(); handler(); });
+  }
+
+  var copyRow = _row('copy', 'Copy', function() {
+    if (window.electronAPI && window.electronAPI.clipboardWriteText) window.electronAPI.clipboardWriteText(vText);
+    islandRemove('voice-result');
+  });
+  var chatRow = _row('sparkles', 'Send to Chat', function() {
+    if (typeof window._voiceResultToChat === 'function') window._voiceResultToChat(vText);
+    islandRemove('voice-result');
+  });
+  var dismissRow = _row('close', 'Dismiss', function() {
+    islandRemove('voice-result');
+  });
+
+  var sep1 = new V('div').className('island-voice-sep');
+  var sep2 = new V('div').className('island-voice-sep');
+
+  panel.add(transcript, sep1, copyRow, chatRow, sep2, dismissRow);
+  document.body.appendChild(panel.el);
+  _voiceDropdownEl = panel.el;
+
+  setTimeout(function() {
+    _voiceDropdownOutside = function(e) {
+      if (_voiceDropdownEl && _voiceDropdownEl.contains(e.target)) return;
+      if (pillEl.contains(e.target)) return;
+      _closeVoiceDropdown();
+    };
+    document.addEventListener('mousedown', _voiceDropdownOutside, true);
+    window.addEventListener('blur', _closeVoiceDropdown);
+  }, 0);
 }
 
 // ── Webview pointer guard ──

@@ -113,18 +113,38 @@ async function _holdMicStop() {
 }
 
 async function _holdMicStopAndPaste() {
+  // Grab text from accumulator + island mic lines as fallback
   var text = _holdMicAccum.join(' ').trim();
-  var savedClip = '';
-  try { savedClip = await window.electronAPI.clipboardReadText(); } catch (_e) {}
+  if (!text) {
+    var micAct = window._islandActivities ? window._islandActivities.value.mic : null;
+    if (micAct && micAct.lines && micAct.lines.length) text = micAct.lines.join(' ').trim();
+  }
   await _holdMicStop();
   if (text) {
-    try {
-      await window.electronAPI.clipboardWriteText(text);
-      document.execCommand('paste');
-      setTimeout(function() { try { window.electronAPI.clipboardWriteText(savedClip); } catch (_e) {} }, 150);
-    } catch (_e) {}
+    // Defer so the mic pill removal render completes first
+    setTimeout(function() {
+      if (typeof window.islandUpdate === 'function') {
+        window.islandUpdate('voice-result', { type: 'voice-result', label: text, text: text });
+      }
+    }, 50);
   }
 }
+
+// Send voice result to Aether chat
+window._voiceResultToChat = function(text) {
+  // If panel is open, insert into its input
+  var askInput = document.querySelector('.aether-ask-input');
+  if (askInput) {
+    askInput.value = askInput.value + (askInput.value ? ' ' : '') + text;
+    askInput.focus();
+    return;
+  }
+  // Otherwise open panel with the text as a pending message
+  if (typeof window._pendingVoiceText === 'undefined') window._pendingVoiceText = null;
+  window._pendingVoiceText = text;
+  // Trigger Aether panel open (Cmd+J or programmatic)
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', metaKey: true, bubbles: true }));
+};
 
 // Listen for hold-to-record IPC from main process (Option+Space)
 if (window.electronAPI && window.electronAPI.onVoiceHold) {
