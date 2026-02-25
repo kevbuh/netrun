@@ -603,7 +603,44 @@ export function browseSaveToReadingList() {
       _showBookmarkFly({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 });
     }
     if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('var(--nr-accent)');
+    // Async: capture screenshot + fetch metadata for the bookmark thumbnail
+    _enrichBookmarkAsync(tab.url, tab.el);
   }
+}
+
+async function _enrichBookmarkAsync(url, webviewEl) {
+  try {
+    // 1. Fetch og:image and metadata via link-preview
+    const meta = await window.electronAPI.dbQuery('link-preview', url).catch(() => null);
+    if (meta && (meta.title || meta.image || meta.description)) {
+      const saved = getSavedPosts();
+      if (!saved[url]) return;
+      const paper = saved[url].paper || {};
+      if (meta.title && !paper.title) paper.title = meta.title;
+      if (meta.description && !paper.description) paper.description = meta.description;
+      if (meta.hostname) paper.hostname = meta.hostname;
+      if (meta.image) {
+        paper.image = meta.image;
+        saved[url].thumbnail = meta.image;
+      }
+      saved[url].paper = paper;
+      savePosts(saved);
+    }
+
+    // 2. If still no thumbnail, capture a webview screenshot as fallback
+    const savedAfter = getSavedPosts();
+    if (!savedAfter[url] || savedAfter[url].thumbnail) return;
+    const wc = webviewEl && webviewEl.getWebContentsId ? webviewEl.getWebContentsId() : null;
+    if (!wc) return;
+    const base64 = await window.electronAPI.captureWebview(wc);
+    if (base64 && base64.length > 100) {
+      const saved2 = getSavedPosts();
+      if (!saved2[url]) return;
+      saved2[url].thumbnail = 'data:image/png;base64,' + base64;
+      if (saved2[url].paper) saved2[url].paper.image = saved2[url].thumbnail;
+      savePosts(saved2);
+    }
+  } catch {}
 }
 
 export function browseShare() {

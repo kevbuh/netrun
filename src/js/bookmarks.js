@@ -58,13 +58,40 @@ function _loadBookmarkData() {
 function _migrateBookmarks() {
   const saved = getSavedPosts();
   let changed = false;
+  const needsThumbnail = [];
   for (const [link, entry] of Object.entries(saved)) {
     if (!entry.groupId) { entry.groupId = 'uncategorized'; changed = true; }
     if (!entry.contentType) { entry.contentType = _detectContentType(link); changed = true; }
     if (entry.thumbnail === undefined) { entry.thumbnail = entry.paper?.image || null; changed = true; }
     if (!entry.tags) { entry.tags = []; changed = true; }
+    if (!entry.thumbnail && link.startsWith('http')) needsThumbnail.push(link);
   }
   if (changed) savePosts(saved);
+  // Backfill thumbnails for bookmarks that have none (async, non-blocking)
+  if (needsThumbnail.length > 0) _backfillThumbnails(needsThumbnail);
+}
+
+async function _backfillThumbnails(urls) {
+  // Process a few at a time to avoid hammering the network
+  const batch = urls.slice(0, 10);
+  for (const url of batch) {
+    try {
+      const result = await window.electronAPI.dbQuery('link-preview', url);
+      if (result && (result.title || result.image)) {
+        const saved = getSavedPosts();
+        if (!saved[url]) continue;
+        const paper = saved[url].paper || {};
+        if (result.title && (!paper.title || paper.title === paper.hostname)) paper.title = result.title;
+        if (result.description && !paper.description) paper.description = result.description;
+        if (result.hostname) paper.hostname = result.hostname;
+        if (result.image) { paper.image = result.image; saved[url].thumbnail = result.image; }
+        saved[url].paper = paper;
+        savePosts(saved);
+      }
+    } catch {}
+  }
+  // Refresh the view if any thumbnails were fetched
+  _loadBookmarkData();
 }
 
 function _saveGroups(groups) {
