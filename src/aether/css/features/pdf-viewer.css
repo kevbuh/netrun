@@ -26,6 +26,7 @@
     }
     .pdf-tb-btn:hover { color: var(--nr-text-primary); }
     .pdf-tb-btn.pdf-tb-labeled { width: auto; gap: 4px; padding: 0 8px; }
+    .pdf-tb-btn.pdf-tb-impl { border: 1px solid var(--nr-border-dim); border-radius: 6px; }
     .pdf-tb-sep { width: 1px; height: 20px; background: var(--nr-border-dim); margin: 0 4px; }
     .pdf-page-indicator { font-size: 0.78rem; color: var(--nr-text-secondary); min-width: 60px; text-align: center; }
 
@@ -73,6 +74,12 @@
     }
     .pdf-search-highlight {
       pointer-events: none;
+      transition: background 0.15s;
+    }
+    .pdf-search-highlight.pdf-search-active {
+      background: rgba(255,120,0,0.6) !important;
+      outline: 2px solid var(--nr-accent);
+      outline-offset: 1px;
     }
     .pdf-smart-highlight {
       position: absolute;
@@ -753,6 +760,19 @@
     }
     .pdf-tb-btn.active {
       color: var(--nr-accent);
+    }
+
+    /* Panel toggle button group */
+    .pdf-panel-toggle-group {
+      display: flex;
+      align-items: center;
+      background: var(--nr-bg-raised);
+      border-radius: 6px;
+      padding: 1px;
+      gap: 1px;
+    }
+    .pdf-panel-toggle-group .pdf-tb-btn {
+      border-radius: 5px;
     }
 
     /* ── PDF Spread View ── */

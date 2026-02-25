@@ -102,14 +102,6 @@ export async function _s2GetAuthor(authorId) {
   return _s2Fetch('/author/' + authorId + '?fields=name,citationCount,hIndex');
 }
 
-export async function _s2GetRecommendations(paperId) {
-  return _s2Fetch('https://api.semanticscholar.org/recommendations/v1/papers/forpaper/' + paperId + '?limit=10&fields=title,authors,year,citationCount,venue');
-}
-
-export async function _s2GetCitations(paperId) {
-  return _s2Fetch('/paper/' + paperId + '/citations?limit=20&fields=title,authors,year,citationCount,venue');
-}
-
 export async function _s2GetAuthorFull(authorId) {
   return _s2Fetch('/author/' + authorId + '?fields=name,citationCount,hIndex,paperCount,affiliations');
 }

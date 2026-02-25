@@ -1,5 +1,5 @@
 // browse-nerd-panel.js — Lookup panel for Nerd Mode
-// Registers panel tabs: Info, References, Authors, Highlights, Search
+// Registers panel tabs: Info, References, Authors, Highlights, Code, Files, Terminal
 // Depends on: core-nav.js, browse-paper.js, browse-pdf-viewer.js
 import { icon } from '/js/core/icons.js';
 import { registerPanelTabs, togglePanel } from '/js/core/core-nav.js';
@@ -26,7 +26,6 @@ export function _nerdPanelRegister() {
       { id: 'nerd-authors',    label: 'Authors',    icon: icon('user', { size: 14 }),      render: _renderAuthorsTab },
       { id: 'nerd-highlights', label: 'Highlights', icon: icon('highlighter', { size: 14 }), render: _renderHighlightsTab },
       { id: 'nerd-code',       label: 'Code',       icon: icon('code', { size: 14 }),       render: _renderCodeTab },
-      { id: 'nerd-search',     label: 'Search',     icon: icon('search', { size: 14 }),    render: _renderSearchTab },
       { id: 'nerd-files',      label: 'Files',      icon: icon('file', { size: 14 }),      render: _renderFilesTabProxy },
       { id: 'nerd-terminal',   label: 'Terminal',   icon: icon('code', { size: 14 }),      render: _renderTerminalTab },
     ],
@@ -425,93 +424,6 @@ function _renderHighlightsTab(container) {
   AetherUI.mount(wrap, container);
 }
 
-function _renderSearchTab(container) {
-  _clearTerminalOverflow();
-  ++_renderGeneration;
-  var tab = _getTab();
-
-  var wrap = new View('div').className('nerd-search-wrap');
-
-  // Search input
-  var input = new View('input').className('nerd-search-input').attr('type', 'text').attr('placeholder', 'Search document text...');
-  var inputRow = new View('div').className('nerd-search-input-row').add(input);
-  wrap.add(inputRow);
-
-  // Results area
-  var resultsView = new View('div').className('nerd-search-results');
-  resultsView.add(Text('Type to search the full document').className('nerd-empty'));
-  wrap.add(resultsView);
-  var resultsEl = resultsView.el;
-
-  AetherUI.mount(wrap, container);
-
-  var searchTimer = null;
-  input.on('input', function() {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(function() {
-      var query = input.el.value.trim();
-      if (!query || !tab || !tab._pdfDoc) {
-        AetherUI.mount(Text('Type to search the full document').className('nerd-empty'), resultsEl);
-        return;
-      }
-      AetherUI.mount(Text('Searching...').className('nerd-empty'), resultsEl);
-      _searchFullText(tab, query, resultsEl);
-    }, 400);
-  });
-
-  setTimeout(function() { input.el.focus(); }, 100);
-}
-
-function _searchFullText(tab, query, results) {
-  if (!tab._pdfDoc) return;
-  var queryLower = query.toLowerCase();
-  var matches = [];
-  var promises = [];
-
-  for (var i = 1; i <= tab._pdfPageCount; i++) {
-    (function(pageNum) {
-      promises.push(
-        tab._pdfDoc.getPage(pageNum).then(function(page) {
-          return page.getTextContent().then(function(tc) {
-            var text = tc.items.map(function(it) { return it.str; }).join(' ');
-            var idx = text.toLowerCase().indexOf(queryLower);
-            while (idx !== -1) {
-              var start = Math.max(0, idx - 40);
-              var end = Math.min(text.length, idx + query.length + 40);
-              var snippet = (start > 0 ? '...' : '') + text.slice(start, end) + (end < text.length ? '...' : '');
-              matches.push({ pageNum: pageNum, snippet: snippet, idx: idx });
-              idx = text.toLowerCase().indexOf(queryLower, idx + 1);
-            }
-          });
-        })
-      );
-    })(i);
-  }
-
-  Promise.all(promises).then(function() {
-    if (!matches.length) {
-      AetherUI.mount(Text('No matches found').className('nerd-empty'), results);
-      return;
-    }
-
-    var resultsWrap = new View('div').className('nerd-search-results-inner');
-    resultsWrap.add(Text(matches.length + ' match' + (matches.length !== 1 ? 'es' : '') + ' found').className('nerd-search-count'));
-
-    matches.forEach(function(m) {
-      var item = new View('div').className('nerd-paper-item').add(
-        Text('Page ' + m.pageNum).className('nerd-search-page'),
-        Text(m.snippet).className('nerd-search-snippet')
-      ).onTap(function() {
-        _pdfViewerScrollToPage(tab, m.pageNum);
-      });
-
-      resultsWrap.add(item);
-    });
-
-    AetherUI.mount(resultsWrap, results);
-  });
-}
-
 // ── Code Tab (Papers With Code + GitHub fallback) ──
 
 function _proxyFetch(proxyName, url) {
@@ -595,12 +507,27 @@ function _renderCodeTab(container) {
         sessions.forEach(function(s) {
           var age = (Date.now() / 1000 - s.created_at);
           var ageStr = age < 3600 ? Math.floor(age / 60) + 'm ago' : age < 86400 ? Math.floor(age / 3600) + 'h ago' : Math.floor(age / 86400) + 'd ago';
-          sessView.add(new View('div').className('impl-session-card').add(
+          var card = new View('div').className('impl-session-card');
+          card.add(
             Text(s.folder_path.split('/').pop()).className('impl-session-card-title'),
             Text(ageStr).className('impl-session-card-meta')
-          ).onTap(function() {
+          );
+          card.onTap(function() {
             if (window._implSessionEnable) window._implSessionEnable(tab, s.id);
-          }));
+          });
+          var delBtn = new View('button').className('impl-session-card-del')
+            .attr('title', 'Delete session')
+            .add(RawHTML(icon('trash', { size: 12 })))
+            .onTap(function(e) {
+              e.stopPropagation();
+              if (!confirm('Delete this implementation session and its files?')) return;
+              electronAPI.implDelete(s.id, true).then(function() {
+                if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Session deleted');
+                _renderCodeTab(container);
+              });
+            });
+          card.add(delBtn);
+          sessView.add(card);
         });
         // Prepend sessions into wrap
         if (wrap.el.firstChild) {

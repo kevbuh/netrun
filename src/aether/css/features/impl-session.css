@@ -132,3 +132,28 @@
   color: var(--nr-text-tertiary);
   flex-shrink: 0;
 }
+
+.impl-session-card-del {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--nr-text-quaternary);
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.impl-session-card:hover .impl-session-card-del {
+  opacity: 1;
+}
+
+.impl-session-card-del:hover {
+  color: #e53935;
+  background: rgba(229,57,53,0.1);
+}

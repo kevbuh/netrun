@@ -4,44 +4,13 @@
 
 import { icon } from '/js/core/icons.js';
 import { _paperState } from '/js/browse/browse-paper.js';
+import { togglePanel } from '/js/core/core-nav.js';
 
 // ── PDF.js CDN loader ──
 var _pdfjsLoaded = false;
 var _pdfjsLoadPromise = null;
 
-function _ensurePdfjs() {
-  if (_pdfjsLoaded && window.pdfjsLib) return Promise.resolve();
-  if (_pdfjsLoadPromise) return _pdfjsLoadPromise;
-  _pdfjsLoadPromise = new Promise(function(resolve, reject) {
-    if (window.pdfjsLib) { _pdfjsLoaded = true; resolve(); return; }
-    var script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs';
-    script.type = 'module';
-    script.onload = function() {
-      // pdf.js 4.x exposes pdfjsLib via the module; for CDN we use the global build
-      if (window.pdfjsLib) {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs';
-        _pdfjsLoaded = true;
-        resolve();
-      } else {
-        reject(new Error('pdfjsLib not available'));
-      }
-    };
-    script.onerror = function() { reject(new Error('Failed to load PDF.js')); };
-    document.head.appendChild(script);
-
-    // Also load the text layer CSS
-    if (!document.querySelector('link[href*="pdf_viewer.css"]')) {
-      var link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf_viewer.min.css';
-      document.head.appendChild(link);
-    }
-  });
-  return _pdfjsLoadPromise;
-}
-
-// Use the legacy global build instead of ESM for easier CDN loading
+// PDF.js legacy global build (CDN)
 function _ensurePdfjsLegacy() {
   if (_pdfjsLoaded && window.pdfjsLib) return Promise.resolve();
   if (_pdfjsLoadPromise) return _pdfjsLoadPromise;
@@ -92,11 +61,11 @@ function _hlId() {
 // ── Init ──
 
 export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
-  tab._pdfCurrentPage = 1;
-  tab._pdfZoom = _PDF_SCALE_DEFAULT;
+  tab._pdfCurrentPage = tab._pdfCurrentPage || 1;
+  tab._pdfZoom = tab._pdfZoom || _PDF_SCALE_DEFAULT;
   tab._pdfHighlights = tab._pdfHighlights || [];
-  tab._pdfDarkMode = false;
-  tab._pdfLeftPanelVisible = true;
+  tab._pdfDarkMode = tab._pdfDarkMode || false;
+  tab._pdfLeftPanelVisible = tab._pdfLeftPanelVisible != null ? tab._pdfLeftPanelVisible : true;
   tab._pdfRenderedPages = new Map();
   tab._pdfUrl = pdfUrl;
 
@@ -153,13 +122,16 @@ export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
 }
 
 export function _pdfViewerDestroy(tab) {
+  // Save scroll position before destroying
+  if (tab._pdfPagesContainer) {
+    tab._pdfScrollTop = tab._pdfPagesContainer.scrollTop;
+  }
   if (tab._pdfDoc) {
     tab._pdfDoc.destroy();
     tab._pdfDoc = null;
   }
   tab._pdfRenderedPages = null;
-  tab._pdfCurrentPage = null;
-  tab._pdfZoom = null;
+  // Preserve _pdfCurrentPage, _pdfZoom, _pdfDarkMode, _pdfLeftPanelVisible for re-init
 }
 
 // ── DOM Structure ──
@@ -198,6 +170,16 @@ function _buildViewerDOM(tab, viewerEl) {
   bodyWrapper.add(pagesContainer);
   tab._pdfPagesContainer = pagesContainer.el;
 
+  // Restore dark mode state
+  if (tab._pdfDarkMode) {
+    pagesContainer.el.classList.add('pdf-dark-render');
+  }
+
+  // Restore left panel visibility
+  if (tab._pdfLeftPanelVisible === false) {
+    leftPanelView.el.style.display = 'none';
+  }
+
   // Scroll listener for page tracking
   pagesContainer.on('scroll', function() {
     _pdfViewerOnScroll(tab);
@@ -229,17 +211,7 @@ function _buildViewerDOM(tab, viewerEl) {
 }
 
 function _buildToolbar(tab, toolbarView) {
-  // Left panel toggle
-  var thumbToggle = _tbBtn(icon('sidebarToggle', { size: 16 }), 'Thumbnails', function() {
-    tab._pdfLeftPanelVisible = !tab._pdfLeftPanelVisible;
-    tab._pdfLeftPanel.style.display = tab._pdfLeftPanelVisible ? '' : 'none';
-    thumbToggle.el.classList.toggle('active', tab._pdfLeftPanelVisible);
-  });
-  thumbToggle.el.id = 'pdf-thumb-toggle';
-  thumbToggle.el.classList.add('active');
-  toolbarView.add(thumbToggle);
-
-  toolbarView.add(_tbSep());
+  // Page nav (panel toggles moved to right side)
 
   // Page nav
   var prevBtn = _tbBtn(icon('chevronLeft', { size: 16 }), 'Previous page', function() {
@@ -287,6 +259,7 @@ function _buildToolbar(tab, toolbarView) {
     tab._pdfPagesContainer.classList.toggle('pdf-dark-render', tab._pdfDarkMode);
     darkToggle.el.classList.toggle('active', tab._pdfDarkMode);
   });
+  if (tab._pdfDarkMode) darkToggle.el.classList.add('active');
   toolbarView.add(darkToggle);
 
   // Highlight mode toggle
@@ -296,16 +269,6 @@ function _buildToolbar(tab, toolbarView) {
   });
   hlToggle.el.id = 'pdf-hl-mode-toggle';
   toolbarView.add(hlToggle);
-
-  // HUD mode toggle
-  var hudToggle = _tbBtn(icon('crosshair', { size: 16 }), 'HUD mode', function() {
-    tab._pdfHudMode = !tab._pdfHudMode;
-    var viewer = tab._nerdViewerEl || tab._pdfViewerEl;
-    if (viewer) viewer.classList.toggle('nerd-hud-active', tab._pdfHudMode);
-    document.body.classList.toggle('nerd-hud-active', tab._pdfHudMode);
-    hudToggle.el.classList.toggle('hud-active', tab._pdfHudMode);
-  });
-  toolbarView.add(hudToggle);
 
   // Bookmark button
   var bookmarkBtn = _tbBtn(icon('bookmark', { size: 16 }), 'Save to Reading List', function() {
@@ -338,11 +301,13 @@ function _buildToolbar(tab, toolbarView) {
   toolbarView.add(ttsBtn);
 
   // Implement this paper
-  var implBtn = _tbBtn(icon('code', { size: 16 }), 'Implement this paper', function() {
-    if (window._implSessionEnable) window._implSessionEnable(tab);
-  });
-  implBtn.el.classList.add('pdf-tb-labeled');
-  implBtn.add(Text('Implement').cssText('font-size:0.68rem;'));
+  var implBtn = new View('button')
+    .className('pdf-tb-btn pdf-tb-labeled pdf-tb-impl')
+    .attr('title', 'Implement this paper')
+    .add(Text('Implement').cssText('font-size:0.68rem;'))
+    .onTap(function() {
+      if (window._implSessionEnable) window._implSessionEnable(tab);
+    });
   toolbarView.add(implBtn);
 
   // Spacer
@@ -354,6 +319,33 @@ function _buildToolbar(tab, toolbarView) {
     _pdfViewerToggleSearch(tab);
   });
   toolbarView.add(searchBtn);
+
+  toolbarView.add(_tbSep());
+
+  // Panel toggle button group
+  var panelGroup = new View('div').className('pdf-panel-toggle-group');
+
+  var leftPanelBtn = _tbBtn(icon('panelLeft', { size: 16 }), 'Toggle thumbnails', function() {
+    tab._pdfLeftPanelVisible = !tab._pdfLeftPanelVisible;
+    tab._pdfLeftPanel.style.display = tab._pdfLeftPanelVisible ? '' : 'none';
+    leftPanelBtn.el.classList.toggle('active', tab._pdfLeftPanelVisible);
+  });
+  leftPanelBtn.el.classList.add('active');
+  panelGroup.add(leftPanelBtn);
+
+  var rightPanelBtn = _tbBtn(icon('panelRight', { size: 16 }), 'Toggle lookup panel', function() {
+    togglePanel();
+    // Update active state after toggle
+    setTimeout(function() {
+      var panelEl = document.getElementById('universal-panel');
+      var visible = panelEl && panelEl.style.display !== 'none' && !panelEl.classList.contains('panel-hidden');
+      rightPanelBtn.el.classList.toggle('active', visible);
+    }, 50);
+  });
+  rightPanelBtn.el.classList.add('active');
+  panelGroup.add(rightPanelBtn);
+
+  toolbarView.add(panelGroup);
 }
 
 function _tbBtn(svgHtml, title, onClick) {
@@ -427,6 +419,15 @@ function _pdfViewerLoadDoc(tab, url) {
 
     // Extract outline
     _pdfViewerExtractOutline(tab);
+
+    // Restore scroll position after pages render
+    if (tab._pdfScrollTop) {
+      setTimeout(function() {
+        if (tab._pdfPagesContainer) {
+          tab._pdfPagesContainer.scrollTop = tab._pdfScrollTop;
+        }
+      }, 200);
+    }
 
   }).catch(function(err) {
     if (tab._pdfPagesContainer) {
@@ -947,6 +948,12 @@ function _pdfViewerToggleSearch(tab) {
       outline: 'none'
     });
 
+  var prevBtn = _tbBtn(icon('chevronUp', { size: 14 }), 'Previous match', function() {
+    _pdfSearchPrev(tab);
+  });
+  var nextBtn = _tbBtn(icon('chevronDown', { size: 14 }), 'Next match', function() {
+    _pdfSearchNext(tab);
+  });
   var closeBtn = _tbBtn(icon('close', { size: 14 }), 'Close search', function() {
     _pdfViewerToggleSearch(tab);
   });
@@ -959,7 +966,7 @@ function _pdfViewerToggleSearch(tab) {
       background: 'var(--nr-bg-surface)',
       borderBottom: '1px solid var(--nr-border-dim)'
     })
-    .add(input, countLabel, closeBtn);
+    .add(input, countLabel, prevBtn, nextBtn, closeBtn);
 
   _searchBar = searchBarView.el;
 
@@ -976,13 +983,16 @@ function _pdfViewerToggleSearch(tab) {
   });
   input.on('keydown', function(e) {
     if (e.key === 'Escape') _pdfViewerToggleSearch(tab);
-    if (e.key === 'Enter') _pdfViewerDoSearch(tab, input.el.value.trim(), countLabel.el);
+    if (e.key === 'Enter' && e.shiftKey) { _pdfSearchPrev(tab); }
+    else if (e.key === 'Enter') { _pdfSearchNext(tab); }
   });
 }
 
 function _pdfViewerDoSearch(tab, query, countLabelEl) {
   // Clear previous
   tab._pdfPagesContainer.querySelectorAll('.pdf-search-highlight').forEach(function(el) { el.remove(); });
+  tab._pdfSearchMatches = [];
+  tab._pdfSearchIdx = -1;
   if (!query || !tab._pdfDoc) { countLabelEl.textContent = ''; return; }
 
   var matchCount = 0;
@@ -993,18 +1003,34 @@ function _pdfViewerDoSearch(tab, query, countLabelEl) {
     (function(pageNum) {
       promises.push(
         tab._pdfDoc.getPage(pageNum).then(function(page) {
-          return page.getTextContent().then(function(textContent) {
-            var pageText = textContent.items.map(function(it) { return it.str; }).join(' ');
-            if (pageText.toLowerCase().indexOf(queryLower) !== -1) {
+          var wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
+          if (!wrapper) return;
+          var textLayer = wrapper.querySelector('.textLayer');
+          if (!textLayer) return;
+
+          var spans = textLayer.querySelectorAll('span');
+          spans.forEach(function(span) {
+            var text = span.textContent || '';
+            var textLower = text.toLowerCase();
+            var idx = textLower.indexOf(queryLower);
+            while (idx !== -1) {
               matchCount++;
-              // Highlight: mark wrapper border
-              var wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
-              if (wrapper) {
-                var mark = new View('div')
-                  .className('pdf-search-highlight')
-                  .cssText('position:absolute;inset:0;border:2px solid var(--nr-accent);border-radius:2px;pointer-events:none;z-index:5;');
-                wrapper.appendChild(mark.el);
+              // Create a highlight overlay positioned over the matching text
+              var range = document.createRange();
+              range.setStart(span.firstChild || span, idx);
+              range.setEnd(span.firstChild || span, Math.min(idx + query.length, text.length));
+              var rects = range.getClientRects();
+              var wrapperRect = wrapper.getBoundingClientRect();
+
+              for (var r = 0; r < rects.length; r++) {
+                var rect = rects[r];
+                var mark = document.createElement('div');
+                mark.className = 'pdf-search-highlight';
+                mark.style.cssText = 'position:absolute;left:' + (rect.left - wrapperRect.left) + 'px;top:' + (rect.top - wrapperRect.top) + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;background:rgba(255,165,0,0.35);border-radius:1px;pointer-events:none;z-index:5;';
+                wrapper.appendChild(mark);
+                tab._pdfSearchMatches.push({ el: mark, pageNum: pageNum });
               }
+              idx = textLower.indexOf(queryLower, idx + 1);
             }
           });
         })
@@ -1013,8 +1039,37 @@ function _pdfViewerDoSearch(tab, query, countLabelEl) {
   }
 
   Promise.all(promises).then(function() {
-    countLabelEl.textContent = matchCount + ' page' + (matchCount !== 1 ? 's' : '');
+    countLabelEl.textContent = matchCount + ' match' + (matchCount !== 1 ? 'es' : '');
+    // Auto-scroll to first match
+    if (tab._pdfSearchMatches && tab._pdfSearchMatches.length) {
+      tab._pdfSearchIdx = 0;
+      _pdfSearchScrollToMatch(tab);
+    }
   });
+}
+
+function _pdfSearchScrollToMatch(tab) {
+  if (!tab._pdfSearchMatches || !tab._pdfSearchMatches.length) return;
+  var idx = tab._pdfSearchIdx;
+  if (idx < 0 || idx >= tab._pdfSearchMatches.length) return;
+
+  // Remove active class from all, add to current
+  tab._pdfSearchMatches.forEach(function(m) { m.el.classList.remove('pdf-search-active'); });
+  var match = tab._pdfSearchMatches[idx];
+  match.el.classList.add('pdf-search-active');
+  match.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function _pdfSearchNext(tab) {
+  if (!tab._pdfSearchMatches || !tab._pdfSearchMatches.length) return;
+  tab._pdfSearchIdx = (tab._pdfSearchIdx + 1) % tab._pdfSearchMatches.length;
+  _pdfSearchScrollToMatch(tab);
+}
+
+function _pdfSearchPrev(tab) {
+  if (!tab._pdfSearchMatches || !tab._pdfSearchMatches.length) return;
+  tab._pdfSearchIdx = (tab._pdfSearchIdx - 1 + tab._pdfSearchMatches.length) % tab._pdfSearchMatches.length;
+  _pdfSearchScrollToMatch(tab);
 }
 
 // ── Text extraction ──
