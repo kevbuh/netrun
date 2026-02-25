@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reactivity — AetherUI</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Reactivity</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Reactivity</h1>
+      <p class="subtitle">Fine-grained signal-based reactivity inspired by SolidJS. No virtual DOM — dependencies are tracked automatically and updates are surgical.</p>
+
+      <!-- State -->
+      <h2>State</h2>
+      <p>A writable signal that holds a single value. Reading <code>.value</code> inside an <code>Effect</code> or <code>Computed</code> automatically subscribes to changes.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const count = State(0);
+const name = State('Alice', { name: 'userName' });
+
+// Read
+console.log(count.value); // 0
+
+// Write — triggers all subscribers
+count.value = 1;
+
+// Untracked read (won't subscribe)
+count.peek();</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Signature</th><th>Description</th></tr>
+        <tr><td><code>State(initial, opts?)</code></td><td>Create a signal with initial value</td></tr>
+        <tr><td><code>.value</code></td><td>Get/set the current value (tracked read, notifying write)</td></tr>
+        <tr><td><code>.peek()</code></td><td>Read without subscribing</td></tr>
+        <tr><td><code>.binding()</code></td><td>Create a Binding wrapper for this signal</td></tr>
+        <tr><td><code>.dispose()</code></td><td>Clean up all subscribers</td></tr>
+      </table>
+
+      <h4>Options</h4>
+      <table class="api-table">
+        <tr><th>Option</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>equals</code></td><td>Function</td><td>Custom equality check (default: <code>===</code>). Return <code>true</code> to skip notification.</td></tr>
+        <tr><td><code>name</code></td><td>String</td><td>Debug name for the signal</td></tr>
+      </table>
+
+      <!-- Computed -->
+      <h2>Computed</h2>
+      <p>A read-only derived signal. The function runs lazily and caches its result. Re-evaluates only when a dependency changes.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const count = State(3);
+const doubled = Computed(() => count.value * 2);
+
+console.log(doubled.value); // 6
+count.value = 5;
+console.log(doubled.value); // 10</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Signature</th><th>Description</th></tr>
+        <tr><td><code>Computed(fn)</code></td><td>Create a derived signal from <code>fn</code></td></tr>
+        <tr><td><code>.value</code></td><td>Read the computed value (tracked, lazy evaluation)</td></tr>
+        <tr><td><code>.peek()</code></td><td>Read cached value without subscribing</td></tr>
+        <tr><td><code>.dispose()</code></td><td>Stop tracking dependencies</td></tr>
+      </table>
+
+      <!-- Effect -->
+      <h2>Effect</h2>
+      <p>Runs a side-effect function immediately and re-runs it whenever any tracked dependency changes.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const name = State('Alice');
+
+// Runs immediately, re-runs when name changes
+const fx = Effect(() => {
+  document.title = `Hello, ${name.value}`;
+});
+
+name.value = 'Bob'; // title updates to "Hello, Bob"
+
+// Clean up when done
+fx.dispose();</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Signature</th><th>Description</th></tr>
+        <tr><td><code>Effect(fn)</code></td><td>Create a reactive side effect</td></tr>
+        <tr><td><code>.dispose()</code></td><td>Stop tracking and clean up</td></tr>
+      </table>
+
+      <!-- Binding -->
+      <h2>Binding</h2>
+      <p>Two-way value bridge with optional read/write transforms. Used to connect controls to state with data transformation.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const celsius = State(0);
+
+// Read transform: C → F, Write transform: F → C
+const fahrenheit = Binding(
+  celsius,
+  c => c * 9/5 + 32,    // read: celsius → fahrenheit
+  f => (f - 32) * 5/9   // write: fahrenheit → celsius
+);
+
+console.log(fahrenheit.value); // 32
+fahrenheit.value = 212;
+console.log(celsius.value);    // 100</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Signature</th><th>Description</th></tr>
+        <tr><td><code>Binding(source, transform?, inverse?)</code></td><td>Create a two-way binding</td></tr>
+        <tr><td><code>.value</code></td><td>Get/set through the transforms</td></tr>
+        <tr><td><code>.get()</code></td><td>Alias for reading <code>.value</code></td></tr>
+        <tr><td><code>.set(v)</code></td><td>Alias for writing <code>.value</code></td></tr>
+      </table>
+
+      <!-- Store -->
+      <h2>Store</h2>
+      <p>Deep reactive object with path-based access. Granular subscriptions at any nesting level.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const store = Store({
+  user: { name: 'Alice', age: 30 },
+  items: ['apple', 'banana']
+});
+
+// Path-based read (tracked)
+store.get('user.name');       // 'Alice'
+store.get('items[0]');        // 'apple'
+
+// Path-based write (notifies subscribers of that path)
+store.set('user.name', 'Bob');
+
+// Read-modify-write
+store.update('user.age', age => age + 1);
+
+// Delete a key
+store.delete('user.age');
+
+// Whole-object access
+const snapshot = store.value;
+store.peek(); // untracked full read</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>Store(initial)</code></td><td>Create a deep reactive store</td></tr>
+        <tr><td><code>.get(path)</code></td><td>Tracked read at dot/bracket path</td></tr>
+        <tr><td><code>.set(path, value)</code></td><td>Update value at path, notify subscribers</td></tr>
+        <tr><td><code>.update(path, fn)</code></td><td>Read-modify-write: <code>fn(currentValue) → newValue</code></td></tr>
+        <tr><td><code>.delete(path)</code></td><td>Remove key and notify</td></tr>
+        <tr><td><code>.value</code></td><td>Get/set entire object (tracked)</td></tr>
+        <tr><td><code>.peek()</code></td><td>Untracked full read</td></tr>
+      </table>
+
+      <h4>Path Syntax</h4>
+      <p>Paths support dot notation and bracket indexing:</p>
+      <div class="code-block"><pre><code class="language-javascript">store.get('user.name')        // dot notation
+store.get('items[0]')         // array index
+store.get('user.items[0].id') // mixed</code></pre></div>
+
+      <!-- batch -->
+      <h2>batch</h2>
+      <p>Batch multiple signal updates together. Subscribers are notified only once after the batch completes.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const a = State(1);
+const b = State(2);
+
+// Without batch: Effect fires twice
+// With batch: Effect fires once with final values
+batch(() => {
+  a.value = 10;
+  b.value = 20;
+});</code></pre></div>
+
+      <!-- untrack -->
+      <h2>untrack</h2>
+      <p>Read signal values without creating a dependency. Useful inside Effects when you need a value but don't want to re-run when it changes.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const count = State(0);
+const label = State('Count');
+
+Effect(() => {
+  // Tracks count, but NOT label
+  const l = untrack(() => label.value);
+  console.log(`${l}: ${count.value}`);
+});</code></pre></div>
+
+      <!-- Context -->
+      <h2>Context</h2>
+      <p>Stack-based dependency injection. Provide a value within a scope, consume it anywhere inside.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const ThemeCtx = Context('light');
+
+// Provide a value within a scope
+ThemeCtx.provide('dark', () => {
+  const theme = ThemeCtx.use(); // 'dark'
+  buildDarkUI(theme);
+});
+
+// Outside the scope, returns default
+ThemeCtx.use(); // 'light'</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>Context(defaultValue)</code></td><td>Create a context with default</td></tr>
+        <tr><td><code>.provide(value, fn)</code></td><td>Push value, execute fn, pop</td></tr>
+        <tr><td><code>.use()</code></td><td>Read current value (or default)</td></tr>
+      </table>
+
+      <!-- Helpers -->
+      <h2>Helpers</h2>
+      <table class="api-table">
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>isSignal(v)</code></td><td>Returns <code>true</code> if <code>v</code> is a State or Computed signal</td></tr>
+        <tr><td><code>isBinding(v)</code></td><td>Returns <code>true</code> if <code>v</code> is a Binding</td></tr>
+        <tr><td><code>resolve(v)</code></td><td>Returns <code>v.value</code> if signal/binding, otherwise <code>v</code></td></tr>
+      </table>
+
+      <footer class="docs-footer">
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Views &amp; Modifiers — AetherUI</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Views &amp; Modifiers</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Views &amp; Modifiers</h1>
+      <p class="subtitle">Every UI element is a View. Modifiers configure appearance, layout, and behavior via fluent chaining. All modifiers return <code>this</code>.</p>
+
+      <h2>View Base Class</h2>
+      <p><code>View(tag)</code> creates a DOM element. All primitives (VStack, Button, etc.) extend View. You rarely create a raw View directly.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">// Access the live DOM element
+const v = Text('Hello');
+v.el; // HTMLSpanElement
+
+// Append children after construction
+const stack = VStack().add(
+  Text('First'),
+  Text('Second')
+);
+
+// Builder pattern
+VStack().content(() => [
+  Text('A'),
+  Text('B')
+]);</code></pre></div>
+
+      <h3>Core Methods</h3>
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>.add(...children)</code></td><td>Append child views/elements. Returns <code>this</code>.</td></tr>
+        <tr><td><code>.content(fn)</code></td><td>Builder pattern — <code>fn()</code> returns array of children to append</td></tr>
+        <tr><td><code>.el</code></td><td>The live DOM element (already built at construction)</td></tr>
+        <tr><td><code>.dispose()</code></td><td>Clean up effects, listeners, and children recursively</td></tr>
+      </table>
+
+      <div class="callout callout-warn">
+        <strong>Convention</strong>
+        Never call <code>.build()</code> or <code>._appendChildren()</code> in consumer code. Use <code>.el</code> for the DOM element and <code>.add()</code> for children.
+      </div>
+
+      <h2>Mounting</h2>
+      <div class="code-block"><pre><code class="language-javascript">// Mount — clears target, appends view, disposes previous
+AetherUI.mount(view, document.getElementById('app'));
+
+// Append — adds to target without clearing
+AetherUI.append(view, document.getElementById('sidebar'));
+
+// Serialize — walk view tree into semantic string (for AI context)
+const desc = AetherUI.serialize(view);</code></pre></div>
+
+      <!-- Layout Modifiers -->
+      <h2>Layout Modifiers</h2>
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.padding(v, h?)</code></td><td>Padding. One arg = all sides. Two args = vertical, horizontal. Accepts space tokens (0–16).</td></tr>
+        <tr><td><code>.paddingH(v)</code></td><td>Horizontal padding only</td></tr>
+        <tr><td><code>.paddingV(v)</code></td><td>Vertical padding only</td></tr>
+        <tr><td><code>.margin(v, h?)</code></td><td>Margin. Same signature as padding.</td></tr>
+        <tr><td><code>.marginH(v)</code></td><td>Horizontal margin only</td></tr>
+        <tr><td><code>.marginV(v)</code></td><td>Vertical margin only</td></tr>
+        <tr><td><code>.frame(opts)</code></td><td>Size and alignment. See frame options below.</td></tr>
+        <tr><td><code>.gap(v)</code></td><td>Flex gap (space token)</td></tr>
+        <tr><td><code>.offset(x, y)</code></td><td>Translate position in pixels</td></tr>
+        <tr><td><code>.inset(t, r, b, l)</code></td><td>Position offsets (top, right, bottom, left)</td></tr>
+        <tr><td><code>.flex(v?)</code></td><td>Flex grow/shrink (default: <code>'1'</code>)</td></tr>
+        <tr><td><code>.wrap()</code></td><td>Set <code>flexWrap: wrap</code></td></tr>
+        <tr><td><code>.position(v)</code></td><td>CSS position value</td></tr>
+        <tr><td><code>.textAlign(v)</code></td><td>Text alignment</td></tr>
+        <tr><td><code>.cursor(v?)</code></td><td>CSS cursor (default: <code>'pointer'</code>)</td></tr>
+      </table>
+
+      <h4>.frame() Options</h4>
+      <table class="api-table">
+        <tr><th>Option</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>width</code></td><td>Number or String</td><td>Width (number = px)</td></tr>
+        <tr><td><code>height</code></td><td>Number or String</td><td>Height (number = px)</td></tr>
+        <tr><td><code>minWidth</code></td><td>Number or String</td><td>Minimum width</td></tr>
+        <tr><td><code>maxWidth</code></td><td>Number or String</td><td>Maximum width</td></tr>
+        <tr><td><code>minHeight</code></td><td>Number or String</td><td>Minimum height</td></tr>
+        <tr><td><code>maxHeight</code></td><td>Number or String</td><td>Maximum height</td></tr>
+        <tr><td><code>alignment</code></td><td>String</td><td>One of: <code>center</code>, <code>leading</code>, <code>trailing</code>, <code>top</code>, <code>bottom</code>, <code>topLeading</code>, <code>topTrailing</code>, <code>bottomLeading</code>, <code>bottomTrailing</code></td></tr>
+      </table>
+
+      <!-- Styling Modifiers -->
+      <h2>Styling Modifiers</h2>
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.background(v)</code></td><td>Background color. Accepts color tokens or raw CSS values. Reactive (signal support).</td></tr>
+        <tr><td><code>.foreground(v)</code></td><td>Text color. Same token resolution as background.</td></tr>
+        <tr><td><code>.font(name)</code></td><td>Typography preset: <code>largeTitle</code>, <code>title1</code>–<code>title3</code>, <code>headline</code>, <code>body</code>, <code>callout</code>, <code>subhead</code>, <code>footnote</code>, <code>caption1</code>, <code>caption2</code></td></tr>
+        <tr><td><code>.fontWeight(w)</code></td><td>Font weight value</td></tr>
+        <tr><td><code>.fontMono()</code></td><td>Apply monospace font family</td></tr>
+        <tr><td><code>.opacity(v)</code></td><td>Opacity (0–1)</td></tr>
+        <tr><td><code>.cornerRadius(v)</code></td><td>Border radius. Tokens: <code>xs</code>, <code>sm</code>, <code>md</code>, <code>lg</code>, <code>xl</code>, <code>2xl</code>, <code>full</code></td></tr>
+        <tr><td><code>.shadow(v)</code></td><td>Named shadow: <code>card</code>, <code>popup</code>, <code>overlay</code></td></tr>
+        <tr><td><code>.border(color?, width?)</code></td><td>Border (color token, width default 1px)</td></tr>
+        <tr><td><code>.material(level)</code></td><td>Aether material effect (e.g. <code>'regular'</code>)</td></tr>
+        <tr><td><code>.colorScheme(scheme)</code></td><td><code>'dark'</code> or <code>'light'</code></td></tr>
+        <tr><td><code>.overflow(v?)</code></td><td>Overflow (default: <code>'hidden'</code>)</td></tr>
+        <tr><td><code>.truncate()</code></td><td>Single-line text truncation with ellipsis</td></tr>
+      </table>
+
+      <!-- Identity Modifiers -->
+      <h2>Identity Modifiers</h2>
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.id(v)</code></td><td>Set element ID</td></tr>
+        <tr><td><code>.className(v)</code></td><td>Add CSS class (reactive signal support, preserves existing)</td></tr>
+        <tr><td><code>.attr(k, v)</code></td><td>Set HTML attribute</td></tr>
+        <tr><td><code>.style(k, v)</code></td><td>Set single CSS property</td></tr>
+        <tr><td><code>.styles(obj)</code></td><td>Set multiple CSS properties</td></tr>
+        <tr><td><code>.cssText(str)</code></td><td>Direct CSS text assignment</td></tr>
+        <tr><td><code>.cssVar(name, val)</code></td><td>Set CSS custom property (reactive support)</td></tr>
+        <tr><td><code>.accessibilityLabel(v)</code></td><td>Set <code>aria-label</code></td></tr>
+        <tr><td><code>.testId(v)</code></td><td>Set <code>data-testid</code></td></tr>
+      </table>
+
+      <!-- Event Modifiers -->
+      <h2>Event Modifiers</h2>
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.onTap(fn)</code></td><td>Click handler (also sets cursor: pointer)</td></tr>
+        <tr><td><code>.onHover(enter, leave)</code></td><td>Mouseenter/mouseleave handlers</td></tr>
+        <tr><td><code>.onChange(fn)</code></td><td>Change event handler</td></tr>
+        <tr><td><code>.onSubmit(fn)</code></td><td>Form submit (auto prevents default)</td></tr>
+        <tr><td><code>.on(event, fn)</code></td><td>Generic event listener</td></tr>
+        <tr><td><code>.contextMenu(items)</code></td><td>Right-click context menu</td></tr>
+      </table>
+
+      <!-- Conditional Modifiers -->
+      <h2>Conditional Modifiers</h2>
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.if(cond, thenFn, elseFn?)</code></td><td>Signal-aware conditional — runs <code>thenFn(view)</code> or <code>elseFn(view)</code></td></tr>
+        <tr><td><code>.when(signal, modifierFn)</code></td><td>Apply modifier only when signal is truthy</td></tr>
+        <tr><td><code>.visible(v)</code></td><td>Show/hide via <code>display: none</code>. Accepts signal or boolean.</td></tr>
+        <tr><td><code>.disabled(v)</code></td><td>Disable state. Accepts signal or boolean.</td></tr>
+        <tr><td><code>.html(content)</code></td><td>Set innerHTML (reactive signal support)</td></tr>
+        <tr><td><code>.text(content)</code></td><td>Set text content (reactive signal support)</td></tr>
+      </table>
+
+      <!-- Animation / Lifecycle -->
+      <h2>Animation &amp; Lifecycle</h2>
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.animation(config)</code></td><td>Deferred Motion animation (runs on appear)</td></tr>
+        <tr><td><code>.transition(props, duration?)</code></td><td>CSS transition. <code>props</code>: array or string.</td></tr>
+        <tr><td><code>.onAppear(fn)</code></td><td>Callback on mount. Stacks (multiple calls allowed).</td></tr>
+        <tr><td><code>.onDisappear(fn)</code></td><td>Callback on unmount/dispose</td></tr>
+      </table>
+
+      <div class="callout callout-tip">
+        <strong>Tip</strong>
+        <code>.onAppear()</code> and <code>.animation()</code> stack — you can call them multiple times on the same view without overwriting previous callbacks.
+      </div>
+
+      <h2>Token Resolution</h2>
+      <p>Numeric arguments to layout modifiers resolve to spacing tokens. String arguments pass through as-is:</p>
+      <div class="code-block"><pre><code class="language-javascript">// Token resolution
+.padding(4)         // → var(--nr-space-4) = 16px
+.padding('2rem')    // → 2rem (passthrough)
+.cornerRadius('md') // → var(--nr-radius-md) = 8px
+.background('surface') // → var(--nr-bg-surface)
+.foreground('secondary') // → var(--nr-text-secondary)
+.zIndex('overlay')  // → 1000</code></pre></div>
+
+      <footer class="docs-footer">
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

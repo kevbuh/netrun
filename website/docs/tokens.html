@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tokens &amp; Theming — AetherUI</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Tokens &amp; Theming</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Tokens &amp; Theming</h1>
+      <p class="subtitle">Design tokens are CSS custom properties with the <code>--nr-*</code> prefix. They provide a consistent design language across the entire application.</p>
+
+      <h2>Spacing</h2>
+      <p>Based on a 4px grid. Numeric values in modifiers like <code>.padding()</code> and <code>.gap()</code> resolve to these tokens.</p>
+
+      <table class="api-table">
+        <tr><th>Token</th><th>Value</th><th>Usage</th></tr>
+        <tr><td><code>--nr-space-0</code></td><td>0</td><td><code>.padding(0)</code></td></tr>
+        <tr><td><code>--nr-space-1</code></td><td>4px</td><td><code>.padding(1)</code></td></tr>
+        <tr><td><code>--nr-space-2</code></td><td>8px</td><td><code>.padding(2)</code></td></tr>
+        <tr><td><code>--nr-space-3</code></td><td>12px</td><td><code>.padding(3)</code></td></tr>
+        <tr><td><code>--nr-space-4</code></td><td>16px</td><td><code>.padding(4)</code></td></tr>
+        <tr><td><code>--nr-space-5</code></td><td>20px</td><td><code>.padding(5)</code></td></tr>
+        <tr><td><code>--nr-space-6</code></td><td>24px</td><td><code>.padding(6)</code></td></tr>
+        <tr><td><code>--nr-space-8</code></td><td>32px</td><td><code>.padding(8)</code></td></tr>
+        <tr><td><code>--nr-space-10</code></td><td>40px</td><td><code>.padding(10)</code></td></tr>
+        <tr><td><code>--nr-space-12</code></td><td>48px</td><td><code>.padding(12)</code></td></tr>
+        <tr><td><code>--nr-space-16</code></td><td>64px</td><td><code>.padding(16)</code></td></tr>
+      </table>
+
+      <h2>Background Colors</h2>
+      <p>Semantic surface hierarchy. Use with <code>.background()</code> modifier.</p>
+
+      <table class="api-table">
+        <tr><th>Token Name</th><th>CSS Variable</th><th>Dark Default</th></tr>
+        <tr><td><code>'body'</code></td><td><code>--nr-bg-body</code></td><td>#0a0a0a</td></tr>
+        <tr><td><code>'surface'</code></td><td><code>--nr-bg-surface</code></td><td>#151515</td></tr>
+        <tr><td><code>'raised'</code></td><td><code>--nr-bg-raised</code></td><td>#1e1e1e</td></tr>
+        <tr><td><code>'sunken'</code></td><td><code>--nr-bg-sunken</code></td><td>#0d0d0d</td></tr>
+        <tr><td><code>'overlay'</code></td><td><code>--nr-bg-overlay</code></td><td>#181818</td></tr>
+        <tr><td><code>'input'</code></td><td><code>--nr-bg-input</code></td><td>#1a1a1a</td></tr>
+      </table>
+
+      <div class="code-block"><pre><code class="language-javascript">VStack().background('surface')  // → var(--nr-bg-surface)
+VStack().background('raised')   // → var(--nr-bg-raised)
+VStack().background('#ff0000')  // → #ff0000 (raw passthrough)</code></pre></div>
+
+      <h2>Text Colors</h2>
+      <p>Use with <code>.foreground()</code> modifier.</p>
+
+      <table class="api-table">
+        <tr><th>Token Name</th><th>CSS Variable</th><th>Dark Default</th></tr>
+        <tr><td><code>'primary'</code></td><td><code>--nr-text-primary</code></td><td>#e0e0e0</td></tr>
+        <tr><td><code>'secondary'</code></td><td><code>--nr-text-secondary</code></td><td>#888</td></tr>
+        <tr><td><code>'tertiary'</code></td><td><code>--nr-text-tertiary</code></td><td>#666</td></tr>
+        <tr><td><code>'quaternary'</code></td><td><code>--nr-text-quaternary</code></td><td>#555</td></tr>
+        <tr><td><code>'inverse'</code></td><td><code>--nr-text-inverse</code></td><td>#fff</td></tr>
+        <tr><td><code>'link'</code></td><td><code>--nr-text-link</code></td><td>#d4845a</td></tr>
+      </table>
+
+      <h2>Border Colors</h2>
+      <table class="api-table">
+        <tr><th>Token Name</th><th>CSS Variable</th><th>Dark Default</th></tr>
+        <tr><td><code>'border-default'</code></td><td><code>--nr-border-default</code></td><td>#222</td></tr>
+        <tr><td><code>'border-strong'</code></td><td><code>--nr-border-strong</code></td><td>#333</td></tr>
+        <tr><td><code>'border-subtle'</code></td><td><code>--nr-border-subtle</code></td><td>#252525</td></tr>
+        <tr><td><code>'border-dim'</code></td><td><code>--nr-border-dim</code></td><td>#1a1a1a</td></tr>
+      </table>
+
+      <h2>Border Radius</h2>
+      <p>Use with <code>.cornerRadius()</code> modifier.</p>
+
+      <table class="api-table">
+        <tr><th>Token</th><th>CSS Variable</th><th>Value</th></tr>
+        <tr><td><code>'xs'</code></td><td><code>--nr-radius-xs</code></td><td>4px</td></tr>
+        <tr><td><code>'sm'</code></td><td><code>--nr-radius-sm</code></td><td>6px</td></tr>
+        <tr><td><code>'md'</code></td><td><code>--nr-radius-md</code></td><td>8px</td></tr>
+        <tr><td><code>'lg'</code></td><td><code>--nr-radius-lg</code></td><td>12px</td></tr>
+        <tr><td><code>'xl'</code></td><td><code>--nr-radius-xl</code></td><td>16px</td></tr>
+        <tr><td><code>'2xl'</code></td><td><code>--nr-radius-2xl</code></td><td>20px</td></tr>
+        <tr><td><code>'full'</code></td><td><code>--nr-radius-full</code></td><td>9999px</td></tr>
+      </table>
+
+      <h2>Typography</h2>
+      <p>Font presets available via <code>.font()</code> modifier. Inspired by Apple's type scale.</p>
+
+      <table class="api-table">
+        <tr><th>Name</th><th>Size</th><th>Weight</th></tr>
+        <tr><td><code>'largeTitle'</code></td><td>34px</td><td>700</td></tr>
+        <tr><td><code>'title1'</code></td><td>28px</td><td>700</td></tr>
+        <tr><td><code>'title2'</code></td><td>22px</td><td>700</td></tr>
+        <tr><td><code>'title3'</code></td><td>20px</td><td>600</td></tr>
+        <tr><td><code>'headline'</code></td><td>17px</td><td>600</td></tr>
+        <tr><td><code>'body'</code></td><td>17px</td><td>400</td></tr>
+        <tr><td><code>'callout'</code></td><td>16px</td><td>400</td></tr>
+        <tr><td><code>'subhead'</code></td><td>15px</td><td>400</td></tr>
+        <tr><td><code>'footnote'</code></td><td>13px</td><td>400</td></tr>
+        <tr><td><code>'caption1'</code></td><td>12px</td><td>400</td></tr>
+        <tr><td><code>'caption2'</code></td><td>11px</td><td>400</td></tr>
+      </table>
+
+      <h2>Font Families</h2>
+      <table class="api-table">
+        <tr><th>Token</th><th>Value</th></tr>
+        <tr><td><code>--nr-font-sans</code></td><td>-apple-system, BlinkMacSystemFont, 'SF Pro Display', Helvetica, Arial, sans-serif</td></tr>
+        <tr><td><code>--nr-font-mono</code></td><td>'SF Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace</td></tr>
+      </table>
+
+      <h2>Shadows</h2>
+      <p>Named shadows available via <code>.shadow()</code> modifier.</p>
+
+      <table class="api-table">
+        <tr><th>Name</th><th>CSS Variable</th></tr>
+        <tr><td><code>'card'</code></td><td><code>--nr-shadow-card</code></td></tr>
+        <tr><td><code>'popup'</code></td><td><code>--nr-shadow-popup</code></td></tr>
+        <tr><td><code>'overlay'</code></td><td><code>--nr-shadow-overlay</code></td></tr>
+      </table>
+
+      <h2>Z-Index</h2>
+      <p>Use with <code>.zIndex()</code> modifier. Named values resolve to numeric levels.</p>
+
+      <table class="api-table">
+        <tr><th>Name</th><th>Value</th></tr>
+        <tr><td><code>'base'</code></td><td>0</td></tr>
+        <tr><td><code>'raised'</code></td><td>10</td></tr>
+        <tr><td><code>'sticky'</code></td><td>100</td></tr>
+        <tr><td><code>'overlay'</code></td><td>1000</td></tr>
+        <tr><td><code>'modal'</code></td><td>5000</td></tr>
+        <tr><td><code>'toast'</code></td><td>8000</td></tr>
+        <tr><td><code>'max'</code></td><td>10002</td></tr>
+      </table>
+
+      <h2>Material Blur</h2>
+      <table class="api-table">
+        <tr><th>Token</th><th>Value</th></tr>
+        <tr><td><code>--nr-material-blur-ultra-thin</code></td><td>4px</td></tr>
+        <tr><td><code>--nr-material-blur-thin</code></td><td>8px</td></tr>
+        <tr><td><code>--nr-material-blur-regular</code></td><td>16px</td></tr>
+        <tr><td><code>--nr-material-blur-thick</code></td><td>24px</td></tr>
+        <tr><td><code>--nr-material-blur-chrome</code></td><td>32px</td></tr>
+      </table>
+
+      <h2>Themes</h2>
+      <p>Netrun includes four themes that override the <code>--nr-*</code> tokens:</p>
+      <ul>
+        <li><strong>Dark</strong> — default dark theme (defined in <code>tokens.css</code>)</li>
+        <li><strong>Light</strong> — light background with dark text</li>
+        <li><strong>Daylight</strong> — time-adaptive theme that shifts warmth throughout the day</li>
+        <li><strong>Clear</strong> — glassmorphic theme with transparency and blur</li>
+      </ul>
+      <p>Theme CSS files live in <code>src/aether/css/themes/</code>. Each file overrides the same <code>--nr-*</code> custom properties on <code>:root</code>, so the rest of the UI adapts automatically.</p>
+
+      <div class="code-block"><pre><code class="language-css">/* Example: light theme overrides */
+:root {
+  --nr-bg-body:    #ffffff;
+  --nr-bg-surface: #f8f8f8;
+  --nr-bg-raised:  #ffffff;
+  --nr-text-primary: #111111;
+  /* ... all other tokens ... */
+}</code></pre></div>
+
+      <h2>Accent Colors</h2>
+      <p>The accent color is set via <code>--nr-accent</code> and <code>--nr-accent-hover</code>. Users can choose from 8+ accent colors in settings.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">// Using accent in code
+Text('Important').foreground('accent')
+Button('Action').primary() // uses accent as background</code></pre></div>
+
+      <footer class="docs-footer">
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

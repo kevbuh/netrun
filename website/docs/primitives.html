@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Primitives — AetherUI</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Primitives</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Primitives</h1>
+      <p class="subtitle">Layout containers and basic views — the building blocks for composing interfaces.</p>
+
+      <!-- VStack -->
+      <h2>VStack</h2>
+      <p>Vertical flex column. Children stack top to bottom.</p>
+      <div class="code-block"><pre><code class="language-javascript">VStack(
+  Text('First'),
+  Text('Second'),
+  Text('Third')
+).spacing(3).alignment('center')</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Signature</th><th>Description</th></tr>
+        <tr><td><code>VStack(...children)</code></td><td>Create a vertical stack</td></tr>
+        <tr><td><code>.spacing(s)</code></td><td>Gap between children (space token)</td></tr>
+        <tr><td><code>.alignment(a)</code></td><td><code>'center'</code>, <code>'leading'</code>, <code>'trailing'</code>, <code>'stretch'</code></td></tr>
+      </table>
+
+      <!-- HStack -->
+      <h2>HStack</h2>
+      <p>Horizontal flex row. Children flow left to right. Vertically centered by default.</p>
+      <div class="code-block"><pre><code class="language-javascript">HStack(
+  Icon('star', 14),
+  Text('Starred'),
+  Spacer(),
+  Badge(5)
+).spacing(2)</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Signature</th><th>Description</th></tr>
+        <tr><td><code>HStack(...children)</code></td><td>Create a horizontal stack</td></tr>
+        <tr><td><code>.spacing(s)</code></td><td>Gap between children (space token)</td></tr>
+        <tr><td><code>.alignment(a)</code></td><td><code>'center'</code>, <code>'leading'</code>, <code>'trailing'</code>, <code>'stretch'</code></td></tr>
+      </table>
+
+      <!-- ZStack -->
+      <h2>ZStack</h2>
+      <p>Overlapping layer stack. First child defines size, others are positioned absolutely on top.</p>
+      <div class="code-block"><pre><code class="language-javascript">ZStack(
+  Image('bg.jpg').fill(),
+  VStack(
+    Text('Overlay title').foreground('inverse')
+  ).padding(4)
+).alignment('bottomLeading')</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.alignment(a)</code></td><td><code>'center'</code>, <code>'top'</code>, <code>'bottom'</code>, <code>'leading'</code>, <code>'trailing'</code>, <code>'topLeading'</code>, <code>'topTrailing'</code>, <code>'bottomLeading'</code>, <code>'bottomTrailing'</code></td></tr>
+      </table>
+
+      <!-- Grid -->
+      <h2>Grid</h2>
+      <p>CSS Grid container with convenience methods for columns, rows, and spacing.</p>
+      <div class="code-block"><pre><code class="language-javascript">// Fixed columns
+Grid(card1, card2, card3, card4).columns(2).spacing(4)
+
+// Auto-fill responsive columns
+Grid(...items).columnWidth('200px').spacing(3)</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.columns(n)</code></td><td><code>repeat(n, 1fr)</code></td></tr>
+        <tr><td><code>.columnWidth(min)</code></td><td><code>repeat(auto-fill, minmax(min, 1fr))</code></td></tr>
+        <tr><td><code>.rows(n)</code></td><td><code>repeat(n, 1fr)</code></td></tr>
+        <tr><td><code>.spacing(s)</code></td><td>Gap (both axes)</td></tr>
+        <tr><td><code>.rowSpacing(s)</code></td><td>Row gap only</td></tr>
+        <tr><td><code>.columnSpacing(s)</code></td><td>Column gap only</td></tr>
+        <tr><td><code>.alignment(a)</code></td><td>Align items</td></tr>
+      </table>
+
+      <!-- ScrollView -->
+      <h2>ScrollView</h2>
+      <p>Scrollable container. Vertical by default.</p>
+      <div class="code-block"><pre><code class="language-javascript">ScrollView(
+  VStack(longListOfItems).spacing(2)
+)
+
+// Horizontal scrolling
+ScrollView(
+  HStack(thumbnails).spacing(3)
+).horizontal()</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.horizontal()</code></td><td>Switch to horizontal scrolling</td></tr>
+      </table>
+
+      <!-- Spacer -->
+      <h2>Spacer</h2>
+      <p>Flexible whitespace that expands to fill available space. Use in HStack/VStack to push items apart.</p>
+      <div class="code-block"><pre><code class="language-javascript">HStack(
+  Text('Left'),
+  Spacer(),      // fills remaining space
+  Text('Right')
+)
+
+Spacer(4) // minimum 16px (space token 4)</code></pre></div>
+
+      <!-- Divider -->
+      <h2>Divider</h2>
+      <p>Horizontal separator line.</p>
+      <div class="code-block"><pre><code class="language-javascript">VStack(
+  Text('Above'),
+  Divider(),
+  Text('Below')
+).spacing(3)</code></pre></div>
+
+      <!-- Text -->
+      <h2>Text</h2>
+      <p>Renders text content. Accepts strings, numbers, signals, or functions for reactive text.</p>
+      <div class="code-block"><pre><code class="language-javascript">Text('Static text')
+Text(count)                    // signal
+Text(() => `Count: ${count.value}`)  // derived
+
+Text('Styled')
+  .font('headline')
+  .bold()
+  .italic()
+  .mono()
+  .selectable()
+  .lineLimit(2)
+  .align('center')</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.bold()</code></td><td>Font weight 600</td></tr>
+        <tr><td><code>.italic()</code></td><td>Italic style</td></tr>
+        <tr><td><code>.mono()</code></td><td>Monospace font</td></tr>
+        <tr><td><code>.code()</code></td><td>Monospace + sunken background + padding</td></tr>
+        <tr><td><code>.align(a)</code></td><td>Text alignment</td></tr>
+        <tr><td><code>.lineLimit(n)</code></td><td>Clamp to <code>n</code> lines with ellipsis</td></tr>
+        <tr><td><code>.selectable()</code></td><td>Allow text selection</td></tr>
+      </table>
+
+      <!-- Label -->
+      <h2>Label</h2>
+      <p>Icon + text combination in an HStack.</p>
+      <div class="code-block"><pre><code class="language-javascript">Label('Settings', 'gear')
+Label('Downloads')  // text only, no icon</code></pre></div>
+
+      <!-- Link -->
+      <h2>Link</h2>
+      <p>Styled anchor element.</p>
+      <div class="code-block"><pre><code class="language-javascript">Link('Visit site', 'https://example.com')
+Link(() => dynamicLabel.value)</code></pre></div>
+
+      <!-- Image -->
+      <h2>Image</h2>
+      <p>Image element with reactive <code>src</code> support.</p>
+      <div class="code-block"><pre><code class="language-javascript">Image('photo.jpg')
+  .resizable()         // object-fit: contain
+  .frame({ width: 200, height: 150 })
+
+Image(urlSignal).fill()  // object-fit: cover
+  .aspectRatio('16/9')</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.resizable()</code></td><td><code>object-fit: contain</code></td></tr>
+        <tr><td><code>.fill()</code></td><td><code>object-fit: cover</code></td></tr>
+        <tr><td><code>.aspectRatio(r)</code></td><td>CSS <code>aspect-ratio</code> value</td></tr>
+      </table>
+
+      <!-- Icon -->
+      <h2>Icon</h2>
+      <p>Inline icon via the app's icon callback (<code>window.icon()</code>).</p>
+      <div class="code-block"><pre><code class="language-javascript">Icon('star', 16)
+Icon('check').size(20).tint('accent')</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.size(s)</code></td><td>Icon size in pixels</td></tr>
+        <tr><td><code>.tint(color)</code></td><td>Apply color token</td></tr>
+      </table>
+
+      <!-- Kbd -->
+      <h2>Kbd</h2>
+      <p>Keyboard shortcut display with automatic symbol mapping.</p>
+      <div class="code-block"><pre><code class="language-javascript">Kbd('Cmd+S')     // renders ⌘S
+Kbd('Ctrl+Shift+P')  // renders ⌃⇧P</code></pre></div>
+
+      <p>Symbol mapping: Cmd → ⌘, Ctrl → ⌃, Alt → ⌥, Shift → ⇧, Enter → ↵, Backspace → ⌫, Tab → ⇥, Esc → ⎋</p>
+
+      <!-- RawHTML -->
+      <h2>RawHTML</h2>
+      <p>Inject trusted HTML (e.g. SVG icons) as a View.</p>
+      <div class="code-block"><pre><code class="language-javascript">const icon = RawHTML('&lt;svg viewBox="0 0 24 24"&gt;...&lt;/svg&gt;');
+HStack(icon, Text('Label'))</code></pre></div>
+
+      <div class="callout callout-warn">
+        <strong>Security</strong>
+        Only use <code>RawHTML</code> with trusted content. Never pass user input directly.
+      </div>
+
+      <footer class="docs-footer">
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

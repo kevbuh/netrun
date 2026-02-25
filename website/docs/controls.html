@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controls — AetherUI</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Controls</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Controls</h1>
+      <p class="subtitle">Interactive components for user input — buttons, text fields, toggles, sliders, and more. All controls support two-way binding via State or Binding.</p>
+
+      <!-- Button -->
+      <h2>Button</h2>
+      <div class="code-block"><pre><code class="language-javascript">Button('Save').primary().onTap(() => save())
+Button('Cancel').ghost()
+Button('Delete').danger().small()
+Button('').iconButton('plus')
+Button('Export').icon('download', 'leading').large()</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.primary()</code></td><td>Primary variant</td></tr>
+        <tr><td><code>.secondary()</code></td><td>Secondary variant</td></tr>
+        <tr><td><code>.ghost()</code></td><td>Ghost/text variant</td></tr>
+        <tr><td><code>.danger()</code></td><td>Destructive/red variant</td></tr>
+        <tr><td><code>.small()</code></td><td>Small size</td></tr>
+        <tr><td><code>.large()</code></td><td>Large size</td></tr>
+        <tr><td><code>.iconButton(name)</code></td><td>Icon-only button</td></tr>
+        <tr><td><code>.icon(name, position?)</code></td><td>Icon with label. Position: <code>'leading'</code> or <code>'trailing'</code>.</td></tr>
+      </table>
+
+      <!-- TextField -->
+      <h2>TextField</h2>
+      <p>Text input with reactive two-way binding.</p>
+      <div class="code-block"><pre><code class="language-javascript">const name = State('');
+
+TextField(name, 'Enter your name')
+TextField('Just a placeholder')  // no binding
+TextField(name).secure()         // password input
+TextField(name).placeholder('Search...')</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Signature</th><th>Description</th></tr>
+        <tr><td><code>TextField(binding, placeholder?)</code></td><td>Create text input. First arg: Signal/Binding or string placeholder.</td></tr>
+        <tr><td><code>.bind(b)</code></td><td>Re-bind to a different signal</td></tr>
+        <tr><td><code>.secure()</code></td><td>Password input type</td></tr>
+        <tr><td><code>.placeholder(p)</code></td><td>Set placeholder text</td></tr>
+      </table>
+
+      <!-- Textarea -->
+      <h2>Textarea</h2>
+      <div class="code-block"><pre><code class="language-javascript">const bio = State('');
+
+Textarea(bio, 'Tell us about yourself')
+  .rows(5)
+  .maxLength(500)
+  .autoResize()</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.rows(n)</code></td><td>Set visible rows</td></tr>
+        <tr><td><code>.maxLength(n)</code></td><td>Character limit</td></tr>
+        <tr><td><code>.autoResize()</code></td><td>Auto-expand height as content grows</td></tr>
+      </table>
+
+      <!-- Toggle -->
+      <h2>Toggle</h2>
+      <p>Switch control with optional label.</p>
+      <div class="code-block"><pre><code class="language-javascript">const darkMode = State(false);
+
+Toggle(darkMode, 'Dark mode')
+Toggle(darkMode)  // no label</code></pre></div>
+
+      <!-- Checkbox -->
+      <h2>Checkbox</h2>
+      <div class="code-block"><pre><code class="language-javascript">const agreed = State(false);
+
+Checkbox(agreed, 'I agree to the terms')
+Checkbox(agreed).indeterminate()</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.indeterminate()</code></td><td>Set indeterminate visual state</td></tr>
+      </table>
+
+      <!-- RadioGroup -->
+      <h2>RadioGroup</h2>
+      <div class="code-block"><pre><code class="language-javascript">const color = State('red');
+
+RadioGroup(color, ['red', 'green', 'blue'])
+
+// With value/label pairs
+RadioGroup(color, [
+  { value: 'red', label: 'Red' },
+  { value: 'green', label: 'Green' },
+  { value: 'blue', label: 'Blue' }
+]).horizontal()</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.horizontal()</code></td><td>Horizontal layout</td></tr>
+        <tr><td><code>.options(opts)</code></td><td>Replace options dynamically</td></tr>
+      </table>
+
+      <!-- Slider -->
+      <h2>Slider</h2>
+      <div class="code-block"><pre><code class="language-javascript">const volume = State(50);
+
+Slider(volume, { min: 0, max: 100, step: 1 })
+Slider(volume).range(0, 100).step(5)</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.range(min, max)</code></td><td>Set min/max values</td></tr>
+        <tr><td><code>.step(s)</code></td><td>Set step increment</td></tr>
+      </table>
+
+      <!-- Picker -->
+      <h2>Picker</h2>
+      <p>Dropdown select control.</p>
+      <div class="code-block"><pre><code class="language-javascript">const lang = State('en');
+
+Picker(lang, [
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'fr', label: 'French' }
+])
+
+// Simple string options
+Picker(lang, ['en', 'es', 'fr'])</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.options(opts)</code></td><td>Replace options dynamically</td></tr>
+      </table>
+
+      <!-- Stepper -->
+      <h2>Stepper</h2>
+      <p>Increment/decrement control with -/value/+ buttons.</p>
+      <div class="code-block"><pre><code class="language-javascript">const qty = State(1);
+
+Stepper(qty, { min: 0, max: 99, step: 1 })</code></pre></div>
+
+      <!-- TabView -->
+      <h2>TabView</h2>
+      <p>Tabbed content with cached tab panels. Tabs hide/show via <code>display:none</code>, not rebuild.</p>
+      <div class="code-block"><pre><code class="language-javascript">const activeTab = State('info');
+
+TabView(activeTab, [
+  { label: 'Info',     content: () => InfoPanel() },
+  { label: 'Settings', content: () => SettingsPanel() },
+  { label: 'About',    content: () => AboutPanel() }
+])</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.segmented()</code></td><td>Segmented tab bar style</td></tr>
+        <tr><td><code>.underlined()</code></td><td>Underlined tab bar style (default)</td></tr>
+      </table>
+
+      <div class="callout callout-info">
+        <strong>Caching</strong>
+        TabView renders each tab once on first visit, then toggles visibility. Content functions are only called once per tab.
+      </div>
+
+      <!-- ProgressBar -->
+      <h2>ProgressBar</h2>
+      <div class="code-block"><pre><code class="language-javascript">const progress = State(0.6);
+
+ProgressBar(progress).tint('accent')
+ProgressBar(progress).indeterminate()</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.tint(color)</code></td><td>Fill bar color (token)</td></tr>
+        <tr><td><code>.indeterminate()</code></td><td>Animated indeterminate state</td></tr>
+      </table>
+
+      <!-- Pill -->
+      <h2>Pill</h2>
+      <div class="code-block"><pre><code class="language-javascript">Pill('New').accent()
+Pill('Draft').outline()
+Pill(count).small()
+Pill('').dot()      // dot indicator
+Pill('Tag').interactive().onTap(() => {})</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.accent()</code></td><td>Accent color style</td></tr>
+        <tr><td><code>.outline()</code></td><td>Outline style</td></tr>
+        <tr><td><code>.small()</code></td><td>Small size</td></tr>
+        <tr><td><code>.large()</code></td><td>Large size</td></tr>
+        <tr><td><code>.dot()</code></td><td>Dot indicator style</td></tr>
+        <tr><td><code>.interactive()</code></td><td>Hoverable/clickable style</td></tr>
+      </table>
+
+      <!-- Badge -->
+      <h2>Badge</h2>
+      <p>Notification badge. Auto-hides when value is <code>0</code>, <code>null</code>, or <code>undefined</code>.</p>
+      <div class="code-block"><pre><code class="language-javascript">Badge(3)
+Badge(unreadCount).tint('accent')
+Badge('').dot()</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.tint(color)</code></td><td>Background color (token)</td></tr>
+        <tr><td><code>.dot()</code></td><td>Dot style (no text)</td></tr>
+      </table>
+
+      <!-- SegmentedControl -->
+      <h2>SegmentedControl</h2>
+      <div class="code-block"><pre><code class="language-javascript">const view = State('list');
+
+SegmentedControl(view, ['list', 'grid', 'table'])
+SegmentedControl(view, [
+  { value: 'list', label: 'List' },
+  { value: 'grid', label: 'Grid' }
+])</code></pre></div>
+
+      <!-- FormField -->
+      <h2>FormField</h2>
+      <p>Label + control + optional description/error wrapper.</p>
+      <div class="code-block"><pre><code class="language-javascript">const email = State('');
+
+FormField('Email', TextField(email, 'you@example.com'), {
+  description: 'We will never share your email.',
+  error: 'Please enter a valid email.'
+})</code></pre></div>
+
+      <!-- SearchField -->
+      <h2>SearchField</h2>
+      <p>Search input with icon, clear button, and built-in debounce.</p>
+      <div class="code-block"><pre><code class="language-javascript">const query = State('');
+
+SearchField(query, 'Search documents...')
+  .debounce(300)  // 300ms debounce</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.debounce(ms)</code></td><td>Debounce delay (default: 200ms)</td></tr>
+      </table>
+
+      <!-- Spinner -->
+      <h2>Spinner</h2>
+      <div class="code-block"><pre><code class="language-javascript">Spinner()     // 20px default
+Spinner(32)   // 32px
+Spinner().size(40)</code></pre></div>
+
+      <!-- Disclosure -->
+      <h2>Disclosure</h2>
+      <p>Collapsible section with chevron toggle.</p>
+      <div class="code-block"><pre><code class="language-javascript">Disclosure('Advanced Settings', () =>
+  VStack(
+    Toggle(debug, 'Debug mode'),
+    Toggle(verbose, 'Verbose logging')
+  ).spacing(2)
+).isExpanded(expanded).animates()</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.isExpanded(signal)</code></td><td>Control expanded state externally</td></tr>
+        <tr><td><code>.animates()</code></td><td>Fade animation on expand</td></tr>
+      </table>
+
+      <!-- Skeleton -->
+      <h2>Skeleton</h2>
+      <p>Loading placeholder.</p>
+      <div class="code-block"><pre><code class="language-javascript">Skeleton()                  // single line
+Skeleton().lines(3)         // three lines
+Skeleton().circle(48)       // circular avatar placeholder</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.lines(n)</code></td><td>Multiple line skeletons (default 3)</td></tr>
+        <tr><td><code>.circle(size?)</code></td><td>Circle skeleton (default 40px)</td></tr>
+      </table>
+
+      <footer class="docs-footer">
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

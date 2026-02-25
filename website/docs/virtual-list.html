@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VirtualList — AetherUI</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>VirtualList</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>VirtualList</h1>
+      <p class="subtitle">Virtualized scrolling for large datasets. Only renders the visible rows plus a configurable overscan buffer.</p>
+
+      <h2>When to Use</h2>
+      <ul>
+        <li>Lists with hundreds or thousands of items</li>
+        <li>All rows have the same fixed height</li>
+        <li>You need smooth scrolling performance</li>
+      </ul>
+
+      <p>For shorter lists (under ~100 items), use <a href="containers.html">ForEach</a> or <a href="containers.html">List</a> instead — the virtualization overhead isn't worth it for small datasets.</p>
+
+      <h2>Basic Usage</h2>
+      <div class="code-block"><pre><code class="language-javascript">const items = State(generateItems(10000));
+
+VirtualList(
+  items,
+  item => item.id,       // key function (required)
+  item => HStack(        // render function
+    Text(item.name),
+    Spacer(),
+    Text(item.date).foreground('tertiary')
+  ).padding(3),
+  { rowHeight: 44, overscan: 5 }
+).frame({ height: 400 })</code></pre></div>
+
+      <h2>API</h2>
+      <table class="api-table">
+        <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+        <tr><td><code>items</code></td><td>Signal or Array</td><td>Data source</td></tr>
+        <tr><td><code>keyFn</code></td><td>Function</td><td>Returns unique key per item (required)</td></tr>
+        <tr><td><code>renderFn</code></td><td>Function</td><td>Returns View for each item</td></tr>
+        <tr><td><code>opts</code></td><td>Object</td><td>Configuration options</td></tr>
+      </table>
+
+      <h3>Options</h3>
+      <table class="api-table">
+        <tr><th>Option</th><th>Default</th><th>Description</th></tr>
+        <tr><td><code>rowHeight</code></td><td>44</td><td>Fixed height of each row in pixels</td></tr>
+        <tr><td><code>overscan</code></td><td>5</td><td>Extra rows to render above and below the viewport</td></tr>
+      </table>
+
+      <h3>Modifiers</h3>
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.dividers()</code></td><td>Show borders between rows</td></tr>
+      </table>
+
+      <h2>How It Works</h2>
+      <p>VirtualList maintains a pool of recycled DOM elements. On scroll, it calculates which rows are visible and repositions existing elements via <code>transform: translateY()</code>.</p>
+
+      <ol>
+        <li>A sentinel element sets the total scrollable height based on <code>items.length * rowHeight</code></li>
+        <li>On scroll, the visible range is computed: <code>start = max(0, floor(scrollTop / rowHeight) - overscan)</code></li>
+        <li>Rows outside the range are returned to the pool</li>
+        <li>New rows are taken from the pool or created fresh</li>
+        <li>Each row is positioned absolutely via <code>translateY</code></li>
+      </ol>
+
+      <h2>Performance Notes</h2>
+      <ul>
+        <li><strong>Fixed row height required</strong> — all rows must be the same height for position calculations to work</li>
+        <li><strong>Key function required</strong> — used to track which items map to which DOM elements</li>
+        <li><strong>Overscan</strong> — higher values mean smoother fast scrolling but more DOM elements. 5 is a good default.</li>
+        <li><strong>Reactive data</strong> — when the items signal changes, VirtualList resets and re-renders the visible range</li>
+      </ul>
+
+      <h2>Example with Reactive Data</h2>
+      <div class="code-block"><pre><code class="language-javascript">const searchQuery = State('');
+const allItems = State(loadItems());
+
+const filtered = Computed(() => {
+  const q = searchQuery.value.toLowerCase();
+  if (!q) return allItems.value;
+  return allItems.value.filter(i =>
+    i.name.toLowerCase().includes(q)
+  );
+});
+
+VStack(
+  SearchField(searchQuery, 'Filter items...'),
+  VirtualList(filtered, i => i.id, i =>
+    Text(i.name).padding(3),
+    { rowHeight: 40 }
+  ).flex()
+).spacing(3).frame({ height: '100%' })</code></pre></div>
+
+      <footer class="docs-footer">
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

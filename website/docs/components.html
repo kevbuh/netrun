@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Components — AetherUI</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Components</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Components</h1>
+      <p class="subtitle">Reusable functional components with automatic disposal scoping. Define once, instantiate anywhere.</p>
+
+      <h2>Component</h2>
+      <p>Register a named component. The render function receives <code>props</code> and <code>children</code>, returns a View. Any <code>State</code>, <code>Computed</code>, or <code>Effect</code> created inside the render function is automatically disposed when the component's view is disposed.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const Counter = Component('Counter', (props, children) => {
+  const count = State(props.initial || 0);
+
+  return VStack(
+    Text(() => `Count: ${count.value}`).font('title2'),
+    HStack(
+      Button('-').onTap(() => count.value--),
+      Button('+').onTap(() => count.value++)
+    ).spacing(2),
+    ...children
+  ).spacing(3).padding(4);
+});</code></pre></div>
+
+      <h3>Usage</h3>
+      <div class="code-block"><pre><code class="language-javascript">// With props
+const counter = Counter({ initial: 10 });
+
+// With children
+const counter = Counter({ initial: 0 },
+  Text('Extra content below the buttons')
+);
+
+// No props, just children
+const counter = Counter(
+  Text('Child view')
+);</code></pre></div>
+
+      <h3>How Props Work</h3>
+      <p>The first argument is treated as props if it's a plain object (not a View). Otherwise, all arguments are treated as children.</p>
+      <div class="code-block"><pre><code class="language-javascript">// props = { initial: 5 }, children = [Text('Hi')]
+Counter({ initial: 5 }, Text('Hi'))
+
+// props = {}, children = [Text('Hi')]
+Counter(Text('Hi'))</code></pre></div>
+
+      <h2>Disposal Scoping</h2>
+      <p>Signals and effects created inside a component's render function are tracked and automatically disposed when the component's root view is disposed. This prevents memory leaks.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const Timer = Component('Timer', () => {
+  const elapsed = State(0);
+
+  // This effect is scoped to the component.
+  // It will be cleaned up when the Timer view is disposed.
+  const interval = setInterval(() => elapsed.value++, 1000);
+
+  const view = Text(() => `${elapsed.value}s`).font('title1');
+
+  view.onDisappear(() => clearInterval(interval));
+  return view;
+});</code></pre></div>
+
+      <h2>defineComponent</h2>
+      <p>Alias for <code>Component</code> (backward compatibility).</p>
+      <div class="code-block"><pre><code class="language-javascript">const MyWidget = defineComponent('MyWidget', (props) => {
+  return Text(props.label);
+});</code></pre></div>
+
+      <h2>Registry</h2>
+      <p>Components are registered globally by name. You can look them up or list all registered components.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">// Look up a registered component
+const CounterFactory = getComponent('Counter');
+if (CounterFactory) {
+  const c = CounterFactory({ initial: 42 });
+}
+
+// List all registered component names
+const names = listComponents();
+// ['Counter', 'Timer', 'MyWidget']</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Function</th><th>Description</th></tr>
+        <tr><td><code>Component(name, renderFn)</code></td><td>Register and return a component factory</td></tr>
+        <tr><td><code>defineComponent(name, fn)</code></td><td>Alias for Component</td></tr>
+        <tr><td><code>getComponent(name)</code></td><td>Look up a registered component by name (or <code>null</code>)</td></tr>
+        <tr><td><code>listComponents()</code></td><td>Return array of all registered component names</td></tr>
+      </table>
+
+      <h2>Worked Example</h2>
+      <p>A reusable card component with header, body, and optional footer:</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const Card = Component('Card', (props, children) => {
+  return VStack(
+    // Header
+    HStack(
+      Text(props.title).font('headline'),
+      Spacer(),
+      props.action
+        ? Button(props.action.label).ghost().small()
+            .onTap(props.action.handler)
+        : null
+    ),
+
+    // Body
+    ...children
+
+  ).spacing(3)
+   .padding(4)
+   .background('raised')
+   .cornerRadius('lg')
+   .shadow('card');
+});
+
+// Usage
+Card({ title: 'Recent Activity', action: { label: 'View All', handler: viewAll } },
+  ForEach(activities, a => a.id, a =>
+    HStack(Text(a.label), Spacer(), Text(a.time).foreground('tertiary'))
+  ).spacing(2)
+)</code></pre></div>
+
+      <div class="callout callout-tip">
+        <strong>Tip</strong>
+        Components set a <code>data-component</code> attribute on the root element, which is useful for debugging and styling.
+      </div>
+
+      <footer class="docs-footer">
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

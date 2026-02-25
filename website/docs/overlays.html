@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlays — AetherUI</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Overlays</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Overlays</h1>
+      <p class="subtitle">Modal surfaces that float above the main content — sheets, alerts, popovers, menus, and toast notifications.</p>
+
+      <div class="callout callout-info">
+        <strong>Shared behavior</strong>
+        All overlays mount to <code>document.body</code>, dismiss on backdrop click or Escape key, and integrate with the Motion animation system.
+      </div>
+
+      <!-- Sheet -->
+      <h2>Sheet</h2>
+      <p>Bottom drawer modal with backdrop. Animates up from the bottom with a spring curve.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const showSheet = State(false);
+
+const sheet = Sheet(showSheet, () =>
+  VStack(
+    Text('Sheet Title').font('title2'),
+    Text('Sheet content goes here.'),
+    Button('Done').primary().onTap(() => sheet.dismiss())
+  ).spacing(4).padding(6)
+);
+
+// Trigger
+Button('Open Sheet').onTap(() => sheet.show())</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>Sheet(isPresented, contentFn)</code></td><td>Create a bottom sheet</td></tr>
+        <tr><td><code>.show()</code></td><td>Present the sheet</td></tr>
+        <tr><td><code>.dismiss()</code></td><td>Hide the sheet</td></tr>
+        <tr><td><code>.dispose()</code></td><td>Remove from DOM and clean up</td></tr>
+      </table>
+
+      <!-- Alert -->
+      <h2>Alert</h2>
+      <p>Centered modal dialog with title, message, and action buttons. Animates with a snappy scale spring.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const showAlert = State(false);
+
+const alert = Alert(showAlert, {
+  title: 'Delete Item?',
+  message: 'This action cannot be undone.',
+  actions: [
+    { label: 'Cancel', style: 'cancel', handler: () => alert.dismiss() },
+    { label: 'Delete', style: 'destructive', handler: () => deleteItem() }
+  ]
+});
+
+Button('Delete').danger().onTap(() => alert.show())</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>Alert(isPresented, opts)</code></td><td>Create an alert dialog</td></tr>
+        <tr><td><code>.show()</code></td><td>Present the alert</td></tr>
+        <tr><td><code>.dismiss()</code></td><td>Hide the alert</td></tr>
+        <tr><td><code>.dispose()</code></td><td>Clean up</td></tr>
+      </table>
+
+      <h4>Action Styles</h4>
+      <table class="api-table">
+        <tr><th>Style</th><th>Description</th></tr>
+        <tr><td><code>'primary'</code></td><td>Primary action (filled button)</td></tr>
+        <tr><td><code>'destructive'</code></td><td>Destructive action (red)</td></tr>
+        <tr><td><code>'cancel'</code></td><td>Cancel action (ghost style)</td></tr>
+      </table>
+
+      <!-- Popover -->
+      <h2>Popover</h2>
+      <p>Floating panel anchored to another view. Positions itself below the anchor with collision detection (flips above if needed).</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const showPopover = State(false);
+const anchor = Button('Info').ghost();
+
+const popover = Popover(anchor, showPopover, () =>
+  VStack(
+    Text('Popover Content').font('subhead'),
+    Text('Additional details here.').foreground('secondary')
+  ).padding(4).frame({ width: 240 })
+);
+
+anchor.onTap(() => popover.show())</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>Popover(anchor, isPresented, contentFn)</code></td><td>Create a popover anchored to a view</td></tr>
+        <tr><td><code>.show()</code></td><td>Present the popover</td></tr>
+        <tr><td><code>.dismiss()</code></td><td>Hide the popover</td></tr>
+        <tr><td><code>.dispose()</code></td><td>Clean up</td></tr>
+      </table>
+
+      <!-- Menu -->
+      <h2>Menu</h2>
+      <p>Dropdown menu with support for anchor-toggle, context menu positioning, icons, dividers, custom views, and trailing content.</p>
+
+      <h3>Anchor Menu</h3>
+      <div class="code-block"><pre><code class="language-javascript">const btn = Button('Options').ghost();
+
+const menu = Menu(btn, [
+  { label: 'Edit', icon: '&lt;svg&gt;...&lt;/svg&gt;', handler: () => edit() },
+  { label: 'Duplicate', handler: () => duplicate() },
+  { divider: true },
+  { label: 'Delete', destructive: true, handler: () => remove() }
+]);
+// Menu toggles automatically on anchor click</code></pre></div>
+
+      <h3>Context Menu</h3>
+      <div class="code-block"><pre><code class="language-javascript">const ctxMenu = Menu(null, [
+  { label: 'Cut', handler: () => cut() },
+  { label: 'Copy', handler: () => copy() },
+  { label: 'Paste', handler: () => paste() }
+]);
+
+someView.on('contextmenu', e => {
+  e.preventDefault();
+  ctxMenu.showAt(e.clientX, e.clientY);
+});</code></pre></div>
+
+      <h3>Menu Item Options</h3>
+      <table class="api-table">
+        <tr><th>Property</th><th>Description</th></tr>
+        <tr><td><code>label</code></td><td>Menu item text</td></tr>
+        <tr><td><code>handler</code></td><td>Click callback</td></tr>
+        <tr><td><code>icon</code></td><td>HTML icon string (e.g. SVG)</td></tr>
+        <tr><td><code>trailing</code></td><td>Right-side content (View, HTMLElement, or string)</td></tr>
+        <tr><td><code>divider</code></td><td><code>true</code> for a separator line</td></tr>
+        <tr><td><code>view</code></td><td>Custom view row (function returning View, or View)</td></tr>
+        <tr><td><code>destructive</code></td><td><code>true</code> for red/destructive styling</td></tr>
+      </table>
+
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>.show()</code></td><td>Show menu below anchor</td></tr>
+        <tr><td><code>.showAt(x, y)</code></td><td>Show at position (context menu)</td></tr>
+        <tr><td><code>.dismiss()</code></td><td>Hide menu</td></tr>
+        <tr><td><code>.isOpen</code></td><td>State signal for open/closed</td></tr>
+        <tr><td><code>.dispose()</code></td><td>Clean up</td></tr>
+      </table>
+
+      <!-- Toast -->
+      <h2>Toast</h2>
+      <p>Ephemeral notification at the bottom of the screen. Auto-dismisses after a duration.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">// Direct creation
+const t = Toast('File saved successfully');
+t.dismiss(); // dismiss early
+
+// With duration
+Toast('Upload complete', { duration: 5000 });
+
+// Global shortcut
+showToast('Copied to clipboard');</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Signature</th><th>Description</th></tr>
+        <tr><td><code>Toast(message, opts?)</code></td><td>Show a toast notification</td></tr>
+        <tr><td><code>showToast(message, opts?)</code></td><td>Global alias (on <code>window</code>)</td></tr>
+      </table>
+
+      <h4>Options</h4>
+      <table class="api-table">
+        <tr><th>Option</th><th>Default</th><th>Description</th></tr>
+        <tr><td><code>duration</code></td><td>3000</td><td>Auto-dismiss delay in milliseconds</td></tr>
+      </table>
+
+      <footer class="docs-footer">
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

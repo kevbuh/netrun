@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Getting Started — AetherUI</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand">
+        <img src="../icon.png" alt="Netrun">
+        Netrun
+      </a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Getting Started</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Getting Started</h1>
+      <p class="subtitle">AetherUI is a SolidJS-style reactive UI framework for building interfaces with declarative, composable views.</p>
+
+      <h2>What is AetherUI?</h2>
+      <p>AetherUI provides a signal-based reactivity system and a rich set of UI primitives inspired by SwiftUI. It runs in the browser with no build step — plain JavaScript, no bundler required.</p>
+      <p>Key ideas:</p>
+      <ul>
+        <li><strong>Signals</strong> — fine-grained reactivity via <code>State</code>, <code>Computed</code>, and <code>Effect</code></li>
+        <li><strong>Declarative views</strong> — composable view tree with modifier chaining</li>
+        <li><strong>Token system</strong> — spacing, colors, and radii resolve to CSS custom properties</li>
+        <li><strong>No virtual DOM</strong> — direct DOM updates, minimal overhead</li>
+      </ul>
+
+      <h2>Script Loading Order</h2>
+      <p>AetherUI files must be loaded in order. Each file builds on the previous:</p>
+      <div class="code-block"><pre><code class="language-html">&lt;!-- 1. Reactivity primitives --&gt;
+&lt;script src="aether/ui/state.js"&gt;&lt;/script&gt;
+
+&lt;!-- 2. Base View class + modifiers --&gt;
+&lt;script src="aether/ui/view.js"&gt;&lt;/script&gt;
+
+&lt;!-- 3. Layout &amp; text primitives --&gt;
+&lt;script src="aether/ui/primitives.js"&gt;&lt;/script&gt;
+
+&lt;!-- 4. Interactive controls --&gt;
+&lt;script src="aether/ui/controls.js"&gt;&lt;/script&gt;
+
+&lt;!-- 5. Reactive containers --&gt;
+&lt;script src="aether/ui/containers.js"&gt;&lt;/script&gt;
+
+&lt;!-- 6. Overlays (Sheet, Alert, Popover, Menu, Toast) --&gt;
+&lt;script src="aether/ui/overlay.js"&gt;&lt;/script&gt;
+
+&lt;!-- 7. Component API --&gt;
+&lt;script src="aether/ui/component.js"&gt;&lt;/script&gt;
+
+&lt;!-- 8. Main assembly (mount, append, serialize, globals) --&gt;
+&lt;script src="aether/ui/aether-ui.js"&gt;&lt;/script&gt;
+
+&lt;!-- 9. VirtualList (optional) --&gt;
+&lt;script src="aether/ui/virtual.js"&gt;&lt;/script&gt;</code></pre></div>
+
+      <p>After loading <code>aether-ui.js</code>, all primitives are available on <code>window</code> (e.g. <code>VStack</code>, <code>Button</code>, <code>State</code>).</p>
+
+      <h2>Hello World</h2>
+      <div class="code-block"><pre><code class="language-javascript">const name = State('World');
+
+const view = VStack(
+  Text('Hello, AetherUI!').font('title1'),
+  HStack(
+    Text('Name:'),
+    TextField(name, 'Enter name')
+  ).spacing(2),
+  Text(() => `Hello, ${name.value}!`).bold()
+).spacing(4).padding(6);
+
+AetherUI.mount(view, document.getElementById('app'));</code></pre></div>
+
+      <p>Type in the text field and the greeting updates instantly — no re-renders, no diffing.</p>
+
+      <h2>Reactivity at a Glance</h2>
+      <div class="code-block"><pre><code class="language-javascript">// Signals hold reactive values
+const count = State(0);
+
+// Computed values derive from signals
+const doubled = Computed(() => count.value * 2);
+
+// Effects run side effects when dependencies change
+Effect(() => {
+  console.log('Count is:', count.value);
+});
+
+// Update the signal — computed + effect re-run automatically
+count.value = 5;  // logs "Count is: 5", doubled.value === 10</code></pre></div>
+
+      <h2>Modifier Chaining</h2>
+      <p>Every view supports fluent modifier chaining. Modifiers resolve semantic tokens to CSS custom properties:</p>
+      <div class="code-block"><pre><code class="language-javascript">Text('Styled text')
+  .font('headline')
+  .foreground('secondary')
+  .padding(4)           // → var(--nr-space-4) = 16px
+  .background('surface') // → var(--nr-bg-surface)
+  .cornerRadius('md')   // → var(--nr-radius-md) = 8px
+  .shadow('card')
+  .onTap(() => alert('Tapped!'))</code></pre></div>
+
+      <h2>Explore the Docs</h2>
+      <div class="link-grid">
+        <a class="link-card" href="state.html">
+          <strong>Reactivity</strong>
+          <span>State, Computed, Effect, Store, Binding</span>
+        </a>
+        <a class="link-card" href="views.html">
+          <strong>Views &amp; Modifiers</strong>
+          <span>Base View class and all modifier methods</span>
+        </a>
+        <a class="link-card" href="primitives.html">
+          <strong>Primitives</strong>
+          <span>VStack, HStack, Text, Grid, Image, Icon</span>
+        </a>
+        <a class="link-card" href="controls.html">
+          <strong>Controls</strong>
+          <span>Button, TextField, Toggle, Slider, TabView</span>
+        </a>
+        <a class="link-card" href="containers.html">
+          <strong>Containers</strong>
+          <span>ForEach, List, Show, Switch, Section</span>
+        </a>
+        <a class="link-card" href="overlays.html">
+          <strong>Overlays</strong>
+          <span>Sheet, Alert, Popover, Menu, Toast</span>
+        </a>
+        <a class="link-card" href="components.html">
+          <strong>Components</strong>
+          <span>Reusable component API with auto-disposal</span>
+        </a>
+        <a class="link-card" href="tokens.html">
+          <strong>Tokens &amp; Theming</strong>
+          <span>Design tokens, CSS custom properties, themes</span>
+        </a>
+      </div>
+
+      <footer class="docs-footer">
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

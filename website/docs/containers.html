@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Containers — AetherUI</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Containers</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Containers</h1>
+      <p class="subtitle">Reactive containers for conditional rendering, dynamic lists, and structural grouping.</p>
+
+      <!-- ForEach -->
+      <h2>ForEach</h2>
+      <p>Reactive list renderer. When the items signal changes, views are efficiently reconciled using an optional key function.</p>
+
+      <div class="code-block"><pre><code class="language-javascript">const items = State(['Apple', 'Banana', 'Cherry']);
+
+// Simple (no key — full rebuild on change)
+ForEach(items, item => Text(item))
+
+// With key function (efficient reconciliation)
+ForEach(items, item => item, item =>
+  HStack(
+    Text(item),
+    Spacer(),
+    Button('Remove').ghost().small()
+  )
+).spacing(2)</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Signature</th><th>Description</th></tr>
+        <tr><td><code>ForEach(items, renderFn)</code></td><td>No key — rebuilds all on change</td></tr>
+        <tr><td><code>ForEach(items, keyFn, renderFn)</code></td><td>Keyed — only adds/removes changed items</td></tr>
+      </table>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.spacing(s)</code></td><td>Gap between items (space token)</td></tr>
+        <tr><td><code>.itemTransition(config)</code></td><td>Animate item enter/exit. Preset: <code>'fade'</code>, <code>'slide'</code>, <code>'scale'</code> or custom config.</td></tr>
+      </table>
+
+      <h3>Item Transitions</h3>
+      <div class="code-block"><pre><code class="language-javascript">// Named preset
+ForEach(items, i => i.id, renderItem)
+  .itemTransition('fade')
+
+// Custom transition
+ForEach(items, i => i.id, renderItem)
+  .itemTransition({
+    in: { opacity: [0, 1], y: [-20, 0], duration: 200 },
+    out: { opacity: [1, 0], duration: 150 }
+  })</code></pre></div>
+
+      <p>Available presets: <code>'fade'</code> (opacity), <code>'slide'</code> (opacity + translateY), <code>'scale'</code> (opacity + scale). Each preset automatically staggers items on insert.</p>
+
+      <!-- List -->
+      <h2>List</h2>
+      <p>Styled wrapper around ForEach with dividers and inset support.</p>
+      <div class="code-block"><pre><code class="language-javascript">List(items, item => item.id, item =>
+  HStack(
+    Text(item.name),
+    Spacer(),
+    Text(item.date).foreground('tertiary').font('footnote')
+  ).padding(3)
+).dividers().inset()</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.dividers()</code></td><td>Show dividers between items</td></tr>
+        <tr><td><code>.inset()</code></td><td>Add padding around the list</td></tr>
+      </table>
+
+      <!-- Group -->
+      <h2>Group</h2>
+      <p>Logical grouping with <code>display: contents</code> — groups children without adding a DOM wrapper that affects layout.</p>
+      <div class="code-block"><pre><code class="language-javascript">VStack(
+  Group(
+    Text('A'),
+    Text('B')
+  ),
+  Text('C')
+).spacing(2) // gap applies uniformly to A, B, C</code></pre></div>
+
+      <!-- Section -->
+      <h2>Section</h2>
+      <p>Header + content grouping.</p>
+      <div class="code-block"><pre><code class="language-javascript">Section('Account Settings',
+  FormField('Name', TextField(name)),
+  FormField('Email', TextField(email))
+).spacing(3)
+
+// Custom header view
+Section(
+  Text('Advanced').font('headline').foreground('secondary'),
+  Toggle(debug, 'Debug mode')
+)</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.spacing(s)</code></td><td>Gap in the content area</td></tr>
+      </table>
+
+      <!-- Show -->
+      <h2>Show</h2>
+      <p>Conditional rendering. Shows or hides content based on a signal. Content is created/destroyed, not just hidden.</p>
+      <div class="code-block"><pre><code class="language-javascript">const isLoggedIn = State(false);
+
+Show(isLoggedIn,
+  () => Text('Welcome back!'),
+  () => Button('Log in').primary()
+)
+
+// With transition
+Show(isVisible,
+  () => DetailPanel()
+).transition('fade')
+
+// Lazy rendering (deferred via requestIdleCallback)
+Show(isReady,
+  () => HeavyComponent()
+).lazy()</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.transition(config)</code></td><td>Animate show/hide. Preset: <code>'fade'</code>, <code>'slide'</code>, <code>'scale'</code></td></tr>
+        <tr><td><code>.lazy()</code></td><td>Defer rendering via <code>requestIdleCallback</code></td></tr>
+      </table>
+
+      <!-- Switch -->
+      <h2>Switch</h2>
+      <p>Multi-branch conditional rendering. Like a <code>switch</code> statement for views.</p>
+      <div class="code-block"><pre><code class="language-javascript">const page = State('home');
+
+Switch(page, {
+  home:     () => HomePage(),
+  settings: () => SettingsPage(),
+  profile:  () => ProfilePage(),
+  default:  () => Text('Not found')
+}).transition('fade').lazy()</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Modifier</th><th>Description</th></tr>
+        <tr><td><code>.transition(config)</code></td><td>Animate branch transitions</td></tr>
+        <tr><td><code>.lazy()</code></td><td>Defer rendering</td></tr>
+      </table>
+
+      <!-- EmptyState -->
+      <h2>EmptyState</h2>
+      <p>Centered placeholder for empty content areas.</p>
+      <div class="code-block"><pre><code class="language-javascript">EmptyState({
+  icon: 'inbox',
+  title: 'No messages',
+  message: 'Your inbox is empty.',
+  action: {
+    label: 'Compose',
+    handler: () => openCompose()
+  }
+})</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Option</th><th>Description</th></tr>
+        <tr><td><code>icon</code></td><td>Icon name string</td></tr>
+        <tr><td><code>title</code></td><td>Title text</td></tr>
+        <tr><td><code>message</code></td><td>Description text</td></tr>
+        <tr><td><code>action</code></td><td><code>{ label, handler }</code> — optional action button</td></tr>
+      </table>
+
+      <footer class="docs-footer">
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>
