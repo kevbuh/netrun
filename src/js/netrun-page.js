@@ -107,6 +107,7 @@ const _FEATURES = [
   { icon: 'bookmark',   title: 'Library',   desc: 'Saved bookmarks, groups, and reading list.',             action: () => browseNavigate('netrun://bookmarks') },
   { icon: 'clock',      title: 'History',   desc: 'Browse and search history.',                            action: () => browseNavigate('netrun://history') },
   { icon: 'terminal',   title: 'Terminal',   desc: 'Shell with tabs, splits, and themes.',                   action: () => openTerminalPage() },
+  { icon: 'code',       title: 'Implementations', desc: 'Paper implementation sessions.',                    action: () => browseNavigate('netrun://implementations') },
   { icon: 'research',   title: 'Docs',      desc: 'API reference, shortcuts, and help.',                     action: () => browseNavigate('netrun://docs') },
 ];
 

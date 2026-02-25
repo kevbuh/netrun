@@ -34,7 +34,7 @@ export function _nerdPanelRegister() {
       row.add(Text('Nerd Mode').className('nerd-header-label'));
       var closeBtn = new View('button').className('nerd-panel-close-btn')
         .attr('title', 'Hide panel')
-        .add(RawHTML(icon('x', { size: 14 })))
+        .add(RawHTML(icon('close', { size: 14 })))
         .onTap(function() { togglePanel(); });
       row.add(closeBtn);
       AetherUI.append(row, el);
@@ -497,19 +497,25 @@ function _renderCodeTab(container) {
     return;
   }
 
-  // Previous sessions
+  // Previous sessions (via junction table — finds sessions linked to this paper)
   if (window.electronAPI && window.electronAPI.implList && tab) {
     electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
-      if (sessions && !sessions.error && sessions.length) {
-        var sessView = new View('div').className('nerd-section').add(
-          Text('Previous Sessions').className('nerd-section-title')
-        );
+      if (!sessions || sessions.error) sessions = [];
+
+      var sessView = new View('div').className('nerd-section').add(
+        Text('Sessions').className('nerd-section-title')
+      );
+
+      if (sessions.length) {
         sessions.forEach(function(s) {
           var age = (Date.now() / 1000 - s.created_at);
           var ageStr = age < 3600 ? Math.floor(age / 60) + 'm ago' : age < 86400 ? Math.floor(age / 3600) + 'h ago' : Math.floor(age / 86400) + 'd ago';
           var card = new View('div').className('impl-session-card');
+          var titleText = s.folder_path.split('/').pop();
+          var paperCount = s.paper_count || 0;
+          if (paperCount > 1) titleText += ' (' + paperCount + ' papers)';
           card.add(
-            Text(s.folder_path.split('/').pop()).className('impl-session-card-title'),
+            Text(titleText).className('impl-session-card-title'),
             Text(ageStr).className('impl-session-card-meta')
           );
           card.onTap(function() {
@@ -529,12 +535,51 @@ function _renderCodeTab(container) {
           card.add(delBtn);
           sessView.add(card);
         });
-        // Prepend sessions into wrap
-        if (wrap.el.firstChild) {
-          wrap.el.insertBefore(sessView.el, wrap.el.firstChild);
-        } else {
-          wrap.el.appendChild(sessView.el);
-        }
+      }
+
+      // "Link to existing implementation" button
+      var linkBtn = Button('Link to existing\u2026').className('nerd-cache-refetch').styles({ marginTop: '6px' });
+      linkBtn.onTap(function() {
+        // Fetch all sessions to let user pick one
+        electronAPI.implList().then(function(allSessions) {
+          if (!allSessions || allSessions.error || !allSessions.length) {
+            if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('No implementation sessions exist');
+            return;
+          }
+          // Filter out sessions already linked to this paper
+          var linkedIds = new Set(sessions.map(function(s) { return s.id; }));
+          var available = allSessions.filter(function(s) { return !linkedIds.has(s.id); });
+          if (!available.length) {
+            if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('All sessions already linked');
+            return;
+          }
+          // Show menu picker
+          var items = available.map(function(s) {
+            var label = s.paper_title || s.folder_path.split('/').pop() || 'Untitled';
+            if (label.length > 45) label = label.slice(0, 43) + '\u2026';
+            return {
+              label: label,
+              handler: function() {
+                var paperTitle = (state && state.s2Data && state.s2Data.title) || tab.title || '';
+                electronAPI.implLinkPaper(s.id, tab.url, paperTitle).then(function() {
+                  if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Paper linked to session');
+                  _renderCodeTab(container);
+                });
+              }
+            };
+          });
+          var menu = Menu(null, items);
+          var rect = linkBtn.el.getBoundingClientRect();
+          menu.showAt(rect.left, rect.bottom + 4);
+        });
+      });
+      sessView.add(linkBtn);
+
+      // Prepend sessions into wrap
+      if (wrap.el.firstChild) {
+        wrap.el.insertBefore(sessView.el, wrap.el.firstChild);
+      } else {
+        wrap.el.appendChild(sessView.el);
       }
     });
   }

@@ -234,6 +234,10 @@ export function browseNewTab(url) {
     if (typeof openChatPage === 'function') openChatPage(threadId || null);
     return;
   }
+  if (trimUrl === 'netrun://implementations' || trimUrl === 'netrun://implementations/') {
+    if (typeof window.openImplementations === 'function') window.openImplementations();
+    return;
+  }
   const win = window._getCurrentWindow();
   if (!win) return;
 
@@ -296,6 +300,24 @@ export function openLocalPdf(file) {
   }
 }
 
+export function openLocalPdfByPath(filePath) {
+  const name = filePath.split('/').pop();
+  const pdfUrl = '/api/local-file?path=' + encodeURIComponent(filePath);
+  const url = 'file://' + filePath;
+  browseNewTab(url);
+  // Set localPath on the newly created tab so PDF viewer can proxy the file
+  const win = window._getCurrentWindow();
+  if (win) {
+    const tab = win.tabs.find(t => t.id === win.activeTab);
+    if (tab) {
+      tab.localPath = filePath;
+      tab.pdfUrl = pdfUrl;
+      tab.title = name;
+      _browseRenderTabs();
+    }
+  }
+}
+
 export async function openLocalPdfDialog() {
   if (typeof electronAPI === 'undefined' || !electronAPI.openFileDialog) return;
   const paths = await electronAPI.openFileDialog();
@@ -310,6 +332,7 @@ export async function openLocalPdfDialog() {
 
 // ── Action registry ──
 window.browseNewTab = browseNewTab;
+window.openLocalPdfByPath = openLocalPdfByPath;
 registerActions({
   browseCreateWindow: () => browseCreateWindow(),
   browseNewTab: () => browseNewTab(),

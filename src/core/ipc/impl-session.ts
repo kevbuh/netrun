@@ -159,6 +159,13 @@ export function registerImplSessionIPC(): void {
         id, opts.paperUrl || '', opts.paperTitle || '', opts.paperAbstract || '', folderPath, agentType, now, now
       );
 
+      // Also insert into junction table
+      if (opts.paperUrl) {
+        prepare(`INSERT OR IGNORE INTO impl_session_papers (session_id, paper_url, paper_title, added_at) VALUES (?, ?, ?, ?)`).run(
+          id, opts.paperUrl, opts.paperTitle || '', now
+        );
+      }
+
       return { id, folderPath };
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
@@ -166,10 +173,26 @@ export function registerImplSessionIPC(): void {
   // ── List sessions ──
   ipcMain.handle('impl:list', (_event, opts?: { paperUrl?: string }) => {
     try {
+      let sessions: any[];
       if (opts?.paperUrl) {
-        return prepare(`SELECT * FROM impl_sessions WHERE paper_url = ? ORDER BY updated_at DESC`).all(opts.paperUrl);
+        // Find sessions linked to this paper via junction table OR legacy paper_url
+        sessions = prepare(`
+          SELECT DISTINCT s.* FROM impl_sessions s
+          LEFT JOIN impl_session_papers sp ON s.id = sp.session_id
+          WHERE s.paper_url = ? OR sp.paper_url = ?
+          ORDER BY s.updated_at DESC
+        `).all(opts.paperUrl, opts.paperUrl);
+      } else {
+        sessions = prepare(`SELECT * FROM impl_sessions ORDER BY updated_at DESC`).all();
       }
-      return prepare(`SELECT * FROM impl_sessions ORDER BY updated_at DESC`).all();
+      // Attach paper count and paper list to each session
+      const paperCountStmt = prepare(`SELECT COUNT(*) as count FROM impl_session_papers WHERE session_id = ?`);
+      const papersStmt = prepare(`SELECT paper_url, paper_title, added_at FROM impl_session_papers WHERE session_id = ? ORDER BY added_at ASC`);
+      for (const s of sessions) {
+        (s as any).paper_count = (paperCountStmt.get((s as any).id) as any)?.count || 0;
+        (s as any).papers = papersStmt.all((s as any).id);
+      }
+      return sessions;
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 
@@ -189,6 +212,32 @@ export function registerImplSessionIPC(): void {
         fs.rmSync(session.folder_path, { recursive: true, force: true });
       }
       return { ok: true };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  // ── Link a paper to a session ──
+  ipcMain.handle('impl:link-paper', (_event, sessionId: string, paperUrl: string, paperTitle?: string) => {
+    try {
+      const now = Date.now() / 1000;
+      prepare(`INSERT OR IGNORE INTO impl_session_papers (session_id, paper_url, paper_title, added_at) VALUES (?, ?, ?, ?)`).run(
+        sessionId, paperUrl, paperTitle || '', now
+      );
+      return { ok: true };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  // ── Unlink a paper from a session ──
+  ipcMain.handle('impl:unlink-paper', (_event, sessionId: string, paperUrl: string) => {
+    try {
+      prepare(`DELETE FROM impl_session_papers WHERE session_id = ? AND paper_url = ?`).run(sessionId, paperUrl);
+      return { ok: true };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
+  // ── List papers for a session ──
+  ipcMain.handle('impl:papers', (_event, sessionId: string) => {
+    try {
+      return prepare(`SELECT paper_url, paper_title, added_at FROM impl_session_papers WHERE session_id = ? ORDER BY added_at ASC`).all(sessionId);
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 

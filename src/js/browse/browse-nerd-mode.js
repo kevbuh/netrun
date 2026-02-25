@@ -24,8 +24,10 @@ function _isPdfTab(tab) {
   return false;
 }
 
-export function _isNerdAutoEligible(url) {
+export function _isNerdAutoEligible(url, tab) {
   if (!url) return false;
+  // Local PDFs opened via nerd:// or Cmd+O
+  if (tab && (tab.localPath || tab.pdfUrl)) return true;
   var lower = url.toLowerCase();
   return lower.endsWith('.pdf') || (lower.includes('/pdf/') && lower.includes('arxiv.org'));
 }

@@ -294,4 +294,24 @@ export function initSchema(db: Database.Database): void {
       updated_at REAL NOT NULL
     );
   `);
+
+  // ── Implementation session ↔ papers junction table (multi-paper support) ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS impl_session_papers (
+      session_id TEXT NOT NULL,
+      paper_url TEXT NOT NULL,
+      paper_title TEXT NOT NULL DEFAULT '',
+      added_at REAL NOT NULL,
+      PRIMARY KEY (session_id, paper_url),
+      FOREIGN KEY (session_id) REFERENCES impl_sessions(id) ON DELETE CASCADE
+    );
+  `);
+
+  // Backfill: insert existing impl_sessions rows into junction table
+  try {
+    db.exec(`
+      INSERT OR IGNORE INTO impl_session_papers (session_id, paper_url, paper_title, added_at)
+      SELECT id, paper_url, paper_title, created_at FROM impl_sessions WHERE paper_url != ''
+    `);
+  } catch { /* ignore if already backfilled */ }
 }

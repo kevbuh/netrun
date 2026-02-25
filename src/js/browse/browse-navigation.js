@@ -109,7 +109,7 @@ export function _browseHandleNavigation(tab, frame) {
     // Reset insight pill to offer state on navigation (don't remove it)
     if (typeof _showAnnotateOfferPill === 'function' && tab.id === _browseActiveTab) _showAnnotateOfferPill(tab);
     // Nerd Mode: auto-re-enable if tab had it on, otherwise show offer pill
-    if (_isNerdAutoEligible(navUrl)) {
+    if (_isNerdAutoEligible(navUrl, tab)) {
       if (typeof window._isNerdMode === 'function' && window._isNerdMode(tab.id)) {
         // Already in nerd mode — will re-init via viewer
       } else if (window._nerdModeSticky && window._nerdModeSticky.has(tab.id)) {

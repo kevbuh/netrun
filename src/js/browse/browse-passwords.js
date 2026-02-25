@@ -452,11 +452,22 @@ export function browseSelectTab(id) {
     if (typeof window.openBookmarks === 'function') window.openBookmarks();
   }
 
+  // Restore implementations page tab if needed
+  if (tab && tab._implementationsPage && !tab.el) {
+    const container = document.getElementById('browse-content');
+    const pageView = new window.View('div').id('browse-implementations-' + tab.id)
+      .className('nr-impl-layout')
+      .cssText('position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;');
+    container.appendChild(pageView.el);
+    tab.el = pageView.el;
+    if (typeof window.openImplementations === 'function') window.openImplementations();
+  }
+
   win.tabs.forEach(t => {
     if (t.el) t.el.style.display = t.id === id ? '' : 'none';
   });
   const urlInput = document.getElementById('browse-url-input');
-  _browseSetUrlDisplay(urlInput, tab ? (tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : tab._netrunPage ? 'netrun://' : tab._bookmarksPage ? 'netrun://bookmarks' : tab._terminalPage ? 'terminal://' : tab.url) : '');
+  _browseSetUrlDisplay(urlInput, tab ? (tab._historyPage ? 'netrun://history' : tab._helpPage ? 'netrun://help' : tab._netrunPage ? 'netrun://' : tab._bookmarksPage ? 'netrun://bookmarks' : tab._implementationsPage ? 'netrun://implementations' : tab._terminalPage ? 'terminal://' : tab.url) : '');
   _browseRenderTabs();
   _browseUpdateSaveBtn();
   window._browseSaveTabs();

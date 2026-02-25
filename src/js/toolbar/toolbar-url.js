@@ -42,7 +42,7 @@ export var _BANGS = {
 export function _browseResolveUrl(input) {
   input = (input || '').trim();
   if (!input) return 'https://www.google.com';
-  if (/^(https?|file|blob|data|aether|chat):\/\//i.test(input)) return input.replace(/\s+/g, '');
+  if (/^(https?|file|blob|data|aether|chat|nerd):\/\//i.test(input)) return input.replace(/\s+/g, '');
   if (/^\//.test(input)) {
     var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
     if (tab && tab.url) {
@@ -82,6 +82,10 @@ export function browseNavigate(input) {
     if (typeof window.openBookmarks === 'function') window.openBookmarks();
     return;
   }
+  if (cmd === '/implementations' || cmd === 'netrun://implementations' || cmd === 'netrun://implementations/') {
+    if (typeof window.openImplementations === 'function') window.openImplementations();
+    return;
+  }
   if (cmd === '/upload') {
     var fi = document.getElementById('browse-pdf-file-input');
     if (fi) { fi.click(); return; }
@@ -105,6 +109,11 @@ export function browseNavigate(input) {
     if (typeof window.openTerminalPage === 'function') window.openTerminalPage();
     return;
   }
+  if (/^nerd:\/\//i.test(cmd)) {
+    var nerdPath = (input || '').trim().replace(/^nerd:\/\//i, '');
+    if (nerdPath && typeof window.openLocalPdfByPath === 'function') window.openLocalPdfByPath(nerdPath);
+    return;
+  }
   var url = _browseResolveUrl(input);
   var trimmed = (input || '').trim();
   if (trimmed && url.startsWith('https://www.google.com/search?q=')) {
@@ -113,7 +122,7 @@ export function browseNavigate(input) {
   var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
   if (!tab) { if (typeof window.browseNewTab === 'function') window.browseNewTab(url); return; }
   // Tear down special pages
-  if (tab._historyPage || tab._helpPage || tab._netrunPage || tab._chatPage || tab._terminalPage || tab._bookmarksPage) {
+  if (tab._historyPage || tab._helpPage || tab._netrunPage || tab._chatPage || tab._terminalPage || tab._bookmarksPage || tab._implementationsPage) {
     if (tab._chatPage && typeof window.chatViewCleanupMorph === 'function') {
       var ntpMorphed = document.getElementById('browse-content');
       var morphEl = ntpMorphed ? ntpMorphed.querySelector('.browse-ntp.chat-mode') : null;
@@ -123,7 +132,7 @@ export function browseNavigate(input) {
     tab.el = null;
     delete tab._historyPage; delete tab._helpPage; delete tab._netrunPage;
     delete tab._chatPage; delete tab._chatThreadId; delete tab._terminalPage;
-    delete tab._bookmarksPage;
+    delete tab._bookmarksPage; delete tab._implementationsPage;
   }
   // Push current URL onto back stack
   if (tab.url && !tab.blank && !/^#/.test(tab.url) && !/^about:/.test(tab.url)) {
