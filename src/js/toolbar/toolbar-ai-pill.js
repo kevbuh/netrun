@@ -183,7 +183,13 @@ function _renderIndicator(container, primary, pulseState) {
 
   switch (primary) {
     case 'mic':
-      view = RawHTML(icon('microphone', { size: 14, stroke: '#ef4444' }));
+      view = RawHTML('<span class="island-waveform island-waveform-mic island-waveform-anim">' +
+        '<span class="island-waveform-bar"></span>' +
+        '<span class="island-waveform-bar"></span>' +
+        '<span class="island-waveform-bar"></span>' +
+        '<span class="island-waveform-bar"></span>' +
+        '<span class="island-waveform-bar"></span>' +
+        '</span>');
       container.classList.add('ai-unified-mic');
       break;
     case 'ai':

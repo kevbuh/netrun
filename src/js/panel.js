@@ -29,6 +29,116 @@ window._openSettingsToAI = function() {
   openSettings();
 };
 
+// ── Hold-to-Record: Option+Space (global, works without panel open) ──
+// Standalone mic system separate from panel's closured mic button
+var _holdMicStream = null;
+var _holdMicCtx = null;
+var _holdMicWorklet = null;
+var _holdMicAccum = [];
+var _holdMicActive = false;
+var _holdRecording = false;
+
+async function _holdMicStart() {
+  if (_holdMicActive) return;
+  try {
+    _holdMicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (_e) { return; }
+  _holdMicActive = true;
+  _holdMicAccum = [];
+  window._pillMicRecorder = true;
+  if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
+  if (typeof window.islandUpdate === 'function') window.islandUpdate('mic', { type: 'mic', label: 'Listening\u2026', lines: [], action: function() { _holdMicStop(); } });
+
+  _holdMicCtx = new AudioContext({ sampleRate: 16000 });
+  var processorCode = 'class P extends AudioWorkletProcessor{constructor(){super();this._b=new Float32Array(24000);this._p=0}process(i){var c=i[0]&&i[0][0];if(!c)return true;for(var j=0;j<c.length;j++){this._b[this._p++]=c[j];if(this._p>=24000){this.port.postMessage(this._b.buffer.slice(0));this._p=0}}return true}}registerProcessor("hold-mic",P);';
+  var blob = new Blob([processorCode], { type: 'application/javascript' });
+  var blobUrl = URL.createObjectURL(blob);
+  await _holdMicCtx.audioWorklet.addModule(blobUrl);
+  URL.revokeObjectURL(blobUrl);
+
+  _holdMicWorklet = new AudioWorkletNode(_holdMicCtx, 'hold-mic');
+  _holdMicWorklet.port.onmessage = async function(e) {
+    if (!_holdMicActive || !window.electronAPI) return;
+    try {
+      var bytes = new Uint8Array(e.data);
+      var binary = '';
+      for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      var base64 = btoa(binary);
+      var result = await window.electronAPI.captionsTranscribe(base64, 16000);
+      if (result && result.text && _holdMicActive) {
+        _holdMicAccum.push(result.text);
+        var micAct = window._islandActivities ? window._islandActivities.value.mic : null;
+        var micLines = (micAct && micAct.lines) ? micAct.lines.slice() : [];
+        micLines.push(result.text);
+        if (micLines.length > 12) micLines.shift();
+        if (typeof window.islandUpdate === 'function') window.islandUpdate('mic', { type: 'mic', label: 'Listening\u2026', lines: micLines, action: function() { _holdMicStop(); } });
+      }
+    } catch (_e) {}
+  };
+
+  var source = _holdMicCtx.createMediaStreamSource(_holdMicStream);
+  source.connect(_holdMicWorklet);
+
+  // AnalyserNode for waveform visualization in AI pill
+  window._micAnalyser = _holdMicCtx.createAnalyser();
+  window._micAnalyser.fftSize = 64;
+  source.connect(window._micAnalyser);
+  _holdMicWaveformTick();
+}
+
+function _holdMicWaveformTick() {
+  window._micRafId = requestAnimationFrame(_holdMicWaveformTick);
+  if (!window._micAnalyser) return;
+  var buf = new Uint8Array(window._micAnalyser.frequencyBinCount);
+  window._micAnalyser.getByteFrequencyData(buf);
+  var bars = document.querySelectorAll('.ai-unified-mic .island-waveform-bar');
+  if (!bars.length) return;
+  var step = Math.max(1, Math.floor(buf.length / bars.length));
+  for (var i = 0; i < bars.length; i++) {
+    var v = buf[i * step] / 255;
+    bars[i].style.height = Math.max(2, v * 14) + 'px';
+  }
+}
+
+async function _holdMicStop() {
+  _holdMicActive = false;
+  if (window._micRafId) { cancelAnimationFrame(window._micRafId); window._micRafId = null; }
+  window._micAnalyser = null;
+  if (_holdMicWorklet) { try { _holdMicWorklet.disconnect(); } catch (_e) {} _holdMicWorklet = null; }
+  if (_holdMicCtx) { try { _holdMicCtx.close(); } catch (_e) {} _holdMicCtx = null; }
+  if (_holdMicStream) { _holdMicStream.getTracks().forEach(function(t) { t.stop(); }); _holdMicStream = null; }
+  window._pillMicRecorder = null;
+  if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
+  if (typeof window.islandRemove === 'function') window.islandRemove('mic');
+}
+
+async function _holdMicStopAndPaste() {
+  var text = _holdMicAccum.join(' ').trim();
+  var savedClip = '';
+  try { savedClip = await window.electronAPI.clipboardReadText(); } catch (_e) {}
+  await _holdMicStop();
+  if (text) {
+    try {
+      await window.electronAPI.clipboardWriteText(text);
+      document.execCommand('paste');
+      setTimeout(function() { try { window.electronAPI.clipboardWriteText(savedClip); } catch (_e) {} }, 150);
+    } catch (_e) {}
+  }
+}
+
+// Listen for hold-to-record IPC from main process (Option+Space)
+if (window.electronAPI && window.electronAPI.onVoiceHold) {
+  window.electronAPI.onVoiceHold(function(_event, action) {
+    if (action === 'start' && !_holdRecording && !_holdMicActive) {
+      _holdRecording = true;
+      _holdMicStart();
+    } else if (action === 'stop' && _holdRecording) {
+      _holdRecording = false;
+      _holdMicStopAndPaste();
+    }
+  });
+}
+
 export function _positionAtCursor(cx, cy, w, h, preferLeft) {
   const bounds = _popupSafeBounds();
   // Try preferred placement first, then flip axes as needed

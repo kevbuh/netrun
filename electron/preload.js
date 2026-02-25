@@ -20,6 +20,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   captureScreen: (rect) => ipcRenderer.invoke('capture-screen', rect),
   captureWebview: (webContentsId) => ipcRenderer.invoke('capture-webview', webContentsId),
   copyImageToClipboard: (url) => ipcRenderer.invoke('copy-image-to-clipboard', url),
+  clipboardReadText: () => ipcRenderer.invoke('clipboard-read-text'),
+  clipboardWriteText: (text) => ipcRenderer.invoke('clipboard-write-text', text),
+  onVoiceHold: (callback) => ipcRenderer.on('voice-hold', callback),
   // Agent browser automation
   agentExecJs: (wcId, code) => ipcRenderer.invoke('agent-exec-js', wcId, code),
   // Closed captions

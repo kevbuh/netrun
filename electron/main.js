@@ -18,6 +18,27 @@ let _coreInitialized = false;
 let mainWindow = null;
 let serverPort = null;
 let _ccTargetWcId = null;
+
+// Hold-to-record: Option+Space (keyDown starts, keyUp stops)
+let _voiceHoldActive = false;
+function _voiceHoldCheck(event, input) {
+  if (!mainWindow) return;
+  const isSpace = input.key === ' ' || input.key === '\u00a0' || input.code === 'Space';
+  if (isSpace && input.alt && !input.meta && !input.control) {
+    if (input.type === 'keyDown' && !_voiceHoldActive) {
+      _voiceHoldActive = true;
+      event.preventDefault();
+      mainWindow.webContents.send('voice-hold', 'start');
+    } else if (input.type === 'keyUp') {
+      _voiceHoldActive = false;
+      mainWindow.webContents.send('voice-hold', 'stop');
+    }
+  }
+  if (_voiceHoldActive && input.type === 'keyUp' && input.key === 'Alt') {
+    _voiceHoldActive = false;
+    mainWindow.webContents.send('voice-hold', 'stop');
+  }
+}
 let lastSavedBounds = null;
 
 const isDev = !app.isPackaged;
@@ -162,6 +183,8 @@ async function createWindow() {
     return { action: 'deny' };
   });
 
+  mainWindow.webContents.on('before-input-event', _voiceHoldCheck);
+
   // Handle keyboard shortcuts for browse view
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.type === 'keyDown' && (input.meta || input.control)) {
@@ -305,6 +328,8 @@ app.on('web-contents-created', (event, contents) => {
     });
 
     contents.on('before-input-event', (event, input) => {
+      // Hold-to-record in webviews too
+      _voiceHoldCheck(event, input);
       if (input.type === 'keyDown' && (input.meta || input.control)) {
         const key = input.key.toLowerCase();
         if (key === 't' && input.shift) {
@@ -736,6 +761,16 @@ app.whenReady().then(() => {
       clipboard.writeImage(img);
       return { ok: true };
     } catch (e) { return { error: e.message || String(e) }; }
+  });
+
+  // Clipboard text read/write (for clipboard preservation around voice-paste)
+  ipcMain.handle('clipboard-read-text', () => {
+    const { clipboard } = require('electron');
+    return clipboard.readText();
+  });
+  ipcMain.handle('clipboard-write-text', (_event, text) => {
+    const { clipboard } = require('electron');
+    clipboard.writeText(text || '');
   });
 
   ipcMain.handle('capture-webview', async (event, webContentsId) => {
