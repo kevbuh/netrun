@@ -379,6 +379,13 @@ nav .nav-inner {
   color: #999;
 }
 
+.docs-version {
+  font-size: 0.72rem;
+  color: #bbb;
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+
 /* ── Mobile sidebar overlay ── */
 .sidebar-overlay {
   display: none;

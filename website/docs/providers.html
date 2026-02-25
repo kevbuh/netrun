@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Providers — Netrun</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>LLM Providers</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Architecture</div>
+        <a href="architecture.html">Overview</a>
+        <a href="ipc.html">IPC &amp; Preload</a>
+        <a href="tools.html">Tool System</a>
+        <a href="agents.html">Agent System</a>
+        <a href="providers.html">LLM Providers</a>
+        <a href="database.html">Database</a>
+        <a href="feedserver.html">Feed Server</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>LLM Providers</h1>
+      <p class="subtitle">Two LLM providers — Ollama (local) and OpenRouter (cloud) — managed by a central registry with automatic default selection.</p>
+
+      <h2>Provider Registry</h2>
+      <p>The <code>ProviderRegistry</code> singleton manages provider registration and selection. Located at <code>src/core/providers/registry.ts</code>.</p>
+
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>register(provider)</code></td><td>Register a provider (first registered = default)</td></tr>
+        <tr><td><code>get(name)</code></td><td>Get a provider by name</td></tr>
+        <tr><td><code>getDefault()</code></td><td>Get the current default provider</td></tr>
+        <tr><td><code>setDefault(name)</code></td><td>Set active provider (throws if not registered)</td></tr>
+        <tr><td><code>names()</code></td><td>List all registered provider names</td></tr>
+      </table>
+
+      <h2>Built-in Providers</h2>
+
+      <h3>Ollama (Local)</h3>
+      <p>Local LLM inference via the Ollama API. Registered first, making it the default provider. Connects to <code>http://localhost:11434</code>.</p>
+      <ul>
+        <li>No API key required</li>
+        <li>Models run locally on the user's machine</li>
+        <li>Supports both <code>chat()</code> and <code>chatStream()</code></li>
+      </ul>
+
+      <h3>OpenRouter (Cloud)</h3>
+      <p>Cloud LLM access via the OpenRouter API. Provides access to many models (GPT-4, Claude, Gemini, etc.).</p>
+      <ul>
+        <li>Requires an API key (stored encrypted via <code>safeStorage</code>)</li>
+        <li>API key stored in both Electron's encrypted storage and the settings DB</li>
+        <li>Supports both <code>chat()</code> and <code>chatStream()</code></li>
+      </ul>
+
+      <h2>Registration at Startup</h2>
+      <p>Providers are registered during <code>initCore()</code>:</p>
+
+      <div class="code-block"><pre><code class="language-typescript">// src/core/init.ts
+providerRegistry.register(ollamaProvider);    // first = default
+providerRegistry.register(openrouterProvider);
+
+// Restore saved preference from settings DB
+const savedProvider = settings.get('aiProvider');
+if (savedProvider) providerRegistry.setDefault(savedProvider);
+
+// Restore API key (migration path)
+const savedKey = settings.get('openrouterApiKey');
+if (savedKey) openrouterProvider.setApiKey(savedKey);</code></pre></div>
+
+      <h2>How Agents Use Providers</h2>
+      <p>The agent runtime gets the default provider and calls its LLM methods:</p>
+
+      <div class="code-block"><pre><code class="language-typescript">// src/core/agents/runtime.ts
+const provider = providerRegistry.getDefault();
+
+// Non-streaming call (tool call loop)
+const response = await provider.chat(messages, tools, {
+  toolChoice: 'auto',
+});
+
+// Streaming call (final response)
+for await (const chunk of provider.chatStream(messages)) {
+  yield { type: 'token', content: chunk.content };
+}</code></pre></div>
+
+      <h2>Frontend IPC</h2>
+      <p>The frontend manages providers through <code>electronAPI</code>:</p>
+
+      <div class="code-block"><pre><code class="language-javascript">// List available providers
+const providers = await electronAPI.providerList();
+// → ['ollama', 'openrouter']
+
+// List models for a provider
+const models = await electronAPI.providerModels('ollama');
+// → ['llama3.1', 'codellama', ...]
+
+// Switch the active provider
+await electronAPI.providerSetDefault('openrouter');
+
+// Store an API key (encrypted)
+await electronAPI.providerSetApiKey('openrouter', 'sk-or-...');
+
+// Get stored key
+const key = await electronAPI.providerGetApiKey('openrouter');</code></pre></div>
+
+      <h2>Provider Interface</h2>
+      <p>Each provider implements these methods:</p>
+
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>chat(messages, tools?, options?)</code></td><td>Non-streaming LLM call, returns full response</td></tr>
+        <tr><td><code>chatStream(messages, options?)</code></td><td>Streaming LLM call, returns async iterator of chunks</td></tr>
+        <tr><td><code>listModels()</code></td><td>List available models</td></tr>
+        <tr><td><code>setApiKey(key)</code></td><td>Set the API key (cloud providers only)</td></tr>
+      </table>
+
+      <footer class="docs-footer">
+        <div class="docs-version"></div>
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPC &amp; Preload — Netrun</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>IPC &amp; Preload</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Architecture</div>
+        <a href="architecture.html">Overview</a>
+        <a href="ipc.html">IPC &amp; Preload</a>
+        <a href="tools.html">Tool System</a>
+        <a href="agents.html">Agent System</a>
+        <a href="providers.html">LLM Providers</a>
+        <a href="database.html">Database</a>
+        <a href="feedserver.html">Feed Server</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>IPC &amp; Preload</h1>
+      <p class="subtitle">The context bridge exposes 100+ methods on <code>window.electronAPI</code>, connecting the renderer to the main process and core backend.</p>
+
+      <h2>How It Works</h2>
+      <p>Electron's context isolation means the renderer has no direct access to Node.js APIs. The <code>preload.js</code> script bridges this gap using <code>contextBridge.exposeInMainWorld</code>:</p>
+
+      <div class="code-block"><pre><code class="language-javascript">// electron/preload.js
+contextBridge.exposeInMainWorld('electronAPI', {
+  // Request/response (async)
+  toolExecute: (name, input, ctx) =&gt;
+    ipcRenderer.invoke('tool:execute', name, input, ctx),
+
+  // Push events (subscribe)
+  onAgentEvent: (cb) =&gt;
+    ipcRenderer.on('agent:event', (_e, data) =&gt; cb(data)),
+
+  // DB shortcut — prefixes channel with 'db:'
+  dbQuery: (channel, ...args) =&gt;
+    ipcRenderer.invoke('db:' + channel, ...args),
+});</code></pre></div>
+
+      <p>Two communication patterns:</p>
+      <ul>
+        <li><strong><code>ipcRenderer.invoke(channel, ...args)</code></strong> — async request/response. Returns a Promise.</li>
+        <li><strong><code>ipcRenderer.on(channel, callback)</code></strong> — subscribe to push events from the main process.</li>
+      </ul>
+
+      <h2>Routing Flow</h2>
+      <div class="code-block"><pre><code class="language-text">Frontend                    Preload                     Main / Core
+────────                    ───────                     ───────────
+electronAPI.toolExecute()
+  → ipcRenderer.invoke('tool:execute', ...)
+                              → ipcMain.handle('tool:execute')
+                                                          → toolRegistry.execute()
+                                                          ← { success, data }
+                              ← result
+  ← await resolves</code></pre></div>
+
+      <h2>API Reference</h2>
+
+      <h3>Tools &amp; Agents</h3>
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>toolExecute(name, input, context)</code></td><td>Execute a registered tool</td></tr>
+        <tr><td><code>toolList()</code></td><td>List all tool names</td></tr>
+        <tr><td><code>toolDefinitions(access)</code></td><td>Get JSON Schema definitions for LLM tool calling</td></tr>
+        <tr><td><code>agentStart(options)</code></td><td>Start an agent session</td></tr>
+        <tr><td><code>agentCancel(sessionId)</code></td><td>Cancel a running agent</td></tr>
+        <tr><td><code>agentSessions()</code></td><td>List active sessions</td></tr>
+        <tr><td><code>agentList()</code></td><td>List registered agents</td></tr>
+        <tr><td><code>onAgentEvent(cb)</code></td><td>Subscribe to agent streaming events</td></tr>
+        <tr><td><code>agentActionResult(requestId, result)</code></td><td>Send action result back to agent</td></tr>
+      </table>
+
+      <h3>Providers</h3>
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>providerList()</code></td><td>List registered provider names</td></tr>
+        <tr><td><code>providerModels(name)</code></td><td>List models for a provider</td></tr>
+        <tr><td><code>providerSetDefault(name)</code></td><td>Set the active provider</td></tr>
+        <tr><td><code>providerGetDefault()</code></td><td>Get the current default provider</td></tr>
+        <tr><td><code>providerSetApiKey(provider, key)</code></td><td>Store API key (encrypted via safeStorage)</td></tr>
+        <tr><td><code>providerGetApiKey(provider)</code></td><td>Retrieve stored API key</td></tr>
+      </table>
+
+      <h3>Database</h3>
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>dbQuery(channel, ...args)</code></td><td>Shortcut — invokes <code>db:{channel}</code> IPC handler</td></tr>
+      </table>
+      <p>See <a href="database.html">Database</a> for all available query channels.</p>
+
+      <h3>Terminal</h3>
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>terminalStart(cwdOrOpts)</code></td><td>Start a new terminal session</td></tr>
+        <tr><td><code>terminalInput(sessionId, data)</code></td><td>Send input to a terminal</td></tr>
+        <tr><td><code>terminalResize(sessionId, cols, rows)</code></td><td>Resize terminal</td></tr>
+        <tr><td><code>terminalKill(sessionId)</code></td><td>Kill a terminal session</td></tr>
+        <tr><td><code>onTerminalOutput(cb)</code></td><td>Subscribe to terminal output</td></tr>
+        <tr><td><code>onTerminalExit(cb)</code></td><td>Subscribe to terminal exit events</td></tr>
+      </table>
+
+      <h3>Browse &amp; Navigation</h3>
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>onBrowseCommand(cb)</code></td><td>Keyboard shortcut events (new-tab, close-tab, etc.)</td></tr>
+        <tr><td><code>onBrowseSwipe(cb)</code></td><td>Trackpad swipe navigation</td></tr>
+        <tr><td><code>onOpenInBrowse(cb)</code></td><td>Open a URL in browse tab</td></tr>
+        <tr><td><code>captureScreen(rect)</code></td><td>Capture a screen region</td></tr>
+        <tr><td><code>captureWebview(webContentsId)</code></td><td>Capture webview contents</td></tr>
+        <tr><td><code>agentExecJs(wcId, code)</code></td><td>Inject JS into a webview</td></tr>
+      </table>
+
+      <h3>Privacy &amp; Adblock</h3>
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>adblockGetCount(wcId)</code></td><td>Blocked ad count for a webview</td></tr>
+        <tr><td><code>adblockSetEnabled(on)</code></td><td>Enable/disable adblock</td></tr>
+        <tr><td><code>adblockStats()</code></td><td>Aggregate adblock statistics</td></tr>
+        <tr><td><code>privacyDetails(wcId)</code></td><td>Per-tab privacy details</td></tr>
+        <tr><td><code>privacyStats()</code></td><td>Aggregate privacy statistics</td></tr>
+        <tr><td><code>dohSetConfig(enabled, provider)</code></td><td>Configure DNS-over-HTTPS</td></tr>
+        <tr><td><code>trackingStripSetEnabled(on)</code></td><td>Toggle tracking parameter stripping</td></tr>
+        <tr><td><code>httpsOnlySetEnabled(on)</code></td><td>Toggle HTTPS-only mode</td></tr>
+        <tr><td><code>cookieBlockSetEnabled(on)</code></td><td>Toggle third-party cookie blocking</td></tr>
+      </table>
+
+      <h3>PDF Operations</h3>
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>pdfParse(path)</code></td><td>Parse PDF metadata</td></tr>
+        <tr><td><code>pdfExtract(path, pages)</code></td><td>Extract text from pages</td></tr>
+        <tr><td><code>pdfSplit(path, ranges)</code></td><td>Split PDF into parts</td></tr>
+        <tr><td><code>pdfMerge(paths)</code></td><td>Merge multiple PDFs</td></tr>
+        <tr><td><code>pdfToPng(path, opts)</code></td><td>Convert pages to PNG</td></tr>
+        <tr><td><code>pdfToMd(path)</code></td><td>Convert PDF to Markdown</td></tr>
+        <tr><td><code>pdfMdToPdf(markdown)</code></td><td>Convert Markdown to PDF</td></tr>
+      </table>
+
+      <h3>Auth &amp; Passwords</h3>
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>getAuthToken()</code></td><td>Read auth token from macOS Keychain</td></tr>
+        <tr><td><code>saveAuthToken(token)</code></td><td>Store auth token (encrypted)</td></tr>
+        <tr><td><code>deleteAuthToken()</code></td><td>Remove stored auth token</td></tr>
+        <tr><td><code>pwGet(origin)</code></td><td>Get saved password for origin</td></tr>
+        <tr><td><code>pwSave(data)</code></td><td>Save a password entry</td></tr>
+        <tr><td><code>pwList()</code></td><td>List all saved passwords</td></tr>
+      </table>
+
+      <h2>IPC Handler Modules</h2>
+      <p>Backend-side handlers live in <code>src/core/ipc/</code>, one file per subsystem. Each module registers <code>ipcMain.handle</code> calls:</p>
+
+      <div class="code-block"><pre><code class="language-typescript">// Typical pattern (src/core/ipc/tools-providers.ts)
+import { ipcMain } from 'electron';
+import { toolRegistry } from '../tools/registry';
+
+export function registerToolsProvidersIPC() {
+  ipcMain.handle('tool:execute', (_event, name, input, context) =&gt; {
+    return toolRegistry.execute(name, input, context);
+  });
+
+  ipcMain.handle('tool:list', () =&gt; {
+    return toolRegistry.names();
+  });
+}</code></pre></div>
+
+      <p>All 15 IPC modules are registered during <code>initCore()</code>. See <a href="architecture.html">Architecture Overview</a> for the full list.</p>
+
+      <h2>Main Process IPC</h2>
+      <p>Some handlers live directly in <code>electron/main.js</code> rather than the core backend, handling Electron-specific features:</p>
+      <ul>
+        <li>Adblock — 6 channels for engine control</li>
+        <li>Privacy — 12 channels for toggle get/reset/set</li>
+        <li>Window — position, cursor nudge, print</li>
+        <li>Screen capture — screen regions and webview contents</li>
+        <li>Auth — Keychain via <code>safeStorage</code></li>
+        <li>Password manager — encrypted credential storage</li>
+        <li>File dialogs — save, open, temp file handling</li>
+      </ul>
+
+      <h2>Keyboard Shortcuts</h2>
+      <p>Main process registers shortcuts and forwards them as <code>browse-command</code> events:</p>
+      <table class="api-table">
+        <tr><th>Shortcut</th><th>Command</th></tr>
+        <tr><td><code>Cmd+T</code></td><td><code>new-tab</code></td></tr>
+        <tr><td><code>Cmd+Shift+T</code></td><td><code>reopen-tab</code></td></tr>
+        <tr><td><code>Cmd+W</code></td><td><code>close-tab</code></td></tr>
+        <tr><td><code>Cmd+R</code></td><td><code>reload</code></td></tr>
+        <tr><td><code>Cmd+Shift+R</code></td><td><code>force-reload</code></td></tr>
+        <tr><td><code>Cmd+O</code></td><td><code>open-file</code></td></tr>
+        <tr><td><code>Cmd+P</code></td><td><code>print</code></td></tr>
+      </table>
+
+      <footer class="docs-footer">
+        <div class="docs-version"></div>
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

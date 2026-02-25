@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feed Server — Netrun</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Feed Server</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Architecture</div>
+        <a href="architecture.html">Overview</a>
+        <a href="ipc.html">IPC &amp; Preload</a>
+        <a href="tools.html">Tool System</a>
+        <a href="agents.html">Agent System</a>
+        <a href="providers.html">LLM Providers</a>
+        <a href="database.html">Database</a>
+        <a href="feedserver.html">Feed Server</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Feed Server</h1>
+      <p class="subtitle">A standalone Go microservice serving ranked feed data on port 8400, with its own SQLite database and auto-refresh.</p>
+
+      <h2>Overview</h2>
+      <p>The feed server is a separate Go process at <code>feedserver/</code>. It is independent of the main Electron app — has its own SQLite database (<code>feedserver/feedserver.db</code>) and runs as an HTTP server. The frontend connects to it directly via <code>http://localhost:8400</code>.</p>
+
+      <div class="callout callout-info">
+        <strong>Not routed through IPC.</strong>
+        Unlike the rest of the backend, the feed server is accessed directly via HTTP from the renderer, not through the Electron IPC bridge.
+      </div>
+
+      <h2>Startup Sequence</h2>
+      <div class="code-block"><pre><code class="language-text">1. store.New(cfg.DBPath)         → open SQLite DB
+2. Seed sources from SeedCatalog → initial source list
+3. fetch.NewFetcher(db, catalog) → create fetcher
+4. goroutine: fetcher.RefreshAll()       → immediate fetch
+5. goroutine: ticker every 10 minutes    → periodic refresh
+6. api.NewServer(db, fetcher, catalog)   → HTTP server
+7. http.ListenAndServe(:8400)            → start serving</code></pre></div>
+
+      <h2>Configuration</h2>
+      <table class="api-table">
+        <tr><th>Setting</th><th>Default</th><th>Override</th></tr>
+        <tr><td>Port</td><td><code>8400</code></td><td><code>--port</code> flag or <code>FEEDSERVER_PORT</code> env var</td></tr>
+        <tr><td>DB path</td><td><code>feedserver/feedserver.db</code></td><td><code>--db</code> flag</td></tr>
+        <tr><td>Refresh interval</td><td>10 minutes</td><td>Hard-coded</td></tr>
+      </table>
+
+      <h2>REST API</h2>
+
+      <h3>Timeline &amp; Content</h3>
+      <table class="api-table">
+        <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+        <tr><td><code>GET</code></td><td><code>/api/timeline</code></td><td>Ranked feed items. Query: <code>sort</code>, <code>category</code>, <code>search</code>, <code>limit</code> (default 100), <code>offset</code></td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/refresh</code></td><td>Trigger immediate refresh. Returns <code>{ fetched: n }</code></td></tr>
+        <tr><td><code>GET</code></td><td><code>/api/rss-proxy</code></td><td>Proxy RSS fetch via <code>?url=...</code> (15s timeout)</td></tr>
+      </table>
+
+      <h3>Sources</h3>
+      <table class="api-table">
+        <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+        <tr><td><code>GET</code></td><td><code>/api/sources</code></td><td>List all feed sources</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/sources</code></td><td>Add a new source (triggers background refresh)</td></tr>
+        <tr><td><code>PUT</code></td><td><code>/api/sources/{key}/toggle</code></td><td>Enable/disable a source</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/sources/sync</code></td><td>Bulk-sync source enabled/disabled preferences</td></tr>
+      </table>
+
+      <h3>User Actions</h3>
+      <table class="api-table">
+        <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+        <tr><td><code>POST</code></td><td><code>/api/read</code></td><td>Mark item as read. Body: <code>{ link }</code></td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/save</code></td><td>Save/bookmark an item</td></tr>
+        <tr><td><code>DELETE</code></td><td><code>/api/save</code></td><td>Unsave an item</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/hide</code></td><td>Hide an item from the feed</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/rate</code></td><td>Rate an item. Body: <code>{ link, rating }</code></td></tr>
+        <tr><td><code>GET</code></td><td><code>/api/saved</code></td><td>List saved items</td></tr>
+      </table>
+
+      <h3>State &amp; Config</h3>
+      <table class="api-table">
+        <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+        <tr><td><code>GET</code></td><td><code>/api/state</code></td><td>User state (enabled sources, preferences)</td></tr>
+        <tr><td><code>PUT</code></td><td><code>/api/rank-params</code></td><td>Update ranking algorithm parameters</td></tr>
+      </table>
+
+      <h2>Internal Packages</h2>
+      <table class="api-table">
+        <tr><th>Package</th><th>Purpose</th></tr>
+        <tr><td><code>internal/api</code></td><td>HTTP handlers and routing</td></tr>
+        <tr><td><code>internal/fetch</code></td><td>RSS/feed fetching and parsing</td></tr>
+        <tr><td><code>internal/model</code></td><td>Data types: <code>Source</code>, <code>RankParams</code>, etc.</td></tr>
+        <tr><td><code>internal/rank</code></td><td>Feed ranking algorithm</td></tr>
+        <tr><td><code>internal/store</code></td><td>SQLite persistence layer</td></tr>
+      </table>
+
+      <h2>CORS</h2>
+      <p>The <code>withCORS</code> middleware wraps the HTTP mux, allowing all origins with <code>GET, POST, PUT, DELETE, OPTIONS</code> methods. This permits the Electron renderer (loaded from <code>localhost:8000</code>) to call the feed server at <code>localhost:8400</code>.</p>
+
+      <h2>Build &amp; Run</h2>
+      <div class="code-block"><pre><code class="language-bash"># Build Go binary → dist/feedserver
+npm run feedserver:build
+
+# Build + start both feedserver and Electron
+npm run feedserver:start
+
+# Development mode (go run, no build)
+npm run feedserver:start-dev</code></pre></div>
+
+      <h2>Frontend Integration</h2>
+      <div class="code-block"><pre><code class="language-javascript">// src/js/feed.js connects directly to the feed server
+const response = await fetch('http://localhost:8400/api/timeline?limit=50');
+const items = await response.json();
+
+// Trigger refresh
+await fetch('http://localhost:8400/api/refresh', { method: 'POST' });
+
+// Save an item
+await fetch('http://localhost:8400/api/save', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ link: item.link }),
+});</code></pre></div>
+
+      <footer class="docs-footer">
+        <div class="docs-version"></div>
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

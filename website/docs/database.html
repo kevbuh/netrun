@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database — Netrun</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Database</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Architecture</div>
+        <a href="architecture.html">Overview</a>
+        <a href="ipc.html">IPC &amp; Preload</a>
+        <a href="tools.html">Tool System</a>
+        <a href="agents.html">Agent System</a>
+        <a href="providers.html">LLM Providers</a>
+        <a href="database.html">Database</a>
+        <a href="feedserver.html">Feed Server</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Database</h1>
+      <p class="subtitle">better-sqlite3 with WAL mode, a prepared statement cache, and IPC-routed query handlers.</p>
+
+      <h2>Connection</h2>
+      <p>The database connection is a singleton in <code>src/core/db/connection.ts</code>. It opens on first access and applies pragmas:</p>
+
+      <div class="code-block"><pre><code class="language-typescript">// Database location
+const dataDir = process.env.ARXIV_DATA_DIR
+  ?? app?.getPath('userData')
+  ?? process.cwd();
+const dbPath = path.join(dataDir, 'netrun.db');
+
+// Pragmas applied on open
+db.pragma('journal_mode = WAL');
+db.pragma('busy_timeout = 5000');
+db.pragma('foreign_keys = ON');</code></pre></div>
+
+      <table class="api-table">
+        <tr><th>Export</th><th>Description</th></tr>
+        <tr><td><code>getDb()</code></td><td>Get the database connection (lazy init)</td></tr>
+        <tr><td><code>prepare(sql)</code></td><td>Get a cached prepared statement</td></tr>
+        <tr><td><code>closeDb()</code></td><td>Close connection and clear cache (called on app quit)</td></tr>
+      </table>
+
+      <h3>Statement Cache</h3>
+      <p>The <code>prepare(sql)</code> function caches prepared statements by SQL string, avoiding re-preparation overhead:</p>
+      <div class="code-block"><pre><code class="language-typescript">// First call: prepares and caches
+const stmt = prepare('SELECT * FROM users WHERE google_id = ?');
+// Subsequent calls: returns cached statement
+const stmt2 = prepare('SELECT * FROM users WHERE google_id = ?');
+// stmt === stmt2</code></pre></div>
+
+      <h2>Schema</h2>
+      <p>All tables are created in <code>src/core/db/schema.ts</code> via <code>initSchema(db)</code>. Tables use <code>IF NOT EXISTS</code> for idempotent creation.</p>
+
+      <h3>Core Tables</h3>
+      <table class="api-table">
+        <tr><th>Table</th><th>Purpose</th><th>Key Columns</th></tr>
+        <tr><td><code>users</code></td><td>User accounts</td><td><code>google_id</code> PK, <code>email</code>, <code>username</code> UNIQUE</td></tr>
+        <tr><td><code>sessions</code></td><td>Auth tokens</td><td><code>token</code> PK, <code>google_id</code> FK, <code>expires</code></td></tr>
+        <tr><td><code>user_data</code></td><td>Key-value per user</td><td><code>(google_id, key)</code> PK, <code>value</code></td></tr>
+        <tr><td><code>settings</code></td><td>App preferences</td><td><code>key</code> PK, <code>value</code></td></tr>
+      </table>
+
+      <h3>Content &amp; Social</h3>
+      <table class="api-table">
+        <tr><th>Table</th><th>Purpose</th><th>Key Columns</th></tr>
+        <tr><td><code>calendar_events</code></td><td>Per-user calendar</td><td><code>id</code> PK, <code>google_id</code> FK, <code>title</code>, <code>date</code>, <code>color</code></td></tr>
+        <tr><td><code>comments</code></td><td>Paper comments</td><td><code>id</code> PK, <code>paper_link</code>, <code>parent_id</code> (threading)</td></tr>
+        <tr><td><code>direct_messages</code></td><td>DMs</td><td><code>id</code> PK, <code>from_google_id</code>, <code>to_google_id</code>, <code>read</code></td></tr>
+        <tr><td><code>reposts</code></td><td>Social reposts</td><td><code>id</code> PK, <code>google_id</code> FK, <code>paper_link</code></td></tr>
+        <tr><td><code>achievements</code></td><td>Gamification</td><td><code>(google_id, achievement_id)</code> PK</td></tr>
+      </table>
+
+      <h3>Cache Tables</h3>
+      <table class="api-table">
+        <tr><th>Table</th><th>Purpose</th><th>Key</th></tr>
+        <tr><td><code>reference_cache</code></td><td>arXiv references</td><td><code>arxiv_id</code> PK</td></tr>
+        <tr><td><code>author_cache</code></td><td>Author lookups</td><td><code>query</code> PK</td></tr>
+        <tr><td><code>s2_response_cache</code></td><td>Semantic Scholar</td><td><code>url_path</code> PK</td></tr>
+        <tr><td><code>pwc_response_cache</code></td><td>Papers With Code</td><td><code>url</code> PK</td></tr>
+        <tr><td><code>github_response_cache</code></td><td>GitHub API</td><td><code>url</code> PK</td></tr>
+        <tr><td><code>smart_highlights_cache</code></td><td>URL-keyed highlights</td><td><code>url_hash</code> PK</td></tr>
+      </table>
+
+      <h3>Feature Tables</h3>
+      <table class="api-table">
+        <tr><th>Table</th><th>Purpose</th><th>Key Columns</th></tr>
+        <tr><td><code>feed_items</code></td><td>Feed content</td><td><code>id</code> AUTO, <code>source</code>, <code>link</code> UNIQUE</td></tr>
+        <tr><td><code>chat_threads</code></td><td>Chat sessions</td><td><code>id</code> PK, <code>title</code>, <code>model</code>, <code>archived</code></td></tr>
+        <tr><td><code>chat_messages</code></td><td>Chat history</td><td><code>id</code> PK, <code>thread_id</code> FK CASCADE, <code>role</code>, <code>parent_id</code></td></tr>
+        <tr><td><code>context_meta</code></td><td>Context file tracking</td><td><code>file_id</code> PK, <code>file_path</code>, <code>file_type</code></td></tr>
+        <tr><td><code>pdf_highlights</code></td><td>User PDF highlights</td><td><code>id</code> PK, <code>url</code>, <code>page_num</code>, <code>color</code></td></tr>
+        <tr><td><code>drawings</code></td><td>Whiteboard saves</td><td><code>id</code> PK, <code>canvas_json</code>, <code>thumbnail</code></td></tr>
+        <tr><td><code>annotation_feedback</code></td><td>AI annotation ratings</td><td><code>id</code> AUTO, <code>quote</code>, <code>rating</code></td></tr>
+        <tr><td><code>usage_log</code></td><td>Event telemetry</td><td><code>id</code> AUTO, <code>event</code>, <code>ts</code></td></tr>
+        <tr><td><code>impl_sessions</code></td><td>Paper implementation workspaces</td><td><code>id</code> PK, <code>paper_url</code>, <code>folder_path</code></td></tr>
+      </table>
+
+      <h2>Query Handler Pattern</h2>
+      <p>IPC handlers are registered in <code>src/core/ipc/db-queries.ts</code>. Each handler maps a <code>db:*</code> channel to a query function:</p>
+
+      <div class="code-block"><pre><code class="language-typescript">// src/core/ipc/db-queries.ts
+import { ipcMain } from 'electron';
+import * as userQueries from '../db/queries/users';
+
+export function registerDbQueriesIPC() {
+  ipcMain.handle('db:user-get', (_event, googleId) =&gt; {
+    return userQueries.getUser(googleId);
+  });
+
+  ipcMain.handle('db:user-upsert', (_event, data) =&gt; {
+    return userQueries.upsertUser(data);
+  });
+
+  // ... 60+ more handlers
+}</code></pre></div>
+
+      <h3>IPC Channels by Domain</h3>
+      <table class="api-table">
+        <tr><th>Domain</th><th>Channels</th></tr>
+        <tr><td>Users</td><td><code>db:user-get</code>, <code>db:user-upsert</code>, <code>db:user-by-username</code>, <code>db:users-list</code>, <code>db:users-search</code>, etc.</td></tr>
+        <tr><td>Sessions</td><td><code>db:session-create</code>, <code>db:session-get</code>, <code>db:session-delete</code></td></tr>
+        <tr><td>Calendar</td><td><code>db:calendar-list</code>, <code>db:calendar-create</code>, <code>db:calendar-update</code>, <code>db:calendar-delete</code></td></tr>
+        <tr><td>Chat</td><td><code>db:chat-threads</code>, <code>db:chat-messages</code>, etc.</td></tr>
+        <tr><td>Comments</td><td><code>db:comment-create</code>, <code>db:comments-get</code>, <code>db:comment-delete</code></td></tr>
+        <tr><td>DMs</td><td><code>db:direct-message-send</code>, <code>db:dm-mark-read</code>, <code>db:dm-delete</code></td></tr>
+        <tr><td>Feed</td><td><code>db:feed-items</code>, <code>db:feed-items-upsert</code></td></tr>
+        <tr><td>Highlights</td><td><code>db:highlights-list</code>, <code>db:highlight-save</code>, <code>db:highlight-update</code>, <code>db:highlight-delete</code></td></tr>
+        <tr><td>Drawings</td><td><code>db:draw-create</code>, <code>db:draw-get</code>, <code>db:draw-save</code>, <code>db:draw-list</code>, <code>db:draw-delete</code></td></tr>
+        <tr><td>Caches</td><td><code>db:ref-cache-get</code>, <code>db:ref-cache-set</code>, <code>db:author-cache-get</code>, <code>db:author-cache-set</code></td></tr>
+        <tr><td>Auth</td><td><code>db:auth-google</code> — Google JWT verification, user upsert, session creation</td></tr>
+      </table>
+
+      <h2>Frontend Usage</h2>
+      <div class="code-block"><pre><code class="language-javascript">// The dbQuery shortcut prefixes with 'db:'
+const user = await electronAPI.dbQuery('user-get', googleId);
+const events = await electronAPI.dbQuery('calendar-list', googleId);
+await electronAPI.dbQuery('highlight-save', { url, page_num, rects_json, color });</code></pre></div>
+
+      <h2>Migrations</h2>
+      <p>Schema migrations are inline <code>ALTER TABLE</code> statements wrapped in try/catch for idempotency. New columns are added without breaking existing databases:</p>
+      <div class="code-block"><pre><code class="language-typescript">// Idempotent migration pattern
+try {
+  db.exec('ALTER TABLE context_meta ADD COLUMN file_type TEXT DEFAULT "topic"');
+} catch (e) {
+  // Column already exists — ignore
+}</code></pre></div>
+
+      <footer class="docs-footer">
+        <div class="docs-version"></div>
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

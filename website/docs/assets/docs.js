@@ -1,5 +1,15 @@
 /* AetherUI Docs — JS */
 (function () {
+  // Version tracking
+  var DOCS_VERSION = '1.0';
+  var DOCS_COMMIT = '4f98420';
+  var DOCS_DATE = 'Feb 25, 2026';
+
+  var versionEl = document.querySelector('.docs-version');
+  if (versionEl) {
+    versionEl.textContent = 'v' + DOCS_VERSION + ' \u00B7 ' + DOCS_COMMIT + ' \u00B7 ' + DOCS_DATE;
+  }
+
   // Sidebar active state
   var path = location.pathname;
   var links = document.querySelectorAll('.sidebar a');

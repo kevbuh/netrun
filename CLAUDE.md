@@ -207,3 +207,10 @@ better-sqlite3 with WAL mode. Connection singleton in `src/core/db/connection.ts
 - `TabView` caches rendered tabs via `display:none`, not rebuild
 - `Store` is deep reactive: use `store.get('path')`, `store.set('path', val)`, `store.update('path', fn)`
 - `@signal` comment annotation marks `State()` signals in source (e.g. `core-state.js`, `browse-state.js`)
+
+### Documentation Site
+
+- Docs live at `website/docs/` — plain HTML, no build step
+- When changing AetherUI APIs (`src/aether/ui/`), update the corresponding docs page
+- When changing core backend subsystems (`src/core/`), update the architecture docs
+- After updating docs, bump the version in `website/docs/assets/docs.js` (update `DOCS_VERSION`, `DOCS_COMMIT`, and `DOCS_DATE`)

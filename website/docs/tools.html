@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tool System — Netrun</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Tool System</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Architecture</div>
+        <a href="architecture.html">Overview</a>
+        <a href="ipc.html">IPC &amp; Preload</a>
+        <a href="tools.html">Tool System</a>
+        <a href="agents.html">Agent System</a>
+        <a href="providers.html">LLM Providers</a>
+        <a href="database.html">Database</a>
+        <a href="feedserver.html">Feed Server</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Tool System</h1>
+      <p class="subtitle">33 tools across 8 categories, registered in a central registry with Zod validation and a middleware chain.</p>
+
+      <h2>Tool Registry</h2>
+      <p>The <code>ToolRegistry</code> singleton manages all tools. Tools are registered at startup via <code>registerAllTools()</code> in <code>src/core/tools/index.ts</code>.</p>
+
+      <table class="api-table">
+        <tr><th>Method</th><th>Description</th></tr>
+        <tr><td><code>register(tool)</code></td><td>Register a tool (throws on duplicate name)</td></tr>
+        <tr><td><code>use(middleware)</code></td><td>Add middleware (first = outermost)</td></tr>
+        <tr><td><code>get(name)</code></td><td>Look up a tool by name</td></tr>
+        <tr><td><code>getByCategory(category)</code></td><td>Get all tools in a category</td></tr>
+        <tr><td><code>getByAccess(access)</code></td><td>Get tools by access level</td></tr>
+        <tr><td><code>execute(name, input, context)</code></td><td>Execute through the middleware chain</td></tr>
+        <tr><td><code>toToolDefinitions(access?)</code></td><td>Export as OpenAI-compatible JSON Schema</td></tr>
+        <tr><td><code>names()</code></td><td>List all tool names</td></tr>
+        <tr><td><code>all()</code></td><td>Get all tools</td></tr>
+        <tr><td><code>categories()</code></td><td>List all categories</td></tr>
+      </table>
+
+      <h2>Tool Interface</h2>
+      <div class="code-block"><pre><code class="language-typescript">interface Tool&lt;TInput, TOutput&gt; {
+  name: string;
+  description: string;
+  category: string;
+  access: ToolAccess[];          // 'agent' | 'mcp' | 'ui'
+  parameters: z.ZodType&lt;TInput&gt;; // Zod schema for validation
+  sequential?: boolean;          // true = cannot run in parallel
+  execute(input: TInput, context: ToolContext): Promise&lt;ToolResult&lt;TOutput&gt;&gt;;
+}</code></pre></div>
+
+      <h3>ToolContext</h3>
+      <div class="code-block"><pre><code class="language-typescript">interface ToolContext {
+  googleId?: string;
+  signal?: AbortSignal;
+  onProgress?: (data: unknown) =&gt; void;
+  emitAction?: (action: { type: string }) =&gt; void;
+  waitForResult?: (requestId: string, timeoutMs?: number) =&gt; Promise&lt;unknown&gt;;
+  browserDom?: string;
+  documentText?: string;
+}</code></pre></div>
+
+      <h3>ToolResult</h3>
+      <div class="code-block"><pre><code class="language-typescript">interface ToolResult&lt;T&gt; {
+  success: boolean;
+  data?: T;
+  error?: string;
+}</code></pre></div>
+
+      <h3>ToolAccess</h3>
+      <ul>
+        <li><code>'agent'</code> — available to AI agents via tool calling</li>
+        <li><code>'mcp'</code> — available via MCP protocol</li>
+        <li><code>'ui'</code> — available to frontend code</li>
+      </ul>
+
+      <h2>Tool Categories</h2>
+
+      <h3>Browser (15 tools)</h3>
+      <table class="api-table">
+        <tr><th>Tool</th><th>Description</th></tr>
+        <tr><td><code>browserReadPage</code></td><td>Read the current page content</td></tr>
+        <tr><td><code>browserClick</code></td><td>Click an element</td></tr>
+        <tr><td><code>browserType</code></td><td>Type text into an element</td></tr>
+        <tr><td><code>browserScroll</code></td><td>Scroll the page</td></tr>
+        <tr><td><code>browserNavigate</code></td><td>Navigate to a URL</td></tr>
+        <tr><td><code>browserScreenshot</code></td><td>Take a screenshot</td></tr>
+        <tr><td><code>browserQuerySelector</code></td><td>Query DOM elements</td></tr>
+        <tr><td><code>browserWaitFor</code></td><td>Wait for an element</td></tr>
+        <tr><td><code>browserGetUrl</code></td><td>Get the current URL</td></tr>
+        <tr><td><code>browserGetTabs</code></td><td>List open tabs</td></tr>
+        <tr><td><code>browserSwitchTab</code></td><td>Switch to a tab</td></tr>
+        <tr><td><code>browserBack</code></td><td>Navigate back</td></tr>
+        <tr><td><code>browserForward</code></td><td>Navigate forward</td></tr>
+        <tr><td><code>browserPressKey</code></td><td>Press a keyboard key</td></tr>
+        <tr><td><code>browserGetStorage</code></td><td>Read browser storage</td></tr>
+      </table>
+
+      <h3>Search (3 tools)</h3>
+      <table class="api-table">
+        <tr><th>Tool</th><th>Description</th></tr>
+        <tr><td><code>webSearch</code></td><td>Web search</td></tr>
+        <tr><td><code>paperSearch</code></td><td>Academic paper search</td></tr>
+        <tr><td><code>webResearch</code></td><td>Deep web research with content extraction</td></tr>
+      </table>
+
+      <h3>Calendar (4 tools)</h3>
+      <table class="api-table">
+        <tr><th>Tool</th><th>Description</th></tr>
+        <tr><td><code>calendarList</code></td><td>List calendar events</td></tr>
+        <tr><td><code>calendarCreate</code></td><td>Create a calendar event</td></tr>
+        <tr><td><code>calendarUpdate</code></td><td>Update a calendar event</td></tr>
+        <tr><td><code>calendarDelete</code></td><td>Delete a calendar event</td></tr>
+      </table>
+
+      <h3>System (4 tools)</h3>
+      <table class="api-table">
+        <tr><th>Tool</th><th>Description</th></tr>
+        <tr><td><code>navigate</code></td><td>Navigate the app to a view</td></tr>
+        <tr><td><code>openTab</code></td><td>Open a new browse tab</td></tr>
+        <tr><td><code>saveToReadingList</code></td><td>Save URL to reading list</td></tr>
+        <tr><td><code>createCalendarEvent</code></td><td>Create event (system-level)</td></tr>
+      </table>
+
+      <h3>Other Categories</h3>
+      <table class="api-table">
+        <tr><th>Category</th><th>Tools</th></tr>
+        <tr><td>Feed (2)</td><td><code>feedList</code>, <code>feedFetch</code></td></tr>
+        <tr><td>Content (1)</td><td><code>extractText</code></td></tr>
+        <tr><td>Media (2)</td><td><code>mediaTranscribe</code>, <code>mediaTts</code></td></tr>
+        <tr><td>Social (1)</td><td><code>socialUserProfile</code></td></tr>
+        <tr><td>Context (1)</td><td><code>contextUpdate</code></td></tr>
+      </table>
+
+      <h2>Middleware Chain</h2>
+      <p>Two middleware are registered at startup:</p>
+      <ol>
+        <li><strong>Logging</strong> (outermost) — logs tool name, duration, and result</li>
+        <li><strong>Timeout</strong> (inner) — enforces execution time limits</li>
+      </ol>
+
+      <div class="code-block"><pre><code class="language-typescript">type ToolMiddleware = (
+  tool: Tool,
+  input: unknown,
+  context: ToolContext,
+  next: () =&gt; Promise&lt;ToolResult&gt;
+) =&gt; Promise&lt;ToolResult&gt;;
+
+// Chain built with reduceRight — first registered = outermost
+const chain = middlewares.reduceRight(
+  (next, mw) =&gt; () =&gt; mw(tool, input, context, next),
+  coreExecute
+);</code></pre></div>
+
+      <h2>Execution Flow</h2>
+      <div class="code-block"><pre><code class="language-text">toolRegistry.execute('webSearch', { query: 'test' }, context)
+  1. Look up tool by name       → found or error
+  2. Validate input via Zod     → parsed or error
+  3. Build middleware chain      → logging → timeout → execute
+  4. Run chain                   → ToolResult
+  5. Return result               → { success, data } or { success: false, error }</code></pre></div>
+
+      <h2>Adding a Tool</h2>
+      <p>Create a file in the appropriate category folder under <code>src/core/tools/</code>:</p>
+
+      <div class="code-block"><pre><code class="language-typescript">import { z } from 'zod';
+import { Tool } from '../types';
+
+export const myTool: Tool&lt;{ query: string }, string&gt; = {
+  name: 'myTool',
+  description: 'Does something useful',
+  category: 'search',
+  access: ['agent', 'ui'],
+  parameters: z.object({
+    query: z.string().describe('The search query'),
+  }),
+  async execute(input, context) {
+    const result = await doSomething(input.query);
+    return { success: true, data: result };
+  },
+};</code></pre></div>
+
+      <p>Then register it in <code>src/core/tools/index.ts</code>:</p>
+      <div class="code-block"><pre><code class="language-typescript">import { myTool } from './search/my-tool';
+toolRegistry.register(myTool);</code></pre></div>
+
+      <footer class="docs-footer">
+        <div class="docs-version"></div>
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

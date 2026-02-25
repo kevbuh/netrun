@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture Overview — Netrun</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Architecture Overview</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Architecture</div>
+        <a href="architecture.html">Overview</a>
+        <a href="ipc.html">IPC &amp; Preload</a>
+        <a href="tools.html">Tool System</a>
+        <a href="agents.html">Agent System</a>
+        <a href="providers.html">LLM Providers</a>
+        <a href="database.html">Database</a>
+        <a href="feedserver.html">Feed Server</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Architecture Overview</h1>
+      <p class="subtitle">Netrun is an Electron desktop app with three layers: Main process, Core backend, and Renderer frontend, plus a standalone Go feed server.</p>
+
+      <h2>Three-Layer Architecture</h2>
+      <div class="code-block"><pre><code class="language-text">┌─────────────────────────────────────────────────┐
+│                   Renderer                       │
+│         src/index.html + src/js/*                │
+│     Plain browser JS · localhost:8000            │
+│                                                  │
+│   ┌─────────────┐  ┌──────────────────────────┐  │
+│   │  AetherUI    │  │   Views: Dashboard,      │  │
+│   │  src/aether/ │  │   Feed, Chat, Browse,    │  │
+│   │  ui/*        │  │   Settings, Research...  │  │
+│   └─────────────┘  └──────────────────────────┘  │
+│                         │                        │
+│              window.electronAPI                  │
+└─────────────────────────┬───────────────────────┘
+                          │ IPC (invoke / on)
+┌─────────────────────────┴───────────────────────┐
+│                 Main Process                     │
+│               electron/main.js                   │
+│                                                  │
+│   Window management · IPC routing · Shortcuts    │
+│   Adblock · Privacy · Favicon · Static server    │
+│   YouTube ad stripping · Password store          │
+└─────────────────────────┬───────────────────────┘
+                          │ require()
+┌─────────────────────────┴───────────────────────┐
+│                 Core Backend                     │
+│         src/core/ → dist/main/                   │
+│                                                  │
+│   Tool Registry (33 tools)                       │
+│   Agent Runtime (research, browser, chat)        │
+│   LLM Providers (Ollama, OpenRouter)             │
+│   Database (better-sqlite3, WAL)                 │
+│   Context System · Insight Pipeline              │
+│   Terminal Manager · Captions                    │
+└─────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────┐
+│               Feed Server (Go)                   │
+│              feedserver/ → :8400                  │
+│                                                  │
+│   REST API · Own SQLite DB · Auto-refresh        │
+│   RSS/feed fetching · Ranking algorithm          │
+└─────────────────────────────────────────────────┘</code></pre></div>
+
+      <h2>Layer Responsibilities</h2>
+
+      <h3>Renderer</h3>
+      <p>A single-page application loaded from <code>localhost:8000</code>. All JS in <code>src/js/</code> uses plain browser scripts (not ES modules), communicating with the backend through the <code>window.electronAPI</code> global.</p>
+      <p>Views include Dashboard, Feed, Chat, Browse, Settings, Research, Inbox, Docs, Neuralook, Terminal, and more. The AetherUI framework (<code>src/aether/ui/</code>) provides reactive UI primitives.</p>
+
+      <h3>Main Process</h3>
+      <p>The Electron main process (<code>electron/main.js</code>) handles window management, IPC routing, and supporting modules:</p>
+      <ul>
+        <li><strong>Static server</strong> — serves <code>src/</code> at <code>localhost:8000</code></li>
+        <li><strong>Adblock</strong> — ad blocking engine (<code>adblock.js</code>)</li>
+        <li><strong>Privacy</strong> — HTTPS-only, tracking parameter stripping, cookie blocking, DNS-over-HTTPS, WebRTC leak prevention (<code>privacy.js</code>)</li>
+        <li><strong>YouTube ad stripping</strong> — protocol-level response interception (<code>youtube-adstrip.js</code>)</li>
+        <li><strong>Password store</strong> — encrypted local passwords (<code>password-store.js</code>)</li>
+        <li><strong>Favicon proxy</strong> — fetch and cache favicons (<code>favicon.js</code>)</li>
+      </ul>
+
+      <h3>Core Backend</h3>
+      <p>TypeScript modules in <code>src/core/</code>, compiled to <code>dist/main/</code>. Registered at app startup via <code>initCore()</code> in <code>src/core/init.ts</code>. Provides the tool registry, agent runtime, LLM providers, database, and IPC handlers.</p>
+
+      <h3>Feed Server</h3>
+      <p>A standalone Go microservice at <code>feedserver/</code> running on port <code>8400</code>. Has its own SQLite database and auto-refreshes all sources every 10 minutes. The frontend connects directly to <code>http://localhost:8400</code>. See the <a href="feedserver.html">Feed Server</a> page for details.</p>
+
+      <h2>Startup Sequence</h2>
+      <div class="code-block"><pre><code class="language-text">1. app.requestSingleInstanceLock()
+2. staticServer.startStaticServer(8000, staticDir, dataDir)
+3. createWindow() — BrowserWindow with preload.js
+4. initCore()
+   ├── registerAllTools()         → 33 tools into toolRegistry
+   ├── toolRegistry.use(logging)  → outermost middleware
+   ├── toolRegistry.use(timeout)  → inner middleware
+   ├── registerAllAgents()        → agents into agentRegistry
+   ├── providerRegistry.register(ollama)     → first = default
+   ├── providerRegistry.register(openrouter)
+   ├── restore provider from settings DB
+   ├── registerToolIPC()          → 15 IPC subsystems
+   ├── initInsight()              → ambient annotation pipeline
+   └── contextManager.getContextDir()
+5. Load http://localhost:8000/</code></pre></div>
+
+      <h2>Data Flow</h2>
+      <p>All frontend-to-backend communication goes through IPC. The renderer never has direct access to Node.js APIs — everything is mediated by the context bridge in <code>preload.js</code>.</p>
+
+      <div class="code-block"><pre><code class="language-text">Frontend                    Main Process              Core Backend
+───────                    ────────────              ────────────
+electronAPI.toolExecute()
+        ──→ ipcMain.handle('tool:execute')
+                           ──→ toolRegistry.execute()
+                                                    ──→ middleware chain
+                                                    ──→ tool.execute()
+                           ←── result
+        ←── Promise resolves</code></pre></div>
+
+      <p>For event streams (agent events, terminal output, insight results), the main process pushes events to the renderer via <code>webContents.send()</code>, which the frontend listens to through <code>ipcRenderer.on()</code> callbacks.</p>
+
+      <h2>Key Directories</h2>
+      <table class="api-table">
+        <tr><th>Directory</th><th>Purpose</th></tr>
+        <tr><td><code>electron/</code></td><td>Main process — <code>main.js</code>, <code>preload.js</code>, adblock, privacy, favicon, static server</td></tr>
+        <tr><td><code>src/js/</code></td><td>Renderer scripts — views, toolbar, browse, settings</td></tr>
+        <tr><td><code>src/aether/</code></td><td>Design system — CSS tokens, themes, components, AetherUI framework</td></tr>
+        <tr><td><code>src/core/</code></td><td>Core backend (TypeScript) — tools, agents, providers, DB, IPC handlers</td></tr>
+        <tr><td><code>src/core/ipc/</code></td><td>IPC handler modules — one file per subsystem (15 total)</td></tr>
+        <tr><td><code>src/core/tools/</code></td><td>Tool definitions organized by category</td></tr>
+        <tr><td><code>src/core/agents/</code></td><td>Agent runtime and built-in agents</td></tr>
+        <tr><td><code>feedserver/</code></td><td>Go feed microservice — API, fetch, rank, store</td></tr>
+      </table>
+
+      <footer class="docs-footer">
+        <div class="docs-version"></div>
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent System — Netrun</title>
+  <link rel="stylesheet" href="assets/docs.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="../landing.html" class="nav-brand"><img src="../icon.png" alt="Netrun"> Netrun</a>
+      <ul class="nav-links">
+        <li><a href="../landing.html#features">Features</a></li>
+        <li><a href="index.html" class="active">Docs</a></li>
+        <li><a href="../landing.html#tools">Tools</a></li>
+        <li><a href="../index.html" class="nav-cta">Download</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="mobile-bar">
+    <button aria-label="Toggle sidebar">&#9776;</button>
+    <span>Agent System</span>
+  </div>
+
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Guide</div>
+        <a href="index.html">Getting Started</a>
+        <a href="state.html">Reactivity</a>
+        <a href="views.html">Views &amp; Modifiers</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Views</div>
+        <a href="primitives.html">Primitives</a>
+        <a href="controls.html">Controls</a>
+        <a href="containers.html">Containers</a>
+        <a href="overlays.html">Overlays</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Advanced</div>
+        <a href="components.html">Components</a>
+        <a href="tokens.html">Tokens &amp; Theming</a>
+        <a href="virtual-list.html">VirtualList</a>
+      </div>
+      <div class="sidebar-group">
+        <div class="sidebar-group-title">Architecture</div>
+        <a href="architecture.html">Overview</a>
+        <a href="ipc.html">IPC &amp; Preload</a>
+        <a href="tools.html">Tool System</a>
+        <a href="agents.html">Agent System</a>
+        <a href="providers.html">LLM Providers</a>
+        <a href="database.html">Database</a>
+        <a href="feedserver.html">Feed Server</a>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay"></div>
+
+    <main class="docs-content">
+      <h1>Agent System</h1>
+      <p class="subtitle">An async generator-based runtime that orchestrates LLM conversations with tool calling, streaming, and stuck detection.</p>
+
+      <h2>Built-in Agents</h2>
+      <p>Three agents are registered at startup from <code>src/core/agents/builtin/</code>:</p>
+      <table class="api-table">
+        <tr><th>Agent</th><th>Description</th></tr>
+        <tr><td><code>research</code></td><td>Deep research with web search and content extraction</td></tr>
+        <tr><td><code>browser</code></td><td>Browser automation via browser tools</td></tr>
+        <tr><td><code>chat</code></td><td>General conversation with optional tool access</td></tr>
+      </table>
+
+      <h2>Runtime Loop</h2>
+      <p>The runtime (<code>src/core/agents/runtime.ts</code>) is an async generator yielding events as the agent progresses:</p>
+
+      <div class="code-block"><pre><code class="language-text">runAgent(config) → AsyncGenerator&lt;AgentEvent&gt;
+
+  1. Get default provider from providerRegistry
+  2. Call agent.preloadContext(context) if defined
+  3. Build system prompt via agent.buildSystemPrompt(context)
+  4. Yield { type: 'system_prompt', content }
+
+  ┌─ Tool Call Loop (max 25 iterations) ──────────────┐
+  │  5. provider.chat(messages, tools, 'auto')         │
+  │  6. Fallback: flatten tool messages on error        │
+  │  7. Fallback: extract tool calls from text (JSON)   │
+  │  8. Stuck detection: same call 3× → stop            │
+  │  9. Split into parallel vs sequential batches        │
+  │  10. Execute parallel batch (Promise.all)            │
+  │  11. Execute sequential batch (one at a time)        │
+  │  12. Yield tool_call, tool_result, action events     │
+  └─────────────────────────────────────────────────────┘
+
+  13. Final streaming call (chatStream, no tools)
+  14. Yield token, usage, done events</code></pre></div>
+
+      <h2>Agent Events</h2>
+      <p>Events consumed by the frontend via <code>electronAPI.onAgentEvent(cb)</code>:</p>
+      <table class="api-table">
+        <tr><th>Type</th><th>Description</th></tr>
+        <tr><td><code>system_prompt</code></td><td>System prompt built for this session</td></tr>
+        <tr><td><code>tool_call</code></td><td>Agent is calling a tool (name, input)</td></tr>
+        <tr><td><code>tool_result</code></td><td>Tool execution result</td></tr>
+        <tr><td><code>action</code></td><td>UI side effect (navigate, open tab, etc.)</td></tr>
+        <tr><td><code>web_sources</code></td><td>URLs referenced during research</td></tr>
+        <tr><td><code>token</code></td><td>Streaming text token from final response</td></tr>
+        <tr><td><code>usage</code></td><td>Token usage statistics</td></tr>
+        <tr><td><code>done</code></td><td>Agent session complete</td></tr>
+        <tr><td><code>_stopped</code></td><td>Agent stuck (same tool call repeated 3 times)</td></tr>
+      </table>
+
+      <h2>Tool Execution</h2>
+      <p>When the LLM returns tool calls, the runtime splits them based on the tool's <code>sequential</code> flag:</p>
+      <ul>
+        <li><strong>Parallel batch</strong> — tools without <code>sequential: true</code> run concurrently via <code>Promise.all</code></li>
+        <li><strong>Sequential batch</strong> — tools with <code>sequential: true</code> run one at a time</li>
+      </ul>
+
+      <div class="code-block"><pre><code class="language-typescript">// ToolContext passed to each tool during agent execution
+const context: ToolContext = {
+  googleId,
+  signal: abortController.signal,
+  onProgress: (data) =&gt; emit({ type: 'progress', data }),
+  emitAction: (action) =&gt; emit({ type: 'action', ...action }),
+  waitForResult: (requestId, timeoutMs) =&gt;
+    waitForFrontendResult(requestId, timeoutMs),
+  browserDom,
+  documentText,
+};</code></pre></div>
+
+      <h2>Action Result Protocol</h2>
+      <p>Some tools need input from the frontend. The action result protocol enables async round-trips:</p>
+      <ol>
+        <li>Tool calls <code>context.waitForResult(requestId)</code> — returns a Promise</li>
+        <li>Runtime emits an <code>action</code> event to the frontend</li>
+        <li>Frontend calls <code>electronAPI.agentActionResult(requestId, result)</code></li>
+        <li>Main process resolves the Promise via <code>resolveActionResult()</code></li>
+      </ol>
+      <p>Default timeout: 15 seconds.</p>
+
+      <h2>Constants</h2>
+      <table class="api-table">
+        <tr><th>Constant</th><th>Value</th><th>Description</th></tr>
+        <tr><td><code>MAX_TOOL_ITERATIONS</code></td><td>25</td><td>Maximum tool call loop iterations</td></tr>
+        <tr><td><code>STUCK_THRESHOLD</code></td><td>3</td><td>Identical tool calls before stopping</td></tr>
+      </table>
+
+      <h2>Frontend Integration</h2>
+      <div class="code-block"><pre><code class="language-javascript">// Start an agent session
+const sessionId = await electronAPI.agentStart({
+  agent: 'research',
+  messages: [{ role: 'user', content: 'Find papers on attention' }],
+  toolsEnabled: true,
+});
+
+// Listen for streaming events
+electronAPI.onAgentEvent((event) =&gt; {
+  switch (event.type) {
+    case 'token':
+      appendToChat(event.content);
+      break;
+    case 'tool_call':
+      showToolIndicator(event.name);
+      break;
+    case 'done':
+      finishChat();
+      break;
+  }
+});
+
+// Cancel if needed
+electronAPI.agentCancel(sessionId);</code></pre></div>
+
+      <footer class="docs-footer">
+        <div class="docs-version"></div>
+        <p>&copy; 2026 Netrun</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="assets/docs.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>hljs.highlightAll();</script>
+</body>
+</html>
