@@ -253,7 +253,7 @@ export function _islandRenderPill(a) {
   } else if (a.type === 'nerd') {
     return H([R(icon('research', { size: 14 })), T(a.label || 'Nerd Mode?')]).spacing(1).styles({ whiteSpace: 'nowrap' });
   } else if (a.type === 'pageinfo') {
-    return R(icon('helpCircle', { size: 14, stroke: 'var(--nr-text-secondary)' }));
+    return R(icon('info', { size: 14, stroke: 'var(--nr-text-secondary)' }));
   } else if (a.type === 'calendar') {
     return H([R(icon('calendar', { size: 14, stroke: '#3b82f6' })), T(a.label || '').foreground('#3b82f6')]);
   } else if (a.type === 'bookmark') {
@@ -763,6 +763,7 @@ function _togglePageInfoDropdown(pillEl, act) {
       _closePageInfoDropdown();
     };
     document.addEventListener('mousedown', _pageInfoOutsideHandler, true);
+    window.addEventListener('blur', _closePageInfoDropdown);
   }, 0);
 }
 
@@ -775,6 +776,7 @@ function _closePageInfoDropdown() {
     document.removeEventListener('mousedown', _pageInfoOutsideHandler, true);
     _pageInfoOutsideHandler = null;
   }
+  window.removeEventListener('blur', _closePageInfoDropdown);
 }
 
 // ── Live tray update for CC/mic ──
