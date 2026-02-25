@@ -95,7 +95,7 @@ export function _expandIsland() {
 export function _collapseIsland() {
   var wrap = document.getElementById('pill-url-wrap');
   if (!wrap) return;
-  wrap.classList.remove('island-expanded', 'island-ai-expanded');
+  wrap.classList.remove('island-expanded', 'island-ai-expanded', 'island-no-center');
   islandExpanded.value = false;
   islandSubState.value = 'default';
   _closeIslandTabsDropdown();
@@ -335,7 +335,7 @@ export function _renderIslandActions() {
   // ── CC Live mode: center column becomes sole column with captions ──
   var wrap = document.getElementById('pill-url-wrap');
   if (window._ccActive) {
-    if (wrap) wrap.classList.add('island-cc-live');
+    if (wrap) { wrap.classList.add('island-cc-live'); wrap.classList.remove('island-no-center'); }
 
     var ccAct = window._islandActivities ? window._islandActivities.value.cc : null;
     var lines = (ccAct && ccAct.lines) ? ccAct.lines : [];
@@ -375,7 +375,7 @@ export function _renderIslandActions() {
   }
   // ── Mic Live mode: center column becomes sole column with transcript ──
   if (window._pillMicRecorder) {
-    if (wrap) wrap.classList.add('island-cc-live');
+    if (wrap) { wrap.classList.add('island-cc-live'); wrap.classList.remove('island-no-center'); }
 
     var micAct = window._islandActivities ? window._islandActivities.value.mic : null;
     var micLines = (micAct && micAct.lines) ? micAct.lines : [];
@@ -413,80 +413,8 @@ export function _renderIslandActions() {
     AetherUI.append(micContainer, centerCol);
     return;
   }
-  // Not in CC/mic mode — remove layout class
-  if (wrap) wrap.classList.remove('island-cc-live');
-
-  var rows = [];
-
-  // ── Page info section ──
-  var pageInfo = typeof window._getPageInfoState === 'function' ? window._getPageInfoState() : {};
-  var meta = pageInfo.meta || {};
-  var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
-  var activeTab = win ? win.tabs.find(function(t) { return t.id === win.activeTab; }) : null;
-
-  // Title
-  var title = (activeTab && activeTab.title) ? activeTab.title : '';
-  if (title) {
-    rows.push(T(title).styles({ fontSize: '0.82rem', fontWeight: '600', color: 'var(--nr-text-primary)',
-      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }));
-  }
-
-  // URL / domain
-  var url = (activeTab && activeTab.url) ? activeTab.url : '';
-  if (url && url !== 'about:blank') {
-    var domain = '';
-    try { domain = new URL(url).hostname; } catch(e) {}
-    if (domain) {
-      rows.push(T(domain).styles({ fontSize: '0.7rem', color: 'var(--nr-text-tertiary)',
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }));
-    }
-  }
-
-  // Meta info pills (badges row)
-  var pills = [];
-  if (meta.author) pills.push(meta.author);
-  if (pageInfo.label) pills.push(pageInfo.label);
-  else if (meta.wordCount > 0) {
-    var mins = Math.max(1, Math.round(meta.wordCount / 238));
-    pills.push(mins + ' min read');
-  }
-  if (pageInfo.badges) pills.push(pageInfo.badges);
-
-  if (pills.length) {
-    var pillViews = pills.map(function(p) {
-      return T(p).styles({ fontSize: '0.65rem', color: 'var(--nr-text-tertiary)',
-        background: 'var(--nr-bg-raised)', borderRadius: '6px', padding: '2px 6px',
-        whiteSpace: 'nowrap' });
-    });
-    rows.push(H(pillViews).styles({ gap: '4px', flexWrap: 'wrap', marginTop: '4px' }));
-  }
-
-  // Detailed info rows (Server IP, Location, Org, etc.)
-  var _infoStyle = { fontSize: '0.68rem', color: 'var(--nr-text-tertiary)' };
-  var _labelStyle = { fontSize: '0.68rem', color: 'var(--nr-text-quaternary)', minWidth: '70px', flexShrink: '0' };
-  function _infoRow(label, value) {
-    return H([T(label).styles(_labelStyle), T(value).styles(_infoStyle)]).styles({ gap: '8px', marginTop: '2px', whiteSpace: 'nowrap' });
-  }
-  if (meta.ip) rows.push(_infoRow('Server IP', meta.ip));
-  if (meta.location) rows.push(_infoRow('Location', meta.location));
-  if (meta.org) rows.push(_infoRow('Org', meta.org));
-  if (meta.wordCount > 0) {
-    var readMins = Math.max(1, Math.round(meta.wordCount / 238));
-    rows.push(_infoRow('Reading time', readMins + ' min (' + meta.wordCount.toLocaleString() + ' words)'));
-  }
-
-  // Description
-  if (meta.description) {
-    var desc = meta.description.length > 120 ? meta.description.slice(0, 118) + '\u2026' : meta.description;
-    rows.push(T(desc).styles({ fontSize: '0.68rem', color: 'var(--nr-text-quaternary)',
-      lineHeight: '1.35', marginTop: '4px', display: '-webkit-box',
-      WebkitLineClamp: '3', WebkitBoxOrient: 'vertical', overflow: 'hidden' }));
-  }
-
-
-  var container = VS(rows).styles({ gap: '2px', alignItems: 'flex-start', padding: '0 4px' });
-  container.id(actionsId);
-  AetherUI.append(container, centerCol);
+  // Not in CC/mic mode — remove layout class, hide center column
+  if (wrap) { wrap.classList.remove('island-cc-live'); wrap.classList.add('island-no-center'); }
 }
 
 // ── Render utility row ──
@@ -602,6 +530,8 @@ document.addEventListener('click', function(e) {
   var wrap = document.getElementById('pill-url-wrap');
   if (!wrap) return;
   if (wrap.classList.contains('island-expanded')) return;
+  // Don't expand when clicking satellite pills — they have their own tray handlers
+  if (e.target.closest('.pill-satellite-container')) return;
   if (wrap.contains(e.target)) _expandIsland();
 });
 

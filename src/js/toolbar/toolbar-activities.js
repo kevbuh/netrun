@@ -154,7 +154,7 @@ export function _islandRenderPill(a) {
       .opacity(0.4).padding('0', '2px')
       .styles({ marginLeft: '4px', fontSize: '15px', lineHeight: '1', cursor: 'pointer' });
     dismiss.el.textContent = '\u00d7';
-    return H([R(ringHtml), T(a.label || pct + '%'), dismiss]);
+    return H([R(ringHtml), T(a.label || pct + '%'), dismiss]).styles({ whiteSpace: 'nowrap', cursor: 'pointer' });
   } else if (a.type === 'tts') {
     var ttsIconHtml = a.paused ? icon('play', { size: 14 }) : window._islandWaveformBars;
     var spd = parseFloat(Settings.get('ttsSpeed')) || 1;
@@ -253,10 +253,7 @@ export function _islandRenderPill(a) {
   } else if (a.type === 'nerd') {
     return H([R(icon('research', { size: 14 })), T(a.label || 'Nerd Mode?')]).spacing(1).styles({ whiteSpace: 'nowrap' });
   } else if (a.type === 'pageinfo') {
-    var children = [R(icon('clock', { size: 14, stroke: 'var(--nr-text-secondary)' }))];
-    if (a.label) children.push(T(a.label));
-    if (a.badges) children.push(T(a.badges).className('island-pageinfo-badges'));
-    return H(children);
+    return R(icon('helpCircle', { size: 14, stroke: 'var(--nr-text-secondary)' }));
   } else if (a.type === 'calendar') {
     return H([R(icon('calendar', { size: 14, stroke: '#3b82f6' })), T(a.label || '').foreground('#3b82f6')]);
   } else if (a.type === 'bookmark') {
@@ -334,6 +331,73 @@ export function _islandBuildTray(a, isBrowse) {
       rows.push(H([R(dlIconHtml).className('island-dl-icon'), infoView, removeBtn]).className('island-dl-item').attr('data-island-dl', item.id));
     }
     return VS(rows);
+  } else if (a.type === 'pageinfo') {
+    var rows = [];
+    var meta = a.meta || {};
+    var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
+    var activeTab = win ? win.tabs.find(function(t) { return t.id === win.activeTab; }) : null;
+
+    // Title
+    var title = (activeTab && activeTab.title) ? activeTab.title : '';
+    if (title) {
+      rows.push(T(title).styles({ fontSize: '0.82rem', fontWeight: '600', color: 'var(--nr-text-primary)',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }));
+    }
+
+    // URL / domain
+    var url = (activeTab && activeTab.url) ? activeTab.url : '';
+    if (url && url !== 'about:blank') {
+      var domain = '';
+      try { domain = new URL(url).hostname; } catch(e) {}
+      if (domain) {
+        rows.push(T(domain).styles({ fontSize: '0.7rem', color: 'var(--nr-text-tertiary)',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }));
+      }
+    }
+
+    // Meta info pills (badges row)
+    var badges = [];
+    if (meta.author) badges.push(meta.author);
+    if (a.label) badges.push(a.label);
+    else if (meta.wordCount > 0) {
+      var mins = Math.max(1, Math.round(meta.wordCount / 238));
+      badges.push(mins + ' min read');
+    }
+    if (a.badges) badges.push(a.badges);
+
+    if (badges.length) {
+      var badgeViews = badges.map(function(p) {
+        return T(p).styles({ fontSize: '0.65rem', color: 'var(--nr-text-tertiary)',
+          background: 'var(--nr-bg-raised)', borderRadius: '6px', padding: '2px 6px',
+          whiteSpace: 'nowrap' });
+      });
+      rows.push(H(badgeViews).styles({ gap: '4px', flexWrap: 'wrap', marginTop: '4px' }));
+    }
+
+    // Detailed info rows
+    var _infoStyle = { fontSize: '0.68rem', color: 'var(--nr-text-tertiary)' };
+    var _labelStyle = { fontSize: '0.68rem', color: 'var(--nr-text-quaternary)', minWidth: '70px', flexShrink: '0' };
+    function _infoRow(label, value) {
+      return H([T(label).styles(_labelStyle), T(value).styles(_infoStyle)]).styles({ gap: '8px', marginTop: '2px', whiteSpace: 'nowrap' });
+    }
+    if (meta.ip) rows.push(_infoRow('Server IP', meta.ip));
+    if (meta.location) rows.push(_infoRow('Location', meta.location));
+    if (meta.org) rows.push(_infoRow('Server', meta.org));
+    if (meta.wordCount > 0) {
+      var readMins = Math.max(1, Math.round(meta.wordCount / 238));
+      rows.push(_infoRow('Reading time', readMins + ' min (' + meta.wordCount.toLocaleString() + ' words)'));
+    }
+
+    // Description
+    if (meta.description) {
+      var desc = meta.description.length > 120 ? meta.description.slice(0, 118) + '\u2026' : meta.description;
+      rows.push(T(desc).styles({ fontSize: '0.68rem', color: 'var(--nr-text-quaternary)',
+        lineHeight: '1.35', marginTop: '4px', display: '-webkit-box',
+        WebkitLineClamp: '3', WebkitBoxOrient: 'vertical', overflow: 'hidden' }));
+    }
+
+    if (rows.length === 0) return null;
+    return VS(rows).styles({ gap: '2px', padding: '8px 10px', minWidth: '200px' });
   } else if (a.type === 'insight' && a.items && a.items.length) {
     var annColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
     var annLabels = { ALPHA: 'Alpha', CONTRADICTION: 'Contradiction', AD: 'Ad', CONNECTION: 'Connection' };
@@ -381,7 +445,7 @@ export function _islandRender() {
   for (var i = 0; i < keys.length; i++) {
     var a = activities[keys[i]];
     if (!a) continue;
-    if (a.type === 'ai' || a.type === 'insight' || a.type === 'pageinfo') continue;
+    if (a.type === 'ai' || a.type === 'insight') continue;
     filtered.push({ id: keys[i], data: a });
   }
 
@@ -397,18 +461,20 @@ export function _islandRender() {
   var nav = document.getElementById('sidebar-nav');
   var isIslandMode = nav && nav.classList.contains('island-mode');
 
-  // Partition pills: tabs stay inline, others become satellites in island mode
+  // Partition pills: only tabs go inline, everything else becomes satellites
   var leftTypes = { rss: 1, bookmark: 1, 'feed-notif': 1, context: 1, achievement: 1 };
+  var rightTypes = { pageinfo: 1 };
   var inlinePills = [], leftPills = [], rightPills = [];
   for (var i = 0; i < filtered.length; i++) {
     var f = filtered[i];
-    if (!isIslandMode || !satLeft || !satRight || f.data.type === 'tabs') {
+    if (f.data.type === 'tabs') {
       inlinePills.push(f);
-    } else if (leftTypes[f.data.type]) {
-      leftPills.push(f);
-    } else {
-      rightPills.push(f);
+    } else if (isIslandMode && satLeft && satRight) {
+      if (leftTypes[f.data.type]) leftPills.push(f);
+      else if (rightTypes[f.data.type]) rightPills.push(f);
+      else rightPills.push(f);
     }
+    // Non-tabs pills are dropped when not in island mode (no satellites available)
   }
 
   // Collect all containers for stale-pill cleanup
@@ -462,6 +528,7 @@ export function _islandRender() {
       pillEl.classList.add('island-tray-open');
     }
     pillEl.classList.toggle('island-active', true);
+    pillEl.classList.toggle('island-has-items', !!(f.data.items && f.data.items.length));
   }
 
   for (var i = 0; i < inlinePills.length; i++) _renderPillInto(inlinePills[i], container);
@@ -603,7 +670,11 @@ function _islandPillClickHandler(e) {
       if (act && act.action) {
         e.stopPropagation();
         act.action();
+      } else if (act && act.type === 'pageinfo') {
+        e.stopPropagation();
+        _togglePageInfoDropdown(pill, act);
       } else if (act && (act.items || act.type === 'download' || act.type === 'insight')) {
+        e.stopPropagation();
         _togglePillTray(pill, act);
       }
     }
@@ -649,6 +720,61 @@ function _togglePillTray(pillEl, act) {
     };
     document.addEventListener('mousedown', handler, true);
   }, 0);
+}
+
+// ── Page info dropdown (fixed-position, avoids overflow clipping) ──
+
+var _pageInfoDropdownEl = null;
+var _pageInfoOutsideHandler = null;
+
+function _togglePageInfoDropdown(pillEl, act) {
+  if (_pageInfoDropdownEl) {
+    _closePageInfoDropdown();
+    return;
+  }
+  var V = window.View, T = window.Text, H = window.HStack, VS = window.VStack;
+  var trayContent = _islandBuildTray(act, false);
+  if (!trayContent) return;
+
+  var pillRect = pillEl.getBoundingClientRect();
+  var panel = new V('div').className('island-pageinfo-dropdown')
+    .position('fixed')
+    .background('overlay')
+    .cornerRadius('lg')
+    .shadow('popup')
+    .border('border-default')
+    .colorScheme('dark')
+    .frame({ maxHeight: 320, minWidth: 220, maxWidth: 340 })
+    .overflow('auto')
+    .zIndex('modal')
+    .padding('8px', '0')
+    .styles({
+      right: Math.round(window.innerWidth - pillRect.right) + 'px',
+      top: Math.round(pillRect.bottom + 6) + 'px'
+    });
+  AetherUI.mount(trayContent, panel.el);
+  document.body.appendChild(panel.el);
+  _pageInfoDropdownEl = panel.el;
+
+  setTimeout(function() {
+    _pageInfoOutsideHandler = function(e) {
+      if (_pageInfoDropdownEl && _pageInfoDropdownEl.contains(e.target)) return;
+      if (pillEl.contains(e.target)) return;
+      _closePageInfoDropdown();
+    };
+    document.addEventListener('mousedown', _pageInfoOutsideHandler, true);
+  }, 0);
+}
+
+function _closePageInfoDropdown() {
+  if (_pageInfoDropdownEl) {
+    _pageInfoDropdownEl.remove();
+    _pageInfoDropdownEl = null;
+  }
+  if (_pageInfoOutsideHandler) {
+    document.removeEventListener('mousedown', _pageInfoOutsideHandler, true);
+    _pageInfoOutsideHandler = null;
+  }
 }
 
 // ── Live tray update for CC/mic ──
