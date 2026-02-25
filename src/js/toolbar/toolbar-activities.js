@@ -240,7 +240,7 @@ export function _islandRenderPill(a) {
     if (a.loading) {
       return H([new V('span').className('island-annotate-dot'), T(a.label || 'Analyzing\u2026')]);
     }
-    var _annModeColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', EXAGGERATION: '#ffc107', AD: '#ff9800', CONNECTION: '#2196f3' };
+    var _annModeColors = { INSIGHT: '#4caf50', CONTRADICTION: '#ef5350', EXAGGERATION: '#ffc107', AD: '#ff9800', FACTCHECK: '#ec407a', EVIDENCE: '#26a69a', CONNECTION: '#2196f3' };
     var annColor = _annModeColors[a.modeType] || '#4caf50';
     var children = [R(icon('comment', { size: 14, stroke: annColor })), T(a.label || '').foreground('var(--aether-text)')];
     if (a._paper && a._paperState && a._paperState.s2Data) {
@@ -399,8 +399,8 @@ export function _islandBuildTray(a, isBrowse) {
     if (rows.length === 0) return null;
     return VS(rows).styles({ gap: '2px', padding: '8px 10px', minWidth: '200px' });
   } else if (a.type === 'insight' && a.items && a.items.length) {
-    var annColors = { ALPHA: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', CONNECTION: '#2196f3' };
-    var annLabels = { ALPHA: 'Alpha', CONTRADICTION: 'Contradiction', AD: 'Ad', CONNECTION: 'Connection' };
+    var annColors = { INSIGHT: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', FACTCHECK: '#ec407a', EVIDENCE: '#26a69a', CONNECTION: '#2196f3' };
+    var annLabels = { INSIGHT: 'Insight', CONTRADICTION: 'Contradiction', AD: 'Ad', FACTCHECK: 'Fact Check', EVIDENCE: 'Evidence', CONNECTION: 'Connection' };
     if (typeof window._customAnnotationCategories !== 'undefined') {
       for (var ci = 0; ci < window._customAnnotationCategories.length; ci++) {
         var cc = window._customAnnotationCategories[ci];

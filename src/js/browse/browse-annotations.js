@@ -129,7 +129,7 @@ export function _restoreInsightPill(tab) {
   // Build pill
   const typeCounts = {};
   for (const a of annotations) { typeCounts[a.type] = (typeCounts[a.type] || 0) + 1; }
-  const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'ALPHA';
+  const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'INSIGHT';
 
   if (typeof islandUpdate === 'function') {
     islandUpdate('insight', {
@@ -311,7 +311,7 @@ export function _initInsightListener() {
     // Update island pill
     const typeCounts = {};
     for (const a of annotations) { typeCounts[a.type] = (typeCounts[a.type] || 0) + 1; }
-    const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'ALPHA';
+    const modeType = Object.keys(typeCounts).sort((a, b) => typeCounts[b] - typeCounts[a])[0] || 'INSIGHT';
 
     if (typeof islandUpdate === 'function') {
       const count = annotations.length;
@@ -566,10 +566,12 @@ export function injectAnnotations(tab, annotations) {
   const frame = tab.el;
 
   const colorMap = {
-    ALPHA: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Alpha', labelColor: '#4caf50' },
+    INSIGHT: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Insight', labelColor: '#4caf50' },
     CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Contradiction', labelColor: '#ef5350' },
     EXAGGERATION: { bg: 'rgba(255, 193, 7, 0.25)', border: '#ffc107', label: 'Exaggeration', labelColor: '#ffc107' },
     AD: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Ad', labelColor: '#ff9800' },
+    FACTCHECK: { bg: 'rgba(236, 64, 122, 0.25)', border: '#ec407a', label: 'Fact Check', labelColor: '#ec407a' },
+    EVIDENCE: { bg: 'rgba(38, 166, 154, 0.25)', border: '#26a69a', label: 'Evidence', labelColor: '#26a69a' },
     CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Connection', labelColor: '#2196f3' }
   };
   // Extend with custom annotation categories
@@ -592,7 +594,7 @@ export function injectAnnotations(tab, annotations) {
       var _hoveredAnn = null;
       var _clickedAnn = false;
       function showTooltip(mark, ann) {
-        var c = colorMap[ann.type] || colorMap.ALPHA;
+        var c = colorMap[ann.type] || colorMap.INSIGHT;
         _hoveredAnn = { type: ann.type, label: c.label, labelColor: c.labelColor, explanation: ann.explanation, conflictsWith: ann.conflictsWith || '', confidence: ann.confidence != null ? ann.confidence : null, quote: ann.quote || '' };
       }
 
@@ -604,7 +606,7 @@ export function injectAnnotations(tab, annotations) {
 
       var _clickedMark = null;
       function clickTooltip(mark, ann, e) {
-        var c = colorMap[ann.type] || colorMap.ALPHA;
+        var c = colorMap[ann.type] || colorMap.INSIGHT;
         // Remove previous clicked state
         if (_clickedMark && _clickedMark !== mark) {
           _clickedMark.style.outline = '';
@@ -669,7 +671,7 @@ export function injectAnnotations(tab, annotations) {
         const matchIdx = fullLower.indexOf(quoteLower);
         if (matchIdx === -1) continue;
         const matchEnd = matchIdx + quote.length;
-        const c = colorMap[ann.type] || colorMap.ALPHA;
+        const c = colorMap[ann.type] || colorMap.INSIGHT;
 
         // Find all text nodes that overlap with this match range
         const affectedNodes = [];
@@ -786,10 +788,12 @@ export function injectSingleAnnotation(tab, ann) {
   if (!tab || !tab.el) return;
   const frame = tab.el;
   const colorMap = {
-    ALPHA: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Alpha', labelColor: '#4caf50' },
+    INSIGHT: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Insight', labelColor: '#4caf50' },
     CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Contradiction', labelColor: '#ef5350' },
     EXAGGERATION: { bg: 'rgba(255, 193, 7, 0.25)', border: '#ffc107', label: 'Exaggeration', labelColor: '#ffc107' },
     AD: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Ad', labelColor: '#ff9800' },
+    FACTCHECK: { bg: 'rgba(236, 64, 122, 0.25)', border: '#ec407a', label: 'Fact Check', labelColor: '#ec407a' },
+    EVIDENCE: { bg: 'rgba(38, 166, 154, 0.25)', border: '#26a69a', label: 'Evidence', labelColor: '#26a69a' },
     CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Connection', labelColor: '#2196f3' }
   };
   if (typeof window._customAnnotationCategories !== 'undefined') {

@@ -115,22 +115,22 @@ describe('author cache', () => {
 
 describe('annotation feedback', () => {
   it('storeAnnotationFeedback creates feedback entry', () => {
-    storeAnnotationFeedback('http://page', 'Page Title', 'A quote', 'Explanation', 'ALPHA', 'good');
+    storeAnnotationFeedback('http://page', 'Page Title', 'A quote', 'Explanation', 'INSIGHT', 'good');
     const items = listAnnotationFeedback();
     expect(items.length).toBe(1);
     expect(items[0].rating).toBe('good');
   });
 
   it('listAnnotationFeedback filters by rating', () => {
-    storeAnnotationFeedback('url1', '', 'q1', '', 'ALPHA', 'good');
+    storeAnnotationFeedback('url1', '', 'q1', '', 'INSIGHT', 'good');
     storeAnnotationFeedback('url2', '', 'q2', '', 'AD', 'bad');
     const good = listAnnotationFeedback('good');
     expect(good.length).toBe(1);
-    expect(good[0].ann_type).toBe('ALPHA');
+    expect(good[0].ann_type).toBe('INSIGHT');
   });
 
   it('getAnnotationFeedbackStats counts good and bad', () => {
-    storeAnnotationFeedback('url1', '', 'q1', '', 'ALPHA', 'good');
+    storeAnnotationFeedback('url1', '', 'q1', '', 'INSIGHT', 'good');
     storeAnnotationFeedback('url2', '', 'q2', '', 'AD', 'good');
     storeAnnotationFeedback('url3', '', 'q3', '', 'AD', 'bad');
     const stats = getAnnotationFeedbackStats();
@@ -139,14 +139,14 @@ describe('annotation feedback', () => {
   });
 
   it('updateAnnotationFeedbackRating changes rating', () => {
-    storeAnnotationFeedback('url', '', 'quote', '', 'ALPHA', 'good');
+    storeAnnotationFeedback('url', '', 'quote', '', 'INSIGHT', 'good');
     const items = listAnnotationFeedback();
     updateAnnotationFeedbackRating(items[0].id, 'bad');
     expect(feedback.get(items[0].id)!.rating).toBe('bad');
   });
 
   it('deleteAnnotationFeedback removes entry', () => {
-    storeAnnotationFeedback('url', '', 'quote', '', 'ALPHA', 'good');
+    storeAnnotationFeedback('url', '', 'quote', '', 'INSIGHT', 'good');
     const items = listAnnotationFeedback();
     deleteAnnotationFeedback(items[0].id);
     expect(listAnnotationFeedback().length).toBe(0);

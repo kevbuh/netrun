@@ -1104,9 +1104,11 @@ export function _panelBuildSelectionUI(popup, config) {
         .cssText('position:absolute;top:100%;left:0;right:0;background:var(--aether-dropdown-bg, #1a1a2e);border:1px solid var(--aether-border, rgba(255,255,255,0.1));border-radius:8px;padding:4px;margin-top:4px;display:flex;flex-wrap:wrap;gap:3px;z-index:10;');
       dropdown = ddView.el;
       const types = [
-        { key: 'ALPHA', name: 'Alpha', color: '#4caf50' },
+        { key: 'INSIGHT', name: 'Insight', color: '#4caf50' },
         { key: 'CONTRADICTION', name: 'Contradiction', color: '#ef5350' },
         { key: 'AD', name: 'Ad', color: '#ff9800' },
+        { key: 'FACTCHECK', name: 'Fact Check', color: '#ec407a' },
+        { key: 'EVIDENCE', name: 'Evidence', color: '#26a69a' },
       ];
       if (typeof window._customAnnotationCategories !== 'undefined') {
         for (const cc of window._customAnnotationCategories) {

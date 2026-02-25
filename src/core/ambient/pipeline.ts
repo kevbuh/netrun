@@ -2,6 +2,7 @@ import type { WebContents } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { OllamaProvider } from '../providers/ollama.js';
+import type { ToolDefinition } from '../tools/types.js';
 import * as contentQueries from '../db/queries/content.js';
 import { snapQuoteToText } from '../utils/text.js';
 import { contextManager } from '../context/manager.js';
@@ -185,32 +186,64 @@ export class PageInsightPipeline {
         }
       }
 
-      const systemPrompt = `You are an AI assistant integrated into a web browser. You will analyze the current page and produce a JSON response with two parts.
+      const systemPrompt = `You are an ambient intelligence woven into a web browser. The user just visited a page. Analyze it and use the provided tools to emit observations and annotations.
 
-PART 1 — INSIGHT:
-${AMBIENT_SYSTEM}
+Use emit_insight to share a single 1-2 sentence observation that connects this page to context or surfaces a non-obvious takeaway. If nothing useful, skip it.
+Use add_annotation to annotate noteworthy passages — key results, contradictions, exaggerations, ads, claims needing verification, or passages needing evidence.
 
-PART 2 — ANNOTATIONS:
 ${annotationPrompt}
 
-Respond ONLY with valid JSON in this exact format:
-{
-  "insight": "your 1-2 sentence observation or null",
-  "annotations": [array of annotation objects]
-}
-
-No other text. No markdown. No explanation outside the JSON. /no_think`;
+Rules:
+- If related pages exist, draw a connection or contrast in your insight.
+- Never greet the user. Never use filler. Never explain yourself.
+- Call emit_insight at most once. Call add_annotation 1-3 times for a typical page, 5-8 for longer content.
+- If the page has nothing worth annotating, don't call add_annotation. /no_think`;
 
       const model = data.model || this._getModel();
       const customCats = contentQueries.listAnnotationCategories();
-      const validTypes = new Set(['ALPHA', 'CONTRADICTION', 'EXAGGERATION', 'AD', ...customCats.map(c => c.key)]);
+      const validTypes = new Set(['INSIGHT', 'CONTRADICTION', 'EXAGGERATION', 'AD', 'FACTCHECK', 'EVIDENCE', ...customCats.map(c => c.key)]);
       const annotations: Annotation[] = [];
       let insight: string | null = null;
 
-      // Stream the LLM response and emit partial results
+      // Build tool definitions for structured output
+      const typeEnum = ['INSIGHT', 'CONTRADICTION', 'EXAGGERATION', 'AD', 'FACTCHECK', 'EVIDENCE', ...customCats.map(c => c.key)];
+      const tools: ToolDefinition[] = [
+        {
+          type: 'function',
+          function: {
+            name: 'emit_insight',
+            description: 'Emit a 1-2 sentence ambient observation about the current page',
+            parameters: {
+              type: 'object',
+              properties: {
+                insight: { type: 'string', description: '1-2 sentence observation' },
+              },
+              required: ['insight'],
+            },
+          },
+        },
+        {
+          type: 'function',
+          function: {
+            name: 'add_annotation',
+            description: 'Annotate a passage in the page text',
+            parameters: {
+              type: 'object',
+              properties: {
+                type: { type: 'string', enum: typeEnum, description: 'Annotation type' },
+                quote: { type: 'string', description: 'EXACT verbatim substring from the page text (10-40 words)' },
+                explanation: { type: 'string', description: '1-2 sentences explaining the annotation' },
+                confidence: { type: 'number', minimum: 0, maximum: 100 },
+                conflictsWith: { type: 'string', description: 'Only for CONTRADICTION: the conflicting claim' },
+              },
+              required: ['type', 'quote', 'explanation', 'confidence'],
+            },
+          },
+        },
+      ];
+
+      // Stream the LLM response via tool-use
       let rawContent = '';
-      let insightEmitted = false;
-      let emittedAnnotationCount = 0;
 
       const stream = this.ollama.chatStream({
         model,
@@ -218,6 +251,8 @@ No other text. No markdown. No explanation outside the JSON. /no_think`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage + '\n\n--- FULL PAGE TEXT FOR ANNOTATIONS ---\n' + fullText + '\n--- END ---' },
         ],
+        tools,
+        toolChoice: 'auto',
         temperature: 0.1,
         maxTokens: 4000,
         signal: controller.signal,
@@ -225,83 +260,35 @@ No other text. No markdown. No explanation outside the JSON. /no_think`;
 
       for await (const event of stream) {
         if (controller.signal.aborted) return;
-        if (event.type === 'token') {
-          rawContent += event.content;
-
-          // Try to extract insight as soon as the string value completes
-          if (!insightEmitted) {
-            const insightMatch = rawContent.match(/"insight"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-            if (insightMatch) {
-              const rawInsight = insightMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\').trim();
+        if (event.type === 'tool_call') {
+          try {
+            const args = JSON.parse(event.arguments);
+            if (event.name === 'emit_insight') {
+              const rawInsight = (args.insight ?? '').trim();
               if (rawInsight && rawInsight !== 'SKIP' && rawInsight !== 'null') {
                 insight = rawInsight;
                 if (!sender.isDestroyed()) {
                   sender.send('insight:partial', { tabId: data.tabId, url: data.url, insight });
                 }
               }
-              insightEmitted = true;
-            }
-          }
-
-          // Try to extract complete annotation objects from the annotations array
-          // Find the annotations array start
-          const arrStart = rawContent.indexOf('"annotations"');
-          if (arrStart !== -1) {
-            // Scan for complete annotation objects we haven't emitted yet
-            const afterArr = rawContent.indexOf('[', arrStart);
-            if (afterArr !== -1) {
-              let depth = 0, objStart = -1;
-              let objCount = 0;
-              for (let i = afterArr + 1; i < rawContent.length; i++) {
-                const ch = rawContent[i];
-                if (ch === '"') {
-                  // Skip string contents
-                  let j = i + 1;
-                  while (j < rawContent.length && rawContent[j] !== '"') {
-                    if (rawContent[j] === '\\') j++;
-                    j++;
-                  }
-                  i = j;
-                  continue;
-                }
-                if (ch === '{') {
-                  if (depth === 0) objStart = i;
-                  depth++;
-                } else if (ch === '}') {
-                  depth--;
-                  if (depth === 0 && objStart !== -1) {
-                    objCount++;
-                    if (objCount > emittedAnnotationCount) {
-                      // New complete annotation object
-                      let objStr = rawContent.slice(objStart, i + 1);
-                      // Fix unquoted string values (e.g. "type": ALPHA → "type": "ALPHA")
-                      objStr = objStr.replace(/:\s*([A-Z_]{2,})\s*([,}\]])/g, ': "$1"$2');
-                      try {
-                        const item = JSON.parse(objStr);
-                        const ann = this._validateAnnotation(item, validTypes, data.text);
-                        if (ann) {
-                          annotations.push(ann);
-                          emittedAnnotationCount = objCount;
-                          if (!sender.isDestroyed()) {
-                            sender.send('insight:partial', {
-                              tabId: data.tabId, url: data.url,
-                              annotation: ann,
-                              annotationCount: annotations.length,
-                            });
-                          }
-                        } else {
-                          emittedAnnotationCount = objCount;
-                        }
-                      } catch {
-                        emittedAnnotationCount = objCount;
-                      }
-                    }
-                    objStart = -1;
-                  }
+            } else if (event.name === 'add_annotation') {
+              const ann = this._validateAnnotation(args, validTypes, data.text);
+              if (ann) {
+                annotations.push(ann);
+                if (!sender.isDestroyed()) {
+                  sender.send('insight:partial', {
+                    tabId: data.tabId, url: data.url,
+                    annotation: ann,
+                    annotationCount: annotations.length,
+                  });
                 }
               }
             }
+          } catch {
+            console.debug('[insight] Failed to parse tool_call arguments');
           }
+        } else if (event.type === 'token') {
+          rawContent += event.content;
         } else if (event.type === 'error') {
           console.debug('[insight] Stream error:', event.error);
           return;
@@ -310,69 +297,57 @@ No other text. No markdown. No explanation outside the JSON. /no_think`;
 
       if (controller.signal.aborted) return;
 
-      // Final parse pass — pick up anything the incremental parser missed
-      let cleanContent = rawContent.trim();
-      cleanContent = cleanContent.replace(/<think>[\s\S]*?<\/think>/g, '');
-      if (cleanContent.includes('```')) {
-        cleanContent = cleanContent.replace(/```(?:json)?\s*/g, '').replace(/```/g, '');
-      }
-      cleanContent = cleanContent.trim();
+      // Fallback: if model emitted text instead of tool calls (some Ollama models
+      // don't support tool-use), try to parse JSON from rawContent
+      if (!insight && annotations.length === 0 && rawContent.trim().length > 10) {
+        let cleanContent = rawContent.trim();
+        cleanContent = cleanContent.replace(/<think>[\s\S]*?<\/think>/g, '');
+        if (cleanContent.includes('```')) {
+          cleanContent = cleanContent.replace(/```(?:json)?\s*/g, '').replace(/```/g, '');
+        }
+        cleanContent = cleanContent.trim();
+        cleanContent = cleanContent.replace(/:\s*([A-Z_]{2,})\s*([,}\]])/g, ': "$1"$2');
 
-      // Fix unquoted string values (e.g. "type": ALPHA → "type": "ALPHA")
-      cleanContent = cleanContent.replace(/:\s*([A-Z_]{2,})\s*([,}\]])/g, ': "$1"$2');
-
-      // Try to find the top-level JSON object by matching balanced braces
-      let parsed: any = null;
-      const firstBrace = cleanContent.indexOf('{');
-      if (firstBrace !== -1) {
-        // Attempt 1: balanced brace matching for the outermost object
-        let depth = 0, end = -1;
-        for (let i = firstBrace; i < cleanContent.length; i++) {
-          const ch = cleanContent[i];
-          if (ch === '"') {
-            let j = i + 1;
-            while (j < cleanContent.length && cleanContent[j] !== '"') {
-              if (cleanContent[j] === '\\') j++;
-              j++;
+        let parsed: any = null;
+        const firstBrace = cleanContent.indexOf('{');
+        if (firstBrace !== -1) {
+          let depth = 0, end = -1;
+          for (let i = firstBrace; i < cleanContent.length; i++) {
+            const ch = cleanContent[i];
+            if (ch === '"') {
+              let j = i + 1;
+              while (j < cleanContent.length && cleanContent[j] !== '"') {
+                if (cleanContent[j] === '\\') j++;
+                j++;
+              }
+              i = j;
+              continue;
             }
-            i = j;
-            continue;
+            if (ch === '{') depth++;
+            else if (ch === '}') { depth--; if (depth === 0) { end = i; break; } }
           }
-          if (ch === '{') depth++;
-          else if (ch === '}') {
-            depth--;
-            if (depth === 0) { end = i; break; }
+          if (end !== -1) {
+            try { parsed = JSON.parse(cleanContent.slice(firstBrace, end + 1)); } catch {}
           }
-        }
-        if (end !== -1) {
-          try { parsed = JSON.parse(cleanContent.slice(firstBrace, end + 1)); } catch {}
-        }
-        // Attempt 2: greedy regex fallback
-        if (!parsed) {
-          const objMatch = cleanContent.match(/\{[\s\S]*\}/);
-          if (objMatch) {
-            try { parsed = JSON.parse(objMatch[0]); } catch {}
+          if (!parsed) {
+            const objMatch = cleanContent.match(/\{[\s\S]*\}/);
+            if (objMatch) { try { parsed = JSON.parse(objMatch[0]); } catch {} }
           }
         }
-      }
-
-      if (parsed) {
-        // Pick up insight if we missed it during streaming
-        if (!insight) {
+        if (parsed) {
           const rawInsight = (parsed.insight ?? '').trim();
           if (rawInsight && rawInsight !== 'SKIP' && rawInsight !== 'null') {
             insight = rawInsight;
           }
-        }
-        // Pick up any annotations we missed
-        if (Array.isArray(parsed.annotations)) {
-          for (const item of parsed.annotations.slice(emittedAnnotationCount, 15)) {
-            const ann = this._validateAnnotation(item, validTypes, data.text);
-            if (ann) annotations.push(ann);
+          if (Array.isArray(parsed.annotations)) {
+            for (const item of parsed.annotations.slice(0, 15)) {
+              const ann = this._validateAnnotation(item, validTypes, data.text);
+              if (ann) annotations.push(ann);
+            }
           }
+        } else if (firstBrace !== -1) {
+          console.debug('[insight] Fallback JSON parse failed, raw length =', cleanContent.length, 'preview:', cleanContent.slice(0, 200));
         }
-      } else if (firstBrace !== -1) {
-        console.debug('[insight] Final JSON parse failed, raw length =', cleanContent.length, 'preview:', cleanContent.slice(0, 200));
       }
 
       // Capture high-confidence annotations into living context

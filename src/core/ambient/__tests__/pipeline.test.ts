@@ -76,7 +76,7 @@ describe('PageInsightPipeline', () => {
   });
 
   describe('_validateAnnotation', () => {
-    const validTypes = new Set(['ALPHA', 'CONTRADICTION', 'EXAGGERATION', 'AD']);
+    const validTypes = new Set(['INSIGHT', 'CONTRADICTION', 'EXAGGERATION', 'AD', 'FACTCHECK', 'EVIDENCE']);
     const pageText = 'This is a test page with some claims about technology being amazing.';
 
     it('rejects null/undefined input', () => {
@@ -98,32 +98,32 @@ describe('PageInsightPipeline', () => {
 
     it('rejects empty quote', () => {
       expect((pipeline as any)._validateAnnotation(
-        { type: 'ALPHA', quote: '', explanation: 'test' },
+        { type: 'INSIGHT', quote: '', explanation: 'test' },
         validTypes, pageText,
       )).toBeNull();
     });
 
     it('rejects quote not found in page text', () => {
       expect((pipeline as any)._validateAnnotation(
-        { type: 'ALPHA', quote: 'text not on page', explanation: 'test' },
+        { type: 'INSIGHT', quote: 'text not on page', explanation: 'test' },
         validTypes, pageText,
       )).toBeNull();
     });
 
     it('accepts valid annotation with matching quote', () => {
       const ann = (pipeline as any)._validateAnnotation(
-        { type: 'ALPHA', quote: 'technology being amazing', explanation: 'Interesting claim' },
+        { type: 'INSIGHT', quote: 'technology being amazing', explanation: 'Interesting claim' },
         validTypes, pageText,
       );
       expect(ann).not.toBeNull();
-      expect(ann.type).toBe('ALPHA');
+      expect(ann.type).toBe('INSIGHT');
       expect(ann.explanation).toBe('Interesting claim');
       expect(ann.confidence).toBe(70); // default
     });
 
     it('clamps confidence to 0-100', () => {
       const ann = (pipeline as any)._validateAnnotation(
-        { type: 'ALPHA', quote: 'technology being amazing', explanation: 'test', confidence: 150 },
+        { type: 'INSIGHT', quote: 'technology being amazing', explanation: 'test', confidence: 150 },
         validTypes, pageText,
       );
       expect(ann.confidence).toBe(100);
