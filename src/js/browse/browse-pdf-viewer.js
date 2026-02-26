@@ -334,14 +334,100 @@ function _buildToolbar(tab, toolbarView) {
   ttsBtn.el.id = 'pdf-tts-btn';
   toolbarView.add(ttsBtn);
 
-  // Implement this paper
+  // Implement this paper (dropdown with session history)
   var implBtn = new View('button')
     .className('pdf-tb-btn pdf-tb-labeled pdf-tb-impl')
-    .attr('title', 'Implement this paper')
-    .add(Text('Implement').cssText('font-size:0.68rem;'))
-    .onTap(function() {
-      if (window._implSessionEnable) window._implSessionEnable(tab);
+    .attr('title', 'Implement this paper');
+  var implLabel = Text('Implement').cssText('font-size:0.68rem;');
+  var implChevron = RawHTML(icon('chevronDown', { size: 10 }));
+  implChevron.el.style.marginLeft = '2px';
+  implChevron.el.style.opacity = '0.5';
+  implChevron.el.style.display = 'none';
+  implBtn.add(implLabel, implChevron);
+
+  // Track whether sessions exist for this paper
+  var _implHasSessions = false;
+
+  function _implRefreshBtn() {
+    if (!window.electronAPI || !window.electronAPI.implList) return;
+    electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
+      if (!sessions || sessions.error) sessions = [];
+      _implHasSessions = sessions.length > 0;
+      if (tab._implSessionId) {
+        // Active session — show truncated title
+        var active = sessions.find(function(s) { return s.id === tab._implSessionId; });
+        var label = active ? (active.paper_title || 'Session').slice(0, 16) : 'Active';
+        implLabel.el.textContent = label;
+        implBtn.el.classList.add('active');
+        implChevron.el.style.display = '';
+      } else if (sessions.length > 0) {
+        implLabel.el.textContent = 'Implement';
+        implBtn.el.classList.remove('active');
+        implChevron.el.style.display = '';
+      } else {
+        implLabel.el.textContent = 'Implement';
+        implBtn.el.classList.remove('active');
+        implChevron.el.style.display = 'none';
+      }
     });
+  }
+
+  implBtn.onTap(function() {
+    if (!_implHasSessions && !tab._implSessionId) {
+      // No sessions exist — create first one directly
+      if (window._implSessionEnable) window._implSessionEnable(tab);
+      setTimeout(_implRefreshBtn, 1500);
+      return;
+    }
+    // Show dropdown with existing sessions + new option
+    electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
+      if (!sessions || sessions.error) sessions = [];
+      var items = [];
+
+      sessions.forEach(function(s) {
+        var age = (Date.now() / 1000 - s.created_at);
+        var ageStr = age < 3600 ? Math.floor(age / 60) + 'm ago' : age < 86400 ? Math.floor(age / 3600) + 'h ago' : Math.floor(age / 86400) + 'd ago';
+        var isActive = tab._implSessionId === s.id;
+        items.push({
+          label: (s.paper_title || 'Untitled').slice(0, 30) + (isActive ? ' ●' : ''),
+          trailing: function() { return Text(ageStr).cssText('font-size:0.65rem; opacity:0.5;'); },
+          handler: function() {
+            if (window._implSessionEnable) window._implSessionEnable(tab, s.id);
+          }
+        });
+      });
+
+      if (sessions.length) items.push({ divider: true });
+      items.push({
+        icon: icon('plus', { size: 14 }),
+        label: 'New implementation',
+        handler: function() {
+          if (window._implSessionEnable) window._implSessionEnable(tab);
+          setTimeout(_implRefreshBtn, 1500);
+        }
+      });
+
+      var menu = Menu(null, items);
+      var rect = implBtn.el.getBoundingClientRect();
+      menu.showAt(rect.left, rect.bottom + 4);
+    });
+  });
+
+  // Auto-resume most recent session when entering nerd mode
+  if (!tab._implSessionId && window.electronAPI && window.electronAPI.implList) {
+    electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
+      if (!sessions || sessions.error || !sessions.length) return;
+      // Resume most recent session (sorted by updated_at DESC)
+      var recent = sessions[0];
+      if (window._implSessionEnable) window._implSessionEnable(tab, recent.id);
+      _implRefreshBtn();
+    });
+  }
+
+  // Expose refresh so impl-session can update button after create/resume
+  tab._implRefreshBtn = _implRefreshBtn;
+
+  _implRefreshBtn();
   toolbarView.add(implBtn);
 
   // Spacer

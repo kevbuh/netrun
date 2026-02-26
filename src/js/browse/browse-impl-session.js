@@ -101,6 +101,7 @@ function _createSession(tab) {
       }
       tab._implSessionId = result.id;
       tab._implFolderPath = result.folderPath;
+      if (tab._implRefreshBtn) tab._implRefreshBtn();
 
       // Auto-switch to terminal tab and flag for auto-launch
       tab._implAutoLaunchClaude = true;
@@ -119,6 +120,7 @@ function _resumeSession(tab, sessionId) {
     }
     tab._implSessionId = session.id;
     tab._implFolderPath = session.folder_path;
+    if (tab._implRefreshBtn) tab._implRefreshBtn();
     switchPanelTab('nerd-terminal');
   });
 }
