@@ -22,6 +22,7 @@ import { openChatPage } from '/js/chat-view.js';
 import { openHelpPage } from '/js/browse-urlbar.js';
 import { openSettings, _setSettingsSection } from '/js/settings/settings-core.js';
 import { _getActiveBrowseTab, _saveTabPanelState } from '/js/panel-state.js';
+import { _PDF_HL_COLORS, _pdfViewerAddHighlight } from '/js/browse/browse-pdf-viewer.js';
 
 // Global helper for chat error buttons to open Settings > AI
 window._openSettingsToAI = function() {
@@ -1128,6 +1129,45 @@ export function _panelBuildSelectionUI(popup, config) {
       }).catch(() => {});
     });
   btnRow.add(copyBtn);
+
+  // PDF highlight color buttons — shown when selecting text in nerd mode PDF
+  if (inTextLayer) {
+    const tab = _getActiveBrowseTab();
+    const _hlRange = selectionRange || (window.getSelection()?.rangeCount > 0 ? window.getSelection().getRangeAt(0) : null);
+    if (tab && tab._pdfPagesContainer && _hlRange) {
+      // Pre-compute page + rects from the live selection (before it gets cleared)
+      const ancestor = _hlRange.commonAncestorContainer;
+      const wrapperEl = (ancestor.closest ? ancestor.closest('.pdf-page-wrapper') : null)
+        || (ancestor.parentElement ? ancestor.parentElement.closest('.pdf-page-wrapper') : null);
+      if (wrapperEl) {
+        const _hlPageNum = parseInt(wrapperEl.getAttribute('data-page-num'));
+        const wrapperRect = wrapperEl.getBoundingClientRect();
+        const _hlRects = [];
+        const clientRects = _hlRange.getClientRects();
+        for (let i = 0; i < clientRects.length; i++) {
+          const cr = clientRects[i];
+          _hlRects.push({ left: cr.left - wrapperRect.left, top: cr.top - wrapperRect.top, width: cr.width, height: cr.height });
+        }
+        if (_hlPageNum && _hlRects.length > 0) {
+          _PDF_HL_COLORS.forEach((c) => {
+            const hlBtn = new window.View('button').className('pdf-hl-color-btn')
+              .style('background', c.color)
+              .attr('title', 'Highlight ' + c.name)
+              .on('mousedown', (ev) => { ev.stopPropagation(); ev.preventDefault(); })
+              .on('click', (ev) => {
+                ev.stopPropagation(); ev.preventDefault();
+                _pdfViewerAddHighlight(tab, { text: capturedText, pageNum: _hlPageNum, rects: _hlRects.slice(), color: c.color, note: '', ts: Date.now() });
+                AetherUI.mount(window.RawHTML(icon('check', { size: 14 })), hlBtn.el);
+                hlBtn.el.style.background = 'none';
+                setTimeout(() => { if (hlBtn.el.isConnected) { hlBtn.el.style.background = c.color; hlBtn.el.innerHTML = ''; } }, 800);
+                window.getSelection().removeAllRanges();
+              });
+            btnRow.add(hlBtn);
+          });
+        }
+      }
+    }
+  }
 
   // Read Aloud button — uses existing Kokoro TTS system
   const readBtn = new window.View('button').className('doc-selection-copy-btn')

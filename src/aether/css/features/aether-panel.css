@@ -363,6 +363,12 @@
       gap: 0;
       margin-left: auto;
     }
+    .doc-selection-popup-btns .pdf-hl-color-btn {
+      width: 16px;
+      height: 16px;
+      border-width: 1.5px;
+      margin: 0 1px;
+    }
     .doc-selection-popup-btn {
       display: inline-flex;
       align-items: center;

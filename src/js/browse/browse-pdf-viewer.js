@@ -44,7 +44,7 @@ function _ensurePdfjsLegacy() {
 var _PDF_SCALE_DEFAULT = 1.5;
 var _PDF_SCALE_MIN = 0.5;
 var _PDF_SCALE_MAX = 4.0;
-var _PDF_HL_COLORS = [
+export var _PDF_HL_COLORS = [
   { name: 'yellow', color: 'rgba(255,235,59,0.4)' },
   { name: 'green', color: 'rgba(76,175,80,0.4)' },
   { name: 'blue', color: 'rgba(66,165,245,0.4)' },
@@ -912,25 +912,92 @@ function _renderOutlineItems(tab, items, container, level) {
 
 function _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer) {
   if (!tab._pdfHighlights) return;
+  hlLayer.innerHTML = '';
   var wrapper = hlLayer.parentElement;
   var wW = wrapper.offsetWidth;
   var wH = wrapper.offsetHeight;
-  tab._pdfHighlights.forEach(function(hl) {
+  tab._pdfHighlights.forEach(function(hl, hlIdx) {
     if (hl.pageNum !== pageNum || !hl.rects) return;
     hl.rects.forEach(function(r) {
-      // Rects stored as fractions (0–1) of wrapper dimensions
       var rect = new View('div')
-        .className('pdf-highlight-rect')
+        .className('pdf-highlight-rect cursor-pointer')
         .styles({
           left: (r.left * wW) + 'px',
           top: (r.top * wH) + 'px',
           width: (r.width * wW) + 'px',
           height: (r.height * wH) + 'px',
-          background: hl.color || _PDF_HL_COLORS[0].color
+          background: hl.color || _PDF_HL_COLORS[0].color,
+          pointerEvents: 'auto'
         });
+      rect.on('click', function(e) {
+        e.stopPropagation();
+        _showNotePopup(tab, hl, hlIdx, e.clientX, e.clientY);
+      });
       hlLayer.appendChild(rect.el);
     });
   });
+}
+
+function _showNotePopup(tab, hl, hlIdx, x, y) {
+  var old = document.querySelector('.pdf-note-popup');
+  if (old) old.remove();
+
+  var popup = new View('div').className('pdf-note-popup')
+    .cssText('position:fixed;z-index:10002;left:' + x + 'px;top:' + y + 'px;');
+
+  var header = new View('div').className('pdf-note-popup-header');
+  var quote = new View('div').className('pdf-note-popup-quote')
+    .styles({ borderColor: hl.color || _PDF_HL_COLORS[0].color })
+    .text((hl.text || '').length > 120 ? hl.text.slice(0, 120) + '…' : (hl.text || ''));
+  var delBtn = new View('button').className('pdf-note-popup-del')
+    .attr('title', 'Delete highlight')
+    .html(icon('trash', { size: 14 }))
+    .on('mousedown', function(e) { e.stopPropagation(); })
+    .on('click', function(e) {
+      e.stopPropagation();
+      _pdfViewerRemoveHighlight(tab, hlIdx);
+      popup.el.remove();
+    });
+  header.add(quote, delBtn);
+  popup.add(header);
+
+  var textarea = new View('textarea').className('pdf-note-popup-textarea')
+    .attr('placeholder', 'Add a note…')
+    .attr('rows', '3');
+  textarea.el.value = hl.note || '';
+  var _saveTimer = null;
+  textarea.on('input', function() {
+    hl.note = textarea.el.value;
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(function() {
+      if (hl.id && window.electronAPI && window.electronAPI.dbQuery) {
+        window.electronAPI.dbQuery('highlight-update', hl.id, hl.note);
+      }
+    }, 400);
+  });
+  popup.add(textarea);
+
+  document.body.appendChild(popup.el);
+
+  // Keep popup in viewport
+  requestAnimationFrame(function() {
+    var r = popup.el.getBoundingClientRect();
+    if (r.right > window.innerWidth - 8) popup.el.style.left = (window.innerWidth - r.width - 8) + 'px';
+    if (r.bottom > window.innerHeight - 8) popup.el.style.top = (window.innerHeight - r.height - 8) + 'px';
+  });
+
+  setTimeout(function() { textarea.el.focus(); }, 50);
+
+  // Close on outside click
+  setTimeout(function() {
+    function close(e) {
+      if (!popup.el.contains(e.target)) {
+        popup.el.remove();
+        document.removeEventListener('mousedown', close);
+      }
+    }
+    document.addEventListener('mousedown', close);
+  }, 0);
 }
 
 export function _pdfViewerAddHighlight(tab, highlight) {
@@ -983,81 +1050,9 @@ export function _pdfViewerRemoveHighlight(tab, index) {
   }
 }
 
-// ── Text selection → highlight popup ──
-
+// Highlight color popup removed — now in aether panel (panel.js)
 export function _pdfViewerInstallHighlightHandler(tab) {
-  if (!tab._pdfPagesContainer) return;
-  tab._pdfPagesContainer.addEventListener('mouseup', function(e) {
-    var sel = window.getSelection();
-    if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
-
-    var text = sel.toString().trim();
-    var range = sel.getRangeAt(0);
-    var wrapper = range.startContainer.parentElement.closest('.pdf-page-wrapper');
-    if (!wrapper) return;
-    var pageNum = parseInt(wrapper.getAttribute('data-page-num'));
-    if (!pageNum) return;
-
-    // Get selection rects relative to wrapper
-    var wrapperRect = wrapper.getBoundingClientRect();
-    var rects = [];
-    var clientRects = range.getClientRects();
-    for (var i = 0; i < clientRects.length; i++) {
-      var cr = clientRects[i];
-      rects.push({
-        left: cr.left - wrapperRect.left,
-        top: cr.top - wrapperRect.top,
-        width: cr.width,
-        height: cr.height
-      });
-    }
-
-    // Show color popup
-    _showHighlightPopup(tab, e.clientX, e.clientY, text, pageNum, rects);
-  });
-}
-
-function _showHighlightPopup(tab, x, y, text, pageNum, rects) {
-  // Remove existing popup
-  var old = document.querySelector('.pdf-highlight-popup');
-  if (old) old.remove();
-
-  var popup = new View('div')
-    .className('pdf-highlight-popup')
-    .cssText('position:fixed;z-index:10001;left:' + x + 'px;top:' + (y - 50) + 'px;');
-
-  _PDF_HL_COLORS.forEach(function(c) {
-    var btn = new View('button')
-      .className('pdf-hl-color-btn')
-      .style('background', c.color)
-      .attr('title', c.name)
-      .onTap(function() {
-        _pdfViewerAddHighlight(tab, {
-          text: text,
-          pageNum: pageNum,
-          rects: rects,
-          color: c.color,
-          note: '',
-          ts: Date.now()
-        });
-        popup.el.remove();
-        window.getSelection().removeAllRanges();
-      });
-    popup.add(btn);
-  });
-
-  document.body.appendChild(popup.el);
-
-  // Auto-close
-  setTimeout(function() {
-    function close(e) {
-      if (!popup.el.contains(e.target)) {
-        popup.el.remove();
-        document.removeEventListener('mousedown', close);
-      }
-    }
-    document.addEventListener('mousedown', close);
-  }, 0);
+  // no-op: kept for API compatibility
 }
 
 // ── Search ──
