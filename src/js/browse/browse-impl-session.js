@@ -4,6 +4,7 @@
 import { icon } from '/js/core/icons.js';
 import { _paperState, _extractArxivId } from '/js/browse/browse-paper.js';
 import { _pdfViewerGetText } from '/js/browse/browse-pdf-viewer.js';
+import { _getPdfPath } from '/js/toolbar/toolbar-menu.js';
 import { switchPanelTab } from '/js/core/core-nav.js';
 import { View } from '/aether/ui/aether-ui.js';
 
@@ -57,8 +58,26 @@ function _createSession(tab) {
 
   if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Preparing implementation...');
 
-  // Extract full text async, create session in parallel
-  var textPromise = _pdfViewerGetText(tab).then(function(text) { return text || ''; }).catch(function() { return ''; });
+  // Extract structured markdown from PDF (with headings, tables, paragraph merging)
+  // Falls back to raw PDF.js text extraction if pdf:to-md fails
+  var textPromise = _getPdfPath(tab).then(function(pdfPath) {
+    if (!pdfPath) {
+      console.log('[impl] no PDF path, falling back to PDF.js text extraction');
+      return _pdfViewerGetText(tab).then(function(t) { return t || ''; });
+    }
+    console.log('[impl] extracting structured markdown via pdf:to-md');
+    return electronAPI.pdfToMd(pdfPath).then(function(result) {
+      if (result && result.ok && result.text) {
+        console.log('[impl] pdf:to-md succeeded:', result.pageCount, 'pages,', result.text.length, 'chars');
+        return result.text;
+      }
+      console.log('[impl] pdf:to-md failed, falling back to PDF.js:', result && result.error);
+      return _pdfViewerGetText(tab).then(function(t) { return t || ''; });
+    });
+  }).catch(function(err) {
+    console.log('[impl] pdf:to-md error, falling back to PDF.js:', err);
+    return _pdfViewerGetText(tab).then(function(t) { return t || ''; }).catch(function() { return ''; });
+  });
 
   textPromise.then(function(fullText) {
     electronAPI.implCreate({

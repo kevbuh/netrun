@@ -37,7 +37,11 @@ export function runPdfConvert(args: Record<string, unknown>): Promise<any> {
         return;
       }
       try {
-        const result = JSON.parse(stdout);
+        // PyMuPDF may print warnings to stdout before the JSON (e.g. "Consider using pymupdf_layout...")
+        // Find the JSON object in the output
+        const jsonStart = stdout.indexOf('{');
+        const jsonStr = jsonStart >= 0 ? stdout.slice(jsonStart) : stdout;
+        const result = JSON.parse(jsonStr);
         if (!result.ok) {
           reject(new Error(result.error || 'PDF convert failed'));
         } else {

@@ -192,18 +192,90 @@ def cmd_md_to_pdf(args):
     return {"ok": True, "output": output}
 
 
+def _is_table_useful(table):
+    """Filter out tables that are mostly empty (likely misdetected figures)."""
+    data = table.extract()
+    if not data or len(data) < 2:
+        return False
+    total_cells = 0
+    filled_cells = 0
+    for row in data:
+        for cell in row:
+            total_cells += 1
+            if cell and cell.strip():
+                filled_cells += 1
+    if total_cells == 0:
+        return False
+    # Require at least 30% of cells to have content
+    return filled_cells / total_cells >= 0.3
+
+
+def _merge_paragraphs(lines_info):
+    """Group consecutive lines with the same font style into paragraphs."""
+    if not lines_info:
+        return []
+    paragraphs = []
+    current_lines = [lines_info[0][0]]
+    current_size = lines_info[0][1]
+    current_bold = lines_info[0][2]
+
+    for text, size, bold in lines_info[1:]:
+        # Same style = same paragraph (merge wrapped lines)
+        if abs(size - current_size) < 0.5 and bold == current_bold:
+            if current_lines[-1].endswith("-"):
+                current_lines[-1] = current_lines[-1][:-1]
+                current_lines.append(text)
+            else:
+                current_lines.append(text)
+        else:
+            paragraphs.append((current_lines, current_size, current_bold))
+            current_lines = [text]
+            current_size = size
+            current_bold = bold
+    paragraphs.append((current_lines, current_size, current_bold))
+    return paragraphs
+
+
+def _heading_prefix(max_size, is_bold):
+    """Return markdown heading prefix based on font metrics."""
+    if max_size >= 20:
+        return "# "
+    elif max_size >= 16:
+        return "## "
+    elif max_size >= 13 and is_bold:
+        return "### "
+    return ""
+
+
 def cmd_to_md(args):
-    """Extract text with structure as markdown."""
+    """Extract text with structure as markdown, including tables."""
     doc = fitz.open(args["input"])
     md_parts = []
 
     for i in range(len(doc)):
         page = doc[i]
+
+        # Find tables — use 'lines' strategy (detects tables with drawn borders)
+        table_finder = page.find_tables()
+        table_rects = []
+        table_md_by_y = []  # (y_position, markdown_string)
+        for table in table_finder.tables:
+            if _is_table_useful(table):
+                table_rects.append(fitz.Rect(table.bbox))
+                table_md_by_y.append((table.bbox[1], table.to_markdown()))
+
         blocks = page.get_text("dict")["blocks"]
-        page_md = []
+        page_items = []  # (y_position, markdown_string)
 
         for block in blocks:
+            block_rect = fitz.Rect(block["bbox"])
+
+            # Skip blocks that overlap with detected tables
+            if any(block_rect.intersects(tr) for tr in table_rects):
+                continue
+
             if block["type"] == 0:  # text block
+                lines_info = []  # (text, max_size, is_bold)
                 for line in block.get("lines", []):
                     line_text = ""
                     max_size = 0
@@ -214,23 +286,27 @@ def cmd_to_md(args):
                             max_size = span["size"]
                         if "bold" in span.get("font", "").lower():
                             is_bold = True
-
                     line_text = line_text.strip()
-                    if not line_text:
-                        continue
+                    if line_text:
+                        lines_info.append((line_text, max_size, is_bold))
 
-                    # Heuristic heading detection based on font size
-                    if max_size >= 20:
-                        page_md.append(f"# {line_text}")
-                    elif max_size >= 16:
-                        page_md.append(f"## {line_text}")
-                    elif max_size >= 13 and is_bold:
-                        page_md.append(f"### {line_text}")
-                    else:
-                        page_md.append(line_text)
+                if not lines_info:
+                    continue
+
+                paragraphs = _merge_paragraphs(lines_info)
+
+                for lines, max_size, is_bold in paragraphs:
+                    merged = " ".join(lines)
+                    prefix = _heading_prefix(max_size, is_bold)
+                    page_items.append((block["bbox"][1], f"{prefix}{merged}"))
 
             elif block["type"] == 1:  # image block
-                page_md.append(f"[Image on page {i+1}]")
+                page_items.append((block["bbox"][1], f"[Image on page {i+1}]"))
+
+        # Merge text blocks and tables, sorted by vertical position
+        all_items = page_items + table_md_by_y
+        all_items.sort(key=lambda x: x[0])
+        page_md = [item[1] for item in all_items]
 
         md_parts.append("\n\n".join(page_md))
 
