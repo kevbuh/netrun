@@ -162,6 +162,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   implList: (opts) => ipcRenderer.invoke('impl:list', opts),
   implGet: (id) => ipcRenderer.invoke('impl:get', id),
   implDelete: (id, deleteFiles) => ipcRenderer.invoke('impl:delete', id, deleteFiles),
+  implRename: (id, name) => ipcRenderer.invoke('impl:rename', id, name),
   implWatchStart: (sessionId, folderPath) => ipcRenderer.invoke('impl:watch-start', sessionId, folderPath),
   implWatchStop: (sessionId) => ipcRenderer.invoke('impl:watch-stop', sessionId),
   implReadTree: (folderPath) => ipcRenderer.invoke('impl:read-tree', folderPath),

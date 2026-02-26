@@ -215,6 +215,14 @@ export function registerImplSessionIPC(): void {
     } catch (e: any) { return { error: e.message ?? String(e) }; }
   });
 
+  // ── Rename session ──
+  ipcMain.handle('impl:rename', (_event, id: string, name: string) => {
+    try {
+      prepare(`UPDATE impl_sessions SET name = ?, updated_at = ? WHERE id = ?`).run(name, Date.now() / 1000, id);
+      return { ok: true };
+    } catch (e: any) { return { error: e.message ?? String(e) }; }
+  });
+
   // ── Link a paper to a session ──
   ipcMain.handle('impl:link-paper', (_event, sessionId: string, paperUrl: string, paperTitle?: string) => {
     try {

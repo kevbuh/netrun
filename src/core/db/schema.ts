@@ -314,4 +314,9 @@ export function initSchema(db: Database.Database): void {
       SELECT id, paper_url, paper_title, created_at FROM impl_sessions WHERE paper_url != ''
     `);
   } catch { /* ignore if already backfilled */ }
+
+  // Add name column for user-chosen session names
+  try {
+    db.exec(`ALTER TABLE impl_sessions ADD COLUMN name TEXT NOT NULL DEFAULT ''`);
+  } catch { /* column already exists */ }
 }

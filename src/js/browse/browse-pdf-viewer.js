@@ -348,16 +348,22 @@ function _buildToolbar(tab, toolbarView) {
   // Track whether sessions exist for this paper
   var _implHasSessions = false;
 
+  function _implSessionLabel(s) {
+    // User-chosen name takes priority, otherwise show short hash
+    if (s.name) return s.name;
+    // ID format: "m5abc123-deadbeef" — show the hash portion
+    var parts = s.id.split('-');
+    return parts.length > 1 ? parts[1].slice(0, 8) : s.id.slice(0, 8);
+  }
+
   function _implRefreshBtn() {
     if (!window.electronAPI || !window.electronAPI.implList) return;
     electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
       if (!sessions || sessions.error) sessions = [];
       _implHasSessions = sessions.length > 0;
       if (tab._implSessionId) {
-        // Active session — show truncated title
         var active = sessions.find(function(s) { return s.id === tab._implSessionId; });
-        var label = active ? (active.paper_title || 'Session').slice(0, 16) : 'Active';
-        implLabel.el.textContent = label;
+        implLabel.el.textContent = active ? _implSessionLabel(active) : 'Active';
         implBtn.el.classList.add('active');
         implChevron.el.style.display = '';
       } else if (sessions.length > 0) {
@@ -379,7 +385,7 @@ function _buildToolbar(tab, toolbarView) {
       setTimeout(_implRefreshBtn, 1500);
       return;
     }
-    // Show dropdown with existing sessions + new option
+    // Show dropdown with existing sessions + rename + new option
     electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
       if (!sessions || sessions.error) sessions = [];
       var items = [];
@@ -389,7 +395,7 @@ function _buildToolbar(tab, toolbarView) {
         var ageStr = age < 3600 ? Math.floor(age / 60) + 'm ago' : age < 86400 ? Math.floor(age / 3600) + 'h ago' : Math.floor(age / 86400) + 'd ago';
         var isActive = tab._implSessionId === s.id;
         items.push({
-          label: (s.paper_title || 'Untitled').slice(0, 30) + (isActive ? ' ●' : ''),
+          label: _implSessionLabel(s) + (isActive ? ' ●' : ''),
           trailing: function() { return Text(ageStr).cssText('font-size:0.65rem; opacity:0.5;'); },
           handler: function() {
             if (window._implSessionEnable) window._implSessionEnable(tab, s.id);
@@ -398,6 +404,25 @@ function _buildToolbar(tab, toolbarView) {
       });
 
       if (sessions.length) items.push({ divider: true });
+
+      // Rename active session
+      if (tab._implSessionId) {
+        items.push({
+          icon: icon('edit', { size: 14 }),
+          label: 'Rename...',
+          handler: function() {
+            var current = sessions.find(function(s) { return s.id === tab._implSessionId; });
+            var currentName = current ? _implSessionLabel(current) : '';
+            var newName = prompt('Session name:', currentName);
+            if (newName !== null && newName !== currentName) {
+              electronAPI.implRename(tab._implSessionId, newName.trim()).then(function() {
+                _implRefreshBtn();
+              });
+            }
+          }
+        });
+      }
+
       items.push({
         icon: icon('plus', { size: 14 }),
         label: 'New implementation',
