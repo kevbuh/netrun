@@ -185,16 +185,50 @@ function _buildViewerDOM(tab, viewerEl) {
     _pdfViewerOnScroll(tab);
   });
 
-  // Pinch-to-zoom: Chrome/Firefox trackpad pinch fires wheel with ctrlKey
+  // Pinch-to-zoom: use CSS transform for instant feedback, debounce canvas re-render
+  var zoomCommitTimer = null;
+  var zoomBaseScale = null; // the scale at which canvases were last rendered
+
+  function _pdfViewerPreviewZoom(tab, newZoom) {
+    newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, newZoom));
+    // Capture the rendered scale before updating
+    if (zoomBaseScale === null) zoomBaseScale = tab._pdfZoom;
+    tab._pdfZoom = newZoom;
+    tab._pdfZoomLabel.textContent = Math.round(newZoom * 100) + '%';
+    var ratio = newZoom / zoomBaseScale;
+    var wrappers = tab._pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
+    for (var i = 0; i < wrappers.length; i++) {
+      wrappers[i].style.transform = 'scale(' + ratio + ')';
+      wrappers[i].style.transformOrigin = 'top center';
+    }
+    // Debounce the full re-render
+    clearTimeout(zoomCommitTimer);
+    zoomCommitTimer = setTimeout(function() {
+      _pdfViewerCommitZoom(tab);
+      zoomBaseScale = null;
+    }, 200);
+  }
+
+  function _pdfViewerCommitZoom(tab) {
+    // Clear CSS transforms and do a full canvas re-render
+    var wrappers = tab._pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
+    for (var i = 0; i < wrappers.length; i++) {
+      wrappers[i].style.transform = '';
+      wrappers[i].style.transformOrigin = '';
+    }
+    _pdfViewerSetZoom(tab, tab._pdfZoom, true);
+  }
+
+  // Chrome/Firefox trackpad pinch fires wheel with ctrlKey
   pagesContainer.el.addEventListener('wheel', function(e) {
     if (!e.ctrlKey) return;
     e.preventDefault();
     var delta = -e.deltaY * 0.01;
     var newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, tab._pdfZoom + delta));
-    _pdfViewerSetZoom(tab, newZoom);
+    _pdfViewerPreviewZoom(tab, newZoom);
   }, { passive: false });
 
-  // Pinch-to-zoom: Safari native gesture events
+  // Safari native gesture events
   var gestureBaseZoom = 1;
   pagesContainer.el.addEventListener('gesturestart', function(e) {
     e.preventDefault();
@@ -203,7 +237,7 @@ function _buildViewerDOM(tab, viewerEl) {
   pagesContainer.el.addEventListener('gesturechange', function(e) {
     e.preventDefault();
     var newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, gestureBaseZoom * e.scale));
-    _pdfViewerSetZoom(tab, newZoom);
+    _pdfViewerPreviewZoom(tab, newZoom);
   }, { passive: false });
   pagesContainer.el.addEventListener('gestureend', function(e) {
     e.preventDefault();
@@ -628,9 +662,9 @@ export function _pdfViewerScrollToPage(tab, pageNum) {
 
 // ── Zoom ──
 
-function _pdfViewerSetZoom(tab, newZoom) {
+function _pdfViewerSetZoom(tab, newZoom, force) {
   newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, newZoom));
-  if (newZoom === tab._pdfZoom) return;
+  if (!force && newZoom === tab._pdfZoom) return;
   tab._pdfZoom = newZoom;
   tab._pdfZoomLabel.textContent = Math.round(newZoom * 100) + '%';
 
