@@ -1134,6 +1134,8 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .ai-unified-labels { display: flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 0.72rem; }
 .ai-unified-labels:empty { display: none; }
 .ai-unified-model-label { color: var(--aether-text, rgba(255,255,255,0.85)); opacity: 0.7; }
+.ai-unified-model-name { color: var(--aether-text, rgba(255,255,255,0.85)); opacity: 0.35; font-size: 0.65rem; }
+.ai-unified-model-label + .ai-unified-model-name::before { content: '\00b7'; margin: 0 1px; }
 .ai-unified-annotate-label {
   display: flex; align-items: center; gap: 4px;
   color: var(--nr-text-secondary, rgba(255,255,255,0.5)); cursor: pointer;

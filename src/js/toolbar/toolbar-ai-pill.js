@@ -74,23 +74,30 @@ function _isAIActive() {
 
 // ── Gather inline content from island activities ──
 function _getInlineContent() {
-  if (!window._islandActivities) return { modelLabel: '', annotateOffer: false, annotateLabel: '', insightLoading: false };
+  if (!window._islandActivities) return { modelLabel: '', modelName: '', annotateOffer: false, annotateLabel: '', insightLoading: false };
   var acts = window._islandActivities.value;
   var modelLabel = '';
+  var modelName = '';
   var annotateOffer = false;
   var annotateLabel = '';
   var insightLoading = false;
   for (var id in acts) {
     var a = acts[id];
     if (!a) continue;
-    if (a.type === 'ai' && a.label) modelLabel = a.label;
+    if (a.type === 'ai' && a.label) { modelLabel = a.label; if (a.detail) modelName = a.detail; }
     if (a.type === 'insight') {
       if (a.offer) { annotateOffer = true; annotateLabel = a.label || 'Annotate'; }
-      else if (a.loading) { insightLoading = true; annotateLabel = a.label || 'Analyzing\u2026'; }
+      else if (a.loading) {
+        insightLoading = true;
+        annotateLabel = a.label || 'Analyzing\u2026';
+        // LLM activity: show label + model in the pill
+        if (!modelLabel && a.label) modelLabel = a.label;
+        if (!modelName && a.detail) modelName = a.detail;
+      }
       else if (a.label) { annotateLabel = a.label; }
     }
   }
-  return { modelLabel: modelLabel, annotateOffer: annotateOffer, annotateLabel: annotateLabel, insightLoading: insightLoading };
+  return { modelLabel: modelLabel, modelName: modelName, annotateOffer: annotateOffer, annotateLabel: annotateLabel, insightLoading: insightLoading };
 }
 
 // ── Main render ──
@@ -225,6 +232,29 @@ function _renderIndicator(container, primary, pulseState) {
   AetherUI.mount(view, container);
 }
 
+// ── Short model name for display ──
+function _shortModelName(model) {
+  if (!model) return '';
+  var m = model;
+  // Strip provider prefix (e.g. "google/gemini-2.0-flash-001" → "gemini-2.0-flash-001")
+  var slash = m.lastIndexOf('/');
+  if (slash >= 0) m = m.slice(slash + 1);
+  // Strip trailing version suffixes like "-001", "-20250219", ":latest"
+  m = m.replace(/[-:](latest|\d{6,}|\d{3})$/i, '');
+  // Strip ":7b", ":14b" etc. tag — keep as suffix
+  var tagMatch = m.match(/:(\d+\.?\d*[bBmM])$/);
+  var tag = tagMatch ? ' ' + tagMatch[1].toUpperCase() : '';
+  if (tagMatch) m = m.replace(/:[\d.]+[bBmM]$/, '');
+  // Capitalize first letter of each word segment
+  m = m.split(/[-_]/).map(function(w) {
+    if (/^\d/.test(w)) return w; // keep version numbers as-is
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }).join(' ');
+  // Collapse redundant spaces
+  m = m.replace(/\s+/g, ' ').trim();
+  return m + tag;
+}
+
 // ── Inline labels ──
 function _renderInlineLabels(container, inline) {
   if (!inline.modelLabel) {
@@ -233,10 +263,17 @@ function _renderInlineLabels(container, inline) {
   }
 
   var children = [];
+  var shortModel = _shortModelName(inline.modelName);
 
   if (inline.modelLabel) {
     children.push(
       Text(escapeHtml(inline.modelLabel)).className('ai-unified-model-label')
+    );
+  }
+
+  if (shortModel) {
+    children.push(
+      Text(escapeHtml(shortModel)).className('ai-unified-model-name')
     );
   }
 
@@ -412,10 +449,14 @@ function _renderDropdown(dropdown, state) {
       var ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
       var statusDot = ev.ok === true ? '#22c55e' : ev.ok === false ? '#ef4444' : '#94a3b8';
 
+      var evLabel = ev.label || '';
+      var evModel = (ev.category === 'ai' && ev.detail) ? _shortModelName(ev.detail) : '';
+      var labelText = evModel ? evLabel + ' \u00b7 ' + evModel : evLabel;
+
       var eventRow = HStack(
         new View('span').className('ai-unified-event-status').styles({ background: statusDot }),
         Text(escapeHtml(ev.category)).className('ai-unified-event-cat').styles({ color: col }),
-        Text(escapeHtml(ev.label)).className('ai-unified-event-label'),
+        Text(escapeHtml(labelText)).className('ai-unified-event-label'),
         Text(ageStr).className('ai-unified-event-age')
       ).className('ai-unified-event');
 

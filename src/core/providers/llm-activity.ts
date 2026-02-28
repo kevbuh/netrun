@@ -26,7 +26,7 @@ function inferLabel(messages: Array<{ role: string; content?: string | null }>):
   }
   // Insight / annotation pipeline
   if (sys.includes('ambient intelligence') || sys.includes('emit_insight') || sys.includes('add_annotation')) {
-    return 'Analyzing page';
+    return 'Annotating page';
   }
   // Context selector
   if (sys.includes('select which context files')) {
@@ -38,21 +38,31 @@ function inferLabel(messages: Array<{ role: string; content?: string | null }>):
   }
   // Search suggest
   if (sys.includes('search autocomplete')) {
-    return 'Search autocomplete';
+    return 'Autocompleting';
   }
   // Doc-chat / general chat
-  if (sys.includes('doc-chat') || sys.includes('document assistant') || sys.includes('vault-chat')) {
-    return 'Chatting';
+  if (sys.includes('doc-chat') || sys.includes('document assistant')) {
+    return 'Reading document';
+  }
+  if (sys.includes('vault-chat')) {
+    return 'Searching vault';
+  }
+  if (sys.includes('AI assistant inside Netrun') || sys.includes('helpful research assistant') || sys.includes('helpful assistant')) {
+    return 'Generating reply';
   }
   // Agent
   if (sys.includes('agent') || sys.includes('research')) {
-    return 'Agent thinking';
+    return 'Researching';
   }
   // OCR
   if (sys.includes('OCR') || sys.includes('extract text from') || user.includes('Extract all visible text')) {
-    return 'OCR extract';
+    return 'Extracting text';
   }
-  return 'Thinking';
+  // Summarization
+  if (sys.includes('summarize') || sys.includes('summary') || user.includes('summarize')) {
+    return 'Summarizing';
+  }
+  return 'Inferring';
 }
 
 function broadcast(activity: LLMActivity): void {
