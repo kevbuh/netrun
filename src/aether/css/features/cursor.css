@@ -120,13 +120,11 @@
   opacity: 0;
 }
 
-/* Hide default cursor on app body — use transparent image for reliable hiding
-   on window re-entry (cursor:none alone can fail when Chromium defers
-   cursor-style evaluation after OS-level mouse re-entry) */
+/* Hide default cursor on app body */
 html.nr-custom-cursor,
 body.nr-custom-cursor,
 body.nr-custom-cursor *:not(iframe) {
-  cursor: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=) 0 0, none !important;
+  cursor: none !important;
 }
 
 /* Restore native cursor over iframes — cross-origin iframes can't be

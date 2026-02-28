@@ -24,6 +24,7 @@ function _initCursor() {
   if (startEnabled) {
     document.documentElement.classList.add('nr-custom-cursor');
     document.body.classList.add('nr-custom-cursor');
+    if (window.electronAPI && electronAPI.cursorSetNativeHiding) electronAPI.cursorSetNativeHiding(true);
   } else {
     dot.style.display = 'none';
     ring.style.display = 'none';
@@ -72,8 +73,6 @@ function _initCursor() {
   function onMouseEnter() {
     dot.classList.remove('is-hidden');
     ring.classList.remove('is-hidden');
-    // Force cursor recalculation in webviews on window re-entry
-    if (window.electronAPI && electronAPI.nudgeCursor) electronAPI.nudgeCursor();
   }
 
   function onMouseLeave() {
@@ -244,7 +243,7 @@ function _initCursor() {
   // ── Webview / iframe injection ──────────────────────────────────────
 
   // CSS injected into webviews to hide native cursor
-  var WEBVIEW_CSS = '*, *::before, *::after { cursor: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=) 0 0, none !important; }';
+  var WEBVIEW_CSS = '*, *::before, *::after { cursor: none !important; }';
 
   // JS injected into webviews to report mouse state back to parent
   var WEBVIEW_JS = '(' + function () {
@@ -296,6 +295,13 @@ function _initCursor() {
 
     document.addEventListener('mouseleave', function () {
       console.log('__AETHER_CURSOR_LEAVE__');
+    }, { passive: true });
+
+    // Force cursor hiding on re-entry — webview process can defer cursor
+    // evaluation after OS-level mouse re-entry, showing the native cursor
+    document.addEventListener('mouseenter', function () {
+      document.documentElement.style.setProperty('cursor', 'none', 'important');
+      if (document.body) document.body.style.setProperty('cursor', 'none', 'important');
     }, { passive: true });
   } + ')()';
 
@@ -546,6 +552,7 @@ function _initCursor() {
           }
         } catch (e) { /* iframe may be destroyed */ }
       }
+      if (window.electronAPI && electronAPI.cursorSetNativeHiding) electronAPI.cursorSetNativeHiding(true);
       requestAnimationFrame(tick);
     },
     disable: function () {
@@ -554,6 +561,7 @@ function _initCursor() {
       ring.style.display = 'none';
       document.documentElement.classList.remove('nr-custom-cursor');
       document.body.classList.remove('nr-custom-cursor');
+      if (window.electronAPI && electronAPI.cursorSetNativeHiding) electronAPI.cursorSetNativeHiding(false);
       // Remove cursor-hiding CSS from tracked webviews
       for (var i = 0; i < trackedWebviews.length; i++) {
         (function (wv) {

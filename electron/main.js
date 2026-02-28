@@ -18,6 +18,10 @@ let _coreInitialized = false;
 let mainWindow = null;
 let serverPort = null;
 let _ccTargetWcId = null;
+let _nativeCursorHidden = false;
+let _customCursorEnabled = false;
+let _cursorNative = null;
+try { _cursorNative = require('../native/cursor/build/Release/cursor_native.node'); } catch (e) {}
 
 // Hold-to-record: Option+Space (keyDown starts, keyUp stops)
 let _voiceHoldActive = false;
@@ -712,6 +716,34 @@ app.whenReady().then(() => {
     win.webContents.sendInputEvent({ type: 'mouseMove', x, y });
   });
 
+  // ── Native cursor hiding (macOS) ─────────────────────────────────
+  // CSS cursor:none can fail in webviews on window re-entry because the
+  // webview's Chromium process defers cursor evaluation. Hide the cursor
+  // at the OS level via NSCursor.hide() called from within the Electron process.
+  function nativeCursorHide() {
+    if (_nativeCursorHidden || !_cursorNative) return;
+    _nativeCursorHidden = true;
+    _cursorNative.hide();
+  }
+  function nativeCursorUnhide() {
+    if (!_nativeCursorHidden || !_cursorNative) return;
+    _nativeCursorHidden = false;
+    _cursorNative.unhide();
+  }
+
+  let _cursorBlurBound = false;
+  ipcMain.handle('cursor:set-native-hiding', (_, enabled) => {
+    _customCursorEnabled = enabled;
+    if (enabled) nativeCursorHide();
+    else nativeCursorUnhide();
+    // Lazily attach blur/focus listeners once mainWindow exists
+    if (!_cursorBlurBound && mainWindow) {
+      _cursorBlurBound = true;
+      mainWindow.on('blur', () => nativeCursorUnhide());
+      mainWindow.on('focus', () => { if (_customCursorEnabled) nativeCursorHide(); });
+    }
+  });
+
   // Closed captions — route webview audio to getDisplayMedia
   ipcMain.handle('start-cc', async (event, wcId) => {
     _ccTargetWcId = wcId;
@@ -961,6 +993,10 @@ app.on('window-all-closed', async () => {
 
 app.on('before-quit', () => {
   staticServer.stopStaticServer();
+  // Ensure native cursor is restored before quitting
+  if (_nativeCursorHidden && _cursorNative) {
+    try { _cursorNative.unhide(); } catch (e) {}
+  }
   if (_coreInitialized) {
     try {
       const { contextIntake, closeDb } = require('../dist/main/init.js');
