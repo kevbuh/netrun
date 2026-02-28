@@ -16,6 +16,7 @@ import { browseNewTab, browseSelectWindow, openBrowse, openLocalPdf } from '/js/
 import { browsePrintPage } from '/js/toolbar/toolbar-menu.js';
 import { toggleTabMute } from '/js/browse/browse-audio.js';
 import { logger } from '/js/logger.js';
+import { openSettings } from '/js/settings/settings-core.js';
 
 export function _aetherHideCursorOverlay() {
   document.body.classList.add('aether-hide-cursor');
@@ -234,6 +235,7 @@ export const _aetherCommands = [
   { name: 'tab', desc: 'Add a tab to context', _special: true },
   { name: 'tabs', desc: 'Switch to an open tab', _special: true },
   { name: 'define', desc: 'Look up a word definition', hasArgs: true },
+  { name: 'settings', desc: 'Open settings', hasArgs: true, fn: () => { openSettings(); } },
   { name: 'upload', desc: 'Open a local file', fn: () => { const fi = document.getElementById('browse-pdf-file-input'); if (fi) { fi.click(); return; } const tmpView = new window.View('input').attr('type', 'file').styles({ display: 'none' }); tmpView.el.onchange = function() { if (tmpView.el.files[0] && typeof openLocalPdf === 'function') openLocalPdf(tmpView.el.files[0]); tmpView.el.remove(); }; AetherUI.append(tmpView, document.body); tmpView.el.click(); } },
   { name: 'history', desc: 'Browse visited sites', _special: true },
   { name: 'help', desc: 'Show all commands & features', _special: true },
@@ -1127,6 +1129,7 @@ export function _aetherExecCommand(popup, text) {
       if (cmdName === 'user') { _doAetherUserSearch(popup, args); return true; }
       if (cmdName === 'search') { _doAetherSearchNewTab(popup, args); return true; }
       if (cmdName === 'define') { _doAetherDefine(popup, args); return true; }
+      if (cmdName === 'settings') { openSettings(args); window._aetherTrackMode = false; popup.remove(); return true; }
     }
     if (cmd && cmd.fn) { cmd.fn(); window._aetherTrackMode = false; popup.remove(); return true; }
   }

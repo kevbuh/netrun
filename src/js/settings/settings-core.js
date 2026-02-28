@@ -14,6 +14,7 @@ import { _renderFeedSettings } from '/js/settings/settings-feed.js';
 import { _renderHelpSettings } from '/js/settings/settings-help.js';
 import { _renderDownloadsSettings } from '/js/settings/settings-downloads.js';
 import { updateSpinnerPreview } from '/js/settings/settings-colors.js';
+import { _SETTINGS_REGISTRY } from '/js/settings/settings-registry.js';
 
 // Migrate old section keys
 (function() {
@@ -52,7 +53,9 @@ export function _setSettingsFeedTab(tab) {
   _settingsFeedTab.value = tab;
 }
 
-export async function openSettings() {
+var _settingsSearchQuery = State('');
+
+export async function openSettings(searchQuery) {
   hideAllViews();
   const view = await ensureView('settings-view');
   view.classList.add('active');
@@ -60,6 +63,9 @@ export async function openSettings() {
   window.location.hash = 'settings';
   setSidebarActive('sb-settings');
   renderSettingsView();
+  if (searchQuery) {
+    _settingsSearchQuery.value = searchQuery;
+  }
 }
 
 var _hooksRegistered = false;
@@ -71,12 +77,19 @@ export function renderSettingsView() {
     const sbViews = [];
 
     // Title
-    sbViews.push(Text('Settings').font('1.1rem').fontWeight(600).foreground('primary').padding(0, 12, 12, 12));
+    sbViews.push(Text('Settings').cssText('font-size:1.1rem;font-weight:600;color:var(--nr-text-primary);padding:0 12px 8px 12px;text-align:left;'));
 
+    // Search field
+    var searchField = SearchField(_settingsSearchQuery, 'Search settings…').debounce(100);
+    searchField.el.style.margin = '0 8px 8px 8px';
+    sbViews.push(searchField);
+
+    // Section nav (hidden when searching)
+    var navContainer = VStack([]);
     const base = 'w-full flex items-center gap-2.5 px-3 py-2 text-left text-[0.8rem] rounded-md transition-colors ';
     _SETTINGS_SECTIONS.forEach(function(s) {
       if (s.type === 'label') {
-        sbViews.push(Text(s.text).className('nr-settings-sidebar-label'));
+        navContainer.add(Text(s.text).className('nr-settings-sidebar-label'));
         return;
       }
       var btn = HStack([
@@ -90,7 +103,49 @@ export function renderSettingsView() {
         var active = _settingsSection.value === s.key;
         btn.el.className = base + (active ? 'bg-accent/10 text-accent' : 'text-muted hover:text-primary hover:bg-hover');
       });
-      sbViews.push(btn);
+      navContainer.add(btn);
+    });
+    sbViews.push(navContainer);
+
+    // Search results (shown when searching)
+    var resultsContainer = VStack([]).cssText('display:none;');
+    sbViews.push(resultsContainer);
+
+    // Section label map for badges
+    var sectionLabels = {};
+    _SETTINGS_SECTIONS.forEach(function(s) { if (s.key) sectionLabels[s.key] = s.label; });
+
+    Effect(function() {
+      var q = _settingsSearchQuery.value.toLowerCase().trim();
+      if (!q) {
+        navContainer.el.style.display = '';
+        resultsContainer.el.style.display = 'none';
+        return;
+      }
+      navContainer.el.style.display = 'none';
+      resultsContainer.el.style.display = '';
+      var matches = _SETTINGS_REGISTRY.filter(function(entry) {
+        var haystack = (entry.label + ' ' + entry.desc + ' ' + entry.keywords).toLowerCase();
+        return q.split(/\s+/).every(function(word) { return haystack.includes(word); });
+      });
+      var rows = [];
+      matches.forEach(function(entry) {
+        var btn = HStack([
+          Text(entry.label)
+        ]).spacing(10).alignment('center')
+          .cssText('width:calc(100% - 16px);margin:0 8px;cursor:pointer;');
+        btn.el.setAttribute('role', 'button');
+        btn.el.className = base + 'text-muted hover:text-primary hover:bg-hover';
+        btn.onTap(function() {
+          _settingsSearchQuery.value = '';
+          _setSettingsSection(entry.section);
+        });
+        rows.push(btn);
+      });
+      if (!rows.length) {
+        rows.push(Text('No results').cssText('font-size:0.8rem;color:var(--nr-text-quaternary);padding:8px 20px;'));
+      }
+      AetherUI.mount(VStack(rows), resultsContainer.el);
     });
 
     // Version (pushed to bottom via spacer)

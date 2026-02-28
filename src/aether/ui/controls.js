@@ -616,13 +616,13 @@ function SearchField(binding, placeholder) {
 
   // Search icon
   var searchIcon = document.createElement('span');
-  searchIcon.style.cssText = 'position:absolute;left:var(--nr-space-2);pointer-events:none;color:var(--nr-text-tertiary);display:inline-flex;align-items:center;';
+  searchIcon.style.cssText = 'position:absolute;left:var(--nr-space-2);top:50%;transform:translateY(-50%);pointer-events:none;color:var(--nr-text-tertiary);display:inline-flex;align-items:center;';
   if (window.icon) searchIcon.innerHTML = window.icon('search', { size: 14 });
   else searchIcon.textContent = '\uD83D\uDD0D';
 
   // Clear button
   var clearBtn = document.createElement('span');
-  clearBtn.style.cssText = 'position:absolute;right:var(--nr-space-2);cursor:pointer;color:var(--nr-text-tertiary);display:none;align-items:center;';
+  clearBtn.style.cssText = 'position:absolute;right:var(--nr-space-2);top:50%;transform:translateY(-50%);cursor:pointer;color:var(--nr-text-tertiary);display:none;align-items:center;';
   if (window.icon) clearBtn.innerHTML = window.icon('close', { size: 14 });
   else clearBtn.textContent = '\u2715';
 
