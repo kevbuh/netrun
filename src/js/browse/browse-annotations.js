@@ -364,27 +364,58 @@ export function _initInsightPartialListener() {
   });
 }
 
-// ── Context compaction pill listener ──
+// ── LLM activity pill listener ──
 
-function _initCompactionListener() {
-  if (!window.electronAPI || !window.electronAPI.onContextCompacting) return;
-  window.electronAPI.onContextCompacting(function (_event, data) {
+var _activeLLMCalls = new Map(); // id → { label, model, timer }
+
+function _initLLMActivityListener() {
+  if (!window.electronAPI || !window.electronAPI.onLLMActivity) return;
+  window.electronAPI.onLLMActivity(function (_event, data) {
     if (!data) return;
-    if (data.status === 'start') {
-      if (typeof islandUpdate === 'function') {
-        islandUpdate('compaction', {
-          type: 'insight',
-          label: 'Compacting context\u2026',
-          loading: true,
-          offer: false,
-        });
-      }
-    } else {
-      // done or error — remove pill after a short delay
-      setTimeout(function () {
-        if (typeof islandRemove === 'function') islandRemove('compaction');
-      }, 1500);
+    // Emit to live pulse
+    if (typeof Motion !== 'undefined' && Motion.pulse) {
+      var evt = Motion.pulse.emit('ai', { label: data.label, detail: data.model });
+      if (data.status !== 'start' && evt && evt.done) evt.done(data.status === 'done');
     }
+    if (data.status === 'start') {
+      // Clear any pending dismiss timer for this id
+      var existing = _activeLLMCalls.get(data.id);
+      if (existing && existing.timer) clearTimeout(existing.timer);
+      _activeLLMCalls.set(data.id, { label: data.label, model: data.model });
+      _updateLLMActivityPill();
+    } else {
+      // done or error — remove after short delay
+      var entry = _activeLLMCalls.get(data.id);
+      if (entry) {
+        entry.timer = setTimeout(function () {
+          _activeLLMCalls.delete(data.id);
+          _updateLLMActivityPill();
+        }, 1200);
+      }
+    }
+  });
+}
+
+function _updateLLMActivityPill() {
+  // Collect active (non-dismissed) calls
+  var active = [];
+  _activeLLMCalls.forEach(function (v) {
+    if (!v.timer) active.push(v);
+  });
+  if (active.length === 0) {
+    if (typeof islandRemove === 'function') islandRemove('llm-activity');
+    return;
+  }
+  // Show the most recent active call's label
+  var latest = active[active.length - 1];
+  var label = latest.label + '\u2026';
+  if (active.length > 1) label = active.length + ' tasks\u2026';
+  islandUpdate('llm-activity', {
+    type: 'insight',
+    label: label,
+    detail: latest.model,
+    loading: true,
+    offer: false,
   });
 }
 
@@ -392,7 +423,7 @@ function _initCompactionListener() {
 export function _initInsightSystem() {
   _initInsightListener();
   _initInsightPartialListener();
-  _initCompactionListener();
+  _initLLMActivityListener();
   // Sync enabled state with backend
   if (Settings.get('insightEnabled') === 'off' && window.electronAPI && window.electronAPI.insightSetEnabled) {
     window.electronAPI.insightSetEnabled(false);

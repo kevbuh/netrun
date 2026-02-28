@@ -144,6 +144,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onInsightPartial: (cb) => ipcRenderer.on('insight:partial', cb),
   removeInsightPartialListener: (cb) => ipcRenderer.removeListener('insight:partial', cb),
 
+  // ── LLM activity ──
+  onLLMActivity: (cb) => ipcRenderer.on('llm:activity', cb),
+
   // ── PDF convert ──
   pdfDownloadTemp: (url) => ipcRenderer.invoke('pdf:download-temp', url),
   pdfParse: (inputPath) => ipcRenderer.invoke('pdf:parse', inputPath),

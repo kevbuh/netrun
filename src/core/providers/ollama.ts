@@ -10,6 +10,7 @@ import type {
 } from './types.js';
 import type { ToolDefinition } from '../tools/types.js';
 import { toAIMessages } from './utils.js';
+import { trackLLMCall } from './llm-activity.js';
 
 export class OllamaProvider implements LLMProvider {
   name = 'ollama';
@@ -77,37 +78,44 @@ export class OllamaProvider implements LLMProvider {
     const aiMsgs = toAIMessages(options.messages);
     const convertedTools = options.tools ? this.convertTools(options.tools) : undefined;
 
-    const result = await generateText({
-      model,
-      messages: aiMsgs,
-      tools: convertedTools,
-      toolChoice: convertedTools ? (options.toolChoice ?? 'auto') : undefined,
-      temperature: options.temperature,
-      maxOutputTokens: options.maxTokens,
-      abortSignal: options.signal,
-    });
+    const tracker = trackLLMCall(modelName, options.messages);
+    try {
+      const result = await generateText({
+        model,
+        messages: aiMsgs,
+        tools: convertedTools,
+        toolChoice: convertedTools ? (options.toolChoice ?? 'auto') : undefined,
+        temperature: options.temperature,
+        maxOutputTokens: options.maxTokens,
+        abortSignal: options.signal,
+      });
 
-    const toolCalls: ToolCall[] = (result.toolCalls ?? []).map((tc: any) => ({
-      id: tc.toolCallId,
-      type: 'function' as const,
-      function: { name: tc.toolName, arguments: JSON.stringify(tc.args ?? tc.input) },
-    }));
+      const toolCalls: ToolCall[] = (result.toolCalls ?? []).map((tc: any) => ({
+        id: tc.toolCallId,
+        type: 'function' as const,
+        function: { name: tc.toolName, arguments: JSON.stringify(tc.args ?? tc.input) },
+      }));
 
-    const usage = result.usage as any;
+      const usage = result.usage as any;
+      tracker.done();
 
-    return {
-      message: {
-        role: 'assistant',
-        content: result.text,
-        tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-      },
-      usage: usage
-        ? {
-            promptTokens: usage.inputTokens ?? usage.promptTokens ?? 0,
-            completionTokens: usage.outputTokens ?? usage.completionTokens ?? 0,
-          }
-        : undefined,
-    };
+      return {
+        message: {
+          role: 'assistant',
+          content: result.text,
+          tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+        },
+        usage: usage
+          ? {
+              promptTokens: usage.inputTokens ?? usage.promptTokens ?? 0,
+              completionTokens: usage.outputTokens ?? usage.completionTokens ?? 0,
+            }
+          : undefined,
+      };
+    } catch (err) {
+      tracker.error();
+      throw err;
+    }
   }
 
   async *chatStream(options: ChatOptions): AsyncIterable<StreamEvent> {
@@ -116,6 +124,7 @@ export class OllamaProvider implements LLMProvider {
     const model = provider.chat(modelName);
 
     const convertedTools = options.tools ? this.convertTools(options.tools) : undefined;
+    const tracker = trackLLMCall(modelName, options.messages);
     const result = streamText({
       model,
       messages: toAIMessages(options.messages),
@@ -126,31 +135,37 @@ export class OllamaProvider implements LLMProvider {
       abortSignal: options.signal,
     });
 
-    for await (const part of result.fullStream) {
-      const p = part as any;
-      if (p.type === 'text-delta') {
-        yield { type: 'token', content: p.text ?? p.textDelta ?? '' };
-      } else if (p.type === 'tool-call') {
-        yield {
-          type: 'tool_call',
-          id: p.toolCallId,
-          name: p.toolName,
-          arguments: JSON.stringify(p.args ?? p.input),
-        };
-      } else if (p.type === 'finish') {
-        const usage = p.totalUsage ?? p.usage;
-        yield {
-          type: 'done',
-          usage: usage
-            ? {
-                promptTokens: usage.inputTokens ?? usage.promptTokens ?? 0,
-                completionTokens: usage.outputTokens ?? usage.completionTokens ?? 0,
-              }
-            : undefined,
-        };
-      } else if (p.type === 'error') {
-        yield { type: 'error', error: String(p.error) };
+    try {
+      for await (const part of result.fullStream) {
+        const p = part as any;
+        if (p.type === 'text-delta') {
+          yield { type: 'token', content: p.text ?? p.textDelta ?? '' };
+        } else if (p.type === 'tool-call') {
+          yield {
+            type: 'tool_call',
+            id: p.toolCallId,
+            name: p.toolName,
+            arguments: JSON.stringify(p.args ?? p.input),
+          };
+        } else if (p.type === 'finish') {
+          const usage = p.totalUsage ?? p.usage;
+          yield {
+            type: 'done',
+            usage: usage
+              ? {
+                  promptTokens: usage.inputTokens ?? usage.promptTokens ?? 0,
+                  completionTokens: usage.outputTokens ?? usage.completionTokens ?? 0,
+                }
+              : undefined,
+          };
+        } else if (p.type === 'error') {
+          yield { type: 'error', error: String(p.error) };
+        }
       }
+      tracker.done();
+    } catch (err) {
+      tracker.error();
+      throw err;
     }
   }
 
