@@ -139,6 +139,12 @@ function _makeSession(thread, messages, allMessages) {
 
     async send(text, opts) {
       if (_streaming) return;
+      if (!Settings.aiEnabled()) {
+        messages.push({ role: 'user', content: text || '' });
+        messages.push({ role: 'assistant', content: 'AI features are disabled. Enable them in Settings → AI.' });
+        session._notify('stream');
+        return;
+      }
       opts = opts || {};
 
       // Build user message

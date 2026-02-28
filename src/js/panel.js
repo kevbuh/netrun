@@ -543,6 +543,7 @@ document.addEventListener('keydown', function(e) {
 
 // Right-click anywhere opens aether panel
 export function _handleContextMenuChat(e) {
+  if (!Settings.aiEnabled()) return;
   if (Settings.get('clickAether') === 'off') return;
   // Don't intercept on login or onboarding screens
   const loginGate = document.getElementById('login-gate');
@@ -2005,6 +2006,7 @@ export function _panelPositionAndFocus(popup, config) {
 
 export function _showPanel(config) {
   if (!_authReady) return;
+  if (!Settings.aiEnabled()) return;
   config = config || {};
   const anchor = config.anchor || {};
   const contextMenu = config.contextMenu || null;

@@ -5,7 +5,7 @@ import Settings from '/js/core/core-settings.js';
 import { apiPost } from '/js/api.js';
 import { icon } from '/js/core/icons.js';
 import { _updateAudioUnified } from '/js/core/core-audio.js';
-import { islandUpdate } from '/js/core/core-ui.js';
+import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
 import { _ttsChunkText, _ttsFetchAndQueue, _ttsStopAll, _ttsPauseResume, _ttsUpdateBtnIcon } from '/js/panel-tts.js';
 import { registerActions } from '/js/core/core-actions.js';
 
@@ -51,6 +51,7 @@ export function _triggerInsight(tab) {
 }
 
 export async function _triggerInsightExtract(tab) {
+  if (!Settings.aiEnabled()) return;
   if (!window.electronAPI || !window.electronAPI.insightPageLoaded) return;
   if (!tab || !tab.el) return;
 
@@ -207,6 +208,7 @@ export function toggleAnnotations() {
 // ── Manual re-analyze ──
 
 export async function _manualInsightAnalyze(tab) {
+  if (!Settings.aiEnabled()) return;
   if (!tab || !tab.el) return;
   if (!window.electronAPI || !window.electronAPI.insightAnalyze) return;
 
@@ -362,10 +364,35 @@ export function _initInsightPartialListener() {
   });
 }
 
+// ── Context compaction pill listener ──
+
+function _initCompactionListener() {
+  if (!window.electronAPI || !window.electronAPI.onContextCompacting) return;
+  window.electronAPI.onContextCompacting(function (_event, data) {
+    if (!data) return;
+    if (data.status === 'start') {
+      if (typeof islandUpdate === 'function') {
+        islandUpdate('compaction', {
+          type: 'insight',
+          label: 'Compacting context\u2026',
+          loading: true,
+          offer: false,
+        });
+      }
+    } else {
+      // done or error — remove pill after a short delay
+      setTimeout(function () {
+        if (typeof islandRemove === 'function') islandRemove('compaction');
+      }, 1500);
+    }
+  });
+}
+
 // Initialize when DOM is ready
 export function _initInsightSystem() {
   _initInsightListener();
   _initInsightPartialListener();
+  _initCompactionListener();
   // Sync enabled state with backend
   if (Settings.get('insightEnabled') === 'off' && window.electronAPI && window.electronAPI.insightSetEnabled) {
     window.electronAPI.insightSetEnabled(false);

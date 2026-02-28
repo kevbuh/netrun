@@ -8,6 +8,7 @@ import { snapQuoteToText } from '../utils/text.js';
 import { contextManager } from '../context/manager.js';
 import { contextIntake } from '../context/intake.js';
 import { DEFAULT_ANNOTATION_PROMPT } from './annotation-prompt.js';
+import { getSetting } from '../db/queries/settings.js';
 
 const SKIP_PATTERNS = ['about:', 'data:', 'file:', 'chrome:', 'devtools:', 'netrun://'];
 const MIN_TEXT_LENGTH = 100;
@@ -118,6 +119,9 @@ export class PageInsightPipeline {
 
   async processPage(data: PageData, sender: WebContents, opts?: { manual?: boolean }): Promise<void> {
     if (!this.enabled) return;
+    // Check AI master kill switch
+    const aiMaster = getSetting('aiMaster');
+    if (aiMaster?.value === 'off') return;
 
     const manual = opts?.manual ?? false;
 
@@ -200,6 +204,7 @@ Rules:
 - If the page has nothing worth annotating, don't call add_annotation. /no_think`;
 
       const model = data.model || this._getModel();
+      console.log(`[insight] Analyzing "${data.title}" with ${model}…`);
       const customCats = contentQueries.listAnnotationCategories();
       const validTypes = new Set(['INSIGHT', 'CONTRADICTION', 'EXAGGERATION', 'AD', 'FACTCHECK', 'EVIDENCE', ...customCats.map(c => c.key)]);
       const annotations: Annotation[] = [];

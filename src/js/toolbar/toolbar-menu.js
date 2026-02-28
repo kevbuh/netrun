@@ -165,10 +165,12 @@ export function toggleBrowseMoreMenu() {
     items.push(_mBtn(icon('moon', {size: 16, strokeWidth: '1.5'}), 'Dark Mode', function() { _browseToggleWebviewDarkMode(tab); toggleBrowseMoreMenu(); toggleBrowseMoreMenu(); }, { disabled: !hasTab, color: _darkOn ? 'var(--nr-accent)' : undefined, trailing: window.Text(_darkOn ? 'On' : 'Off').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') }));
     var _cssOff = Settings.get('autoRemoveCSS') === 'true';
     items.push(_mBtn(icon('code', {size: 16, strokeWidth: '1.5'}), 'Auto Remove CSS', function() { if (typeof window.toggleAutoRemoveCSS === 'function') window.toggleAutoRemoveCSS(); _closeMenu(); }, { disabled: !hasTab, color: _cssOff ? 'var(--nr-accent)' : undefined, trailing: window.Text(_cssOff ? 'On' : 'Off').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') }));
-    var _annAnalyzing = tab && _insightAnalyzing.get(tab.id);
-    var _annEnabled = tab && !_annAnalyzing && _annotationsEnabled.get(tab.id);
-    var _annLabel = _annAnalyzing ? 'Stop Analyzing' : _annEnabled ? 'Remove Annotations' : 'Annotate Page';
-    items.push(_mBtn(icon('annotate', {size: 16}), _annLabel, function() { toggleAnnotations(); _closeMenu(); }, { disabled: !hasTab, color: (_annEnabled || _annAnalyzing) ? 'var(--nr-accent)' : undefined }));
+    if (Settings.aiEnabled()) {
+      var _annAnalyzing = tab && _insightAnalyzing.get(tab.id);
+      var _annEnabled = tab && !_annAnalyzing && _annotationsEnabled.get(tab.id);
+      var _annLabel = _annAnalyzing ? 'Stop Analyzing' : _annEnabled ? 'Remove Annotations' : 'Annotate Page';
+      items.push(_mBtn(icon('annotate', {size: 16}), _annLabel, function() { toggleAnnotations(); _closeMenu(); }, { disabled: !hasTab, color: (_annEnabled || _annAnalyzing) ? 'var(--nr-accent)' : undefined }));
+    }
     var _nerdOn = tab && typeof window._nerdModeEnabled !== 'undefined' && window._nerdModeEnabled.get(tab.id);
     var isPdfForNerd = hasTab && (tab.pdfUrl || tab.localPath || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
     items.push(_mBtn(icon('research', {size: 16}), 'Nerd Mode', function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); _closeMenu(); }, { disabled: !isPdfForNerd, color: _nerdOn ? 'var(--nr-accent)' : undefined, trailing: _nerdOn ? window.Text('On').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') : undefined }));

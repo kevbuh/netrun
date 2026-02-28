@@ -1,10 +1,28 @@
 import Settings from '../core/core-settings.js';
 import { escapeAttr, escapeHtml } from '/js/core/core-utils.js';
 import { _settingCard, _settingRow, _settingToggle, _settingToggleLS } from '/js/settings/settings-helpers.js';
+import { renderSettingsView } from '/js/settings/settings-core.js';
 
 // ─── AI Settings (merged from Tools + Lookup Panel + Agent) ──
 
 export function _renderAISettings() {
+  // ── Master kill switch ──
+  var aiOn = Settings.aiEnabled();
+  var masterToggle = _settingToggle('AI Features', 'Master switch. When off, all AI models and features are disabled.',
+    aiOn, function(on) {
+      Settings.set('aiMaster', on ? 'on' : 'off');
+      if (window.electronAPI && window.electronAPI.insightSetEnabled) {
+        window.electronAPI.insightSetEnabled(on ? Settings.get('insightEnabled') !== 'off' : false);
+      }
+      // Re-render to show/hide groups
+      renderSettingsView();
+    });
+  var masterGroup = _settingCard('Master', [masterToggle]);
+
+  if (!aiOn) {
+    return window.VStack(masterGroup);
+  }
+
   // ── Provider group ──
   const currentProvider = Settings.get('aiProvider') || 'ollama';
   const providerBtns = [
@@ -148,6 +166,7 @@ export function _renderAISettings() {
   );
 
   return window.VStack(
+    masterGroup,
     providerGroup,
     modelsGroup,
     behaviorGroup,

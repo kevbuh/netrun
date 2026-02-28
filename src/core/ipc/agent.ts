@@ -3,6 +3,7 @@ import { runAgent, resolveActionResult } from '../agents/runtime.js';
 import { agentRegistry } from '../agents/registry.js';
 import type { AgentContext, AgentMessage } from '../agents/types.js';
 import { activeSessions } from './shared.js';
+import { getSetting } from '../db/queries/settings.js';
 
 export function registerAgentIPC(): void {
   /**
@@ -16,6 +17,19 @@ export function registerAgentIPC(): void {
     context: AgentContext;
   }) => {
     const { sessionId, messages, context } = options;
+
+    // Check AI master kill switch
+    const aiMaster = getSetting('aiMaster');
+    if (aiMaster?.value === 'off') {
+      const webContents = event.sender;
+      if (!webContents.isDestroyed()) {
+        webContents.send('agent:event', sessionId, {
+          type: 'error',
+          error: 'AI features are disabled',
+        });
+      }
+      return { sessionId };
+    }
 
     // Look up agent definition from registry (default: research-assistant)
     const agent = agentRegistry.get(options.agentId ?? 'research-assistant')

@@ -189,6 +189,9 @@ const Settings = (function() {
   define('browseHistory',    { default: '[]', sync: true }); // @persisted
   define('webSearchHistory', { default: '[]', sync: true }); // @persisted
 
+  // AI Master Kill Switch
+  define('aiMaster',               { default: 'on',           sync: false }); // @local
+
   // AI Provider
   define('aiProvider',             { default: 'ollama',       sync: false }); // @local
 
@@ -279,6 +282,10 @@ const Settings = (function() {
   define('ach_model_switch', { default: null, sync: false }); // @local
   define('ach_pixel_parent', { default: null, sync: false }); // @local
 
+  function aiEnabled() {
+    return get('aiMaster') !== 'off';
+  }
+
   return {
     define: define,
     get: get,
@@ -291,7 +298,8 @@ const Settings = (function() {
     getSyncKeys: getSyncKeys,
     getAll: getAll,
     isDefined: isDefined,
-    getDefault: getDefault
+    getDefault: getDefault,
+    aiEnabled: aiEnabled
   };
 })();
 

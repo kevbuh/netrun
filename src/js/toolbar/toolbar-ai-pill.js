@@ -98,6 +98,10 @@ function _renderUnifiedPill() {
   var el = document.getElementById('pill-ai-unified');
   if (!el) return;
 
+  // Hide entire pill when AI is disabled
+  el.style.display = Settings.aiEnabled() ? '' : 'none';
+  if (!Settings.aiEnabled()) return;
+
   var state = _resolveIndicatorState();
   var inline = _getInlineContent();
 
@@ -510,6 +514,7 @@ function _pillAnchor() {
 
 // ── Open/close dropdown ──
 function _openDropdown() {
+  if (!Settings.aiEnabled()) return;
   var el = document.getElementById('pill-ai-unified');
   if (!el) return;
   _dropdownOpen = true;
@@ -562,6 +567,9 @@ export function _initUnifiedPill() {
   var el = document.getElementById('pill-ai-unified');
   if (!el || el._unifiedBound) return;
   el._unifiedBound = true;
+
+  // React to AI master toggle
+  Settings.on('aiMaster', function() { _renderUnifiedPill(); });
 
   el.addEventListener('click', function(e) {
     if (e.target.closest('[data-ai-inline-annotate]')) {
