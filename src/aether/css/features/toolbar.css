@@ -658,8 +658,7 @@ body.electron-app .pill-bar.browse-mode.ntp-active .pill-island-container { marg
 .browse-mode.island-mode #pill-url-wrap #pill-newtab-btn:hover {
   background: rgba(255, 255, 255, 0.12); color: var(--aether-text); transform: none;
 }
-/* Island expanded: hide newtab/close/divider entirely */
-.browse-mode.island-mode #pill-url-wrap.island-expanded > #pill-newtab-btn,
+/* Island expanded: hide close/divider (newtab + reload stay visible in first row) */
 .browse-mode.island-mode #pill-url-wrap.island-expanded > .pill-close-tab-btn,
 .browse-mode.island-mode #pill-url-wrap.island-expanded > .pill-url-divider { display: none !important; }
 
@@ -773,13 +772,13 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
   transform: translateX(-50%);
 }
 
-/* URL input — fills first row alongside AI pill */
+/* URL input — fills first row, left-aligned */
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input {
   display: block !important; opacity: 1 !important; max-width: none !important;
   flex: 1 1 0; min-width: 40px; height: auto !important;
   font-size: 0.78rem; color: var(--nr-text-secondary);
   padding: 4px 10px; border-radius: 0; background: transparent;
-  border: none; text-align: center; box-sizing: border-box;
+  border: none; text-align: left; box-sizing: border-box;
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   order: 0;
 }
@@ -796,9 +795,9 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
   border-top: 1px solid rgba(255,255,255,0.06);
 }
 
-/* AI pill — stays in first row */
+/* AI pill — hidden in expanded state */
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-ai-unified {
-  order: 1;
+  display: none !important;
 }
 
 /* Center column — hidden by default, shown for CC/mic live */
@@ -863,13 +862,19 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 }
 .island-vtab-header-plus:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
 
-/* Expanded: hide reload */
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-reload { display: none !important; }
+/* Expanded: show reload + newtab after URL (same order as collapsed) */
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-reload {
+  width: 16px; opacity: 0.5; margin: 0 2px; flex-shrink: 0; overflow: visible; order: 1;
+}
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-reload:hover { opacity: 1; }
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-newtab-btn {
+  display: flex !important; width: 16px; opacity: 0.5; margin: 0 2px; flex-shrink: 0; overflow: visible; order: 2;
+}
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-newtab-btn:hover { opacity: 1; }
 
 /* Hide stray children in expanded mode */
 #pill-url-wrap.island-expanded > #pill-island { display: none; }
 #pill-url-wrap.island-expanded > #pill-close-tab-btn,
-#pill-url-wrap.island-expanded > #pill-newtab-btn,
 #pill-url-wrap.island-expanded > .pill-url-divider { display: none !important; }
 #pill-url-wrap > #pill-island ~ #pill-island-right,
 .browse-mode.island-mode:not(.ntp-active) #pill-island-right { display: none; }
@@ -1128,7 +1133,7 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
   border-radius: 0; padding: 0 6px;
 }
 /* AI pill stays visible when island is expanded (same row as URL) */
-.island-expanded > #pill-ai-unified { order: 1; }
+.island-expanded > #pill-ai-unified { display: none !important; }
 #pill-ai-unified:hover { background: var(--pill-surface-hover, rgba(255,255,255,0.12)); }
 .browse-mode.island-mode #pill-ai-unified:hover { background: rgba(255,255,255,0.06); border-radius: 6px; }
 #pill-ai-unified:active { transform: scale(0.92); transition: transform 0.06s ease; }
