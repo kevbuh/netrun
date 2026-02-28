@@ -282,10 +282,8 @@ body.electron-app .browse-mode.island-mode #pill-island-right {
   position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important;
   height: auto; min-width: 0; padding: 0; overflow: visible;
 }
-/* NTP expanded: show only the left column (tab list) */
+/* NTP expanded: restore overlay background (NTP compact is transparent) */
 .browse-mode.island-mode.ntp-active #pill-url-wrap.island-expanded {
-  grid-template-columns: auto;
-  top: 0 !important; transform: translateX(-50%) !important;
   background: var(--nr-bg-overlay) !important; backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important;
   box-shadow: 0 4px 24px rgba(0,0,0,0.45), 0 0 0 1px var(--nr-border-default) !important;
 }
@@ -756,87 +754,83 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   14. ISLAND EXPANDED — CSS grid layout (3-column)
+   14. ISLAND EXPANDED — same-width morph (grows vertically from compact pill)
    ══════════════════════════════════════════════════════════════════════════════ */
 
 .browse-mode.island-mode #pill-url-wrap.island-expanded {
-  display: grid;
-  grid-template-columns: auto auto auto;
-  grid-template-rows: auto auto auto;
-  gap: 0; height: auto; min-height: 72px; width: fit-content; max-width: 100%;
-  padding: 0; border-radius: 14px;
-  top: 0; transform: translateX(-50%);
-  background: var(--nr-bg-overlay); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.45), 0 0 0 1px var(--nr-border-default);
-  color: var(--nr-text-primary);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  height: auto;
+  padding: 0;
+  overflow: hidden;
+  /* Pin top edge at compact pill's top edge, grow downward.
+     Compact is top:50% + translateY(-50%) with height 24px → top edge at calc(50% - 12px).
+     Remove the Y centering so height growth extends downward only. */
+  top: calc(50% - 12px);
+  transform: translateX(-50%);
 }
 
-/* Left column — row 2: vertical tab list */
+/* URL input — fills first row alongside AI pill */
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input {
+  display: block !important; opacity: 1 !important; max-width: none !important;
+  flex: 1 1 0; min-width: 40px; height: auto !important;
+  font-size: 0.78rem; color: var(--nr-text-secondary);
+  padding: 4px 10px; border-radius: 0; background: transparent;
+  border: none; text-align: center; box-sizing: border-box;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  order: 0;
+}
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:hover { color: var(--nr-text-primary); }
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:focus {
+  color: var(--nr-text-primary); white-space: normal; overflow: visible;
+}
+
+/* Tab list — wraps to new row below first row, full width */
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-left {
-  grid-row: 2; grid-column: 1 / 2; display: flex; flex-direction: column; gap: 1px;
-  padding: 0; overflow-y: auto; max-height: 180px;
+  display: flex; flex-direction: column; gap: 1px;
+  width: 100%; order: 10;
+  padding: 2px 0; overflow-y: auto; max-height: 220px;
+  border-top: 1px solid rgba(255,255,255,0.06);
 }
 
-/* Center column — row 2: page info + nav + actions */
+/* AI pill — stays in first row */
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-ai-unified {
+  order: 1;
+}
+
+/* Center column — hidden by default, shown for CC/mic live */
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-center {
-  grid-row: 2; grid-column: 2 / 3; display: flex; flex-direction: column;
-  align-items: flex-start; justify-content: flex-start; gap: 2px; padding: 6px 12px;
-  overflow: visible; border-left: 1px solid var(--nr-border-default);
-}
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-title {
   display: none;
 }
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-title { display: none; }
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-actions-row {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 2px;
+  width: 100%; order: 11;
 }
 
-/* No-center mode — 2-column grid (left tabs + right AI), hide center */
-.browse-mode.island-mode #pill-url-wrap.island-expanded.island-no-center {
-  grid-template-columns: auto auto;
-}
-.browse-mode.island-mode #pill-url-wrap.island-expanded.island-no-center #pill-island-center {
+/* Right column — hidden */
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-right-col {
   display: none;
 }
-.browse-mode.island-mode #pill-url-wrap.island-expanded.island-no-center #pill-island-right-col {
-  grid-column: 2;
-}
 
-/* CC Live mode — center column spans full width, hide left + right */
-.browse-mode.island-mode #pill-url-wrap.island-expanded.island-cc-live #pill-island-left,
-.browse-mode.island-mode #pill-url-wrap.island-expanded.island-cc-live #pill-island-right-col {
+/* CC/mic live mode — center column takes over, hide tabs */
+.browse-mode.island-mode #pill-url-wrap.island-expanded.island-cc-live #pill-island-left {
   display: none;
 }
 .browse-mode.island-mode #pill-url-wrap.island-expanded.island-cc-live #pill-island-center {
-  grid-column: 1 / -1;
-  border-left: none;
-  min-width: 320px;
+  display: flex; flex-direction: column;
+  width: 100%; order: 10;
+  padding: 6px 12px;
 }
 
-/* Right column — row 2: AI content */
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-right-col {
-  grid-row: 2; grid-column: 3; display: flex; flex-direction: column;
-  overflow-y: auto; max-height: 260px;
-  border-left: 1px solid var(--nr-border-default); padding: 2px 0;
-}
-/* Scoped styles for AI content in expanded island right column */
-#pill-island-right-col .ai-unified-item {
-  padding: 4px 10px; font-size: 0.72rem; gap: 6px;
-  color: var(--nr-text-secondary); border-radius: 6px; margin: 0 4px;
-}
-#pill-island-right-col .ai-unified-item:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
-#pill-island-right-col .ai-unified-item svg { width: 13px; height: 13px; }
-#pill-island-right-col .ai-unified-item-highlight { color: var(--nr-accent); }
-#pill-island-right-col .ai-unified-section-label {
-  padding: 3px 10px 1px; font-size: 0.55rem;
-  color: var(--nr-text-quaternary); text-transform: uppercase; letter-spacing: 0.5px;
-}
-#pill-island-right-col .ai-unified-divider { margin: 2px 10px; background: var(--nr-border-default); }
-#pill-island-right-col .ai-unified-conv-item { padding: 4px 10px; font-size: 0.7rem; margin: 0 4px; border-radius: 6px; }
-#pill-island-right-col .ai-unified-conv-item:hover { background: var(--nr-bg-raised); }
-#pill-island-right-col .ai-unified-activity-scroll { max-height: 120px; }
-#pill-island-right-col .ai-unified-event { padding: 2px 10px; font-size: 0.6rem; }
+/* Nav row — hidden */
+.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row { display: none; }
 
-/* Expanded tab items (vertical list in left column) */
+/* Utility row — hidden */
+#pill-island-utility-row { display: none; }
+
+/* Expanded tab items (vertical list) */
 .island-vtab-item {
   display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 10px;
   cursor: pointer; transition: background 0.12s; font-size: 0.78rem;
@@ -867,59 +861,6 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 }
 .island-vtab-header-plus:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
 
-
-/* Expanded action buttons */
-.island-expanded-action {
-  display: flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; border-radius: 8px; border: none; background: none;
-  color: var(--nr-text-secondary); cursor: pointer; transition: background 0.12s, color 0.12s; padding: 0;
-}
-.island-expanded-action:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
-.island-expanded-action.active { color: var(--nr-accent); }
-
-/* Nav row — expanded only */
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row {
-  display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 4px;
-}
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button {
-  color: var(--nr-text-secondary); background: none; border: none; padding: 6px;
-  border-radius: 8px; cursor: pointer; transition: color 0.15s, background 0.15s;
-  display: flex; align-items: center; justify-content: center;
-}
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button svg { width: 16px; height: 16px; }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button:hover { color: var(--nr-text-primary); background: var(--nr-bg-raised); }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button:disabled,
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row button.nav-disabled { opacity: 0.25; pointer-events: none; }
-
-/* Row 3: Utility buttons bar */
-#pill-island-utility-row { display: none; }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-utility-row {
-  grid-row: 3; grid-column: 1 / -1; display: flex; align-items: center; padding: 0;
-}
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-utility-row > * { flex: 1; justify-content: space-evenly; }
-.island-utility-btn {
-  display: flex; align-items: center; justify-content: center; gap: 4px;
-  padding: 5px 10px; border-radius: 10px; border: none;
-  background: var(--nr-bg-surface); color: var(--nr-text-secondary);
-  font-size: 0.7rem; cursor: pointer; transition: background 0.12s, color 0.12s;
-}
-.island-utility-btn:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
-.island-utility-btn svg { width: 14px; height: 14px; }
-.island-utility-btn.active { color: var(--nr-accent); }
-
-/* Expanded URL input */
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input {
-  grid-column: 1 / -1 !important; grid-row: 1 !important;
-  display: block !important; opacity: 1 !important; max-width: none !important;
-  width: 100% !important; height: auto !important; min-width: 0;
-  transition: none !important; font-size: 0.8rem; color: var(--nr-text-secondary);
-  padding: 8px 14px; border-radius: 12px; background: transparent;
-  border: none; text-align: center;
-  box-sizing: border-box; overflow: visible; white-space: normal;
-}
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:hover { color: var(--nr-text-primary); }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:focus { color: var(--nr-text-primary); }
-
 /* Expanded: hide reload */
 .browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-reload { display: none !important; }
 
@@ -934,11 +875,10 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 
 /* Focus-within accent glow */
 .browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within {
-  height: auto; border-radius: 14px;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px var(--nr-border-default);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
 }
 .browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within #pill-browse-url-input {
-  font-size: 0.82rem; max-width: none; padding: 6px 12px; border-radius: 12px;
+  font-size: 0.82rem; max-width: none; padding: 5px 10px;
 }
 
 
@@ -970,8 +910,9 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .island-ai-expanded #pill-island-center,
 .island-ai-expanded #pill-island-right-col { display: none !important; }
 .island-ai-expanded #pill-island-ai-full {
-  grid-row: 2; grid-column: 1 / -1;
-  display: flex !important; flex-direction: column; max-height: 400px; overflow-y: auto;
+  display: flex !important; flex-direction: column;
+  width: 100%; order: 10;
+  max-height: 400px; overflow-y: auto;
 }
 
 
@@ -1004,7 +945,6 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 
 /* Island center dropdown — replaces tabs + page info when typing in expanded island */
 #island-center-dropdown {
-  grid-row: 2; grid-column: 1 / -1;
   overflow-y: auto; overflow-x: hidden;
   max-height: 280px; padding: 2px 0;
 }
@@ -1148,6 +1088,20 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 
 
 /* ══════════════════════════════════════════════════════════════════════════════
+   18b. ISLAND EXPAND/COLLAPSE ANIMATION
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Suppress CSS transitions during WAAPI-driven morph */
+#pill-url-wrap.island-animating { transition: none !important; }
+#pill-url-wrap.island-animating * { transition: none !important; }
+
+/* Ghost layer for FLIP favicon animation */
+.island-ghost-layer {
+  position: fixed; inset: 0; pointer-events: none; z-index: 10001;
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════════
    19. AI UNIFIED PILL — chat/mic/annotate indicator
    ══════════════════════════════════════════════════════════════════════════════ */
 
@@ -1170,8 +1124,8 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .browse-mode.island-mode #pill-ai-unified.ai-unified-expanded {
   border-radius: 0; padding: 0 6px;
 }
-/* Hide AI pill when island is expanded */
-.island-expanded > #pill-ai-unified { display: none !important; }
+/* AI pill stays visible when island is expanded (same row as URL) */
+.island-expanded > #pill-ai-unified { order: 1; }
 #pill-ai-unified:hover { background: var(--pill-surface-hover, rgba(255,255,255,0.12)); }
 .browse-mode.island-mode #pill-ai-unified:hover { background: rgba(255,255,255,0.06); border-radius: 6px; }
 #pill-ai-unified:active { transform: scale(0.92); transition: transform 0.06s ease; }

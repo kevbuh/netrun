@@ -72,6 +72,8 @@ function _initCursor() {
   function onMouseEnter() {
     dot.classList.remove('is-hidden');
     ring.classList.remove('is-hidden');
+    // Force cursor recalculation in webviews on window re-entry
+    if (window.electronAPI && electronAPI.nudgeCursor) electronAPI.nudgeCursor();
   }
 
   function onMouseLeave() {
@@ -242,7 +244,7 @@ function _initCursor() {
   // ── Webview / iframe injection ──────────────────────────────────────
 
   // CSS injected into webviews to hide native cursor
-  var WEBVIEW_CSS = '*, *::before, *::after { cursor: none !important; }';
+  var WEBVIEW_CSS = '*, *::before, *::after { cursor: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=) 0 0, none !important; }';
 
   // JS injected into webviews to report mouse state back to parent
   var WEBVIEW_JS = '(' + function () {

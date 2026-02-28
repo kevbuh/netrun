@@ -203,7 +203,8 @@ export function _islandRenderPill(a) {
     if (nonBlank.length === 0) {
       return H([R(icon('windows', { size: 14 })), T('0 tabs').opacity(0.4)]);
     }
-    var visible = nonBlank.slice(0, 3);
+    var maxFav = parseInt(Settings.get('islandMaxFavicons'), 10) || 7;
+    var visible = nonBlank.slice(0, maxFav);
     var stripChildren = [];
     for (var ti = 0; ti < visible.length; ti++) {
       var t = visible[ti];

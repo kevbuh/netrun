@@ -32,6 +32,7 @@ export const _SETTINGS_REGISTRY = [
   { section: 'browser', label: 'Simplify URLs', desc: 'Show only the domain name in the URL bar', keywords: 'url domain address bar shorten clean' },
   { section: 'browser', label: 'Adaptive Background', desc: 'Match the browser background to the current site color', keywords: 'adaptive color background url bar site' },
   { section: 'browser', label: 'URL Bar Sections', desc: 'Reorder and toggle sections in the URL bar dropdown', keywords: 'url bar sections reorder drag layout' },
+  { section: 'browser', label: 'Visible Tab Favicons', desc: 'Number of tab favicons shown in the compact toolbar pill', keywords: 'tab favicon island pill compact strip count visible' },
 
   // ── Browser: Privacy ──
   { section: 'browser', label: 'Ad Blocker', desc: 'Block ads and trackers at the network level', keywords: 'ads block tracker privacy filter list' },

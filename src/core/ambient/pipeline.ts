@@ -204,7 +204,6 @@ Rules:
 - If the page has nothing worth annotating, don't call add_annotation. /no_think`;
 
       const model = data.model || this._getModel();
-      console.log(`[insight] Analyzing "${data.title}" with ${model}…`);
       const customCats = contentQueries.listAnnotationCategories();
       const validTypes = new Set(['INSIGHT', 'CONTRADICTION', 'EXAGGERATION', 'AD', 'FACTCHECK', 'EVIDENCE', ...customCats.map(c => c.key)]);
       const annotations: Annotation[] = [];

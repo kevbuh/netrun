@@ -212,6 +212,7 @@ const Settings = (function() {
   define('dohEnabled',              { default: 'true',       sync: false }); // @local
   define('dohProvider',             { default: 'cloudflare', sync: false }); // @local
   define('urlBarSections',          { default: null,   sync: true  }); // @persisted
+  define('islandMaxFavicons',       { default: '7',    sync: true  }); // @persisted
   define('urlShorten',              { default: 'true', sync: false }); // @local
   define('adaptiveUrlBar',          { default: 'on',   sync: false }); // @local
   define('hideYTShorts',            { default: 'false',sync: false }); // @local

@@ -437,6 +437,14 @@ export function _renderBrowserSettings() {
   });
   const simplifyRow = _settingRow('Simplify URLs', 'Show only the domain name in the URL bar when not focused.', urlShortenToggle);
 
+  // Visible Tab Favicons
+  const favCountRow = _settingBtnGroup('Visible Tab Favicons',
+    [{value:'3',label:'3'},{value:'5',label:'5'},{value:'7',label:'7'},{value:'10',label:'10'}],
+    Settings.get('islandMaxFavicons') || '7', function(v) {
+      Settings.set('islandMaxFavicons', v);
+      if (typeof window._renderIslandActions === 'function') window._renderIslandActions();
+    });
+
   // Adaptive URL Colors
   const adaptiveToggle = window.Toggle(null);
   const adaptiveInput = adaptiveToggle.el.querySelector('input[type="checkbox"]');
@@ -477,6 +485,7 @@ export function _renderBrowserSettings() {
     _settingCard('Layout', [
       simplifyRow,
       adaptiveRow,
+      favCountRow,
       _settingGroupContent([
         window.Text('URL Bar Sections').className('text-[0.8rem] text-primary font-medium mb-1'),
         window.Text('Reorder and toggle sections in the URL bar dropdown. Drag to reorder.').className('text-[0.72rem] text-dimmer mb-3'),
