@@ -22,6 +22,7 @@ function _initCursor() {
   // Check localStorage for user preference (default: on)
   var startEnabled = localStorage.getItem('customCursor') !== 'off';
   if (startEnabled) {
+    document.documentElement.classList.add('nr-custom-cursor');
     document.body.classList.add('nr-custom-cursor');
   } else {
     dot.style.display = 'none';
@@ -38,11 +39,34 @@ function _initCursor() {
   function onMouseMove(e) {
     mouse.x = e.clientX;
     mouse.y = e.clientY;
+
+    // Ensure custom cursor visible on re-entry (mouseenter can be unreliable)
+    if (dot.classList.contains('is-hidden')) {
+      dot.classList.remove('is-hidden');
+      ring.classList.remove('is-hidden');
+    }
+
     if (inWebview) {
       inWebview = false;
-      // Re-detect context for main app elements
       detectContext(e.target);
     }
+
+    // Text cursor detection — morph dot into I-beam over selectable text
+    var target = e.target;
+    var isText = false;
+    var tag = target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) {
+      isText = true;
+    } else {
+      var cs = window.getComputedStyle(target);
+      if (cs.cursor === 'text') {
+        isText = true;
+      } else if (cs.userSelect !== 'none' && cs.webkitUserSelect !== 'none') {
+        var range = document.caretRangeFromPoint(e.clientX, e.clientY);
+        isText = !!(range && range.startContainer && range.startContainer.nodeType === 3);
+      }
+    }
+    setText(isText);
   }
 
   function onMouseEnter() {
@@ -185,11 +209,6 @@ function _initCursor() {
     if (target.closest && target.closest(hoverSelectors)) {
       setHover(true);
     }
-    // Text cursor
-    var cs = window.getComputedStyle(target);
-    if (cs.cursor === 'text' || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-      setText(true);
-    }
     detectContext(target);
   }
 
@@ -197,10 +216,6 @@ function _initCursor() {
     var target = e.target;
     if (target.closest && target.closest(hoverSelectors)) {
       setHover(false);
-    }
-    var cs = window.getComputedStyle(target);
-    if (cs.cursor === 'text' || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-      setText(false);
     }
   }
 
@@ -241,7 +256,14 @@ function _initCursor() {
       var hovering = !!(e.target.closest && e.target.closest(hoverSel));
       var isText = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
       if (!isText) {
-        try { isText = window.getComputedStyle(e.target).cursor === 'text'; } catch (ex) { /* noop */ }
+        try {
+          var cs = window.getComputedStyle(e.target);
+          if (cs.cursor === 'text') { isText = true; }
+          else if (cs.userSelect !== 'none' && cs.webkitUserSelect !== 'none') {
+            var cr = document.caretRangeFromPoint(e.clientX, e.clientY);
+            isText = !!(cr && cr.startContainer && cr.startContainer.nodeType === 3);
+          }
+        } catch (ex) { /* noop */ }
       }
       var isMedia = tag === 'IMG' || tag === 'VIDEO' || tag === 'CANVAS' || tag === 'SVG' || tag === 'PICTURE';
       if (!isMedia && e.target.closest) {
@@ -401,7 +423,14 @@ function _initCursor() {
           var tag = target.tagName;
           var isText = tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
           if (!isText) {
-            try { isText = doc.defaultView.getComputedStyle(target).cursor === 'text'; } catch (ex) { /* noop */ }
+            try {
+              var tcs = doc.defaultView.getComputedStyle(target);
+              if (tcs.cursor === 'text') { isText = true; }
+              else if (tcs.userSelect !== 'none' && tcs.webkitUserSelect !== 'none') {
+                var cr = doc.caretRangeFromPoint(e.clientX, e.clientY);
+                isText = !!(cr && cr.startContainer && cr.startContainer.nodeType === 3);
+              }
+            } catch (ex) { /* noop */ }
           }
           setText(isText);
 
@@ -492,6 +521,7 @@ function _initCursor() {
       running = true;
       dot.style.display = '';
       ring.style.display = '';
+      document.documentElement.classList.add('nr-custom-cursor');
       document.body.classList.add('nr-custom-cursor');
       // Re-inject cursor-hiding CSS into tracked webviews
       for (var i = 0; i < trackedWebviews.length; i++) {
@@ -520,6 +550,7 @@ function _initCursor() {
       running = false;
       dot.style.display = 'none';
       ring.style.display = 'none';
+      document.documentElement.classList.remove('nr-custom-cursor');
       document.body.classList.remove('nr-custom-cursor');
       // Remove cursor-hiding CSS from tracked webviews
       for (var i = 0; i < trackedWebviews.length; i++) {

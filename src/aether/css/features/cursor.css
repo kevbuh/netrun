@@ -121,6 +121,7 @@
 }
 
 /* Hide default cursor on app body */
+html.nr-custom-cursor,
 body.nr-custom-cursor,
 body.nr-custom-cursor *:not(iframe) {
   cursor: none !important;
