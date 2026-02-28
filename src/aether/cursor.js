@@ -308,16 +308,27 @@ function _initCursor() {
     ring.classList.remove('is-hidden');
   }
 
+  // Track webviews/iframes for enable/disable CSS toggling
+  var trackedWebviews = [];
+  var trackedIframes = [];
+
   /**
    * Inject cursor support into an Electron <webview> element.
    */
   function injectWebview(wv) {
     if (wv._aetherCursorBound) return;
     wv._aetherCursorBound = true;
+    trackedWebviews.push(wv);
 
     var doInject = function () {
-      wv.insertCSS(WEBVIEW_CSS).catch(function () {});
+      // Always inject JS for cursor tracking
       wv.executeJavaScript(WEBVIEW_JS).catch(function () {});
+      // Only inject cursor-hiding CSS if enabled
+      if (running) {
+        wv.insertCSS(WEBVIEW_CSS).then(function (key) {
+          wv._aetherCursorCSSKey = key;
+        }).catch(function () {});
+      }
     };
 
     // Inject on every navigation
@@ -354,6 +365,7 @@ function _initCursor() {
   function injectIframe(iframe) {
     if (iframe._aetherCursorBound) return;
     iframe._aetherCursorBound = true;
+    trackedIframes.push(iframe);
 
     var tryInject = function () {
       try {
@@ -364,7 +376,10 @@ function _initCursor() {
         // Hide native cursor
         var style = doc.createElement('style');
         style.textContent = WEBVIEW_CSS;
-        doc.head.appendChild(style);
+        style.id = 'aether-cursor-hide';
+        if (running) doc.head.appendChild(style);
+        iframe._aetherCursorStyle = style;
+        iframe._aetherCursorDoc = doc;
 
         var iframeHoverSel = 'a, button, [role="button"], input[type="submit"], [onclick]';
 
@@ -478,6 +493,27 @@ function _initCursor() {
       dot.style.display = '';
       ring.style.display = '';
       document.body.classList.add('nr-custom-cursor');
+      // Re-inject cursor-hiding CSS into tracked webviews
+      for (var i = 0; i < trackedWebviews.length; i++) {
+        (function (wv) {
+          try {
+            wv.insertCSS(WEBVIEW_CSS).then(function (key) {
+              wv._aetherCursorCSSKey = key;
+            }).catch(function () {});
+          } catch (e) { /* webview may be destroyed */ }
+        })(trackedWebviews[i]);
+      }
+      // Re-add cursor-hiding style to tracked iframes
+      for (var j = 0; j < trackedIframes.length; j++) {
+        try {
+          var ifr = trackedIframes[j];
+          if (ifr._aetherCursorStyle && ifr._aetherCursorDoc && ifr._aetherCursorDoc.head) {
+            if (!ifr._aetherCursorStyle.parentNode) {
+              ifr._aetherCursorDoc.head.appendChild(ifr._aetherCursorStyle);
+            }
+          }
+        } catch (e) { /* iframe may be destroyed */ }
+      }
       requestAnimationFrame(tick);
     },
     disable: function () {
@@ -485,6 +521,26 @@ function _initCursor() {
       dot.style.display = 'none';
       ring.style.display = 'none';
       document.body.classList.remove('nr-custom-cursor');
+      // Remove cursor-hiding CSS from tracked webviews
+      for (var i = 0; i < trackedWebviews.length; i++) {
+        (function (wv) {
+          try {
+            if (wv._aetherCursorCSSKey) {
+              wv.removeInsertedCSS(wv._aetherCursorCSSKey).catch(function () {});
+              wv._aetherCursorCSSKey = null;
+            }
+          } catch (e) { /* webview may be destroyed */ }
+        })(trackedWebviews[i]);
+      }
+      // Remove cursor-hiding style from tracked iframes
+      for (var j = 0; j < trackedIframes.length; j++) {
+        try {
+          var ifr = trackedIframes[j];
+          if (ifr._aetherCursorStyle && ifr._aetherCursorStyle.parentNode) {
+            ifr._aetherCursorStyle.parentNode.removeChild(ifr._aetherCursorStyle);
+          }
+        } catch (e) { /* iframe may be destroyed */ }
+      }
     },
     toggle: function () {
       running ? api.disable() : api.enable();
