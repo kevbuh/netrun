@@ -780,12 +780,13 @@ export function _islandRender() {
 
   let ids = Object.keys(window._islandActivities.value);
 
-  // Filter out 'ai' and 'insight' types — they render inside the unified AI pill now
+  // Filter out types rendered elsewhere: ai/insight in unified pill, pageinfo as satellite
   ids = ids.filter(function(id) {
     const a = window._islandActivities.value[id];
     if (!a) return false;
     if (a.type === 'ai') return false;
     if (a.type === 'insight') return false;
+    if (a.type === 'pageinfo') return false;
     return true;
   });
   // Trigger unified pill re-render so it picks up the ai/insight data
@@ -1128,7 +1129,7 @@ export function _islandRender() {
     const navRect = navBar ? navBar.getBoundingClientRect() : { right: window.innerWidth };
     // Measure width of right-side buttons so pills sit to their left
     let rightBtnsW = 0;
-    ['pill-ai-unified', 'pill-browse-more', 'pill-browse-hamburger'].forEach(function(bid) {
+    ['pill-browse-more', 'pill-browse-hamburger'].forEach(function(bid) {
       const b = document.getElementById(bid);
       if (b && b.offsetWidth > 0) rightBtnsW += b.offsetWidth + 2; // + gap
     });
@@ -1139,7 +1140,6 @@ export function _islandRender() {
     var pillBar = document.getElementById('sidebar-nav');
     if (pillBar) {
       pillBar.style.setProperty('--island-hamburger-right', '0px');
-      pillBar.style.setProperty('--island-ai-right', (hamburgerW + 4) + 'px');
     }
     const rightAvail = navRect.right - urlRect.right - 20; // 12px gap + 8px right padding
     if (rightAvail > 0) {
@@ -1165,7 +1165,7 @@ export function _islandRender() {
     });
     // Find the left edge of the first visible right-side button
     let rightBoundary = navRect.right - 4;
-    ['pill-ai-unified', 'pill-browse-more', 'pill-browse-hamburger'].forEach(function(bid) {
+    ['pill-browse-more', 'pill-browse-hamburger'].forEach(function(bid) {
       const b = document.getElementById(bid);
       if (b && b.offsetWidth > 0) {
         const br = b.getBoundingClientRect();

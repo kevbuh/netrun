@@ -500,11 +500,10 @@ function _collapseIslandCleanup() {
 }
 
 function _moveElementsIntoIsland() {
-  // AI pill visibility is handled by CSS (.island-expanded > #pill-ai-unified)
+  // AI pill is now a satellite — no elements to move
 }
 
 function _restoreElementsFromIsland() {
-  // AI pill visibility is handled by CSS (.island-expanded > #pill-ai-unified)
   var leftCol = document.getElementById('pill-island-left');
   if (leftCol) { AetherUI.mount(new View('div'), leftCol); leftCol.onclick = null; }
   var rightCol = document.getElementById('pill-island-right-col');
@@ -571,16 +570,6 @@ function _renderIslandTabPill() {
         setTimeout(_renderIslandTabPill, 50);
       });
   });
-
-  // Header row: "Tabs" label + plus button
-  var plusBtn = window.RawHTML(plusSvg).className('island-vtab-header-plus').attr('title', 'New tab')
-    .onTap(function(e) {
-      e.stopPropagation();
-      _collapseIsland();
-      if (typeof window.browseNewTab === 'function') window.browseNewTab();
-    });
-  var header = window.HStack([window.Text('Tabs'), plusBtn]).className('island-vtab-header');
-  rows.unshift(header);
 
   AetherUI.mount(window.VStack(rows), leftCol);
   leftCol.onclick = null;
@@ -691,16 +680,6 @@ function _renderIslandAIFull() {
   }
 }
 
-// ── Render AI column (right column in expanded island) ──
-
-function _renderIslandAIColumn() {
-  var rightCol = document.getElementById('pill-island-right-col');
-  if (!rightCol) return;
-  AetherUI.mount(new View('div'), rightCol);
-  if (typeof window.renderAIPanelContent === 'function') {
-    window.renderAIPanelContent(rightCol);
-  }
-}
 
 // ── Render action icons ──
 

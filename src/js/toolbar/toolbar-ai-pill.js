@@ -15,7 +15,6 @@ var _rafPending = false;
 var _dropdownOpen = false;
 var _outsideClickBound = false;
 var _dropdownStateKey = '';  // fingerprint to avoid unnecessary dropdown re-renders
-var _expandedStateKey = '';  // fingerprint for expanded island right column
 var _ccCenterKey = null;     // fingerprint for CC live captions in center column
 var _micCenterKey = null;    // fingerprint for mic live transcript in center column
 
@@ -132,7 +131,9 @@ function _renderUnifiedPill() {
     var dropdown = el.querySelector('.ai-unified-dropdown');
     if (dropdown) {
       var as = state.audioState;
-      var key = [state.primary, !!as.tab, !!as.tts, as.tts && as.tts.paused, !!as.cc, !!as.mic, as.micRecording].join(',');
+      var _liveCount = typeof window._getActiveLLMCalls === 'function' ? window._getActiveLLMCalls().length : 0;
+      var _pulseCount = (state.pulseState.recent || []).length;
+      var key = [state.primary, !!as.tab, !!as.tts, as.tts && as.tts.paused, !!as.cc, !!as.mic, as.micRecording, _liveCount, _pulseCount].join(',');
       if (key !== _dropdownStateKey) {
         _dropdownStateKey = key;
         _renderDropdown(dropdown, state);
@@ -140,20 +141,10 @@ function _renderUnifiedPill() {
     }
   }
 
-  // Expanded island — re-render columns when state changes
+  // Expanded island — re-render CC/mic center column when state changes
   var wrap = document.getElementById('pill-url-wrap');
   if (wrap && wrap.classList.contains('island-expanded')) {
     var as2 = state.audioState;
-
-    // Right column
-    var rightCol = document.getElementById('pill-island-right-col');
-    if (rightCol && rightCol.children.length > 0) {
-      var key2 = [state.primary, !!as2.tab, !!as2.tts, as2.tts && as2.tts.paused, !!as2.cc, !!as2.mic, as2.micRecording].join(',');
-      if (key2 !== _expandedStateKey) {
-        _expandedStateKey = key2;
-        _renderDropdown(rightCol, state);
-      }
-    }
 
     // Center column — re-render when CC is active (live captions)
     if (as2.cc && as2.cc.active) {
@@ -165,7 +156,6 @@ function _renderUnifiedPill() {
         if (typeof window._renderIslandActions === 'function') window._renderIslandActions();
       }
     } else if (_ccCenterKey) {
-      // CC just stopped — restore normal center column
       _ccCenterKey = null;
       if (typeof window._renderIslandActions === 'function') window._renderIslandActions();
     }
@@ -180,7 +170,6 @@ function _renderUnifiedPill() {
         if (typeof window._renderIslandActions === 'function') window._renderIslandActions();
       }
     } else if (_micCenterKey) {
-      // Mic just stopped — restore normal center column
       _micCenterKey = null;
       if (typeof window._renderIslandActions === 'function') window._renderIslandActions();
     }
@@ -434,36 +423,55 @@ function _renderDropdown(dropdown, state) {
 
   // 4. Page Info — shown in expanded island, not here
 
-  // 5. Activity section — pulse events
-  var recent = pulseState.recent || [];
-  if (recent.length) {
-    children.push(_divider());
-    children.push(_sectionLabel('Activity'));
+  // 5. Activity section — live calls + pulse events (always visible)
+  children.push(_divider());
+  children.push(_sectionLabel('Activity'));
 
-    var activityScroll = new View('div').className('ai-unified-activity-scroll');
-    var start = Math.max(0, recent.length - 30);
-    for (var ri = recent.length - 1; ri >= start; ri--) {
-      var ev = recent[ri];
-      var col = _pulseCatColors[ev.category] || '#94a3b8';
-      var age = Math.round((Date.now() - ev.timestamp) / 1000);
-      var ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
-      var statusDot = ev.ok === true ? '#22c55e' : ev.ok === false ? '#ef4444' : '#94a3b8';
+  var activityScroll = new View('div').className('ai-unified-activity-scroll');
 
-      var evLabel = ev.label || '';
-      var evModel = (ev.category === 'ai' && ev.detail) ? _shortModelName(ev.detail) : '';
-      var labelText = evModel ? evLabel + ' \u00b7 ' + evModel : evLabel;
-
-      var eventRow = HStack(
-        new View('span').className('ai-unified-event-status').styles({ background: statusDot }),
-        Text(escapeHtml(ev.category)).className('ai-unified-event-cat').styles({ color: col }),
-        Text(escapeHtml(labelText)).className('ai-unified-event-label'),
-        Text(ageStr).className('ai-unified-event-age')
-      ).className('ai-unified-event');
-
-      activityScroll.add(eventRow);
-    }
-    children.push(activityScroll);
+  // Live LLM calls first
+  var _liveCalls2 = typeof window._getActiveLLMCalls === 'function' ? window._getActiveLLMCalls() : [];
+  for (var li2 = 0; li2 < _liveCalls2.length; li2++) {
+    var lc2 = _liveCalls2[li2];
+    var lcModel2 = _shortModelName(lc2.model);
+    var lcAge2 = Math.round((Date.now() - lc2.startTs) / 1000);
+    var lcAgeStr2 = lcAge2 < 60 ? lcAge2 + 's' : Math.round(lcAge2 / 60) + 'm';
+    var lcChildren = [new View('span').className('ai-unified-dot ai-unified-dot-ai nr-breathe')];
+    if (lcModel2) lcChildren.push(Text(escapeHtml(lcModel2)).className('ai-unified-event-cat').styles({ color: '#a78bfa' }));
+    lcChildren.push(Text(escapeHtml(lc2.label + '\u2026')).className('ai-unified-event-label'));
+    lcChildren.push(Text(lcAgeStr2).className('ai-unified-event-age'));
+    activityScroll.add(HStack(lcChildren).className('ai-unified-event'));
   }
+
+  // Historical pulse events
+  var recent = pulseState.recent || [];
+  var start = Math.max(0, recent.length - 30);
+  for (var ri = recent.length - 1; ri >= start; ri--) {
+    var ev = recent[ri];
+    var col = _pulseCatColors[ev.category] || '#94a3b8';
+    var age = Math.round((Date.now() - ev.timestamp) / 1000);
+    var ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
+    var statusDot = ev.ok === true ? '#22c55e' : ev.ok === false ? '#ef4444' : '#94a3b8';
+
+    var evLabel = ev.label || '';
+    var evModel = (ev.category === 'ai' && ev.detail) ? _shortModelName(ev.detail) : '';
+    var labelText = evModel ? evLabel + ' \u00b7 ' + evModel : evLabel;
+
+    var eventRow = HStack(
+      new View('span').className('ai-unified-event-status').styles({ background: statusDot }),
+      Text(escapeHtml(ev.category)).className('ai-unified-event-cat').styles({ color: col }),
+      Text(escapeHtml(labelText)).className('ai-unified-event-label'),
+      Text(ageStr).className('ai-unified-event-age')
+    ).className('ai-unified-event');
+
+    activityScroll.add(eventRow);
+  }
+
+  if (_liveCalls2.length === 0 && recent.length === 0) {
+    activityScroll.add(Text('No recent activity').styles({ padding: '4px 10px', opacity: '0.3', fontSize: '0.65rem' }));
+  }
+
+  children.push(activityScroll);
 
   AetherUI.mount(VStack(children), dropdown);
 }
