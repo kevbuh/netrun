@@ -261,7 +261,12 @@ export function _islandRenderPill(a) {
   } else if (a.type === 'nerd') {
     return H([R(icon('research', { size: 14 })), T(a.label || 'Nerd Mode?')]).spacing(1).styles({ whiteSpace: 'nowrap' });
   } else if (a.type === 'pageinfo') {
-    return R(icon('info', { size: 14, stroke: 'var(--nr-text-secondary)' }));
+    var infoIcon = R(icon('info', { size: 14, stroke: 'var(--nr-text-secondary)' })).className('island-pageinfo-icon');
+    if (a.label) {
+      return H([infoIcon, T(a.label).foreground('var(--nr-text-secondary)').className('island-pageinfo-label')]).spacing(1).styles({ whiteSpace: 'nowrap' });
+    }
+    // Icon hidden by default, shown on hover via CSS
+    return infoIcon;
   } else if (a.type === 'calendar') {
     return H([R(icon('calendar', { size: 14, stroke: '#3b82f6' })), T(a.label || '').foreground('#3b82f6')]);
   } else if (a.type === 'bookmark') {

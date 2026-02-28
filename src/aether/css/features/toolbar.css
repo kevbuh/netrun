@@ -346,7 +346,7 @@ body.electron-app .pill-bar.browse-mode.ntp-active .pill-island-container { marg
 [data-aether-theme="match"] .pill-island { background: rgba(255,255,255,0.12); }
 [data-aether-theme="aether"] .pill-island { background: rgba(0,0,0,0.08); }
 
-.pill-island.island-active { opacity: 1; scale: 1; }
+.pill-island.island-active { opacity: 1; scale: 1; cursor: pointer; }
 .pill-island:active { scale: 0.95; transition: scale 0.06s ease; }
 .pill-island.island-active:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); scale: 1.03; }
 [data-aether-theme="midnight"] .pill-island.island-active:hover { background: rgba(255,255,255,0.18); }
@@ -502,6 +502,25 @@ body.electron-app .pill-bar.browse-mode.ntp-active .pill-island-container { marg
   max-height: 400px; opacity: 1; padding: 6px;
   pointer-events: auto; overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+
+/* Pageinfo pill — icon-only (idle) mode: show icon on hover */
+.pill-island[data-island-id="pageinfo"] .island-pageinfo-icon {
+  display: flex; align-items: center;
+}
+.pill-island[data-island-id="pageinfo"]:has(.island-pageinfo-icon:only-child) {
+  width: 8px; min-width: 8px; padding: 0;
+  transition: width 0.2s ease, padding 0.2s ease, max-width 0.4s var(--motion-snappy),
+              scale 0.15s ease, opacity 0.25s ease, background 0.2s ease, box-shadow 0.25s ease;
+}
+.pill-island[data-island-id="pageinfo"]:has(.island-pageinfo-icon:only-child) .island-pageinfo-icon {
+  opacity: 0; width: 0; overflow: hidden; transition: opacity 0.15s ease, width 0.15s ease;
+}
+.pill-island[data-island-id="pageinfo"]:hover:has(.island-pageinfo-icon:only-child) {
+  width: fit-content; padding: 0 6px;
+}
+.pill-island[data-island-id="pageinfo"]:hover:has(.island-pageinfo-icon:only-child) .island-pageinfo-icon {
+  opacity: 1; width: auto;
 }
 
 /* Webview pointer guard when tray is open */

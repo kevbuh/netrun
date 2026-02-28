@@ -10,6 +10,11 @@ const _CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 let _scrollPct = -1;
 let _tokenCount = 0;
 
+// ── Display mode: 'reading-time' (first 10s), 'scroll' (while scrolling), 'idle' (icon only) ──
+let _displayMode = 'idle';
+let _readingTimeTimer = null;
+let _scrollIdleTimer = null;
+
 // ── Relative date formatting ──
 function _relativeAge(dateStr) {
   if (!dateStr) return null;
@@ -38,26 +43,22 @@ function _readingTime(wordCount) {
   return mins + ' min read';
 }
 
-// ── Build pill label ──
+// ── Build pill label based on display mode ──
 function _buildLabel(meta) {
-  // Primary: relative age from publish date
-  if (meta && meta.published) {
-    const age = _relativeAge(meta.published);
-    if (age) return age;
+  if (_displayMode === 'scroll' && _scrollPct > 0) {
+    return _scrollPct + '%';
   }
-  // Fallback: reading time from word count
-  if (meta && meta.wordCount) {
+  if (_displayMode === 'reading-time' && meta && meta.wordCount) {
     const rt = _readingTime(meta.wordCount);
     if (rt) return rt;
   }
+  // idle mode — no label, just icon
   return null;
 }
 
-// ── Build secondary badges (scroll + tokens) ──
+// ── Build secondary badges ──
 function _buildBadges() {
-  const parts = [];
-  if (_scrollPct > 0) parts.push(_scrollPct + '%');
-  return parts.join(' · ');
+  return '';
 }
 
 // ── Module-level state for unified pill ──
@@ -85,6 +86,7 @@ function _pushPill(meta) {
       if (typeof window._clearIslandActivity === 'function') window._clearIslandActivity('pageinfo');
     }
   }
+  if (typeof window._islandRender === 'function') window._islandRender();
   if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
 }
 
@@ -186,6 +188,8 @@ export function _pageInfoOnPageLoad(tab, frame) {
     _pageInfoCleanup();
     return;
   }
+  // Start reading-time display for 10 seconds
+  _startReadingTimeMode();
   // Check cache
   const cached = _pageInfoCache.get(url);
   if (cached && (Date.now() - cached.ts) < _CACHE_TTL) {
@@ -231,6 +235,7 @@ export function _pageInfoRestoreForTab(tab) {
   // Reset live state (will be re-populated by scroll/token messages)
   _scrollPct = -1;
   _tokenCount = 0;
+  _startReadingTimeMode();
   const cached = _pageInfoCache.get(url);
   if (cached && (Date.now() - cached.ts) < _CACHE_TTL) {
     _pushPill(cached.data);
@@ -240,9 +245,25 @@ export function _pageInfoRestoreForTab(tab) {
   }
 }
 
+function _startReadingTimeMode() {
+  if (_readingTimeTimer) clearTimeout(_readingTimeTimer);
+  if (_scrollIdleTimer) { clearTimeout(_scrollIdleTimer); _scrollIdleTimer = null; }
+  _displayMode = 'reading-time';
+  _readingTimeTimer = setTimeout(function() {
+    _readingTimeTimer = null;
+    if (_displayMode === 'reading-time') {
+      _displayMode = 'idle';
+      _pushPill(_getCurrentMeta());
+    }
+  }, 10000);
+}
+
 export function _pageInfoCleanup() {
   _scrollPct = -1;
   _tokenCount = 0;
+  _displayMode = 'idle';
+  if (_readingTimeTimer) { clearTimeout(_readingTimeTimer); _readingTimeTimer = null; }
+  if (_scrollIdleTimer) { clearTimeout(_scrollIdleTimer); _scrollIdleTimer = null; }
   _currentLabel = '';
   _currentBadges = '';
   _currentMeta = null;
@@ -252,7 +273,9 @@ export function _pageInfoCleanup() {
 
 export function _pageInfoUpdateScroll(pct) {
   _scrollPct = pct;
-  // Get current metadata from cache for the active tab
+  // Switch to scroll mode, cancel reading-time timer
+  if (_readingTimeTimer) { clearTimeout(_readingTimeTimer); _readingTimeTimer = null; }
+  _displayMode = 'scroll';
   const meta = _getCurrentMeta();
   _pushPill(meta);
 }
