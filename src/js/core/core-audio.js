@@ -170,10 +170,11 @@ export function _islandRenderPill(a) {
     }
     return H(children);
   } else if (a.type === 'pageinfo') {
-    var children = [R(icon('clock', { size: 14, stroke: 'var(--nr-text-secondary)' }))];
-    if (a.label) children.push(T(a.label));
-    if (a.badges) children.push(T(a.badges).className('island-pageinfo-badges'));
-    return H(children);
+    var infoIcon = R(icon('info', { size: 14, stroke: 'var(--nr-text-secondary)' })).className('island-pageinfo-icon');
+    if (a.label) {
+      return H([infoIcon, T(a.label).foreground('var(--nr-text-secondary)').className('island-pageinfo-label')]).spacing(1).styles({ whiteSpace: 'nowrap' });
+    }
+    return infoIcon;
   } else if (a.type === 'calendar') {
     return H([R(icon('calendar', { size: 14, stroke: '#3b82f6' })), T(a.label || '').foreground('#3b82f6')]);
   } else if (a.type === 'bookmark') {
