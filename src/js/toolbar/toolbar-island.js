@@ -91,9 +91,14 @@ function _snapshotStripFavicons(wrap) {
 
 // ── Helper: snapshot favicon rects from expanded vtab items ──
 
-function _snapshotVtabFavicons(wrap) {
+function _snapshotVtabFavicons(wrap, opts) {
+  opts = opts || {};
+  var onlyVisible = opts.onlyVisible !== false;
   var result = [];
   var items = wrap.querySelectorAll('.island-vtab-item[data-island-tab]');
+  // Get the scrollable container bounds to cull offscreen items
+  var leftCol = onlyVisible ? document.getElementById('pill-island-left') : null;
+  var containerRect = leftCol ? leftCol.getBoundingClientRect() : null;
   for (var i = 0; i < items.length; i++) {
     var item = items[i];
     var tabId = item.getAttribute('data-island-tab');
@@ -101,6 +106,8 @@ function _snapshotVtabFavicons(wrap) {
     if (!img) continue;
     var r = img.getBoundingClientRect();
     if (r.width === 0) continue;
+    // Skip items scrolled out of the visible area
+    if (containerRect && (r.bottom < containerRect.top || r.top > containerRect.bottom)) continue;
     result.push({ tabId: tabId, rect: r, clone: img.cloneNode(true) });
   }
   return result;
@@ -108,12 +115,18 @@ function _snapshotVtabFavicons(wrap) {
 
 // ── Helper: build a ghost layer + create ghosts, animate from→to ──
 
-function _createGhostAnimation(fromFavicons, toMap, duration, stagger) {
+// Dynamic Island-style easing: fluid deceleration, no overshoot
+var _islandEasing = 'cubic-bezier(0.5, 0.0, 0.0, 1.0)';
+
+function _createGhostAnimation(fromFavicons, toMap, duration, stagger, opts) {
+  opts = opts || {};
   var layer = document.createElement('div');
   layer.className = 'island-ghost-layer';
   document.body.appendChild(layer);
   var anims = [];
-  var easing = (typeof Motion !== 'undefined') ? Motion.css('snappy') : 'cubic-bezier(0.34, 1.56, 0.64, 1)';
+  var easing = _islandEasing;
+  var scalePulse = opts.scalePulse !== false;
+  var crossFade = opts.crossFade !== false;
 
   for (var i = 0; i < fromFavicons.length; i++) {
     var f = fromFavicons[i];
@@ -121,22 +134,27 @@ function _createGhostAnimation(fromFavicons, toMap, duration, stagger) {
     ghost.style.cssText = 'position:fixed;pointer-events:none;margin:0;padding:0;border:none;' +
       'left:' + f.rect.left + 'px;top:' + f.rect.top + 'px;' +
       'width:' + f.rect.width + 'px;height:' + f.rect.height + 'px;' +
-      'border-radius:3px;object-fit:contain;';
+      'border-radius:3px;object-fit:contain;will-change:transform,opacity;';
     layer.appendChild(ghost);
 
     var target = toMap[f.tabId];
     if (target) {
       var dx = target.left - f.rect.left;
       var dy = target.top - f.rect.top;
+      var midScale = scalePulse ? ' scale(1.04)' : ' scale(1)';
+      var endOpacity = crossFade ? 0 : 1;
       anims.push(ghost.animate(
-        [{ transform: 'translate(0,0)', opacity: 1 }, { transform: 'translate(' + dx + 'px,' + dy + 'px)', opacity: 1 }],
+        [
+          { transform: 'translate(0,0) scale(1)', opacity: 1, offset: 0 },
+          { transform: 'translate(' + (dx*0.5) + 'px,' + (dy*0.5) + 'px)' + midScale, opacity: 1, offset: 0.5 },
+          { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(1)', opacity: endOpacity, offset: 1 }
+        ],
         { duration: duration, easing: easing, fill: 'forwards', delay: (stagger || 0) * i }
       ));
     } else {
-      // No matching target — fade out
       anims.push(ghost.animate(
         [{ opacity: 1 }, { opacity: 0 }],
-        { duration: duration * 0.6, fill: 'forwards' }
+        { duration: duration * 0.6, easing: easing, fill: 'forwards' }
       ));
     }
   }
@@ -167,78 +185,115 @@ function _animateExpand(wrap) {
   _pillSyncUrl();
 
   // 4. Force layout to get expanded dimensions
+  wrap.style.width = '';
   void wrap.offsetHeight;
-  var expandedHeight = wrap.getBoundingClientRect().height;
+  var expandedRect = wrap.getBoundingClientRect();
+  var expandedHeight = expandedRect.height;
+  var expandedWidth = expandedRect.width;
 
   // 5. Snapshot expanded favicon positions → map by tab ID
   var expandedVtabs = _snapshotVtabFavicons(wrap);
   var expandedMap = {};
   for (var i = 0; i < expandedVtabs.length; i++) expandedMap[expandedVtabs[i].tabId] = expandedVtabs[i].rect;
 
-  // 6. Set wrapper to compact height for animation start
+  // 6. Set wrapper to compact dimensions for animation start
+  wrap.style.width = compactRect.width + 'px';
   wrap.style.height = compactRect.height + 'px';
   wrap.style.overflow = 'hidden';
   wrap.classList.add('island-animating');
 
-  // 7. Hide expanded tab list (will fade in during animation)
+  // 7. Hide expanded tab list rows (will stagger-reveal during animation)
   var leftCol = document.getElementById('pill-island-left');
+  var vtabItems = leftCol ? leftCol.querySelectorAll('.island-vtab-item, .island-vtab-header') : [];
   if (leftCol) leftCol.style.opacity = '0';
 
-  // 8. Create ghost favicons flying from compact → expanded positions (WAAPI, bypasses reducedMotion)
+  // 8. Create ghost favicons with subtle scale pulse + cross-fade
   var cancelled = false;
-  var ghosts = _createGhostAnimation(compactFavicons, expandedMap, 280, 30);
+  var ghosts = _createGhostAnimation(compactFavicons, expandedMap, 260, 20, { scalePulse: true, crossFade: true });
 
-  // 9. Animate wrapper height growth
-  var easing = (typeof Motion !== 'undefined') ? Motion.css('snappy') : 'cubic-bezier(0.34, 1.56, 0.64, 1)';
-  var heightAnim = wrap.animate(
-    [{ height: compactRect.height + 'px' }, { height: expandedHeight + 'px' }],
-    { duration: 280, easing: easing, fill: 'forwards' }
+  // 9. Animate wrapper height + width + border-radius growth (Dynamic Island style)
+  wrap.style.willChange = 'width, height, border-radius';
+  var morphAnim = wrap.animate(
+    [
+      { height: compactRect.height + 'px', width: compactRect.width + 'px', borderRadius: '12px' },
+      { height: expandedHeight + 'px', width: expandedWidth + 'px', borderRadius: '16px' }
+    ],
+    { duration: 260, easing: _islandEasing, fill: 'forwards' }
   );
 
-  // 10. Fade in tab list partway through
+  // 10. Staggered per-row reveal of tab list — fluid fade-up
+  var rowStagger = 22;
+  var rowBaseDelay = 70;
   var fadeTimer = setTimeout(function() {
     if (cancelled) return;
-    if (leftCol) {
-      leftCol.style.opacity = '1';
-      leftCol.style.transition = 'opacity 150ms ease';
-      setTimeout(function() { if (leftCol) leftCol.style.transition = ''; }, 160);
+    if (leftCol) leftCol.style.opacity = '1';
+    for (var ri = 0; ri < vtabItems.length; ri++) {
+      (function(item, idx) {
+        item.style.opacity = '0';
+        item.style.transform = 'translateY(4px)';
+        setTimeout(function() {
+          if (cancelled) return;
+          item.style.transition = 'opacity 180ms cubic-bezier(0.4, 0.0, 0.0, 1.0), transform 180ms cubic-bezier(0.4, 0.0, 0.0, 1.0)';
+          item.style.opacity = '1';
+          item.style.transform = 'translateY(0)';
+          setTimeout(function() {
+            item.style.transition = '';
+            item.style.transform = '';
+          }, 190);
+        }, idx * rowStagger);
+      })(vtabItems[ri], ri);
     }
-  }, 150);
+  }, rowBaseDelay);
 
   // Cancel function
   _islandAnimCancel = function() {
     cancelled = true;
     clearTimeout(fadeTimer);
-    try { heightAnim.cancel(); } catch(e) {}
+    try { morphAnim.cancel(); } catch(e) {}
     for (var ai = 0; ai < ghosts.anims.length; ai++) try { ghosts.anims[ai].cancel(); } catch(e) {}
     ghosts.layer.remove();
-    if (leftCol) { leftCol.style.opacity = ''; leftCol.style.transition = ''; }
+    _clearRowStyles(leftCol, vtabItems);
+    wrap.style.width = '';
     wrap.style.height = '';
     wrap.style.overflow = '';
+    wrap.style.willChange = '';
     wrap.classList.remove('island-animating');
     _islandAnimating = false;
     _islandAnimCancel = null;
   };
 
   // 11. Cleanup on finish
-  heightAnim.finished.then(function() {
+  morphAnim.finished.then(function() {
     if (cancelled) return;
-    try { heightAnim.cancel(); } catch(e) {}
+    try { morphAnim.cancel(); } catch(e) {}
     ghosts.layer.remove();
-    if (leftCol) { leftCol.style.opacity = ''; leftCol.style.transition = ''; }
+    _clearRowStyles(leftCol, vtabItems);
+    wrap.style.width = '';
     wrap.style.height = '';
     wrap.style.overflow = '';
+    wrap.style.willChange = '';
     wrap.classList.remove('island-animating');
     _islandAnimating = false;
     _islandAnimCancel = null;
   }).catch(function() {
     ghosts.layer.remove();
-    if (leftCol) { leftCol.style.opacity = ''; leftCol.style.transition = ''; }
+    _clearRowStyles(leftCol, vtabItems);
+    wrap.style.width = '';
     wrap.style.height = '';
     wrap.style.overflow = '';
+    wrap.style.willChange = '';
     wrap.classList.remove('island-animating');
     _islandAnimating = false;
   });
+}
+
+function _clearRowStyles(leftCol, vtabItems) {
+  if (leftCol) { leftCol.style.opacity = ''; leftCol.style.transition = ''; }
+  for (var i = 0; i < vtabItems.length; i++) {
+    vtabItems[i].style.opacity = '';
+    vtabItems[i].style.transform = '';
+    vtabItems[i].style.transition = '';
+  }
 }
 
 // ── Animated collapse: reverse FLIP — favicons fly back to compact strip ──
@@ -248,56 +303,112 @@ function _animateCollapse(wrap) {
   var cancelled = false;
 
   // 1. Snapshot expanded state
-  var expandedHeight = wrap.getBoundingClientRect().height;
+  var expandedRect = wrap.getBoundingClientRect();
+  var expandedHeight = expandedRect.height;
+  var expandedWidth = expandedRect.width;
   var expandedFavicons = _snapshotVtabFavicons(wrap);
 
-  // 2. Instantly apply compact state (no paint yet — synchronous)
+  // 2. Hide expanded content BEFORE collapsing to prevent flash
+  var leftCol = document.getElementById('pill-island-left');
+  if (leftCol) leftCol.style.visibility = 'hidden';
+
+  // 3. Instantly apply compact state
   _doCollapse(wrap);
   void wrap.offsetHeight;
 
-  // 3. Measure compact favicon positions + compact height
-  var compactHeight = wrap.getBoundingClientRect().height;
+  // 4. Measure compact favicon positions + compact dimensions
+  var compactRect = wrap.getBoundingClientRect();
+  var compactHeight = compactRect.height;
+  var compactWidth = compactRect.width;
   var compactFavicons = _snapshotStripFavicons(wrap);
   var compactMap = {};
   for (var i = 0; i < compactFavicons.length; i++) compactMap[compactFavicons[i].tabId] = compactFavicons[i].rect;
 
-  // 4. Hide compact strip (ghosts will cover it)
+  // 5. Hide each compact favicon individually (will reveal one-by-one as ghosts land)
   var strip = wrap.querySelector('.island-favicon-strip');
-  if (strip) strip.style.opacity = '0';
+  var stripFavEls = strip ? strip.querySelectorAll('[data-island-tab]') : [];
+  var stripOverflow = strip ? strip.querySelector('.island-strip-overflow') : null;
+  for (var fi = 0; fi < stripFavEls.length; fi++) stripFavEls[fi].style.opacity = '0';
+  if (stripOverflow) stripOverflow.style.opacity = '0';
 
-  // 5. Temporarily set height to expanded (will animate down)
+  // 6. Temporarily set dimensions to expanded (will animate down)
+  wrap.style.width = expandedWidth + 'px';
   wrap.style.height = expandedHeight + 'px';
   wrap.style.overflow = 'hidden';
 
-  // 6. Create ghost favicons flying from expanded → compact positions
-  var ghosts = _createGhostAnimation(expandedFavicons, compactMap, 250, 0);
+  // 7. Create ghost favicons — least recent (furthest) departs first
+  var ghostCount = expandedFavicons.length;
+  var ghostDuration = 200 + ghostCount * 10;  // 3 tabs → 230ms, 7 tabs → 270ms
+  var ghostStagger = 10 + ghostCount * 2;     // 3 tabs → 16ms, 7 tabs → 24ms
+  // Reverse so bottom items (least recent, most distance) fly first
+  var departOrder = expandedFavicons.slice().reverse();
+  var totalGhostTime = ghostDuration + ghostStagger * Math.max(0, ghostCount - 1);
+  var ghosts = _createGhostAnimation(departOrder, compactMap, ghostDuration, ghostStagger, { scalePulse: true, crossFade: true });
 
-  // 7. Animate wrapper height shrink
-  var easing = (typeof Motion !== 'undefined') ? Motion.css('snappy') : 'cubic-bezier(0.34, 1.56, 0.64, 1)';
-  var heightAnim = wrap.animate(
-    [{ height: expandedHeight + 'px' }, { height: compactHeight + 'px' }],
-    { duration: 250, easing: easing, fill: 'forwards' }
+  // 8. Reveal each compact favicon as its ghost arrives (staggered pop-in, same order as departure)
+  var revealTimers = [];
+  for (var ri = 0; ri < departOrder.length; ri++) {
+    (function(idx) {
+      var arriveAt = ghostStagger * idx + ghostDuration * 0.7; // reveal at 70% of ghost flight
+      var timer = setTimeout(function() {
+        if (cancelled) return;
+        var tabId = departOrder[idx].tabId;
+        // Find matching compact favicon by data-island-tab
+        var el = strip ? strip.querySelector('[data-island-tab="' + tabId + '"]') : null;
+        if (el) {
+          el.style.transition = 'opacity 80ms ease';
+          el.style.opacity = '1';
+          setTimeout(function() { el.style.transition = ''; }, 90);
+        }
+      }, arriveAt);
+      revealTimers.push(timer);
+    })(ri);
+  }
+  // Reveal overflow count label at the end
+  var overflowTimer = setTimeout(function() {
+    if (cancelled || !stripOverflow) return;
+    stripOverflow.style.transition = 'opacity 80ms ease';
+    stripOverflow.style.opacity = '1';
+    setTimeout(function() { if (stripOverflow) stripOverflow.style.transition = ''; }, 90);
+  }, totalGhostTime * 0.8);
+
+  // 9. Animate wrapper height + width + border-radius shrink (Dynamic Island style)
+  wrap.style.willChange = 'width, height, border-radius';
+  var morphAnim = wrap.animate(
+    [
+      { height: expandedHeight + 'px', width: expandedWidth + 'px', borderRadius: '16px' },
+      { height: compactHeight + 'px', width: compactWidth + 'px', borderRadius: '12px' }
+    ],
+    { duration: totalGhostTime, easing: _islandEasing, fill: 'forwards' }
   );
 
   var _cleanup = function() {
+    for (var ci = 0; ci < revealTimers.length; ci++) clearTimeout(revealTimers[ci]);
+    clearTimeout(overflowTimer);
     ghosts.layer.remove();
-    if (strip) strip.style.opacity = '';
+    // Reset per-favicon styles
+    for (var fi = 0; fi < stripFavEls.length; fi++) { stripFavEls[fi].style.opacity = ''; stripFavEls[fi].style.transition = ''; }
+    if (stripOverflow) { stripOverflow.style.opacity = ''; stripOverflow.style.transition = ''; }
+    var lc = document.getElementById('pill-island-left');
+    if (lc) lc.style.visibility = '';
+    wrap.style.width = '';
     wrap.style.height = '';
     wrap.style.overflow = '';
+    wrap.style.willChange = '';
     _islandAnimating = false;
     _islandAnimCancel = null;
   };
 
   _islandAnimCancel = function() {
     cancelled = true;
-    try { heightAnim.cancel(); } catch(e) {}
+    try { morphAnim.cancel(); } catch(e) {}
     for (var ai = 0; ai < ghosts.anims.length; ai++) try { ghosts.anims[ai].cancel(); } catch(e) {}
     _cleanup();
   };
 
-  heightAnim.finished.then(function() {
+  morphAnim.finished.then(function() {
     if (cancelled) return;
-    try { heightAnim.cancel(); } catch(e) {}
+    try { morphAnim.cancel(); } catch(e) {}
     _cleanup();
   }).catch(function() {
     _cleanup();
@@ -349,9 +460,8 @@ export function _collapseIsland() {
   // Cancel any in-flight animation
   if (_islandAnimCancel) { _islandAnimCancel(); _islandAnimCancel = null; }
 
-  var wasExpanded = wrap.classList.contains('island-expanded');
-
-  if (wasExpanded && typeof Motion !== 'undefined' && Motion.animate) {
+  // Animate collapse when expanded and Motion is available
+  if (wrap.classList.contains('island-expanded') && typeof Motion !== 'undefined' && Motion.animate) {
     _animateCollapse(wrap);
   } else {
     _doCollapse(wrap);
@@ -374,6 +484,8 @@ function _doCollapse(wrap) {
   if (actionsRow) actionsRow.remove();
   var tabsAnchor = document.getElementById('pill-island-tabs-anchor');
   if (tabsAnchor) tabsAnchor.style.display = '';
+  // Re-render compact pill content (replaces expanded tab list in leftCol)
+  _renderIslandActions();
 }
 
 function _collapseIslandCleanup() {
