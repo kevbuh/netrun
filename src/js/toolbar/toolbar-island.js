@@ -190,15 +190,15 @@ function _renderIslandTabPill() {
       });
   });
 
-  // Divider + New tab row (pinned to bottom via margin-top: auto)
-  rows.push(new window.View('div').styles({ height: '1px', background: 'var(--nr-border-default)', margin: '2px 10px', marginTop: 'auto' }));
-  rows.push(window.HStack([window.RawHTML(plusSvg), window.Text('New tab')])
-    .className('island-vtab-new')
+  // Header row: "Tabs" label + plus button
+  var plusBtn = window.RawHTML(plusSvg).className('island-vtab-header-plus').attr('title', 'New tab')
     .onTap(function(e) {
       e.stopPropagation();
       _collapseIsland();
       if (typeof window.browseNewTab === 'function') window.browseNewTab();
-    }));
+    });
+  var header = window.HStack([window.Text('Tabs'), plusBtn]).className('island-vtab-header');
+  rows.unshift(header);
 
   AetherUI.mount(window.VStack(rows), leftCol);
   leftCol.onclick = null;
