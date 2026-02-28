@@ -56,13 +56,14 @@ function _initCursor() {
     var target = e.target;
     var isText = false;
     var tag = target.tagName;
+    var isHovering = !!(target.closest && target.closest(hoverSelectors));
     if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) {
       isText = true;
-    } else {
+    } else if (!isHovering) {
       var cs = window.getComputedStyle(target);
       if (cs.cursor === 'text') {
         isText = true;
-      } else if (cs.userSelect !== 'none' && cs.webkitUserSelect !== 'none') {
+      } else if (cs.cursor !== 'pointer' && cs.userSelect !== 'none' && cs.webkitUserSelect !== 'none') {
         var range = document.caretRangeFromPoint(e.clientX, e.clientY);
         isText = !!(range && range.startContainer && range.startContainer.nodeType === 3);
       }
@@ -256,11 +257,11 @@ function _initCursor() {
       var tag = e.target.tagName;
       var hovering = !!(e.target.closest && e.target.closest(hoverSel));
       var isText = tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable;
-      if (!isText) {
+      if (!isText && !hovering) {
         try {
           var cs = window.getComputedStyle(e.target);
           if (cs.cursor === 'text') { isText = true; }
-          else if (cs.userSelect !== 'none' && cs.webkitUserSelect !== 'none') {
+          else if (cs.cursor !== 'pointer' && cs.userSelect !== 'none' && cs.webkitUserSelect !== 'none') {
             var cr = document.caretRangeFromPoint(e.clientX, e.clientY);
             isText = !!(cr && cr.startContainer && cr.startContainer.nodeType === 3);
           }
@@ -430,11 +431,11 @@ function _initCursor() {
 
           var tag = target.tagName;
           var isText = tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
-          if (!isText) {
+          if (!isText && !hovering) {
             try {
               var tcs = doc.defaultView.getComputedStyle(target);
               if (tcs.cursor === 'text') { isText = true; }
-              else if (tcs.userSelect !== 'none' && tcs.webkitUserSelect !== 'none') {
+              else if (tcs.cursor === 'auto' && tcs.userSelect !== 'none' && tcs.webkitUserSelect !== 'none') {
                 var cr = doc.caretRangeFromPoint(e.clientX, e.clientY);
                 isText = !!(cr && cr.startContainer && cr.startContainer.nodeType === 3);
               }
