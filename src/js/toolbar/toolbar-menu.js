@@ -9,6 +9,7 @@ import { isPostSaved } from '/js/feed.js';
 import { agentGetAccessibleDOM } from '/js/browse/browse-agent.js';
 import { toggleAnnotations, _annotationsEnabled, _insightAnalyzing } from '/js/browse/browse-annotations.js';
 import { _renderSitePermissionsDropdown } from '/js/urlbar/urlbar-permissions.js';
+import { _browseToggleWebviewDarkMode } from '/js/browse/browse-frame-bind.js';
 
 // ── Browse More Menu (three dots) ──
 
@@ -160,6 +161,8 @@ export function toggleBrowseMoreMenu() {
 
     items.push(new window.View('div').styles({borderTop:'1px solid var(--nr-border-default, var(--aether-border))'}).margin('2px', '0'));
 
+    var _darkOn = tab && tab._webviewDarkMode;
+    items.push(_mBtn(icon('moon', {size: 16, strokeWidth: '1.5'}), 'Dark Mode', function() { _browseToggleWebviewDarkMode(tab); toggleBrowseMoreMenu(); toggleBrowseMoreMenu(); }, { disabled: !hasTab, color: _darkOn ? 'var(--nr-accent)' : undefined, trailing: window.Text(_darkOn ? 'On' : 'Off').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') }));
     var _cssOff = Settings.get('autoRemoveCSS') === 'true';
     items.push(_mBtn(icon('code', {size: 16, strokeWidth: '1.5'}), 'Auto Remove CSS', function() { if (typeof window.toggleAutoRemoveCSS === 'function') window.toggleAutoRemoveCSS(); _closeMenu(); }, { disabled: !hasTab, color: _cssOff ? 'var(--nr-accent)' : undefined, trailing: window.Text(_cssOff ? 'On' : 'Off').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') }));
     var _annAnalyzing = tab && _insightAnalyzing.get(tab.id);

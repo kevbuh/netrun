@@ -6,6 +6,42 @@ import { _browseHandleNavigation } from '/js/browse/browse-navigation.js';
 import { _browseInjectContentScripts } from '/js/browse/browse-content-scripts.js';
 import { _doomScrollMatch, _injectDoomScrollNudge } from '/js/browse/browse-doom-scroll.js';
 
+// ── Webview Dark Mode ──
+
+const _darkModeCSS = 'html { filter: invert(0.88) hue-rotate(180deg); background: #fff !important; } img, video, canvas, svg, [style*="background-image"] { filter: invert(1) hue-rotate(180deg); }';
+
+export function _browseInjectDarkMode(tab) {
+  var el = tab && tab.el;
+  if (!el || typeof el.executeJavaScript !== 'function') return;
+  el.executeJavaScript(`(function(){
+    var id = '__aether_dark_mode__';
+    if (document.getElementById(id)) return;
+    var s = document.createElement('style');
+    s.id = id;
+    s.textContent = ${JSON.stringify(_darkModeCSS)};
+    (document.head || document.documentElement).appendChild(s);
+  })();`).catch(function(e) { console.warn('[DarkMode] inject failed:', e); });
+}
+
+export function _browseRemoveDarkMode(tab) {
+  var el = tab && tab.el;
+  if (!el || typeof el.executeJavaScript !== 'function') return;
+  el.executeJavaScript(`(function(){
+    var s = document.getElementById('__aether_dark_mode__');
+    if (s) s.remove();
+  })();`).catch(function(e) { console.warn('[DarkMode] remove failed:', e); });
+}
+
+export function _browseToggleWebviewDarkMode(tab) {
+  if (!tab) return;
+  tab._webviewDarkMode = !tab._webviewDarkMode;
+  if (tab._webviewDarkMode) {
+    _browseInjectDarkMode(tab);
+  } else {
+    _browseRemoveDarkMode(tab);
+  }
+}
+
 export function _browseBindFrame(tab) {
   if (tab.contentType === 'reader') return;
   const el = tab.el;
@@ -180,4 +216,12 @@ export function _browseBindFrame(tab) {
       }, 500);
     });
   }
+
+  // Dark mode: re-inject on navigation (outside adblock conditional)
+  el.addEventListener('dom-ready', () => {
+    if (tab._webviewDarkMode) _browseInjectDarkMode(tab);
+  });
+  el.addEventListener('did-navigate', () => {
+    if (tab._webviewDarkMode) _browseInjectDarkMode(tab);
+  });
 }
