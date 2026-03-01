@@ -3,7 +3,6 @@ import Settings from '/js/core/core-settings.js';
 import { apiPost } from '/js/api.js';
 import { escapeHtml } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
-import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
 import { _browseFaviconUrl } from '/js/toolbar/toolbar-nav.js';
 import { _BANGS, browseNavigate } from '/js/toolbar/toolbar-url.js';
 import { _relativeTime, submitSearch } from '/js/search.js';
@@ -28,7 +27,6 @@ export const _URL_BAR_SECTIONS = [
   { key: 'threads',    label: 'Chat History' },
   { key: 'notes',      label: 'Notes' },
   { key: 'history',    label: 'Search History' },
-  { key: 'lucky',      label: 'Feeling Lucky' },
 ];
 
 export const _QUICK_OPEN_VIEWS = [
@@ -292,42 +290,6 @@ export function _browseUrlHighlight(items) {
   }
 }
 
-export let _feelingLuckyQuery = '';
-export let _feelingLuckyLoading = false;
-
-export function _browseUrlFeelingLucky() {
-  const { input, dd } = _getOmniInput();
-  _feelingLuckyLoading = true;
-  _feelingLuckyQuery = '';
-  _browseUrlRenderLuckyRow(dd);
-  const model = Settings.get('chatModel') || 'qwen2.5:3b';
-  islandUpdate('ai-lucky', { type: 'ai', label: model, detail: 'Feeling Lucky \u00B7 ' + model });
-  apiPost('/api/doc-chat', {
-    messages: [{ role: 'user', content: 'Give me a single interesting, surprising, or obscure topic to search on the web right now. Just reply with the search query, nothing else. No quotes. Be creative and varied — pick from science, history, art, philosophy, technology, nature, space, culture, or anything fascinating. Do not repeat yourself.' }],
-    model: model
-  }).then(result => {
-    if (!result || !result._stream) { _feelingLuckyLoading = false; _browseUrlRenderLuckyRow(dd); return; }
-    const handler = (_ev, sid, evt) => {
-      if (sid !== result.sessionId) return;
-      if (evt.event === 'token') {
-        _feelingLuckyQuery += (evt.data || '');
-        _browseUrlRenderLuckyRow(dd);
-      } else if (evt.event === 'done' || evt.event === 'error') {
-        window.electronAPI.removeDocChatEventListener(handler);
-        islandRemove('ai-lucky');
-        _feelingLuckyLoading = false;
-        _feelingLuckyQuery = _feelingLuckyQuery.replace(/^["']|["']$/g, '').trim();
-        _browseUrlRenderLuckyRow(dd);
-      }
-    };
-    window.electronAPI.onDocChatEvent(handler);
-  }).catch(() => { _feelingLuckyLoading = false; _browseUrlRenderLuckyRow(dd); });
-}
-
-export function _browseUrlRenderLuckyRow(dd) {
-  // Re-render the full dropdown so styles (pointer-events, redo btn) update
-  _browseUrlShowHistory();
-}
 
 export function _browseUrlShowHistory() {
   const { input, dd, ntp, islandCenter } = _getOmniInput();
@@ -572,7 +534,6 @@ const _SEARCH_SVG = '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3" str
 const _CHAT_SVG = '<path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>';
 const _CLOCK_SVG = '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round"/>';
 const _BOLT_SVG = '<path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>';
-const _STAR_SVG = '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>';
 const _USER_SVG = '<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>';
 const _FLASK_SVG = '<path d="M7 2v2h1v7.15L5.03 17.49C4.08 19.3 5.36 21.5 7.41 21.5h9.18c2.05 0 3.33-2.2 2.38-4.01L16 11.15V4h1V2H7zm7 9.85l2.88 5.15H7.12L10 11.85V4h4v7.85z"/>';
 
@@ -582,7 +543,7 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
   const hasDef = _currentDef && /^[a-zA-Z]{2,}$/.test(filter);
   const hasInstant = _instantAnswer && _instantAnswer.html;
   const { ntp } = _getOmniInput();
-  const showLucky = !filter && !ntp;
+
 
   // Match bangs: input starts with "!" and has no space yet (still picking a bang)
   const bangFilter = filter && /^!(\S*)$/.test(filter) ? filter.slice(1).toLowerCase() : null;
@@ -599,7 +560,7 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
   const isIsland = dd.id === 'pill-url-dropdown';
   const isIslandCenter = dd.id === 'pill-island-center';
 
-  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showLucky && !showBrowse.length && !matchedBangs.length && !quickOpenMatches.length && !(ntp && filter)) {
+  if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showBrowse.length && !matchedBangs.length && !quickOpenMatches.length && !(ntp && filter)) {
     if (isIslandCenter) {
       _islandCenterRestorePageInfo();
     } else {
@@ -728,47 +689,6 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
         container.add(row);
       });
       return container;
-    },
-    lucky: () => {
-      if (!showLucky) return null;
-      const hasText = !!_feelingLuckyQuery;
-      const waiting = _feelingLuckyLoading && !hasText;
-      if (!_feelingLuckyQuery && !_feelingLuckyLoading) setTimeout(_browseUrlFeelingLucky, 0);
-
-      const starIcon = _ddSvgIcon(_STAR_SVG, '14px');
-      const labelSpan = Text('Feeling Lucky').cssText('font-weight:600;color:var(--nr-text-primary);');
-      const luckyText = hasText
-        ? Text(_feelingLuckyQuery).cssText('margin-left:6px;color:var(--nr-text-secondary);font-size:0.75rem;')
-        : (waiting ? RawHTML('<span style="margin-left:6px;color:var(--nr-text-quaternary);font-size:0.75rem;">Thinking\u2026</span>') : Text('').cssText('margin-left:6px;'));
-      luckyText.el.className = 'browse-lucky-text';
-
-      const textWrap = HStack(labelSpan, luckyText).cssText('flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;');
-
-      const children = [starIcon, textWrap];
-      if (hasText && !_feelingLuckyLoading) {
-        const redo = Text('\u21BB').cssText('flex-shrink:0;cursor:pointer;padding:2px 4px;border-radius:4px;color:var(--nr-text-quaternary);font-size:0.7rem;');
-        redo.el.className = 'browse-lucky-redo';
-        redo.on('mousedown', function(ev) { ev.preventDefault(); ev.stopPropagation(); _browseUrlFeelingLucky(); });
-        redo.on('mouseenter', function() { this.style.color = 'var(--nr-accent)'; });
-        redo.on('mouseleave', function() { this.style.color = 'var(--nr-text-quaternary)'; });
-        children.push(redo);
-      }
-
-      const row = HStack(...children).cssText(rowStyle + 'border-bottom:1px solid var(--nr-border-default);' + (waiting ? 'opacity:0.7;cursor:wait;' : ''));
-      row.el.className = 'browse-lucky-row';
-      row.el.dataset.histq = _feelingLuckyQuery || '';
-      row.on('mousedown', function(ev) {
-        if (ev.target.closest('.browse-lucky-redo')) return;
-        ev.preventDefault();
-        ev.stopPropagation();
-        if (_feelingLuckyQuery) {
-          const inp = document.getElementById('browse-url-input');
-          if (inp) inp.value = _feelingLuckyQuery;
-          _browseUrlHideHistory();
-          browseNavigate(_feelingLuckyQuery);
-        }
-      });
-      return row;
     },
     definition: () => {
       if (!hasDef) return null;

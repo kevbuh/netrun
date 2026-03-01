@@ -51,8 +51,6 @@ export {
   _browseUrlAutocompleteSuggestion, _browseUrlTypedLength, _browseUrlAcSuppressed,
   _browseUrlGetAutocomplete, _browseUrlApplyAutocomplete, _browseUrlClearAutocomplete,
   _getOmniInput, _browseUrlKeydown, _browseUrlHighlight,
-  _feelingLuckyQuery, _feelingLuckyLoading,
-  _browseUrlFeelingLucky, _browseUrlRenderLuckyRow,
   _browseUrlShowHistory, _browseUrlRenderHistoryCommand,
   _BANG_LABELS, _ddSectionHeader, _ddSvgIcon, _ddFaviconWithFallback,
   _browseUrlRenderDropdown,

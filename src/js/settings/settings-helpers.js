@@ -136,15 +136,20 @@ export function _settingToggleLS(label, desc, lsKey, opts) {
 }
 
 export function _settingBtnGroup(label, options, currentValue, onSelect) {
+  const activeCls = 'px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors border-accent text-accent bg-accent/10';
+  const inactiveCls = 'px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors border-border-input text-muted bg-card hover:border-accent hover:text-primary';
   const btns = options.map(function(opt) {
     const value = typeof opt === 'object' ? opt.value : opt;
     const text = typeof opt === 'object' ? opt.label : (value.charAt(0).toUpperCase() + value.slice(1));
     const active = value === currentValue;
     const b = new window.View('button');
     b.text(text);
-    b.className('px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' +
-      (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'));
-    b.onTap(function() { onSelect(value); });
+    b.className(active ? activeCls : inactiveCls);
+    b.onTap(function() {
+      btns.forEach(function(btn) { btn.el.className = inactiveCls; });
+      b.el.className = activeCls;
+      onSelect(value);
+    });
     return b;
   });
   const right = HStack(btns).spacing(1);
@@ -156,15 +161,20 @@ export function _settingBtnGroup(label, options, currentValue, onSelect) {
 }
 
 export function _settingPillGroup(label, options, currentValue, onSelect) {
+  const activeCls = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors border-accent text-accent bg-accent/10';
+  const inactiveCls = 'px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors border-border-input text-dimmer bg-card hover:text-primary';
   const btns = options.map(function(opt) {
     const value = typeof opt === 'object' ? opt.value : opt;
     const text = typeof opt === 'object' ? opt.label : value;
     const active = value === currentValue;
     const b = new window.View('button');
     b.text(text);
-    b.className('px-2 py-0.5 rounded text-[0.7rem] border cursor-pointer transition-colors ' +
-      (active ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-dimmer bg-card hover:text-primary'));
-    b.onTap(function() { onSelect(value); });
+    b.className(active ? activeCls : inactiveCls);
+    b.onTap(function() {
+      btns.forEach(function(btn) { btn.el.className = inactiveCls; });
+      b.el.className = activeCls;
+      onSelect(value);
+    });
     return b;
   });
   return HStack(btns).spacing(0.5);

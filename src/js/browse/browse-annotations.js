@@ -366,7 +366,17 @@ export function _initInsightPartialListener() {
 
 // ── LLM activity pill listener ──
 
-var _activeLLMCalls = new Map(); // id → { label, model, timer }
+var _activeLLMCalls = new Map(); // id → { label, model, timer, startTs }
+
+/** Return currently active (non-dismissed) LLM calls for the dropdown */
+export function _getActiveLLMCalls() {
+  var result = [];
+  _activeLLMCalls.forEach(function (v) {
+    if (!v.timer) result.push({ label: v.label, model: v.model, startTs: v.startTs });
+  });
+  return result;
+}
+window._getActiveLLMCalls = _getActiveLLMCalls;
 
 function _initLLMActivityListener() {
   if (!window.electronAPI || !window.electronAPI.onLLMActivity) return;
@@ -381,7 +391,7 @@ function _initLLMActivityListener() {
       // Clear any pending dismiss timer for this id
       var existing = _activeLLMCalls.get(data.id);
       if (existing && existing.timer) clearTimeout(existing.timer);
-      _activeLLMCalls.set(data.id, { label: data.label, model: data.model });
+      _activeLLMCalls.set(data.id, { label: data.label, model: data.model, startTs: Date.now() });
       _updateLLMActivityPill();
     } else {
       // done or error — remove after short delay
