@@ -149,10 +149,10 @@
 /* ── Author cards ── */
 .nerd-author-card {
   background: transparent;
-  border: 1px solid var(--nr-border-subtle);
-  border-radius: var(--nr-radius-lg);
-  padding: var(--nr-space-3);
-  margin-bottom: 10px;
+  border: none;
+  border-radius: var(--nr-radius-md);
+  padding: 6px;
+  margin-bottom: 4px;
   cursor: pointer;
   display: flex;
   align-items: flex-start;
@@ -162,14 +162,11 @@
 
 .nerd-author-card:hover {
   background: var(--nr-bg-raised);
-  border-color: var(--nr-border-strong);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px var(--nr-shadow-card);
+  border-radius: var(--nr-radius-md);
 }
 
 .nerd-author-card:active {
-  transform: translateY(0);
-  box-shadow: none;
+  background: var(--nr-bg-raised);
 }
 
 /* ── h-index badge (unified accent) ── */

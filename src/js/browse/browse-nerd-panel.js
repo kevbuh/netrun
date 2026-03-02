@@ -23,7 +23,6 @@ export function _nerdPanelRegister() {
     tabs: [
       { id: 'nerd-info',       label: 'Info',       icon: icon('fileText', { size: 14 }),  render: _renderInfoTab },
       { id: 'nerd-refs',       label: 'References',  icon: icon('link', { size: 14 }),     render: _renderRefsTab },
-      { id: 'nerd-authors',    label: 'Authors',    icon: icon('user', { size: 14 }),      render: _renderAuthorsTab },
       { id: 'nerd-highlights', label: 'Highlights', icon: icon('highlighter', { size: 14 }), render: _renderHighlightsTab },
       { id: 'nerd-code',       label: 'Code',       icon: icon('code', { size: 14 }),       render: _renderCodeTab },
       { id: 'nerd-files',      label: 'Files',      icon: icon('file', { size: 14 }),      render: _renderFilesTabProxy },
@@ -209,7 +208,42 @@ function _renderInfoTab(container) {
   // Authors
   var authors = s2.authors || [];
   if (authors.length) {
-    wrap.add(Text(authors.map(function(a) { return a.name; }).join(', ')).className('nerd-info-authors'));
+    var authSection = new View('div').cssText('margin-bottom:var(--nr-space-3);');
+    authSection.add(Text('Authors').className('nerd-section-title').cssText('margin-bottom:var(--nr-space-2);'));
+    var details = state.authorDetails || [];
+    var detailMap = {};
+    details.forEach(function(d) { if (d && d.authorId) detailMap[d.authorId] = d; });
+    authors.forEach(function(author) {
+      var card = new View('div').className('nerd-author-card').onTap(function() {
+        if (author.authorId) {
+          var url = 'https://www.semanticscholar.org/author/' + author.authorId;
+          if (typeof window.browseNewTab === 'function') window.browseNewTab(url);
+        }
+      });
+      var initials = (author.name || '').split(' ').map(function(w) { return w.charAt(0); }).join('').slice(0, 2).toUpperCase();
+      card.add(Text(initials).className('author-card-avatar'));
+      var info = new View('div').className('author-card-info');
+      info.add(Text(author.name || 'Unknown').className('author-card-name'));
+      var detail = detailMap[author.authorId];
+      if (detail) {
+        if (detail.affiliations && detail.affiliations.length) {
+          info.add(Text(detail.affiliations.join(', ')).cssText('font-size:0.68rem;color:var(--nr-text-tertiary);margin-top:1px;'));
+        }
+        var stats = [];
+        if (detail.citationCount != null) stats.push(detail.citationCount.toLocaleString() + ' citations');
+        if (detail.paperCount != null) stats.push(detail.paperCount + ' papers');
+        if (stats.length) {
+          info.add(Text(stats.join(' \u00b7 ')).className('author-card-stats'));
+        }
+        if (detail.hIndex != null) {
+          var badgeText = detail.hIndex >= 50 ? 'Highly cited' : detail.hIndex >= 20 ? 'Established' : detail.hIndex >= 5 ? 'Active' : 'Early career';
+          info.add(Text('h-index: ' + detail.hIndex + ' \u00b7 ' + badgeText).className('author-card-stats'));
+        }
+      }
+      card.add(info);
+      authSection.add(card);
+    });
+    wrap.add(authSection);
   }
 
   // Abstract
@@ -259,68 +293,6 @@ function _renderRefsTab(container) {
     });
 
     wrap.add(item);
-  });
-
-  AetherUI.mount(wrap, container);
-}
-
-function _renderAuthorsTab(container) {
-  _clearTerminalOverflow();
-  ++_renderGeneration;
-  var state = _getState();
-
-  var wrap = new View('div').className('nerd-tab-wrap');
-
-  if (!state || !state.s2Data || !state.s2Data.authors || !state.s2Data.authors.length) {
-    wrap.add(Text('No author data available').className('nerd-empty'));
-    AetherUI.mount(wrap, container);
-    return;
-  }
-
-  var authors = state.s2Data.authors;
-  var details = state.authorDetails || [];
-  var detailMap = {};
-  details.forEach(function(d) { if (d && d.authorId) detailMap[d.authorId] = d; });
-
-  authors.forEach(function(author) {
-    var card = new View('div').className('nerd-author-card').onTap(function() {
-      if (author.authorId) {
-        var url = 'https://www.semanticscholar.org/author/' + author.authorId;
-        if (typeof window.browseNewTab === 'function') window.browseNewTab(url);
-      }
-    });
-
-    // Avatar with initials
-    var initials = (author.name || '').split(' ').map(function(w) { return w.charAt(0); }).join('').slice(0, 2).toUpperCase();
-    card.add(Text(initials).className('author-card-avatar'));
-
-    var info = new View('div').className('author-card-info');
-    info.add(Text(author.name || 'Unknown').className('author-card-name'));
-
-    // Detailed stats
-    var detail = detailMap[author.authorId];
-    if (detail) {
-      // Affiliations
-      if (detail.affiliations && detail.affiliations.length) {
-        info.add(Text(detail.affiliations.join(', ')).cssText('font-size:0.68rem;color:var(--nr-text-tertiary);margin-top:1px;'));
-      }
-      var stats = [];
-      if (detail.hIndex != null) stats.push('h-index: ' + detail.hIndex);
-      if (detail.citationCount != null) stats.push(detail.citationCount.toLocaleString() + ' citations');
-      if (detail.paperCount != null) stats.push(detail.paperCount + ' papers');
-      if (stats.length) {
-        info.add(Text(stats.join(' \u00b7 ')).className('author-card-stats'));
-      }
-
-      // h-index badge — unified accent color
-      if (detail.hIndex != null) {
-        var badgeText = detail.hIndex >= 50 ? 'Highly cited' : detail.hIndex >= 20 ? 'Established' : detail.hIndex >= 5 ? 'Active' : 'Early career';
-        info.add(new View('span').className('nerd-badge').text(badgeText));
-      }
-    }
-
-    card.add(info);
-    wrap.add(card);
   });
 
   AetherUI.mount(wrap, container);

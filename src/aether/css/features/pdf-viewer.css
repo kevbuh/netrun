@@ -220,6 +220,8 @@
     .author-card-info {
       flex: 1;
       min-width: 0;
+      display: flex;
+      flex-direction: column;
     }
     .author-card-name {
       font-size: 0.8rem;
