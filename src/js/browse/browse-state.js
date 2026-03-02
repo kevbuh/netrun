@@ -274,6 +274,7 @@ export function _browseSaveTabsNow() {
       if (t.backStack && t.backStack.length) saved.backStack = t.backStack.slice(-50);
       if (t.forwardStack && t.forwardStack.length) saved.forwardStack = t.forwardStack.slice(-50);
       if (t._aiPanel && t._aiPanel.threadId) saved._aiPanelThreadId = t._aiPanel.threadId;
+      if (window._nerdModeEnabled && window._nerdModeEnabled.has(t.id)) saved._nerdMode = true;
       return saved;
     })
   }));
@@ -291,3 +292,6 @@ window._getCurrentWindow = _getCurrentWindow;
 window._getBrowseStorageKey = _getBrowseStorageKey;
 window._browseSaveTabs = _browseSaveTabs;
 window._browseSaveTabsNow = _browseSaveTabsNow;
+
+// Flush pending save on app quit
+window.addEventListener('beforeunload', function() { _browseSaveTabsNow(); });

@@ -104,6 +104,13 @@ export function _browseRestoreTabs() {
           win.tabs.push(tab);
           if (el) _browseBindFrame(tab);
         }
+        // Per-tab nerd mode: mark tabs that were in nerd mode
+        for (const saved of savedWin.tabs) {
+          if (saved._nerdMode) {
+            const tab = win.tabs.find(t => t.id === saved.id);
+            if (tab) tab._nerdMode = true;
+          }
+        }
         // Per-tab AI: rehydrate _aiPanel from saved threadIds
         for (const saved of savedWin.tabs) {
           if (saved._aiPanelThreadId) {

@@ -64,6 +64,7 @@ function _nerdModeEnable(tab) {
 
   _nerdModeEnabled.set(tab.id, true);
   _nerdModeSticky.add(tab.id);
+  if (window._browseSaveTabs) window._browseSaveTabs();
 
   // Remove offer pill if present
   islandRemove('nerd-offer');
@@ -119,6 +120,7 @@ function _nerdModeEnable(tab) {
 
 function _nerdModeDisable(tab) {
   _nerdModeEnabled.delete(tab.id);
+  if (window._browseSaveTabs) window._browseSaveTabs();
 
   // Tear down impl session if active
   if (window._isImplSessionActive && window._isImplSessionActive(tab.id)) {
@@ -212,3 +214,20 @@ window._nerdModeSticky = _nerdModeSticky;
 window.toggleNerdMode = toggleNerdMode;
 window._isNerdMode = _isNerdMode;
 window._isNerdAutoEligible = _isNerdAutoEligible;
+
+// ── Restore nerd mode for tabs from previous session ──
+setTimeout(function() {
+  var win = window._getCurrentWindow();
+  if (!win) return;
+  win.tabs.forEach(function(tab) {
+    if (tab._nerdMode && !_nerdModeEnabled.get(tab.id) && _isPdfTab(tab)) {
+      delete tab._nerdMode;
+      if (tab.id === win.activeTab) {
+        _nerdModeEnable(tab);
+      } else {
+        // Mark as sticky so it auto-enables when the tab is selected
+        _nerdModeSticky.add(tab.id);
+      }
+    }
+  });
+}, 300);
