@@ -357,23 +357,24 @@ function _buildToolbar(tab, toolbarView) {
     Object.keys(formats).forEach(function(fmt) {
       items.push({ view: function() {
         var row = new View('div')
-          .cssText('display:flex;gap:10px;padding:8px 12px;cursor:pointer;border-radius:6px;transition:background 0.15s;align-items:baseline;');
+          .cssText('display:flex;gap:10px;padding:8px 12px;border-radius:6px;align-items:baseline;');
         row.add(
           Text(fmt).cssText('font-size:0.72rem;font-weight:600;text-transform:uppercase;color:var(--nr-accent);white-space:nowrap;min-width:70px;'),
-          Text(formats[fmt]).cssText('font-size:0.75rem;color:var(--nr-text-primary);line-height:1.45;word-break:break-word;')
+          Text(formats[fmt]).cssText('font-size:0.75rem;color:var(--nr-text-primary);line-height:1.45;word-break:break-word;flex:1;')
         );
-        row.el.addEventListener('mouseenter', function() { row.el.style.background = 'var(--nr-bg-raised)'; });
-        row.el.addEventListener('mouseleave', function() { row.el.style.background = ''; });
-        row.el.addEventListener('click', function() {
-          if (_citeMenu) _citeMenu.dismiss();
-          navigator.clipboard.writeText(formats[fmt]).then(function() {
-            if (window.AetherCursor && AetherCursor.pulse) {
-              var accent = getComputedStyle(document.documentElement).getPropertyValue('--nr-accent').trim();
-              AetherCursor.pulse(accent || '#3b82f6');
-            }
-          }).catch(function() {});
-          if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Copied ' + fmt);
+        var copyBtn = new View('button')
+          .text('Copy')
+          .cssText('flex-shrink:0;padding:2px 8px;font-size:0.68rem;border:1px solid var(--nr-border-default);border-radius:4px;background:transparent;color:var(--nr-text-secondary);cursor:pointer;transition:all 0.15s;');
+        copyBtn.el.addEventListener('mouseenter', function() { copyBtn.el.style.background = 'var(--nr-bg-raised)'; });
+        copyBtn.el.addEventListener('mouseleave', function() { copyBtn.el.style.background = ''; });
+        copyBtn.el.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (window.electronAPI && electronAPI.clipboardWriteText) electronAPI.clipboardWriteText(formats[fmt]);
+          else navigator.clipboard.writeText(formats[fmt]).catch(function() {});
+          copyBtn.el.textContent = 'Copied';
+          setTimeout(function() { copyBtn.el.textContent = 'Copy'; }, 1500);
         });
+        row.add(copyBtn);
         return row;
       }});
     });
