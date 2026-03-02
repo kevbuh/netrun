@@ -745,6 +745,9 @@
     .pdf-pages-container.pdf-dark-render .pdf-highlight-rect {
       mix-blend-mode: multiply;
     }
+    .pdf-left-panel.pdf-dark-render .pdf-thumb-item canvas {
+      filter: invert(0.88) hue-rotate(180deg);
+    }
     .pdf-tb-btn.active {
       color: var(--nr-accent);
     }

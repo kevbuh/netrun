@@ -64,7 +64,10 @@ export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
   tab._pdfCurrentPage = tab._pdfCurrentPage || 1;
   tab._pdfZoom = tab._pdfZoom || _PDF_SCALE_DEFAULT;
   tab._pdfHighlights = tab._pdfHighlights || [];
-  tab._pdfDarkMode = tab._pdfDarkMode || false;
+  if (tab._pdfDarkMode == null) {
+    var theme = document.documentElement.getAttribute('data-theme');
+    tab._pdfDarkMode = !theme || theme === 'dark' || theme === 'clear';
+  }
   tab._pdfLeftPanelVisible = tab._pdfLeftPanelVisible != null ? tab._pdfLeftPanelVisible : true;
   tab._pdfRenderedPages = new Map();
   tab._pdfUrl = pdfUrl;
@@ -173,6 +176,7 @@ function _buildViewerDOM(tab, viewerEl) {
   // Restore dark mode state
   if (tab._pdfDarkMode) {
     pagesContainer.el.classList.add('pdf-dark-render');
+    leftPanelView.el.classList.add('pdf-dark-render');
   }
 
   // Restore left panel visibility
@@ -291,6 +295,7 @@ function _buildToolbar(tab, toolbarView) {
   var darkToggle = _tbBtn(icon('moon', { size: 16 }), 'Dark mode', function() {
     tab._pdfDarkMode = !tab._pdfDarkMode;
     tab._pdfPagesContainer.classList.toggle('pdf-dark-render', tab._pdfDarkMode);
+    if (tab._pdfLeftPanel) tab._pdfLeftPanel.classList.toggle('pdf-dark-render', tab._pdfDarkMode);
     darkToggle.el.classList.toggle('active', tab._pdfDarkMode);
   });
   if (tab._pdfDarkMode) darkToggle.el.classList.add('active');
@@ -812,6 +817,7 @@ export function _pdfViewerToggleDark(tab) {
   if (!tab._pdfPagesContainer) return;
   tab._pdfDarkMode = !tab._pdfDarkMode;
   tab._pdfPagesContainer.classList.toggle('pdf-dark-render', tab._pdfDarkMode);
+  if (tab._pdfLeftPanel) tab._pdfLeftPanel.classList.toggle('pdf-dark-render', tab._pdfDarkMode);
 }
 
 // ── Thumbnails ──
