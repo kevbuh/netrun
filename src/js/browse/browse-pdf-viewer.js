@@ -4,6 +4,7 @@
 
 import { icon } from '/js/core/icons.js';
 import { _paperState } from '/js/browse/browse-paper.js';
+import { _generateCiteFormats } from '/js/browse/browse-nerd-panel.js';
 import { togglePanel } from '/js/core/core-nav.js';
 
 // ── PDF.js CDN loader ──
@@ -337,6 +338,50 @@ function _buildToolbar(tab, toolbarView) {
   });
   ttsBtn.el.id = 'pdf-tts-btn';
   toolbarView.add(ttsBtn);
+
+  // Cite — copy citation in chosen format
+  var _citeMenu = null;
+  var citeBtn = _tbBtn(icon('blockquote', { size: 16 }), 'Cite', function() {
+    if (_citeMenu && _citeMenu.isOpen.value) { _citeMenu.dismiss(); return; }
+    var state = _paperState.get(tab.id);
+    var s2 = state && state.s2Data;
+    if (!s2) {
+      if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('No paper data available');
+      return;
+    }
+    var formats = _generateCiteFormats(s2);
+    var items = [];
+    items.push({ view: function() {
+      return Text('Cite').cssText('padding:8px 12px 4px;font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--nr-text-secondary);');
+    }});
+    Object.keys(formats).forEach(function(fmt) {
+      items.push({ view: function() {
+        var row = new View('div')
+          .cssText('display:flex;gap:10px;padding:8px 12px;cursor:pointer;border-radius:6px;transition:background 0.15s;align-items:baseline;');
+        row.add(
+          Text(fmt).cssText('font-size:0.72rem;font-weight:600;text-transform:uppercase;color:var(--nr-accent);white-space:nowrap;min-width:70px;'),
+          Text(formats[fmt]).cssText('font-size:0.75rem;color:var(--nr-text-primary);line-height:1.45;word-break:break-word;')
+        );
+        row.el.addEventListener('mouseenter', function() { row.el.style.background = 'var(--nr-bg-raised)'; });
+        row.el.addEventListener('mouseleave', function() { row.el.style.background = ''; });
+        row.el.addEventListener('click', function() {
+          if (_citeMenu) _citeMenu.dismiss();
+          navigator.clipboard.writeText(formats[fmt]).then(function() {
+            if (window.AetherCursor && AetherCursor.pulse) {
+              var accent = getComputedStyle(document.documentElement).getPropertyValue('--nr-accent').trim();
+              AetherCursor.pulse(accent || '#3b82f6');
+            }
+          }).catch(function() {});
+          if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Copied ' + fmt);
+        });
+        return row;
+      }});
+    });
+    _citeMenu = Menu(null, items);
+    var rect = citeBtn.el.getBoundingClientRect();
+    _citeMenu.showAt(rect.left, rect.bottom + 4);
+  });
+  toolbarView.add(citeBtn);
 
   // Implement this paper (dropdown with session history)
   var implBtn = new View('button')

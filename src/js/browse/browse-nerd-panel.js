@@ -222,27 +222,6 @@ function _renderInfoTab(container) {
     );
   }
 
-  // Citation formats
-  var citeSectionView = new View('div').className('nerd-section').add(
-    Text('Cite').className('nerd-section-title')
-  );
-
-  var citeFormats = _generateCiteFormats(s2);
-  Object.keys(citeFormats).forEach(function(fmt) {
-    var row = new View('div').className('nerd-cite-row').add(
-      Text(fmt).className('nerd-cite-label'),
-      Text(citeFormats[fmt]).className('nerd-cite-box').attr('title', 'Click to copy').onTap(function() {
-        navigator.clipboard.writeText(citeFormats[fmt]).then(function() {
-          var accent = getComputedStyle(document.documentElement).getPropertyValue('--nr-accent').trim();
-          if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse(accent || '#3b82f6');
-        }).catch(function() {});
-        if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Copied ' + fmt);
-      })
-    );
-    citeSectionView.add(row);
-  });
-
-  wrap.add(citeSectionView);
   AetherUI.mount(wrap, container);
 }
 
@@ -739,7 +718,7 @@ function _parseRefNums(str) {
   return nums;
 }
 
-function _generateCiteFormats(s2) {
+export function _generateCiteFormats(s2) {
   var formats = {};
   var authors = (s2.authors || []).map(function(a) { return a.name; });
   var year = s2.year || '';

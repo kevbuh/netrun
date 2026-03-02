@@ -110,41 +110,6 @@
   line-height: 1.6;
 }
 
-/* ── Citation rows ── */
-.nerd-cite-row {
-  margin-bottom: var(--nr-space-3);
-}
-
-.nerd-cite-row:last-child {
-  margin-bottom: 0;
-}
-
-.nerd-cite-label {
-  font-size: 0.65rem;
-  color: var(--nr-text-quaternary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 3px;
-  font-weight: 600;
-}
-
-.nerd-cite-box {
-  font-size: 0.72rem;
-  color: var(--nr-text-secondary);
-  background: transparent;
-  border: none;
-  border-radius: var(--nr-radius-sm);
-  padding: var(--nr-space-2) var(--nr-space-3);
-  line-height: 1.45;
-  cursor: pointer;
-  user-select: all;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.nerd-cite-box:hover {
-  background: var(--nr-bg-raised);
-}
-
 /* ── Paper items (References, Related, Search results) ── */
 .nerd-paper-item {
   background: transparent;
