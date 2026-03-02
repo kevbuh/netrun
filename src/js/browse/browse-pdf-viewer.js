@@ -624,102 +624,103 @@ function _pdfViewerRenderPage(tab, pageNum) {
 
     var wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
     if (!wrapper) return;
-    wrapper.innerHTML = '';
-    wrapper.style.width = viewport.width + 'px';
-    wrapper.style.height = viewport.height + 'px';
-    wrapper.style.minHeight = '';
-    wrapper.style.transform = '';
-    wrapper.style.transformOrigin = '';
-    wrapper.style.marginBottom = '';
-    wrapper.style.setProperty('--scale-factor', scale);
 
-    // Canvas — stays imperative (PDF.js rendering)
+    // Render canvas off-screen first, then swap when painted
     var canvas = document.createElement('canvas');
     canvas.width = viewport.width * (window.devicePixelRatio || 1);
     canvas.height = viewport.height * (window.devicePixelRatio || 1);
     canvas.style.width = viewport.width + 'px';
     canvas.style.height = viewport.height + 'px';
-    wrapper.appendChild(canvas);
 
     var ctx = canvas.getContext('2d');
     ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
 
-    page.render({ canvasContext: ctx, viewport: viewport });
+    var renderTask = page.render({ canvasContext: ctx, viewport: viewport });
+    renderTask.promise.then(function() {
+      // Canvas is fully painted — swap old content atomically
+      wrapper.innerHTML = '';
+      wrapper.style.width = viewport.width + 'px';
+      wrapper.style.height = viewport.height + 'px';
+      wrapper.style.minHeight = '';
+      wrapper.style.transform = '';
+      wrapper.style.transformOrigin = '';
+      wrapper.style.marginBottom = '';
+      wrapper.style.setProperty('--scale-factor', scale);
+      wrapper.appendChild(canvas);
 
-    // Text layer for selection — stays imperative (PDF.js textLayer API)
-    var textLayerDiv = document.createElement('div');
-    textLayerDiv.className = 'textLayer';
-    textLayerDiv.style.width = viewport.width + 'px';
-    textLayerDiv.style.height = viewport.height + 'px';
-    textLayerDiv.style.setProperty('--scale-factor', scale);
-    wrapper.appendChild(textLayerDiv);
+      // Text layer for selection
+      var textLayerDiv = document.createElement('div');
+      textLayerDiv.className = 'textLayer';
+      textLayerDiv.style.width = viewport.width + 'px';
+      textLayerDiv.style.height = viewport.height + 'px';
+      textLayerDiv.style.setProperty('--scale-factor', scale);
+      wrapper.appendChild(textLayerDiv);
 
-    page.getTextContent().then(function(textContent) {
-      if (window.pdfjsLib.renderTextLayer) {
-        var opts = {
-          container: textLayerDiv,
-          viewport: viewport,
-          textDivs: []
-        };
-        opts.textContentSource = textContent;
-        window.pdfjsLib.renderTextLayer(opts);
-      }
-    });
-
-    // Highlight layer — stays imperative (pixel-positioned rects over canvas)
-    var hlLayer = document.createElement('div');
-    hlLayer.className = 'pdf-highlight-layer';
-    hlLayer.style.width = viewport.width + 'px';
-    hlLayer.style.height = viewport.height + 'px';
-    wrapper.appendChild(hlLayer);
-
-    // Render existing highlights for this page
-    _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer);
-
-    // Annotation layer (internal PDF links) — stays imperative (pixel-positioned over canvas)
-    page.getAnnotations().then(function(annotations) {
-      if (!annotations || !annotations.length) return;
-      var annotLayer = document.createElement('div');
-      annotLayer.className = 'pdf-annotation-layer';
-      annotLayer.style.width = viewport.width + 'px';
-      annotLayer.style.height = viewport.height + 'px';
-      wrapper.appendChild(annotLayer);
-
-      annotations.forEach(function(ann) {
-        if (ann.subtype !== 'Link' || !ann.rect) return;
-        var rect = viewport.convertToViewportRectangle(ann.rect);
-        var left = Math.min(rect[0], rect[2]);
-        var top = Math.min(rect[1], rect[3]);
-        var width = Math.abs(rect[2] - rect[0]);
-        var height = Math.abs(rect[3] - rect[1]);
-
-        var link = new View('div')
-          .className('pdf-annot-link')
-          .cssText('left:' + left + 'px;top:' + top + 'px;width:' + width + 'px;height:' + height + 'px;');
-
-        if (ann.dest) {
-          link.attr('data-dest', JSON.stringify(ann.dest))
-            .onTap(function() {
-              tab._pdfDoc.getDestination(ann.dest).then(function(dest) {
-                if (!dest) return;
-                tab._pdfDoc.getPageIndex(dest[0]).then(function(idx) {
-                  _pdfViewerGoToPage(tab, idx + 1);
-                });
-              }).catch(function() {});
-            });
-        } else if (ann.url) {
-          link.onTap(function() {
-            if (typeof browseNewTab === 'function') window.browseNewTab(ann.url);
-          });
+      page.getTextContent().then(function(textContent) {
+        if (window.pdfjsLib.renderTextLayer) {
+          var opts = {
+            container: textLayerDiv,
+            viewport: viewport,
+            textDivs: []
+          };
+          opts.textContentSource = textContent;
+          window.pdfjsLib.renderTextLayer(opts);
         }
-        annotLayer.appendChild(link.el);
       });
-    });
 
-    // Citation hover overlays — scan rendered text layer spans after they appear
-    _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv);
+      // Highlight layer
+      var hlLayer = document.createElement('div');
+      hlLayer.className = 'pdf-highlight-layer';
+      hlLayer.style.width = viewport.width + 'px';
+      hlLayer.style.height = viewport.height + 'px';
+      wrapper.appendChild(hlLayer);
+      _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer);
 
-  }).catch(function() {});
+      // Annotation layer (internal PDF links)
+      page.getAnnotations().then(function(annotations) {
+        if (!annotations || !annotations.length) return;
+        var annotLayer = document.createElement('div');
+        annotLayer.className = 'pdf-annotation-layer';
+        annotLayer.style.width = viewport.width + 'px';
+        annotLayer.style.height = viewport.height + 'px';
+        wrapper.appendChild(annotLayer);
+
+        annotations.forEach(function(ann) {
+          if (ann.subtype !== 'Link' || !ann.rect) return;
+          var rect = viewport.convertToViewportRectangle(ann.rect);
+          var left = Math.min(rect[0], rect[2]);
+          var top = Math.min(rect[1], rect[3]);
+          var width = Math.abs(rect[2] - rect[0]);
+          var height = Math.abs(rect[3] - rect[1]);
+
+          var link = new View('div')
+            .className('pdf-annot-link')
+            .cssText('left:' + left + 'px;top:' + top + 'px;width:' + width + 'px;height:' + height + 'px;');
+
+          if (ann.dest) {
+            link.attr('data-dest', JSON.stringify(ann.dest))
+              .onTap(function() {
+                tab._pdfDoc.getDestination(ann.dest).then(function(dest) {
+                  if (!dest) return;
+                  tab._pdfDoc.getPageIndex(dest[0]).then(function(idx) {
+                    _pdfViewerGoToPage(tab, idx + 1);
+                  });
+                }).catch(function() {});
+              });
+          } else if (ann.url) {
+            link.onTap(function() {
+              if (typeof browseNewTab === 'function') window.browseNewTab(ann.url);
+            });
+          }
+          annotLayer.appendChild(link.el);
+        });
+      });
+
+      // Citation hover overlays — scan rendered text layer spans after they appear
+      _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv);
+
+    }).catch(function() {});
+  });
 }
 
 // ── Scroll-based lazy rendering ──
