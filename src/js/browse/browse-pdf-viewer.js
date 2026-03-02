@@ -204,6 +204,8 @@ function _buildViewerDOM(tab, viewerEl) {
     for (var i = 0; i < wrappers.length; i++) {
       wrappers[i].style.transform = 'scale(' + ratio + ')';
       wrappers[i].style.transformOrigin = 'top center';
+      // transform doesn't affect layout — compensate so pages don't overlap
+      wrappers[i].style.marginBottom = (wrappers[i].offsetHeight * (ratio - 1)) + 'px';
     }
     // Debounce the full re-render
     clearTimeout(zoomCommitTimer);
@@ -214,13 +216,10 @@ function _buildViewerDOM(tab, viewerEl) {
   }
 
   function _pdfViewerCommitZoom(tab) {
-    // Clear CSS transforms and do a full canvas re-render
-    var wrappers = tab._pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
-    for (var i = 0; i < wrappers.length; i++) {
-      wrappers[i].style.transform = '';
-      wrappers[i].style.transformOrigin = '';
-    }
-    _pdfViewerSetZoom(tab, tab._pdfZoom, true);
+    // Don't clear transforms or content here — let per-page re-render swap them
+    // to avoid all pages blinking blank simultaneously
+    tab._pdfRenderedPages = new Map();
+    _pdfViewerOnScroll(tab);
   }
 
   // Chrome/Firefox trackpad pinch fires wheel with ctrlKey
@@ -629,6 +628,9 @@ function _pdfViewerRenderPage(tab, pageNum) {
     wrapper.style.width = viewport.width + 'px';
     wrapper.style.height = viewport.height + 'px';
     wrapper.style.minHeight = '';
+    wrapper.style.transform = '';
+    wrapper.style.transformOrigin = '';
+    wrapper.style.marginBottom = '';
     wrapper.style.setProperty('--scale-factor', scale);
 
     // Canvas — stays imperative (PDF.js rendering)
@@ -784,14 +786,8 @@ function _pdfViewerSetZoom(tab, newZoom, force) {
   tab._pdfZoom = newZoom;
   tab._pdfZoomLabel.textContent = Math.round(newZoom * 100) + '%';
 
-  // Re-render all currently rendered pages
+  // Mark all pages for re-render; old content stays visible until replaced
   tab._pdfRenderedPages = new Map();
-  var wrappers = tab._pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
-  for (var i = 0; i < wrappers.length; i++) {
-    wrappers[i].innerHTML = '';
-    wrappers[i].style.minHeight = '400px';
-  }
-  // Re-render visible pages
   _pdfViewerOnScroll(tab);
 }
 
