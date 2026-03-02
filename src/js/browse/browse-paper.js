@@ -286,9 +286,9 @@ export async function _paperHandleMeta(tab, data) {
     state.refs = s2Data.references;
   }
 
-  // Fetch top 3 author details (h-index)
+  // Fetch all author details (h-index, citations, papers)
   if (s2Data) {
-    const authors = (s2Data.authors || []).slice(0, 3);
+    const authors = (s2Data.authors || []);
     const authorPromises = authors
       .filter(a => a.authorId)
       .map(a => _s2GetAuthor(a.authorId));

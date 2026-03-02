@@ -66,6 +66,8 @@ function _fetchPaperData(tab) {
           s2UrlPath: s2Path,
           authorDetails: []
         });
+        // Re-render info tab now that we have basic data
+        _reRenderInfoIfActive();
         // Fetch author details
         _fetchAuthorDetails(tab, data);
       }
@@ -90,6 +92,8 @@ function _fetchPaperData(tab) {
                   s2UrlPath: fullPath,
                   authorDetails: []
                 });
+                // Re-render info tab now that we have basic data
+                _reRenderInfoIfActive();
                 _fetchAuthorDetails(tab, full);
               }
             });
@@ -100,14 +104,28 @@ function _fetchPaperData(tab) {
   }
 }
 
+function _reRenderInfoIfActive() {
+  var activeBtn = document.querySelector('.universal-panel-tab-btn.active[data-tab-id="nerd-info"]');
+  var panelContent = document.getElementById('universal-panel-content');
+  if (activeBtn && panelContent) {
+    _renderInfoTab(panelContent);
+  }
+}
+
 function _fetchAuthorDetails(tab, s2Data) {
   if (!s2Data || !s2Data.authors) return;
-  var authors = s2Data.authors.slice(0, 8);
+  var authors = s2Data.authors;
   var promises = authors.filter(function(a) { return a.authorId; }).map(function(a) { return _s2GetAuthorFull(a.authorId); });
   Promise.all(promises).then(function(results) {
     var state = _paperState.get(tab.id);
     if (state) {
       state.authorDetails = results.filter(Boolean);
+      // Re-render info tab if it's currently visible
+      var activeBtn = document.querySelector('.universal-panel-tab-btn.active[data-tab-id="nerd-info"]');
+      var panelContent = document.getElementById('universal-panel-content');
+      if (activeBtn && panelContent) {
+        _renderInfoTab(panelContent);
+      }
     }
   });
 }
@@ -146,9 +164,6 @@ function _renderInfoTab(container) {
       wrap.add(Text('Loading paper info...').className('nerd-empty'));
     }
     AetherUI.mount(wrap, container);
-    if (tab) {
-      setTimeout(function() { if (gen === _renderGeneration) _renderInfoTab(container); }, 2000);
-    }
     return;
   }
 
@@ -211,6 +226,7 @@ function _renderInfoTab(container) {
     var authSection = new View('div').cssText('margin-bottom:var(--nr-space-3);');
     authSection.add(Text('Authors').className('nerd-section-title').cssText('margin-bottom:var(--nr-space-2);'));
     var details = state.authorDetails || [];
+    var detailsLoading = details.length === 0 && authors.some(function(a) { return a.authorId; });
     var detailMap = {};
     details.forEach(function(d) { if (d && d.authorId) detailMap[d.authorId] = d; });
     authors.forEach(function(author) {
@@ -239,6 +255,8 @@ function _renderInfoTab(container) {
           var badgeText = detail.hIndex >= 50 ? 'Highly cited' : detail.hIndex >= 20 ? 'Established' : detail.hIndex >= 5 ? 'Active' : 'Early career';
           info.add(Text('h-index: ' + detail.hIndex + ' \u00b7 ' + badgeText).className('author-card-stats'));
         }
+      } else if (detailsLoading && author.authorId) {
+        info.add(Skeleton().lines(1).cssText('margin-top:2px;'));
       }
       card.add(info);
       authSection.add(card);
