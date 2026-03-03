@@ -172,7 +172,7 @@ export function toggleBrowseMoreMenu() {
       items.push(_mBtn(icon('annotate', {size: 16}), _annLabel, function() { toggleAnnotations(); _closeMenu(); }, { disabled: !hasTab, color: (_annEnabled || _annAnalyzing) ? 'var(--nr-accent)' : undefined }));
     }
     var _nerdOn = tab && typeof window._nerdModeEnabled !== 'undefined' && window._nerdModeEnabled.get(tab.id);
-    var isPdfForNerd = hasTab && (tab.pdfUrl || tab.localPath || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
+    var isPdfForNerd = hasTab && (tab.pdfUrl || tab.localPath || tab._nbParsedData || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.toLowerCase().endsWith('.ipynb')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
     items.push(_mBtn(icon('research', {size: 16}), 'Nerd Mode', function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); _closeMenu(); }, { disabled: !isPdfForNerd, color: _nerdOn ? 'var(--nr-accent)' : undefined, trailing: _nerdOn ? window.Text('On').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') : undefined }));
     items.push(_mBtn(icon('clock', {size: 16}), 'Search History', function() { if (typeof window.openSearchHistoryPage === 'function') window.openSearchHistoryPage(); _closeMenu(); }));
     items.push(_mBtn(icon('sidebarToggle', {size: 16}), 'Toggle Sidebar', function() { if (typeof window.toggleBrowseSidebar === 'function') window.toggleBrowseSidebar(); _closeMenu(); }));

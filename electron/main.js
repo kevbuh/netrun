@@ -24,6 +24,9 @@ let _cursorNative = null;
 try { _cursorNative = require('../native/cursor/build/Release/cursor_native.node'); } catch (e) {}
 
 // Hold-to-record: Option+Space (keyDown starts, keyUp stops)
+// CLI context bridge — current browse selection/page for external AI tools
+const _browseContext = { selection: null, page: null, highlights: [], timestamp: 0 };
+
 let _voiceHoldActive = false;
 function _voiceHoldCheck(event, input) {
   if (!mainWindow) return;
@@ -144,6 +147,7 @@ async function createWindow() {
   while (retries < maxRetries) {
     try {
       serverPort = await staticServer.startStaticServer(PREFERRED_PORT, getStaticDir(), getDataDir());
+      staticServer.setContextStore(_browseContext);
       break;
     } catch (_e) {
       retries++;
@@ -533,6 +537,17 @@ app.whenReady().then(() => {
   } catch (err) {
     console.warn('[core] Could not initialize core system (build may be needed):', err.message);
   }
+
+  // ── Browse context IPC (CLI context bridge) ──
+  ipcMain.handle('browse:update-context', (_, data) => {
+    if (data.selection !== undefined)
+      _browseContext.selection = data.selection ? { ...data.selection, timestamp: Date.now() } : null;
+    if (data.page !== undefined)
+      _browseContext.page = data.page ? { ...data.page, timestamp: Date.now() } : null;
+    if (data.highlights !== undefined)
+      _browseContext.highlights = data.highlights || [];
+    _browseContext.timestamp = Date.now();
+  });
 
   createMenu();
 
@@ -954,6 +969,11 @@ app.whenReady().then(() => {
     const filePath = path.join(dir, name);
     fs.writeFileSync(filePath, Buffer.from(buffer));
     return shell.openPath(filePath);
+  });
+
+  ipcMain.handle('notebook:save', async (_, filePath, jsonString) => {
+    fs.writeFileSync(filePath, jsonString, 'utf8');
+    return { ok: true };
   });
 
   ipcMain.handle('show-save-dialog', async (_, options) => {

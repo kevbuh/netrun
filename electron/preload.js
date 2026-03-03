@@ -161,6 +161,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pdfMdToPdf: (inputPath, outputPath) => ipcRenderer.invoke('pdf:md-to-pdf', inputPath, outputPath),
   pdfToMd: (inputPath, outputPath) => ipcRenderer.invoke('pdf:to-md', inputPath, outputPath),
 
+  // ── Notebook kernel ──
+  notebookSave: (filePath, json) => ipcRenderer.invoke('notebook:save', filePath, json),
+  notebookStartKernel: (sessionId) => ipcRenderer.invoke('notebook:start-kernel', sessionId),
+  notebookExecute: (sessionId, code, cellId) => ipcRenderer.invoke('notebook:execute', sessionId, code, cellId),
+  notebookInterrupt: (sessionId) => ipcRenderer.invoke('notebook:interrupt', sessionId),
+  notebookRestart: (sessionId) => ipcRenderer.invoke('notebook:restart', sessionId),
+  notebookShutdown: (sessionId) => ipcRenderer.invoke('notebook:shutdown', sessionId),
+  notebookComplete: (sessionId, code, cursor) => ipcRenderer.invoke('notebook:complete', sessionId, code, cursor),
+  onNotebookOutput: (callback) => ipcRenderer.on('notebook:output', callback),
+  onNotebookStatus: (callback) => ipcRenderer.on('notebook:status', callback),
+  onNotebookExecuteComplete: (callback) => ipcRenderer.on('notebook:execute-complete', callback),
+  removeNotebookListeners: () => {
+    ipcRenderer.removeAllListeners('notebook:output');
+    ipcRenderer.removeAllListeners('notebook:status');
+    ipcRenderer.removeAllListeners('notebook:execute-complete');
+  },
+
   // ── Implementation sessions ──
   implCreate: (opts) => ipcRenderer.invoke('impl:create', opts),
   implList: (opts) => ipcRenderer.invoke('impl:list', opts),
@@ -178,6 +195,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   implPapers: (sessionId) => ipcRenderer.invoke('impl:papers', sessionId),
   onImplFileChanged: (callback) => ipcRenderer.on('impl:file-changed', callback),
   removeImplFileListeners: () => ipcRenderer.removeAllListeners('impl:file-changed'),
+
+  // ── CLI context bridge ──
+  updateBrowseContext: (data) => ipcRenderer.invoke('browse:update-context', data),
 
   // ── DB query shortcuts (direct IPC, no Flask) ──
   dbQuery: (channel, ...args) => ipcRenderer.invoke('db:' + channel, ...args),

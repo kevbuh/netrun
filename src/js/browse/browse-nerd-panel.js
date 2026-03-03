@@ -31,11 +31,18 @@ export function _nerdPanelRegister() {
     header: function(el) {
       var row = new HStack().styles({ width: '100%', alignItems: 'center', justifyContent: 'space-between' });
       row.add(Text('Nerd Mode').className('nerd-header-label'));
+      var rightBtns = new HStack().spacing(1).alignment('center');
+      var newNbBtn = new View('button').className('nerd-panel-close-btn')
+        .attr('title', 'New Notebook')
+        .add(RawHTML(icon('filePlus', { size: 14 })))
+        .onTap(function() { if (typeof window.createNewNotebook === 'function') window.createNewNotebook(); });
+      rightBtns.add(newNbBtn);
       var closeBtn = new View('button').className('nerd-panel-close-btn')
         .attr('title', 'Hide panel')
         .add(RawHTML(icon('close', { size: 14 })))
         .onTap(function() { togglePanel(); });
-      row.add(closeBtn);
+      rightBtns.add(closeBtn);
+      row.add(rightBtns);
       AetherUI.append(row, el);
     }
   });
@@ -149,9 +156,92 @@ function _getState() {
   return tab ? _paperState.get(tab.id) : null;
 }
 
+function _renderNotebookInfoTab(container, tab) {
+  var wrap = new View('div').className('nerd-tab-wrap');
+  var nbData = tab._nbParsedData;
+  if (!nbData) {
+    wrap.add(Text('No notebook data').className('nerd-empty'));
+    AetherUI.mount(wrap, container);
+    return;
+  }
+
+  // Title
+  var name = tab.title || tab.localPath || 'Notebook';
+  wrap.add(Text(name).className('nerd-info-title'));
+
+  // Kernel info
+  var meta = nbData.metadata || {};
+  var kernelspec = meta.kernelspec || {};
+  var langInfo = meta.language_info || {};
+  var metaParts = [];
+  if (kernelspec.display_name) metaParts.push(kernelspec.display_name);
+  if (langInfo.version) metaParts.push('v' + langInfo.version);
+  if (metaParts.length) {
+    wrap.add(Text(metaParts.join(' \u00b7 ')).className('nerd-info-meta'));
+  }
+
+  // Cell counts
+  var cells = nbData.cells || [];
+  var codeCells = cells.filter(function(c) { return c.cell_type === 'code'; });
+  var mdCells = cells.filter(function(c) { return c.cell_type === 'markdown'; });
+  wrap.add(Text(cells.length + ' cells \u00b7 ' + codeCells.length + ' code \u00b7 ' + mdCells.length + ' markdown').className('nerd-info-meta'));
+
+  // Detected imports
+  var imports = new Set();
+  codeCells.forEach(function(c) {
+    var source = Array.isArray(c.source) ? c.source.join('') : (c.source || '');
+    var matches = source.match(/^(?:import|from)\s+(\w+)/gm);
+    if (matches) matches.forEach(function(m) {
+      var parts = m.split(/\s+/);
+      var pkg = parts[parts.length === 2 ? 1 : 1];
+      if (pkg) imports.add(pkg);
+    });
+  });
+  if (imports.size) {
+    var importSection = new View('div').cssText('margin-top:var(--nr-space-3);');
+    importSection.add(Text('Imports').className('nerd-section-title'));
+    var importText = Array.from(imports).sort().join(', ');
+    importSection.add(Text(importText).className('nerd-section-body').cssText('font-family:var(--nr-font-mono);font-size:0.75rem;'));
+    wrap.add(importSection);
+  }
+
+  // Table of contents from markdown headings
+  var headings = [];
+  cells.forEach(function(c, i) {
+    if (c.cell_type !== 'markdown') return;
+    var source = Array.isArray(c.source) ? c.source.join('') : (c.source || '');
+    var lines = source.split('\n');
+    lines.forEach(function(line) {
+      var m = line.match(/^(#{1,6})\s+(.+)/);
+      if (m) headings.push({ level: m[1].length, text: m[2].replace(/[#*_`\[\]]/g, '').trim(), cellIndex: i });
+    });
+  });
+  if (headings.length) {
+    var tocSection = new View('div').cssText('margin-top:var(--nr-space-3);');
+    tocSection.add(Text('Table of Contents').className('nerd-section-title'));
+    headings.forEach(function(h) {
+      var item = Text(h.text).className('nerd-section-body').cssText('cursor:pointer;padding:2px 0 2px ' + ((h.level - 1) * 12) + 'px;font-size:0.78rem;');
+      item.onTap(function() {
+        if (typeof window._notebookViewerScrollToCell === 'function') window._notebookViewerScrollToCell(tab, h.cellIndex);
+      });
+      tocSection.add(item);
+    });
+    wrap.add(tocSection);
+  }
+
+  AetherUI.mount(wrap, container);
+}
+
 function _renderInfoTab(container) {
   _clearTerminalOverflow();
   var tab = _getTab();
+
+  // Notebook branch
+  if (tab && typeof window._isNotebookTab === 'function' && window._isNotebookTab(tab)) {
+    _renderNotebookInfoTab(container, tab);
+    return;
+  }
+
   var state = _getState();
   var gen = ++_renderGeneration;
 

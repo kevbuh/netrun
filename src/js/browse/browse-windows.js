@@ -285,7 +285,26 @@ export function openLocalPdf(file) {
   try { if (typeof electronAPI !== 'undefined' && electronAPI.getPathForFile) localPath = electronAPI.getPathForFile(file); } catch {}
   const url = localPath ? 'file://' + localPath : URL.createObjectURL(file);
 
-  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+  if (file.name.toLowerCase().endsWith('.ipynb')) {
+    // Jupyter notebook: parse JSON and open in nerd mode
+    file.text().then(function(text) {
+      try {
+        const nbData = JSON.parse(text);
+        browseNewTab(url);
+        const win = window._getCurrentWindow();
+        if (win) {
+          const tab = win.tabs.find(t => t.id === win.activeTab);
+          if (tab) {
+            tab._nbParsedData = nbData;
+            tab.localPath = localPath;
+            tab.title = file.name;
+            _browseRenderTabs();
+            setTimeout(function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); }, 200);
+          }
+        }
+      } catch (e) { console.error('Failed to parse notebook:', e); }
+    });
+  } else if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
     const pdfUrl = localPath ? '/api/local-file?path=' + encodeURIComponent(localPath) : url;
     const paper = { title: file.name, link: url, source: 'upload', pdfUrl };
     if (localPath) paper.localPath = localPath;
@@ -302,18 +321,37 @@ export function openLocalPdf(file) {
 
 export function openLocalPdfByPath(filePath) {
   const name = filePath.split('/').pop();
-  const pdfUrl = '/api/local-file?path=' + encodeURIComponent(filePath);
   const url = 'file://' + filePath;
-  browseNewTab(url);
-  // Set localPath on the newly created tab so PDF viewer can proxy the file
-  const win = window._getCurrentWindow();
-  if (win) {
-    const tab = win.tabs.find(t => t.id === win.activeTab);
-    if (tab) {
-      tab.localPath = filePath;
-      tab.pdfUrl = pdfUrl;
-      tab.title = name;
-      _browseRenderTabs();
+  const isNotebook = filePath.toLowerCase().endsWith('.ipynb');
+
+  if (isNotebook) {
+    const fetchUrl = '/api/local-file?path=' + encodeURIComponent(filePath);
+    browseNewTab(url);
+    const win = window._getCurrentWindow();
+    if (win) {
+      const tab = win.tabs.find(t => t.id === win.activeTab);
+      if (tab) {
+        tab.localPath = filePath;
+        tab.title = name;
+        _browseRenderTabs();
+        fetch(fetchUrl).then(function(r) { return r.json(); }).then(function(data) {
+          tab._nbParsedData = data;
+          setTimeout(function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); }, 200);
+        }).catch(function(e) { console.error('Failed to load notebook:', e); });
+      }
+    }
+  } else {
+    const pdfUrl = '/api/local-file?path=' + encodeURIComponent(filePath);
+    browseNewTab(url);
+    const win = window._getCurrentWindow();
+    if (win) {
+      const tab = win.tabs.find(t => t.id === win.activeTab);
+      if (tab) {
+        tab.localPath = filePath;
+        tab.pdfUrl = pdfUrl;
+        tab.title = name;
+        _browseRenderTabs();
+      }
     }
   }
 }
@@ -322,17 +360,54 @@ export async function openLocalPdfDialog() {
   if (typeof electronAPI === 'undefined' || !electronAPI.openFileDialog) return;
   const paths = await electronAPI.openFileDialog();
   for (const filePath of paths) {
-    const name = filePath.split('/').pop();
-    const pdfUrl = '/api/local-file?path=' + encodeURIComponent(filePath);
-    const url = 'file://' + filePath;
-    const paper = { title: name, link: url, source: 'upload', pdfUrl, localPath: filePath };
-    browseNewPaperTab(url, paper);
+    if (filePath.toLowerCase().endsWith('.ipynb')) {
+      openLocalPdfByPath(filePath);
+    } else {
+      const name = filePath.split('/').pop();
+      const pdfUrl = '/api/local-file?path=' + encodeURIComponent(filePath);
+      const url = 'file://' + filePath;
+      const paper = { title: name, link: url, source: 'upload', pdfUrl, localPath: filePath };
+      browseNewPaperTab(url, paper);
+    }
   }
+}
+
+// ── New Notebook ──
+export function createNewNotebook() {
+  // Build minimal nbformat 4 notebook JSON
+  var nbData = {
+    nbformat: 4,
+    nbformat_minor: 5,
+    metadata: {
+      kernelspec: { display_name: 'Python 3', language: 'python', name: 'python3' },
+      language_info: { name: 'python', version: '3.10.0' }
+    },
+    cells: [
+      { cell_type: 'code', source: '', metadata: {}, outputs: [], execution_count: null }
+    ]
+  };
+
+  browseNewTab('');
+  var win = window._getCurrentWindow();
+  if (!win) return;
+  var tab = win.tabs.find(function(t) { return t.id === win.activeTab; });
+  if (!tab) return;
+
+  tab._nbParsedData = nbData;
+  tab.title = 'Untitled.ipynb';
+  tab._nbUnsaved = true;
+  tab.blank = false;
+  _browseRenderTabs();
+
+  setTimeout(function() {
+    if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab);
+  }, 200);
 }
 
 // ── Action registry ──
 window.browseNewTab = browseNewTab;
 window.openLocalPdfByPath = openLocalPdfByPath;
+window.createNewNotebook = createNewNotebook;
 registerActions({
   browseCreateWindow: () => browseCreateWindow(),
   browseNewTab: () => browseNewTab(),
