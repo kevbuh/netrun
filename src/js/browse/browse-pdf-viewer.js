@@ -7,6 +7,16 @@ import { _paperState } from '/js/browse/browse-paper.js';
 import { _generateCiteFormats } from '/js/browse/browse-nerd-panel.js';
 import { togglePanel } from '/js/core/core-nav.js';
 import { _buildFilesContent } from '/js/browse/browse-nerd-mode.js';
+import { _browseResetAdaptiveColor, _browseApplyAdaptiveText } from '/js/browse-urlbar.js';
+
+export function _pdfApplyDarkBg(dark) {
+  if (dark) {
+    document.documentElement.style.setProperty('--nr-bg-body', '#1a1a1a');
+    _browseApplyAdaptiveText({ r: 26, g: 26, b: 26 });
+  } else {
+    _browseResetAdaptiveColor();
+  }
+}
 
 // ── PDF.js CDN loader ──
 var _pdfjsLoaded = false;
@@ -67,8 +77,13 @@ export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
   tab._pdfZoom = tab._pdfZoom || _PDF_SCALE_DEFAULT;
   tab._pdfHighlights = tab._pdfHighlights || [];
   if (tab._pdfDarkMode == null) {
-    var theme = document.documentElement.getAttribute('data-theme');
-    tab._pdfDarkMode = !theme || theme === 'dark' || theme === 'clear';
+    var saved = Settings.get('pdfDarkMode');
+    if (saved !== null) {
+      tab._pdfDarkMode = saved === 'true';
+    } else {
+      var theme = document.documentElement.getAttribute('data-theme');
+      tab._pdfDarkMode = !theme || theme === 'dark' || theme === 'clear';
+    }
   }
   tab._pdfLeftPanelVisible = tab._pdfLeftPanelVisible != null ? tab._pdfLeftPanelVisible : true;
   tab._pdfRenderedPages = new Map();
@@ -325,6 +340,8 @@ function _buildToolbar(tab, toolbarView) {
     tab._pdfPagesContainer.classList.toggle('pdf-dark-render', tab._pdfDarkMode);
     if (tab._pdfLeftPanel) tab._pdfLeftPanel.classList.toggle('pdf-dark-render', tab._pdfDarkMode);
     darkToggle.el.classList.toggle('active', tab._pdfDarkMode);
+    _pdfApplyDarkBg(tab._pdfDarkMode);
+    Settings.set('pdfDarkMode', String(tab._pdfDarkMode));
   });
   if (tab._pdfDarkMode) darkToggle.el.classList.add('active');
   toolbarView.add(darkToggle);
@@ -412,126 +429,14 @@ function _buildToolbar(tab, toolbarView) {
   });
   toolbarView.add(citeBtn);
 
-  // Implement this paper (dropdown with session history)
-  var implBtn = new View('button')
-    .className('pdf-tb-btn pdf-tb-labeled pdf-tb-impl')
-    .attr('title', 'Implement this paper');
-  var implLabel = Text('Implement').cssText('font-size:0.68rem;');
-  var implChevron = RawHTML(icon('chevronDown', { size: 10 }));
-  implChevron.el.style.marginLeft = '2px';
-  implChevron.el.style.opacity = '0.5';
-  implChevron.el.style.display = 'none';
-  implBtn.add(implLabel, implChevron);
-
-  // Track whether sessions exist for this paper
-  var _implHasSessions = false;
-
-  function _implSessionLabel(s) {
-    // User-chosen name takes priority, otherwise show short hash
-    if (s.name) return s.name;
-    // ID format: "m5abc123-deadbeef" — show the hash portion
-    var parts = s.id.split('-');
-    return parts.length > 1 ? parts[1].slice(0, 8) : s.id.slice(0, 8);
-  }
-
-  function _implRefreshBtn() {
-    if (!window.electronAPI || !window.electronAPI.implList) return;
-    electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
-      if (!sessions || sessions.error) sessions = [];
-      _implHasSessions = sessions.length > 0;
-      if (tab._implSessionId) {
-        var active = sessions.find(function(s) { return s.id === tab._implSessionId; });
-        implLabel.el.textContent = active ? _implSessionLabel(active) : 'Active';
-        implBtn.el.classList.add('active');
-        implChevron.el.style.display = '';
-      } else if (sessions.length > 0) {
-        implLabel.el.textContent = 'Implement';
-        implBtn.el.classList.remove('active');
-        implChevron.el.style.display = '';
-      } else {
-        implLabel.el.textContent = 'Implement';
-        implBtn.el.classList.remove('active');
-        implChevron.el.style.display = 'none';
-      }
-    });
-  }
-
-  implBtn.onTap(function() {
-    if (!_implHasSessions && !tab._implSessionId) {
-      // No sessions exist — create first one directly
-      if (window._implSessionEnable) window._implSessionEnable(tab);
-      setTimeout(_implRefreshBtn, 1500);
-      return;
-    }
-    // Show dropdown with existing sessions + rename + new option
-    electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
-      if (!sessions || sessions.error) sessions = [];
-      var items = [];
-
-      sessions.forEach(function(s) {
-        var age = (Date.now() / 1000 - s.created_at);
-        var ageStr = age < 3600 ? Math.floor(age / 60) + 'm ago' : age < 86400 ? Math.floor(age / 3600) + 'h ago' : Math.floor(age / 86400) + 'd ago';
-        var isActive = tab._implSessionId === s.id;
-        items.push({
-          label: _implSessionLabel(s) + (isActive ? ' ●' : ''),
-          trailing: function() { return Text(ageStr).cssText('font-size:0.65rem; opacity:0.5;'); },
-          handler: function() {
-            if (window._implSessionEnable) window._implSessionEnable(tab, s.id);
-          }
-        });
-      });
-
-      if (sessions.length) items.push({ divider: true });
-
-      // Rename active session
-      if (tab._implSessionId) {
-        items.push({
-          icon: icon('edit', { size: 14 }),
-          label: 'Rename...',
-          handler: function() {
-            var current = sessions.find(function(s) { return s.id === tab._implSessionId; });
-            var currentName = current ? _implSessionLabel(current) : '';
-            var newName = prompt('Session name:', currentName);
-            if (newName !== null && newName !== currentName) {
-              electronAPI.implRename(tab._implSessionId, newName.trim()).then(function() {
-                _implRefreshBtn();
-              });
-            }
-          }
-        });
-      }
-
-      items.push({
-        icon: icon('plus', { size: 14 }),
-        label: 'New implementation',
-        handler: function() {
-          if (window._implSessionEnable) window._implSessionEnable(tab);
-          setTimeout(_implRefreshBtn, 1500);
-        }
-      });
-
-      var menu = Menu(null, items);
-      var rect = implBtn.el.getBoundingClientRect();
-      menu.showAt(rect.left, rect.bottom + 4);
-    });
-  });
-
   // Auto-resume most recent session when entering nerd mode
   if (!tab._implSessionId && window.electronAPI && window.electronAPI.implList) {
     electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
       if (!sessions || sessions.error || !sessions.length) return;
-      // Resume most recent session (sorted by updated_at DESC)
       var recent = sessions[0];
       if (window._implSessionEnable) window._implSessionEnable(tab, recent.id);
-      _implRefreshBtn();
     });
   }
-
-  // Expose refresh so impl-session can update button after create/resume
-  tab._implRefreshBtn = _implRefreshBtn;
-
-  _implRefreshBtn();
-  toolbarView.add(implBtn);
 
   // Spacer
   var spacer = new View('div').style('flex', '1');
@@ -893,6 +798,8 @@ export function _pdfViewerToggleDark(tab) {
   tab._pdfDarkMode = !tab._pdfDarkMode;
   tab._pdfPagesContainer.classList.toggle('pdf-dark-render', tab._pdfDarkMode);
   if (tab._pdfLeftPanel) tab._pdfLeftPanel.classList.toggle('pdf-dark-render', tab._pdfDarkMode);
+  _pdfApplyDarkBg(tab._pdfDarkMode);
+  Settings.set('pdfDarkMode', String(tab._pdfDarkMode));
 }
 
 // ── Thumbnails ──
