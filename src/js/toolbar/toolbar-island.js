@@ -184,13 +184,13 @@ function _animateExpand(wrap) {
   _renderIslandTabPill();
   _renderIslandActions();
   _pillSyncUrl();
+  if (input) { requestAnimationFrame(function() { input.focus(); input.select(); }); }
 
-  // 4. Force layout to get expanded dimensions
-  wrap.style.width = '';
+  // 4. Force layout to get expanded dimensions — lock width to compact so it only grows vertically
+  wrap.style.width = compactRect.width + 'px';
   void wrap.offsetHeight;
   const expandedRect = wrap.getBoundingClientRect();
   const expandedHeight = expandedRect.height;
-  const expandedWidth = expandedRect.width;
 
   // 5. Snapshot expanded favicon positions → map by tab ID
   const expandedVtabs = _snapshotVtabFavicons(wrap);
@@ -200,7 +200,6 @@ function _animateExpand(wrap) {
   // 6. Set wrapper to compact dimensions for animation start
   wrap.style.width = compactRect.width + 'px';
   wrap.style.height = compactRect.height + 'px';
-  wrap.style.overflow = 'hidden';
   wrap.classList.add('island-animating');
 
   // 7. Hide expanded tab list rows (will stagger-reveal during animation)
@@ -214,12 +213,12 @@ function _animateExpand(wrap) {
   const departOrder = compactFavicons.slice().reverse();
   const ghosts = _createGhostAnimation(departOrder, expandedMap, 260, 20, { scalePulse: true, crossFade: true });
 
-  // 9. Animate wrapper height + width + border-radius growth (Dynamic Island style)
-  wrap.style.willChange = 'width, height, border-radius';
+  // 9. Animate wrapper height only — width stays locked to compact pill (drops down in place)
+  wrap.style.willChange = 'height';
   const morphAnim = wrap.animate(
     [
-      { height: compactRect.height + 'px', width: compactRect.width + 'px', borderRadius: '12px' },
-      { height: expandedHeight + 'px', width: expandedWidth + 'px', borderRadius: '16px' }
+      { height: compactRect.height + 'px' },
+      { height: expandedHeight + 'px' }
     ],
     { duration: 260, easing: _islandEasing, fill: 'forwards' }
   );
@@ -256,7 +255,6 @@ function _animateExpand(wrap) {
     for (let ai = 0; ai < ghosts.anims.length; ai++) try { ghosts.anims[ai].cancel(); } catch(e) {}
     ghosts.layer.remove();
     _clearRowStyles(leftCol, vtabItems);
-    wrap.style.width = '';
     wrap.style.height = '';
     wrap.style.overflow = '';
     wrap.style.willChange = '';
@@ -271,7 +269,6 @@ function _animateExpand(wrap) {
     try { morphAnim.cancel(); } catch(e) {}
     ghosts.layer.remove();
     _clearRowStyles(leftCol, vtabItems);
-    wrap.style.width = '';
     wrap.style.height = '';
     wrap.style.overflow = '';
     wrap.style.willChange = '';
@@ -281,7 +278,6 @@ function _animateExpand(wrap) {
   }).catch(function() {
     ghosts.layer.remove();
     _clearRowStyles(leftCol, vtabItems);
-    wrap.style.width = '';
     wrap.style.height = '';
     wrap.style.overflow = '';
     wrap.style.willChange = '';
@@ -334,10 +330,8 @@ function _animateCollapse(wrap) {
   for (let fi = 0; fi < stripFavEls.length; fi++) stripFavEls[fi].style.opacity = '0';
   if (stripOverflow) stripOverflow.style.opacity = '0';
 
-  // 6. Temporarily set dimensions to expanded (will animate down)
-  wrap.style.width = expandedWidth + 'px';
+  // 6. Temporarily set height to expanded (width stays at compact — drops straight down)
   wrap.style.height = expandedHeight + 'px';
-  wrap.style.overflow = 'hidden';
 
   // 7. Create ghost favicons — least recent (furthest) departs first
   const ghostCount = expandedFavicons.length;
@@ -375,12 +369,12 @@ function _animateCollapse(wrap) {
     setTimeout(function() { if (stripOverflow) stripOverflow.style.transition = ''; }, 90);
   }, totalGhostTime * 0.8);
 
-  // 9. Animate wrapper height + width + border-radius shrink (Dynamic Island style)
-  wrap.style.willChange = 'width, height, border-radius';
+  // 9. Animate wrapper height shrink — width stays constant (retracts straight up)
+  wrap.style.willChange = 'height';
   const morphAnim = wrap.animate(
     [
-      { height: expandedHeight + 'px', width: expandedWidth + 'px', borderRadius: '16px' },
-      { height: compactHeight + 'px', width: compactWidth + 'px', borderRadius: '12px' }
+      { height: expandedHeight + 'px' },
+      { height: compactHeight + 'px' }
     ],
     { duration: totalGhostTime, easing: _islandEasing, fill: 'forwards' }
   );
@@ -441,6 +435,7 @@ export function _expandIsland() {
     _renderIslandTabPill();
     _renderIslandActions();
     _pillSyncUrl();
+    if (input) { requestAnimationFrame(function() { input.focus(); input.select(); }); }
   }
 
   _collapseIslandCleanup();
@@ -546,7 +541,7 @@ function _renderIslandTabPill() {
   const sortedTabs = win.tabs.filter(function(t) { return !t.blank; }).slice();
   sortedTabs.sort(function(a, b) { return (b.lastVisited || 0) - (a.lastVisited || 0); });
 
-  const globeSvg = '<svg style="width:16px;height:16px;opacity:0.4;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+  const globeSvg = '<svg style="width:14px;height:14px;opacity:0.4;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
   const plusSvg = '<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>';
 
   const rows = sortedTabs.map(function(t) {
@@ -554,7 +549,7 @@ function _renderIslandTabPill() {
     const title = t.title || 'New Tab';
     const truncTitle = title;
     const favView = t.favicon
-      ? window.Image(t.favicon).frame({ width: 16, height: 16 }).cornerRadius('xs').styles({ flexShrink: '0' })
+      ? window.Image(t.favicon).frame({ width: 14, height: 14 }).cornerRadius('xs').styles({ flexShrink: '0' })
           .on('error', function() { this.style.display = 'none'; })
       : window.RawHTML(globeSvg);
     const nameView = window.Text(truncTitle).className('island-vtab-item-title');
