@@ -314,6 +314,12 @@ app.on('web-contents-created', (event, contents) => {
       // ── Ad block check helper (used by onBeforeRequest, both sync and async paths) ──
       function _doAdblockCheck(url, wcId, details, cb) {
         if (!adblock.isEnabled()) return cb({});
+        let pageDomain = '';
+        try {
+          const pageUrl = (details.resourceType === 'mainFrame') ? url : (details.referrer || url);
+          pageDomain = new URL(pageUrl).hostname.replace(/^www\./, '');
+        } catch {}
+        if (pageDomain && adblock.isSiteDisabled(pageDomain)) return cb({});
         for (let i = 0; i < ytAdstrip.YT_AD_URL_PATTERNS.length; i++) {
           if (url.includes(ytAdstrip.YT_AD_URL_PATTERNS[i])) {
             const counts = adblock.getBlockedCounts();
@@ -595,6 +601,8 @@ app.whenReady().then(() => {
     return adblock._getEngineStats(app);
   });
   ipcMain.handle('adblock-stats', () => adblock._getEngineStats(app));
+  ipcMain.handle('adblock-set-site-exception', (_, domain, disabled) => adblock.setSiteException(domain, disabled));
+  ipcMain.handle('adblock-get-site-exceptions', () => adblock.getSiteExceptions());
 
   adblock.initAdblock(app);
 

@@ -53,7 +53,11 @@ window._browseIsElectron = _browseIsElectron;
 function _syncToMain(method, ...args) {
   if (_browseIsElectron && window.electronAPI[method]) window.electronAPI[method](...args);
 }
-_syncToMain('adblockSetEnabled', Settings.get('adBlockEnabled') === 'true');
+_syncToMain('adblockSetEnabled', Settings.get('adBlockEnabled') !== 'false');
+var _adblockExceptions = Settings.getJSON('adblockSiteExceptions', {});
+for (var d in _adblockExceptions) {
+  if (_adblockExceptions[d]) _syncToMain('adblockSetSiteException', d, true);
+}
 _syncToMain('dohSetConfig', Settings.get('dohEnabled') !== 'false', Settings.get('dohProvider') || 'cloudflare');
 _syncToMain('trackingStripSetEnabled', Settings.get('trackingStripEnabled') !== 'false');
 _syncToMain('httpsOnlySetEnabled', Settings.get('httpsOnlyEnabled') !== 'false');

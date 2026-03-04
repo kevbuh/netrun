@@ -7,7 +7,7 @@ import { _browseApplyPermissions, _browseProxyUrl } from '/js/browse/browse-ntp.
 // ── Ad Blocker toggle & badge ──
 
 export function toggleAdBlock() {
-  const on = Settings.get('adBlockEnabled') === 'true';
+  const on = Settings.get('adBlockEnabled') !== 'false';
   const newState = !on;
   Settings.set('adBlockEnabled', newState ? 'true' : 'false');
   if (window.electronAPI && window.electronAPI.adblockSetEnabled) {
@@ -32,7 +32,7 @@ export function toggleAdBlock() {
 export function _browseUpdateAdBlockBtn() {
   const btn = document.getElementById('browse-adblock-btn');
   if (!btn) return;
-  const on = Settings.get('adBlockEnabled') === 'true';
+  const on = Settings.get('adBlockEnabled') !== 'false';
   btn.style.color = on ? 'var(--nr-accent)' : '';
   btn.title = on ? 'Ad Blocker (on)' : 'Ad Blocker (off)';
   btn.classList.toggle('text-dimmer', !on);

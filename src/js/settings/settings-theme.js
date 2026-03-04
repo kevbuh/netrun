@@ -72,7 +72,7 @@ export function resetAdBlockRules() {
       if (!el) return;
       if (stats.lists && stats.lists.length > 0) {
         const count = (stats.ruleCount || 0).toLocaleString();
-        el.textContent = `${stats.lists.join(' + ')}: ${count} rules loaded.`;
+        el.textContent = `${stats.lists.length} filter lists active \u00b7 ${count} rules loaded`;
       } else {
         el.textContent = 'Failed to download filter lists.';
       }

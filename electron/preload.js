@@ -65,6 +65,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   adblockCosmetic: (url) => ipcRenderer.invoke('adblock-cosmetic', url),
   adblockUpdate: () => ipcRenderer.invoke('adblock-update'),
   adblockStats: () => ipcRenderer.invoke('adblock-stats'),
+  adblockSetSiteException: (domain, disabled) => ipcRenderer.invoke('adblock-set-site-exception', domain, disabled),
+  adblockGetSiteExceptions: () => ipcRenderer.invoke('adblock-get-site-exceptions'),
   // IP geolocation
   ipGeo: (hostname) => ipcRenderer.invoke('db:ip-geo', hostname),
   // DNS-over-HTTPS

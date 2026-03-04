@@ -308,11 +308,8 @@ export function _browseUrlShowHistory() {
   }
   const filter = rawVal.trim().toLowerCase();
 
-  // In expanded island mode, only show dropdown when user is actually typing
-  if (!filter && islandCenter) {
-    _islandCenterRestorePageInfo();
-    return;
-  }
+  // In expanded island mode with no filter, still show recents
+  // (the render function will handle showing recent sites/searches)
 
   // Don't show dropdown on blank new-tab pages with no input (URL bar only, NTP always shows)
   if (!filter && !ntp) {

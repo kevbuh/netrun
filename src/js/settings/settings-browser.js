@@ -350,16 +350,29 @@ export function _pwDeleteEntry(id) {
 export function _renderBrowserSettings() {
   // Ad blocker
   const adBlockInfoView = window.electronAPI
-    ? (function() { const sk = window.Skeleton().lines(2); sk.el.id = 'adblock-rules-info'; sk.el.className += ' mb-3'; return sk; })()
+    ? (function() { const sk = window.Skeleton().lines(1); sk.el.id = 'adblock-rules-info'; sk.el.className += ' mb-3 text-[0.7rem]'; return sk; })()
     : window.Text('Filter list management requires Electron.').className('text-dimmer text-[0.75rem] mb-3');
   const adBlockUpdateBtn = window.electronAPI
     ? window.Button('Update filter lists').className('text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors')
     : null;
   if (adBlockUpdateBtn) adBlockUpdateBtn.onTap(function() { resetAdBlockRules(); });
+  const adBlockEnabled = Settings.get('adBlockEnabled') !== 'false';
+  const adBlockToggle = window.Toggle(null);
+  const adBlockInput = adBlockToggle.el.querySelector('input[type="checkbox"]');
+  if (adBlockInput) adBlockInput.checked = adBlockEnabled;
+  adBlockToggle.on('change', function(e) {
+    if (e.target.type !== 'checkbox') return;
+    const on = e.target.checked;
+    Settings.set('adBlockEnabled', on ? 'true' : 'false');
+    if (window.electronAPI && window.electronAPI.adblockSetEnabled) {
+      window.electronAPI.adblockSetEnabled(on);
+    }
+  });
   const adBlockHeader = window.HStack(
     window.Text('Ad Blocker').className('text-white_ text-sm font-semibold'),
-    window.Text('Always On').className('text-[0.75rem] font-medium px-2 py-0.5 rounded-full bg-green-500/15 text-green-400')
-  ).spacing(2).className('mb-1');
+    window.Spacer(),
+    adBlockToggle
+  ).className('mb-1').styles({ alignItems: 'center' });
   const adBlockSection = window.VStack(
     adBlockHeader,
     window.Text('Blocks ads and trackers ' + (window.electronAPI ? 'natively at the network level via Electron' : 'via a server-side proxy') + '.').className('text-dim text-[0.8rem] mb-3'),

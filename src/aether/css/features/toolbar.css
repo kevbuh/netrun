@@ -938,6 +938,8 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 #island-center-dropdown {
   overflow-y: auto; overflow-x: hidden;
   max-height: 280px; padding: 2px 0;
+  width: 100%; order: 10;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 
@@ -998,6 +1000,9 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .browse-mode.island-mode #pill-satellite-right {
   display: flex; flex-direction: row;
   left: calc(100% + 6px); right: auto;
+}
+.browse-mode.island-mode #pill-satellite-right #pill-ai-unified {
+  order: 1;
 }
 .browse-mode.island-mode #pill-satellite-right::before {
   content: ''; position: absolute; top: 0; bottom: 0; right: 100%; width: 6px;
@@ -1608,4 +1613,9 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
   max-width: 120px;
   opacity: 0.7;
   font-size: 0.7rem;
+}
+
+/* ── Privacy toggle rows in pageinfo dropdown ── */
+.island-pageinfo-dropdown .island-priv-toggle:hover {
+  background: var(--nr-bg-hover);
 }

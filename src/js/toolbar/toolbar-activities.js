@@ -5,6 +5,16 @@ import { icon } from '/js/core/icons.js';
 import { ANN_COLORS, ANN_COLOR_MAP } from '/js/browse/browse-annotations.js';
 import { visibleActivities, notifyTabsChanged } from '/js/toolbar/toolbar-state.js';
 import { browseSelectTab, browseCloseTab } from '/js/browse/browse-passwords.js';
+import { _getCurrentBrowseDomain } from '/js/urlbar/urlbar-permissions.js';
+
+// ── Privacy features definition (shared by tray + stats) ──
+var _privFeatures = [
+  { key: 'adBlockEnabled',          label: 'Ad Blocker',       ic: 'shield',  fn: function() { if (typeof window.toggleAdBlock === 'function') window.toggleAdBlock(); }, checkOn: function(v) { return v !== 'false'; } },
+  { key: 'dohEnabled',              label: 'Encrypted DNS',    ic: 'lock',    fn: function() { if (typeof window.toggleDoH === 'function') window.toggleDoH(); }, checkOn: function(v) { return v !== 'false'; } },
+  { key: 'httpsOnlyEnabled',        label: 'HTTPS Only',       ic: 'globe',   fn: function() { if (typeof window.toggleHttpsOnly === 'function') window.toggleHttpsOnly(); }, checkOn: function(v) { return v !== 'false'; } },
+  { key: 'trackingStripEnabled',    label: 'Tracking Strip',   ic: 'eye',     fn: function() { if (typeof window.toggleTrackingStrip === 'function') window.toggleTrackingStrip(); }, checkOn: function(v) { return v !== 'false'; } },
+  { key: 'thirdPartyCookiesBlocked',label: 'Cookie Blocking',  ic: 'close',   fn: function() { if (typeof window.toggleCookieBlock === 'function') window.toggleCookieBlock(); }, checkOn: function(v) { return v !== 'false'; } },
+];
 
 // ── Pulse state provider for unified AI pill ──
 let _pulseFlashTimer = null;
@@ -411,6 +421,63 @@ export function _islandBuildTray(a, isBrowse) {
         WebkitLineClamp: '3', WebkitBoxOrient: 'vertical', overflow: 'hidden' }));
     }
 
+    // ── Per-site ad block toggle ──
+    rows.push(new V('div').styles({ height: '1px', background: 'var(--nr-border-default)', margin: '6px 0 4px' }));
+    var _siteDomain = _getCurrentBrowseDomain();
+    if (_siteDomain) {
+      var _siteExceptions = Settings.getJSON('adblockSiteExceptions', {});
+      var _siteAdsBlocked = !_siteExceptions[_siteDomain];
+      var _siteToggle = H([
+        R(icon('shield', { size: 15, strokeWidth: '1.5' })).styles({ color: _siteAdsBlocked ? 'var(--nr-accent)' : 'var(--nr-text-tertiary)', flexShrink: '0' }),
+        T(_siteDomain).font('caption2').foreground(_siteAdsBlocked ? 'primary' : 'tertiary').flex(1).truncate(),
+        T(_siteAdsBlocked ? 'Shielded' : 'Unshielded').font('caption2').foreground(_siteAdsBlocked ? 'accent' : 'quaternary')
+      ]).spacing(2).styles({
+        padding: '5px 6px', cursor: 'pointer', borderRadius: '6px', transition: 'background 0.12s',
+        background: _siteAdsBlocked ? 'color-mix(in srgb, var(--nr-accent) 8%, transparent)' : 'transparent'
+      }).onTap(function() {
+        var excs = Settings.getJSON('adblockSiteExceptions', {});
+        if (_siteAdsBlocked) excs[_siteDomain] = true;
+        else delete excs[_siteDomain];
+        Settings.setJSON('adblockSiteExceptions', excs);
+        if (window.electronAPI && window.electronAPI.adblockSetSiteException) {
+          window.electronAPI.adblockSetSiteException(_siteDomain, !_siteAdsBlocked);
+        }
+        // Reload the active tab
+        var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
+        var tab = win ? win.tabs.find(function(t) { return t.id === win.activeTab; }) : null;
+        if (tab && tab.el && tab.el.reload) tab.el.reload();
+        _refreshPageInfoDropdown();
+      });
+      rows.push(_siteToggle);
+    }
+
+    // ── Privacy toggles ──
+    rows.push(new V('div').styles({ height: '1px', background: 'var(--nr-border-default)', margin: '6px 0 4px' }));
+    const _privActive = _privFeatures.filter(function(f) { return f.checkOn(Settings.get(f.key)); }).length;
+    rows.push(H([
+      T('PRIVACY').font('caption2').foreground('quaternary').styles({ letterSpacing: '0.05em' }),
+      T(_privActive + '/' + _privFeatures.length + ' active').font('caption2').foreground('quaternary').styles({ marginLeft: 'auto' })
+    ]).styles({ padding: '0 2px' }));
+
+    for (var pi = 0; pi < _privFeatures.length; pi++) {
+      (function(pf) {
+        var on = pf.checkOn(Settings.get(pf.key));
+        var toggleRow = H([
+          R(icon(pf.ic, { size: 14, strokeWidth: '1.5' })).styles({ color: on ? 'var(--nr-accent)' : 'var(--nr-text-tertiary)', flexShrink: '0' }),
+          T(pf.label).font('caption2').foreground(on ? 'primary' : 'tertiary').flex(1),
+          T(on ? 'On' : 'Off').font('caption2').foreground('quaternary')
+        ]).className('island-priv-toggle').spacing(2).styles({
+          padding: '4px 2px', cursor: 'pointer', borderRadius: '4px', transition: 'background 0.12s'
+        }).onTap(function() { pf.fn(); _refreshPageInfoDropdown(); });
+        rows.push(toggleRow);
+      })(_privFeatures[pi]);
+    }
+
+    // Stats container (populated async)
+    rows.push(new V('div').id('pageinfo-priv-stats').styles({
+      padding: '4px 2px', minHeight: '18px'
+    }));
+
     if (rows.length === 0) return null;
     return VS(rows).styles({ gap: '2px', padding: '8px 10px', minWidth: '200px' });
   } else if (a.type === 'insight' && a.items && a.items.length) {
@@ -755,7 +822,7 @@ function _togglePageInfoDropdown(pillEl, act) {
     .shadow('popup')
     .border('border-default')
     .colorScheme('dark')
-    .frame({ maxHeight: 320, minWidth: 220, maxWidth: 340 })
+    .frame({ maxHeight: 480, minWidth: 240, maxWidth: 360 })
     .overflow('auto')
     .zIndex('modal')
     .padding('8px', '0')
@@ -766,6 +833,10 @@ function _togglePageInfoDropdown(pillEl, act) {
   AetherUI.mount(trayContent, panel.el);
   document.body.appendChild(panel.el);
   _pageInfoDropdownEl = panel.el;
+  _pageInfoDropdownPill = pillEl;
+  _pageInfoDropdownAct = act;
+
+  _fetchPrivacyStatsForDropdown();
 
   setTimeout(function() {
     _pageInfoOutsideHandler = function(e) {
@@ -778,16 +849,94 @@ function _togglePageInfoDropdown(pillEl, act) {
   }, 0);
 }
 
+var _pageInfoDropdownPill = null;
+var _pageInfoDropdownAct = null;
+
 function _closePageInfoDropdown() {
   if (_pageInfoDropdownEl) {
     _pageInfoDropdownEl.remove();
     _pageInfoDropdownEl = null;
   }
+  _pageInfoDropdownPill = null;
+  _pageInfoDropdownAct = null;
   if (_pageInfoOutsideHandler) {
     document.removeEventListener('mousedown', _pageInfoOutsideHandler, true);
     _pageInfoOutsideHandler = null;
   }
   window.removeEventListener('blur', _closePageInfoDropdown);
+}
+
+// ── Refresh page info dropdown (after toggle) ──
+
+function _refreshPageInfoDropdown() {
+  if (!_pageInfoDropdownEl || !_pageInfoDropdownPill || !_pageInfoDropdownAct) return;
+  var act = _pageInfoDropdownAct;
+  var trayContent = _islandBuildTray(act, false);
+  if (trayContent) AetherUI.mount(trayContent, _pageInfoDropdownEl);
+  _fetchPrivacyStatsForDropdown();
+}
+
+// ── Fetch privacy stats into dropdown ──
+
+function _fetchPrivacyStatsForDropdown() {
+  var dropdownRef = _pageInfoDropdownEl;
+  if (!dropdownRef) return;
+  var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
+  var activeTab = win ? win.tabs.find(function(t) { return t.id === win.activeTab; }) : null;
+  if (!activeTab || !activeTab.el || typeof activeTab.el.getWebContentsId !== 'function') return;
+  if (!window.electronAPI) return;
+
+  var statsEl = dropdownRef.querySelector('#pageinfo-priv-stats');
+  if (!statsEl) return;
+
+  try {
+    var wc = activeTab.el.getWebContentsId();
+    var detailsP = window.electronAPI.privacyDetails ? window.electronAPI.privacyDetails(wc) : Promise.resolve({});
+    Promise.all([
+      window.electronAPI.adblockGetCount(wc),
+      window.electronAPI.trackingStripGetCount ? window.electronAPI.trackingStripGetCount(wc) : Promise.resolve(0),
+      window.electronAPI.httpsOnlyGetCount ? window.electronAPI.httpsOnlyGetCount(wc) : Promise.resolve(0),
+      window.electronAPI.cookieBlockGetCount ? window.electronAPI.cookieBlockGetCount(wc) : Promise.resolve(0),
+      detailsP,
+    ]).then(function(c) {
+      // Guard: dropdown may have closed
+      if (!_pageInfoDropdownEl) return;
+      var target = _pageInfoDropdownEl.querySelector('#pageinfo-priv-stats');
+      if (!target) return;
+
+      var details = c[4] || {};
+      var rows = [];
+      var parts = [];
+      if (c[0] > 0) parts.push(c[0] + ' ad' + (c[0] !== 1 ? 's' : '') + ' blocked');
+      if (c[1] > 0) parts.push(c[1] + ' tracker' + (c[1] !== 1 ? 's' : '') + ' stripped');
+      if (c[2] > 0) parts.push(c[2] + ' HTTPS upgrade' + (c[2] !== 1 ? 's' : ''));
+      if (c[3] > 0) parts.push(c[3] + ' cookie' + (c[3] !== 1 ? 's' : '') + ' blocked');
+      var summaryText = parts.length > 0 ? parts.join(' \u00b7 ') : 'No threats detected';
+      rows.push(window.Text(summaryText).font('caption2').styles({ color: 'var(--nr-accent)', fontWeight: '500', lineHeight: '1.4' }));
+
+      function _domainRows(map, label) {
+        var entries = Object.entries(map || {}).sort(function(a, b) { return b[1] - a[1]; });
+        if (!entries.length) return;
+        rows.push(window.Text(label).font('caption2').foreground('quaternary').styles({ marginTop: '4px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.04em' }));
+        var shown = entries.slice(0, 5);
+        for (var i = 0; i < shown.length; i++) {
+          rows.push(window.HStack([
+            window.Text(shown[i][0]).font('caption2').foreground('secondary').flex(1).truncate(),
+            window.Text(String(shown[i][1])).font('caption2').foreground('quaternary')
+          ]).spacing(2));
+        }
+        if (entries.length > 5) {
+          rows.push(window.Text('+ ' + (entries.length - 5) + ' more').font('caption2').foreground('quaternary'));
+        }
+      }
+
+      _domainRows(details.ads, 'Blocked domains');
+      _domainRows(details.trackers, 'Stripped params');
+      _domainRows(details.cookies, 'Cookies blocked from');
+
+      AetherUI.mount(window.VStack(rows).spacing(1), target);
+    }).catch(function() {});
+  } catch(e) {}
 }
 
 // ── Live tray update for CC/mic ──

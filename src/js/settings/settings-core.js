@@ -203,9 +203,11 @@ export function renderSettingsView() {
           window.electronAPI.adblockStats().then(stats => {
             const el = document.getElementById('adblock-rules-info');
             if (!el) return;
+            el.style.fontSize = '0.7rem';
+            el.style.color = 'var(--nr-text-quaternary)';
             if (stats.lists && stats.lists.length > 0) {
               const count = (stats.ruleCount || 0).toLocaleString();
-              el.textContent = `${stats.lists.join(' + ')}: ${count} rules loaded.`;
+              el.textContent = `${stats.lists.length} filter lists active \u00b7 ${count} rules loaded`;
             } else {
               el.textContent = 'No filter lists loaded yet. Click "Update filter lists" to download.';
             }

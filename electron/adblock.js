@@ -22,6 +22,19 @@ let _adblockEngine = null;
 let _adblockEnabled = true;
 const _blockedCounts = {};
 const _blockedDetails = {}; // wcId → { domain: count }
+const _siteExceptions = {}; // domain → true (ads allowed on this domain)
+
+function setSiteException(domain, disabled) {
+  if (disabled) _siteExceptions[domain] = true;
+  else delete _siteExceptions[domain];
+}
+function getSiteExceptions() { return Object.assign({}, _siteExceptions); }
+function isSiteDisabled(domain) {
+  if (!domain) return false;
+  if (_siteExceptions[domain]) return true;
+  const bare = domain.replace(/^www\./, '');
+  return bare !== domain && !!_siteExceptions[bare];
+}
 
 function _fetchText(url) {
   return new Promise((resolve, reject) => {
@@ -150,6 +163,9 @@ module.exports = {
   setEnabled,
   getBlockedCounts,
   getBlockedDetails,
+  setSiteException,
+  getSiteExceptions,
+  isSiteDisabled,
   _getEngineStats,
   _downloadAndBuildEngine,
   _mapResourceType,
