@@ -8,6 +8,55 @@ import { _getPdfPath } from '/js/toolbar/toolbar-menu.js';
 import { switchPanelTab } from '/js/core/core-nav.js';
 import { View } from '/aether/ui/aether-ui.js';
 
+// ── Prompt dialog (Electron has no window.prompt) ──
+function _promptDialog(label, defaultValue) {
+  return new Promise(function(resolve) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'nr-modal-backdrop';
+    const modal = document.createElement('div');
+    modal.className = 'nr-modal';
+    modal.style.maxWidth = '340px';
+    const header = document.createElement('div');
+    header.className = 'nr-modal-header';
+    const title = document.createElement('span');
+    title.className = 'nr-modal-title';
+    title.textContent = label;
+    header.appendChild(title);
+    modal.appendChild(header);
+    const body = document.createElement('div');
+    body.className = 'nr-modal-body';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = defaultValue || '';
+    input.className = 'nr-input';
+    input.style.cssText = 'width:100%;font-size:0.85rem;';
+    body.appendChild(input);
+    modal.appendChild(body);
+    const footer = document.createElement('div');
+    footer.className = 'nr-modal-footer';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'nr-btn nr-btn-ghost';
+    cancelBtn.textContent = 'Cancel';
+    const okBtn = document.createElement('button');
+    okBtn.className = 'nr-btn nr-btn-primary';
+    okBtn.textContent = 'OK';
+    function dismiss(val) { backdrop.remove(); resolve(val); }
+    cancelBtn.onclick = function() { dismiss(null); };
+    okBtn.onclick = function() { dismiss(input.value); };
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') dismiss(input.value);
+      if (e.key === 'Escape') dismiss(null);
+    });
+    backdrop.addEventListener('click', function(e) { if (e.target === backdrop) dismiss(null); });
+    footer.appendChild(cancelBtn);
+    footer.appendChild(okBtn);
+    modal.appendChild(footer);
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(function() { input.focus(); input.select(); });
+  });
+}
+
 // ── Per-tab state ──
 // tab._implSessionId, tab._implFolderPath, tab._implTermId
 
@@ -28,20 +77,20 @@ export function _implSessionDisable(tab) {
 }
 
 export function _isImplSessionActive(tabId) {
-  var win = window._getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return false;
-  var tab = win.tabs.find(function(t) { return t.id === tabId; });
+  const tab = win.tabs.find(function(t) { return t.id === tabId; });
   return !!(tab && tab._implSessionId);
 }
 
 // ── Create new session (with rich context) ──
 
 function _createSession(tab) {
-  var state = _paperState.get(tab.id);
-  var s2 = state ? state.s2Data : null;
-  var title = (s2 && s2.title) || tab.title || 'Paper';
-  var abstract = (s2 && s2.abstract) || '';
-  var url = tab.url || '';
+  const state = _paperState.get(tab.id);
+  const s2 = state ? state.s2Data : null;
+  const title = (s2 && s2.title) || tab.title || 'Paper';
+  const abstract = (s2 && s2.abstract) || '';
+  const url = tab.url || '';
 
   console.log('[impl] creating session, implCreate available:', typeof electronAPI.implCreate);
   if (!electronAPI.implCreate) {
@@ -50,20 +99,20 @@ function _createSession(tab) {
   }
 
   // Gather rich context
-  var authors = (s2 && s2.authors) ? s2.authors.map(function(a) { return a.name; }) : [];
-  var year = (s2 && s2.year) || '';
-  var venue = (s2 && s2.venue) || '';
-  var references = (state && state.refs) ? state.refs.slice(0, 20) : [];
-  var highlights = tab._pdfHighlights || [];
+  const authors = (s2 && s2.authors) ? s2.authors.map(function(a) { return a.name; }) : [];
+  const year = (s2 && s2.year) || '';
+  const venue = (s2 && s2.venue) || '';
+  const references = (state && state.refs) ? state.refs.slice(0, 20) : [];
+  const highlights = tab._pdfHighlights || [];
 
   if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Preparing implementation...');
 
   // Extract text content — notebook or PDF
-  var isNotebook = typeof window._isNotebookTab === 'function' && window._isNotebookTab(tab);
-  var textPromise;
+  const isNotebook = typeof window._isNotebookTab === 'function' && window._isNotebookTab(tab);
+  let textPromise;
   if (isNotebook) {
     // Notebooks: use _notebookViewerGetText synchronously
-    var nbText = (typeof window._notebookViewerGetText === 'function') ? window._notebookViewerGetText(tab) : '';
+    const nbText = (typeof window._notebookViewerGetText === 'function') ? window._notebookViewerGetText(tab) : '';
     textPromise = Promise.resolve(nbText || '');
   } else {
     // PDF: extract structured markdown, falls back to raw PDF.js text extraction
@@ -150,10 +199,10 @@ export function _startTerminal(tab, container) {
       return;
     }
 
-    var sessionId = result.sessionId;
+    const sessionId = result.sessionId;
     tab._implTermId = sessionId;
 
-    var term = new Terminal({
+    const term = new Terminal({
       fontSize: 13,
       fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
       theme: {
@@ -166,7 +215,7 @@ export function _startTerminal(tab, container) {
       allowProposedApi: true
     });
 
-    var fitAddon = new FitAddon.FitAddon();
+    const fitAddon = new FitAddon.FitAddon();
     term.loadAddon(fitAddon);
     term.open(container);
 
@@ -177,7 +226,7 @@ export function _startTerminal(tab, container) {
     });
 
     // Resize observer
-    var resizeObs = new ResizeObserver(function() {
+    const resizeObs = new ResizeObserver(function() {
       try {
         fitAddon.fit();
         electronAPI.terminalResize(sessionId, term.cols, term.rows);
@@ -191,13 +240,13 @@ export function _startTerminal(tab, container) {
       electronAPI.terminalInput(sessionId, data);
     });
 
-    var outputHandler = function(_ev, sid, data) {
+    const outputHandler = function(_ev, sid, data) {
       if (sid === sessionId) term.write(data);
     };
     electronAPI.onTerminalOutput(outputHandler);
     tab._implOutputHandler = outputHandler;
 
-    var exitHandler = function(_ev, sid) {
+    const exitHandler = function(_ev, sid) {
       if (sid === sessionId) {
         term.write('\r\n\x1b[90m[Session ended]\x1b[0m\r\n');
       }
@@ -220,42 +269,185 @@ export function _startTerminal(tab, container) {
 // ── Files Panel Tab (rendered inside nerd panel) ──
 
 export function _renderFilesTab(container, getTabFn) {
-  var tab = getTabFn();
+  const tab = getTabFn();
 
-  var wrap = new View('div').className('nerd-files-wrap');
+  const wrap = new View('div').className('nerd-files-wrap');
 
-  if (!tab || !tab._implSessionId) {
-    wrap.add(Text('Click Implement in the toolbar to start').className('nerd-empty'));
+  if (!tab) {
+    wrap.add(Text('No tab').className('nerd-empty'));
     AetherUI.mount(wrap, container);
     return;
   }
 
-  // Sync highlights button
-  var syncBtn = new View('button').className('nerd-sync-btn').add(
-    RawHTML(icon('highlighter', { size: 12 })),
-    Text('Sync highlights')
-  ).onTap(function() {
-    _syncHighlightsToClaude(tab).then(function(ok) {
-      if (typeof Aether !== 'undefined' && Aether.toast) {
-        Aether.toast(ok ? 'Highlights synced to CLAUDE.md' : 'Failed to sync highlights');
-      }
+  if (tab._implSessionId) {
+    // Sync highlights button
+    const syncBtn = new View('button').className('nerd-sync-btn').add(
+      RawHTML(icon('highlighter', { size: 12 })),
+      Text('Sync highlights')
+    ).onTap(function() {
+      _syncHighlightsToClaude(tab).then(function(ok) {
+        if (typeof Aether !== 'undefined' && Aether.toast) {
+          Aether.toast(ok ? 'Highlights synced to CLAUDE.md' : 'Failed to sync highlights');
+        }
+      });
     });
-  });
-  wrap.add(syncBtn);
+    // New file dropdown
+    const _newFileTypes = [
+      { label: 'Python', ext: '.py' }, { label: 'JavaScript', ext: '.js' }, { label: 'TypeScript', ext: '.ts' },
+      { label: 'Go', ext: '.go' }, { label: 'Rust', ext: '.rs' }, { label: 'C', ext: '.c' },
+      { label: 'C++', ext: '.cpp' }, { label: 'Java', ext: '.java' },
+      { divider: true },
+      { label: 'HTML', ext: '.html' }, { label: 'CSS', ext: '.css' }, { label: 'JSON', ext: '.json' }, { label: 'YAML', ext: '.yaml' },
+      { divider: true },
+      { label: 'Markdown', ext: '.md' }, { label: 'Text', ext: '.txt' },
+      { divider: true },
+      { label: 'Jupyter Notebook', ext: '.ipynb' },
+      { divider: true },
+      { label: 'Dockerfile', ext: '' }, { label: '.env', ext: '' }, { label: '.gitignore', ext: '' }, { label: 'Makefile', ext: '' }
+    ];
+    const _newFileItems = _newFileTypes.map(function(t) {
+      if (t.divider) return t;
+      const defaultName = t.ext ? 'untitled' + t.ext : t.label;
+      const iconInfo = _getFileIcon(defaultName);
+      return {
+        icon: icon(iconInfo.iconName, { size: 14 }),
+        label: t.label + (t.ext ? ' (' + t.ext + ')' : ''),
+        handler: async function() {
+          const name = await _promptDialog('File name:', defaultName);
+          if (!name) return;
+          let content = '';
+          if (name.endsWith('.ipynb')) {
+            content = JSON.stringify({ cells: [{ cell_type: 'code', source: [], metadata: {}, outputs: [], execution_count: null }], metadata: { kernelspec: { display_name: 'Python 3', language: 'python', name: 'python3' }, language_info: { name: 'python', version: '3.10.0' } }, nbformat: 4, nbformat_minor: 5 }, null, 2);
+          }
+          electronAPI.implWriteFile(tab._implFolderPath, name, content).then(function() {
+            _refreshFileTree(tab, fileTree.el);
+            _previewFileInContent(tab, name, name);
+          });
+        }
+      };
+    });
+    const plusBtn = Dropdown(null, _newFileItems, { placeholder: 'New file' });
+    plusBtn.el.style.cssText = 'border:none;padding:2px 6px;font-size:0.7rem;';
 
-  // File tree container
-  var fileTree = new View('div').className('impl-file-tree-panel');
-  wrap.add(fileTree);
+    const headerRow = new View('div').styles({ display: 'flex', gap: '4px' }).add(syncBtn, plusBtn);
+    wrap.add(headerRow);
+
+    // File tree container
+    var fileTree = new View('div').className('impl-file-tree-panel');
+    wrap.add(fileTree);
+  }
+
+  // Implementation dropdown at bottom
+  const implBtn = new View('button')
+    .className('pdf-tb-btn pdf-tb-labeled pdf-tb-impl')
+    .styles({ marginTop: 'auto', alignSelf: 'flex-start', margin: '12px var(--nr-space-3) var(--nr-space-2)' });
+  const implLabel = Text('Implement').cssText('font-size:0.72rem;');
+  const implChevron = RawHTML(icon('chevronDown', { size: 10 }));
+  implChevron.el.style.marginLeft = '2px';
+  implChevron.el.style.opacity = '0.5';
+  implChevron.el.style.display = 'none';
+  implBtn.add(implLabel, implChevron);
+  wrap.add(implBtn);
 
   AetherUI.mount(wrap, container);
 
-  // Load file tree
-  _refreshFileTree(tab, fileTree.el);
-
-  // Start file watcher (guard against duplicates)
-  if (!tab._implFileHandler) {
-    _startWatcher(tab, fileTree.el);
+  // Load file tree if session active
+  if (tab._implSessionId && fileTree) {
+    _refreshFileTree(tab, fileTree.el);
+    if (!tab._implFileHandler) {
+      _startWatcher(tab, fileTree.el);
+    }
   }
+
+  function _implSessionLabel(s) {
+    if (s.name) return s.name;
+    const parts = s.id.split('-');
+    return parts.length > 1 ? parts[1].slice(0, 8) : s.id.slice(0, 8);
+  }
+
+  let _implHasSessions = false;
+
+  function _implRefreshBtn() {
+    if (!window.electronAPI || !window.electronAPI.implList) return;
+    electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
+      if (!sessions || sessions.error) sessions = [];
+      _implHasSessions = sessions.length > 0;
+      if (tab._implSessionId) {
+        const active = sessions.find(function(s) { return s.id === tab._implSessionId; });
+        implLabel.el.textContent = active ? _implSessionLabel(active) : 'Active';
+        implBtn.el.classList.add('active');
+        implChevron.el.style.display = '';
+      } else if (sessions.length > 0) {
+        implLabel.el.textContent = 'Implement';
+        implBtn.el.classList.remove('active');
+        implChevron.el.style.display = '';
+      } else {
+        implLabel.el.textContent = 'Implement';
+        implBtn.el.classList.remove('active');
+        implChevron.el.style.display = 'none';
+      }
+    });
+  }
+
+  implBtn.onTap(function() {
+    if (!_implHasSessions && !tab._implSessionId) {
+      if (window._implSessionEnable) window._implSessionEnable(tab);
+      setTimeout(_implRefreshBtn, 1500);
+      return;
+    }
+    electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
+      if (!sessions || sessions.error) sessions = [];
+      const items = [];
+
+      sessions.forEach(function(s) {
+        const age = (Date.now() / 1000 - s.created_at);
+        const ageStr = age < 3600 ? Math.floor(age / 60) + 'm ago' : age < 86400 ? Math.floor(age / 3600) + 'h ago' : Math.floor(age / 86400) + 'd ago';
+        const isActive = tab._implSessionId === s.id;
+        items.push({
+          label: _implSessionLabel(s) + (isActive ? ' ●' : ''),
+          trailing: function() { return Text(ageStr).cssText('font-size:0.65rem; opacity:0.5;'); },
+          handler: function() {
+            if (window._implSessionEnable) window._implSessionEnable(tab, s.id);
+          }
+        });
+      });
+
+      if (sessions.length) items.push({ divider: true });
+
+      if (tab._implSessionId) {
+        items.push({
+          icon: icon('edit', { size: 14 }),
+          label: 'Rename…',
+          handler: async function() {
+            const current = sessions.find(function(s) { return s.id === tab._implSessionId; });
+            const currentName = current ? _implSessionLabel(current) : '';
+            const newName = await _promptDialog('Session name:', currentName);
+            if (newName !== null && newName !== currentName) {
+              electronAPI.implRename(tab._implSessionId, newName.trim()).then(function() {
+                _implRefreshBtn();
+              });
+            }
+          }
+        });
+      }
+
+      items.push({
+        icon: icon('plus', { size: 14 }),
+        label: 'New implementation',
+        handler: function() {
+          if (window._implSessionEnable) window._implSessionEnable(tab);
+          setTimeout(_implRefreshBtn, 1500);
+        }
+      });
+
+      const menu = Menu(null, items);
+      const rect = implBtn.el.getBoundingClientRect();
+      menu.showAt(rect.left, rect.bottom + 4);
+    });
+  });
+
+  tab._implRefreshBtn = _implRefreshBtn;
+  _implRefreshBtn();
 }
 
 // ── Sync Highlights to CLAUDE.md ──
@@ -263,22 +455,22 @@ export function _renderFilesTab(container, getTabFn) {
 export function _syncHighlightsToClaude(tab) {
   if (!tab || !tab._implFolderPath) return Promise.resolve(false);
 
-  var highlights = tab._pdfHighlights || [];
+  const highlights = tab._pdfHighlights || [];
   if (!highlights.length) return Promise.resolve(false);
 
   return electronAPI.implReadFile(tab._implFolderPath, 'CLAUDE.md').then(function(result) {
     if (!result || result.error) return false;
 
-    var content = result.content;
-    var hlSection = _buildHighlightsSection(highlights);
+    let content = result.content;
+    const hlSection = _buildHighlightsSection(highlights);
 
     // Replace existing Implementation Guidance section or insert before Notes
-    var guidanceStart = content.indexOf('## Implementation Guidance');
-    var notesStart = content.indexOf('## Notes');
+    const guidanceStart = content.indexOf('## Implementation Guidance');
+    const notesStart = content.indexOf('## Notes');
 
     if (guidanceStart !== -1) {
       // Find end of guidance section (next ## or end)
-      var guidanceEnd = content.indexOf('\n## ', guidanceStart + 1);
+      let guidanceEnd = content.indexOf('\n## ', guidanceStart + 1);
       if (guidanceEnd === -1) guidanceEnd = content.length;
       content = content.slice(0, guidanceStart) + hlSection + content.slice(guidanceEnd);
     } else if (notesStart !== -1) {
@@ -294,9 +486,9 @@ export function _syncHighlightsToClaude(tab) {
 }
 
 function _buildHighlightsSection(highlights) {
-  var lines = ['## Implementation Guidance', '', 'User-highlighted passages from the paper:', ''];
+  const lines = ['## Implementation Guidance', '', 'User-highlighted passages from the paper:', ''];
   highlights.forEach(function(hl) {
-    var page = hl.pageNum ? ' (p. ' + hl.pageNum + ')' : '';
+    const page = hl.pageNum ? ' (p. ' + hl.pageNum + ')' : '';
     lines.push('> ' + (hl.text || '') + page);
     if (hl.note) lines.push('> **Note:** ' + hl.note);
     lines.push('');
@@ -307,7 +499,7 @@ function _buildHighlightsSection(highlights) {
 // ── File Icon Helper ──
 
 function _getFileIcon(filename) {
-  var ext = filename.lastIndexOf('.') !== -1 ? filename.slice(filename.lastIndexOf('.')).toLowerCase() : '';
+  const ext = filename.lastIndexOf('.') !== -1 ? filename.slice(filename.lastIndexOf('.')).toLowerCase() : '';
   if (filename === 'CLAUDE.md') return { iconName: 'fileText', colorClass: 'impl-icon-accent' };
   switch (ext) {
     case '.py': return { iconName: 'code', colorClass: 'impl-icon-blue' };
@@ -336,46 +528,46 @@ function _refreshFileTree(tab, treeContainer) {
 }
 
 function _setTreeActive(treeContainer, activeRow) {
-  var rows = treeContainer.querySelectorAll('.impl-tree-row');
-  for (var i = 0; i < rows.length; i++) rows[i].classList.remove('active');
+  const rows = treeContainer.querySelectorAll('.impl-tree-row');
+  for (let i = 0; i < rows.length; i++) rows[i].classList.remove('active');
   if (activeRow) activeRow.classList.add('active');
 }
 
 function _renderTreeNodes(tab, container, nodes, depth, parentPath) {
   nodes.forEach(function(node) {
-    var relativePath = parentPath ? parentPath + '/' + node.name : node.name;
-    var row = document.createElement('div');
+    const relativePath = parentPath ? parentPath + '/' + node.name : node.name;
+    const row = document.createElement('div');
     row.className = 'impl-tree-row';
 
     // Indent guides
-    for (var i = 0; i < depth; i++) {
-      var guide = document.createElement('span');
+    for (let i = 0; i < depth; i++) {
+      const guide = document.createElement('span');
       guide.className = 'impl-tree-indent';
       row.appendChild(guide);
     }
 
-    var isDir = node.type === 'dir';
-    var hasChildren = isDir && node.children && node.children.length;
+    const isDir = node.type === 'dir';
+    const hasChildren = isDir && node.children && node.children.length;
 
     // Spacer
-    var chevronEl = document.createElement('span');
+    const chevronEl = document.createElement('span');
     chevronEl.className = 'impl-tree-chevron';
     row.appendChild(chevronEl);
 
     // Icon
-    var iconEl = document.createElement('span');
+    const iconEl = document.createElement('span');
     iconEl.className = 'impl-tree-icon';
     if (isDir) {
       iconEl.innerHTML = icon('folderOpen', { size: 14 });
       iconEl.classList.add('impl-icon-folder');
     } else {
-      var fi = _getFileIcon(node.name);
+      const fi = _getFileIcon(node.name);
       iconEl.innerHTML = icon(fi.iconName, { size: 14 });
       if (fi.colorClass) iconEl.classList.add(fi.colorClass);
     }
     row.appendChild(iconEl);
 
-    var nameEl = document.createElement('span');
+    const nameEl = document.createElement('span');
     nameEl.className = 'impl-tree-name';
     nameEl.textContent = node.name;
     row.appendChild(nameEl);
@@ -383,12 +575,12 @@ function _renderTreeNodes(tab, container, nodes, depth, parentPath) {
     if (!isDir) {
       row.addEventListener('click', function() {
         _previewFileInContent(tab, relativePath, node.name);
-        var treeRoot = row.closest('.impl-file-tree-panel');
+        const treeRoot = row.closest('.impl-file-tree-panel');
         if (treeRoot) _setTreeActive(treeRoot, row);
         // Also clear paper row active state
-        var parentContainer = treeRoot ? treeRoot.parentElement : null;
+        const parentContainer = treeRoot ? treeRoot.parentElement : null;
         if (parentContainer) {
-          var paperRow = parentContainer.querySelector('.impl-tree-paper');
+          const paperRow = parentContainer.querySelector('.impl-tree-paper');
           if (paperRow) paperRow.classList.remove('active');
         }
       });
@@ -398,8 +590,8 @@ function _renderTreeNodes(tab, container, nodes, depth, parentPath) {
 
     // Render children inline for dirs (expanded by default)
     if (hasChildren) {
-      var expanded = true;
-      var childContainer = document.createElement('div');
+      let expanded = true;
+      const childContainer = document.createElement('div');
       _renderTreeNodes(tab, childContainer, node.children, depth + 1, relativePath);
       container.appendChild(childContainer);
 
@@ -425,9 +617,9 @@ function _previewFileInContent(tab, relativePath, fileName) {
     }
 
     // Insert preview as sibling of pages container in pdf-body-wrapper
-    var pagesContainer = tab._pdfPagesContainer;
+    const pagesContainer = tab._pdfPagesContainer;
     if (!pagesContainer) return;
-    var wrapper = pagesContainer.parentElement;
+    const wrapper = pagesContainer.parentElement;
     if (!wrapper) return;
 
     // Remove any existing preview
@@ -440,16 +632,32 @@ function _previewFileInContent(tab, relativePath, fileName) {
     pagesContainer.style.display = 'none';
 
     // Create preview element
-    var preview = new View('div').className('impl-content-preview');
+    const preview = new View('div').className('impl-content-preview');
 
-    var header = new View('div').className('impl-preview-header').add(
+    const header = new View('div').className('impl-preview-header').add(
       new View('button').className('impl-preview-close').text('\u2190').onTap(function() {
         _restorePdfView(tab);
       }),
       Text(fileName).className('impl-preview-title')
     );
 
-    var content = new View('pre').className('impl-preview-content').text(result.content);
+    if (fileName.endsWith('.ipynb')) {
+      let nbData;
+      try { nbData = JSON.parse(result.content); } catch (e) { nbData = null; }
+      if (nbData && typeof window._notebookViewerInit === 'function') {
+        const nbContainer = new View('div').className('impl-preview-notebook');
+        nbContainer.el.style.cssText = 'flex:1;overflow:auto;';
+        tab._nbParsedData = nbData;
+        tab.localPath = tab._implFolderPath + '/' + relativePath;
+        preview.add(header, nbContainer);
+        wrapper.appendChild(preview.el);
+        tab._implPreviewEl = preview.el;
+        window._notebookViewerInit(tab, nbContainer.el, nbData);
+        return;
+      }
+    }
+
+    const content = new View('pre').className('impl-preview-content').text(result.content);
 
     preview.add(header, content);
     wrapper.appendChild(preview.el);
@@ -458,6 +666,10 @@ function _previewFileInContent(tab, relativePath, fileName) {
 }
 
 function _restorePdfView(tab) {
+  if (typeof window._notebookViewerDestroy === 'function') {
+    window._notebookViewerDestroy(tab);
+  }
+  tab._nbParsedData = null;
   if (tab._implPreviewEl) {
     tab._implPreviewEl.remove();
     tab._implPreviewEl = null;
@@ -472,17 +684,64 @@ function _restorePdfView(tab) {
 export function _renderImplTreeInline(tab, container) {
   if (!tab || !tab._implSessionId || !tab._implFolderPath) return;
 
+  // Position container for absolute plus button
+  container.style.position = 'relative';
+
+  // New file dropdown (top-right)
+  const _newFileTypes = [
+    { label: 'Python', ext: '.py' }, { label: 'JavaScript', ext: '.js' }, { label: 'TypeScript', ext: '.ts' },
+    { label: 'Go', ext: '.go' }, { label: 'Rust', ext: '.rs' }, { label: 'C', ext: '.c' },
+    { label: 'C++', ext: '.cpp' }, { label: 'Java', ext: '.java' },
+    { divider: true },
+    { label: 'HTML', ext: '.html' }, { label: 'CSS', ext: '.css' }, { label: 'JSON', ext: '.json' }, { label: 'YAML', ext: '.yaml' },
+    { divider: true },
+    { label: 'Markdown', ext: '.md' }, { label: 'Text', ext: '.txt' },
+    { divider: true },
+    { label: 'Jupyter Notebook', ext: '.ipynb' },
+    { divider: true },
+    { label: 'Dockerfile', ext: '' }, { label: '.env', ext: '' }, { label: '.gitignore', ext: '' }, { label: 'Makefile', ext: '' }
+  ];
+  // fileTreeEl declared later, referenced in closure (fine)
+  let fileTreeEl;
+  const _newFileItems = _newFileTypes.map(function(t) {
+    if (t.divider) return t;
+    const defaultName = t.ext ? 'untitled' + t.ext : t.label;
+    const iconInfo = _getFileIcon(defaultName);
+    return {
+      icon: icon(iconInfo.iconName, { size: 14 }),
+      label: t.label + (t.ext ? ' (' + t.ext + ')' : ''),
+      handler: async function() {
+        const name = await _promptDialog('File name:', defaultName);
+        if (!name) return;
+        let content = '';
+        if (name.endsWith('.ipynb')) {
+          content = JSON.stringify({ cells: [{ cell_type: 'code', source: [], metadata: {}, outputs: [], execution_count: null }], metadata: { kernelspec: { display_name: 'Python 3', language: 'python', name: 'python3' }, language_info: { name: 'python', version: '3.10.0' } }, nbformat: 4, nbformat_minor: 5 }, null, 2);
+        }
+        electronAPI.implWriteFile(tab._implFolderPath, name, content).then(function() {
+          _refreshFileTree(tab, fileTreeEl);
+          _previewFileInContent(tab, name, name);
+        });
+      }
+    };
+  });
+  const newFileDropdown = Dropdown(null, _newFileItems, { placeholder: 'New file' });
+  newFileDropdown.el.style.cssText = 'position:absolute;top:4px;right:6px;z-index:1;border:none;padding:2px;opacity:0.5;';
+  newFileDropdown.el.title = 'New file';
+  newFileDropdown.el.addEventListener('mouseenter', function() { newFileDropdown.el.style.opacity = '1'; });
+  newFileDropdown.el.addEventListener('mouseleave', function() { newFileDropdown.el.style.opacity = '0.5'; });
+  container.appendChild(newFileDropdown.el);
+
   // Paper source row
-  var paperRow = document.createElement('div');
+  const paperRow = document.createElement('div');
   paperRow.className = 'impl-tree-row impl-tree-paper';
-  var paperChevron = document.createElement('span');
+  const paperChevron = document.createElement('span');
   paperChevron.className = 'impl-tree-chevron';
   paperRow.appendChild(paperChevron);
-  var paperIcon = document.createElement('span');
+  const paperIcon = document.createElement('span');
   paperIcon.className = 'impl-tree-icon';
   paperIcon.innerHTML = icon('fileText', { size: 14 });
   paperRow.appendChild(paperIcon);
-  var paperName = document.createElement('span');
+  const paperName = document.createElement('span');
   paperName.className = 'impl-tree-name';
   paperName.textContent = tab.title || (tab.url ? tab.url.split('/').pop() : 'Paper');
   paperName.title = tab.url || tab.localPath || '';
@@ -492,45 +751,45 @@ export function _renderImplTreeInline(tab, container) {
     _restorePdfView(tab);
     // Set paper row active, clear file tree active states
     paperRow.classList.add('active');
-    var treePanel = container.querySelector('.impl-file-tree-panel');
+    const treePanel = container.querySelector('.impl-file-tree-panel');
     if (treePanel) _setTreeActive(treePanel, null);
     if (typeof window._pdfViewerScrollToPage === 'function') window._pdfViewerScrollToPage(tab, 1);
   });
   container.appendChild(paperRow);
 
   // Highlights folder (collapsible)
-  var highlights = tab._pdfHighlights || [];
+  const highlights = tab._pdfHighlights || [];
   if (highlights.length) {
-    var hlRow = document.createElement('div');
+    const hlRow = document.createElement('div');
     hlRow.className = 'impl-tree-row';
-    var hlFolderIcon = document.createElement('span');
+    const hlFolderIcon = document.createElement('span');
     hlFolderIcon.className = 'impl-tree-icon impl-icon-folder';
     hlFolderIcon.innerHTML = icon('folderOpen', { size: 14 });
     hlRow.appendChild(hlFolderIcon);
-    var hlName = document.createElement('span');
+    const hlName = document.createElement('span');
     hlName.className = 'impl-tree-name';
     hlName.textContent = 'Highlights (' + highlights.length + ')';
     hlRow.appendChild(hlName);
     container.appendChild(hlRow);
 
-    var hlChildren = document.createElement('div');
+    const hlChildren = document.createElement('div');
     highlights.forEach(function(hl, idx) {
-      var row = document.createElement('div');
+      const row = document.createElement('div');
       row.className = 'impl-tree-row';
-      var hlIndent = document.createElement('span');
+      const hlIndent = document.createElement('span');
       hlIndent.className = 'impl-tree-indent';
       row.appendChild(hlIndent);
-      var badge = document.createElement('span');
+      const badge = document.createElement('span');
       badge.className = 'impl-tree-icon';
       badge.style.cssText = 'width:8px;height:8px;border-radius:50%;display:inline-block;background:' + (hl.color || 'rgba(255,235,59,0.6)');
       row.appendChild(badge);
-      var text = document.createElement('span');
+      const text = document.createElement('span');
       text.className = 'impl-tree-name';
       text.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
       text.textContent = (hl.text || '').slice(0, 60) + (hl.text && hl.text.length > 60 ? '\u2026' : '');
       text.title = hl.text || '';
       row.appendChild(text);
-      var page = document.createElement('span');
+      const page = document.createElement('span');
       page.style.cssText = 'margin-left:auto;font-size:0.7rem;opacity:0.5;flex-shrink:0;';
       page.textContent = 'p.' + hl.pageNum;
       row.appendChild(page);
@@ -541,7 +800,7 @@ export function _renderImplTreeInline(tab, container) {
     });
     container.appendChild(hlChildren);
 
-    var hlExpanded = true;
+    let hlExpanded = true;
     hlRow.addEventListener('click', function() {
       hlExpanded = !hlExpanded;
       hlChildren.style.display = hlExpanded ? '' : 'none';
@@ -550,7 +809,7 @@ export function _renderImplTreeInline(tab, container) {
   }
 
   // File tree
-  var fileTreeEl = document.createElement('div');
+  fileTreeEl = document.createElement('div');
   fileTreeEl.className = 'impl-file-tree-panel';
   container.appendChild(fileTreeEl);
 
@@ -559,6 +818,106 @@ export function _renderImplTreeInline(tab, container) {
   if (!tab._implFileHandler) {
     _startWatcher(tab, fileTreeEl);
   }
+
+  // Implementation session dropdown at bottom
+  _renderImplDropdown(tab, container);
+}
+
+function _implSessionLabel(s) {
+  if (s.name) return s.name;
+  const parts = s.id.split('-');
+  return parts.length > 1 ? parts[1].slice(0, 8) : s.id.slice(0, 8);
+}
+
+function _renderImplDropdown(tab, container) {
+  if (!window.electronAPI || !window.electronAPI.implList) return;
+
+  const dropdown = Dropdown(null, null, { placeholder: 'Implement' });
+  dropdown.el.style.cssText = 'margin-top:auto;border-top:1px solid var(--nr-border-dim);padding-top:6px;margin-top:8px;width:100%;';
+  dropdown.el.title = 'Switch implementation session';
+
+  container.appendChild(dropdown.el);
+
+  let _implHasSessions = false;
+  const _labelSpan = dropdown.el.querySelector('.nr-dropdown-label');
+  const _chevronSpan = dropdown.el.querySelector('.nr-dropdown-chevron');
+
+  function refresh() {
+    electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
+      if (!sessions || sessions.error) sessions = [];
+      _implHasSessions = sessions.length > 0;
+      if (tab._implSessionId) {
+        const active = sessions.find(function(s) { return s.id === tab._implSessionId; });
+        _labelSpan.textContent = active ? _implSessionLabel(active) : 'Active';
+        _labelSpan.style.color = 'var(--nr-accent)';
+        _chevronSpan.style.display = '';
+      } else if (sessions.length > 0) {
+        _labelSpan.textContent = 'Implement';
+        _labelSpan.style.color = '';
+        _chevronSpan.style.display = '';
+      } else {
+        _labelSpan.textContent = 'Implement';
+        _labelSpan.style.color = '';
+        _chevronSpan.style.display = 'none';
+      }
+    });
+  }
+
+  dropdown.onOpen(function() {
+    if (!_implHasSessions && !tab._implSessionId) {
+      if (window._implSessionEnable) window._implSessionEnable(tab);
+      setTimeout(refresh, 1500);
+      return;
+    }
+    electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
+      if (!sessions || sessions.error) sessions = [];
+      const items = [];
+
+      sessions.forEach(function(s) {
+        const age = (Date.now() / 1000 - s.created_at);
+        const ageStr = age < 3600 ? Math.floor(age / 60) + 'm ago' : age < 86400 ? Math.floor(age / 3600) + 'h ago' : Math.floor(age / 86400) + 'd ago';
+        const isActive = tab._implSessionId === s.id;
+        items.push({
+          label: _implSessionLabel(s) + (isActive ? ' \u25cf' : ''),
+          trailing: function() { return Text(ageStr).cssText('font-size:0.65rem; opacity:0.5;'); },
+          handler: function() {
+            if (window._implSessionEnable) window._implSessionEnable(tab, s.id);
+          }
+        });
+      });
+
+      if (sessions.length) items.push({ divider: true });
+
+      if (tab._implSessionId) {
+        items.push({
+          icon: icon('edit', { size: 14 }),
+          label: 'Rename\u2026',
+          handler: async function() {
+            const current = sessions.find(function(s) { return s.id === tab._implSessionId; });
+            const currentName = current ? _implSessionLabel(current) : '';
+            const newName = await _promptDialog('Session name:', currentName);
+            if (newName !== null && newName !== currentName) {
+              electronAPI.implRename(tab._implSessionId, newName.trim()).then(refresh);
+            }
+          }
+        });
+      }
+
+      items.push({
+        icon: icon('plus', { size: 14 }),
+        label: 'New implementation',
+        handler: function() {
+          if (window._implSessionEnable) window._implSessionEnable(tab);
+          setTimeout(refresh, 1500);
+        }
+      });
+
+      Menu(dropdown, items);
+    });
+  });
+
+  tab._implRefreshBtn = refresh;
+  refresh();
 }
 
 // ── File Watcher ──
@@ -568,8 +927,8 @@ function _startWatcher(tab, fileTreeEl) {
 
   electronAPI.implWatchStart(tab._implSessionId, tab._implFolderPath);
 
-  var debounce = null;
-  var handler = function(_ev, sid) {
+  let debounce = null;
+  const handler = function(_ev, sid) {
     if (sid !== tab._implSessionId) return;
     clearTimeout(debounce);
     debounce = setTimeout(function() {
