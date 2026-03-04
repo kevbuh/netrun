@@ -208,8 +208,10 @@ function _animateExpand(wrap) {
   if (leftCol) leftCol.style.opacity = '0';
 
   // 8. Create ghost favicons with subtle scale pulse + cross-fade
+  // Reverse so rightmost favicons (longest travel distance) depart first
   var cancelled = false;
-  var ghosts = _createGhostAnimation(compactFavicons, expandedMap, 260, 20, { scalePulse: true, crossFade: true });
+  var departOrder = compactFavicons.slice().reverse();
+  var ghosts = _createGhostAnimation(departOrder, expandedMap, 260, 20, { scalePulse: true, crossFade: true });
 
   // 9. Animate wrapper height + width + border-radius growth (Dynamic Island style)
   wrap.style.willChange = 'width, height, border-radius';
