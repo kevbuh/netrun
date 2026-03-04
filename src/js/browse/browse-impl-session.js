@@ -58,26 +58,34 @@ function _createSession(tab) {
 
   if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Preparing implementation...');
 
-  // Extract structured markdown from PDF (with headings, tables, paragraph merging)
-  // Falls back to raw PDF.js text extraction if pdf:to-md fails
-  var textPromise = _getPdfPath(tab).then(function(pdfPath) {
-    if (!pdfPath) {
-      console.log('[impl] no PDF path, falling back to PDF.js text extraction');
-      return _pdfViewerGetText(tab).then(function(t) { return t || ''; });
-    }
-    console.log('[impl] extracting structured markdown via pdf:to-md');
-    return electronAPI.pdfToMd(pdfPath).then(function(result) {
-      if (result && result.ok && result.text) {
-        console.log('[impl] pdf:to-md succeeded:', result.pageCount, 'pages,', result.text.length, 'chars');
-        return result.text;
+  // Extract text content — notebook or PDF
+  var isNotebook = typeof window._isNotebookTab === 'function' && window._isNotebookTab(tab);
+  var textPromise;
+  if (isNotebook) {
+    // Notebooks: use _notebookViewerGetText synchronously
+    var nbText = (typeof window._notebookViewerGetText === 'function') ? window._notebookViewerGetText(tab) : '';
+    textPromise = Promise.resolve(nbText || '');
+  } else {
+    // PDF: extract structured markdown, falls back to raw PDF.js text extraction
+    textPromise = _getPdfPath(tab).then(function(pdfPath) {
+      if (!pdfPath) {
+        console.log('[impl] no PDF path, falling back to PDF.js text extraction');
+        return _pdfViewerGetText(tab).then(function(t) { return t || ''; });
       }
-      console.log('[impl] pdf:to-md failed, falling back to PDF.js:', result && result.error);
-      return _pdfViewerGetText(tab).then(function(t) { return t || ''; });
+      console.log('[impl] extracting structured markdown via pdf:to-md');
+      return electronAPI.pdfToMd(pdfPath).then(function(result) {
+        if (result && result.ok && result.text) {
+          console.log('[impl] pdf:to-md succeeded:', result.pageCount, 'pages,', result.text.length, 'chars');
+          return result.text;
+        }
+        console.log('[impl] pdf:to-md failed, falling back to PDF.js:', result && result.error);
+        return _pdfViewerGetText(tab).then(function(t) { return t || ''; });
+      });
+    }).catch(function(err) {
+      console.log('[impl] pdf:to-md error, falling back to PDF.js:', err);
+      return _pdfViewerGetText(tab).then(function(t) { return t || ''; }).catch(function() { return ''; });
     });
-  }).catch(function(err) {
-    console.log('[impl] pdf:to-md error, falling back to PDF.js:', err);
-    return _pdfViewerGetText(tab).then(function(t) { return t || ''; }).catch(function() { return ''; });
-  });
+  }
 
   textPromise.then(function(fullText) {
     electronAPI.implCreate({
@@ -102,6 +110,7 @@ function _createSession(tab) {
       tab._implSessionId = result.id;
       tab._implFolderPath = result.folderPath;
       if (tab._implRefreshBtn) tab._implRefreshBtn();
+      if (typeof window._refreshFilesContent === 'function') window._refreshFilesContent();
 
       // Auto-switch to terminal tab and flag for auto-launch
       tab._implAutoLaunchClaude = true;
@@ -121,6 +130,7 @@ function _resumeSession(tab, sessionId) {
     tab._implSessionId = session.id;
     tab._implFolderPath = session.folder_path;
     if (tab._implRefreshBtn) tab._implRefreshBtn();
+    if (typeof window._refreshFilesContent === 'function') window._refreshFilesContent();
     switchPanelTab('nerd-terminal');
   });
 }
@@ -386,6 +396,90 @@ function _previewFileInPanel(tab, relativePath, fileName, panelContainer, getTab
     preview.add(header, content);
     AetherUI.mount(preview, panelContainer);
   });
+}
+
+// ── Inline tree renderer (for left sidebar) ──
+
+export function _renderImplTreeInline(tab, container) {
+  if (!tab || !tab._implSessionId || !tab._implFolderPath) return;
+
+  // Sync highlights button
+  var syncBtn = document.createElement('button');
+  syncBtn.className = 'nerd-sync-btn';
+  syncBtn.innerHTML = icon('highlighter', { size: 12 }) + ' Sync highlights';
+  syncBtn.onclick = function() {
+    _syncHighlightsToClaude(tab).then(function(ok) {
+      if (typeof Aether !== 'undefined' && Aether.toast) {
+        Aether.toast(ok ? 'Highlights synced to CLAUDE.md' : 'Failed to sync highlights');
+      }
+    });
+  };
+  container.appendChild(syncBtn);
+
+  // Highlights folder (collapsible)
+  var highlights = tab._pdfHighlights || [];
+  if (highlights.length) {
+    var hlRow = document.createElement('div');
+    hlRow.className = 'impl-tree-row';
+    hlRow.style.paddingLeft = '8px';
+    var hlIcon = document.createElement('span');
+    hlIcon.className = 'impl-tree-icon';
+    hlIcon.textContent = '\u25BC';
+    hlRow.appendChild(hlIcon);
+    var hlName = document.createElement('span');
+    hlName.className = 'impl-tree-name';
+    hlName.textContent = 'Highlights (' + highlights.length + ')';
+    hlRow.appendChild(hlName);
+    container.appendChild(hlRow);
+
+    var hlChildren = document.createElement('div');
+    highlights.forEach(function(hl, idx) {
+      var row = document.createElement('div');
+      row.className = 'impl-tree-row';
+      row.style.paddingLeft = '22px';
+      var badge = document.createElement('span');
+      badge.className = 'impl-tree-icon';
+      badge.style.cssText = 'width:8px;height:8px;border-radius:50%;display:inline-block;background:' + (hl.color || 'rgba(255,235,59,0.6)');
+      row.appendChild(badge);
+      var text = document.createElement('span');
+      text.className = 'impl-tree-name';
+      text.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+      text.textContent = (hl.text || '').slice(0, 60) + (hl.text && hl.text.length > 60 ? '\u2026' : '');
+      text.title = hl.text || '';
+      row.appendChild(text);
+      var page = document.createElement('span');
+      page.style.cssText = 'margin-left:auto;font-size:0.7rem;opacity:0.5;flex-shrink:0;';
+      page.textContent = 'p.' + hl.pageNum;
+      row.appendChild(page);
+      row.addEventListener('click', function() {
+        if (typeof window._pdfViewerScrollToPage === 'function') window._pdfViewerScrollToPage(tab, hl.pageNum);
+      });
+      hlChildren.appendChild(row);
+    });
+    container.appendChild(hlChildren);
+
+    var hlExpanded = true;
+    hlRow.addEventListener('click', function() {
+      hlExpanded = !hlExpanded;
+      hlChildren.style.display = hlExpanded ? '' : 'none';
+      hlIcon.textContent = hlExpanded ? '\u25BC' : '\u25B6';
+    });
+  }
+
+  // File tree
+  var fileTreeEl = document.createElement('div');
+  fileTreeEl.className = 'impl-file-tree-panel';
+  container.appendChild(fileTreeEl);
+
+  // panelContainer for file preview — use the right panel content
+  var panelContainer = document.getElementById('universal-panel-content');
+  var getTabFn = function() { return tab; };
+
+  _refreshFileTree(tab, fileTreeEl, panelContainer, getTabFn);
+
+  if (!tab._implFileHandler) {
+    _startWatcher(tab, fileTreeEl, panelContainer, getTabFn);
+  }
 }
 
 // ── File Watcher ──

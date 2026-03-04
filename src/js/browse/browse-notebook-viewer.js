@@ -384,16 +384,17 @@ function _buildToolbar(tab) {
   spacer.style.flex = '1';
   toolbar.appendChild(spacer);
 
-  // Outline toggle
-  var outlineBtn = _tbBtn('Outline', function() {
-    var panel = tab._nbOutlinePanel;
+  // Left panel toggle
+  var outlineBtn = _tbBtn('Panel', function() {
+    var panel = tab._nbLeftPanel;
     if (panel) {
-      panel.classList.toggle('visible');
-      outlineBtn.classList.toggle('active', panel.classList.contains('visible'));
+      tab._nbLeftPanelVisible = !tab._nbLeftPanelVisible;
+      panel.classList.toggle('visible', tab._nbLeftPanelVisible);
+      outlineBtn.classList.toggle('active', tab._nbLeftPanelVisible);
     }
   });
-  outlineBtn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="3" y1="4" x2="13" y2="4"/><line x1="5" y1="8" x2="13" y2="8"/><line x1="5" y1="12" x2="13" y2="12"/></svg>';
-  outlineBtn.title = 'Toggle outline';
+  outlineBtn.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1"/><line x1="6" y1="2" x2="6" y2="14"/></svg>';
+  outlineBtn.title = 'Toggle left panel';
   toolbar.appendChild(outlineBtn);
 
   // Zoom
@@ -430,10 +431,50 @@ function _sep() {
   return s;
 }
 
-// ── Outline panel ───────────────────────────────────────────────────
-function _buildOutline(tab) {
+// ── Left panel (Files | Outline) ────────────────────────────────────
+function _buildNbLeftPanel(tab) {
   var panel = document.createElement('div');
-  panel.className = 'nb-outline-panel';
+  panel.className = 'nb-left-panel';
+
+  var tabBar = document.createElement('div');
+  tabBar.className = 'pdf-left-panel-tabs';
+
+  var filesScroll = document.createElement('div');
+  filesScroll.className = 'pdf-thumb-scroll nerd-files-scroll';
+  var outlineScroll = document.createElement('div');
+  outlineScroll.className = 'pdf-outline-scroll';
+  outlineScroll.style.display = 'none';
+
+  tab._nbFilesScroll = filesScroll;
+
+  var filesBtn = document.createElement('button');
+  filesBtn.className = 'pdf-left-panel-tab active';
+  filesBtn.textContent = 'Files';
+  var outlineBtn = document.createElement('button');
+  outlineBtn.className = 'pdf-left-panel-tab';
+  outlineBtn.textContent = 'Outline';
+
+  filesBtn.onclick = function() {
+    filesBtn.classList.add('active'); outlineBtn.classList.remove('active');
+    filesScroll.style.display = ''; outlineScroll.style.display = 'none';
+    if (typeof window._buildFilesContent === 'function') window._buildFilesContent(filesScroll);
+  };
+  outlineBtn.onclick = function() {
+    outlineBtn.classList.add('active'); filesBtn.classList.remove('active');
+    outlineScroll.style.display = ''; filesScroll.style.display = 'none';
+  };
+
+  tabBar.appendChild(filesBtn);
+  tabBar.appendChild(outlineBtn);
+  panel.appendChild(tabBar);
+
+  var content = document.createElement('div');
+  content.className = 'pdf-left-panel-content';
+  content.appendChild(filesScroll);
+  content.appendChild(outlineScroll);
+  panel.appendChild(content);
+
+  // Fill outline
   var cells = tab._nbData.cells || [];
   for (var i = 0; i < cells.length; i++) {
     var cell = cells[i];
@@ -449,8 +490,12 @@ function _buildOutline(tab) {
     item.textContent = text;
     item.dataset.cellIndex = i;
     item.onclick = (function(ci) { return function() { _notebookViewerScrollToCell(tab, ci); }; })(i);
-    panel.appendChild(item);
+    outlineScroll.appendChild(item);
   }
+
+  // Initial files tab selection (ensures display is set and content is built)
+  filesBtn.onclick();
+
   return panel;
 }
 
@@ -739,10 +784,35 @@ export function _notebookViewerInit(tab, viewerEl, notebookData) {
   var bodyWrapper = document.createElement('div');
   bodyWrapper.className = 'nb-body-wrapper';
 
-  // Outline panel
-  var outlinePanel = _buildOutline(tab);
-  bodyWrapper.appendChild(outlinePanel);
-  tab._nbOutlinePanel = outlinePanel;
+  // Left panel (Files | Outline)
+  var leftPanel = _buildNbLeftPanel(tab);
+  bodyWrapper.appendChild(leftPanel);
+  tab._nbLeftPanel = leftPanel;
+  tab._nbLeftPanelVisible = false;
+
+  // Drag handle for resizing left panel
+  var resizeHandle = document.createElement('div');
+  resizeHandle.className = 'pdf-left-panel-resize';
+  bodyWrapper.appendChild(resizeHandle);
+  resizeHandle.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    var startX = e.clientX;
+    var startW = leftPanel.offsetWidth;
+    function onMove(ev) {
+      var w = Math.max(100, Math.min(500, startW + ev.clientX - startX));
+      leftPanel.style.width = w + 'px';
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 
   // Scroll container
   var scrollContainer = document.createElement('div');
@@ -814,7 +884,9 @@ export function _notebookViewerDestroy(tab) {
   tab._nbData = null;
   tab._nbCellsEl = null;
   tab._nbScrollContainer = null;
-  tab._nbOutlinePanel = null;
+  tab._nbLeftPanel = null;
+  tab._nbLeftPanelVisible = false;
+  tab._nbFilesScroll = null;
   tab._nbToolbar = null;
   tab._nbKernelDot = null;
   tab._nbKernelLabel = null;

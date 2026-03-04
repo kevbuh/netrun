@@ -6,6 +6,7 @@ import { icon } from '/js/core/icons.js';
 import { _paperState } from '/js/browse/browse-paper.js';
 import { _generateCiteFormats } from '/js/browse/browse-nerd-panel.js';
 import { togglePanel } from '/js/core/core-nav.js';
+import { _buildFilesContent } from '/js/browse/browse-nerd-mode.js';
 
 // ── PDF.js CDN loader ──
 var _pdfjsLoaded = false;
@@ -107,6 +108,8 @@ export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
           }
         });
       }
+      // Refresh files panel so highlights appear in sidebar
+      if (typeof window._refreshFilesContent === 'function') window._refreshFilesContent();
     });
   }
 
@@ -158,6 +161,31 @@ function _buildViewerDOM(tab, viewerEl) {
   bodyWrapper.add(leftPanelView);
   tab._pdfLeftPanel = leftPanelView.el;
   _buildLeftPanel(tab, leftPanelView);
+
+  // Drag handle for resizing left panel
+  var resizeHandle = document.createElement('div');
+  resizeHandle.className = 'pdf-left-panel-resize';
+  bodyWrapper.el.insertBefore(resizeHandle, leftPanelView.el.nextSibling);
+  resizeHandle.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    var panel = leftPanelView.el;
+    var startX = e.clientX;
+    var startW = panel.offsetWidth;
+    function onMove(ev) {
+      var w = Math.max(100, Math.min(500, startW + ev.clientX - startX));
+      panel.style.width = w + 'px';
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 
   // Pages container
   var pagesContainer = new View('div').className('pdf-pages-container');
@@ -561,39 +589,43 @@ function _buildLeftPanel(tab, leftPanelView) {
   // Tab bar
   var tabBar = new View('div').className('pdf-left-panel-tabs');
 
-  var thumbScroll = new View('div').className('pdf-thumb-scroll');
+  var filesScroll = new View('div').className('pdf-thumb-scroll nerd-files-scroll');
+  var thumbScroll = new View('div').className('pdf-thumb-scroll').style('display', 'none');
   var outlineScroll = new View('div').className('pdf-outline-scroll').style('display', 'none');
 
+  tab._pdfFilesScroll = filesScroll.el;
   tab._pdfThumbScroll = thumbScroll.el;
   tab._pdfOutlineScroll = outlineScroll.el;
 
-  var thumbTab = new View('button')
-    .className('pdf-left-panel-tab active')
-    .text('Thumbnails')
-    .onTap(function() {
-      thumbTab.el.classList.add('active');
-      outlineTab.el.classList.remove('active');
-      thumbScroll.el.style.display = '';
-      outlineScroll.el.style.display = 'none';
-    });
+  var tabBtns = [];
+  var scrolls = [filesScroll.el, thumbScroll.el, outlineScroll.el];
 
-  var outlineTab = new View('button')
-    .className('pdf-left-panel-tab')
-    .text('Outline')
-    .onTap(function() {
-      outlineTab.el.classList.add('active');
-      thumbTab.el.classList.remove('active');
-      outlineScroll.el.style.display = '';
-      thumbScroll.el.style.display = 'none';
-    });
+  function selectLeftTab(idx) {
+    for (var i = 0; i < 3; i++) {
+      scrolls[i].style.display = i === idx ? '' : 'none';
+      tabBtns[i].el.classList.toggle('active', i === idx);
+    }
+    if (idx === 0) _buildFilesContent(filesScroll.el);
+  }
 
-  tabBar.add(thumbTab, outlineTab);
+  var filesTab = new View('button').className('pdf-left-panel-tab active').text('Files')
+    .onTap(function() { selectLeftTab(0); });
+  var thumbTab = new View('button').className('pdf-left-panel-tab').text('Thumbs')
+    .onTap(function() { selectLeftTab(1); });
+  var outlineTab = new View('button').className('pdf-left-panel-tab').text('Outline')
+    .onTap(function() { selectLeftTab(2); });
+
+  tabBtns = [filesTab, thumbTab, outlineTab];
+  tabBar.add(filesTab, thumbTab, outlineTab);
   leftPanelView.add(tabBar);
 
   // Content area
   var content = new View('div').className('pdf-left-panel-content');
-  content.add(thumbScroll, outlineScroll);
+  content.add(filesScroll, thumbScroll, outlineScroll);
   leftPanelView.add(content);
+
+  // Initial files tab selection (ensures display is set and content is built)
+  selectLeftTab(0);
 }
 
 // ── Load Document ──
@@ -1077,6 +1109,9 @@ export function _pdfViewerAddHighlight(tab, highlight) {
   if (window.electronAPI && window.electronAPI.dbQuery && tab._pdfUrl) {
     window.electronAPI.dbQuery('highlight-save', highlight.id, tab._pdfUrl, highlight.pageNum, highlight.text || '', JSON.stringify(highlight.rects), highlight.color || '', highlight.note || '');
   }
+
+  // Refresh sidebar files view to show new highlight
+  if (typeof window._refreshFilesContent === 'function') window._refreshFilesContent();
 }
 
 export function _pdfViewerRemoveHighlight(tab, index) {
@@ -1097,6 +1132,9 @@ export function _pdfViewerRemoveHighlight(tab, index) {
   if (hl.id && window.electronAPI && window.electronAPI.dbQuery) {
     window.electronAPI.dbQuery('highlight-delete', hl.id);
   }
+
+  // Refresh sidebar files view
+  if (typeof window._refreshFilesContent === 'function') window._refreshFilesContent();
 }
 
 // Highlight color popup removed — now in aether panel (panel.js)
