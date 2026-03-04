@@ -993,6 +993,9 @@ export async function loadAllFeeds() {
     AetherUI.mount(window.RawHTML('<div style="grid-column:1/-1" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>'), container);
   }
 
+  // Ensure feedserver is running (lazy start from main process)
+  if (window.electronAPI && electronAPI.feedserverEnsure) electronAPI.feedserverEnsure();
+
   // Fetch from feedserver
   try {
     const result = await _feedFetch('/api/timeline?sort=latest&limit=2000');

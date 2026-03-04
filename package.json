@@ -6,8 +6,8 @@
   "scripts": {
     "postinstall": "node scripts/rename-electron.js",
     "build:core": "npx tsc -p tsconfig.json",
-    "start": "npm run build:core && npm run feedserver:build && (dist/feedserver & FEED_PID=$!; trap 'kill $FEED_PID 2>/dev/null' EXIT; electron .)",
-    "start:dev": "(cd feedserver && go run . & FEED_PID=$!; trap 'kill $FEED_PID 2>/dev/null' EXIT; electron .)",
+    "start": "npm run build:core && electron .",
+    "start:dev": "electron .",
     "feedserver:build": "cd feedserver && go build -o ../dist/feedserver .",
     "feedserver:start": "npm run feedserver:build && (dist/feedserver & FEED_PID=$!; trap 'kill $FEED_PID 2>/dev/null' EXIT; electron .)",
     "feedserver:start-dev": "(cd feedserver && go run . & FEED_PID=$!; trap 'kill $FEED_PID 2>/dev/null' EXIT; electron .)",

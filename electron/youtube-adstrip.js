@@ -4,6 +4,50 @@
 // anti-adblock detection since no page-level JS is modified.
 
 const { net } = require('electron');
+const https = require('https');
+const http = require('http');
+
+/**
+ * Follow redirect chain via Node's native http/https (bypasses Electron's
+ * protocol handler entirely). Returns the final URL after up to 5 hops.
+ * Resolves to the original URL on any error or timeout.
+ */
+function _resolveRedirectChain(url, maxHops = 5) {
+  return new Promise(resolve => {
+    let current = url;
+    let remaining = maxHops;
+
+    function step() {
+      if (remaining-- <= 0) return resolve(current);
+      try {
+        const parsed = new URL(current);
+        const mod = parsed.protocol === 'https:' ? https : http;
+        const req = mod.request({
+          hostname: parsed.hostname,
+          port: parsed.port || undefined,
+          path: parsed.pathname + parsed.search,
+          method: 'HEAD',
+          timeout: 2000,
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+        }, (res) => {
+          res.resume();
+          if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+            try { current = new URL(res.headers.location, current).href; }
+            catch { return resolve(current); }
+            step();
+          } else {
+            resolve(current);
+          }
+        });
+        req.on('error', () => resolve(current));
+        req.on('timeout', () => { req.destroy(); resolve(current); });
+        req.end();
+      } catch { resolve(current); }
+    }
+
+    step();
+  });
+}
 
 function isYouTubeDomain(urlStr) {
   try {
@@ -132,13 +176,49 @@ function registerProtocolInterceptor(ses) {
   ses.protocol.handle('https', async (request) => {
     const url = request.url;
 
-    // Fast path: non-YouTube URLs pass through immediately.
-    // Use redirect:'manual' so the browser sees redirects and updates the
-    // document base URL — without this, sites that redirect (e.g. ReadTheDocs
-    // / → /en/stable/) break because relative resource URLs resolve against
-    // the pre-redirect URL.
+    // Non-YouTube URLs: pass through, but fix redirect-broken base URLs.
+    // Electron's net.fetch silently follows 3xx redirects without updating
+    // the document URL, so relative paths break on sites like ReadTheDocs.
+    // For HTML GET responses, we detect redirects via Node's native https
+    // and inject <base href="finalUrl"> when the URL changed.
     if (!isYouTubeDomain(url)) {
-      return net.fetch(request, { bypassCustomProtocolHandlers: true, redirect: 'manual' });
+      // Start redirect check in parallel for likely-page URLs (skip known asset extensions)
+      const checkRedirect = request.method === 'GET'
+        && !/\.(js|css|png|jpe?g|gif|svg|ico|woff2?|ttf|eot|webp|avif|mp[34]|webm|json|xml|wasm|map|pdf)(\?|#|$)/i.test(url);
+      const redirectP = checkRedirect ? _resolveRedirectChain(url) : null;
+
+      const response = await net.fetch(request, { bypassCustomProtocolHandlers: true });
+
+      // Only inject <base> into successful HTML responses where we checked for redirect
+      if (!redirectP || !response.ok) return response;
+      const ct = response.headers.get('content-type') || '';
+      if (!ct.includes('html')) return response;
+
+      try {
+        const finalUrl = await redirectP;
+        if (finalUrl === url) return response;
+        // Redirect detected — inject <base> so relative URLs resolve correctly
+        const html = await response.text();
+        if (/<base\s/i.test(html)) {
+          // Page already has a <base> tag, don't double up
+          return new Response(html, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+          });
+        }
+        const baseTag = '<base href="' + finalUrl.replace(/"/g, '&quot;') + '">';
+        const patched = /<head([^>]*)>/i.test(html)
+          ? html.replace(/<head([^>]*)>/i, '<head$1>' + baseTag)
+          : baseTag + html;
+        return new Response(patched, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+      } catch {
+        return net.fetch(request, { bypassCustomProtocolHandlers: true });
+      }
     }
 
     const isApi = _isYtApiUrl(url);
