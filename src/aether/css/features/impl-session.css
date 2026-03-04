@@ -12,9 +12,10 @@
 .impl-tree-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  font-size: 0.72rem;
+  gap: 0;
+  padding: 4px 8px 4px 0;
+  font-size: 0.75rem;
+  min-height: 22px;
   color: var(--nr-text-secondary);
   cursor: pointer;
   white-space: nowrap;
@@ -22,6 +23,8 @@
   text-overflow: ellipsis;
   transition: background 0.1s, color 0.1s;
   user-select: none;
+  border-radius: 3px;
+  margin: 0 4px;
 }
 
 .impl-tree-row:hover {
@@ -30,22 +33,44 @@
 }
 
 .impl-tree-row.active {
-  background: var(--nr-accent);
-  color: #fff;
+  background: var(--nr-bg-raised);
+  color: var(--nr-accent);
+}
+
+.impl-tree-indent {
+  width: 14px;
+  flex-shrink: 0;
+  align-self: stretch;
+  border-left: 1px solid var(--nr-border-dim);
+  margin-left: 7px;
+}
+
+.impl-tree-chevron {
+  width: 4px;
+  flex-shrink: 0;
 }
 
 .impl-tree-icon {
   flex-shrink: 0;
-  width: 14px;
-  text-align: center;
-  font-size: 0.7rem;
-  opacity: 0.7;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
 }
 
 .impl-tree-name {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.impl-icon-blue { color: #519aba; }
+.impl-icon-yellow { color: #cbcb41; }
+.impl-icon-purple { color: #a074c4; }
+.impl-icon-orange { color: #e37933; }
+.impl-icon-green { color: #8dc149; }
+.impl-icon-accent { color: var(--nr-accent); }
+.impl-icon-folder { color: #c09553; }
 
 /* ── File Preview ── */
 

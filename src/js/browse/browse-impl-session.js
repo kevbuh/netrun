@@ -304,6 +304,22 @@ function _buildHighlightsSection(highlights) {
   return lines.join('\n');
 }
 
+// ── File Icon Helper ──
+
+function _getFileIcon(filename) {
+  var ext = filename.lastIndexOf('.') !== -1 ? filename.slice(filename.lastIndexOf('.')).toLowerCase() : '';
+  if (filename === 'CLAUDE.md') return { iconName: 'fileText', colorClass: 'impl-icon-accent' };
+  switch (ext) {
+    case '.py': return { iconName: 'code', colorClass: 'impl-icon-blue' };
+    case '.js': case '.ts': case '.tsx': case '.jsx': return { iconName: 'code', colorClass: 'impl-icon-yellow' };
+    case '.json': return { iconName: 'fileText', colorClass: 'impl-icon-green' };
+    case '.css': case '.scss': return { iconName: 'code', colorClass: 'impl-icon-purple' };
+    case '.html': case '.htm': return { iconName: 'code', colorClass: 'impl-icon-orange' };
+    case '.md': case '.txt': case '.rst': return { iconName: 'fileText', colorClass: '' };
+    default: return { iconName: 'fileText', colorClass: '' };
+  }
+}
+
 // ── File Tree ──
 
 function _refreshFileTree(tab, treeContainer) {
@@ -330,11 +346,33 @@ function _renderTreeNodes(tab, container, nodes, depth, parentPath) {
     var relativePath = parentPath ? parentPath + '/' + node.name : node.name;
     var row = document.createElement('div');
     row.className = 'impl-tree-row';
-    row.style.paddingLeft = (8 + depth * 14) + 'px';
 
+    // Indent guides
+    for (var i = 0; i < depth; i++) {
+      var guide = document.createElement('span');
+      guide.className = 'impl-tree-indent';
+      row.appendChild(guide);
+    }
+
+    var isDir = node.type === 'dir';
+    var hasChildren = isDir && node.children && node.children.length;
+
+    // Spacer
+    var chevronEl = document.createElement('span');
+    chevronEl.className = 'impl-tree-chevron';
+    row.appendChild(chevronEl);
+
+    // Icon
     var iconEl = document.createElement('span');
     iconEl.className = 'impl-tree-icon';
-    iconEl.textContent = node.type === 'dir' ? '\u25B6' : '\u25CB';
+    if (isDir) {
+      iconEl.innerHTML = icon('folderOpen', { size: 14 });
+      iconEl.classList.add('impl-icon-folder');
+    } else {
+      var fi = _getFileIcon(node.name);
+      iconEl.innerHTML = icon(fi.iconName, { size: 14 });
+      if (fi.colorClass) iconEl.classList.add(fi.colorClass);
+    }
     row.appendChild(iconEl);
 
     var nameEl = document.createElement('span');
@@ -342,7 +380,7 @@ function _renderTreeNodes(tab, container, nodes, depth, parentPath) {
     nameEl.textContent = node.name;
     row.appendChild(nameEl);
 
-    if (node.type === 'file') {
+    if (!isDir) {
       row.addEventListener('click', function() {
         _previewFileInContent(tab, relativePath, node.name);
         var treeRoot = row.closest('.impl-file-tree-panel');
@@ -359,7 +397,7 @@ function _renderTreeNodes(tab, container, nodes, depth, parentPath) {
     container.appendChild(row);
 
     // Render children inline for dirs (expanded by default)
-    if (node.type === 'dir' && node.children && node.children.length) {
+    if (hasChildren) {
       var expanded = true;
       var childContainer = document.createElement('div');
       _renderTreeNodes(tab, childContainer, node.children, depth + 1, relativePath);
@@ -369,9 +407,8 @@ function _renderTreeNodes(tab, container, nodes, depth, parentPath) {
       row.addEventListener('click', function() {
         expanded = !expanded;
         childContainer.style.display = expanded ? '' : 'none';
-        iconEl.textContent = expanded ? '\u25BC' : '\u25B6';
+        iconEl.innerHTML = icon(expanded ? 'folderOpen' : 'folderClosed', { size: 14 });
       });
-      iconEl.textContent = '\u25BC';
     }
   });
 }
@@ -438,10 +475,12 @@ export function _renderImplTreeInline(tab, container) {
   // Paper source row
   var paperRow = document.createElement('div');
   paperRow.className = 'impl-tree-row impl-tree-paper';
-  paperRow.style.paddingLeft = '8px';
+  var paperChevron = document.createElement('span');
+  paperChevron.className = 'impl-tree-chevron';
+  paperRow.appendChild(paperChevron);
   var paperIcon = document.createElement('span');
   paperIcon.className = 'impl-tree-icon';
-  paperIcon.textContent = '\uD83D\uDCC4';
+  paperIcon.innerHTML = icon('fileText', { size: 14 });
   paperRow.appendChild(paperIcon);
   var paperName = document.createElement('span');
   paperName.className = 'impl-tree-name';
@@ -464,11 +503,10 @@ export function _renderImplTreeInline(tab, container) {
   if (highlights.length) {
     var hlRow = document.createElement('div');
     hlRow.className = 'impl-tree-row';
-    hlRow.style.paddingLeft = '8px';
-    var hlIcon = document.createElement('span');
-    hlIcon.className = 'impl-tree-icon';
-    hlIcon.textContent = '\u25BC';
-    hlRow.appendChild(hlIcon);
+    var hlFolderIcon = document.createElement('span');
+    hlFolderIcon.className = 'impl-tree-icon impl-icon-folder';
+    hlFolderIcon.innerHTML = icon('folderOpen', { size: 14 });
+    hlRow.appendChild(hlFolderIcon);
     var hlName = document.createElement('span');
     hlName.className = 'impl-tree-name';
     hlName.textContent = 'Highlights (' + highlights.length + ')';
@@ -479,7 +517,9 @@ export function _renderImplTreeInline(tab, container) {
     highlights.forEach(function(hl, idx) {
       var row = document.createElement('div');
       row.className = 'impl-tree-row';
-      row.style.paddingLeft = '22px';
+      var hlIndent = document.createElement('span');
+      hlIndent.className = 'impl-tree-indent';
+      row.appendChild(hlIndent);
       var badge = document.createElement('span');
       badge.className = 'impl-tree-icon';
       badge.style.cssText = 'width:8px;height:8px;border-radius:50%;display:inline-block;background:' + (hl.color || 'rgba(255,235,59,0.6)');
@@ -505,7 +545,7 @@ export function _renderImplTreeInline(tab, container) {
     hlRow.addEventListener('click', function() {
       hlExpanded = !hlExpanded;
       hlChildren.style.display = hlExpanded ? '' : 'none';
-      hlIcon.textContent = hlExpanded ? '\u25BC' : '\u25B6';
+      hlFolderIcon.innerHTML = icon(hlExpanded ? 'folderOpen' : 'folderClosed', { size: 14 });
     });
   }
 
