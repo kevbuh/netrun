@@ -5,6 +5,7 @@ import { icon } from '/js/core/icons.js';
 import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
 import { _annotationsEnabled, _showAnnotateOfferPill, _updateAnnotateButtonState } from '/js/browse/browse-annotations.js';
 import { _browseApplyAdaptiveColor, _browseSetUrlDisplay, _browseUpdateAdBlockBadge, _browseUrlDomain, _saveBrowseVisit } from '/js/browse-urlbar.js';
+import { _nerdModeEnabled } from '/js/browse/browse-nerd-mode.js';
 import { _browseCollapseEmptyWindows, browseNewTab } from '/js/browse/browse-windows.js';
 import { _isBrowseStackNavigation, _clearBrowseStackNavigation, _browseTitleFromUrl, _browseFaviconUrl } from '/js/toolbar/toolbar-nav.js';
 import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
@@ -115,22 +116,13 @@ export function _browseHandleNavigation(tab, frame) {
       } else if (window._nerdModeSticky && window._nerdModeSticky.has(tab.id)) {
         // Tab previously had nerd mode — re-enable automatically
         setTimeout(function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); }, 300);
-      } else {
-        islandUpdate('nerd-offer', {
-          type: 'nerd',
-          label: 'Nerd Mode?',
-          icon: icon('glasses', { size: 14 }),
-          action: function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); islandRemove('nerd-offer'); }
-        });
       }
-    } else {
-      islandRemove('nerd-offer');
     }
     // Update nav buttons so back/forward reflect history stacks
     if (typeof window._updateIslandNavButtons === 'function') window._updateIslandNavButtons();
     // Clear adaptive color on navigation (will re-extract on did-finish-load)
     tab.themeColor = null;
-    if (_browseActiveTab === tab.id && typeof _browseApplyAdaptiveColor === 'function') _browseApplyAdaptiveColor(tab);
+    if (_browseActiveTab === tab.id && !_nerdModeEnabled.get(tab.id) && typeof _browseApplyAdaptiveColor === 'function') _browseApplyAdaptiveColor(tab);
   });
   frame.addEventListener('did-navigate-in-page', (e) => {
     if (!e.isMainFrame) return;
@@ -265,7 +257,7 @@ export function _browseHandleNavigation(tab, frame) {
           })()`
         ).then(color => {
           if (color) tab.themeColor = color;
-          if (_browseActiveTab === tab.id && typeof _browseApplyAdaptiveColor === 'function') _browseApplyAdaptiveColor(tab);
+          if (_browseActiveTab === tab.id && !_nerdModeEnabled.get(tab.id) && typeof _browseApplyAdaptiveColor === 'function') _browseApplyAdaptiveColor(tab);
         }).catch(() => {});
       } catch {}
     });

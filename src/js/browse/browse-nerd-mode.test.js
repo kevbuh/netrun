@@ -130,7 +130,6 @@ describe('nerd mode toggle behavior', () => {
     if (!_isPdfTab(tab)) return false;
     nerdModeEnabled.set(tab.id, true);
     nerdModeSticky.add(tab.id);
-    islandRemove('nerd-offer');
     islandUpdate('nerd', {
       type: 'nerd',
       label: 'PDF view',
@@ -191,12 +190,6 @@ describe('nerd mode toggle behavior', () => {
     simulateDisable(tab);
     expect(islandRemoveCalls).toContain('nerd');
     expect(nerdModeEnabled.has('t1')).toBe(false);
-  });
-
-  it('enable removes nerd-offer pill', () => {
-    const tab = { id: 't1', url: 'https://example.com/paper.pdf' };
-    simulateEnable(tab);
-    expect(islandRemoveCalls).toContain('nerd-offer');
   });
 
   it('tab select with nerd active shows pill with "PDF view" and action', () => {
