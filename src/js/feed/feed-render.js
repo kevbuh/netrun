@@ -1,7 +1,7 @@
 import Settings from '/js/core/core-settings.js';
 import { ipcRoute } from '/js/api-ipc.js';
 import { apiPost, apiGet, apiDelete } from '/js/api.js';
-import { formatDate, escapeHtml, escapeAttr, stripHtml, getPaperRatings, getPaperRating, truncate, renderTitle, renderStarRating } from '/js/core/core-utils.js';
+import { formatDate, escapeHtml, escapeAttr, stripHtml, getPaperRatings, getPaperRating, _normalizeRatingKey, truncate, renderTitle, renderStarRating } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { getLS, setLS } from '/js/core/core-auth.js';
 import { _isNewTabClick, _openInNewTab } from '/js/core/core-layout.js';
@@ -46,7 +46,7 @@ export function _renderPaperCompactRow(p, i, ctx) {
     window.RawHTML('<span class="text-[0.82rem] ' + (isRead ? 'text-muted' : 'text-primary') + ' truncate">' + renderTitle(p.title) + '</span>'),
     actionWrap,
     _scoreBadge(p),
-    (function() { var dd = _displayDate(p); return dd ? window.Text(dd).className('text-[0.68rem] text-dim shrink-0') : null; })()
+    (function() { const dd = _displayDate(p); return dd ? window.Text(dd).className('text-[0.68rem] text-dim shrink-0') : null; })()
   ).spacing(2).className('py-1.5 px-1 cursor-pointer rounded hover:bg-hover transition-colors')
     .onTap(function(e) { openPaper(i, e); });
   return window.VStack(row, _cardCommentContainer(p, i))
@@ -92,9 +92,9 @@ export function _renderPaperCard(p, i, ctx) {
     else if (p.citations !== undefined) metaItems.push(window.Text(p.citations + ' cited').className('text-[0.68rem] text-dim'));
   }
   if (userRating > 0) metaItems.push(window.RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
-  var dd = _displayDate(p);
+  const dd = _displayDate(p);
   if (dd) metaItems.push(window.Text(dd).className('text-[0.68rem] text-dim'));
-  var badge = _scoreBadge(p);
+  const badge = _scoreBadge(p);
   if (badge) metaItems.push(badge);
   metaItems.push(_cardActionRow(p, i, ctx));
   const metaRow = HStack(metaItems).spacing(2).className('flex-wrap mt-2');
@@ -152,9 +152,9 @@ export function _renderPaperVerboseCard(p, i, ctx) {
     else if (p.citations !== undefined) metaItems.push(window.Text(p.citations + ' cited').className('text-[0.72rem] text-dim'));
   }
   if (userRating > 0) metaItems.push(window.RawHTML(renderStarRating(p.link, { size: 'sm', interactive: false })));
-  var dd2 = _displayDate(p);
+  const dd2 = _displayDate(p);
   if (dd2) metaItems.push(window.Text(dd2).className('text-[0.72rem] text-dim'));
-  var vBadge = _scoreBadge(p);
+  const vBadge = _scoreBadge(p);
   if (vBadge) metaItems.push(vBadge);
   metaItems.push(_cardActionRow(p, i, ctx));
   const metaRow = HStack(metaItems).spacing(2).className('flex-wrap mt-3');
@@ -207,7 +207,7 @@ export function _renderPaperTwitterCard(p, i, ctx) {
   headerItems.push(window.Text('@' + handle).className('text-[0.8rem] text-dimmer'));
   headerItems.push(window.Text('\u00b7').className('text-dimmer'));
   headerItems.push(window.Text(tAgo).className('text-[0.8rem] text-dimmer'));
-  var tBadge = _scoreBadge(p);
+  const tBadge = _scoreBadge(p);
   if (tBadge) headerItems.push(tBadge);
   const headerRow = HStack(headerItems).spacing(1).className('flex-wrap');
 
@@ -329,7 +329,7 @@ export function _renderFilteredPapers(filtered, ctx) {
 
 let _feedWorker = null;
 let _workerRequestId = 0;
-let _workerResolves = new Map();
+const _workerResolves = new Map();
 
 function _getFeedWorker() {
   if (_feedWorker) return _feedWorker;
@@ -348,9 +348,9 @@ function _getFeedWorker() {
 }
 
 function _handleWorkerMessage(e) {
-  var msg = e.data;
+  const msg = e.data;
   if (msg.type === 'scored') {
-    var resolve = _workerResolves.get(msg.requestId);
+    const resolve = _workerResolves.get(msg.requestId);
     _workerResolves.delete(msg.requestId);
     if (resolve) resolve(msg);
   }
@@ -362,9 +362,9 @@ function _cancelPendingWorkerRequest() {
 }
 
 function _scoreInWorker(papers, ctx, searchQuery, category) {
-  var worker = _getFeedWorker();
+  const worker = _getFeedWorker();
   if (!worker) return null;
-  var requestId = ++_workerRequestId;
+  const requestId = ++_workerRequestId;
   return new Promise(function(resolve) {
     _workerResolves.set(requestId, resolve);
     worker.postMessage({
@@ -481,84 +481,84 @@ export function _renderTweetComments(container, comments, link, idx) {
     const timeAgo = typeof _relativeTime === 'function' ? _relativeTime(c.timestamp) : '';
     const isOwn = c.author === currentUser;
 
-    var avatar = window.View('div')
+    const avatar = new window.View('div')
       .cssText('width:20px;height:20px;min-width:20px;border-radius:50%;background:var(--nr-accent);color:#fff;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center');
     avatar.add(window.Text(initial));
 
-    var authorEl = window.View('a')
+    const authorEl = new window.View('a')
       .className('text-[0.72rem] font-medium text-primary hover:text-accent')
       .attr('href', '#profile/' + encodeURIComponent(c.author))
       .styles({textDecoration: 'none'})
       .onTap(function(e) { e.stopPropagation(); });
     authorEl.add(window.Text(c.author));
 
-    var metaItems = [authorEl, window.Text(timeAgo).className('text-[0.65rem] text-dimmer')];
+    const metaItems = [authorEl, window.Text(timeAgo).className('text-[0.65rem] text-dimmer')];
     if (isOwn) {
       metaItems.push(
-        window.View('button')
+        new window.View('button')
           .className('cmt-del text-dimmest hover:text-red-400 text-[0.65rem] ml-auto bg-transparent border-none cursor-pointer')
           .attr('data-cid', c.id)
           .onTap(function(e) { e.stopPropagation(); _deleteTweetComment(c.id, link, idx); })
           .add(window.Text('x'))
       );
     }
-    var metaRow = window.HStack(metaItems).spacing(1.5).className('items-center');
+    const metaRow = window.HStack(metaItems).spacing(1.5).className('items-center');
 
-    var contentDiv = window.RawHTML('<div class="text-[0.78rem] text-primary mt-0.5 leading-relaxed">' + escapeHtml(c.content).replace(/\n/g, '<br>') + '</div>');
+    const contentDiv = window.RawHTML('<div class="text-[0.78rem] text-primary mt-0.5 leading-relaxed">' + escapeHtml(c.content).replace(/\n/g, '<br>') + '</div>');
 
-    var showReplyBtn = window.View('button')
+    const showReplyBtn = new window.View('button')
       .className('cmt-show-reply text-[0.68rem] text-dim hover:text-accent mt-0.5 bg-transparent border-none cursor-pointer p-0')
       .attr('data-cid', c.id)
       .onTap(function(e) { e.stopPropagation(); _showTweetReply(c.id); });
     showReplyBtn.add(window.Text('Reply'));
 
-    var replyTa = window.View('textarea')
+    const replyTa = new window.View('textarea')
       .id('tweet-reply-ta-' + c.id)
       .className('w-full text-[0.75rem] bg-input border border-border-input rounded px-2 py-1 text-primary resize-none outline-none focus:border-accent')
       .attr('rows', '2').attr('placeholder', 'Write a reply...')
       .onTap(function(e) { e.stopPropagation(); });
 
-    var replyBtnRow = window.HStack(
-      window.View('button')
+    const replyBtnRow = window.HStack(
+      new window.View('button')
         .className('cmt-reply-submit px-2 py-0.5 text-[0.68rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none')
         .attr('data-cid', c.id)
         .onTap(function(e) { e.stopPropagation(); _postTweetReply(c.id, link, idx); })
         .add(window.Text('Reply')),
-      window.View('button')
+      new window.View('button')
         .className('cmt-reply-cancel px-2 py-0.5 text-[0.68rem] rounded border border-border-input text-dim hover:text-primary cursor-pointer bg-transparent')
         .attr('data-cid', c.id)
         .onTap(function(e) { e.stopPropagation(); _hideTweetReply(c.id); })
         .add(window.Text('Cancel'))
     ).spacing(1).className('mt-1');
 
-    var replyForm = window.VStack(replyTa, replyBtnRow)
+    const replyForm = window.VStack(replyTa, replyBtnRow)
       .id('tweet-reply-' + c.id).className('hidden mt-1');
 
-    var body = window.VStack(metaRow, contentDiv, showReplyBtn, replyForm).className('flex-1 min-w-0');
-    var row = window.HStack(avatar, body).spacing(1.5).className('items-start');
+    const body = window.VStack(metaRow, contentDiv, showReplyBtn, replyForm).className('flex-1 min-w-0');
+    const row = window.HStack(avatar, body).spacing(1.5).className('items-start');
 
-    var threadEl = window.VStack(row).cssText(ml + '; margin-bottom: 6px;');
+    const threadEl = window.VStack(row).cssText(ml + '; margin-bottom: 6px;');
     replies.forEach(function(r) { threadEl.add(renderThread(r, depth + 1)); });
     return threadEl;
   }
 
-  var threadViews = topLevel.length
+  const threadViews = topLevel.length
     ? topLevel.map(function(c) { return renderThread(c, 0); })
     : [window.Text('No comments yet').className('text-dim text-[0.75rem] py-1')];
 
-  var commentTa = window.View('textarea')
+  const commentTa = new window.View('textarea')
     .id('tweet-comment-input-' + idx)
     .className('flex-1 text-[0.75rem] bg-input border border-border-input rounded px-2 py-1.5 text-primary resize-none outline-none focus:border-accent')
     .attr('rows', '1').attr('placeholder', 'Add a comment...')
     .onTap(function(e) { e.stopPropagation(); });
 
-  var postBtn = window.View('button')
+  const postBtn = new window.View('button')
     .className('px-3 py-1 text-[0.72rem] rounded bg-accent text-white hover:bg-accent-hover cursor-pointer border-none shrink-0')
     .onTap(function(e) { e.stopPropagation(); _postTweetComment(link, idx); });
   postBtn.add(window.Text('Post'));
 
-  var inputRow = window.HStack(commentTa, postBtn).spacing(2).className('mt-2');
-  var wrap = window.VStack(threadViews.concat(inputRow)).className('mt-2 pt-2 border-t border-border-card');
+  const inputRow = window.HStack(commentTa, postBtn).spacing(2).className('mt-2');
+  const wrap = window.VStack(threadViews.concat(inputRow)).className('mt-2 pt-2 border-t border-border-card');
 
   AetherUI.mount(wrap, container);
 }
@@ -680,27 +680,27 @@ export function _cardActionRow(p, i, ctx) {
   const reposted = ctx ? ctx.repostedSet.has(p.link) : _isReposted(p.link);
   const btnBase = 'bg-transparent border-none cursor-pointer p-0 transition-colors';
 
-  var commentBtn = window.HStack(
+  const commentBtn = window.HStack(
     window.RawHTML(icon('chatBubble', {size: 14, class: 'w-3.5 h-3.5'})),
     window.Text(String(commentCount)).className('text-[0.68rem]').attr('data-tweet-comment-count', p.link)
   ).spacing(1).className(btnBase + ' text-dimmer hover:text-blue-400').attr('title', 'Comments').attr('role', 'button')
     .onTap(function(e) { e.stopPropagation(); _toggleTweetComments(p.link, i); });
 
-  var repostBtn = window.View('button')
+  const repostBtn = new window.View('button')
     .className(btnBase + ' flex items-center gap-1 ' + (reposted ? '' : 'text-dimmer hover:text-green-400'))
     .attr('title', 'Repost');
   repostBtn.add(window.RawHTML(icon('repost', {size: 14, class: 'w-3.5 h-3.5'})));
   if (reposted) repostBtn.styles({color: 'rgb(74,222,128)'});
   repostBtn.onTap(function(e) { e.stopPropagation(); _tweetRepost(i, repostBtn.el); });
 
-  var bookmarkBtn = window.View('button')
+  const bookmarkBtn = new window.View('button')
     .className(btnBase)
     .styles({color: bmFill === 'none' ? 'var(--nr-text-quaternary)' : 'var(--nr-accent)'})
     .attr('title', isSaved ? 'Remove from Reading List' : 'Save to Reading List');
   bookmarkBtn.add(window.RawHTML(icon('bookmark', {size: 14, class: 'w-3.5 h-3.5', fill: bmFill, stroke: bmStroke})));
   bookmarkBtn.onTap(function(e) { e.stopPropagation(); toggleSavePost(lastFilteredPapers[i], e); });
 
-  var menuBtn = window.View('button')
+  const menuBtn = new window.View('button')
     .className(btnBase + ' text-dimmer hover:text-primary');
   menuBtn.add(window.RawHTML(icon('moreVertical', {size: 14, class: 'w-3.5 h-3.5'})));
   menuBtn.onTap(function(e) { openCardMenu(menuBtn.el, e, i); });
