@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
   showOpenDialogMulti: (options) => ipcRenderer.invoke('show-open-dialog-multi', options),
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
+  readDir: (dirPath) => ipcRenderer.invoke('system:read-dir', dirPath),
   openPath: (path) => shell.openPath(path),
   showItemInFolder: (path) => shell.showItemInFolder(path),
   saveAndOpenTemp: (name, buffer) => ipcRenderer.invoke('save-and-open-temp', name, buffer),
@@ -195,9 +196,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   implPapers: (sessionId) => ipcRenderer.invoke('impl:papers', sessionId),
   onImplFileChanged: (callback) => ipcRenderer.on('impl:file-changed', callback),
   removeImplFileListeners: () => ipcRenderer.removeAllListeners('impl:file-changed'),
-
-  // ── CLI context bridge ──
-  updateBrowseContext: (data) => ipcRenderer.invoke('browse:update-context', data),
 
   // ── DB query shortcuts (direct IPC, no Flask) ──
   dbQuery: (channel, ...args) => ipcRenderer.invoke('db:' + channel, ...args),

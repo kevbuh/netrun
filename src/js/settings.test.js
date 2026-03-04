@@ -11,7 +11,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const THEME_COLOR_SCHEME = {
   dark: 'dark',
   light: 'light',
-  daylight: 'light',
 };
 
 /**

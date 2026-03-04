@@ -272,8 +272,8 @@ const PREVIEWS = {
 // ── Renderer ──
 
 let _activeNavEl = null;
-let _searchQuery = State('');
-let _rootView = null;
+const _searchQuery = State('');
+const _rootView = null;
 
 function _buildSidebar(data) {
   const sidebar = VStack().className('docs-sidebar');

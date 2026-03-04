@@ -44,20 +44,20 @@ export function _browseResolveUrl(input) {
   if (!input) return 'https://www.google.com';
   if (/^(https?|file|blob|data|aether|chat|nerd):\/\//i.test(input)) return input.replace(/\s+/g, '');
   if (/^\//.test(input)) {
-    var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+    const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
     if (tab && tab.url) {
       try { return new URL(input, tab.url).href; } catch(e) {}
     }
   }
-  var bangPrefix = input.match(/^!(\S+)\s+(.+)/);
-  var bangSuffix = input.match(/^(.+)\s+!(\S+)$/);
+  const bangPrefix = input.match(/^!(\S+)\s+(.+)/);
+  const bangSuffix = input.match(/^(.+)\s+!(\S+)$/);
   if (bangPrefix || bangSuffix) {
-    var bang = (bangPrefix ? bangPrefix[1] : bangSuffix[2]).toLowerCase();
-    var query = (bangPrefix ? bangPrefix[2] : bangSuffix[1]).trim();
-    var template = _BANGS[bang];
+    const bang = (bangPrefix ? bangPrefix[1] : bangSuffix[2]).toLowerCase();
+    const query = (bangPrefix ? bangPrefix[2] : bangSuffix[1]).trim();
+    const template = _BANGS[bang];
     if (template) return template.replace('%s', encodeURIComponent(query));
   }
-  var collapsed = input.replace(/\s+/g, '');
+  const collapsed = input.replace(/\s+/g, '');
   if (/^[a-z0-9]([a-z0-9-]*\.)+[a-z]{2,}/i.test(collapsed) && !/\.(cpp|py|js|ts|rs|go|rb|java|cs|swift|kt|c|h|hpp|md|txt|json|xml|yaml|yml|toml|csv|sql|sh|bat|exe|dll|so|o|a|wasm|log|cfg|ini|conf|env|lock|gitignore)$/i.test(collapsed)) return 'https://' + collapsed;
   return 'https://www.google.com/search?q=' + encodeURIComponent(input);
 }
@@ -65,7 +65,7 @@ export function _browseResolveUrl(input) {
 // ── browseNavigate ──
 
 export function browseNavigate(input) {
-  var cmd = (input || '').trim().toLowerCase();
+  const cmd = (input || '').trim().toLowerCase();
   if (cmd === '/history' || cmd === 'netrun://history' || cmd === 'netrun://history/') {
     if (typeof window.openSearchHistoryPage === 'function') window.openSearchHistoryPage();
     return;
@@ -87,21 +87,21 @@ export function browseNavigate(input) {
     return;
   }
   if (cmd === '/upload') {
-    var fi = document.getElementById('browse-pdf-file-input');
+    const fi = document.getElementById('browse-pdf-file-input');
     if (fi) { fi.click(); return; }
-    var tmp = document.createElement('input');
+    const tmp = document.createElement('input');
     tmp.type = 'file'; tmp.style.display = 'none';
     tmp.onchange = function() { if (tmp.files[0] && typeof window.openLocalPdf === 'function') window.openLocalPdf(tmp.files[0]); tmp.remove(); };
     document.body.appendChild(tmp); tmp.click();
     return;
   }
   if (/^chat:\/\//i.test(cmd)) {
-    var threadId = cmd.replace(/^chat:\/\//i, '').replace(/\/$/, '');
+    const threadId = cmd.replace(/^chat:\/\//i, '').replace(/\/$/, '');
     if (typeof window.openChatPage === 'function') window.openChatPage(threadId || null);
     return;
   }
   if (/^draw:\/\//i.test(cmd)) {
-    var drawId = cmd.replace(/^draw:\/\//i, '').replace(/\/$/, '');
+    const drawId = cmd.replace(/^draw:\/\//i, '').replace(/\/$/, '');
     if (typeof window.openDrawPage === 'function') window.openDrawPage(drawId || undefined);
     return;
   }
@@ -110,22 +110,22 @@ export function browseNavigate(input) {
     return;
   }
   if (/^nerd:\/\//i.test(cmd)) {
-    var nerdPath = (input || '').trim().replace(/^nerd:\/\//i, '');
+    const nerdPath = (input || '').trim().replace(/^nerd:\/\//i, '');
     if (nerdPath && typeof window.openLocalPdfByPath === 'function') window.openLocalPdfByPath(nerdPath);
     return;
   }
-  var url = _browseResolveUrl(input);
-  var trimmed = (input || '').trim();
+  const url = _browseResolveUrl(input);
+  const trimmed = (input || '').trim();
   if (trimmed && url.startsWith('https://www.google.com/search?q=')) {
     _saveWebSearch(trimmed);
   }
-  var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+  const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
   if (!tab) { if (typeof window.browseNewTab === 'function') window.browseNewTab(url); return; }
   // Tear down special pages
   if (tab._historyPage || tab._helpPage || tab._netrunPage || tab._chatPage || tab._terminalPage || tab._bookmarksPage || tab._implementationsPage) {
     if (tab._chatPage && typeof window.chatViewCleanupMorph === 'function') {
-      var ntpMorphed = document.getElementById('browse-content');
-      var morphEl = ntpMorphed ? ntpMorphed.querySelector('.browse-ntp.chat-mode') : null;
+      const ntpMorphed = document.getElementById('browse-content');
+      const morphEl = ntpMorphed ? ntpMorphed.querySelector('.browse-ntp.chat-mode') : null;
       if (morphEl) window.chatViewCleanupMorph();
     }
     if (tab.el) tab.el.remove();
@@ -152,20 +152,20 @@ export function browseNavigate(input) {
   tab.blank = false;
   _saveBrowseVisit(url, tab.title);
   if (!tab.el) {
-    var container = document.getElementById('browse-content');
+    const container = document.getElementById('browse-content');
     tab.el = _browseCreateFrame(tab.id, url);
     container.appendChild(tab.el);
     _browseBindFrame(tab);
   } else {
     _browseSetFrameAllow(tab.el, url);
-    var proxied = _browseProxyUrl(url);
+    const proxied = _browseProxyUrl(url);
     tab.el.dataset.originalUrl = url;
     tab.el.src = proxied;
     if (proxied !== url && typeof window._browseUpdateAdBlockBadge === 'function') {
       tab.el.addEventListener('load', function() { window._browseUpdateAdBlockBadge(url); }, { once: true });
     }
   }
-  var urlInput = document.getElementById('browse-url-input');
+  const urlInput = document.getElementById('browse-url-input');
   if (urlInput) _browseSetUrlDisplay(urlInput, url);
   notifyTabsChanged();
   _browseUpdateSaveBtn();
@@ -180,13 +180,13 @@ window.browseNavigate = browseNavigate;
 // ── Pill URL sync ──
 
 export function _pillSyncUrl() {
-  var input = document.getElementById('pill-browse-url-input');
+  const input = document.getElementById('pill-browse-url-input');
   if (!input) return;
-  var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
-  var isBlankNtp = tab && tab.blank;
+  const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+  const isBlankNtp = tab && tab.blank;
   _browseSetUrlDisplay(input, (!isBlankNtp && tab && tab.url) ? tab.url : '');
   isNtp.value = !!isBlankNtp;
-  var pill = document.getElementById('sidebar-nav');
+  const pill = document.getElementById('sidebar-nav');
   if (pill) pill.classList.toggle('ntp-active', !!isBlankNtp);
   if (typeof window._syncIslandPillPosition === 'function') window._syncIslandPillPosition();
   if (typeof _browseApplyAdaptiveColor === 'function') _browseApplyAdaptiveColor(tab);
@@ -205,23 +205,23 @@ export function _pillUrlKeydown(e) {
 // ── Tab dropdown in pill ──
 
 export function _showTabsInPillDropdown() {
-  var dd = document.getElementById('pill-url-dropdown');
-  var wrap = document.getElementById('pill-url-wrap');
+  const dd = document.getElementById('pill-url-dropdown');
+  const wrap = document.getElementById('pill-url-wrap');
   if (!dd || !wrap) return;
 
-  var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
+  const win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
   if (!win || !win.tabs || !win.tabs.length) return;
 
-  var tabs = win.tabs;
-  var activeTab = win.activeTab;
-  var pinnedItems = tabs.filter(function(t) { return t.pinned; });
-  var unpinnedItems = tabs.filter(function(t) { return !t.pinned; }).slice().sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
+  const tabs = win.tabs;
+  const activeTab = win.activeTab;
+  const pinnedItems = tabs.filter(function(t) { return t.pinned; });
+  const unpinnedItems = tabs.filter(function(t) { return !t.pinned; }).slice().sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
 
-  var globeSvg = '<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+  const globeSvg = '<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
 
   function _ddRow(children, opts) {
     opts = opts || {};
-    var row = window.HStack(children).alignment('center')
+    const row = window.HStack(children).alignment('center')
       .padding('6px', '12px').foreground('primary')
       .styles({ gap: '8px', cursor: 'pointer', fontSize: '0.8rem', transition: 'background 0.1s' });
     if (opts.bg) row.el.style.background = opts.bg;
@@ -232,23 +232,23 @@ export function _showTabsInPillDropdown() {
     return row;
   }
 
-  var views = [];
+  const views = [];
   // New tab row
-  var newTabIcon = window.RawHTML('<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>');
+  const newTabIcon = window.RawHTML('<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>');
   views.push(_ddRow([newTabIcon, window.Text('New tab')]).onTap(function() {
     if (typeof window.browseNewTab === 'function') window.browseNewTab();
     _browseUrlHideHistory();
   }));
 
   function renderTabView(t) {
-    var isActive = t.id === activeTab;
-    var title = (t.title || 'New Tab');
+    const isActive = t.id === activeTab;
+    let title = (t.title || 'New Tab');
     if (title.length > 40) title = title.slice(0, 38) + '\u2026';
-    var favView = t.favicon
+    const favView = t.favicon
       ? window.Image(t.favicon).frame({ width: 14, height: 14 }).cornerRadius('xs').styles({ flexShrink: '0' })
           .on('error', function() { this.style.display = 'none'; })
       : window.RawHTML(globeSvg);
-    var titleView = window.Text(title).flex(1).truncate();
+    const titleView = window.Text(title).flex(1).truncate();
     var closeBtn = window.Text('\u00d7').foreground('quaternary').padding('0', '2px').opacity(0.5)
       .styles({ fontSize: '1rem', lineHeight: '1' })
       .onHover(function() { closeBtn.el.style.opacity = '1'; }, function() { closeBtn.el.style.opacity = '0.5'; })
@@ -257,7 +257,7 @@ export function _showTabsInPillDropdown() {
         browseCloseTab(t.id);
         setTimeout(_showTabsInPillDropdown, 50);
       });
-    var row = _ddRow([favView, titleView, closeBtn], { bg: isActive ? 'var(--nr-bg-raised)' : '' });
+    const row = _ddRow([favView, titleView, closeBtn], { bg: isActive ? 'var(--nr-bg-raised)' : '' });
     row.onTap(function() {
       browseSelectTab(t.id);
       _browseUrlHideHistory();
@@ -280,14 +280,14 @@ export function _showTabsInPillDropdown() {
 
   // Outside click cleanup
   _pillTabsDropdownCleanup();
-  var _outsideHandler = function(e) {
+  const _outsideHandler = function(e) {
     if (wrap.contains(e.target) || dd.contains(e.target)) return;
     _browseUrlHideHistory();
     _pillTabsDropdownCleanup();
   };
-  var _blurHandler = function() {
+  const _blurHandler = function() {
     _pillTabsBlurTimer = setTimeout(function() {
-      var w = document.getElementById('pill-url-wrap');
+      const w = document.getElementById('pill-url-wrap');
       if (w && w.classList.contains('pill-dropdown-open')) {
         _browseUrlHideHistory();
         _pillTabsDropdownCleanup();

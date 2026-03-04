@@ -70,71 +70,40 @@ function _renderTerminalPage(el) {
 }
 
 function _renderTerminalPageTabs(tabBar) {
-  tabBar.innerHTML = '';
-  _terminals.forEach(function(t) {
-    const tabSvg = icon('terminal', { size: 12, class: 'shrink-0 text-dimmer', strokeWidth: '1.5' });
-    const tab = new window.View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
-    tab.attr('data-term-id', t.id);
-    tab.onTap(function() {
-      _activeTerminalId = t.id;
-      _renderTerminalPageTabs(tabBar);
-      _renderTerminalPagePane(tabBar.nextElementSibling);
-      _saveTerminalState();
-    });
-    tab.add(window.RawHTML(tabSvg));
-    const title = window.Text(t.name).className('term-tab-title');
-    tab.add(title);
-    if (_terminals.length > 1) {
-      const closeBtn = window.Button('\u00d7').className('term-tab-close').attr('title', 'Close');
-      closeBtn.onTap(function(e) {
-        e.stopPropagation();
-        destroyTerminal(t.id);
-        _renderTerminalPageTabs(tabBar);
-        _renderTerminalPagePane(tabBar.nextElementSibling);
-      });
-      tab.add(closeBtn);
-    }
-    tabBar.appendChild(tab.el);
-  });
-  const newBtn = window.Button('+').className('term-tab-new').attr('title', 'New Tab');
-  newBtn.onTap(function() {
-    createTerminal();
-    _renderTerminalPageTabs(tabBar);
-    _renderTerminalPagePane(tabBar.nextElementSibling);
-  });
-  tabBar.appendChild(newBtn.el);
+  const paneEl = tabBar.nextElementSibling;
+  _buildTabBar(
+    tabBar,
+    (id) => { _activeTerminalId = id; _renderTerminalPageTabs(tabBar); _mountTerminalInto(paneEl); _saveTerminalState(); },
+    () => { createTerminal(); _renderTerminalPageTabs(tabBar); _mountTerminalInto(paneEl); }
+  );
 }
 
-function _renderTerminalPagePane(container) {
-  if (!container) return;
-  const t = _terminals.find(t => t.id === _activeTerminalId);
-  if (!t) return;
-
-  container.innerHTML = '';
+/** Core: init a terminal's pane into a parent element */
+function _initTerminalPane(t, parentEl) {
   const pane = t.container;
   pane.style.width = '100%';
   pane.style.height = '100%';
-  container.appendChild(pane);
+  parentEl.appendChild(pane);
 
   if (!pane.querySelector('.xterm')) {
     t.term.open(pane);
     t.fitAddon.fit();
     _connectTerminalWs(t);
-
-    const ro = new ResizeObserver(() => {
-      try { t.fitAddon.fit(); } catch (_) {}
-    });
+    const ro = new ResizeObserver(() => { try { t.fitAddon.fit(); } catch (_) {} });
     ro.observe(pane);
-
-    t.term.onResize(({ cols, rows }) => {
-      _terminalSendResize(t, cols, rows);
-    });
+    t.term.onResize(({ cols, rows }) => _terminalSendResize(t, cols, rows));
   } else {
-    setTimeout(() => {
-      t.fitAddon.fit();
-      t.term.focus();
-    }, 50);
+    setTimeout(() => { t.fitAddon.fit(); t.term.focus(); }, 50);
   }
+}
+
+/** Mount active terminal into a container, clearing it first */
+function _mountTerminalInto(container) {
+  if (!container) return;
+  const t = _activeTerminal();
+  if (!t) return;
+  container.innerHTML = '';
+  _initTerminalPane(t, container);
 }
 
 // Global state
@@ -142,6 +111,11 @@ export const _terminals = [];
 export let _activeTerminalId = null;
 export let _terminalLayout = null;
 export let _termSearchTimeout = null;
+
+/** Helper: get the currently active terminal object */
+function _activeTerminal() {
+  return _terminals.find(t => t.id === _activeTerminalId);
+}
 
 // Terminal themes
 export const TERMINAL_THEMES = {
@@ -451,24 +425,14 @@ export function renameTerminal(id, name) {
 
 export function _renderTabs() {
   const tabsEl = document.getElementById('vault-terminal-tabs') || document.getElementById('terminal-tabs');
-  if (!tabsEl) return;
-
-  tabsEl.innerHTML = '';
-  _terminals.forEach(function(t) {
-    const tabSvg = icon('terminal', {size: 12, class: 'shrink-0 text-dimmer', strokeWidth: '1.5'});
-    const tab = new window.View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
-    tab.attr('data-term-id', t.id);
-    tab.onTap(function() { selectTerminal(t.id); });
-    const title = window.Text(t.name).className('term-tab-title');
-    title.on('dblclick', function(e) { e.stopPropagation(); _startRenameTab(t.id); });
-    const closeBtn = window.Button('\u00d7').className('term-tab-close').attr('title', 'Close');
-    closeBtn.onTap(function(e) { e.stopPropagation(); destroyTerminal(t.id); });
-    tab.add(window.RawHTML(tabSvg), title, closeBtn);
-    tabsEl.appendChild(tab.el);
-  });
-  const newBtn = window.Button('+').className('term-tab-new').attr('title', 'New Tab');
-  newBtn.onTap(function() { createTerminal(); });
-  tabsEl.appendChild(newBtn.el);
+  _buildTabBar(tabsEl, (id) => selectTerminal(id), () => createTerminal());
+  // Add double-click rename to titles in the full tab bar
+  if (tabsEl) {
+    tabsEl.querySelectorAll('.term-tab-title').forEach(el => {
+      const id = parseInt(el.parentElement.getAttribute('data-term-id'), 10);
+      el.addEventListener('dblclick', (e) => { e.stopPropagation(); _startRenameTab(id); });
+    });
+  }
 }
 
 export function _startRenameTab(id) {
@@ -520,41 +484,11 @@ export function _renderLayout() {
     if (node.type === 'terminal') {
       const t = _terminals.find(t => t.id === node.terminalId);
       if (!t) return;
-
-      const pane = t.container;
-      pane.style.width = '100%';
-      pane.style.height = '100%';
-      pane.classList.toggle('term-pane-active', t.id === _activeTerminalId);
-      parentEl.appendChild(pane);
-
-      // Initialize terminal if not already
-      if (!pane.querySelector('.xterm')) {
-        t.term.open(pane);
-        t.fitAddon.fit();
-
-        // Connect WebSocket
-        _connectTerminalWs(t);
-
-        // Auto-fit on resize
-        const ro = new ResizeObserver(() => {
-          try { t.fitAddon.fit(); } catch (_) {}
-        });
-        ro.observe(pane);
-
-        // Send resize to server (handled by _connectTerminalWs for IPC mode)
-        t.term.onResize(({ cols, rows }) => {
-          _terminalSendResize(t, cols, rows);
-        });
-
-        // Focus on click
-        pane.addEventListener('click', () => {
-          if (_activeTerminalId !== t.id) {
-            selectTerminal(t.id);
-          }
-        });
-      } else {
-        setTimeout(() => t.fitAddon.fit(), 10);
-      }
+      _initTerminalPane(t, parentEl);
+      t.container.classList.toggle('term-pane-active', t.id === _activeTerminalId);
+      t.container.addEventListener('click', () => {
+        if (_activeTerminalId !== t.id) selectTerminal(t.id);
+      });
       return;
     }
 
@@ -631,7 +565,7 @@ export function _initSplitResize(handle, node, pane1) {
 export function splitTerminal(direction) {
   if (!_activeTerminalId) return;
 
-  const activeT = _terminals.find(t => t.id === _activeTerminalId);
+  const activeT = _activeTerminal();
   if (!activeT) return;
 
   // Create new terminal without modifying layout
@@ -826,27 +760,23 @@ export function selectTerminalByIndex(n) {
 
 // Actions
 export function clearTerminal() {
-  const t = _terminals.find(t => t.id === _activeTerminalId);
-  if (t && t.term) {
-    t.term.clear();
-  }
+  const t = _activeTerminal();
+  if (t?.term) t.term.clear();
 }
 
 export function copyTerminal() {
-  const t = _terminals.find(t => t.id === _activeTerminalId);
-  if (t && t.term) {
-    const sel = t.term.getSelection();
-    if (sel) {
-      navigator.clipboard.writeText(sel).then(() => {
-        if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
-      }).catch(() => {});
-    }
+  const t = _activeTerminal();
+  const sel = t?.term?.getSelection();
+  if (sel) {
+    navigator.clipboard.writeText(sel).then(() => {
+      if (window.AetherCursor?.pulse) AetherCursor.pulse('#3b82f6');
+    }).catch(() => {});
   }
 }
 
 export async function pasteTerminal() {
-  const t = _terminals.find(t => t.id === _activeTerminalId);
-  if (t && t.ws) {
+  const t = _activeTerminal();
+  if (t?.ws) {
     try {
       const text = await navigator.clipboard.readText();
       _terminalSendInput(t, text);
@@ -855,54 +785,41 @@ export async function pasteTerminal() {
 }
 
 // Search
+function _searchInput() {
+  return document.getElementById('vault-term-search-input') || document.getElementById('term-search-input');
+}
+
 export function _debounceTermSearch() {
   clearTimeout(_termSearchTimeout);
-  _termSearchTimeout = setTimeout(() => {
-    const query = (document.getElementById('vault-term-search-input') || document.getElementById('term-search-input'))?.value || '';
-    terminalSearch(query);
-  }, 300);
+  _termSearchTimeout = setTimeout(() => terminalSearch(_searchInput()?.value || ''), 300);
 }
 
 export function terminalSearch(query) {
-  const t = _terminals.find(t => t.id === _activeTerminalId);
-  if (!t || !t.searchAddon) return;
-
-  const countEl = document.getElementById('vault-term-search-count') || document.getElementById('term-search-count');
+  const t = _activeTerminal();
+  if (!t?.searchAddon) return;
   if (!query) {
     t.searchAddon.clearDecorations();
-    if (countEl) countEl.textContent = '';
     return;
   }
-
   t.searchAddon.findNext(query, { decorations: { matchOverviewRuler: true } });
 }
 
 export function terminalSearchNext() {
-  const t = _terminals.find(t => t.id === _activeTerminalId);
-  if (!t || !t.searchAddon) return;
-  const query = (document.getElementById('vault-term-search-input') || document.getElementById('term-search-input'))?.value || '';
-  if (query) t.searchAddon.findNext(query);
+  const t = _activeTerminal();
+  const query = _searchInput()?.value || '';
+  if (t?.searchAddon && query) t.searchAddon.findNext(query);
 }
 
 export function terminalSearchPrev() {
-  const t = _terminals.find(t => t.id === _activeTerminalId);
-  if (!t || !t.searchAddon) return;
-  const query = (document.getElementById('vault-term-search-input') || document.getElementById('term-search-input'))?.value || '';
-  if (query) t.searchAddon.findPrevious(query);
+  const t = _activeTerminal();
+  const query = _searchInput()?.value || '';
+  if (t?.searchAddon && query) t.searchAddon.findPrevious(query);
 }
 
 export function clearTerminalSearch() {
-  const input = document.getElementById('vault-term-search-input') || document.getElementById('term-search-input');
-  if (input) {
-    input.value = '';
-    input.blur();
-  }
-  const t = _terminals.find(t => t.id === _activeTerminalId);
-  if (t && t.searchAddon) {
-    t.searchAddon.clearDecorations();
-  }
-  const countEl = document.getElementById('vault-term-search-count') || document.getElementById('term-search-count');
-  if (countEl) countEl.textContent = '';
+  const input = _searchInput();
+  if (input) { input.value = ''; input.blur(); }
+  _activeTerminal()?.searchAddon?.clearDecorations();
 }
 
 // Settings
@@ -1030,11 +947,6 @@ document.addEventListener('click', (e) => {
   });
 });
 
-// Utility
-export function _escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
 // ── Bottom Terminal Panel (Cmd+J) — shares terminals with the full terminal tab ──
 
 export let _bottomTerminalVisible = false;
@@ -1050,8 +962,7 @@ export function toggleBottomTerminal() {
     _showBottomTerminal();
   } else {
     panel.style.display = 'none';
-    const t = _terminals.find(t => t.id === _activeTerminalId);
-    if (t && t.term) t.term.blur();
+    _activeTerminal()?.term?.blur();
   }
 }
 
@@ -1074,28 +985,35 @@ export function _showBottomTerminal() {
   _renderBottomTerminalPane();
 }
 
-export function _renderBottomTerminalTabs() {
-  const tabsEl = document.getElementById('bottom-terminal-tabs');
+/** Shared tab bar builder for both full-page and bottom panel */
+function _buildTabBar(tabsEl, onSelect, onNew, showClose) {
   if (!tabsEl) return;
-
   tabsEl.innerHTML = '';
   _terminals.forEach(function(t) {
     const tabSvg = icon('terminal', {size: 12, class: 'shrink-0 text-dimmer', strokeWidth: '1.5'});
     const tab = new window.View('div').className('term-tab' + (t.id === _activeTerminalId ? ' active' : ''));
     tab.attr('data-term-id', t.id);
-    tab.onTap(function() { _bottomSelectTerminal(t.id); });
+    tab.onTap(function() { onSelect(t.id); });
     const title = window.Text(t.name).className('term-tab-title');
     tab.add(window.RawHTML(tabSvg), title);
-    if (_terminals.length > 1) {
+    if (showClose !== false && _terminals.length > 1) {
       const closeBtn = window.Button('\u00d7').className('term-tab-close').attr('title', 'Close');
-      closeBtn.onTap(function(e) { e.stopPropagation(); destroyTerminal(t.id); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); });
+      closeBtn.onTap(function(e) { e.stopPropagation(); destroyTerminal(t.id); });
       tab.add(closeBtn);
     }
     tabsEl.appendChild(tab.el);
   });
   const newBtn = window.Button('+').className('term-tab-new').attr('title', 'New Tab');
-  newBtn.onTap(function() { createTerminal(); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); });
+  newBtn.onTap(function() { onNew(); });
   tabsEl.appendChild(newBtn.el);
+}
+
+export function _renderBottomTerminalTabs() {
+  _buildTabBar(
+    document.getElementById('bottom-terminal-tabs'),
+    (id) => _bottomSelectTerminal(id),
+    () => { createTerminal(); _renderBottomTerminalTabs(); _renderBottomTerminalPane(); }
+  );
 }
 
 export function _bottomSelectTerminal(id) {
@@ -1106,44 +1024,11 @@ export function _bottomSelectTerminal(id) {
 }
 
 export function _renderBottomTerminalPane() {
-  const container = document.getElementById('bottom-terminal-container');
-  if (!container) return;
-
-  const t = _terminals.find(t => t.id === _activeTerminalId);
-  if (!t) return;
-
-  // Clear container but don't dispose — just move the pane
-  container.innerHTML = '';
-
-  const pane = t.container;
-  pane.style.width = '100%';
-  pane.style.height = '100%';
-  container.appendChild(pane);
-
-  if (!pane.querySelector('.xterm')) {
-    t.term.open(pane);
-    t.fitAddon.fit();
-    _connectTerminalWs(t);
-
-    const ro = new ResizeObserver(() => {
-      try { t.fitAddon.fit(); } catch (_) {}
-    });
-    ro.observe(pane);
-
-    t.term.onResize(({ cols, rows }) => {
-      _terminalSendResize(t, cols, rows);
-    });
-  } else {
-    setTimeout(() => {
-      t.fitAddon.fit();
-      t.term.focus();
-    }, 50);
-  }
+  _mountTerminalInto(document.getElementById('bottom-terminal-container'));
 }
 
 export function clearBottomTerminal() {
-  const t = _terminals.find(t => t.id === _activeTerminalId);
-  if (t && t.term) t.term.clear();
+  clearTerminal();
 }
 
 // Bottom terminal resize handle
@@ -1160,10 +1045,7 @@ export function clearBottomTerminal() {
       const delta = startY - e.clientY;
       const newHeight = Math.max(100, Math.min(window.innerHeight - 100, startHeight + delta));
       panel.style.height = newHeight + 'px';
-      const t = _terminals.find(t => t.id === _activeTerminalId);
-      if (t && t.fitAddon) {
-        try { t.fitAddon.fit(); } catch (_) {}
-      }
+      try { _activeTerminal()?.fitAddon?.fit(); } catch (_) {}
     };
 
     const onUp = () => {

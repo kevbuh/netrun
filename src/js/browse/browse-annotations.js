@@ -9,6 +9,31 @@ import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
 import { _ttsChunkText, _ttsFetchAndQueue, _ttsStopAll, _ttsPauseResume, _ttsUpdateBtnIcon } from '/js/panel-tts.js';
 import { registerActions } from '/js/core/core-actions.js';
 
+// ── Annotation color constants ──
+
+export const ANN_COLOR_MAP = {
+  INSIGHT: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Insight', labelColor: '#4caf50' },
+  CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Contradiction', labelColor: '#ef5350' },
+  EXAGGERATION: { bg: 'rgba(255, 193, 7, 0.25)', border: '#ffc107', label: 'Exaggeration', labelColor: '#ffc107' },
+  AD: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Ad', labelColor: '#ff9800' },
+  FACTCHECK: { bg: 'rgba(236, 64, 122, 0.25)', border: '#ec407a', label: 'Fact Check', labelColor: '#ec407a' },
+  EVIDENCE: { bg: 'rgba(38, 166, 154, 0.25)', border: '#26a69a', label: 'Evidence', labelColor: '#26a69a' },
+  CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Connection', labelColor: '#2196f3' }
+};
+
+// Flat color-only map (used by pills/activities)
+export const ANN_COLORS = Object.fromEntries(Object.entries(ANN_COLOR_MAP).map(([k, v]) => [k, v.border]));
+
+export function _buildAnnotationColorMap() {
+  const cm = Object.assign({}, ANN_COLOR_MAP);
+  if (typeof window._customAnnotationCategories !== 'undefined') {
+    for (const cc of window._customAnnotationCategories) {
+      cm[cc.key] = { bg: cc.color + '40', border: cc.color, label: cc.name, labelColor: cc.color };
+    }
+  }
+  return cm;
+}
+
 // ── Insight state ──
 
 export const _annotationsEnabled = new Map(); // tabId → bool
@@ -56,7 +81,7 @@ export async function _triggerInsightExtract(tab) {
   if (!tab || !tab.el) return;
 
   try {
-    const pageText = await _extractTextFromFrame(tab);
+    const pageText = await _extractCleanTextFromFrame(tab);
     if (!pageText || pageText.length < 100) return;
 
     // Mark as analyzing
@@ -230,7 +255,7 @@ export async function _manualInsightAnalyze(tab) {
   }
 
   try {
-    const pageText = await _extractTextFromFrame(tab);
+    const pageText = await _extractCleanTextFromFrame(tab);
     if (!pageText || pageText.length < 100) return;
 
     // Capture screenshot for OCR if enabled
@@ -366,11 +391,11 @@ export function _initInsightPartialListener() {
 
 // ── LLM activity pill listener ──
 
-var _activeLLMCalls = new Map(); // id → { label, model, timer, startTs }
+const _activeLLMCalls = new Map(); // id → { label, model, timer, startTs }
 
 /** Return currently active (non-dismissed) LLM calls for the dropdown */
 export function _getActiveLLMCalls() {
-  var result = [];
+  const result = [];
   _activeLLMCalls.forEach(function (v) {
     if (!v.timer) result.push({ label: v.label, model: v.model, startTs: v.startTs });
   });
@@ -384,18 +409,18 @@ function _initLLMActivityListener() {
     if (!data) return;
     // Emit to live pulse
     if (typeof Motion !== 'undefined' && Motion.pulse) {
-      var evt = Motion.pulse.emit('ai', { label: data.label, detail: data.model });
+      const evt = Motion.pulse.emit('ai', { label: data.label, detail: data.model });
       if (data.status !== 'start' && evt && evt.done) evt.done(data.status === 'done');
     }
     if (data.status === 'start') {
       // Clear any pending dismiss timer for this id
-      var existing = _activeLLMCalls.get(data.id);
+      const existing = _activeLLMCalls.get(data.id);
       if (existing && existing.timer) clearTimeout(existing.timer);
       _activeLLMCalls.set(data.id, { label: data.label, model: data.model, startTs: Date.now() });
       _updateLLMActivityPill();
     } else {
       // done or error — remove after short delay
-      var entry = _activeLLMCalls.get(data.id);
+      const entry = _activeLLMCalls.get(data.id);
       if (entry) {
         entry.timer = setTimeout(function () {
           _activeLLMCalls.delete(data.id);
@@ -408,7 +433,7 @@ function _initLLMActivityListener() {
 
 function _updateLLMActivityPill() {
   // Collect active (non-dismissed) calls
-  var active = [];
+  const active = [];
   _activeLLMCalls.forEach(function (v) {
     if (!v.timer) active.push(v);
   });
@@ -417,8 +442,8 @@ function _updateLLMActivityPill() {
     return;
   }
   // Show the most recent active call's label
-  var latest = active[active.length - 1];
-  var label = latest.label + '\u2026';
+  const latest = active[active.length - 1];
+  let label = latest.label + '\u2026';
   if (active.length > 1) label = active.length + ' tasks\u2026';
   islandUpdate('llm-activity', {
     type: 'insight',
@@ -460,6 +485,80 @@ export async function _waitForWebviewReady(frame, timeout) {
   });
 }
 
+// Clean extraction for insight pipeline — strips boilerplate (nav, footer, sidebar, ads)
+// but preserves article content and comments
+export async function _extractCleanTextFromFrame(tab) {
+  if (!tab || !tab.el) return '';
+  const frame = tab.el;
+  if (frame.tagName === 'WEBVIEW') {
+    const ready = await _waitForWebviewReady(frame, 5000);
+    if (!ready) return '';
+  }
+  const script = `(function() {
+    var clone = document.body.cloneNode(true);
+
+    // Identify protected zones (article, main, comments)
+    var protected = clone.querySelectorAll('article, main, [role="main"], .comments, #comments, [data-comments], .comment, .discussion, .comment-section, .comment-list');
+    var protectedSet = new Set();
+    protected.forEach(function(el) {
+      protectedSet.add(el);
+      el.querySelectorAll('*').forEach(function(child) { protectedSet.add(child); });
+    });
+
+    // Selectors for boilerplate elements to remove
+    var boilerplateSelectors = [
+      'nav', '[role="navigation"]', '[role="banner"]', '[role="contentinfo"]', '[role="complementary"]',
+      '.sidebar', '.site-header', '.site-footer',
+      '.cookie-banner', '.cookie-consent', '.cookie-notice',
+      '.newsletter-signup', '.newsletter',
+      '.ad', '.advertisement', '.ad-container', '[data-ad]',
+      '[aria-label*="navigation"]', '[aria-label*="cookie"]'
+    ];
+
+    // Remove top-level header/footer (not nested inside article)
+    clone.querySelectorAll('header, footer').forEach(function(el) {
+      if (!protectedSet.has(el)) el.remove();
+    });
+
+    boilerplateSelectors.forEach(function(sel) {
+      try {
+        clone.querySelectorAll(sel).forEach(function(el) {
+          if (!protectedSet.has(el)) el.remove();
+        });
+      } catch(e) {}
+    });
+
+    var skip = new Set(['SCRIPT','STYLE','NOSCRIPT','SVG','IFRAME']);
+    var block = new Set(['DIV','P','BR','H1','H2','H3','H4','H5','H6','LI','TR','BLOCKQUOTE','PRE','SECTION','ARTICLE','HEADER','FOOTER','ASIDE','DT','DD','FIGCAPTION','HR','BIG','DETAILS','SUMMARY','NAV','MAIN','TABLE','THEAD','TBODY','TFOOT','OL','UL']);
+    function getText(el) {
+      if (skip.has(el.tagName)) return '';
+      if (el.tagName === 'BR') return '\\n';
+      var t = '';
+      for (var i = 0; i < el.childNodes.length; i++) {
+        var c = el.childNodes[i];
+        if (c.nodeType === 3) t += c.textContent;
+        else if (c.nodeType === 1) {
+          var inner = getText(c);
+          if (block.has(c.tagName) && inner.trim()) t += '\\n' + inner + '\\n';
+          else t += inner;
+        }
+      }
+      return t;
+    }
+    return getText(clone).replace(/[^\\S\\n]+/g, ' ').replace(/\\n\\s*\\n/g, '\\n\\n').trim();
+  })()`;
+  try {
+    if (frame.tagName === 'WEBVIEW' && frame.executeJavaScript) {
+      if (!frame.isConnected) return '';
+      return await frame.executeJavaScript(script);
+    } else if (frame.tagName === 'IFRAME') {
+      return frame.contentDocument.body.innerText || '';
+    }
+  } catch (err) { logger.error('[insight] _extractCleanTextFromFrame error:', err); }
+  return '';
+}
+
+// Full text extraction — used by read-aloud and other features that need all visible text
 export async function _extractTextFromFrame(tab) {
   if (!tab || !tab.el) return '';
   const frame = tab.el;
@@ -633,21 +732,7 @@ export function injectAnnotations(tab, annotations) {
   if (!tab || !tab.el || !annotations.length) return;
   const frame = tab.el;
 
-  const colorMap = {
-    INSIGHT: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Insight', labelColor: '#4caf50' },
-    CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Contradiction', labelColor: '#ef5350' },
-    EXAGGERATION: { bg: 'rgba(255, 193, 7, 0.25)', border: '#ffc107', label: 'Exaggeration', labelColor: '#ffc107' },
-    AD: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Ad', labelColor: '#ff9800' },
-    FACTCHECK: { bg: 'rgba(236, 64, 122, 0.25)', border: '#ec407a', label: 'Fact Check', labelColor: '#ec407a' },
-    EVIDENCE: { bg: 'rgba(38, 166, 154, 0.25)', border: '#26a69a', label: 'Evidence', labelColor: '#26a69a' },
-    CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Connection', labelColor: '#2196f3' }
-  };
-  // Extend with custom annotation categories
-  if (typeof window._customAnnotationCategories !== 'undefined') {
-    for (const cc of window._customAnnotationCategories) {
-      colorMap[cc.key] = { bg: cc.color + '40', border: cc.color, label: cc.name, labelColor: cc.color };
-    }
-  }
+  const colorMap = _buildAnnotationColorMap();
 
   const annotationsJSON = JSON.stringify(annotations).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   const colorMapJSON = JSON.stringify(colorMap).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -855,20 +940,7 @@ export function clearAnnotations(tab) {
 export function injectSingleAnnotation(tab, ann) {
   if (!tab || !tab.el) return;
   const frame = tab.el;
-  const colorMap = {
-    INSIGHT: { bg: 'rgba(76, 175, 80, 0.25)', border: '#4caf50', label: 'Insight', labelColor: '#4caf50' },
-    CONTRADICTION: { bg: 'rgba(239, 83, 80, 0.25)', border: '#ef5350', label: 'Contradiction', labelColor: '#ef5350' },
-    EXAGGERATION: { bg: 'rgba(255, 193, 7, 0.25)', border: '#ffc107', label: 'Exaggeration', labelColor: '#ffc107' },
-    AD: { bg: 'rgba(255, 152, 0, 0.25)', border: '#ff9800', label: 'Ad', labelColor: '#ff9800' },
-    FACTCHECK: { bg: 'rgba(236, 64, 122, 0.25)', border: '#ec407a', label: 'Fact Check', labelColor: '#ec407a' },
-    EVIDENCE: { bg: 'rgba(38, 166, 154, 0.25)', border: '#26a69a', label: 'Evidence', labelColor: '#26a69a' },
-    CONNECTION: { bg: 'rgba(33, 150, 243, 0.25)', border: '#2196f3', label: 'Connection', labelColor: '#2196f3' }
-  };
-  if (typeof window._customAnnotationCategories !== 'undefined') {
-    for (const cc of window._customAnnotationCategories) {
-      colorMap[cc.key] = { bg: cc.color + '40', border: cc.color, label: cc.name, labelColor: cc.color };
-    }
-  }
+  const colorMap = _buildAnnotationColorMap();
   const c = colorMap[ann.type] || { bg: 'rgba(136,136,136,0.25)', border: '#888', label: ann.type, labelColor: '#888' };
   const annJSON = JSON.stringify({
     type: ann.type, label: c.label, labelColor: c.labelColor,

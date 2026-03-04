@@ -17,7 +17,6 @@
   pointer-events: none;
   white-space: nowrap;
   backdrop-filter: blur(var(--nr-material-blur-thin)) saturate(120%);
-  -webkit-backdrop-filter: blur(var(--nr-material-blur-thin)) saturate(120%);
 }
 
 .nr-toast-success {

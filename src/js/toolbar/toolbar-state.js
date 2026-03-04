@@ -4,28 +4,28 @@ import Settings from '/js/core/core-settings.js';
 import { _getCurrentWindow } from '/js/browse/browse-state.js';
 
 // ── Primary signals ──
-var browseActive = State(false);
-var isNtp = State(false);
-var islandExpanded = State(false);
-var islandSubState = State('default'); // 'default' | 'tabs' | 'ai'
-var tabListVersion = State(0);
-var pillMenuOpen = State(false);
-var moreMenuOpen = State(false);
-var historyDropdown = State(null); // null | { direction, anchor }
+const browseActive = State(false);
+const isNtp = State(false);
+const islandExpanded = State(false);
+const islandSubState = State('default'); // 'default' | 'tabs' | 'ai'
+const tabListVersion = State(0);
+const pillMenuOpen = State(false);
+const moreMenuOpen = State(false);
+const historyDropdown = State(null); // null | { direction, anchor }
 
 // ── Computed signals ──
 
-var activeTabData = Computed(function() {
+const activeTabData = Computed(function() {
   // Re-read on tabListVersion bump
-  var _v = tabListVersion.value;
-  var win = _getCurrentWindow();
+  const _v = tabListVersion.value;
+  const win = _getCurrentWindow();
   if (!win || !win.tabs) return null;
-  var activeId = win.activeTab;
+  const activeId = win.activeTab;
   return win.tabs.find(function(t) { return t.id === activeId; }) || null;
 });
 
-var canGoBack = Computed(function() {
-  var tab = activeTabData.value;
+const canGoBack = Computed(function() {
+  const tab = activeTabData.value;
   if (!tab) return false;
   if (tab.backStack && tab.backStack.length > 0) return true;
   // Show back button when tab came from feed (will close tab + return to feed)
@@ -33,53 +33,53 @@ var canGoBack = Computed(function() {
   return false;
 });
 
-var canGoForward = Computed(function() {
-  var tab = activeTabData.value;
+const canGoForward = Computed(function() {
+  const tab = activeTabData.value;
   if (!tab) return false;
   if (tab.forwardStack && tab.forwardStack.length > 0) return true;
   return false;
 });
 
-var visibleActivities = Computed(function() {
+const visibleActivities = Computed(function() {
   if (!window._islandActivities) return [];
-  var acts = window._islandActivities.value;
-  var result = [];
-  for (var id in acts) {
-    var a = acts[id];
+  const acts = window._islandActivities.value;
+  const result = [];
+  for (const id in acts) {
+    const a = acts[id];
     if (!a) continue;
     // Filter out ai and insight types — they render in the AI pill
     if (a.type === 'ai' || a.type === 'insight') continue;
     result.push({ id: id, data: a });
   }
   // Sort by priority then timestamp
-  var priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, rss: 2.6, bookmark: 2.55, 'feed-notif': 2, audio: 2, qf: 2, pageinfo: 1.5, feed: 1, context: 0, tabs: 10, nowplaying: 9 };
+  const priority = { achievement: 5, download: 4, calendar: 3.5, cc: 3, tts: 3, rss: 2.6, bookmark: 2.55, 'feed-notif': 2, audio: 2, qf: 2, pageinfo: 1.5, feed: 1, context: 0, tabs: 10, nowplaying: 9 };
   result.sort(function(a, b) {
-    var pa = priority[a.data.type] || 0;
-    var pb = priority[b.data.type] || 0;
+    const pa = priority[a.data.type] || 0;
+    const pb = priority[b.data.type] || 0;
     return pb - pa || (b.data._ts || 0) - (a.data._ts || 0);
   });
   return result;
 });
 
-var aiPillState = Computed(function() {
-  var audioState = typeof window._getAudioState === 'function' ? window._getAudioState() : {};
-  var pulseState = typeof window._getPulseState === 'function' ? window._getPulseState() : {};
-  var pageInfoState = typeof window._getPageInfoState === 'function' ? window._getPageInfoState() : {};
+const aiPillState = Computed(function() {
+  const audioState = typeof window._getAudioState === 'function' ? window._getAudioState() : {};
+  const pulseState = typeof window._getPulseState === 'function' ? window._getPulseState() : {};
+  const pageInfoState = typeof window._getPageInfoState === 'function' ? window._getPageInfoState() : {};
 
-  var micRecording = audioState.micRecording;
-  var aiActive = _isAIActive();
-  var audioPlaying = !!(audioState.tab || audioState.tts);
-  var pulseFlashing = pulseState.isFlashing;
-  var hasPageInfo = !!(pageInfoState.label || pageInfoState.badges);
+  const micRecording = audioState.micRecording;
+  const aiActive = _isAIActive();
+  const audioPlaying = !!(audioState.tab || audioState.tts);
+  const pulseFlashing = pulseState.isFlashing;
+  const hasPageInfo = !!(pageInfoState.label || pageInfoState.badges);
 
-  var primary = 'idle';
+  let primary = 'idle';
   if (micRecording) primary = 'mic';
   else if (aiActive) primary = 'ai';
   else if (audioPlaying) primary = 'audio';
   else if (pulseFlashing) primary = 'pulse';
   else if (hasPageInfo) primary = 'pageinfo';
 
-  var secondary = [];
+  const secondary = [];
   if (primary !== 'mic' && micRecording) secondary.push('mic');
   if (primary !== 'ai' && aiActive) secondary.push('ai');
   if (primary !== 'audio' && audioPlaying) secondary.push('audio');
@@ -90,9 +90,9 @@ var aiPillState = Computed(function() {
 
 function _isAIActive() {
   if (!window._islandActivities) return false;
-  var acts = window._islandActivities.value;
-  for (var id in acts) {
-    var a = acts[id];
+  const acts = window._islandActivities.value;
+  for (const id in acts) {
+    const a = acts[id];
     if (a && (a.type === 'ai' || (a.type === 'insight' && a.loading))) return true;
   }
   return false;
@@ -101,17 +101,17 @@ function _isAIActive() {
 // ── Tab data helpers ──
 
 function getCurrentTabs() {
-  var win = _getCurrentWindow();
+  const win = _getCurrentWindow();
   return win ? win.tabs : [];
 }
 
 function getCurrentGroups() {
-  var win = _getCurrentWindow();
+  const win = _getCurrentWindow();
   return win ? (win.groups || []) : [];
 }
 
 function getActiveTabId() {
-  var win = _getCurrentWindow();
+  const win = _getCurrentWindow();
   return win ? win.activeTab : null;
 }
 

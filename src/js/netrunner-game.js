@@ -37,7 +37,7 @@ const _nrPetSize = G * _nrPetScale; // 64px
 // Obstacles
 let _nrObstacles = [];
 let _nrSpawnTimer = 0;
-let _nrMinSpawnInterval = 1.2;
+const _nrMinSpawnInterval = 1.2;
 
 // Background data streams
 let _nrStreamLines = [];

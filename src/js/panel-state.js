@@ -13,36 +13,46 @@ import ChatEngine from '/js/chat-engine.js';
 function _bridge(name, get, set) {
   Object.defineProperty(window, name, { get, set, configurable: true, enumerable: true });
 }
+// Shorthand: plain var + bridge + getter/setter
+function _pv(name, initial) {
+  let v = initial;
+  _bridge(name, () => v, x => { v = x; });
+  return { get: () => v, set: x => { v = x; } };
+}
+// Shorthand: signal var + bridge + getter/setter
+function _sv(name, initial) {
+  const s = State(initial);
+  _bridge(name, () => s.value, x => { s.value = x; });
+  return { signal: s, get: () => s.value, set: x => { s.value = x; } };
+}
 
 // ── Chat State ──
 export const _popupChatMessages = [];
-let _popupChatAbort = null;
-let _chatStreamStart = 0;
-export var _aetherBackgroundStreaming = State(false);  // @signal — drives streaming indicator
-export var _chatMemoryRetrieved = State(false);        // @signal
-export var _panelThreadId = State(null);               // @signal — thread indicator
-export var _panelSession = State(null);                // @signal — active session
+const _pca = _pv('_popupChatAbort', null);
+const _css = _pv('_chatStreamStart', 0);
+const _abs = _sv('_aetherBackgroundStreaming', false);
+const _cmr = _sv('_chatMemoryRetrieved', false);
+const _pti = _sv('_panelThreadId', null);
+const _pse = _sv('_panelSession', null);
 
-export function getPopupChatAbort() { return _popupChatAbort; }
-export function setPopupChatAbort(v) { _popupChatAbort = v; }
-export function getChatStreamStart() { return _chatStreamStart; }
-export function setChatStreamStart(v) { _chatStreamStart = v; }
-export function getAetherBackgroundStreaming() { return _aetherBackgroundStreaming.value; }
-export function setAetherBackgroundStreaming(v) { _aetherBackgroundStreaming.value = v; }
-export function getChatMemoryRetrieved() { return _chatMemoryRetrieved.value; }
-export function setChatMemoryRetrieved(v) { _chatMemoryRetrieved.value = v; }
-export function getPanelThreadId() { return _panelThreadId.value; }
-export function setPanelThreadId(v) { _panelThreadId.value = v; }
-export function getPanelSession() { return _panelSession.value; }
-export function setPanelSession(v) { _panelSession.value = v; }
+export function getPopupChatAbort() { return _pca.get(); }
+export function setPopupChatAbort(v) { _pca.set(v); }
+export function getChatStreamStart() { return _css.get(); }
+export function setChatStreamStart(v) { _css.set(v); }
+export function getAetherBackgroundStreaming() { return _abs.get(); }
+export function setAetherBackgroundStreaming(v) { _abs.set(v); }
+export function getChatMemoryRetrieved() { return _cmr.get(); }
+export function setChatMemoryRetrieved(v) { _cmr.set(v); }
+export function getPanelThreadId() { return _pti.get(); }
+export function setPanelThreadId(v) { _pti.set(v); }
+export function getPanelSession() { return _pse.get(); }
+export function setPanelSession(v) { _pse.set(v); }
+export var _aetherBackgroundStreaming = _abs.signal;
+export var _chatMemoryRetrieved = _cmr.signal;
+export var _panelThreadId = _pti.signal;
+export var _panelSession = _pse.signal;
 
 window._popupChatMessages = _popupChatMessages;
-_bridge('_popupChatAbort', () => _popupChatAbort, v => { _popupChatAbort = v; });
-_bridge('_chatStreamStart', () => _chatStreamStart, v => { _chatStreamStart = v; });
-_bridge('_aetherBackgroundStreaming', () => _aetherBackgroundStreaming.value, v => { _aetherBackgroundStreaming.value = v; });
-_bridge('_chatMemoryRetrieved', () => _chatMemoryRetrieved.value, v => { _chatMemoryRetrieved.value = v; });
-_bridge('_panelThreadId', () => _panelThreadId.value, v => { _panelThreadId.value = v; });
-_bridge('_panelSession', () => _panelSession.value, v => { _panelSession.value = v; });
 
 // ── Aether Cursor/Focus State ──
 export let _aetherTrackModeVal = false;
@@ -69,34 +79,29 @@ Object.defineProperty(window, '_aetherTrackMode', {
   }
 });
 
-let _lastMouseX = 0;
-let _lastMouseY = 0;
-let _aetherPrevFocus = null; // { el, selStart, selEnd } — restore on Escape
-let _aetherDragging = false;
+const _lmx = _pv('_lastMouseX', 0);
+const _lmy = _pv('_lastMouseY', 0);
+const _apf = _pv('_aetherPrevFocus', null);
+const _adr = _pv('_aetherDragging', false);
 export const _aetherDragOffset = { x: 0, y: 0 };
-let _aetherDragPopup = null;
-export var _aetherPinned = State(false);  // @signal — panel pin state
+const _adp = _pv('_aetherDragPopup', null);
+const _api = _sv('_aetherPinned', false);
 
-export function getLastMouseX() { return _lastMouseX; }
-export function setLastMouseX(v) { _lastMouseX = v; }
-export function getLastMouseY() { return _lastMouseY; }
-export function setLastMouseY(v) { _lastMouseY = v; }
-export function getAetherPrevFocus() { return _aetherPrevFocus; }
-export function setAetherPrevFocus(v) { _aetherPrevFocus = v; }
-export function getAetherDragging() { return _aetherDragging; }
-export function setAetherDragging(v) { _aetherDragging = v; }
-export function getAetherDragPopup() { return _aetherDragPopup; }
-export function setAetherDragPopup(v) { _aetherDragPopup = v; }
-export function getAetherPinned() { return _aetherPinned.value; }
-export function setAetherPinned(v) { _aetherPinned.value = v; }
+export function getLastMouseX() { return _lmx.get(); }
+export function setLastMouseX(v) { _lmx.set(v); }
+export function getLastMouseY() { return _lmy.get(); }
+export function setLastMouseY(v) { _lmy.set(v); }
+export function getAetherPrevFocus() { return _apf.get(); }
+export function setAetherPrevFocus(v) { _apf.set(v); }
+export function getAetherDragging() { return _adr.get(); }
+export function setAetherDragging(v) { _adr.set(v); }
+export function getAetherDragPopup() { return _adp.get(); }
+export function setAetherDragPopup(v) { _adp.set(v); }
+export function getAetherPinned() { return _api.get(); }
+export function setAetherPinned(v) { _api.set(v); }
+export var _aetherPinned = _api.signal;
 
-_bridge('_lastMouseX', () => _lastMouseX, v => { _lastMouseX = v; });
-_bridge('_lastMouseY', () => _lastMouseY, v => { _lastMouseY = v; });
-_bridge('_aetherPrevFocus', () => _aetherPrevFocus, v => { _aetherPrevFocus = v; });
-_bridge('_aetherDragging', () => _aetherDragging, v => { _aetherDragging = v; });
 window._aetherDragOffset = _aetherDragOffset;
-_bridge('_aetherDragPopup', () => _aetherDragPopup, v => { _aetherDragPopup = v; });
-_bridge('_aetherPinned', () => _aetherPinned.value, v => { _aetherPinned.value = v; });
 _bridge('_aetherTrackModeVal', () => _aetherTrackModeVal, v => { _aetherTrackModeVal = v; });
 
 // ── Context Attachments ──
@@ -110,92 +115,76 @@ window._pendingFileContexts = _pendingFileContexts;
 window._pendingElementContexts = _pendingElementContexts;
 
 // ── TTS State ──
-let _ttsAudio = null; // current Kokoro TTS audio element
-let _ttsAudioCtx = null;
-let _ttsAnalyser = null;
-let _ttsRafId = null;
-export const _ttsQueue = []; // queued audio blobs for chunked playback
-export const _ttsChunks = []; // text chunks pending TTS
-let _ttsChunkIdx = 0; // next chunk to fetch
-var _ttsStopped = State(false);  // @signal — cancellation flag
-var _ttsPaused = State(false);   // @signal — pause flag
-export const _ttsPlayedDurations = []; // durations of already-finished chunks
-export const _ttsRemainingDurations = []; // estimated durations of queued chunks
-var _ttsPlayingChunkIdx = State(-1);  // @signal — index of the chunk currently being read aloud
-let _ttsTabId = null; // tab ID where TTS was started (persists across tab switches)
+const _ta = _pv('_ttsAudio', null);
+const _tc = _pv('_ttsAudioCtx', null);
+const _tn = _pv('_ttsAnalyser', null);
+const _tr = _pv('_ttsRafId', null);
+export const _ttsQueue = [];
+export const _ttsChunks = [];
+const _ti = _pv('_ttsChunkIdx', 0);
+const _ts = _sv('_ttsStopped', false);
+const _tp = _sv('_ttsPaused', false);
+export const _ttsPlayedDurations = [];
+export const _ttsRemainingDurations = [];
+const _tpi = _sv('_ttsPlayingChunkIdx', -1);
+const _ttid = _pv('_ttsTabId', null);
 
-export function getTtsAudio() { return _ttsAudio; }
-export function setTtsAudio(v) { _ttsAudio = v; }
-export function getTtsAudioCtx() { return _ttsAudioCtx; }
-export function setTtsAudioCtx(v) { _ttsAudioCtx = v; }
-export function getTtsAnalyser() { return _ttsAnalyser; }
-export function setTtsAnalyser(v) { _ttsAnalyser = v; }
-export function getTtsRafId() { return _ttsRafId; }
-export function setTtsRafId(v) { _ttsRafId = v; }
-export function getTtsChunkIdx() { return _ttsChunkIdx; }
-export function setTtsChunkIdx(v) { _ttsChunkIdx = v; }
-export function getTtsStopped() { return _ttsStopped.value; }
-export function setTtsStopped(v) { _ttsStopped.value = v; }
-export function getTtsPaused() { return _ttsPaused.value; }
-export function setTtsPaused(v) { _ttsPaused.value = v; }
-export function getTtsPlayingChunkIdx() { return _ttsPlayingChunkIdx.value; }
-export function setTtsPlayingChunkIdx(v) { _ttsPlayingChunkIdx.value = v; }
-export function getTtsTabId() { return _ttsTabId; }
-export function setTtsTabId(v) { _ttsTabId = v; }
+export function getTtsAudio() { return _ta.get(); }
+export function setTtsAudio(v) { _ta.set(v); }
+export function getTtsAudioCtx() { return _tc.get(); }
+export function setTtsAudioCtx(v) { _tc.set(v); }
+export function getTtsAnalyser() { return _tn.get(); }
+export function setTtsAnalyser(v) { _tn.set(v); }
+export function getTtsRafId() { return _tr.get(); }
+export function setTtsRafId(v) { _tr.set(v); }
+export function getTtsChunkIdx() { return _ti.get(); }
+export function setTtsChunkIdx(v) { _ti.set(v); }
+export function getTtsStopped() { return _ts.get(); }
+export function setTtsStopped(v) { _ts.set(v); }
+export function getTtsPaused() { return _tp.get(); }
+export function setTtsPaused(v) { _tp.set(v); }
+export function getTtsPlayingChunkIdx() { return _tpi.get(); }
+export function setTtsPlayingChunkIdx(v) { _tpi.set(v); }
+export function getTtsTabId() { return _ttid.get(); }
+export function setTtsTabId(v) { _ttid.set(v); }
 
-_bridge('_ttsAudio', () => _ttsAudio, v => { _ttsAudio = v; });
-_bridge('_ttsAudioCtx', () => _ttsAudioCtx, v => { _ttsAudioCtx = v; });
-_bridge('_ttsAnalyser', () => _ttsAnalyser, v => { _ttsAnalyser = v; });
-_bridge('_ttsRafId', () => _ttsRafId, v => { _ttsRafId = v; });
 window._ttsQueue = _ttsQueue;
 window._ttsChunks = _ttsChunks;
-_bridge('_ttsChunkIdx', () => _ttsChunkIdx, v => { _ttsChunkIdx = v; });
-_bridge('_ttsStopped', () => _ttsStopped.value, v => { _ttsStopped.value = v; });
-_bridge('_ttsPaused', () => _ttsPaused.value, v => { _ttsPaused.value = v; });
 window._ttsPlayedDurations = _ttsPlayedDurations;
 window._ttsRemainingDurations = _ttsRemainingDurations;
-_bridge('_ttsPlayingChunkIdx', () => _ttsPlayingChunkIdx.value, v => { _ttsPlayingChunkIdx.value = v; });
-_bridge('_ttsTabId', () => _ttsTabId, v => { _ttsTabId = v; });
 
-// ── Command window.State(Aether slash commands) ──
-let _aetherCmdIdx = -1;
-let _aetherTabIdx = -1;
+// ── Command State (Aether slash commands) ──
+const _aci = _pv('_aetherCmdIdx', -1);
+const _ati = _pv('_aetherTabIdx', -1);
 export const _aetherTabList = [];
-let _aetherTabSwitchMode = false; // true when cycling through tabs with /tabs
-let _aetherHistoryIdx = -1;
+const _atsm = _pv('_aetherTabSwitchMode', false);
+const _ahi = _pv('_aetherHistoryIdx', -1);
 export const _aetherHistoryList = [];
-let _aetherModelIdx = -1;
+const _ami = _pv('_aetherModelIdx', -1);
 export const _aetherModelList = [];
-let _aetherAgentIdx = -1;
+const _aai = _pv('_aetherAgentIdx', -1);
 export const _aetherAgentList = [];
-let _aetherTabAutoAdding = false;
+const _ataa = _pv('_aetherTabAutoAdding', false);
 
-export function getAetherCmdIdx() { return _aetherCmdIdx; }
-export function setAetherCmdIdx(v) { _aetherCmdIdx = v; }
-export function getAetherTabIdx() { return _aetherTabIdx; }
-export function setAetherTabIdx(v) { _aetherTabIdx = v; }
-export function getAetherTabSwitchMode() { return _aetherTabSwitchMode; }
-export function setAetherTabSwitchMode(v) { _aetherTabSwitchMode = v; }
-export function getAetherHistoryIdx() { return _aetherHistoryIdx; }
-export function setAetherHistoryIdx(v) { _aetherHistoryIdx = v; }
-export function getAetherModelIdx() { return _aetherModelIdx; }
-export function setAetherModelIdx(v) { _aetherModelIdx = v; }
-export function getAetherAgentIdx() { return _aetherAgentIdx; }
-export function setAetherAgentIdx(v) { _aetherAgentIdx = v; }
-export function getAetherTabAutoAdding() { return _aetherTabAutoAdding; }
-export function setAetherTabAutoAdding(v) { _aetherTabAutoAdding = v; }
+export function getAetherCmdIdx() { return _aci.get(); }
+export function setAetherCmdIdx(v) { _aci.set(v); }
+export function getAetherTabIdx() { return _ati.get(); }
+export function setAetherTabIdx(v) { _ati.set(v); }
+export function getAetherTabSwitchMode() { return _atsm.get(); }
+export function setAetherTabSwitchMode(v) { _atsm.set(v); }
+export function getAetherHistoryIdx() { return _ahi.get(); }
+export function setAetherHistoryIdx(v) { _ahi.set(v); }
+export function getAetherModelIdx() { return _ami.get(); }
+export function setAetherModelIdx(v) { _ami.set(v); }
+export function getAetherAgentIdx() { return _aai.get(); }
+export function setAetherAgentIdx(v) { _aai.set(v); }
+export function getAetherTabAutoAdding() { return _ataa.get(); }
+export function setAetherTabAutoAdding(v) { _ataa.set(v); }
 
-_bridge('_aetherCmdIdx', () => _aetherCmdIdx, v => { _aetherCmdIdx = v; });
-_bridge('_aetherTabIdx', () => _aetherTabIdx, v => { _aetherTabIdx = v; });
 window._aetherTabList = _aetherTabList;
-_bridge('_aetherTabSwitchMode', () => _aetherTabSwitchMode, v => { _aetherTabSwitchMode = v; });
-_bridge('_aetherHistoryIdx', () => _aetherHistoryIdx, v => { _aetherHistoryIdx = v; });
 window._aetherHistoryList = _aetherHistoryList;
-_bridge('_aetherModelIdx', () => _aetherModelIdx, v => { _aetherModelIdx = v; });
 window._aetherModelList = _aetherModelList;
-_bridge('_aetherAgentIdx', () => _aetherAgentIdx, v => { _aetherAgentIdx = v; });
 window._aetherAgentList = _aetherAgentList;
-_bridge('_aetherTabAutoAdding', () => _aetherTabAutoAdding, v => { _aetherTabAutoAdding = v; });
 
 // ── Per-Tab AI Panel State ──
 

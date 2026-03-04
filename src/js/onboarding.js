@@ -38,7 +38,6 @@ const _wizardAccentColors = [
 const _wizardThemes = [
   { id: 'dark',     name: 'Dark',     desc: 'Easy on the eyes',     bg: '#0a0a0a', bar: '#151515', text: '#e0e0e0' },
   { id: 'light',    name: 'Light',    desc: 'Bright and clean',     bg: '#f5f5f5', bar: '#fff',    text: '#333'    },
-  { id: 'daylight', name: 'Daylight', desc: 'Warm and natural',     bg: '#f2f2f5', bar: '#eaeaef', text: '#151528' },
   { id: 'clear',    name: 'Clear',    desc: 'Minimal dark',         bg: '#0a0a0a', bar: '#0a0a0a', text: '#e0e0e0' },
   { id: 'auto',     name: 'Auto',     desc: 'Matches your system',  bg: '#0a0a0a', bar: '#151515', text: '#e0e0e0' },
 ];
@@ -359,7 +358,7 @@ function _wizardThemeInit() {
 function _wizardPickTheme(themeId, el) {
   if (typeof setTheme === 'function') setTheme(themeId);
   const modal = document.getElementById('onboarding-wizard');
-  const isLight = themeId === 'light' || themeId === 'daylight';
+  const isLight = themeId === 'light';
   if (modal) {
     modal.style.background = isLight ? 'rgba(255, 255, 255, 0.75)' : 'rgba(12, 12, 20, 0.7)';
     modal.style.borderColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
@@ -385,8 +384,8 @@ function _wizardTabLayoutView() {
 
 // ── Step 5: Bookmark Import ──
 
-let _wizBmParsed = {};    // browserId → bookmarks array
-let _wizBmSelected = {};  // browserId → Set of selected URLs
+const _wizBmParsed = {};    // browserId → bookmarks array
+const _wizBmSelected = {};  // browserId → Set of selected URLs
 let _wizBmExpandedId = null;
 let _wizBmBrowsers = [];
 
@@ -405,7 +404,7 @@ function _wizardBookmarkImportView() {
 }
 
 function _wizardBookmarkImportInit() {
-  var container = document.getElementById('wiz-bookmark-browsers');
+  const container = document.getElementById('wiz-bookmark-browsers');
   if (!container) return;
   if (!window.electronAPI || !window.electronAPI.dbQuery) {
     AetherUI.mount(window.Text('Bookmark import requires the desktop app.').styles({ fontSize: '12px', color: 'var(--nr-text-secondary,#999)', padding: '16px 0', textAlign: 'center' }), container);
@@ -429,22 +428,22 @@ function _wizardBookmarkImportInit() {
 }
 
 function _wizBmRenderList(container) {
-  var cards = _wizBmBrowsers.map(function(b) {
-    var isExpanded = _wizBmExpandedId === b.id;
-    var chevron = window.RawHTML(icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') }));
-    var nameView = window.Text(b.name).styles({fontSize:'0.85rem', fontWeight:'500', color:'var(--nr-text-primary,#e0e0e0)', flex:'1'});
-    var countText = _wizBmParsed[b.id] ? _wizBmParsed[b.id].length + ' bookmarks' : '';
-    var countView = window.Text(countText).id('wiz-bm-count-' + b.id).styles({fontSize:'0.68rem', color:'var(--nr-text-quaternary)'});
+  const cards = _wizBmBrowsers.map(function(b) {
+    const isExpanded = _wizBmExpandedId === b.id;
+    const chevron = window.RawHTML(icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') }));
+    const nameView = window.Text(b.name).styles({fontSize:'0.85rem', fontWeight:'500', color:'var(--nr-text-primary,#e0e0e0)', flex:'1'});
+    const countText = _wizBmParsed[b.id] ? _wizBmParsed[b.id].length + ' bookmarks' : '';
+    const countView = window.Text(countText).id('wiz-bm-count-' + b.id).styles({fontSize:'0.68rem', color:'var(--nr-text-quaternary)'});
 
-    var header = window.HStack(
+    const header = window.HStack(
       window.RawHTML('<div style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;">' + icon('globe', {size: 18, stroke: 'var(--nr-text-secondary,#999)'}) + '</div>'),
       nameView, countView, chevron
     ).spacing(2).styles({padding:'8px 12px', cursor:'pointer'});
     header.onTap(function() { _wizBmToggle(b.id, container); });
 
-    var items = [header];
+    const items = [header];
     if (isExpanded) {
-      var detail = new window.View('div').id('wiz-bm-detail-' + b.id).styles({padding:'0 12px 10px', borderTop:'1px solid rgba(255,255,255,0.06)'});
+      const detail = new window.View('div').id('wiz-bm-detail-' + b.id).styles({padding:'0 12px 10px', borderTop:'1px solid rgba(255,255,255,0.06)'});
       if (_wizBmParsed[b.id]) {
         _wizBmRenderBookmarks(detail.el, b.id);
       } else {
@@ -476,24 +475,24 @@ function _wizBmToggle(browserId, container) {
 
   if (!_wizBmParsed[browserId]) {
     window.electronAPI.dbQuery('bookmark-parse', browserId).then(function(result) {
-      var bookmarks = (result && result.bookmarks) || [];
+      const bookmarks = (result && result.bookmarks) || [];
       _wizBmParsed[browserId] = bookmarks;
       _wizBmSelected[browserId] = new Set(bookmarks.map(function(bm) { return bm.url; }));
-      var countEl = document.getElementById('wiz-bm-count-' + browserId);
+      const countEl = document.getElementById('wiz-bm-count-' + browserId);
       if (countEl) countEl.textContent = bookmarks.length + ' bookmarks';
-      var detail = document.getElementById('wiz-bm-detail-' + browserId);
+      const detail = document.getElementById('wiz-bm-detail-' + browserId);
       if (detail) _wizBmRenderBookmarks(detail, browserId);
     }).catch(function() {
-      var detail = document.getElementById('wiz-bm-detail-' + browserId);
+      const detail = document.getElementById('wiz-bm-detail-' + browserId);
       if (detail) AetherUI.mount(window.Text('Failed to load bookmarks.').styles({ fontSize: '0.72rem', color: 'var(--nr-text-quaternary)', padding: '10px 0' }), detail);
     });
   }
 }
 
 function _wizBmRenderBookmarks(container, browserId) {
-  var bookmarks = _wizBmParsed[browserId] || [];
-  var selected = _wizBmSelected[browserId] || new Set();
-  var selectedCount = selected.size;
+  const bookmarks = _wizBmParsed[browserId] || [];
+  const selected = _wizBmSelected[browserId] || new Set();
+  const selectedCount = selected.size;
 
   if (!bookmarks.length) {
     AetherUI.mount(window.Text('No bookmarks found.').styles({fontSize:'0.72rem', color:'var(--nr-text-quaternary)', padding:'10px 0'}), container);
@@ -501,27 +500,27 @@ function _wizBmRenderBookmarks(container, browserId) {
   }
 
   // Select all / deselect all
-  var allSelected = selectedCount === bookmarks.length;
-  var toggleAllBtn = window.Button(allSelected ? 'Deselect all' : 'Select all').styles({fontSize:'0.7rem', color:'var(--accent,#b4451a)', background:'none', border:'none', cursor:'pointer', padding:'0'});
+  const allSelected = selectedCount === bookmarks.length;
+  const toggleAllBtn = window.Button(allSelected ? 'Deselect all' : 'Select all').styles({fontSize:'0.7rem', color:'var(--accent,#b4451a)', background:'none', border:'none', cursor:'pointer', padding:'0'});
   toggleAllBtn.onTap(function() {
     if (allSelected) _wizBmSelected[browserId] = new Set();
     else _wizBmSelected[browserId] = new Set(bookmarks.map(function(bm) { return bm.url; }));
     _wizBmRenderBookmarks(container, browserId);
   });
 
-  var headerRow = window.HStack(
+  const headerRow = window.HStack(
     window.Text(selectedCount + ' of ' + bookmarks.length + ' selected').styles({flex:'1', fontSize:'0.7rem', color:'var(--nr-text-quaternary)'}),
     toggleAllBtn
   ).styles({padding:'8px 0 6px'});
 
-  var rows = bookmarks.map(function(bm) {
-    var isSel = selected.has(bm.url);
-    var hostname = '';
+  const rows = bookmarks.map(function(bm) {
+    const isSel = selected.has(bm.url);
+    let hostname = '';
     try { hostname = new URL(bm.url).hostname; } catch(e) {}
-    var favicon = hostname ? '/api/favicon?domain=' + hostname : '';
+    const favicon = hostname ? '/api/favicon?domain=' + hostname : '';
 
-    var checkSvg = isSel ? icon('check', {size: 10, stroke: '#fff', strokeWidth: '3'}) : '';
-    var checkCircle = new window.View('div').styles({
+    const checkSvg = isSel ? icon('check', {size: 10, stroke: '#fff', strokeWidth: '3'}) : '';
+    const checkCircle = new window.View('div').styles({
       width:'16px', height:'16px', borderRadius:'4px', flexShrink:'0',
       border:'1.5px solid ' + (isSel ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.15)'),
       background: isSel ? 'var(--accent,#b4451a)' : 'transparent',
@@ -529,14 +528,14 @@ function _wizBmRenderBookmarks(container, browserId) {
     });
     if (checkSvg) checkCircle.add(window.RawHTML(checkSvg));
 
-    var faviconView = favicon
+    const faviconView = favicon
       ? window.RawHTML('<img src="' + favicon + '" style="width:14px;height:14px;border-radius:2px;flex-shrink:0;" onerror="this.style.display=\'none\'">')
       : window.RawHTML('<span style="width:14px;"></span>');
 
-    var titleView = window.Text(bm.title || bm.url).styles({fontSize:'0.78rem', color:'var(--nr-text-primary,#e0e0e0)', flex:'1', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'});
-    var hostView = window.Text(hostname).styles({fontSize:'0.62rem', color:'var(--nr-text-quaternary)', flexShrink:'0'});
+    const titleView = window.Text(bm.title || bm.url).styles({fontSize:'0.78rem', color:'var(--nr-text-primary,#e0e0e0)', flex:'1', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'});
+    const hostView = window.Text(hostname).styles({fontSize:'0.62rem', color:'var(--nr-text-quaternary)', flexShrink:'0'});
 
-    var row = window.HStack(checkCircle, faviconView, titleView, hostView)
+    const row = window.HStack(checkCircle, faviconView, titleView, hostView)
       .spacing(2).styles({padding:'4px 2px', cursor:'pointer', borderRadius:'4px', transition:'background 0.1s'});
     row.el.addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.04)'; });
     row.el.addEventListener('mouseleave', function() { this.style.background = 'transparent'; });
@@ -550,12 +549,12 @@ function _wizBmRenderBookmarks(container, browserId) {
     return row;
   });
 
-  var listWrap = VStack(rows);
+  const listWrap = VStack(rows);
   listWrap.styles({maxHeight:'200px', overflowY:'auto'});
 
   // Import button
-  var statusView = new window.View('span').id('wiz-bm-import-status-' + browserId).styles({fontSize:'0.72rem', color:'var(--nr-text-quaternary)'});
-  var importBtn = window.Button('Import ' + selectedCount + ' bookmarks').id('wiz-bm-import-btn-' + browserId).styles({
+  const statusView = new window.View('span').id('wiz-bm-import-status-' + browserId).styles({fontSize:'0.72rem', color:'var(--nr-text-quaternary)'});
+  const importBtn = window.Button('Import ' + selectedCount + ' bookmarks').id('wiz-bm-import-btn-' + browserId).styles({
     padding:'6px 16px', borderRadius:'6px', border:'none', flex:'1',
     background: selectedCount > 0 ? 'var(--accent,#b4451a)' : 'rgba(255,255,255,0.05)',
     color: selectedCount > 0 ? '#fff' : 'var(--nr-text-quaternary,#666)',
@@ -565,25 +564,25 @@ function _wizBmRenderBookmarks(container, browserId) {
   if (selectedCount === 0) importBtn.el.disabled = true;
   importBtn.onTap(function() { _wizBmDoImport(browserId, container); });
 
-  var footer = window.HStack(importBtn, statusView).spacing(2).styles({paddingTop:'8px', borderTop:'1px solid rgba(255,255,255,0.06)', marginTop:'4px'});
+  const footer = window.HStack(importBtn, statusView).spacing(2).styles({paddingTop:'8px', borderTop:'1px solid rgba(255,255,255,0.06)', marginTop:'4px'});
 
   AetherUI.mount(window.VStack(headerRow, listWrap, footer), container);
 }
 
 function _wizBmDoImport(browserId, container) {
-  var btn = document.getElementById('wiz-bm-import-btn-' + browserId);
-  var status = document.getElementById('wiz-bm-import-status-' + browserId);
+  const btn = document.getElementById('wiz-bm-import-btn-' + browserId);
+  const status = document.getElementById('wiz-bm-import-status-' + browserId);
   if (btn) { btn.textContent = 'Importing...'; btn.disabled = true; }
 
-  var googleId = window._authUserInfo && window._authUserInfo.google_id;
+  const googleId = window._authUserInfo && window._authUserInfo.google_id;
   if (!googleId) {
     if (status) status.textContent = 'Sign in first';
     if (btn) { btn.textContent = 'Import'; btn.disabled = false; }
     return;
   }
 
-  var selected = _wizBmSelected[browserId];
-  var selectedUrls = selected ? Array.from(selected) : [];
+  const selected = _wizBmSelected[browserId];
+  const selectedUrls = selected ? Array.from(selected) : [];
 
   window.electronAPI.dbQuery('bookmark-import', browserId, googleId, selectedUrls).then(function(result) {
     if (result && result.ok) {
@@ -591,7 +590,7 @@ function _wizBmDoImport(browserId, container) {
       if (btn) { btn.textContent = 'Done'; btn.disabled = true; btn.style.background = 'rgba(255,255,255,0.05)'; btn.style.color = 'var(--nr-text-secondary,#999)'; }
       window.electronAPI.dbQuery('user-data-get', googleId, 'savedPosts').then(function(data) {
         if (data && data.value) {
-          var val = typeof data.value === 'string' ? data.value : JSON.stringify(data.value);
+          const val = typeof data.value === 'string' ? data.value : JSON.stringify(data.value);
           localStorage.setItem('savedPosts', val);
         }
       }).catch(function() {});
@@ -974,15 +973,15 @@ function _wizardCursorView() {
 
 function _wizardCursorInit() {
   // Apply current cursor state so user sees live preview
-  var isOn = Settings.get('customCursor') !== 'off';
+  const isOn = Settings.get('customCursor') !== 'off';
   if (window.AetherCursor) window.AetherCursor[isOn ? 'enable' : 'disable']();
 }
 
 function _wizardPickCursor(id, el) {
-  var on = id === 'on';
+  const on = id === 'on';
   Settings.set('customCursor', on ? 'on' : 'off');
   if (window.AetherCursor) window.AetherCursor[on ? 'enable' : 'disable']();
-  var wizard = document.getElementById('onboarding-wizard');
+  const wizard = document.getElementById('onboarding-wizard');
   if (wizard) {
     wizard.querySelectorAll('.wizard-cursor-option').forEach(function(b) { b.classList.remove('selected'); });
   }

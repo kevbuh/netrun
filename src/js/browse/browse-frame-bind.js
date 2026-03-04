@@ -11,7 +11,7 @@ import { _doomScrollMatch, _injectDoomScrollNudge } from '/js/browse/browse-doom
 const _darkModeCSS = 'html { filter: invert(0.88) hue-rotate(180deg); background: #fff !important; } img, video, canvas, svg, [style*="background-image"] { filter: invert(1) hue-rotate(180deg); }';
 
 export function _browseInjectDarkMode(tab) {
-  var el = tab && tab.el;
+  const el = tab && tab.el;
   if (!el || typeof el.executeJavaScript !== 'function') return;
   el.executeJavaScript(`(function(){
     var id = '__aether_dark_mode__';
@@ -24,7 +24,7 @@ export function _browseInjectDarkMode(tab) {
 }
 
 export function _browseRemoveDarkMode(tab) {
-  var el = tab && tab.el;
+  const el = tab && tab.el;
   if (!el || typeof el.executeJavaScript !== 'function') return;
   el.executeJavaScript(`(function(){
     var s = document.getElementById('__aether_dark_mode__');

@@ -1,13 +1,14 @@
 // browse-features.js — Extracted from browse-tabs.js
 // Depends on: browse-state.js
 import Settings from '/js/core/core-settings.js';
+import { isEditable } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
 import { _browseApplyZoom, browseBack, browseForward, browseZoom } from '/js/toolbar/toolbar-nav.js';
-function _browseActiveEl() { var tabs = typeof _browseTabs !== 'undefined' ? _browseTabs : []; var tab = tabs.find(function(t) { return t.id === (typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : -1); }); return tab ? tab.el : null; }
-var _browseZoomLevel = window._browseZoomLevel ?? 1.0;
-var _browseZoomPanX = window._browseZoomPanX ?? 0;
-var _browseZoomPanY = window._browseZoomPanY ?? 0;
+function _browseActiveEl() { const tabs = typeof _browseTabs !== 'undefined' ? _browseTabs : []; const tab = tabs.find(function(t) { return t.id === (typeof _browseActiveTab !== 'undefined' ? _browseActiveTab : -1); }); return tab ? tab.el : null; }
+let _browseZoomLevel = window._browseZoomLevel ?? 1.0;
+let _browseZoomPanX = window._browseZoomPanX ?? 0;
+let _browseZoomPanY = window._browseZoomPanY ?? 0;
 import { _getActiveTabBar } from '/js/toolbar/toolbar-tabs.js';
 import { _showBookmarkFly, getSavedPosts, isPostSaved, savePosts, updateSavedBadge } from '/js/feed.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
@@ -413,7 +414,7 @@ export function _browseInstallKeyGuard() {
     // Only handle if browse view is visible and not typing in an input
     const browseView = document.getElementById('browse-view');
     if (!browseView || browseView.style.display === 'none') return;
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+    if (isEditable(e.target)) return;
     // Option+Arrow switches tabs globally (no tab bar focus needed)
     if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
       if (e.key === 'ArrowLeft') { e.preventDefault(); _switchTabLeft(); return; }

@@ -1,6 +1,6 @@
 // ── Lazygit-style Git Dashboard (embedded in Vault) ──
 import { apiPost } from '/js/api.js';
-import { escapeHtml } from '/js/core/core-utils.js';
+import { escapeHtml, isEditable } from '/js/core/core-utils.js';
 
 export let _vibeActivePane = 0;
 export let _vibeData = {};
@@ -332,7 +332,7 @@ export function _vibeUpdateSelection(paneIdx) {
 
 export function _vibeKeyHandler(e) {
   // Don't intercept if typing in an input or terminal
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+  if (isEditable(e.target)) return;
   if (e.target.closest('.xterm')) return;
   if (!_vaultGitMode) return;
 

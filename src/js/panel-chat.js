@@ -32,8 +32,7 @@ export function _saveChatMemory() {
   if (!userMsgs.length) return;
   const msgs = window._popupChatMessages.filter(m => !m._thinking).map(m => ({ role: m.role, content: m.content || '' }));
   const paper = typeof _currentPaperViewPaper !== 'undefined' ? _currentPaperViewPaper : null;
-  const browseTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
-    ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+  const browseTab = _getActiveTab();
   const pageUrl = (paper && paper.link) || (browseTab && browseTab.url) || '';
   const pageTitle = (paper && paper.title) || (browseTab && browseTab.title) || '';
   apiPost('/api/chat-memory', { messages: msgs, pageUrl, pageTitle }).catch(e => logger.warn('[chat] Memory save failed:', e));
@@ -172,95 +171,51 @@ export function _handleAgentEvent(agentEvent, aiIdx, aiText, _inThinkTag, setAiT
 }
 
 /** Handle an agent action (bookmark, navigate, browser automation, etc.) */
+function _getActiveTab() {
+  return typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+}
+function _agentReply(act, resultOrPromise) {
+  if (!act.requestId || !window.electronAPI?.agentActionResult) return;
+  Promise.resolve(resultOrPromise).then(r => window.electronAPI.agentActionResult(act.requestId, r));
+}
 export function _handleAgentAction(act) {
+  const tab = _getActiveTab();
   if (act.type === 'bookmark' && act.url) {
-    const paper = { link: act.url, title: act.title || act.url };
-    if (typeof toggleSavePost === 'function') {
-      const saved = Settings.getJSON('savedPosts', {});
-      if (!saved[act.url]) toggleSavePost(paper);
-    }
+    const saved = Settings.getJSON('savedPosts', {});
+    if (!saved[act.url]) toggleSavePost({ link: act.url, title: act.title || act.url });
   } else if (act.type === 'navigate' && act.view) {
     const routes = { home: '#', browse: '#browse', saved: '#saved', calendar: '#calendar', settings: '#settings' };
     location.hash = routes[act.view] || '#';
   } else if (act.type === 'open_tab') {
-    if (typeof browseNewTab === 'function') {
-      location.hash = '#browse';
-      if (act.url) setTimeout(() => browseNewTab(act.url), 100);
-      else setTimeout(() => browseNewTab(), 100);
-    }
+    location.hash = '#browse';
+    setTimeout(() => browseNewTab(act.url || undefined), 100);
   } else if (act.type === 'agent_click') {
-    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-    if (_tab) agentClick(_tab, act.element_id);
+    if (tab) agentClick(tab, act.element_id);
   } else if (act.type === 'agent_type') {
-    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-    if (_tab) agentType(_tab, act.element_id, act.text);
+    if (tab) agentType(tab, act.element_id, act.text);
   } else if (act.type === 'agent_scroll') {
-    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-    if (_tab) agentScroll(_tab, act.direction);
+    if (tab) agentScroll(tab, act.direction);
   } else if (act.type === 'agent_navigate') {
-    if (typeof browseNavigate === 'function') {
-      location.hash = '#browse';
-      setTimeout(() => browseNavigate(act.url), 100);
-    }
+    location.hash = '#browse';
+    setTimeout(() => browseNavigate(act.url), 100);
   } else if (act.type === 'agent_query_selector') {
-    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-    if (_tab && act.requestId) {
-      agentQuerySelector(_tab, act.selector, act.max_results).then(result => {
-        if (window.electronAPI && window.electronAPI.agentActionResult) {
-          window.electronAPI.agentActionResult(act.requestId, result);
-        }
-      });
-    }
+    if (tab) _agentReply(act, agentQuerySelector(tab, act.selector, act.max_results));
   } else if (act.type === 'agent_wait_for') {
-    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-    if (_tab && act.requestId) {
-      agentWaitFor(_tab, act.selector, act.timeout_ms).then(result => {
-        if (window.electronAPI && window.electronAPI.agentActionResult) {
-          window.electronAPI.agentActionResult(act.requestId, result);
-        }
-      });
-    }
+    if (tab) _agentReply(act, agentWaitFor(tab, act.selector, act.timeout_ms));
   } else if (act.type === 'agent_get_url') {
-    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-    if (_tab && act.requestId) {
-      agentGetUrl(_tab).then(result => {
-        if (window.electronAPI && window.electronAPI.agentActionResult) {
-          window.electronAPI.agentActionResult(act.requestId, result);
-        }
-      });
-    }
+    if (tab) _agentReply(act, agentGetUrl(tab));
   } else if (act.type === 'agent_get_tabs') {
-    if (act.requestId && window.electronAPI && window.electronAPI.agentActionResult) {
-      const result = agentGetTabs();
-      window.electronAPI.agentActionResult(act.requestId, result);
-    }
+    _agentReply(act, agentGetTabs());
   } else if (act.type === 'agent_switch_tab') {
-    if (act.requestId && window.electronAPI && window.electronAPI.agentActionResult) {
-      const result = agentSwitchTab(act.tab_id);
-      window.electronAPI.agentActionResult(act.requestId, result);
-    }
+    _agentReply(act, agentSwitchTab(act.tab_id));
   } else if (act.type === 'agent_back') {
-    if (act.requestId && window.electronAPI && window.electronAPI.agentActionResult) {
-      const result = agentBack();
-      window.electronAPI.agentActionResult(act.requestId, result);
-    }
+    _agentReply(act, agentBack());
   } else if (act.type === 'agent_forward') {
-    if (act.requestId && window.electronAPI && window.electronAPI.agentActionResult) {
-      const result = agentForward();
-      window.electronAPI.agentActionResult(act.requestId, result);
-    }
+    _agentReply(act, agentForward());
   } else if (act.type === 'agent_press_key') {
-    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-    if (_tab) agentPressKey(_tab, act.key, act.modifiers, act.element_id);
+    if (tab) agentPressKey(tab, act.key, act.modifiers, act.element_id);
   } else if (act.type === 'agent_get_storage') {
-    const _tab = typeof _browseTabs !== 'undefined' ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
-    if (_tab && act.requestId) {
-      agentGetStorage(_tab, act.storage_type, act.key_filter).then(result => {
-        if (window.electronAPI && window.electronAPI.agentActionResult) {
-          window.electronAPI.agentActionResult(act.requestId, result);
-        }
-      });
-    }
+    if (tab) _agentReply(act, agentGetStorage(tab, act.storage_type, act.key_filter));
   }
 }
 
@@ -318,8 +273,7 @@ export function _sendPopupChatMessage(popup, capturedText) {
       // Gather page info
       let pageUrl = '', pageTitle = '';
       const paper = typeof _currentPaperViewPaper !== 'undefined' ? _currentPaperViewPaper : null;
-      const browseTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
-        ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+      const browseTab = _getActiveTab();
       if (paper) {
         pageUrl = paper.link || paper.url || '';
         pageTitle = paper.title || '';
@@ -332,8 +286,7 @@ export function _sendPopupChatMessage(popup, capturedText) {
       let domTree = null;
       const toolsOn = Settings.get('chatTools') !== 'off';
       if (toolsOn && (typeof agentGetSemanticDOM === 'function' || typeof agentGetAccessibleDOM === 'function')) {
-        const _agentTab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
-          ? _browseTabs.find(t => t.id === _browseActiveTab) : null;
+        const _agentTab = _getActiveTab();
         if (_agentTab && _agentTab.el) {
           try {
             domTree = typeof agentGetSemanticDOM === 'function'
@@ -680,7 +633,7 @@ export function _addElementContextToPanel(popup, elementData) {
   const chipView = new window.View('div').className('doc-tab-context-chip');
   const chip = chipView.el;
   const tag = elementData.tagName || 'element';
-  var label = '<' + tag + '>';
+  let label = '<' + tag + '>';
   if (elementData.id) label = '<' + tag + '#' + elementData.id + '>';
   else if (elementData.classes) label = '<' + tag + '.' + elementData.classes.split(/\s+/)[0] + '>';
   chipView.add(

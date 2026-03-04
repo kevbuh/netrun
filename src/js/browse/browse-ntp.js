@@ -30,7 +30,7 @@ export async function handleNtpFileUpload(file) {
     entry.isImage = true;
     try {
       const dataUrl = await new Promise(function(resolve, reject) {
-        var reader = new FileReader();
+        const reader = new FileReader();
         reader.onload = function() { resolve(reader.result); };
         reader.onerror = reject;
         reader.readAsDataURL(file);
@@ -52,6 +52,16 @@ export async function handleNtpFileUpload(file) {
     try {
       entry.content = await file.text();
     } catch (e) { /* ignore */ }
+  } else if (lower.endsWith('.ipynb')) {
+    // Jupyter notebooks: open in nerd mode
+    if (typeof window.openLocalPdf === 'function') {
+      window.openLocalPdf(file);
+      // Remove from uploaded files since it's now a tab
+      const idx = window._ntpUploadedFiles.indexOf(entry);
+      if (idx >= 0) window._ntpUploadedFiles.splice(idx, 1);
+      _renderNtpFileChips();
+    }
+    return;
   } else if (lower.endsWith('.pdf')) {
     try {
       const fd = new FormData();

@@ -2,6 +2,7 @@
 // Extracted from core.js
 
 import Settings from '/js/core/core-settings.js';
+import { isEditable } from '/js/core/core-utils.js';
 import { apiGet } from '/js/api.js';
 import { browseNewTab, openBrowse } from '/js/browse/browse-windows.js';
 import { Effect } from '/aether/ui/state.js';
@@ -333,7 +334,7 @@ Effect(() => {
 (function initSidebarKeyNav() {
   document.addEventListener('keydown', (e) => {
     // Don't intercept if typing in an input
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+    if (isEditable(e.target)) return;
 
     // Press [ to focus sidebar
     if (e.key === '[' && !getSidebarFocused()) {

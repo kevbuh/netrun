@@ -11,27 +11,27 @@ import { goHome } from '/js/core/core-views.js';
 
 // Flag set by browseBack()/browseForward() before changing el.src — tells
 // the did-navigate handler to skip stack manipulation (caller already did it)
-var _browseStackNavigation = false;
+let _browseStackNavigation = false;
 export function _isBrowseStackNavigation() { return _browseStackNavigation; }
 export function _clearBrowseStackNavigation() { _browseStackNavigation = false; }
 
 function _browseActiveEl() {
-  var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+  const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
   return tab ? tab.el : null;
 }
 
 export function browseBack() {
   // Intercept back nav when in Nerd Mode
-  var tab0Nerd = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+  const tab0Nerd = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
   if (tab0Nerd && typeof window._isNerdMode === 'function' && window._isNerdMode(tab0Nerd.id)) {
     if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab0Nerd);
     return;
   }
   // Intercept back nav when in chat mode
-  var tab0 = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+  const tab0 = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
   if (tab0 && tab0._chatPage) {
-    var ntp = document.getElementById('browse-content');
-    var ntpMorphed = ntp ? ntp.querySelector('.browse-ntp.chat-mode') : null;
+    const ntp = document.getElementById('browse-content');
+    const ntpMorphed = ntp ? ntp.querySelector('.browse-ntp.chat-mode') : null;
     if (ntpMorphed && typeof window.chatViewUnmorph === 'function') {
       window.chatViewUnmorph();
       return;
@@ -51,7 +51,7 @@ export function browseBack() {
     if (urlInput) _browseSetUrlDisplay(urlInput, 'ntp://');
     return;
   }
-  var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+  const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
   if (!tab) return;
   // If tab has no back history and came from feed → close tab + go to feed
   if ((!tab.backStack || !tab.backStack.length) && tab.origin === 'feed') {
@@ -62,15 +62,15 @@ export function browseBack() {
   if (tab.backStack && tab.backStack.length) {
     if (!tab.forwardStack) tab.forwardStack = [];
     tab.forwardStack.push(tab.url);
-    var prevUrl = tab.backStack.pop();
+    const prevUrl = tab.backStack.pop();
     tab.url = prevUrl;
     tab.title = _browseTitleFromUrl(prevUrl);
     tab.favicon = _browseFaviconUrl(prevUrl);
-    var el = _browseActiveEl();
+    const el = _browseActiveEl();
     if (el) {
       _browseStackNavigation = true;
       _browseSetFrameAllow(el, prevUrl);
-      var proxied = _browseProxyUrl(prevUrl);
+      const proxied = _browseProxyUrl(prevUrl);
       el.dataset.originalUrl = prevUrl;
       el.src = proxied;
     }
@@ -85,23 +85,23 @@ export function browseBack() {
 }
 
 export function browseForward() {
-  var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+  const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
   if (!tab || !tab.forwardStack || !tab.forwardStack.length) return;
   if (!tab.backStack) tab.backStack = [];
   tab.backStack.push(tab.url);
-  var nextUrl = tab.forwardStack.pop();
+  const nextUrl = tab.forwardStack.pop();
   tab.url = nextUrl;
   tab.title = _browseTitleFromUrl(nextUrl);
   tab.favicon = _browseFaviconUrl(nextUrl);
-  var el = _browseActiveEl();
+  const el = _browseActiveEl();
   if (el) {
     _browseStackNavigation = true;
     _browseSetFrameAllow(el, nextUrl);
-    var proxied = _browseProxyUrl(nextUrl);
+    const proxied = _browseProxyUrl(nextUrl);
     el.dataset.originalUrl = nextUrl;
     el.src = proxied;
   }
-  var urlInput = document.getElementById('browse-url-input');
+  const urlInput = document.getElementById('browse-url-input');
   if (urlInput) _browseSetUrlDisplay(urlInput, nextUrl);
   if (typeof window._browseRenderTabs === 'function') window._browseRenderTabs();
   _browseUpdateSaveBtn();
@@ -110,7 +110,7 @@ export function browseForward() {
 }
 
 export function browseReload() {
-  var el = _browseActiveEl();
+  const el = _browseActiveEl();
   if (!el) return;
   if (window._browseIsElectron && el.reload) { el.reload(); return; }
   if (!window._browseIsElectron) { try { el.contentWindow.location.reload(); } catch(e) {} }
@@ -118,37 +118,37 @@ export function browseReload() {
 
 // ── History dropdown ──
 
-var _historyDropdownEl = null;
-var _historyDropdownHideTimer = 0;
+let _historyDropdownEl = null;
+let _historyDropdownHideTimer = 0;
 
 export function _showHistoryDropdown(direction, buttonEl) {
   clearTimeout(_historyDropdownHideTimer);
-  var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+  const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
   if (!tab) return;
-  var stack = direction === 'back' ? (tab.backStack || []) : (tab.forwardStack || []);
+  const stack = direction === 'back' ? (tab.backStack || []) : (tab.forwardStack || []);
   if (!stack.length) return;
   _hideHistoryDropdownNow();
 
-  var items = stack.slice().reverse().slice(0, 15);
-  var rows = items.map(function(url, i) {
-    var favImg = window.Image(_browseFaviconUrl(url))
+  const items = stack.slice().reverse().slice(0, 15);
+  const rows = items.map(function(url, i) {
+    const favImg = window.Image(_browseFaviconUrl(url))
       .frame({ width: 14, height: 14 }).cornerRadius('xs')
       .styles({ flexShrink: '0' })
       .on('error', function() { this.style.display = 'none'; });
-    var label = window.Text(_browseTitleFromUrl(url)).truncate();
+    const label = window.Text(_browseTitleFromUrl(url)).truncate();
     return window.HStack([favImg, label]).className('browse-history-dropdown-item nr-menu-item')
       .onTap(function() { _historyDropdownNavigate(direction, i + 1); _hideHistoryDropdownNow(); });
   });
 
-  var ddView = window.VStack(rows).className('browse-history-dropdown nr-menu')
+  const ddView = window.VStack(rows).className('browse-history-dropdown nr-menu')
     .material('thin')
     .on('mouseenter', function() { clearTimeout(_historyDropdownHideTimer); })
     .on('mouseleave', function() { _scheduleHideHistoryDropdown(); });
 
-  var dd = ddView.el;
+  const dd = ddView.el;
   document.body.appendChild(dd);
   _historyDropdownEl = dd;
-  var rect = buttonEl.getBoundingClientRect();
+  const rect = buttonEl.getBoundingClientRect();
   dd.style.top = rect.bottom + 4 + 'px';
   dd.style.left = Math.max(4, rect.left - 60) + 'px';
 }
@@ -164,7 +164,7 @@ export function _hideHistoryDropdownNow() {
 }
 
 function _historyDropdownNavigate(direction, steps) {
-  for (var i = 0; i < steps; i++) {
+  for (let i = 0; i < steps; i++) {
     if (direction === 'back') browseBack();
     else browseForward();
   }
@@ -177,9 +177,9 @@ export function _browseTitleFromUrl(url) {
   if (url === 'chat://') return 'Chats';
   if (url === 'netrun://' || url === 'netrun:///') return 'Netrun';
   try {
-    var u = new URL(url);
+    const u = new URL(url);
     if (u.hostname === 'www.google.com' && u.pathname === '/search') {
-      var q = u.searchParams.get('q');
+      const q = u.searchParams.get('q');
       return q ? q + ' - Google' : 'Google';
     }
     if (u.protocol === 'file:') return u.pathname.split('/').pop() || 'Local File';
@@ -189,7 +189,7 @@ export function _browseTitleFromUrl(url) {
 
 export function _browseFaviconUrl(url) {
   try {
-    var u = new URL(url);
+    const u = new URL(url);
     return '/api/favicon?domain=' + u.hostname;
   } catch(e) { return ''; }
 }
@@ -197,7 +197,7 @@ export function _browseFaviconUrl(url) {
 // ── NavButtons View builder ──
 
 export function NavButtons() {
-  var backBtn = new window.View('button').className('sidebar-icon pill-island-nav').attr('title', 'Back')
+  const backBtn = new window.View('button').className('sidebar-icon pill-island-nav').attr('title', 'Back')
     .html('<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>')
     .onTap(function() { browseBack(); });
   backBtn.el.id = 'pill-browse-back';
@@ -206,24 +206,24 @@ export function NavButtons() {
   backBtn.on('mouseleave', function() { _scheduleHideHistoryDropdown(); });
   // Reactive visibility
   Effect(function() {
-    var show = canGoBack.value;
+    const show = canGoBack.value;
     backBtn.el.style.display = show ? '' : 'none';
     backBtn.el.classList.remove('nav-disabled');
   });
 
-  var fwdBtn = new window.View('button').className('sidebar-icon pill-island-nav').attr('title', 'Forward')
+  const fwdBtn = new window.View('button').className('sidebar-icon pill-island-nav').attr('title', 'Forward')
     .html('<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>')
     .onTap(function() { browseForward(); });
   fwdBtn.el.id = 'pill-browse-fwd';
   fwdBtn.on('mouseenter', function() { _showHistoryDropdown('forward', fwdBtn.el); });
   fwdBtn.on('mouseleave', function() { _scheduleHideHistoryDropdown(); });
   Effect(function() {
-    var show = canGoForward.value;
+    const show = canGoForward.value;
     fwdBtn.el.style.display = show ? '' : 'none';
     fwdBtn.el.classList.remove('nav-disabled');
   });
 
-  var reloadBtn = new window.View('button').className('sidebar-icon pill-island-nav').attr('title', 'Refresh')
+  const reloadBtn = new window.View('button').className('sidebar-icon pill-island-nav').attr('title', 'Refresh')
     .html('<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"/></svg>')
     .onTap(function() { browseReload(); });
   reloadBtn.el.id = 'pill-browse-reload';
@@ -233,13 +233,13 @@ export function NavButtons() {
 
 // ── Zoom controls (ported from browse-island.js) ──
 
-var _browseZoomLevel = 1.0;
-var _browseZoomPanX = 0;
-var _browseZoomPanY = 0;
-var _browseZoomHideTimer = null;
+let _browseZoomLevel = 1.0;
+let _browseZoomPanX = 0;
+let _browseZoomPanY = 0;
+let _browseZoomHideTimer = null;
 
 function _browseShowZoomControls() {
-  var controls = document.getElementById('browse-zoom-controls');
+  const controls = document.getElementById('browse-zoom-controls');
   if (!controls) return;
   controls.style.display = 'flex';
   clearTimeout(_browseZoomHideTimer);
@@ -250,36 +250,36 @@ export function browseZoom(dir) {
   if (dir === 0) { _browseZoomLevel = 1.0; _browseZoomPanX = 0; _browseZoomPanY = 0; }
   else _browseZoomLevel = Math.min(5.0, Math.max(1.0, _browseZoomLevel + dir * 0.1));
   _browseApplyZoom();
-  var po = document.querySelector('.browse-pinch-overlay');
+  const po = document.querySelector('.browse-pinch-overlay');
   if (po) po.style.pointerEvents = _browseZoomLevel > 1 ? 'auto' : 'none';
 }
 
 export function _browseApplyZoom(focalX, focalY) {
-  var el = _browseActiveEl();
-  var container = document.getElementById('browse-content');
+  const el = _browseActiveEl();
+  const container = document.getElementById('browse-content');
   if (el && container) {
     if (window._browseIsElectron && el.setZoomFactor) {
       el.setZoomFactor(_browseZoomLevel);
     } else {
-      var oldZoom = parseFloat(el.dataset.zoom || '1');
-      var newZoom = _browseZoomLevel;
+      const oldZoom = parseFloat(el.dataset.zoom || '1');
+      const newZoom = _browseZoomLevel;
       el.dataset.zoom = newZoom;
       el.style.width = '100%';
       el.style.height = '100%';
-      var spacer = container.querySelector('.browse-zoom-spacer');
+      const spacer = container.querySelector('.browse-zoom-spacer');
       if (spacer) spacer.remove();
       if (newZoom <= 1) {
         _browseZoomPanX = 0; _browseZoomPanY = 0;
         el.style.transform = 'none'; el.style.transformOrigin = '';
       } else {
         if (focalX !== undefined && focalY !== undefined && oldZoom !== newZoom) {
-          var contentX = (_browseZoomPanX + focalX) / oldZoom;
-          var contentY = (_browseZoomPanY + focalY) / oldZoom;
+          const contentX = (_browseZoomPanX + focalX) / oldZoom;
+          const contentY = (_browseZoomPanY + focalY) / oldZoom;
           _browseZoomPanX = contentX * newZoom - focalX;
           _browseZoomPanY = contentY * newZoom - focalY;
         }
-        var maxPanX = container.clientWidth * (newZoom - 1);
-        var maxPanY = container.clientHeight * (newZoom - 1);
+        const maxPanX = container.clientWidth * (newZoom - 1);
+        const maxPanY = container.clientHeight * (newZoom - 1);
         _browseZoomPanX = Math.max(0, Math.min(maxPanX, _browseZoomPanX));
         _browseZoomPanY = Math.max(0, Math.min(maxPanY, _browseZoomPanY));
         el.style.transformOrigin = '0 0';
@@ -287,7 +287,7 @@ export function _browseApplyZoom(focalX, focalY) {
       }
     }
   }
-  var label = document.getElementById('browse-zoom-level');
+  const label = document.getElementById('browse-zoom-level');
   if (label) label.textContent = Math.round(_browseZoomLevel * 100) + '%';
   _browseShowZoomControls();
 }

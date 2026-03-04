@@ -1,18 +1,19 @@
 // browse-implementations.js — Implementations list view (netrun://implementations)
 // Lists all implementation sessions across all papers
 import { icon } from '/js/core/icons.js';
+import { toast } from '/js/core/core-utils.js';
 import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
 import { _browseUpdateNewTabPage, browseSelectTab } from '/js/browse/browse-passwords.js';
 import { _browseSetUrlDisplay } from '/js/browse-urlbar.js';
 import { openBrowse, browseNewTab } from '/js/browse/browse-windows.js';
 import { browseNavigate } from '/js/toolbar/toolbar-url.js';
 
-function _relativeAge(ts) {
-  var age = Date.now() / 1000 - ts;
+export function _relativeAge(ts) {
+  const age = Date.now() / 1000 - ts;
   if (age < 60) return 'just now';
   if (age < 3600) return Math.floor(age / 60) + 'm ago';
   if (age < 86400) return Math.floor(age / 3600) + 'h ago';
-  var days = Math.floor(age / 86400);
+  const days = Math.floor(age / 86400);
   if (days < 30) return days + 'd ago';
   return Math.floor(days / 30) + 'mo ago';
 }
@@ -21,9 +22,9 @@ export function openImplementations() {
   openBrowse();
 
   // Reuse existing implementations tab
-  for (var i = 0; i < window._browseWindows.length; i++) {
-    var w = window._browseWindows[i];
-    var existing = w.tabs.find(function(t) { return t._implementationsPage; });
+  for (let i = 0; i < window._browseWindows.length; i++) {
+    const w = window._browseWindows[i];
+    const existing = w.tabs.find(function(t) { return t._implementationsPage; });
     if (existing) {
       if (w.id !== window._browseActiveWindow) {
         if (typeof window.browseSelectWindow === 'function') window.browseSelectWindow(w.id);
@@ -33,9 +34,9 @@ export function openImplementations() {
     }
   }
 
-  var win = window._browseWindows.find(function(w) { return w.id === window._browseActiveWindow; });
+  const win = window._browseWindows.find(function(w) { return w.id === window._browseActiveWindow; });
   if (!win) return;
-  var tab = win.tabs.find(function(t) { return t.id === win.activeTab; });
+  const tab = win.tabs.find(function(t) { return t.id === win.activeTab; });
   if (!tab) return;
 
   // Push current URL onto back stack so browser back goes to previous page
@@ -53,8 +54,8 @@ export function openImplementations() {
 
   if (tab.el) tab.el.remove();
 
-  var container = document.getElementById('browse-content');
-  var elView = new View('div').id('browse-implementations-' + tab.id).className('nr-impl-layout')
+  const container = document.getElementById('browse-content');
+  const elView = new View('div').id('browse-implementations-' + tab.id).className('nr-impl-layout')
     .cssText('position:absolute;top:0;left:0;width:100%;height:100%;z-index:3;');
   AetherUI.append(elView, container);
   tab.el = elView.el;
@@ -63,7 +64,7 @@ export function openImplementations() {
   _browseRenderTabs();
   window._browseSaveTabs();
 
-  var urlInput = document.getElementById('browse-url-input');
+  const urlInput = document.getElementById('browse-url-input');
   _browseSetUrlDisplay(urlInput, 'netrun://implementations');
 
   if (typeof window._updateIslandNavButtons === 'function') window._updateIslandNavButtons();
@@ -72,24 +73,24 @@ export function openImplementations() {
 }
 
 function _renderImplementationsView(container) {
-  var searchState = State('');
-  var searchBinding = Binding(searchState, function(v) { return v; }, function(v) { return v; });
+  const searchState = State('');
+  const searchBinding = Binding(searchState, function(v) { return v; }, function(v) { return v; });
 
-  var backBtn = new View('button').className('nr-impl-card-action')
+  const backBtn = new View('button').className('nr-impl-card-action')
     .add(RawHTML(icon('chevronLeft', { size: 14 })))
     .attr('title', 'Back to netrun://')
     .onTap(function() { browseNavigate('netrun://'); });
 
-  var header = HStack([
+  const header = HStack([
     backBtn,
     Text('Implementations').className('nr-impl-title'),
     SearchField(searchBinding, 'Search...').className('nr-impl-search')
   ]).className('nr-impl-header');
 
-  var grid = new View('div').className('nr-impl-grid');
-  var emptyState = EmptyState({ title: 'No implementations yet', description: 'Start an implementation from the Code tab in Nerd Mode' });
+  const grid = new View('div').className('nr-impl-grid');
+  const emptyState = EmptyState({ title: 'No implementations yet', description: 'Start an implementation from the Code tab in Nerd Mode' });
 
-  var wrap = VStack([header, grid, emptyState]);
+  const wrap = VStack([header, grid, emptyState]);
 
   AetherUI.mount(wrap, container);
 
@@ -109,11 +110,11 @@ function _renderImplementationsView(container) {
       grid.el.style.display = '';
 
       Effect(function() {
-        var filter = searchState.value.toLowerCase();
-        var items = [];
+        const filter = searchState.value.toLowerCase();
+        const items = [];
         sessions.forEach(function(s) {
-          var title = s.paper_title || s.folder_path.split('/').pop() || 'Untitled';
-          var folder = s.folder_path.split('/').pop() || '';
+          const title = s.paper_title || s.folder_path.split('/').pop() || 'Untitled';
+          const folder = s.folder_path.split('/').pop() || '';
           if (filter && title.toLowerCase().indexOf(filter) === -1 && folder.toLowerCase().indexOf(filter) === -1) return;
           items.push(_buildSessionCard(s, function() { loadSessions(); }));
         });
@@ -126,78 +127,78 @@ function _renderImplementationsView(container) {
 }
 
 function _buildSessionCard(session, onRefresh) {
-  var title = session.paper_title || 'Untitled';
-  var folder = session.folder_path.split('/').pop() || '';
-  var age = _relativeAge(session.created_at);
+  const title = session.paper_title || 'Untitled';
+  const folder = session.folder_path.split('/').pop() || '';
+  const age = _relativeAge(session.created_at);
 
-  var card = new View('div').className('nr-impl-card');
+  const card = new View('div').className('nr-impl-card');
 
   // Top row: title + date
-  var titleView = Text(title).className('nr-impl-card-title');
-  var dateView = Text(age).className('nr-impl-card-date');
-  var topRow = new View('div').className('nr-impl-card-top').add(titleView, dateView);
+  const titleView = Text(title).className('nr-impl-card-title');
+  const dateView = Text(age).className('nr-impl-card-date');
+  const topRow = new View('div').className('nr-impl-card-top').add(titleView, dateView);
   card.add(topRow);
 
   // Folder name beneath title
   card.add(Text(folder).className('nr-impl-card-folder'));
 
   // Paper pills
-  var papers = session.papers || [];
+  const papers = session.papers || [];
   if (papers.length) {
-    var pillsView = new View('div').className('nr-impl-card-papers');
+    const pillsView = new View('div').className('nr-impl-card-papers');
     papers.forEach(function(p) {
-      var pillTitle = p.paper_title || p.paper_url;
+      let pillTitle = p.paper_title || p.paper_url;
       if (pillTitle.length > 40) pillTitle = pillTitle.slice(0, 38) + '\u2026';
       pillsView.add(Text(pillTitle).className('nr-impl-card-paper-pill').attr('title', p.paper_url));
     });
     card.add(pillsView);
   } else if (session.paper_url) {
-    var pillsView2 = new View('div').className('nr-impl-card-papers');
-    var pillTitle = session.paper_title || session.paper_url;
+    const pillsView2 = new View('div').className('nr-impl-card-papers');
+    let pillTitle = session.paper_title || session.paper_url;
     if (pillTitle.length > 40) pillTitle = pillTitle.slice(0, 38) + '\u2026';
     pillsView2.add(Text(pillTitle).className('nr-impl-card-paper-pill').attr('title', session.paper_url));
     card.add(pillsView2);
   }
 
   // Actions — always visible
-  var openFolderBtn = new View('button').className('nr-impl-card-action')
+  const openFolderBtn = new View('button').className('nr-impl-card-action')
     .add(RawHTML(icon('folder', { size: 12 })), Text('Open'))
     .onTap(function(e) {
       e.stopPropagation();
       if (electronAPI.showItemInFolder) electronAPI.showItemInFolder(session.folder_path);
     });
 
-  var addPaperBtn = new View('button').className('nr-impl-card-action')
+  const addPaperBtn = new View('button').className('nr-impl-card-action')
     .add(RawHTML(icon('link', { size: 12 })), Text('Link paper'))
     .onTap(function(e) {
       e.stopPropagation();
-      var url = prompt('Paper URL:');
+      const url = prompt('Paper URL:');
       if (!url) return;
-      var paperTitle = prompt('Paper title (optional):') || '';
+      const paperTitle = prompt('Paper title (optional):') || '';
       electronAPI.implLinkPaper(session.id, url, paperTitle).then(function() {
-        if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Paper linked');
+        toast('Paper linked');
         if (onRefresh) onRefresh();
       });
     });
 
-  var deleteBtn = new View('button').className('nr-impl-card-action danger')
+  const deleteBtn = new View('button').className('nr-impl-card-action danger')
     .add(RawHTML(icon('trash', { size: 12 })), Text('Delete'))
     .onTap(function(e) {
       e.stopPropagation();
       if (!confirm('Delete this implementation session and its files?')) return;
       electronAPI.implDelete(session.id, true).then(function() {
-        if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Session deleted');
+        toast('Session deleted');
         if (onRefresh) onRefresh();
       });
     });
 
-  var actions = new View('div').className('nr-impl-card-actions')
+  const actions = new View('div').className('nr-impl-card-actions')
     .add(openFolderBtn, addPaperBtn, deleteBtn);
   card.add(actions);
 
   // Click card → open the first linked paper in browse, or open folder
   card.onTap(function() {
-    var paperUrl = (papers.length && papers[0].paper_url) || session.paper_url;
+    const paperUrl = (papers.length && papers[0].paper_url) || session.paper_url;
     if (paperUrl) {
       browseNewTab(paperUrl);
     } else if (electronAPI.showItemInFolder) {

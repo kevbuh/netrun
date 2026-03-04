@@ -10,16 +10,16 @@ import { toggleCaptions } from '/js/browse/browse-captions.js';
 import { _showPanel } from '/js/panel.js';
 
 // ── State ──
-var _dirty = false;
-var _rafPending = false;
-var _dropdownOpen = false;
-var _outsideClickBound = false;
-var _dropdownStateKey = '';  // fingerprint to avoid unnecessary dropdown re-renders
-var _ccCenterKey = null;     // fingerprint for CC live captions in center column
-var _micCenterKey = null;    // fingerprint for mic live transcript in center column
+let _dirty = false;
+let _rafPending = false;
+let _dropdownOpen = false;
+let _outsideClickBound = false;
+let _dropdownStateKey = '';  // fingerprint to avoid unnecessary dropdown re-renders
+let _ccCenterKey = null;     // fingerprint for CC live captions in center column
+let _micCenterKey = null;    // fingerprint for mic live transcript in center column
 
 // Category colors for pulse events
-var _pulseCatColors = { ai: '#a78bfa', feed: '#f97316', network: '#94a3b8', system: '#e879f9' };
+const _pulseCatColors = { ai: '#a78bfa', feed: '#f97316', network: '#94a3b8', system: '#e879f9' };
 
 // ── Throttled render ──
 function _scheduleRender() {
@@ -39,20 +39,20 @@ window._renderUnifiedPill = _scheduleRender;
 
 // ── State priority resolver ──
 function _resolveIndicatorState() {
-  var audioState = typeof window._getAudioState === 'function' ? window._getAudioState() : {};
-  var pulseState = typeof window._getPulseState === 'function' ? window._getPulseState() : {};
-  var micRecording = audioState.micRecording;
-  var aiActive = _isAIActive();
-  var audioPlaying = !!(audioState.tab || audioState.tts);
-  var pulseFlashing = pulseState.isFlashing;
+  const audioState = typeof window._getAudioState === 'function' ? window._getAudioState() : {};
+  const pulseState = typeof window._getPulseState === 'function' ? window._getPulseState() : {};
+  const micRecording = audioState.micRecording;
+  const aiActive = _isAIActive();
+  const audioPlaying = !!(audioState.tab || audioState.tts);
+  const pulseFlashing = pulseState.isFlashing;
 
-  var primary = 'idle';
+  let primary = 'idle';
   if (micRecording) primary = 'mic';
   else if (aiActive) primary = 'ai';
   else if (audioPlaying) primary = 'audio';
   else if (pulseFlashing) primary = 'pulse';
 
-  var secondary = [];
+  const secondary = [];
   if (primary !== 'mic' && micRecording) secondary.push('mic');
   if (primary !== 'ai' && aiActive) secondary.push('ai');
   if (primary !== 'audio' && audioPlaying) secondary.push('audio');
@@ -63,9 +63,9 @@ function _resolveIndicatorState() {
 
 function _isAIActive() {
   if (!window._islandActivities) return false;
-  var acts = window._islandActivities.value;
-  for (var id in acts) {
-    var a = acts[id];
+  const acts = window._islandActivities.value;
+  for (const id in acts) {
+    const a = acts[id];
     if (a && (a.type === 'ai' || (a.type === 'insight' && a.loading))) return true;
   }
   return false;
@@ -74,14 +74,14 @@ function _isAIActive() {
 // ── Gather inline content from island activities ──
 function _getInlineContent() {
   if (!window._islandActivities) return { modelLabel: '', modelName: '', annotateOffer: false, annotateLabel: '', insightLoading: false };
-  var acts = window._islandActivities.value;
-  var modelLabel = '';
-  var modelName = '';
-  var annotateOffer = false;
-  var annotateLabel = '';
-  var insightLoading = false;
-  for (var id in acts) {
-    var a = acts[id];
+  const acts = window._islandActivities.value;
+  let modelLabel = '';
+  let modelName = '';
+  let annotateOffer = false;
+  let annotateLabel = '';
+  let insightLoading = false;
+  for (const id in acts) {
+    const a = acts[id];
     if (!a) continue;
     if (a.type === 'ai' && a.label) { modelLabel = a.label; if (a.detail) modelName = a.detail; }
     if (a.type === 'insight') {
@@ -101,39 +101,39 @@ function _getInlineContent() {
 
 // ── Main render ──
 function _renderUnifiedPill() {
-  var el = document.getElementById('pill-ai-unified');
+  const el = document.getElementById('pill-ai-unified');
   if (!el) return;
 
   // Hide entire pill when AI is disabled
   el.style.display = Settings.aiEnabled() ? '' : 'none';
   if (!Settings.aiEnabled()) return;
 
-  var state = _resolveIndicatorState();
-  var inline = _getInlineContent();
+  const state = _resolveIndicatorState();
+  const inline = _getInlineContent();
 
   // Indicator
-  var indicator = el.querySelector('.ai-unified-indicator');
+  const indicator = el.querySelector('.ai-unified-indicator');
   if (indicator) _renderIndicator(indicator, state.primary, state.pulseState);
 
   // Inline labels
-  var labelContainer = el.querySelector('.ai-unified-labels');
+  const labelContainer = el.querySelector('.ai-unified-labels');
   if (labelContainer) _renderInlineLabels(labelContainer, inline);
 
-  var hasInline = !!inline.modelLabel;
+  const hasInline = !!inline.modelLabel;
   el.classList.toggle('ai-unified-expanded', hasInline);
 
   // Secondary dots
-  var secContainer = el.querySelector('.ai-unified-secondary');
+  const secContainer = el.querySelector('.ai-unified-secondary');
   if (secContainer) _renderSecondaryDots(secContainer, state.secondary);
 
   // Dropdown — only re-render when audio/mic/tts/cc state actually changed
   if (_dropdownOpen) {
-    var dropdown = el.querySelector('.ai-unified-dropdown');
+    const dropdown = el.querySelector('.ai-unified-dropdown');
     if (dropdown) {
-      var as = state.audioState;
-      var _liveCount = typeof window._getActiveLLMCalls === 'function' ? window._getActiveLLMCalls().length : 0;
-      var _pulseCount = (state.pulseState.recent || []).length;
-      var key = [state.primary, !!as.tab, !!as.tts, as.tts && as.tts.paused, !!as.cc, !!as.mic, as.micRecording, _liveCount, _pulseCount].join(',');
+      const as = state.audioState;
+      const _liveCount = typeof window._getActiveLLMCalls === 'function' ? window._getActiveLLMCalls().length : 0;
+      const _pulseCount = (state.pulseState.recent || []).length;
+      const key = [state.primary, !!as.tab, !!as.tts, as.tts && as.tts.paused, !!as.cc, !!as.mic, as.micRecording, _liveCount, _pulseCount].join(',');
       if (key !== _dropdownStateKey) {
         _dropdownStateKey = key;
         _renderDropdown(dropdown, state);
@@ -142,15 +142,15 @@ function _renderUnifiedPill() {
   }
 
   // Expanded island — re-render CC/mic center column when state changes
-  var wrap = document.getElementById('pill-url-wrap');
+  const wrap = document.getElementById('pill-url-wrap');
   if (wrap && wrap.classList.contains('island-expanded')) {
-    var as2 = state.audioState;
+    const as2 = state.audioState;
 
     // Center column — re-render when CC is active (live captions)
     if (as2.cc && as2.cc.active) {
-      var ccAct = window._islandActivities ? window._islandActivities.value.cc : null;
-      var ccLen = ccAct && ccAct.lines ? ccAct.lines.length : 0;
-      var ccKey = 'cc:' + ccLen;
+      const ccAct = window._islandActivities ? window._islandActivities.value.cc : null;
+      const ccLen = ccAct && ccAct.lines ? ccAct.lines.length : 0;
+      const ccKey = 'cc:' + ccLen;
       if (ccKey !== _ccCenterKey) {
         _ccCenterKey = ccKey;
         if (typeof window._renderIslandActions === 'function') window._renderIslandActions();
@@ -162,9 +162,9 @@ function _renderUnifiedPill() {
 
     // Center column — re-render when mic is active (live transcript)
     if (as2.micRecording) {
-      var micAct = window._islandActivities ? window._islandActivities.value.mic : null;
-      var micLen = micAct && micAct.lines ? micAct.lines.length : 0;
-      var micKey = 'mic:' + micLen;
+      const micAct = window._islandActivities ? window._islandActivities.value.mic : null;
+      const micLen = micAct && micAct.lines ? micAct.lines.length : 0;
+      const micKey = 'mic:' + micLen;
       if (micKey !== _micCenterKey) {
         _micCenterKey = micKey;
         if (typeof window._renderIslandActions === 'function') window._renderIslandActions();
@@ -178,7 +178,7 @@ function _renderUnifiedPill() {
 
 // ── Indicator rendering ──
 function _renderIndicator(container, primary, pulseState) {
-  var view;
+  let view;
   container.className = 'ai-unified-indicator';
 
   switch (primary) {
@@ -201,8 +201,8 @@ function _renderIndicator(container, primary, pulseState) {
       container.classList.add('ai-unified-audio');
       break;
     case 'pulse': {
-      var lastEvent = pulseState.lastEvent;
-      var col = lastEvent ? (_pulseCatColors[lastEvent.category] || '#94a3b8') : '#94a3b8';
+      const lastEvent = pulseState.lastEvent;
+      const col = lastEvent ? (_pulseCatColors[lastEvent.category] || '#94a3b8') : '#94a3b8';
       view = new View('span')
         .className('ai-unified-dot ai-unified-dot-pulse')
         .styles({ background: col, boxShadow: '0 0 6px ' + col });
@@ -224,15 +224,15 @@ function _renderIndicator(container, primary, pulseState) {
 // ── Short model name for display ──
 function _shortModelName(model) {
   if (!model) return '';
-  var m = model;
+  let m = model;
   // Strip provider prefix (e.g. "google/gemini-2.0-flash-001" → "gemini-2.0-flash-001")
-  var slash = m.lastIndexOf('/');
+  const slash = m.lastIndexOf('/');
   if (slash >= 0) m = m.slice(slash + 1);
   // Strip trailing version suffixes like "-001", "-20250219", ":latest"
   m = m.replace(/[-:](latest|\d{6,}|\d{3})$/i, '');
   // Strip ":7b", ":14b" etc. tag — keep as suffix
-  var tagMatch = m.match(/:(\d+\.?\d*[bBmM])$/);
-  var tag = tagMatch ? ' ' + tagMatch[1].toUpperCase() : '';
+  const tagMatch = m.match(/:(\d+\.?\d*[bBmM])$/);
+  const tag = tagMatch ? ' ' + tagMatch[1].toUpperCase() : '';
   if (tagMatch) m = m.replace(/:[\d.]+[bBmM]$/, '');
   // Capitalize first letter of each word segment
   m = m.split(/[-_]/).map(function(w) {
@@ -251,8 +251,8 @@ function _renderInlineLabels(container, inline) {
     return;
   }
 
-  var children = [];
-  var shortModel = _shortModelName(inline.modelName);
+  const children = [];
+  const shortModel = _shortModelName(inline.modelName);
 
   if (inline.modelLabel) {
     children.push(
@@ -266,7 +266,7 @@ function _renderInlineLabels(container, inline) {
     );
   }
 
-  var row = HStack(children);
+  const row = HStack(children);
   AetherUI.mount(row, container);
 }
 
@@ -277,9 +277,9 @@ function _renderSecondaryDots(container, secondary) {
     return;
   }
 
-  var colorMap = { mic: '#ef4444', ai: '#a78bfa', audio: 'var(--nr-accent)', pulse: '#94a3b8' };
-  var dots = secondary.map(function(s) {
-    var col = colorMap[s] || '#94a3b8';
+  const colorMap = { mic: '#ef4444', ai: '#a78bfa', audio: 'var(--nr-accent)', pulse: '#94a3b8' };
+  const dots = secondary.map(function(s) {
+    const col = colorMap[s] || '#94a3b8';
     return new View('span')
       .className('ai-unified-sec-dot')
       .styles({ background: col });
@@ -290,10 +290,10 @@ function _renderSecondaryDots(container, secondary) {
 
 // ── Dropdown rendering ──
 function _renderDropdown(dropdown, state) {
-  var audioState = state.audioState;
-  var pulseState = state.pulseState;
+  const audioState = state.audioState;
+  const pulseState = state.pulseState;
 
-  var children = [];
+  const children = [];
 
   // 1. Ask AI
   children.push(_dropdownItem(
@@ -304,18 +304,18 @@ function _renderDropdown(dropdown, state) {
   ));
 
   // Conversations
-  var _convTabs = _collectConversationTabs();
+  const _convTabs = _collectConversationTabs();
   if (_convTabs.length > 0) {
     children.push(_divider());
     children.push(_sectionLabel('Conversations'));
-    for (var ci = 0; ci < _convTabs.length; ci++) {
+    for (let ci = 0; ci < _convTabs.length; ci++) {
       (function(ct) {
-        var isActive = ct.active;
-        var streaming = ct.streaming;
-        var preview = ct.preview || '';
-        var title = ct.title || 'New Tab';
+        const isActive = ct.active;
+        const streaming = ct.streaming;
+        const preview = ct.preview || '';
+        const title = ct.title || 'New Tab';
 
-        var convItem = VStack(
+        const convItem = VStack(
           Text(escapeHtml(title)).className('ai-unified-conv-title')
         );
 
@@ -327,7 +327,7 @@ function _renderDropdown(dropdown, state) {
           convItem.add(new View('span').className('ai-unified-conv-stream nr-breathe'));
         }
 
-        var cls = 'ai-unified-conv-item' + (isActive ? ' ai-unified-conv-active' : '');
+        const cls = 'ai-unified-conv-item' + (isActive ? ' ai-unified-conv-active' : '');
         convItem.className(cls).onTap(function() { _closeDropdown(); browseSelectTab(ct.tabId); });
         children.push(convItem);
       })(_convTabs[ci]);
@@ -337,11 +337,11 @@ function _renderDropdown(dropdown, state) {
   children.push(_divider());
 
   // 2. AI section
-  var tab = _getActiveTab();
-  var hasTab = tab && !tab.blank && tab.url;
-  var annAnalyzing = hasTab && _insightAnalyzing.get(tab.id);
-  var annEnabled = hasTab && !annAnalyzing && _annotationsEnabled.get(tab.id);
-  var annLabel = annAnalyzing ? 'Stop Analyzing' : annEnabled ? 'Remove Annotations' : 'Annotate Page';
+  const tab = _getActiveTab();
+  const hasTab = tab && !tab.blank && tab.url;
+  const annAnalyzing = hasTab && _insightAnalyzing.get(tab.id);
+  const annEnabled = hasTab && !annAnalyzing && _annotationsEnabled.get(tab.id);
+  const annLabel = annAnalyzing ? 'Stop Analyzing' : annEnabled ? 'Remove Annotations' : 'Annotate Page';
 
   children.push(_dropdownItem(
     icon('annotate', { size: 14 }),
@@ -349,7 +349,7 @@ function _renderDropdown(dropdown, state) {
     function() { _closeDropdown(); toggleAnnotations(); },
     { disabled: !hasTab, color: (annEnabled || annAnalyzing) ? 'var(--nr-accent)' : undefined }
   ));
-  var ttsActive = !!(window._ttsAudio || window._ttsPaused || (window._ttsChunks && window._ttsChunks.length > 0));
+  const ttsActive = !!(window._ttsAudio || window._ttsPaused || (window._ttsChunks && window._ttsChunks.length > 0));
   children.push(_dropdownItem(
     icon(ttsActive ? 'close' : 'speaker', { size: 14 }),
     ttsActive ? 'Stop Reading' : 'Read Aloud',
@@ -372,7 +372,7 @@ function _renderDropdown(dropdown, state) {
   }
 
   if (audioState.tts) {
-    var spdText = (parseFloat(Settings.get('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x';
+    const spdText = (parseFloat(Settings.get('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x';
     children.push(_dropdownItem(
       icon(audioState.tts.paused ? 'play' : 'pause', { size: 14 }),
       audioState.tts.paused ? 'Resume TTS' : 'Pause TTS',
@@ -427,16 +427,16 @@ function _renderDropdown(dropdown, state) {
   children.push(_divider());
   children.push(_sectionLabel('Activity'));
 
-  var activityScroll = new View('div').className('ai-unified-activity-scroll');
+  const activityScroll = new View('div').className('ai-unified-activity-scroll');
 
   // Live LLM calls first
-  var _liveCalls2 = typeof window._getActiveLLMCalls === 'function' ? window._getActiveLLMCalls() : [];
-  for (var li2 = 0; li2 < _liveCalls2.length; li2++) {
-    var lc2 = _liveCalls2[li2];
-    var lcModel2 = _shortModelName(lc2.model);
-    var lcAge2 = Math.round((Date.now() - lc2.startTs) / 1000);
-    var lcAgeStr2 = lcAge2 < 60 ? lcAge2 + 's' : Math.round(lcAge2 / 60) + 'm';
-    var lcChildren = [new View('span').className('ai-unified-dot ai-unified-dot-ai nr-breathe')];
+  const _liveCalls2 = typeof window._getActiveLLMCalls === 'function' ? window._getActiveLLMCalls() : [];
+  for (let li2 = 0; li2 < _liveCalls2.length; li2++) {
+    const lc2 = _liveCalls2[li2];
+    const lcModel2 = _shortModelName(lc2.model);
+    const lcAge2 = Math.round((Date.now() - lc2.startTs) / 1000);
+    const lcAgeStr2 = lcAge2 < 60 ? lcAge2 + 's' : Math.round(lcAge2 / 60) + 'm';
+    const lcChildren = [new View('span').className('ai-unified-dot ai-unified-dot-ai nr-breathe')];
     if (lcModel2) lcChildren.push(Text(escapeHtml(lcModel2)).className('ai-unified-event-cat').styles({ color: '#a78bfa' }));
     lcChildren.push(Text(escapeHtml(lc2.label + '\u2026')).className('ai-unified-event-label'));
     lcChildren.push(Text(lcAgeStr2).className('ai-unified-event-age'));
@@ -444,20 +444,20 @@ function _renderDropdown(dropdown, state) {
   }
 
   // Historical pulse events
-  var recent = pulseState.recent || [];
-  var start = Math.max(0, recent.length - 30);
-  for (var ri = recent.length - 1; ri >= start; ri--) {
-    var ev = recent[ri];
-    var col = _pulseCatColors[ev.category] || '#94a3b8';
-    var age = Math.round((Date.now() - ev.timestamp) / 1000);
-    var ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
-    var statusDot = ev.ok === true ? '#22c55e' : ev.ok === false ? '#ef4444' : '#94a3b8';
+  const recent = pulseState.recent || [];
+  const start = Math.max(0, recent.length - 30);
+  for (let ri = recent.length - 1; ri >= start; ri--) {
+    const ev = recent[ri];
+    const col = _pulseCatColors[ev.category] || '#94a3b8';
+    const age = Math.round((Date.now() - ev.timestamp) / 1000);
+    const ageStr = age < 60 ? age + 's ago' : Math.round(age / 60) + 'm ago';
+    const statusDot = ev.ok === true ? '#22c55e' : ev.ok === false ? '#ef4444' : '#94a3b8';
 
-    var evLabel = ev.label || '';
-    var evModel = (ev.category === 'ai' && ev.detail) ? _shortModelName(ev.detail) : '';
-    var labelText = evModel ? evLabel + ' \u00b7 ' + evModel : evLabel;
+    const evLabel = ev.label || '';
+    const evModel = (ev.category === 'ai' && ev.detail) ? _shortModelName(ev.detail) : '';
+    const labelText = evModel ? evLabel + ' \u00b7 ' + evModel : evLabel;
 
-    var eventRow = HStack(
+    const eventRow = HStack(
       new View('span').className('ai-unified-event-status').styles({ background: statusDot }),
       Text(escapeHtml(ev.category)).className('ai-unified-event-cat').styles({ color: col }),
       Text(escapeHtml(labelText)).className('ai-unified-event-label'),
@@ -489,14 +489,14 @@ function _sectionLabel(text) {
 function _dropdownItem(iconHtml, label, action, opts) {
   opts = opts || {};
 
-  var cls = 'ai-unified-item';
+  let cls = 'ai-unified-item';
   if (opts.highlight) cls += ' ai-unified-item-highlight';
   if (opts.disabled) cls += ' ai-unified-item-disabled';
 
-  var iconView = RawHTML(iconHtml || '');
-  var labelView = Text(label);
+  const iconView = RawHTML(iconHtml || '');
+  const labelView = Text(label);
 
-  var row = HStack(iconView, labelView);
+  const row = HStack(iconView, labelView);
   if (opts.color) row.styles({ color: opts.color });
   if (opts.trailing) row.add(opts.trailing);
   row.className(cls);
@@ -518,19 +518,19 @@ function _infoRow(label, value) {
 // ── Collect tabs with active AI conversations ──
 function _collectConversationTabs() {
   if (typeof window._browseWindows === 'undefined') return [];
-  var results = [];
-  var activeTabId = typeof window._browseActiveTab !== 'undefined' ? window._browseActiveTab : null;
-  for (var wi = 0; wi < window._browseWindows.length; wi++) {
-    var win = window._browseWindows[wi];
-    for (var ti = 0; ti < win.tabs.length; ti++) {
-      var t = win.tabs[ti];
-      var isActive = t.id === activeTabId;
+  const results = [];
+  const activeTabId = typeof window._browseActiveTab !== 'undefined' ? window._browseActiveTab : null;
+  for (let wi = 0; wi < window._browseWindows.length; wi++) {
+    const win = window._browseWindows[wi];
+    for (let ti = 0; ti < win.tabs.length; ti++) {
+      const t = win.tabs[ti];
+      const isActive = t.id === activeTabId;
       if (t._aiPanel && t._aiPanel.hasChat) {
-        var msgs = t._aiPanel.messages || [];
-        var lastAssistant = _lastAssistantPreview(msgs);
+        const msgs = t._aiPanel.messages || [];
+        const lastAssistant = _lastAssistantPreview(msgs);
         results.push({ tabId: t.id, title: t.title || 'New Tab', preview: lastAssistant, active: isActive, streaming: !!(t._aiPanel.backgroundStreaming) });
       } else if (isActive && window._popupChatMessages && window._popupChatMessages.length > 0) {
-        var lastAssistant2 = _lastAssistantPreview(window._popupChatMessages);
+        const lastAssistant2 = _lastAssistantPreview(window._popupChatMessages);
         results.push({ tabId: t.id, title: t.title || 'New Tab', preview: lastAssistant2, active: true, streaming: !!window._aetherBackgroundStreaming });
       }
     }
@@ -539,9 +539,9 @@ function _collectConversationTabs() {
 }
 
 function _lastAssistantPreview(messages) {
-  for (var i = messages.length - 1; i >= 0; i--) {
+  for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].role === 'assistant' && messages[i].content) {
-      var text = messages[i].content.replace(/[#*_`~\[\]]/g, '').trim();
+      const text = messages[i].content.replace(/[#*_`~\[\]]/g, '').trim();
       return text.length > 60 ? text.slice(0, 57) + '\u2026' : text;
     }
   }
@@ -555,16 +555,16 @@ function _getActiveTab() {
 }
 
 function _pillAnchor() {
-  var el = document.getElementById('pill-ai-unified');
+  const el = document.getElementById('pill-ai-unified');
   if (!el) return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-  var rect = el.getBoundingClientRect();
+  const rect = el.getBoundingClientRect();
   return { x: rect.x, y: rect.bottom + 4 };
 }
 
 // ── Open/close dropdown ──
 function _openDropdown() {
   if (!Settings.aiEnabled()) return;
-  var el = document.getElementById('pill-ai-unified');
+  const el = document.getElementById('pill-ai-unified');
   if (!el) return;
   _dropdownOpen = true;
   el.classList.add('ai-unified-open');
@@ -579,7 +579,7 @@ function _openDropdown() {
 }
 
 function _closeDropdown() {
-  var el = document.getElementById('pill-ai-unified');
+  const el = document.getElementById('pill-ai-unified');
   if (!el) return;
   _dropdownOpen = false;
   _dropdownStateKey = '';
@@ -587,12 +587,12 @@ function _closeDropdown() {
   document.body.classList.remove('island-dropdown-guard');
   document.removeEventListener('mousedown', _onOutsideClick);
   _outsideClickBound = false;
-  var dropdown = el.querySelector('.ai-unified-dropdown');
+  const dropdown = el.querySelector('.ai-unified-dropdown');
   if (dropdown) dropdown.innerHTML = '';
 }
 
 function _onOutsideClick(e) {
-  var el = document.getElementById('pill-ai-unified');
+  const el = document.getElementById('pill-ai-unified');
   if (el && !el.contains(e.target)) {
     _closeDropdown();
   }
@@ -600,12 +600,12 @@ function _onOutsideClick(e) {
 
 // ── Exported: render AI panel content into an arbitrary container ──
 export function renderAIPanelContent(container, onAction) {
-  var state = _resolveIndicatorState();
+  const state = _resolveIndicatorState();
   _renderDropdown(container, state);
   if (onAction) {
     // onAction fires after any dropdown item tap — wrap by re-mounting with interceptor
     container.addEventListener('click', function(e) {
-      var item = e.target.closest('.ai-unified-item, .ai-unified-conv-item');
+      const item = e.target.closest('.ai-unified-item, .ai-unified-conv-item');
       if (item) onAction();
     });
   }
@@ -613,7 +613,7 @@ export function renderAIPanelContent(container, onAction) {
 
 // ── Init ──
 export function _initUnifiedPill() {
-  var el = document.getElementById('pill-ai-unified');
+  const el = document.getElementById('pill-ai-unified');
   if (!el || el._unifiedBound) return;
   el._unifiedBound = true;
 
@@ -634,7 +634,7 @@ export function _initUnifiedPill() {
     else _openDropdown();
   });
 
-  var _blurTimer = 0;
+  let _blurTimer = 0;
   window.addEventListener('blur', function() {
     clearTimeout(_blurTimer);
     _blurTimer = setTimeout(function() {
@@ -647,7 +647,7 @@ export function _initUnifiedPill() {
 
   // Hook into pulse system
   if (typeof Motion !== 'undefined' && Motion.pulse) {
-    var _pulseThrottle = null;
+    let _pulseThrottle = null;
     Motion.pulse.on(function() {
       if (_pulseThrottle) return;
       _pulseThrottle = setTimeout(function() {

@@ -11,10 +11,10 @@ import { _annotationsEnabled, _showAnnotateOfferPill, _updateAnnotateButtonState
 import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
 import { _pillSyncUrl, browseNavigate } from '/js/toolbar/toolbar-url.js';
 import { _browseApplyZoom, browseBack, browseForward } from '/js/toolbar/toolbar-nav.js';
-var _browseZoomLevel = window._browseZoomLevel ?? 1.0;
-var _browseZoomPanX = window._browseZoomPanX ?? 0;
-var _browseZoomPanY = window._browseZoomPanY ?? 0;
-var _pillMicClick = function() { if (typeof window._pillMicClick === 'function') window._pillMicClick(); };
+let _browseZoomLevel = window._browseZoomLevel ?? 1.0;
+let _browseZoomPanX = window._browseZoomPanX ?? 0;
+let _browseZoomPanY = window._browseZoomPanY ?? 0;
+const _pillMicClick = function() { if (typeof window._pillMicClick === 'function') window._pillMicClick(); };
 import { _browseBindFrame } from '/js/browse/browse-frame-bind.js';
 import { _browseDownloadIdCounter, _browseDownloads, _browseRenderDownloads, _browseUpdateDownloadBadge, _saveBrowseDownloads } from '/js/browse/browse-download-mgr.js';
 import { _checkFocusTimer } from '/js/browse/browse-doom-scroll.js';
@@ -176,7 +176,7 @@ export function _pwHideSavePrompt(clearPending) {
 }
 
 // Context menu for Browse view (links and images)
-var _browseCtxMenu = null;
+let _browseCtxMenu = null;
 export let _browseContextData = null;
 
 export function _hideBrowseContextMenu() {
@@ -597,8 +597,8 @@ export function _browseUpdateNewTabPage(tab) {
           { icon: icon('attachment', {strokeWidth: '1.5'}), label: 'Add files', handler: function() { fileInput.el.click(); } },
           { divider: true },
           { icon: icon('chatDots', {strokeWidth: '1.5'}), label: 'Chat', handler: function() {
-            var input = document.getElementById('search-query');
-            var text = input ? input.value.trim() : '';
+            const input = document.getElementById('search-query');
+            const text = input ? input.value.trim() : '';
             if (text && typeof chatViewNewThread === 'function') chatViewNewThread(text);
             else if (typeof openChatPage === 'function') openChatPage();
           }},
@@ -635,7 +635,7 @@ export function _browseUpdateNewTabPage(tab) {
       const _localSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
       const ntpAiChip = new window.View('button').attr('type', 'button').attr('title', 'Toggle Local/Cloud AI');
       Effect(function() {
-        var cloud = _ntpAiCloud.value;
+        const cloud = _ntpAiCloud.value;
         ntpAiChip.className('ai-mode-chip' + (cloud ? ' ai-mode-cloud' : ''));
         AetherUI.mount(
           window.HStack([window.RawHTML(cloud ? _cloudSvg : _localSvg), window.Text(cloud ? 'Cloud' : 'Local')]),
@@ -644,8 +644,8 @@ export function _browseUpdateNewTabPage(tab) {
       });
       ntpAiChip.on('mousedown', function(e) { e.preventDefault(); });
       ntpAiChip.onTap(function() {
-        var cur = Settings.get('aiProvider') || 'ollama';
-        var next = cur === 'openrouter' ? 'ollama' : 'openrouter';
+        const cur = Settings.get('aiProvider') || 'ollama';
+        const next = cur === 'openrouter' ? 'ollama' : 'openrouter';
         Settings.set('aiProvider', next);
         if (window.electronAPI && window.electronAPI.providerSetDefault) window.electronAPI.providerSetDefault(next);
         window.dispatchEvent(new CustomEvent('aimode-changed', { detail: { provider: next } }));
@@ -666,11 +666,11 @@ export function _browseUpdateNewTabPage(tab) {
       searchInput.onkeydown = function(ev) { _browseUrlKeydown(ev); };
       searchInputView.on('paste', function(ev) {
         if (!ev.clipboardData) return;
-        var imageFile = null;
+        let imageFile = null;
         // Check clipboardData.items for image types
-        var items = ev.clipboardData.items;
+        const items = ev.clipboardData.items;
         if (items) {
-          for (var i = 0; i < items.length; i++) {
+          for (let i = 0; i < items.length; i++) {
             if (items[i].kind === 'file' && items[i].type.startsWith('image/')) {
               imageFile = items[i].getAsFile();
               break;
@@ -679,7 +679,7 @@ export function _browseUpdateNewTabPage(tab) {
         }
         // Fallback: check clipboardData.files
         if (!imageFile && ev.clipboardData.files) {
-          for (var j = 0; j < ev.clipboardData.files.length; j++) {
+          for (let j = 0; j < ev.clipboardData.files.length; j++) {
             if (ev.clipboardData.files[j].type.startsWith('image/')) {
               imageFile = ev.clipboardData.files[j];
               break;
@@ -689,13 +689,13 @@ export function _browseUpdateNewTabPage(tab) {
         if (!imageFile) return;
         ev.preventDefault();
         // Read image as base64, then add to chat
-        var reader = new FileReader();
+        const reader = new FileReader();
         reader.onload = function() {
-          var base64 = reader.result.split(',')[1];
+          const base64 = reader.result.split(',')[1];
           if (!base64) return;
-          var ntpEl = document.getElementById('browse-content')?.querySelector('.browse-ntp');
+          const ntpEl = document.getElementById('browse-content')?.querySelector('.browse-ntp');
           if (!ntpEl) return;
-          var addImage = function() {
+          const addImage = function() {
             import('/js/panel-chat.js').then(function(mod) {
               mod._addScreenshotToPanel(ntpEl, base64);
             });

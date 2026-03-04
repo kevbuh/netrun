@@ -25,7 +25,6 @@
   display: flex;
   flex-direction: column;
   backdrop-filter: blur(var(--nr-material-blur-regular)) saturate(140%);
-  -webkit-backdrop-filter: blur(var(--nr-material-blur-regular)) saturate(140%);
 }
 
 .nr-modal-header {

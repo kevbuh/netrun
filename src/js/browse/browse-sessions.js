@@ -8,6 +8,9 @@ import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
 
 // ── Tab Sessions (save/restore named tab groups) ──
+function _countSessionTabs(s) {
+  return s.tabs ? s.tabs.length : (s.windows ? s.windows.reduce((n, w) => n + w.tabs.length, 0) : 0);
+}
 
 export function _getTabSessions() {
   try { return Settings.getJSON(window._getBrowseStorageKey('browseTabSessions'), []); } catch { return []; }
@@ -18,7 +21,7 @@ export function _saveTabSessions(sessions) {
 }
 
 // Module-level ref to the name input view so confirmSaveTabSession can access it
-var _tabSessionNameInput = null;
+let _tabSessionNameInput = null;
 
 export function toggleTabStateDropdown() {
   const dd = document.getElementById('tab-state-dropdown');
@@ -72,7 +75,7 @@ export function _renderTabStateDropdown() {
     listItems.push(window.EmptyState({ title: 'No saved sessions', message: 'Save your open tabs as a session to restore later.' }));
   } else {
     sessions.forEach(function(s, i) {
-      const count = s.tabs ? s.tabs.length : (s.windows ? s.windows.reduce(function(n, w) { return n + w.tabs.length; }, 0) : 0);
+      const count = _countSessionTabs(s);
       const winCount = s.windows ? s.windows.length : 1;
       const date = new Date(s.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       const subtitle = winCount > 1 ? winCount + ' windows \u00b7 ' + count + ' tabs \u00b7 ' + date : count + ' tab' + (count !== 1 ? 's' : '') + ' \u00b7 ' + date;
@@ -180,7 +183,7 @@ export function saveAllWindowsAsSession(name) {
 }
 
 // Module-level state for the toolbar sessions dropdown open/closed
-var _toolbarSessionsOpen = null; // State() — lazily initialised on first render
+let _toolbarSessionsOpen = null; // State() — lazily initialised on first render
 
 // Toggle sessions dropdown
 export function _toggleSessionsDropdown() {
@@ -193,7 +196,7 @@ export function _toggleSessionsDropdown() {
 }
 
 // Module-level ref to the input view for the inline save-session row
-var _overviewSessionInputView = null;
+let _overviewSessionInputView = null;
 
 // Render sessions dropdown in toolbar
 export function _renderToolbarSessions() {
@@ -235,7 +238,7 @@ export function _renderToolbarSessions() {
     listChildren.push(window.Text('No saved sessions').className('browse-sessions-empty'));
   } else {
     sessions.forEach(function(s, i) {
-      const count = s.tabs ? s.tabs.length : (s.windows ? s.windows.reduce(function(n, w) { return n + w.tabs.length; }, 0) : 0);
+      const count = _countSessionTabs(s);
       const winCount = s.windows ? s.windows.length : 1;
       const date = new Date(s.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       const subtitle = winCount > 1 ? winCount + ' win \u00b7 ' + count + ' tabs' : count + ' tab' + (count !== 1 ? 's' : '');

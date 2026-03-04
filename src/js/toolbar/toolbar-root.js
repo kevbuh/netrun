@@ -143,8 +143,8 @@ function _toolbarInit() {
   _applyBrowseTabLayout();
 
   // Bind static HTML nav buttons to reactive canGoBack/canGoForward signals
-  var backEl = document.getElementById('pill-browse-back');
-  var fwdEl = document.getElementById('pill-browse-fwd');
+  const backEl = document.getElementById('pill-browse-back');
+  const fwdEl = document.getElementById('pill-browse-fwd');
   if (backEl) {
     Effect(function() { backEl.style.display = canGoBack.value ? 'flex' : 'none'; });
   }

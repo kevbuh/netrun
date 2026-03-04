@@ -78,7 +78,7 @@ function renderMessage(msg, index, total, isFinal, opts) {
 
   // Post-build: attach settings button handler + citation handlers + LaTeX
   view.onAppear(function() {
-    var el = view.el;
+    const el = view.el;
     // Settings button
     el.querySelectorAll('.doc-msg-settings-btn').forEach(function(btn) {
       btn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); });
@@ -92,9 +92,9 @@ function renderMessage(msg, index, total, isFinal, opts) {
     el.querySelectorAll('.nr-citation').forEach(function(cit) {
       cit.addEventListener('click', function(ev) {
         ev.preventDefault(); ev.stopPropagation();
-        var n = cit.getAttribute('data-source-n');
-        var container = el.closest('.doc-popup-chat-messages') || el.parentElement;
-        var card = container && container.querySelector('.nr-source-card[data-source-n="' + n + '"]');
+        const n = cit.getAttribute('data-source-n');
+        const container = el.closest('.doc-popup-chat-messages') || el.parentElement;
+        const card = container && container.querySelector('.nr-source-card[data-source-n="' + n + '"]');
         if (card) {
           card.classList.add('nr-source-highlight');
           card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -112,12 +112,12 @@ function renderMessage(msg, index, total, isFinal, opts) {
 
 
 function _renderUserMessage(msg, index, opts) {
-  var children = [];
-  var display = msg._display || msg.content;
+  const children = [];
+  const display = msg._display || msg.content;
 
   // Images
   if (msg.images?.length) {
-    var imgs = msg.images.map(function(b64) {
+    const imgs = msg.images.map(function(b64) {
       return new View('img').attr('src', 'data:image/png;base64,' + b64);
     });
     children.push(HStack(...imgs).className('doc-msg-images'));
@@ -132,7 +132,7 @@ function _renderUserMessage(msg, index, opts) {
   children.push(Text(display).className('doc-msg-user-text'));
 
   // Edit button
-  var editBtn = Button(RawHTML(typeof icon === 'function' ? icon('edit', { size: 11 }) : '\u270E'))
+  const editBtn = Button(RawHTML(typeof icon === 'function' ? icon('edit', { size: 11 }) : '\u270E'))
     .className('doc-msg-edit-btn')
     .attr('title', 'Edit and resend')
     .on('mousedown', function(ev) { ev.stopPropagation(); })
@@ -146,14 +146,14 @@ function _renderUserMessage(msg, index, opts) {
 }
 
 function _renderThinkingMessage(msg) {
-  var children = [];
-  var ctxView = renderCtxPills(msg._ctxSources, msg);
+  const children = [];
+  const ctxView = renderCtxPills(msg._ctxSources, msg);
   if (ctxView) children.push(ctxView);
 
   // Rich activity tracker
   if (msg._activity?.length) {
-    var now = Date.now();
-    var _iconForStep = function(a) {
+    const now = Date.now();
+    const _iconForStep = function(a) {
       if (typeof icon !== 'function') return '';
       if (a.type === 'thinking') return icon('eye', { size: 13 });
       if (a.category === 'search') return icon('search', { size: 13 });
@@ -162,15 +162,15 @@ function _renderThinkingMessage(msg) {
       return icon('globe', { size: 13 });
     };
 
-    var entries = msg._activity.map(function(a) {
-      var done = !!a.endedAt;
-      var elapsed = done ? (a.endedAt - a.startedAt) : (now - a.startedAt);
-      var timeStr = elapsed >= 100 ? _formatDuration(elapsed) : '';
-      var stepIconHtml = done
+    const entries = msg._activity.map(function(a) {
+      const done = !!a.endedAt;
+      const elapsed = done ? (a.endedAt - a.startedAt) : (now - a.startedAt);
+      const timeStr = elapsed >= 100 ? _formatDuration(elapsed) : '';
+      const stepIconHtml = done
         ? '<span class="nr-step-icon done">' + (typeof icon === 'function' ? icon('check', { size: 11 }) : '\u2713') + '</span>'
         : '<span class="nr-step-icon active">' + _iconForStep(a) + '</span>';
-      var detail = a.detail ? '<span class="nr-step-detail">' + escapeHtml(a.detail.length > 50 ? a.detail.slice(0, 47) + '\u2026' : a.detail) + '</span>' : '';
-      var time = timeStr ? '<span class="nr-step-time">' + timeStr + '</span>' : '';
+      const detail = a.detail ? '<span class="nr-step-detail">' + escapeHtml(a.detail.length > 50 ? a.detail.slice(0, 47) + '\u2026' : a.detail) + '</span>' : '';
+      const time = timeStr ? '<span class="nr-step-time">' + timeStr + '</span>' : '';
       return '<div class="nr-step' + (done ? ' done' : ' active') + '">' + stepIconHtml + '<span class="nr-step-label">' + escapeHtml(a.label) + '</span>' + detail + time + '</div>';
     }).join('');
 
@@ -201,13 +201,13 @@ function _formatDuration(ms) {
 }
 
 function _renderSearchResults(results, className, opts) {
-  var items = results.map(function(r) {
-    var children = [
+  const items = results.map(function(r) {
+    const children = [
       Text(r.title).className('doc-search-result-title'),
     ];
     if (r.snippet) children.push(Text(r.snippet).className('doc-search-result-snippet'));
     children.push(Text(r.url.length > 60 ? r.url.slice(0, 57) + '...' : r.url).className('doc-search-result-url'));
-    var row = VStack(...children).className(className).attr('data-href', r.url);
+    const row = VStack(...children).className(className).attr('data-href', r.url);
     (function(url) {
       row.on('click', function(ev) { ev.preventDefault(); ev.stopPropagation(); _openUrl(url, opts); });
       row.on('mousedown', function(ev) { ev.stopPropagation(); });
@@ -218,15 +218,15 @@ function _renderSearchResults(results, className, opts) {
 }
 
 function _renderPaperResults(results, opts) {
-  var items = results.map(function(r) {
-    var children = [
+  const items = results.map(function(r) {
+    const children = [
       Text(r.title).className('doc-paper-result-title'),
       Text(r.authors + (r.year ? ' \u00B7 ' + r.year : '')).className('doc-paper-result-meta'),
     ];
     if (r.summary) {
       children.push(Text(r.summary.length > 150 ? r.summary.slice(0, 147) + '...' : r.summary).className('doc-paper-result-summary'));
     }
-    var row = VStack(...children).className('doc-paper-result').attr('data-href', r.link);
+    const row = VStack(...children).className('doc-paper-result').attr('data-href', r.link);
     (function(url) {
       row.on('click', function(ev) { ev.preventDefault(); ev.stopPropagation(); _openUrl(url, opts); });
       row.on('mousedown', function(ev) { ev.stopPropagation(); });
@@ -237,12 +237,12 @@ function _renderPaperResults(results, opts) {
 }
 
 function _renderUserResults(results, opts) {
-  var items = results.map(function(u) {
-    var avatarView = u.picture
+  const items = results.map(function(u) {
+    const avatarView = u.picture
       ? new View('img').className('doc-user-result-avatar').attr('src', u.picture)
       : Text(u.username.charAt(0).toUpperCase()).className('doc-user-result-avatar doc-user-result-avatar-fallback');
-    var nameView = Text(u.username).className('doc-user-result-name');
-    var row = HStack(avatarView, nameView).className('doc-user-result').attr('data-username', u.username);
+    const nameView = Text(u.username).className('doc-user-result-name');
+    const row = HStack(avatarView, nameView).className('doc-user-result').attr('data-username', u.username);
     (function(username) {
       row.on('click', function(ev) {
         ev.preventDefault(); ev.stopPropagation();
@@ -260,10 +260,10 @@ function _renderUserResults(results, opts) {
 
 function _renderWebSources(sources, opts) {
   if (!sources?.length) return null;
-  var cards = sources.map(function(s) {
-    var domain = _extractDomain(s.url);
-    var favicon = '/api/favicon?domain=' + encodeURIComponent(domain);
-    var card = HStack(
+  const cards = sources.map(function(s) {
+    const domain = _extractDomain(s.url);
+    const favicon = '/api/favicon?domain=' + encodeURIComponent(domain);
+    const card = HStack(
       Text(String(s.n)).className('nr-source-badge'),
       new View('img').className('nr-source-favicon').attr('src', favicon).attr('width', '14').attr('height', '14'),
       Text(s.title.length > 40 ? s.title.slice(0, 37) + '...' : s.title).className('nr-source-title'),
@@ -288,8 +288,8 @@ function _extractDomain(url) {
 function _linkifyCitations(html, sources) {
   if (!sources?.length) return html;
   return html.replace(/\[(\d+)\]/g, function(match, num) {
-    var n = parseInt(num);
-    var src = sources.find(function(s) { return s.n === n; });
+    const n = parseInt(num);
+    const src = sources.find(function(s) { return s.n === n; });
     if (!src) return match;
     return '<a class="nr-citation" data-source-n="' + n + '" href="' + escapeAttr(src.url) + '" title="' + escapeAttr(src.title) + '">[' + n + ']</a>';
   });
@@ -297,7 +297,7 @@ function _linkifyCitations(html, sources) {
 
 function _renderFollowUps(followUps, opts) {
   if (!followUps?.length) return null;
-  var btns = followUps.map(function(q) {
+  const btns = followUps.map(function(q) {
     return Button(q).className('nr-followup-btn')
       .on('mousedown', function(ev) { ev.stopPropagation(); })
       .onTap(function(ev) {
@@ -311,7 +311,7 @@ function _renderFollowUps(followUps, opts) {
 // ── Action buttons (copy, speak, redo) ──
 
 function _renderActionButtons(msg, isLast, opts) {
-  var buttons = [];
+  const buttons = [];
 
   // Copy button
   var copyBtn = Button(RawHTML(typeof icon === 'function' ? icon('copy', { size: 12 }) : '\u{1F4CB}'))
@@ -320,9 +320,9 @@ function _renderActionButtons(msg, isLast, opts) {
     .on('mousedown', function(ev) { ev.stopPropagation(); })
     .onTap(function(ev) {
       ev.stopPropagation(); ev.preventDefault();
-      var msgEl = copyBtn.el.closest('.doc-msg-ai');
+      const msgEl = copyBtn.el.closest('.doc-msg-ai');
       if (!msgEl) return;
-      var text = msgEl.textContent.replace(/Copy message|Read aloud|Redo last message/g, '').replace(/\s+/g, ' ').trim();
+      const text = msgEl.textContent.replace(/Copy message|Read aloud|Redo last message/g, '').replace(/\s+/g, ' ').trim();
       if (!text) return;
       navigator.clipboard.writeText(text).then(function() {
         AetherUI.mount(RawHTML(typeof icon === 'function' ? icon('check', { size: 12 }) : '\u2713'), copyBtn.el);
@@ -345,7 +345,7 @@ function _renderActionButtons(msg, isLast, opts) {
 
   // Redo button (only on last message)
   if (isLast) {
-    var redoBtn = Button(RawHTML(typeof icon === 'function' ? icon('redo', { size: 12 }) : '\u21BA'))
+    const redoBtn = Button(RawHTML(typeof icon === 'function' ? icon('redo', { size: 12 }) : '\u21BA'))
       .className('doc-msg-redo-btn')
       .attr('title', 'Redo last message')
       .on('mousedown', function(ev) { ev.stopPropagation(); })
@@ -363,14 +363,14 @@ function _renderActionButtons(msg, isLast, opts) {
 
 function renderCtxPills(sources, msg) {
   if (!sources?.length) return null;
-  var pills = sources.map(function(s) {
-    var label = typeof s === 'string' ? s : s.label;
-    var content = typeof s === 'object' ? s.content : null;
+  const pills = sources.map(function(s) {
+    const label = typeof s === 'string' ? s : s.label;
+    let content = typeof s === 'object' ? s.content : null;
     if (label === 'tools' && msg?._toolsCalled?.length) {
       content = msg._toolsCalled.join('\n');
     }
     if (content) {
-      var truncated = content.length > 4000 ? content.slice(0, 4000) + '\n\u2026truncated' : content;
+      const truncated = content.length > 4000 ? content.slice(0, 4000) + '\n\u2026truncated' : content;
       return RawHTML('<details class="doc-ctx-details"><summary><span class="doc-ctx-pill">' +
         escapeHtml(label) + '</span></summary><pre class="doc-ctx-raw">' +
         escapeHtml(truncated) + '</pre></details>');
@@ -384,9 +384,9 @@ function renderCtxPills(sources, msg) {
 
 function renderLatexInElement(element) {
   if (typeof katex === 'undefined') return;
-  var walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
-  var nodesToProcess = [];
-  var node;
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
+  const nodesToProcess = [];
+  let node;
   while (node = walker.nextNode()) {
     if (node.parentElement && !node.parentElement.closest('code, pre, .katex')) {
       nodesToProcess.push(node);
@@ -394,13 +394,13 @@ function renderLatexInElement(element) {
   }
 
   nodesToProcess.forEach(function(textNode) {
-    var text = textNode.textContent;
-    var regex = /(\$\$[^$]+?\$\$|\$[^$]+?\$)/g;
-    var matches = text.match(regex);
+    const text = textNode.textContent;
+    const regex = /(\$\$[^$]+?\$\$|\$[^$]+?\$)/g;
+    const matches = text.match(regex);
     if (!matches) return;
 
-    var parts = text.split(regex);
-    var fragment = document.createDocumentFragment();
+    const parts = text.split(regex);
+    const fragment = document.createDocumentFragment();
 
     parts.forEach(function(part) {
       if (part.startsWith('$$') && part.endsWith('$$')) {
@@ -430,8 +430,8 @@ function renderLatexInElement(element) {
 
 function renderMessages(messages, isFinal, opts) {
   opts = opts || {};
-  var total = messages.length;
-  var views = messages.map(function(m, i) {
+  const total = messages.length;
+  const views = messages.map(function(m, i) {
     return renderMessage(m, i, total, isFinal, opts);
   });
   return VStack(...views);
@@ -441,41 +441,41 @@ function renderMessages(messages, isFinal, opts) {
 
 function renderChatStats(messages, streamStart) {
   if (!messages.length) return null;
-  var lastAi = null;
-  for (var i = messages.length - 1; i >= 0; i--) {
+  let lastAi = null;
+  for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].role === 'assistant' && !messages[i]._thinking) { lastAi = messages[i]; break; }
   }
   if (!lastAi) return null;
-  var parts = [];
+  const parts = [];
   if (lastAi._usage) {
-    var u = lastAi._usage;
-    var total = (u.prompt_tokens || 0) + (u.completion_tokens || 0);
+    const u = lastAi._usage;
+    const total = (u.prompt_tokens || 0) + (u.completion_tokens || 0);
     if (total) parts.push(total >= 1000 ? (total / 1000).toFixed(1) + 'k tokens' : total + ' tokens');
   } else if (lastAi.content) {
-    var est = Math.round(lastAi.content.length / 4);
+    const est = Math.round(lastAi.content.length / 4);
     if (est > 0) parts.push('~' + (est >= 1000 ? (est / 1000).toFixed(1) + 'k' : est) + ' tokens');
   }
   if (lastAi._usage?.duration_ms) {
-    var ms = lastAi._usage.duration_ms;
+    const ms = lastAi._usage.duration_ms;
     parts.push(ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms');
   } else if (lastAi._timings?.total) {
     parts.push(_formatDuration(lastAi._timings.total));
   } else if (streamStart) {
-    var elapsed = Date.now() - streamStart;
+    const elapsed = Date.now() - streamStart;
     parts.push(elapsed >= 1000 ? (elapsed / 1000).toFixed(1) + 's' : elapsed + 'ms');
   }
   if (lastAi._usage?.model) parts.push(lastAi._usage.model);
 
   // Per-phase timing breakdown
   if (lastAi._timings) {
-    var t = lastAi._timings;
-    var phases = [];
+    const t = lastAi._timings;
+    const phases = [];
     if (t.search) phases.push('search ' + _formatDuration(t.search));
     if (t.extract) phases.push('extract ' + _formatDuration(t.extract));
     if (t.inference) phases.push('generate ' + _formatDuration(t.inference));
     if (phases.length) {
-      var mainText = parts.join(' \u00B7 ');
-      var breakdownText = phases.join(' \u00B7 ');
+      const mainText = parts.join(' \u00B7 ');
+      const breakdownText = phases.join(' \u00B7 ');
       return HStack(
         Text(mainText),
         Text(breakdownText).className('nr-timing-breakdown')
@@ -532,8 +532,8 @@ function attachMessageHandlers(container, opts) {
     el._chatHandlersBound = true;
     el.addEventListener('click', function(ev) {
       ev.preventDefault(); ev.stopPropagation();
-      var n = el.getAttribute('data-source-n');
-      var card = container.querySelector('.nr-source-card[data-source-n="' + n + '"]');
+      const n = el.getAttribute('data-source-n');
+      const card = container.querySelector('.nr-source-card[data-source-n="' + n + '"]');
       if (card) {
         card.classList.add('nr-source-highlight');
         card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -564,9 +564,9 @@ function attachMessageHandlers(container, opts) {
     btn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); });
     btn.addEventListener('click', function(ev) {
       ev.stopPropagation(); ev.preventDefault();
-      var msgEl = btn.closest('.doc-msg-ai');
+      const msgEl = btn.closest('.doc-msg-ai');
       if (!msgEl) return;
-      var text = msgEl.textContent.replace(/Copy message|Read aloud|Redo last message/g, '').replace(/\s+/g, ' ').trim();
+      const text = msgEl.textContent.replace(/Copy message|Read aloud|Redo last message/g, '').replace(/\s+/g, ' ').trim();
       if (!text) return;
       navigator.clipboard.writeText(text).then(function() {
         btn.innerHTML = typeof icon === 'function' ? icon('check', { size: 12 }) : '\u2713';
@@ -593,7 +593,7 @@ function attachMessageHandlers(container, opts) {
     btn.addEventListener('mousedown', function(ev) { ev.stopPropagation(); });
     btn.addEventListener('click', function(ev) {
       ev.stopPropagation(); ev.preventDefault();
-      var msgIdx = parseInt(btn.getAttribute('data-msg-idx'));
+      const msgIdx = parseInt(btn.getAttribute('data-msg-idx'));
       if (opts.onEdit && !isNaN(msgIdx)) opts.onEdit(msgIdx);
     });
   });

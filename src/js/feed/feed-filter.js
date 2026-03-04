@@ -135,8 +135,8 @@ export function renderAlgorithmView() {
 
   // Build affinity table rows
   const affinityRows = Object.keys(affinityMap).sort(function(a, b) { return affinityMap[b] - affinityMap[a]; }).map(function(src) {
-    var name = SOURCE_NAMES[src] || src;
-    var val = affinityMap[src];
+    const name = SOURCE_NAMES[src] || src;
+    const val = affinityMap[src];
     return '<div class="flex justify-between"><span class="text-dim">' + escapeHtml(name) + '</span><span class="text-primary font-mono">' + val.toFixed(2) + '</span></div>';
   }).join('');
 

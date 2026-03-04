@@ -31,11 +31,11 @@ const _DEFAULT_GROUPS = [
 
 // ─── State signals ───────────────────────────────────────────
 
-var _searchQuery = State('');
-var _activeGroup = State('all');
-var _activeFilter = State('all');
-var _bookmarkItems = State([]);
-var _groups = State([..._DEFAULT_GROUPS]);
+const _searchQuery = State('');
+const _activeGroup = State('all');
+const _activeFilter = State('all');
+const _bookmarkItems = State([]);
+const _groups = State([..._DEFAULT_GROUPS]);
 
 // ─── Data layer ──────────────────────────────────────────────
 
@@ -114,7 +114,7 @@ function _deleteBookmark(link) {
 
 // ─── Computed filtered items ─────────────────────────────────
 
-var _filteredItems = Computed(() => {
+const _filteredItems = Computed(() => {
   const items = _bookmarkItems.value;
   const group = _activeGroup.value;
   const filter = _activeFilter.value;

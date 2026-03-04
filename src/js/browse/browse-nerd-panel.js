@@ -2,16 +2,16 @@
 // Registers panel tabs: Info, References, Authors, Highlights, Code, Files, Terminal
 // Depends on: core-nav.js, browse-paper.js, browse-pdf-viewer.js
 import { icon } from '/js/core/icons.js';
-import { registerPanelTabs, togglePanel } from '/js/core/core-nav.js';
+import { registerPanelTabs } from '/js/core/core-nav.js';
 import { _paperState, _s2Cache, _s2Fetch, _s2GetAuthor, _s2GetAuthorFull, _extractArxivId, _s2LookupByArxivId, _s2SearchPaper } from '/js/browse/browse-paper.js';
 import { _pdfViewerScrollToPage, _pdfViewerGetText } from '/js/browse/browse-pdf-viewer.js';
 import { _nerdModeEnabled } from '/js/browse/browse-nerd-mode.js';
 import { _startTerminal, _renderFilesTab } from '/js/browse/browse-impl-session.js';
 
 // ── State ──
-var _registered = false;
-var _currentTab = null;
-var _renderGeneration = 0; // incremented each time a tab renders, used to cancel stale retries
+let _registered = false;
+let _currentTab = null;
+let _renderGeneration = 0; // incremented each time a tab renders, used to cancel stale retries
 
 // ── Register ──
 
@@ -23,28 +23,12 @@ export function _nerdPanelRegister() {
     tabs: [
       { id: 'nerd-info',       label: 'Info',       icon: icon('fileText', { size: 14 }),  render: _renderInfoTab },
       { id: 'nerd-refs',       label: 'References',  icon: icon('link', { size: 14 }),     render: _renderRefsTab },
-      { id: 'nerd-highlights', label: 'Highlights', icon: icon('highlighter', { size: 14 }), render: _renderHighlightsTab },
+
       { id: 'nerd-code',       label: 'Code',       icon: icon('code', { size: 14 }),       render: _renderCodeTab },
-      { id: 'nerd-files',      label: 'Files',      icon: icon('file', { size: 14 }),      render: _renderFilesTabProxy },
+
       { id: 'nerd-terminal',   label: 'Terminal',   icon: icon('code', { size: 14 }),      render: _renderTerminalTab },
     ],
-    header: function(el) {
-      var row = new HStack().styles({ width: '100%', alignItems: 'center', justifyContent: 'space-between' });
-      row.add(Text('Nerd Mode').className('nerd-header-label'));
-      var rightBtns = new HStack().spacing(1).alignment('center');
-      var newNbBtn = new View('button').className('nerd-panel-close-btn')
-        .attr('title', 'New Notebook')
-        .add(RawHTML(icon('filePlus', { size: 14 })))
-        .onTap(function() { if (typeof window.createNewNotebook === 'function') window.createNewNotebook(); });
-      rightBtns.add(newNbBtn);
-      var closeBtn = new View('button').className('nerd-panel-close-btn')
-        .attr('title', 'Hide panel')
-        .add(RawHTML(icon('close', { size: 14 })))
-        .onTap(function() { togglePanel(); });
-      rightBtns.add(closeBtn);
-      row.add(rightBtns);
-      AetherUI.append(row, el);
-    }
+    header: null
   });
 }
 
@@ -60,9 +44,9 @@ export function _nerdPanelRefresh(tab) {
 
 function _fetchPaperData(tab) {
   if (!tab || !tab.url) return;
-  var arxivId = _extractArxivId(tab.url);
+  const arxivId = _extractArxivId(tab.url);
   if (arxivId) {
-    var s2Path = '/paper/ARXIV:' + arxivId + '?fields=title,authors,citationCount,year,venue,references.title,references.authors,references.year,references.venue,references.citationCount';
+    const s2Path = '/paper/ARXIV:' + arxivId + '?fields=title,authors,citationCount,year,venue,references.title,references.authors,references.year,references.venue,references.citationCount';
     _s2LookupByArxivId(arxivId).then(function(data) {
       if (data) {
         _paperState.set(tab.id, {
@@ -81,14 +65,14 @@ function _fetchPaperData(tab) {
     });
   } else {
     // Try by page title
-    var title = tab.title || '';
+    const title = tab.title || '';
     if (title && title !== 'New Tab') {
       _s2SearchPaper(title).then(function(data) {
         if (data) {
           // Fetch full data with references
-          var paperId = data.paperId;
+          const paperId = data.paperId;
           if (paperId) {
-            var fullPath = '/paper/' + paperId + '?fields=title,authors,citationCount,year,venue,abstract,references.title,references.authors,references.year,references.citationCount,references.venue';
+            const fullPath = '/paper/' + paperId + '?fields=title,authors,citationCount,year,venue,abstract,references.title,references.authors,references.year,references.citationCount,references.venue';
             _s2Fetch(fullPath).then(function(full) {
               if (full) {
                 _paperState.set(tab.id, {
@@ -112,8 +96,8 @@ function _fetchPaperData(tab) {
 }
 
 function _reRenderInfoIfActive() {
-  var activeBtn = document.querySelector('.universal-panel-tab-btn.active[data-tab-id="nerd-info"]');
-  var panelContent = document.getElementById('universal-panel-content');
+  const activeBtn = document.querySelector('.universal-panel-tab-btn.active[data-tab-id="nerd-info"]');
+  const panelContent = document.getElementById('universal-panel-content');
   if (activeBtn && panelContent) {
     _renderInfoTab(panelContent);
   }
@@ -121,15 +105,15 @@ function _reRenderInfoIfActive() {
 
 function _fetchAuthorDetails(tab, s2Data) {
   if (!s2Data || !s2Data.authors) return;
-  var authors = s2Data.authors;
-  var promises = authors.filter(function(a) { return a.authorId; }).map(function(a) { return _s2GetAuthorFull(a.authorId); });
+  const authors = s2Data.authors;
+  const promises = authors.filter(function(a) { return a.authorId; }).map(function(a) { return _s2GetAuthorFull(a.authorId); });
   Promise.all(promises).then(function(results) {
-    var state = _paperState.get(tab.id);
+    const state = _paperState.get(tab.id);
     if (state) {
       state.authorDetails = results.filter(Boolean);
       // Re-render info tab if it's currently visible
-      var activeBtn = document.querySelector('.universal-panel-tab-btn.active[data-tab-id="nerd-info"]');
-      var panelContent = document.getElementById('universal-panel-content');
+      const activeBtn = document.querySelector('.universal-panel-tab-btn.active[data-tab-id="nerd-info"]');
+      const panelContent = document.getElementById('universal-panel-content');
       if (activeBtn && panelContent) {
         _renderInfoTab(panelContent);
       }
@@ -140,25 +124,25 @@ function _fetchAuthorDetails(tab, s2Data) {
 // ── Tab renderers ──
 
 function _clearTerminalOverflow() {
-  var panelContent = document.getElementById('universal-panel-content');
+  const panelContent = document.getElementById('universal-panel-content');
   if (panelContent) panelContent.classList.remove('nerd-terminal-active');
 }
 
 function _getTab() {
   if (_currentTab) return _currentTab;
-  var win = window._getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return null;
   return win.tabs.find(function(t) { return t.id === win.activeTab; });
 }
 
 function _getState() {
-  var tab = _getTab();
+  const tab = _getTab();
   return tab ? _paperState.get(tab.id) : null;
 }
 
 function _renderNotebookInfoTab(container, tab) {
-  var wrap = new View('div').className('nerd-tab-wrap');
-  var nbData = tab._nbParsedData;
+  const wrap = new View('div').className('nerd-tab-wrap');
+  const nbData = tab._nbParsedData;
   if (!nbData) {
     wrap.add(Text('No notebook data').className('nerd-empty'));
     AetherUI.mount(wrap, container);
@@ -166,14 +150,14 @@ function _renderNotebookInfoTab(container, tab) {
   }
 
   // Title
-  var name = tab.title || tab.localPath || 'Notebook';
+  const name = tab.title || tab.localPath || 'Notebook';
   wrap.add(Text(name).className('nerd-info-title'));
 
   // Kernel info
-  var meta = nbData.metadata || {};
-  var kernelspec = meta.kernelspec || {};
-  var langInfo = meta.language_info || {};
-  var metaParts = [];
+  const meta = nbData.metadata || {};
+  const kernelspec = meta.kernelspec || {};
+  const langInfo = meta.language_info || {};
+  const metaParts = [];
   if (kernelspec.display_name) metaParts.push(kernelspec.display_name);
   if (langInfo.version) metaParts.push('v' + langInfo.version);
   if (metaParts.length) {
@@ -181,46 +165,46 @@ function _renderNotebookInfoTab(container, tab) {
   }
 
   // Cell counts
-  var cells = nbData.cells || [];
-  var codeCells = cells.filter(function(c) { return c.cell_type === 'code'; });
-  var mdCells = cells.filter(function(c) { return c.cell_type === 'markdown'; });
+  const cells = nbData.cells || [];
+  const codeCells = cells.filter(function(c) { return c.cell_type === 'code'; });
+  const mdCells = cells.filter(function(c) { return c.cell_type === 'markdown'; });
   wrap.add(Text(cells.length + ' cells \u00b7 ' + codeCells.length + ' code \u00b7 ' + mdCells.length + ' markdown').className('nerd-info-meta'));
 
   // Detected imports
-  var imports = new Set();
+  const imports = new Set();
   codeCells.forEach(function(c) {
-    var source = Array.isArray(c.source) ? c.source.join('') : (c.source || '');
-    var matches = source.match(/^(?:import|from)\s+(\w+)/gm);
+    const source = Array.isArray(c.source) ? c.source.join('') : (c.source || '');
+    const matches = source.match(/^(?:import|from)\s+(\w+)/gm);
     if (matches) matches.forEach(function(m) {
-      var parts = m.split(/\s+/);
-      var pkg = parts[parts.length === 2 ? 1 : 1];
+      const parts = m.split(/\s+/);
+      const pkg = parts[parts.length === 2 ? 1 : 1];
       if (pkg) imports.add(pkg);
     });
   });
   if (imports.size) {
-    var importSection = new View('div').cssText('margin-top:var(--nr-space-3);');
+    const importSection = new View('div').cssText('margin-top:var(--nr-space-3);');
     importSection.add(Text('Imports').className('nerd-section-title'));
-    var importText = Array.from(imports).sort().join(', ');
+    const importText = Array.from(imports).sort().join(', ');
     importSection.add(Text(importText).className('nerd-section-body').cssText('font-family:var(--nr-font-mono);font-size:0.75rem;'));
     wrap.add(importSection);
   }
 
   // Table of contents from markdown headings
-  var headings = [];
+  const headings = [];
   cells.forEach(function(c, i) {
     if (c.cell_type !== 'markdown') return;
-    var source = Array.isArray(c.source) ? c.source.join('') : (c.source || '');
-    var lines = source.split('\n');
+    const source = Array.isArray(c.source) ? c.source.join('') : (c.source || '');
+    const lines = source.split('\n');
     lines.forEach(function(line) {
-      var m = line.match(/^(#{1,6})\s+(.+)/);
+      const m = line.match(/^(#{1,6})\s+(.+)/);
       if (m) headings.push({ level: m[1].length, text: m[2].replace(/[#*_`\[\]]/g, '').trim(), cellIndex: i });
     });
   });
   if (headings.length) {
-    var tocSection = new View('div').cssText('margin-top:var(--nr-space-3);');
+    const tocSection = new View('div').cssText('margin-top:var(--nr-space-3);');
     tocSection.add(Text('Table of Contents').className('nerd-section-title'));
     headings.forEach(function(h) {
-      var item = Text(h.text).className('nerd-section-body').cssText('cursor:pointer;padding:2px 0 2px ' + ((h.level - 1) * 12) + 'px;font-size:0.78rem;');
+      const item = Text(h.text).className('nerd-section-body').cssText('cursor:pointer;padding:2px 0 2px ' + ((h.level - 1) * 12) + 'px;font-size:0.78rem;');
       item.onTap(function() {
         if (typeof window._notebookViewerScrollToCell === 'function') window._notebookViewerScrollToCell(tab, h.cellIndex);
       });
@@ -234,7 +218,7 @@ function _renderNotebookInfoTab(container, tab) {
 
 function _renderInfoTab(container) {
   _clearTerminalOverflow();
-  var tab = _getTab();
+  const tab = _getTab();
 
   // Notebook branch
   if (tab && typeof window._isNotebookTab === 'function' && window._isNotebookTab(tab)) {
@@ -242,10 +226,10 @@ function _renderInfoTab(container) {
     return;
   }
 
-  var state = _getState();
-  var gen = ++_renderGeneration;
+  const state = _getState();
+  const gen = ++_renderGeneration;
 
-  var wrap = new View('div').className('nerd-tab-wrap');
+  const wrap = new View('div').className('nerd-tab-wrap');
 
   if (!state || !state.s2Data) {
     if (window.Skeleton) {
@@ -257,13 +241,13 @@ function _renderInfoTab(container) {
     return;
   }
 
-  var s2 = state.s2Data;
+  const s2 = state.s2Data;
 
   // Title
   wrap.add(Text(s2.title || state.meta.title || 'Unknown Title').className('nerd-info-title'));
 
   // Meta line (year, venue, citations)
-  var meta = [];
+  const meta = [];
   if (s2.year) meta.push(String(s2.year));
   if (s2.venue) meta.push(s2.venue);
   if (s2.citationCount != null) meta.push(s2.citationCount + ' citations');
@@ -272,9 +256,9 @@ function _renderInfoTab(container) {
   }
 
   // Cache age indicator
-  var s2Path = state.s2UrlPath;
+  let s2Path = state.s2UrlPath;
   if (!s2Path && tab) {
-    var _aid = _extractArxivId(tab.url);
+    const _aid = _extractArxivId(tab.url);
     if (_aid) {
       s2Path = '/paper/ARXIV:' + _aid + '?fields=title,authors,citationCount,year,venue,references.title,references.authors,references.year,references.venue,references.citationCount';
     } else if (s2.paperId) {
@@ -283,8 +267,8 @@ function _renderInfoTab(container) {
     if (s2Path) state.s2UrlPath = s2Path;
   }
   if (s2Path && window.electronAPI && window.electronAPI.dbQuery) {
-    var cacheRow = new View('div').className('nerd-cache-row');
-    var cacheLabel = Text('').className('nerd-cache-label');
+    const cacheRow = new View('div').className('nerd-cache-row');
+    const cacheLabel = Text('').className('nerd-cache-label');
     cacheRow.add(cacheLabel);
     wrap.add(cacheRow);
 
@@ -293,7 +277,7 @@ function _renderInfoTab(container) {
         cacheLabel.text('Live data');
         return;
       }
-      var ageSec = Date.now() / 1000 - cachedAt;
+      const ageSec = Date.now() / 1000 - cachedAt;
       cacheLabel.text('Cached ' + _formatCacheAge(ageSec));
 
       var refetchBtn = Button('Refetch').className('nerd-cache-refetch').onTap(function() {
@@ -311,38 +295,38 @@ function _renderInfoTab(container) {
   }
 
   // Authors
-  var authors = s2.authors || [];
+  const authors = s2.authors || [];
   if (authors.length) {
-    var authSection = new View('div').cssText('margin-bottom:var(--nr-space-3);');
+    const authSection = new View('div').cssText('margin-bottom:var(--nr-space-3);');
     authSection.add(Text('Authors').className('nerd-section-title').cssText('margin-bottom:var(--nr-space-2);'));
-    var details = state.authorDetails || [];
-    var detailsLoading = details.length === 0 && authors.some(function(a) { return a.authorId; });
-    var detailMap = {};
+    const details = state.authorDetails || [];
+    const detailsLoading = details.length === 0 && authors.some(function(a) { return a.authorId; });
+    const detailMap = {};
     details.forEach(function(d) { if (d && d.authorId) detailMap[d.authorId] = d; });
     authors.forEach(function(author) {
-      var card = new View('div').className('nerd-author-card').onTap(function() {
+      const card = new View('div').className('nerd-author-card').onTap(function() {
         if (author.authorId) {
-          var url = 'https://www.semanticscholar.org/author/' + author.authorId;
+          const url = 'https://www.semanticscholar.org/author/' + author.authorId;
           if (typeof window.browseNewTab === 'function') window.browseNewTab(url);
         }
       });
-      var initials = (author.name || '').split(' ').map(function(w) { return w.charAt(0); }).join('').slice(0, 2).toUpperCase();
+      const initials = (author.name || '').split(' ').map(function(w) { return w.charAt(0); }).join('').slice(0, 2).toUpperCase();
       card.add(Text(initials).className('author-card-avatar'));
-      var info = new View('div').className('author-card-info');
+      const info = new View('div').className('author-card-info');
       info.add(Text(author.name || 'Unknown').className('author-card-name'));
-      var detail = detailMap[author.authorId];
+      const detail = detailMap[author.authorId];
       if (detail) {
         if (detail.affiliations && detail.affiliations.length) {
           info.add(Text(detail.affiliations.join(', ')).cssText('font-size:0.68rem;color:var(--nr-text-tertiary);margin-top:1px;'));
         }
-        var stats = [];
+        const stats = [];
         if (detail.citationCount != null) stats.push(detail.citationCount.toLocaleString() + ' citations');
         if (detail.paperCount != null) stats.push(detail.paperCount + ' papers');
         if (stats.length) {
           info.add(Text(stats.join(' \u00b7 ')).className('author-card-stats'));
         }
         if (detail.hIndex != null) {
-          var badgeText = detail.hIndex >= 50 ? 'Highly cited' : detail.hIndex >= 20 ? 'Established' : detail.hIndex >= 5 ? 'Active' : 'Early career';
+          const badgeText = detail.hIndex >= 50 ? 'Highly cited' : detail.hIndex >= 20 ? 'Established' : detail.hIndex >= 5 ? 'Active' : 'Early career';
           info.add(Text('h-index: ' + detail.hIndex + ' \u00b7 ' + badgeText).className('author-card-stats'));
         }
       } else if (detailsLoading && author.authorId) {
@@ -370,9 +354,9 @@ function _renderInfoTab(container) {
 function _renderRefsTab(container) {
   _clearTerminalOverflow();
   ++_renderGeneration;
-  var state = _getState();
+  const state = _getState();
 
-  var wrap = new View('div').className('nerd-tab-wrap');
+  const wrap = new View('div').className('nerd-tab-wrap');
 
   if (!state || !state.refs || !state.refs.length) {
     wrap.add(Text('No references available').className('nerd-empty'));
@@ -381,10 +365,10 @@ function _renderRefsTab(container) {
   }
 
   state.refs.forEach(function(ref) {
-    var item = new View('div').className('nerd-paper-item');
+    const item = new View('div').className('nerd-paper-item');
     item.add(Text(ref.title || 'Untitled').className('nerd-paper-item-title line-clamp-2'));
 
-    var refMeta = [];
+    const refMeta = [];
     if (ref.authors && ref.authors.length) {
       refMeta.push(ref.authors.slice(0, 3).map(function(a) { return a.name; }).join(', ') + (ref.authors.length > 3 ? ' et al.' : ''));
     }
@@ -395,8 +379,8 @@ function _renderRefsTab(container) {
     }
 
     item.onTap(function() {
-      var query = encodeURIComponent(ref.title);
-      var url = 'https://scholar.google.com/scholar?q=' + query;
+      const query = encodeURIComponent(ref.title);
+      const url = 'https://scholar.google.com/scholar?q=' + query;
       if (typeof window.browseNewTab === 'function') window.browseNewTab(url);
     });
 
@@ -409,9 +393,9 @@ function _renderRefsTab(container) {
 function _renderHighlightsTab(container) {
   _clearTerminalOverflow();
   ++_renderGeneration;
-  var tab = _getTab();
+  const tab = _getTab();
 
-  var wrap = new View('div').className('nerd-tab-wrap');
+  const wrap = new View('div').className('nerd-tab-wrap');
 
   if (!tab || !tab._pdfHighlights || !tab._pdfHighlights.length) {
     wrap.add(Text('No highlights yet. Select text in the PDF to highlight.').className('nerd-empty'));
@@ -420,9 +404,9 @@ function _renderHighlightsTab(container) {
   }
 
   tab._pdfHighlights.forEach(function(hl, idx) {
-    var card = new View('div').className('pdf-hl-card');
+    const card = new View('div').className('pdf-hl-card');
 
-    var header = new View('div').className('pdf-hl-card-header').onTap(function() {
+    const header = new View('div').className('pdf-hl-card-header').onTap(function() {
       if (tab && hl.pageNum) _pdfViewerScrollToPage(tab, hl.pageNum);
     });
 
@@ -442,11 +426,11 @@ function _renderHighlightsTab(container) {
     card.add(header);
 
     // Reference cross-linking: scan for [n] patterns
-    var state = _getState();
-    var refPattern = /\[(\d+(?:[,\-]\d+)*)\]/g;
-    var match;
+    const state = _getState();
+    const refPattern = /\[(\d+(?:[,\-]\d+)*)\]/g;
+    let match;
     while ((match = refPattern.exec(hl.text)) !== null) {
-      var refNums = _parseRefNums(match[1]);
+      const refNums = _parseRefNums(match[1]);
       refNums.forEach(function(num) {
         if (state && state.refs && state.refs[num - 1]) {
           card.add(
@@ -454,7 +438,7 @@ function _renderHighlightsTab(container) {
               .cssText('font-size:0.68rem;color:var(--nr-accent);cursor:pointer;padding:2px 0;')
               .onTap(function(e) {
                 e.stopPropagation();
-                var query = encodeURIComponent(state.refs[num - 1].title);
+                const query = encodeURIComponent(state.refs[num - 1].title);
                 if (typeof window.browseNewTab === 'function') window.browseNewTab('https://scholar.google.com/scholar?q=' + query);
               })
           );
@@ -463,9 +447,9 @@ function _renderHighlightsTab(container) {
     }
 
     // Note textarea
-    var note = new View('textarea').className('pdf-hl-card-note').attr('rows', '1').attr('placeholder', 'Add a note...');
+    const note = new View('textarea').className('pdf-hl-card-note').attr('rows', '1').attr('placeholder', 'Add a note...');
     note.el.value = hl.note || '';
-    var _noteTimer = null;
+    let _noteTimer = null;
     note.on('input', function() {
       hl.note = note.el.value;
       clearTimeout(_noteTimer);
@@ -494,7 +478,7 @@ function _proxyFetch(proxyName, url) {
 
 function _searchHuggingFace(arxivId) {
   if (!arxivId) return Promise.resolve(null);
-  var url = 'https://huggingface.co/api/papers/' + arxivId;
+  const url = 'https://huggingface.co/api/papers/' + arxivId;
   return _proxyFetch('pwc-proxy', url).then(function(data) {
     if (!data || data.error) return null;
     // HF paper API returns { id, title, upvotes, ... } — the paper page itself links to models/spaces/datasets
@@ -503,8 +487,8 @@ function _searchHuggingFace(arxivId) {
 }
 
 function _searchGithub(title) {
-  var query = encodeURIComponent('"' + title + '"');
-  var url = 'https://api.github.com/search/repositories?q=' + query + '&sort=stars&per_page=8';
+  const query = encodeURIComponent('"' + title + '"');
+  const url = 'https://api.github.com/search/repositories?q=' + query + '&sort=stars&per_page=8';
   return _proxyFetch('github-proxy', url).then(function(data) {
     if (!data || !data.items || !data.items.length) return null;
     return data.items.map(function(repo) {
@@ -521,7 +505,7 @@ function _searchGithub(title) {
 }
 
 function _codeTabLinks(arxivId, title) {
-  var links = new HStack().styles({ gap: '12px', marginBottom: '8px' });
+  const links = new HStack().styles({ gap: '12px', marginBottom: '8px' });
   if (arxivId) {
     links.add(
       Text('Hugging Face \u2192').className('nerd-paper-item-meta').styles({ cursor: 'pointer', color: 'var(--nr-accent)' })
@@ -531,12 +515,12 @@ function _codeTabLinks(arxivId, title) {
   links.add(
     Text('GitHub \u2192').className('nerd-paper-item-meta').styles({ cursor: 'pointer', color: 'var(--nr-accent)' })
       .onTap(function() {
-        var ghUrl = 'https://github.com/search?q=' + encodeURIComponent('"' + title + '"') + '&type=repositories&s=stars&o=desc';
+        const ghUrl = 'https://github.com/search?q=' + encodeURIComponent('"' + title + '"') + '&type=repositories&s=stars&o=desc';
         if (typeof window.browseNewTab === 'function') window.browseNewTab(ghUrl);
       }),
     Text('Web \u2192').className('nerd-paper-item-meta').styles({ cursor: 'pointer', color: 'var(--nr-accent)' })
       .onTap(function() {
-        var webUrl = 'https://www.google.com/search?q=' + encodeURIComponent('"' + title + '" implementation');
+        const webUrl = 'https://www.google.com/search?q=' + encodeURIComponent('"' + title + '" implementation');
         if (typeof window.browseNewTab === 'function') window.browseNewTab(webUrl);
       })
   );
@@ -546,9 +530,9 @@ function _codeTabLinks(arxivId, title) {
 function _renderCodeTab(container) {
   _clearTerminalOverflow();
   ++_renderGeneration;
-  var state = _getState();
-  var tab = _getTab();
-  var wrap = new View('div').className('nerd-tab-wrap');
+  const state = _getState();
+  const tab = _getTab();
+  const wrap = new View('div').className('nerd-tab-wrap');
 
   if (!state || !state.s2Data || !state.s2Data.title) {
     wrap.add(Text('No paper identified').className('nerd-empty'));
@@ -556,106 +540,19 @@ function _renderCodeTab(container) {
     return;
   }
 
-  // Previous sessions (via junction table — finds sessions linked to this paper)
-  if (window.electronAPI && window.electronAPI.implList && tab) {
-    electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
-      if (!sessions || sessions.error) sessions = [];
-
-      var sessView = new View('div').className('nerd-section').add(
-        Text('Sessions').className('nerd-section-title')
-      );
-
-      if (sessions.length) {
-        sessions.forEach(function(s) {
-          var age = (Date.now() / 1000 - s.created_at);
-          var ageStr = age < 3600 ? Math.floor(age / 60) + 'm ago' : age < 86400 ? Math.floor(age / 3600) + 'h ago' : Math.floor(age / 86400) + 'd ago';
-          var card = new View('div').className('impl-session-card');
-          var titleText = s.folder_path.split('/').pop();
-          var paperCount = s.paper_count || 0;
-          if (paperCount > 1) titleText += ' (' + paperCount + ' papers)';
-          card.add(
-            Text(titleText).className('impl-session-card-title'),
-            Text(ageStr).className('impl-session-card-meta')
-          );
-          card.onTap(function() {
-            if (window._implSessionEnable) window._implSessionEnable(tab, s.id);
-          });
-          var delBtn = new View('button').className('impl-session-card-del')
-            .attr('title', 'Delete session')
-            .add(RawHTML(icon('trash', { size: 12 })))
-            .onTap(function(e) {
-              e.stopPropagation();
-              if (!confirm('Delete this implementation session and its files?')) return;
-              electronAPI.implDelete(s.id, true).then(function() {
-                if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Session deleted');
-                _renderCodeTab(container);
-              });
-            });
-          card.add(delBtn);
-          sessView.add(card);
-        });
-      }
-
-      // "Link to existing implementation" button
-      var linkBtn = Button('Link to existing\u2026').className('nerd-cache-refetch').styles({ marginTop: '6px' });
-      linkBtn.onTap(function() {
-        // Fetch all sessions to let user pick one
-        electronAPI.implList().then(function(allSessions) {
-          if (!allSessions || allSessions.error || !allSessions.length) {
-            if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('No implementation sessions exist');
-            return;
-          }
-          // Filter out sessions already linked to this paper
-          var linkedIds = new Set(sessions.map(function(s) { return s.id; }));
-          var available = allSessions.filter(function(s) { return !linkedIds.has(s.id); });
-          if (!available.length) {
-            if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('All sessions already linked');
-            return;
-          }
-          // Show menu picker
-          var items = available.map(function(s) {
-            var label = s.paper_title || s.folder_path.split('/').pop() || 'Untitled';
-            if (label.length > 45) label = label.slice(0, 43) + '\u2026';
-            return {
-              label: label,
-              handler: function() {
-                var paperTitle = (state && state.s2Data && state.s2Data.title) || tab.title || '';
-                electronAPI.implLinkPaper(s.id, tab.url, paperTitle).then(function() {
-                  if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Paper linked to session');
-                  _renderCodeTab(container);
-                });
-              }
-            };
-          });
-          var menu = Menu(null, items);
-          var rect = linkBtn.el.getBoundingClientRect();
-          menu.showAt(rect.left, rect.bottom + 4);
-        });
-      });
-      sessView.add(linkBtn);
-
-      // Prepend sessions into wrap
-      if (wrap.el.firstChild) {
-        wrap.el.insertBefore(sessView.el, wrap.el.firstChild);
-      } else {
-        wrap.el.appendChild(sessView.el);
-      }
-    });
-  }
-
   wrap.add(Text('Searching for implementations...').className('nerd-empty'));
   AetherUI.mount(wrap, container);
 
-  var title = state.s2Data.title;
-  var arxivId = tab ? _extractArxivId(tab.url) : null;
+  const title = state.s2Data.title;
+  const arxivId = tab ? _extractArxivId(tab.url) : null;
 
   // Try Hugging Face first (arXiv papers), then GitHub fallback
   _searchHuggingFace(arxivId).then(function(hfPaper) {
     if (hfPaper) {
-      var hfWrap = new View('div').className('nerd-tab-wrap');
+      const hfWrap = new View('div').className('nerd-tab-wrap');
       hfWrap.add(_codeTabLinks(arxivId, title));
 
-      var hfCard = new View('div').className('nerd-repo-card').add(
+      const hfCard = new View('div').className('nerd-repo-card').add(
         Text(hfPaper.title || title).className('nerd-repo-name'),
         Text('Hugging Face Paper' + (hfPaper.upvotes ? ' \u00b7 ' + hfPaper.upvotes + ' upvotes' : '')).className('nerd-repo-meta')
       ).onTap(function() {
@@ -667,7 +564,7 @@ function _renderCodeTab(container) {
       _searchGithub(title).then(function(ghRepos) {
         if (ghRepos && ghRepos.length) {
           ghRepos.forEach(function(repo) {
-            var meta = [];
+            const meta = [];
             if (repo.stars != null) meta.push(repo.stars + ' stars');
             if (repo.language) meta.push(repo.language);
             if (repo.forks != null) meta.push(repo.forks + ' forks');
@@ -688,17 +585,17 @@ function _renderCodeTab(container) {
     // No HF paper — try GitHub directly
     _searchGithub(title).then(function(ghRepos) {
       if (!ghRepos || !ghRepos.length) {
-        var emptyWrap = new View('div').className('nerd-tab-wrap').add(
+        const emptyWrap = new View('div').className('nerd-tab-wrap').add(
           Text('No implementations found').className('nerd-empty'),
           _codeTabLinks(arxivId, title).styles({ justifyContent: 'center', marginTop: '8px' })
         );
         AetherUI.mount(emptyWrap, container);
         return;
       }
-      var ghWrap = new View('div').className('nerd-tab-wrap');
+      const ghWrap = new View('div').className('nerd-tab-wrap');
       ghWrap.add(_codeTabLinks(arxivId, title));
       ghRepos.forEach(function(repo) {
-        var meta = [];
+        const meta = [];
         if (repo.stars != null) meta.push(repo.stars + ' stars');
         if (repo.language) meta.push(repo.language);
         if (repo.forks != null) meta.push(repo.forks + ' forks');
@@ -727,10 +624,10 @@ function _renderFilesTabProxy(container) {
 
 function _renderTerminalTab(container) {
   ++_renderGeneration;
-  var tab = _getTab();
+  const tab = _getTab();
 
   // Disable scroll on panel content — xterm needs fixed height
-  var panelContent = document.getElementById('universal-panel-content');
+  const panelContent = document.getElementById('universal-panel-content');
   if (panelContent) panelContent.classList.add('nerd-terminal-active');
 
   if (!tab || !tab._implSessionId) {
@@ -746,14 +643,14 @@ function _renderTerminalTab(container) {
 
   if (tab._implTerm) {
     // Reparent existing xterm element
-    var xtermEl = tab._implTerm.element;
+    const xtermEl = tab._implTerm.element;
     if (xtermEl) {
       wrap.el.appendChild(xtermEl);
       // Refit after reparent
       requestAnimationFrame(function() {
         if (tab._implTerm && tab._implTerm._addonManager) {
           try {
-            var fitAddon = new FitAddon.FitAddon();
+            const fitAddon = new FitAddon.FitAddon();
             tab._implTerm.loadAddon(fitAddon);
             fitAddon.fit();
             if (tab._implTermId) {
@@ -775,23 +672,23 @@ function _formatCacheAge(seconds) {
   if (seconds < 60) return 'just now';
   if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
   if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
-  var days = Math.floor(seconds / 86400);
+  const days = Math.floor(seconds / 86400);
   return days + 'd ago';
 }
 
 function _parseRefNums(str) {
-  var nums = [];
+  const nums = [];
   str.split(',').forEach(function(part) {
     part = part.trim();
     if (part.indexOf('-') !== -1) {
-      var range = part.split('-');
-      var start = parseInt(range[0]);
-      var end = parseInt(range[1]);
+      const range = part.split('-');
+      const start = parseInt(range[0]);
+      const end = parseInt(range[1]);
       if (!isNaN(start) && !isNaN(end)) {
-        for (var i = start; i <= end; i++) nums.push(i);
+        for (let i = start; i <= end; i++) nums.push(i);
       }
     } else {
-      var n = parseInt(part);
+      const n = parseInt(part);
       if (!isNaN(n)) nums.push(n);
     }
   });
@@ -799,15 +696,15 @@ function _parseRefNums(str) {
 }
 
 export function _generateCiteFormats(s2) {
-  var formats = {};
-  var authors = (s2.authors || []).map(function(a) { return a.name; });
-  var year = s2.year || '';
-  var title = s2.title || '';
-  var venue = s2.venue || '';
+  const formats = {};
+  const authors = (s2.authors || []).map(function(a) { return a.name; });
+  const year = s2.year || '';
+  const title = s2.title || '';
+  const venue = s2.venue || '';
 
   // BibTeX
-  var bibKey = authors.length ? authors[0].split(' ').pop().toLowerCase() + year : 'paper' + year;
-  var bibtex = '@article{' + bibKey + ',\n';
+  const bibKey = authors.length ? authors[0].split(' ').pop().toLowerCase() + year : 'paper' + year;
+  let bibtex = '@article{' + bibKey + ',\n';
   bibtex += '  title={' + title + '},\n';
   bibtex += '  author={' + authors.join(' and ') + '},\n';
   if (year) bibtex += '  year={' + year + '},\n';
@@ -816,16 +713,16 @@ export function _generateCiteFormats(s2) {
   formats['BibTeX'] = bibtex;
 
   // APA
-  var apaAuthors = authors.length ? authors.slice(0, 6).map(function(name) {
-    var parts = name.split(' ');
-    var last = parts.pop();
+  let apaAuthors = authors.length ? authors.slice(0, 6).map(function(name) {
+    const parts = name.split(' ');
+    const last = parts.pop();
     return last + ', ' + parts.map(function(p) { return p.charAt(0) + '.'; }).join(' ');
   }).join(', ') : '';
   if (authors.length > 6) apaAuthors += ', ... ';
   formats['APA'] = apaAuthors + ' (' + year + '). ' + title + '. ' + (venue ? venue + '.' : '');
 
   // MLA
-  var mlaAuthors = authors.length ? authors[0] : '';
+  let mlaAuthors = authors.length ? authors[0] : '';
   if (authors.length === 2) mlaAuthors += ', and ' + authors[1];
   if (authors.length > 2) mlaAuthors += ', et al.';
   formats['MLA'] = mlaAuthors + '. "' + title + '." ' + (venue ? venue + ', ' : '') + year + '.';
@@ -834,9 +731,9 @@ export function _generateCiteFormats(s2) {
   formats['Chicago'] = (authors.length ? authors.join(', ') : '') + '. "' + title + '." ' + (venue ? venue + ' ' : '') + '(' + year + ').';
 
   // IEEE
-  var ieeeAuthors = authors.length ? authors.slice(0, 6).map(function(name) {
-    var parts = name.split(' ');
-    var last = parts.pop();
+  const ieeeAuthors = authors.length ? authors.slice(0, 6).map(function(name) {
+    const parts = name.split(' ');
+    const last = parts.pop();
     return parts.map(function(p) { return p.charAt(0) + '.'; }).join(' ') + ' ' + last;
   }).join(', ') : '';
   formats['IEEE'] = ieeeAuthors + ', "' + title + '," ' + (venue ? venue + ', ' : '') + year + '.';
@@ -845,9 +742,9 @@ export function _generateCiteFormats(s2) {
   formats['Harvard'] = apaAuthors + ' (' + year + ') \'' + title + '\', ' + (venue ? venue + '.' : '');
 
   // Vancouver
-  var vanAuthors = authors.length ? authors.slice(0, 6).map(function(name) {
-    var parts = name.split(' ');
-    var last = parts.pop();
+  const vanAuthors = authors.length ? authors.slice(0, 6).map(function(name) {
+    const parts = name.split(' ');
+    const last = parts.pop();
     return last + ' ' + parts.map(function(p) { return p.charAt(0); }).join('');
   }).join(', ') : '';
   formats['Vancouver'] = vanAuthors + '. ' + title + '. ' + (venue ? venue + '. ' : '') + year + '.';

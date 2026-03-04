@@ -1,5 +1,6 @@
 // draw-view.js — Whiteboard / drawing canvas as an NTP morph (draw:// protocol)
 // Uses fabric.js (loaded globally) for canvas drawing.
+import { isEditable } from '/js/core/core-utils.js';
 import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
 const _updateIslandNavButtons = (...args) => window._updateIslandNavButtons?.(...args);
 import { _browseSetUrlDisplay } from '/js/browse-urlbar.js';
@@ -460,7 +461,7 @@ function _drawKeydown(e) {
 
   // Don't intercept when typing in an input/textarea
   const active = document.activeElement;
-  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+  if (isEditable(active)) return;
 
   // Check if a fabric IText is being edited
   const ao = _drawCanvas.getActiveObject();

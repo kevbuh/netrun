@@ -2,33 +2,14 @@ import Settings from '/js/core/core-settings.js';
 import { showAchievement } from '/js/core/core-ui.js';
 import { renderSettingsView } from '/js/settings/settings-core.js';
 
-// ── DOM element accessors (lazy-cached, .el convention mirrors AetherUI View API) ──
-let _petFreeEl = null;
-let _petSbEl = null;
-let _petCanvasEl = null;
-let _petSbCanvasEl = null;
-let _sidebarNavEl = null;
-
-function _getFreeEl() {
-  if (!_petFreeEl) _petFreeEl = document.getElementById('pixel-pet');
-  return _petFreeEl;
-}
-function _getSbEl() {
-  if (!_petSbEl) _petSbEl = document.getElementById('pixel-pet-sidebar');
-  return _petSbEl;
-}
-function _getPetCanvas() {
-  if (!_petCanvasEl) _petCanvasEl = document.getElementById('pet-canvas');
-  return _petCanvasEl;
-}
-function _getSbCanvas() {
-  if (!_petSbCanvasEl) _petSbCanvasEl = document.getElementById('pet-canvas-sb');
-  return _petSbCanvasEl;
-}
-function _getNavEl() {
-  if (!_sidebarNavEl) _sidebarNavEl = document.getElementById('sidebar-nav');
-  return _sidebarNavEl;
-}
+// ── DOM element accessors (lazy-cached) ──
+const _elCache = {};
+function _getEl(id) { return _elCache[id] || (_elCache[id] = document.getElementById(id)); }
+function _getFreeEl()   { return _getEl('pixel-pet'); }
+function _getSbEl()     { return _getEl('pixel-pet-sidebar'); }
+function _getPetCanvas() { return _getEl('pet-canvas'); }
+function _getSbCanvas() { return _getEl('pet-canvas-sb'); }
+function _getNavEl()    { return _getEl('sidebar-nav'); }
 
 // ── Pixel Pet System ──
 export const PET_FPS = 20;
@@ -491,19 +472,9 @@ export function petTick() {
     }
     petEyeTimer = 5 + Math.floor(Math.random() * 10);
   }
-  const now = Date.now();
-  const idleMs = now - _lastActivity;
 
-  // Temporary state expiry
-  if (['happy','run','read','celebrate'].includes(petState)) {
-    petTempTimer--;
-    if (petTempTimer <= 0) petState = prevBaseState;
-  }
-
-  // Sleep after 2min idle
-  if (petState !== 'happy' && idleMs > 120000 && petState !== 'sleep') {
-    prevBaseState = petState; petState = 'sleep';
-  }
+  _tickTempAndSleep(['happy','run','read','celebrate']);
+  _tickHoverHappy(_getFreeEl(), ['idle','walk','sit']);
 
   // Scroll reactions
   if (petState !== 'happy' && petState !== 'sleep') {
@@ -516,19 +487,6 @@ export function petTick() {
     }
   }
   _scrollSpeed *= 0.9;
-
-  // Mouse hover → happy (free mode)
-  if (_mouseX >= 0 && petState !== 'sleep' && petState !== 'happy') {
-    const el = _getFreeEl();
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      if (_mouseX >= rect.left && _mouseX <= rect.right && _mouseY >= rect.top && _mouseY <= rect.bottom) {
-        prevBaseState = ['idle','walk','sit'].includes(petState) ? petState : prevBaseState;
-        petState = 'happy';
-        petTempTimer = PET_FPS * 2;
-      }
-    }
-  }
 
   // Base state cycling
   if (['idle','walk','sit'].includes(petState)) {
@@ -587,44 +545,71 @@ export function drawPetFree() {
   ctx.clearRect(0, 0, CPX, CPX);
 
   const legFrame = (petState === 'walk' || petState === 'run') ? (Math.floor(petFrame / 3) % 2) : 0;
-  const blink = petState === 'sleep' || (petState === 'idle' && petFrame % 48 < 3);
-  const sitting = petState === 'sit' || petState === 'read';
-  const sleeping = petState === 'sleep';
-  const jump = ((petState === 'happy' || petState === 'celebrate') && (petFrame % 6 < 3));
-  const tired = isTired() && !sleeping && petState !== 'happy';
   const floating = _dragging;
-  const yOff = floating ? -3 : (jump ? -2 : (sleeping ? 2 : (sitting ? 1 : 0)));
+  const opts = _petDrawOpts(floating ? (Math.floor(petFrame/2)%2) : legFrame);
+  if (floating) { opts.sitting = false; opts.sleeping = false; }
+  const yOff = floating ? -3 : (opts.jump ? -2 : (opts.sleeping ? 2 : (opts.sitting ? 1 : 0)));
 
-  // Shadow only when dragging
   if (floating) drawShadow(ctx, yOff, true);
 
   ctx.save();
   if (petDir === -1) { ctx.translate(CPX, 0); ctx.scale(-1, 1); }
 
   const pet = PET_TYPES[getPetType()] || PET_TYPES.cat;
-  // Wobble animation when dragged
   if (floating) {
     const wobble = Math.sin(petFrame * 0.4) * 2;
     ctx.translate(CPX/2, CPX/2);
     ctx.rotate(wobble * Math.PI / 180 * 3);
     ctx.translate(-CPX/2, -CPX/2);
   }
-  const pxFn = (x, y, color) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x * S, (y + yOff) * S, S, S);
-  };
-  pet.draw(pxFn, { blink, legFrame: floating ? (Math.floor(petFrame/2)%2) : legFrame, sitting: floating ? false : sitting, sleeping: floating ? false : sleeping, jump, eyeDir: petEyeDir, tired });
-
+  const pxFn = (x, y, color) => { ctx.fillStyle = color; ctx.fillRect(x * S, (y + yOff) * S, S, S); };
+  pet.draw(pxFn, opts);
   ctx.restore();
+  _drawPetParticles(ctx);
+}
 
+// ── Shared tick helpers ──
+function _isInRect(x, y, r) { return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; }
+
+function _tickTempAndSleep(tempStates) {
+  if (tempStates.includes(petState)) {
+    petTempTimer--;
+    if (petTempTimer <= 0) petState = prevBaseState;
+  }
+  const idleMs = Date.now() - _lastActivity;
+  if (petState !== 'happy' && idleMs > 120000 && petState !== 'sleep') {
+    prevBaseState = petState; petState = 'sleep';
+  }
+}
+
+function _tickHoverHappy(el, baseStates) {
+  if (_mouseX >= 0 && petState !== 'sleep' && petState !== 'happy' && el) {
+    const rect = el.getBoundingClientRect();
+    if (_isInRect(_mouseX, _mouseY, rect)) {
+      prevBaseState = baseStates.includes(petState) ? petState : prevBaseState;
+      petState = 'happy';
+      petTempTimer = PET_FPS * 2;
+    }
+  }
+}
+
+function _drawPetParticles(ctx) {
   if (petState === 'happy') drawParticle(ctx, 'heart', 1, 2, petFrame);
   if (petState === 'celebrate') {
-    // Multiple hearts for celebration
     drawParticle(ctx, 'heart', -1, 3, petFrame);
     drawParticle(ctx, 'heart', 10, 2, petFrame + 5);
     drawParticle(ctx, 'heart', 4, 0, petFrame + 10);
   }
   if (petState === 'sleep') drawParticle(ctx, 'zzz', 12, 2, petFrame);
+}
+
+function _petDrawOpts(legFrame) {
+  const blink = petState === 'sleep' || (petState === 'idle' && petFrame % 48 < 3);
+  const sitting = petState === 'sit' || petState === 'read';
+  const sleeping = petState === 'sleep';
+  const jump = (petState === 'happy' || petState === 'celebrate') && (petFrame % 6 < 3);
+  const tired = isTired() && !sleeping && petState !== 'happy' && petState !== 'celebrate';
+  return { blink, legFrame, sitting, sleeping, jump, eyeDir: petEyeDir, tired };
 }
 
 export function getPetMode() { return Settings.get('pixelPetMode') || 'free'; }
@@ -634,20 +619,15 @@ export function isSidebarMode() { return getPetMode() === 'sidebar'; }
 // ── Sidebar mode drawing ──
 export function sidebarTick() {
   petFrame++;
-  if (_dragging) {
-    // In sidebar drag mode, update the free-floating container instead
-    drawPetFree();
-    return;
-  }
+  if (_dragging) { drawPetFree(); return; }
+
   // Eye direction follows mouse in sidebar too
   if (--petEyeTimer <= 0) {
     if (_mouseX >= 0 && Math.random() < 0.85) {
       const el = _getSbEl();
       if (el) {
         const rect = el.getBoundingClientRect();
-        const ex = rect.left + rect.width / 2;
-        const ey = rect.top + rect.height / 2;
-        const dx = _mouseX - ex, dy = _mouseY - ey;
+        const dx = _mouseX - (rect.left + rect.width / 2), dy = _mouseY - (rect.top + rect.height / 2);
         if (Math.abs(dx) > Math.abs(dy) * 1.2) petEyeDir = dx < 0 ? 'left' : 'right';
         else if (dy > Math.abs(dx) * 1.2) petEyeDir = 'down';
         else petEyeDir = 'center';
@@ -658,28 +638,9 @@ export function sidebarTick() {
     }
     petEyeTimer = 5 + Math.floor(Math.random() * 10);
   }
-  const now = Date.now();
-  const idleMs = now - _lastActivity;
 
-  if (['happy','run','celebrate'].includes(petState)) {
-    petTempTimer--;
-    if (petTempTimer <= 0) petState = prevBaseState;
-  }
-  if (petState !== 'happy' && idleMs > 120000 && petState !== 'sleep') {
-    prevBaseState = petState; petState = 'sleep';
-  }
-  // Mouse hover → happy (sidebar mode)
-  if (_mouseX >= 0 && petState !== 'sleep' && petState !== 'happy') {
-    const el = _getSbEl();
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      if (_mouseX >= rect.left && _mouseX <= rect.right && _mouseY >= rect.top && _mouseY <= rect.bottom) {
-        prevBaseState = ['idle','sit'].includes(petState) ? petState : prevBaseState;
-        petState = 'happy';
-        petTempTimer = PET_FPS * 2;
-      }
-    }
-  }
+  _tickTempAndSleep(['happy','run','celebrate']);
+  _tickHoverHappy(_getSbEl(), ['idle','sit']);
 
   if (['idle','sit'].includes(petState)) {
     petStateTimer--;
@@ -694,31 +655,14 @@ export function sidebarTick() {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, CPX, CPX);
-
-  // Draw pet bed behind the pet
   drawPetBed(ctx);
 
-  const blink = petState === 'sleep' || (petState === 'idle' && petFrame % 48 < 3);
-  const sitting = petState === 'sit' || petState === 'read';
-  const sleeping = petState === 'sleep';
-  const jump = (petState === 'happy' || petState === 'celebrate') && (petFrame % 6 < 3);
-  const tired = isTired() && !sleeping && petState !== 'happy' && petState !== 'celebrate';
-  const yOff = jump ? -2 : (sleeping ? 2 : (sitting ? 1 : 0));
-
+  const opts = _petDrawOpts(0);
+  const yOff = opts.jump ? -2 : (opts.sleeping ? 2 : (opts.sitting ? 1 : 0));
   const pet = PET_TYPES[getPetType()] || PET_TYPES.cat;
-  const pxFn = (x, y, color) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(x * S, (y + yOff) * S, S, S);
-  };
-  pet.draw(pxFn, { blink, legFrame: 0, sitting, sleeping, jump, eyeDir: petEyeDir, tired });
-
-  if (petState === 'happy') drawParticle(ctx, 'heart', 1, 2, petFrame);
-  if (petState === 'celebrate') {
-    drawParticle(ctx, 'heart', -1, 3, petFrame);
-    drawParticle(ctx, 'heart', 10, 2, petFrame + 5);
-    drawParticle(ctx, 'heart', 4, 0, petFrame + 10);
-  }
-  if (petState === 'sleep') drawParticle(ctx, 'zzz', 12, 2, petFrame);
+  const pxFn = (x, y, color) => { ctx.fillStyle = color; ctx.fillRect(x * S, (y + yOff) * S, S, S); };
+  pet.draw(pxFn, opts);
+  _drawPetParticles(ctx);
 }
 
 // ── Drag handling (free mode) ──

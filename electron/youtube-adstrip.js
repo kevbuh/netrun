@@ -132,9 +132,13 @@ function registerProtocolInterceptor(ses) {
   ses.protocol.handle('https', async (request) => {
     const url = request.url;
 
-    // Fast path: non-YouTube URLs pass through immediately
+    // Fast path: non-YouTube URLs pass through immediately.
+    // Use redirect:'manual' so the browser sees redirects and updates the
+    // document base URL — without this, sites that redirect (e.g. ReadTheDocs
+    // / → /en/stable/) break because relative resource URLs resolve against
+    // the pre-redirect URL.
     if (!isYouTubeDomain(url)) {
-      return net.fetch(request, { bypassCustomProtocolHandlers: true });
+      return net.fetch(request, { bypassCustomProtocolHandlers: true, redirect: 'manual' });
     }
 
     const isApi = _isYtApiUrl(url);

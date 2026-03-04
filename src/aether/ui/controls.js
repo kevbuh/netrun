@@ -902,6 +902,60 @@ function Skeleton() {
   return v;
 }
 
+// ─── Dropdown ─────────────────────────────────────────────
+
+var _chevronSvg = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
+function Dropdown(binding, menuItems, opts) {
+  opts = opts || {};
+  var v = new View('button');
+  v._viewType = 'Dropdown';
+  v.el.className = 'nr-dropdown';
+  v.el.type = 'button';
+  if (opts.width) v.el.style.width = opts.width;
+
+  var labelSpan = document.createElement('span');
+  labelSpan.className = 'nr-dropdown-label';
+  labelSpan.textContent = opts.placeholder || 'Select\u2026';
+  v.el.appendChild(labelSpan);
+
+  var chevronSpan = document.createElement('span');
+  chevronSpan.className = 'nr-dropdown-chevron';
+  chevronSpan.innerHTML = _chevronSvg;
+  v.el.appendChild(chevronSpan);
+
+  // Reactive label update from binding
+  if (binding) {
+    v._effects.push(S.Effect(function() {
+      var val = S.resolve(binding);
+      var items = typeof menuItems === 'function' ? menuItems() : menuItems;
+      var match = null;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].value === val) { match = items[i]; break; }
+      }
+      labelSpan.textContent = match ? match.label : (opts.placeholder || 'Select\u2026');
+    }));
+  }
+
+  // Click → open Menu anchored to this trigger
+  var _menu = null;
+  var _onOpen = null;
+  v.el.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (_menu && _menu.isOpen && _menu.isOpen.value) { _menu.dismiss(); _menu = null; return; }
+    if (_onOpen) { _onOpen(v); return; }
+    var MenuFn = window.Menu;
+    if (!MenuFn) return;
+    _menu = MenuFn(v, menuItems);
+  });
+
+  v.onOpen = function(fn) { _onOpen = fn; return v; };
+  v.placeholder = function(p) { labelSpan.textContent = p; return v; };
+  v.label = function(text) { labelSpan.textContent = text; return v; };
+
+  return v;
+}
+
 // ─── Export ───────────────────────────────────────────────
 
 window._AetherUIControls = {
@@ -923,12 +977,13 @@ window._AetherUIControls = {
   Disclosure: Disclosure,
   Badge: Badge,
   SegmentedControl: SegmentedControl,
-  Skeleton: Skeleton
+  Skeleton: Skeleton,
+  Dropdown: Dropdown
 };
 
 export {
   Button, TextField, Toggle, Slider, Picker, Stepper,
   Textarea, Checkbox, RadioGroup, TabView, ProgressBar, Pill,
   FormField, SearchField, Spinner,
-  Disclosure, Badge, SegmentedControl, Skeleton
+  Disclosure, Badge, SegmentedControl, Skeleton, Dropdown
 };

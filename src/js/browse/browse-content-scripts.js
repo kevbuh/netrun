@@ -13,11 +13,6 @@ import { _getDoomScrollSites, _doomScrollBypass, _focusTimerDomain, _focusTimerS
 // YouTube ad blocking is handled at the network layer via CDP in electron/youtube-adstrip.js.
 // No page-level JS hooks are used to avoid triggering YouTube's anti-adblock detection.
 
-export function _browseInjectYouTubeCSS(frame, url) {
-  // Disabled: all YouTube ad blocking is now at the network layer via CDP.
-  return;
-}
-
 // ── Auto Remove CSS ──
 
 export function toggleAutoRemoveCSS() {
@@ -60,10 +55,6 @@ export function _browseInjectRemoveCSS(frame) {
   })();`).catch(function(){});
 }
 
-export function _browseInjectYouTubeAdBlock(frame, url) {
-  // Disabled: all YouTube ad blocking is now at the network layer via CDP.
-  return;
-}
 
 export function _browseInjectContentScripts(tab, frame) {
   // Context menu — always show aether panel (with context items for links/images)
@@ -355,12 +346,6 @@ export function _browseInjectContentScripts(tab, frame) {
       })();
     `).catch(()=>{});
 
-    // YouTube ad blocking injection
-    _browseInjectYouTubeAdBlock(frame, frame.getURL());
-  });
-
-  frame.addEventListener('did-navigate-in-page', (e) => {
-    if (e.isMainFrame) _browseInjectYouTubeAdBlock(frame, e.url);
   });
 
   // Listen for context menu via console message
@@ -498,16 +483,16 @@ export function _browseInjectContentScripts(tab, frame) {
       }
     } else if (e.message && e.message.startsWith('__AETHER_MAGNIFY_WHEEL__')) {
       if (tab.id === _browseActiveTab && tab.el) {
-        var wp = e.message.slice('__AETHER_MAGNIFY_WHEEL__'.length).split(',');
-        var container = document.getElementById('browse-content');
-        var cr = container ? container.getBoundingClientRect() : { left: 0, top: 0 };
+        const wp = e.message.slice('__AETHER_MAGNIFY_WHEEL__'.length).split(',');
+        const container = document.getElementById('browse-content');
+        const cr = container ? container.getBoundingClientRect() : { left: 0, top: 0 };
         _magnifyFromWebview(tab.el, parseFloat(wp[0]), cr.left + parseFloat(wp[1]), cr.top + parseFloat(wp[2]));
       }
     } else if (e.message && e.message.startsWith('__AETHER_MAGNIFY_GSTART__')) {
       if (tab.id === _browseActiveTab && tab.el) {
-        var gp = e.message.slice('__AETHER_MAGNIFY_GSTART__'.length).split(',');
-        var gc = document.getElementById('browse-content');
-        var gcr = gc ? gc.getBoundingClientRect() : { left: 0, top: 0 };
+        const gp = e.message.slice('__AETHER_MAGNIFY_GSTART__'.length).split(',');
+        const gc = document.getElementById('browse-content');
+        const gcr = gc ? gc.getBoundingClientRect() : { left: 0, top: 0 };
         _magnifyFromWebviewGestureStart(tab.el, gcr.left + parseFloat(gp[0]), gcr.top + parseFloat(gp[1]));
       }
     } else if (e.message && e.message.startsWith('__AETHER_MAGNIFY_GCHANGE__')) {

@@ -198,24 +198,24 @@ export function _pageInfoOnPageLoad(tab, frame) {
   }
   // Inject content script to extract metadata + fetch IP geolocation
   try {
-    var hostname = '';
+    let hostname = '';
     try { hostname = new URL(url).hostname; } catch(e) {}
-    var metaPromise = frame.executeJavaScript(_EXTRACT_SCRIPT).catch(function() { return {}; });
-    var geoPromise = (hostname && window.electronAPI && window.electronAPI.ipGeo)
+    const metaPromise = frame.executeJavaScript(_EXTRACT_SCRIPT).catch(function() { return {}; });
+    const geoPromise = (hostname && window.electronAPI && window.electronAPI.ipGeo)
       ? window.electronAPI.ipGeo(hostname).catch(function() { return null; })
       : Promise.resolve(null);
     Promise.all([metaPromise, geoPromise]).then(function(results) {
-      var meta = results[0] || {};
-      var geo = results[1];
+      const meta = results[0] || {};
+      const geo = results[1];
       if (geo && !geo.error) {
         meta.ip = geo.ip;
-        var locParts = [geo.city, geo.region, geo.country].filter(Boolean);
+        const locParts = [geo.city, geo.region, geo.country].filter(Boolean);
         meta.location = locParts.join(', ');
         meta.org = geo.org || geo.isp || null;
       }
       _pageInfoCache.set(url, { data: meta, ts: Date.now() });
       // Only push if this tab is still the active one
-      var win = window._getCurrentWindow ? window._getCurrentWindow() : null;
+      const win = window._getCurrentWindow ? window._getCurrentWindow() : null;
       if (win && win.activeTab === tab.id) {
         _pushPill(meta);
       }

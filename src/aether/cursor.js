@@ -300,7 +300,9 @@ function _initCursor() {
 
     // Force cursor hiding on re-entry — webview process can defer cursor
     // evaluation after OS-level mouse re-entry, showing the native cursor
+    window.__aetherCursorEnabled = true;
     document.addEventListener('mouseenter', function () {
+      if (!window.__aetherCursorEnabled) return;
       document.documentElement.style.setProperty('cursor', 'none', 'important');
       if (document.body) document.body.style.setProperty('cursor', 'none', 'important');
     }, { passive: true });
@@ -352,14 +354,11 @@ function _initCursor() {
     trackedWebviews.push(wv);
 
     var doInject = function () {
-      // Always inject JS for cursor tracking
+      if (!running) return;
       wv.executeJavaScript(WEBVIEW_JS).catch(function () {});
-      // Only inject cursor-hiding CSS if enabled
-      if (running) {
-        wv.insertCSS(WEBVIEW_CSS).then(function (key) {
-          wv._aetherCursorCSSKey = key;
-        }).catch(function () {});
-      }
+      wv.insertCSS(WEBVIEW_CSS).then(function (key) {
+        wv._aetherCursorCSSKey = key;
+      }).catch(function () {});
     };
 
     // Inject on every navigation
@@ -532,13 +531,15 @@ function _initCursor() {
       ring.style.display = '';
       document.documentElement.classList.add('nr-custom-cursor');
       document.body.classList.add('nr-custom-cursor');
-      // Re-inject cursor-hiding CSS into tracked webviews
+      // Re-inject cursor tracking JS + hiding CSS into tracked webviews
       for (var i = 0; i < trackedWebviews.length; i++) {
         (function (wv) {
           try {
+            wv.executeJavaScript(WEBVIEW_JS).catch(function () {});
             wv.insertCSS(WEBVIEW_CSS).then(function (key) {
               wv._aetherCursorCSSKey = key;
             }).catch(function () {});
+            wv.executeJavaScript('window.__aetherCursorEnabled = true').catch(function () {});
           } catch (e) { /* webview may be destroyed */ }
         })(trackedWebviews[i]);
       }
@@ -563,7 +564,10 @@ function _initCursor() {
       document.documentElement.classList.remove('nr-custom-cursor');
       document.body.classList.remove('nr-custom-cursor');
       if (window.electronAPI && electronAPI.cursorSetNativeHiding) electronAPI.cursorSetNativeHiding(false);
-      // Remove cursor-hiding CSS from tracked webviews
+      // Remove cursor-hiding CSS from tracked webviews + clear inline styles
+      var RESTORE_JS = 'window.__aetherCursorEnabled = false;' +
+        'document.documentElement.style.removeProperty("cursor");' +
+        'if (document.body) document.body.style.removeProperty("cursor");';
       for (var i = 0; i < trackedWebviews.length; i++) {
         (function (wv) {
           try {
@@ -571,6 +575,7 @@ function _initCursor() {
               wv.removeInsertedCSS(wv._aetherCursorCSSKey).catch(function () {});
               wv._aetherCursorCSSKey = null;
             }
+            wv.executeJavaScript(RESTORE_JS).catch(function () {});
           } catch (e) { /* webview may be destroyed */ }
         })(trackedWebviews[i]);
       }

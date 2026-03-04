@@ -2,7 +2,7 @@
 // State, TTS, Chat, and Commands extracted to separate modules
 import Settings from '/js/core/core-settings.js';
 import { apiGet, apiPost } from '/js/api.js';
-import { escapeHtml, escapeAttr } from '/js/core/core-utils.js';
+import { escapeHtml, escapeAttr, isEditable } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
 import { _doLogout } from '/js/core/core-auth.js';
@@ -281,7 +281,7 @@ document.addEventListener('mousedown', function(e) {
 document.addEventListener('selectionchange', function() {
   if (!_selPopupDragging) return;
   const activeEl = document.activeElement;
-  if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) return;
+  if (isEditable(activeEl)) return;
   const sel = window.getSelection();
   const text = sel ? sel.toString().trim() : '';
   if (!text || text.length < 3 || sel.rangeCount === 0) return;
@@ -332,7 +332,7 @@ document.addEventListener('mouseup', async function(e) {
   _selPopupDragging = false;
 
   const activeEl = document.activeElement;
-  if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) return;
+  if (isEditable(activeEl)) return;
 
   const sel = window.getSelection();
   const text = sel ? sel.toString().trim() : '';
@@ -582,7 +582,7 @@ export function _handleContextMenuChat(e) {
   e.preventDefault();
   // Capture the previously focused editable element before panel steals focus
   const active = document.activeElement;
-  const priorEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable) ? active : null;
+  const priorEditable = isEditable(active) ? active : null;
   if (popup) { popup.remove(); window._aetherTrackMode = false; }
   _showPanel({ anchor: { x: e.clientX, y: e.clientY }, priorEditable, trackCursor: true });
 }
@@ -626,7 +626,7 @@ export function _injectIframeChatHandler(iframe) {
         e.preventDefault();
         // Capture focused editable inside iframe before panel steals focus
         const active = doc.activeElement;
-        const priorEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable) ? active : null;
+        const priorEditable = isEditable(active) ? active : null;
         const popup = document.getElementById('doc-chat-ask-float');
         if (popup) { popup.remove(); window._aetherTrackMode = false; }
         // Detect link/image targets for context menu

@@ -8,7 +8,7 @@ import { _browseUrlHideHistory } from '/js/browse-urlbar.js';
 import { _paperState } from '/js/browse/browse-paper.js';
 import { _showTabsInPillDropdown } from '/js/toolbar/toolbar-url.js';
 import { _syncIslandPillPosition } from '/js/toolbar/toolbar-island.js';
-import { _readPageAloud, scrollToAnnotation } from '/js/browse/browse-annotations.js';
+import { _readPageAloud, scrollToAnnotation, ANN_COLORS, ANN_COLOR_MAP } from '/js/browse/browse-annotations.js';
 import { _ttsStopAll, _ttsPauseResume } from '/js/panel-tts.js';
 import { browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
 import { browseNewTab } from '/js/browse/browse-windows.js';
@@ -19,13 +19,13 @@ import { toggleCaptions } from '/js/browse/browse-captions.js';
 // ── Webview pointer guard — prevent webview from stealing events when dropdowns are open ──
 
 // Centralized guard: observe any island-tray-open or dropdown-open to block webview pointer events
-var _islandGuardObserver = null;
+let _islandGuardObserver = null;
 function _islandInitGuard() {
   if (_islandGuardObserver) return;
-  var nav = document.getElementById('sidebar-nav');
+  const nav = document.getElementById('sidebar-nav');
   if (!nav) return;
   _islandGuardObserver = new MutationObserver(function() {
-    var anyOpen = !!nav.querySelector('.island-tray-open, .dropdown-open');
+    const anyOpen = !!nav.querySelector('.island-tray-open, .dropdown-open');
     document.body.classList.toggle('island-dropdown-guard', anyOpen);
   });
   _islandGuardObserver.observe(nav, { attributes: true, attributeFilter: ['class'], subtree: true });
@@ -75,7 +75,7 @@ export function _renderAudioPill() {
 }
 
 export function _islandRenderPill(a) {
-  var V = window.View, T = window.Text, R = window.RawHTML, H = window.HStack;
+  const V = window.View, T = window.Text, R = window.RawHTML, H = window.HStack;
   if (a.type === 'feed-notif') {
     return H([R(icon('bell', { size: 14, stroke: 'var(--nr-accent)' })), T(a.label || '').foreground('var(--nr-accent)')]);
   } else if (a.done) {
@@ -85,14 +85,14 @@ export function _islandRenderPill(a) {
     const circ = 2 * Math.PI * 6;
     const offset = circ * (1 - pct / 100);
     const ringHtml = pct > 0 ? '<svg class="island-ring" viewBox="0 0 16 16"><circle class="island-ring-bg" cx="8" cy="8" r="6"/><circle class="island-ring-fg" cx="8" cy="8" r="6" stroke-dasharray="' + circ.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '" transform="rotate(-90 8 8)"/></svg>' : icon('download', { size: 14 });
-    var dismiss = new V('span').className('island-dismiss').attr('data-island-dismiss', 'download')
+    const dismiss = new V('span').className('island-dismiss').attr('data-island-dismiss', 'download')
       .styles({ marginLeft: '4px', opacity: '0.4', fontSize: '15px', lineHeight: '1', padding: '0 2px', cursor: 'pointer' });
     dismiss.el.textContent = '\u00d7';
     return H([R(ringHtml), T(a.label || pct + '%'), dismiss]);
   } else if (a.type === 'tts') {
     const ttsIconHtml = a.paused ? icon('play', { size: 14 }) : window._islandWaveformBars;
     const spd = parseFloat(Settings.get('ttsSpeed')) || 1;
-    var spdBadge = T(spd.toFixed(1).replace(/\.0$/, '') + 'x').className('island-tts-speed').attr('title', 'Click to change speed')
+    const spdBadge = T(spd.toFixed(1).replace(/\.0$/, '') + 'x').className('island-tts-speed').attr('title', 'Click to change speed')
       .onTap(function(e) { e.stopPropagation(); _ttsCycleSpeed(); });
     return H([R(ttsIconHtml), T(a.label || ''), spdBadge]);
   } else if (a.type === 'audio') {
@@ -117,16 +117,16 @@ export function _islandRenderPill(a) {
       return H([R(icon('windows', { size: 14 })), T('0 tabs').opacity(0.4)]);
     }
     const visible = nonBlank.slice(0, 3);
-    var stripChildren = [];
+    const stripChildren = [];
     for (let ti = 0; ti < visible.length; ti++) {
       const t = visible[ti];
       const cls = 'island-strip-fav' + (t.active ? ' island-strip-fav-active' : '');
       if (t.favicon) {
-        var favImg = new V('img').className(cls).attr('title', t.title || 'Tab').attr('data-island-tab', t.id);
+        const favImg = new V('img').className(cls).attr('title', t.title || 'Tab').attr('data-island-tab', t.id);
         favImg.el.src = t.favicon;
         var _cls = cls;
         favImg.on('error', function() {
-          var globe = R(icon('globe', { size: 16, strokeWidth: '1.5', class: _cls }));
+          const globe = R(icon('globe', { size: 16, strokeWidth: '1.5', class: _cls }));
           globe.attr('data-island-tab', t.id);
           this.replaceWith(globe.el);
         });
@@ -140,7 +140,7 @@ export function _islandRenderPill(a) {
           stripChildren.push(favImg);
         }
       } else {
-        var globeView = R(icon('globe', { size: 16, strokeWidth: '1.5', class: cls })).attr('title', t.title || 'Tab').attr('data-island-tab', t.id);
+        const globeView = R(icon('globe', { size: 16, strokeWidth: '1.5', class: cls })).attr('title', t.title || 'Tab').attr('data-island-tab', t.id);
         if (t.active) {
           var wrap = new V('span').className('island-strip-fav-wrap').attr('data-island-tab', t.id);
           var closeBtn = new V('button').className('island-strip-fav-close').attr('data-island-tab-close', t.id).attr('title', 'Close tab');
@@ -161,16 +161,15 @@ export function _islandRenderPill(a) {
     if (a.loading) {
       return H([new V('span').className('island-annotate-dot'), T(a.label || 'Analyzing\u2026')]);
     }
-    const _annModeColors = { INSIGHT: '#4caf50', CONTRADICTION: '#ef5350', EXAGGERATION: '#ffc107', AD: '#ff9800', FACTCHECK: '#ec407a', EVIDENCE: '#26a69a', CONNECTION: '#2196f3' };
-    const annColor = _annModeColors[a.modeType] || '#4caf50';
-    var children = [R(icon('comment', { size: 14, stroke: annColor })), T(a.label || '').foreground('var(--aether-text)')];
+    const annColor = ANN_COLORS[a.modeType] || '#4caf50';
+    const children = [R(icon('comment', { size: 14, stroke: annColor })), T(a.label || '').foreground('var(--aether-text)')];
     if (a._paper && a._paperState && a._paperState.s2Data) {
       const cc = a._paperState.s2Data.citationCount;
       if (cc != null) children.push(T(cc + ' cit.').styles({ marginLeft: '6px', fontSize: '10px', padding: '1px 5px', borderRadius: '8px', background: 'rgba(139,92,246,0.15)', color: '#8b5cf6' }));
     }
     return H(children);
   } else if (a.type === 'pageinfo') {
-    var infoIcon = R(icon('info', { size: 14, stroke: 'var(--nr-text-secondary)' })).className('island-pageinfo-icon');
+    const infoIcon = R(icon('info', { size: 14, stroke: 'var(--nr-text-secondary)' })).className('island-pageinfo-icon');
     if (a.label) {
       return H([infoIcon, T(a.label).foreground('var(--nr-text-secondary)').className('island-pageinfo-label')]).spacing(1).styles({ whiteSpace: 'nowrap' });
     }
@@ -191,24 +190,24 @@ export function _islandRenderPill(a) {
 
 // Build tray content as a View for context/download/annotate/achievement/tabs pills
 export function _islandBuildTray(a, isBrowse) {
-  var V = window.View, T = window.Text, R = window.RawHTML, H = window.HStack, VS = window.VStack;
+  const V = window.View, T = window.Text, R = window.RawHTML, H = window.HStack, VS = window.VStack;
 
   function _divider() { return new V('div').styles({ height: '1px', background: 'var(--aether-border)', margin: '4px 0' }); }
   function _borderDivider() { return new V('div').styles({ height: '1px', background: 'var(--aether-border, var(--nr-border-default))', margin: '2px 0' }); }
   function _favImg(src) {
-    var img = new V('img').frame({ width: 14, height: 14 }).cornerRadius('xs').styles({ flexShrink: '0' });
+    const img = new V('img').frame({ width: 14, height: 14 }).cornerRadius('xs').styles({ flexShrink: '0' });
     img.el.src = src;
     img.on('error', function() { this.style.display = 'none'; });
     return img;
   }
   function _tabRow(item, showClose) {
-    var title = item.title || 'New Tab';
+    let title = item.title || 'New Tab';
     if (title.length > 36) title = title.slice(0, 34) + '\u2026';
-    var children = [];
+    const children = [];
     if (item.favicon) children.push(_favImg(item.favicon));
     children.push(T(title).flex(1).styles({ minWidth: '0' }).truncate());
     if (showClose) {
-      var cb = new V('button').className('island-tab-item-close').attr('data-island-tab-close', item.id).attr('title', 'Close');
+      const cb = new V('button').className('island-tab-item-close').attr('data-island-tab-close', item.id).attr('title', 'Close');
       cb.el.textContent = '\u00d7';
       children.push(cb);
     }
@@ -229,7 +228,7 @@ export function _islandBuildTray(a, isBrowse) {
     var rows = [];
     rows.push(H([T('Downloads'), T('Clear all').className('island-dl-clear').attr('data-island-dl-clear', '1')]).className('island-dl-header'));
     for (var ti = 0; ti < a.items.length; ti++) {
-      var item = a.items[ti];
+      const item = a.items[ti];
       let fname = item.filename || 'Download';
       if (fname.length > 40) fname = fname.slice(0, 38) + '\u2026';
       const dlIconHtml = item.state === 'completed'
@@ -238,28 +237,24 @@ export function _islandBuildTray(a, isBrowse) {
       const dlStatus = item.state === 'completed' ? 'Done' + (item.size ? ' \u00b7 ' + item.size : '')
         : item.state === 'cancelled' ? 'Cancelled'
         : item.pct + '% \u00b7 ' + item.received + (item.size ? ' / ' + item.size : '');
-      var infoView = new V('div').className('island-dl-info').add(
+      const infoView = new V('div').className('island-dl-info').add(
         T(fname).className('island-dl-name'),
         T(dlStatus).className('island-dl-status')
       );
       if (item.state === 'progressing') {
-        var bar = new V('div').className('island-dl-progress-bar').styles({ width: item.pct + '%' });
+        const bar = new V('div').className('island-dl-progress-bar').styles({ width: item.pct + '%' });
         infoView.add(new V('div').className('island-dl-progress').add(bar));
       }
-      var removeBtn = new V('button').className('island-dl-remove').attr('data-island-dl-remove', item.id).attr('title', 'Remove');
+      const removeBtn = new V('button').className('island-dl-remove').attr('data-island-dl-remove', item.id).attr('title', 'Remove');
       removeBtn.el.textContent = '\u00d7';
       rows.push(H([R(dlIconHtml).className('island-dl-icon'), infoView, removeBtn]).className('island-dl-item').attr('data-island-dl', item.id));
     }
     return VS(rows);
   } else if (a.type === 'insight' && ((a.items && a.items.length) || (a._paper && a._paperState))) {
-    const annColors = { INSIGHT: '#4caf50', CONTRADICTION: '#ef5350', AD: '#ff9800', FACTCHECK: '#ec407a', EVIDENCE: '#26a69a', CONNECTION: '#2196f3' };
-    const annLabels = { INSIGHT: 'Insight', CONTRADICTION: 'Contradiction', AD: 'Ad', FACTCHECK: 'Fact Check', EVIDENCE: 'Evidence', CONNECTION: 'Connection' };
+    const annColors = Object.assign({}, ANN_COLORS);
+    const annLabels = Object.fromEntries(Object.entries(ANN_COLOR_MAP).map(([k, v]) => [k, v.label]));
     if (typeof window._customAnnotationCategories !== 'undefined') {
-      for (let ci = 0; ci < window._customAnnotationCategories.length; ci++) {
-        const cc = window._customAnnotationCategories[ci];
-        annColors[cc.key] = cc.color;
-        annLabels[cc.key] = cc.name;
-      }
+      for (const cc of window._customAnnotationCategories) { annColors[cc.key] = cc.color; annLabels[cc.key] = cc.name; }
     }
     var rows = [];
     // Paper metadata at top of tray
@@ -292,7 +287,7 @@ export function _islandBuildTray(a, isBrowse) {
           for (let pdi = 0; pdi < authorDetails.length; pdi++) {
             if (authorDetails[pdi] && authorDetails[pdi].name === pName) { pDetail = authorDetails[pdi]; break; }
           }
-          var authorChildren = [T(pName).flex(1).styles({ minWidth: '0' }).truncate()];
+          const authorChildren = [T(pName).flex(1).styles({ minWidth: '0' }).truncate()];
           if (pDetail && pDetail.hIndex != null) authorChildren.push(T('h-index: ' + pDetail.hIndex).styles({ fontSize: '10px', color: 'var(--nr-text-quaternary)', marginLeft: 'auto' }));
           if (pDetail && pDetail.citationCount != null) authorChildren.push(T(pDetail.citationCount.toLocaleString() + ' cit.').styles({ fontSize: '10px', color: 'var(--nr-text-quaternary)', marginLeft: '6px' }));
           rows.push(H(authorChildren).styles({ padding: '4px 10px', gap: '6px', fontSize: '12px', color: 'var(--nr-text-primary)' }));
@@ -310,8 +305,8 @@ export function _islandBuildTray(a, isBrowse) {
       rows.push(T(a.insight).styles({ padding: '8px 10px', fontSize: '12px', color: 'var(--aether-text, var(--nr-text-primary))', lineHeight: '1.5' }));
     }
     if (a.ocrText) {
-      var ocrLabel = T('OCR').styles({ fontSize: '10px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--aether-text-dim, var(--nr-text-secondary))' });
-      var ocrContent = T(a.ocrText.length > 300 ? a.ocrText.slice(0, 297) + '\u2026' : a.ocrText);
+      const ocrLabel = T('OCR').styles({ fontSize: '10px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--aether-text-dim, var(--nr-text-secondary))' });
+      const ocrContent = T(a.ocrText.length > 300 ? a.ocrText.slice(0, 297) + '\u2026' : a.ocrText);
       rows.push(VS([ocrLabel, ocrContent]).styles({ padding: '6px 10px', fontSize: '11px', color: 'var(--aether-text-dim, var(--nr-text-secondary))', lineHeight: '1.4', borderTop: '1px solid var(--aether-border, var(--nr-border-default))' }));
     }
     if ((a.insight || a.ocrText) && a.items && a.items.length) rows.push(_borderDivider());
@@ -327,42 +322,42 @@ export function _islandBuildTray(a, isBrowse) {
       const isConnection = ann.type === 'CONNECTION';
       const displayText = isConnection ? ('Linked: ' + (ann.linkedTitle || 'Related content')) : (ann.explanation || ann.quote || '');
       const confStr = ann.confidence != null ? ann.confidence + '%' : '';
-      var annChildren = [
+      const annChildren = [
         new V('span').className('island-ann-dot').styles({ background: ac }),
         T(al).className('island-ann-type').foreground(ac),
         T(displayText).className('island-ann-text')
       ];
       if (confStr) annChildren.push(T(confStr).className('island-ann-conf'));
-      var goodBtn = new V('button').attr('data-ann-rate-good', ai).attr('title', 'Good annotation').html(thumbUpSvg);
-      var badBtn = new V('button').attr('data-ann-rate-bad', ai).attr('title', 'Bad annotation').html(thumbDownSvg);
+      const goodBtn = new V('button').attr('data-ann-rate-good', ai).attr('title', 'Good annotation').html(thumbUpSvg);
+      const badBtn = new V('button').attr('data-ann-rate-bad', ai).attr('title', 'Bad annotation').html(thumbDownSvg);
       annChildren.push(new V('span').className('island-ann-actions').add(goodBtn, badBtn));
-      var annRow = new V('div').className('island-ann-item').attr('data-island-ann', ai).add(annChildren);
+      const annRow = new V('div').className('island-ann-item').attr('data-island-ann', ai).add(annChildren);
       if (isConnection && ann.linkedUrl) annRow.attr('data-island-ann-url', ann.linkedUrl);
       rows.push(annRow);
     }
     return VS(rows);
   } else if (a.type === 'pageinfo') {
     var rows = [];
-    var m = a.meta || {};
+    const m = a.meta || {};
     function _piRow(label, value) {
       if (!value) return null;
       return H([T(label).className('island-pageinfo-label'), T(value).className('island-pageinfo-value')]).className('island-pageinfo-row');
     }
     if (m.published) {
-      try { var pd = new Date(m.published); rows.push(_piRow('Published', pd.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }))); } catch(e) { rows.push(_piRow('Published', m.published)); }
+      try { const pd = new Date(m.published); rows.push(_piRow('Published', pd.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }))); } catch(e) { rows.push(_piRow('Published', m.published)); }
     }
     if (m.modified) {
-      try { var md = new Date(m.modified); rows.push(_piRow('Modified', md.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }))); } catch(e) { rows.push(_piRow('Modified', m.modified)); }
+      try { const md = new Date(m.modified); rows.push(_piRow('Modified', md.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }))); } catch(e) { rows.push(_piRow('Modified', m.modified)); }
     }
     if (m.author) rows.push(_piRow('Author', m.author));
     if (m.type) rows.push(_piRow('Type', m.type));
     if (m.wordCount) {
-      var mins = Math.max(1, Math.round(m.wordCount / 238));
+      const mins = Math.max(1, Math.round(m.wordCount / 238));
       rows.push(_piRow('Reading time', mins + ' min (' + m.wordCount.toLocaleString() + ' words)'));
     }
     if (a.badges) rows.push(_piRow('Position', a.badges));
     if (m.description) {
-      var desc = m.description.length > 200 ? m.description.slice(0, 197) + '\u2026' : m.description;
+      const desc = m.description.length > 200 ? m.description.slice(0, 197) + '\u2026' : m.description;
       rows.push(T(desc).className('island-pageinfo-desc'));
     }
     rows = rows.filter(Boolean);
@@ -384,14 +379,14 @@ export function _islandBuildTray(a, isBrowse) {
     const pinnedItems = a.items.filter(function(it) { return it.pinned; });
     const unpinnedItems = a.items.filter(function(it) { return !it.pinned; }).slice().sort(function(x, y) { return (y.lastVisited || 0) - (x.lastVisited || 0); });
     function _trayTabItem(item, showClose) {
-      var title = item.title || 'New Tab';
+      let title = item.title || 'New Tab';
       if (title.length > 32) title = title.slice(0, 30) + '\u2026';
-      var children = [];
+      const children = [];
       if (item.favicon) children.push(_favImg(item.favicon));
       if (item.hasAudio) children.push(R(icon('speakerSmall', { size: 12, style: 'flex-shrink:0;opacity:0.6' })));
       children.push(T(title).flex(1).styles({ minWidth: '0' }).truncate());
       if (showClose) {
-        var cb = new V('button').className('island-tab-item-close' + (item.active ? ' island-tab-close-hover' : '')).attr('data-island-tab-close', item.id).attr('title', 'Close');
+        const cb = new V('button').className('island-tab-item-close' + (item.active ? ' island-tab-close-hover' : '')).attr('data-island-tab-close', item.id).attr('title', 'Close');
         cb.el.textContent = '\u00d7';
         children.push(cb);
       }
@@ -448,22 +443,22 @@ export function _islandCloseDetailCard() {
 
 export function _islandShowDetailCard(pill, activity) {
   _islandCloseDetailCard();
-  var V = window.View, T = window.Text, R = window.RawHTML;
+  const V = window.View, T = window.Text, R = window.RawHTML;
   const typeLabels = { context: 'Context', download: 'Downloads', tabs: 'Tabs', insight: 'Annotations', achievement: 'Achievement', ai: 'AI', nowplaying: 'Now Playing', tts: 'Text to Speech', cc: 'Captions', audio: 'Audio', rss: 'Feed', bookmark: 'Bookmarked', 'feed-notif': 'Feed', pulse: 'Activity', qf: 'Quick Find', calendar: 'Calendar' };
   // Header
-  var headerView = new V('div').className('island-detail-card-header').add(_islandRenderPill(activity));
+  const headerView = new V('div').className('island-detail-card-header').add(_islandRenderPill(activity));
   // Tray content
   const isBrowse = ((window._currentRouteHash || window.location.hash || '').match(/^#(browse|research|search)$/));
   const trayContentView = _islandBuildTray(activity, isBrowse);
-  var trayWrapView = new V('div').className('island-ctx-tray');
+  const trayWrapView = new V('div').className('island-ctx-tray');
   if (trayContentView) {
     trayWrapView.add(trayContentView);
   } else {
-    var fallbackText = (typeLabels[activity.type] || activity.type) + (activity.label ? ' \u2014 ' + activity.label : '');
+    let fallbackText = (typeLabels[activity.type] || activity.type) + (activity.label ? ' \u2014 ' + activity.label : '');
     if (activity.detail) fallbackText += '\n' + activity.detail;
     trayWrapView.add(T(fallbackText).styles({ padding: '8px', opacity: '0.4', fontSize: '0.72rem', whiteSpace: 'pre-line' }));
   }
-  var cardView = new V('div').className('island-detail-card').add(headerView, trayWrapView);
+  const cardView = new V('div').className('island-detail-card').add(headerView, trayWrapView);
   cardView.on('click', function(e) {
     _islandHandleTrayClicks(e, pill, activity);
   });
@@ -712,7 +707,7 @@ export function _islandAttachHandlers(pill, a, hasTray) {
       }
     });
     // Close on window blur (webview focus) — debounced to avoid premature close
-    var _blurCloseTimer = 0;
+    let _blurCloseTimer = 0;
     window.addEventListener('blur', function() {
       clearTimeout(_blurCloseTimer);
       _blurCloseTimer = setTimeout(function() {
@@ -1115,7 +1110,7 @@ export function _islandRender() {
   const isIslandNow = document.getElementById('sidebar-nav') && document.getElementById('sidebar-nav').classList.contains('island-mode');
   // Trigger unified AI pill render
   if (typeof window._renderUnifiedPill === 'function') window._renderUnifiedPill();
-  var islandMerged = container.closest('#pill-url-wrap') !== null;
+  const islandMerged = container.closest('#pill-url-wrap') !== null;
   if (urlWrap && isIslandNow && rightContainer && !islandMerged) {
     const urlRect = urlWrap.getBoundingClientRect();
     const contRect = container.getBoundingClientRect();
@@ -1135,9 +1130,9 @@ export function _islandRender() {
     });
     rightBtnsW += 8; // right padding
     rightContainer.style.setProperty('--island-right-offset', rightBtnsW + 'px');
-    var hamburgerEl = document.getElementById('pill-browse-hamburger');
-    var hamburgerW = (hamburgerEl && hamburgerEl.offsetWidth > 0) ? hamburgerEl.offsetWidth : 0;
-    var pillBar = document.getElementById('sidebar-nav');
+    const hamburgerEl = document.getElementById('pill-browse-hamburger');
+    const hamburgerW = (hamburgerEl && hamburgerEl.offsetWidth > 0) ? hamburgerEl.offsetWidth : 0;
+    const pillBar = document.getElementById('sidebar-nav');
     if (pillBar) {
       pillBar.style.setProperty('--island-hamburger-right', '0px');
     }

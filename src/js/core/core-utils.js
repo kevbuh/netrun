@@ -25,6 +25,14 @@ export function formatDate(d) {
   return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(2)}`;
 }
 
+export function isEditable(el) {
+  return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+}
+
+export function toast(msg) {
+  if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast(msg);
+}
+
 export function escapeHtml(str) {
   const view = new View('div');
   view.el.textContent = str;

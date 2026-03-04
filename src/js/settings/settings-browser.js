@@ -9,13 +9,13 @@ import { logger } from '/js/logger.js';
 // ─── Browser Settings ──────────────────────────────────────
 
 // Refs to the current doom-scroll input elements (updated each render)
-var _doomScrollInputRefs = { domain: null, mode: null, minutes: null };
+const _doomScrollInputRefs = { domain: null, mode: null, minutes: null };
 // Ref to the urlbar-section-list element (updated each render)
-var _urlBarSectionListEl = null;
+let _urlBarSectionListEl = null;
 // Ref to the settings-passwords container element (updated each render)
-var _settingsPasswordsEl = null;
+let _settingsPasswordsEl = null;
 // Ref to the bookmark-import-browsers container element (updated each render)
-var _bookmarkImportContainerEl = null;
+let _bookmarkImportContainerEl = null;
 
 export function _renderDoomScrollSites() {
   const sites = typeof _getDoomScrollSites === 'function' ? _getDoomScrollSites() : [];
@@ -350,7 +350,7 @@ export function _pwDeleteEntry(id) {
 export function _renderBrowserSettings() {
   // Ad blocker
   const adBlockInfoView = window.electronAPI
-    ? (function() { var sk = window.Skeleton().lines(2); sk.el.id = 'adblock-rules-info'; sk.el.className += ' mb-3'; return sk; })()
+    ? (function() { const sk = window.Skeleton().lines(2); sk.el.id = 'adblock-rules-info'; sk.el.className += ' mb-3'; return sk; })()
     : window.Text('Filter list management requires Electron.').className('text-dimmer text-[0.75rem] mb-3');
   const adBlockUpdateBtn = window.electronAPI
     ? window.Button('Update filter lists').className('text-dim text-[0.78rem] hover:text-primary bg-transparent border border-border-input hover:border-accent rounded-md px-3 py-1 cursor-pointer transition-colors')
@@ -475,7 +475,7 @@ export function _renderBrowserSettings() {
 
   // Passwords
   const pwContent = (function() {
-    var w = new window.View('div');
+    const w = new window.View('div');
     w.add(window.Skeleton().lines(3));
     _settingsPasswordsEl = w.el;
     return w;
@@ -519,7 +519,7 @@ export function _renderBrowserSettings() {
       _settingGroupContent([
         window.Text('Import bookmarks from other browsers into your reading list.').className('text-dim text-[0.8rem] mb-3'),
         (function() {
-          var w = new window.View('div');
+          const w = new window.View('div');
           w.add(window.Skeleton().lines(2));
           _bookmarkImportContainerEl = w.el;
           return w;
@@ -531,13 +531,13 @@ export function _renderBrowserSettings() {
 
 // ── Bookmark Import (Settings) ──
 
-var _bmSelectedUrls = {};  // browserId → Set of selected URLs
-var _bmParsedData = {};    // browserId → array of bookmarks
-var _bmLoadError = {};     // browserId → boolean error flag
-var _bmExpandedId = null;  // currently expanded browser
+const _bmSelectedUrls = {};  // browserId → Set of selected URLs
+const _bmParsedData = {};    // browserId → array of bookmarks
+const _bmLoadError = {};     // browserId → boolean error flag
+let _bmExpandedId = null;  // currently expanded browser
 
 export function _loadBookmarkImport() {
-  var container = _bookmarkImportContainerEl;
+  const container = _bookmarkImportContainerEl;
   if (!container) return;
   if (!window.electronAPI || !window.electronAPI.dbQuery) {
     AetherUI.mount(window.Text('Bookmark import requires the desktop app.').className('text-dimmer text-[0.75rem]'), container);
@@ -555,20 +555,20 @@ export function _loadBookmarkImport() {
 }
 
 function _bmRenderBrowserList(container, browsers) {
-  var cards = browsers.map(function(b) {
-    var isExpanded = _bmExpandedId === b.id;
-    var chevron = window.RawHTML(icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') }));
-    var nameView = window.Text(b.name).styles({ flex: '1', fontSize: '0.82rem', color: 'var(--nr-text-primary)', fontWeight: '500' });
-    var countText = _bmParsedData[b.id] ? _bmParsedData[b.id].length + ' bookmarks' : '';
-    var countView = window.Text(countText).styles({ fontSize: '0.68rem', color: 'var(--nr-text-quaternary)' });
+  const cards = browsers.map(function(b) {
+    const isExpanded = _bmExpandedId === b.id;
+    const chevron = window.RawHTML(icon('chevronRightSmall', { size: 12, stroke: 'var(--nr-text-quaternary)', style: 'transition:transform 0.15s;' + (isExpanded ? 'transform:rotate(90deg);' : '') }));
+    const nameView = window.Text(b.name).styles({ flex: '1', fontSize: '0.82rem', color: 'var(--nr-text-primary)', fontWeight: '500' });
+    const countText = _bmParsedData[b.id] ? _bmParsedData[b.id].length + ' bookmarks' : '';
+    const countView = window.Text(countText).styles({ fontSize: '0.68rem', color: 'var(--nr-text-quaternary)' });
 
-    var header = window.HStack(chevron, nameView, countView)
+    const header = window.HStack(chevron, nameView, countView)
       .spacing(2).styles({ padding: '8px 12px', cursor: 'pointer' });
     header.onTap(function() { _bmToggleExpand(b.id, container, browsers); });
 
-    var items = [header];
+    const items = [header];
     if (isExpanded) {
-      var detail = new window.View('div').styles({ padding: '0 12px 10px', borderTop: '1px solid var(--nr-border-subtle)' });
+      const detail = new window.View('div').styles({ padding: '0 12px 10px', borderTop: '1px solid var(--nr-border-subtle)' });
       if (_bmLoadError[b.id]) {
         AetherUI.mount(window.Text('Failed to load bookmarks.').className('text-dimmer text-[0.72rem]').styles({ padding: '10px 0' }), detail.el);
       } else if (_bmParsedData[b.id]) {
@@ -596,7 +596,7 @@ function _bmToggleExpand(browserId, container, browsers) {
   // Parse if not cached
   if (!_bmParsedData[browserId]) {
     window.electronAPI.dbQuery('bookmark-parse', browserId).then(function(result) {
-      var bookmarks = (result && result.bookmarks) || [];
+      const bookmarks = (result && result.bookmarks) || [];
       _bmParsedData[browserId] = bookmarks;
       // Select all by default
       _bmSelectedUrls[browserId] = new Set(bookmarks.map(function(bm) { return bm.url; }));
@@ -610,9 +610,9 @@ function _bmToggleExpand(browserId, container, browsers) {
 }
 
 function _bmRenderBookmarkList(container, browserId) {
-  var bookmarks = _bmParsedData[browserId] || [];
-  var selected = _bmSelectedUrls[browserId] || new Set();
-  var selectedCount = selected.size;
+  const bookmarks = _bmParsedData[browserId] || [];
+  const selected = _bmSelectedUrls[browserId] || new Set();
+  const selectedCount = selected.size;
 
   if (!bookmarks.length) {
     AetherUI.mount(window.Text('No bookmarks found.').className('text-dimmer text-[0.72rem]').styles({ padding: '10px 0' }), container);
@@ -620,8 +620,8 @@ function _bmRenderBookmarkList(container, browserId) {
   }
 
   // Select all / deselect all
-  var allSelected = selectedCount === bookmarks.length;
-  var toggleAllBtn = window.Button(allSelected ? 'Deselect all' : 'Select all').styles({ fontSize: '0.7rem', color: 'var(--nr-accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '0' });
+  const allSelected = selectedCount === bookmarks.length;
+  const toggleAllBtn = window.Button(allSelected ? 'Deselect all' : 'Select all').styles({ fontSize: '0.7rem', color: 'var(--nr-accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '0' });
   toggleAllBtn.onTap(function() {
     if (allSelected) {
       _bmSelectedUrls[browserId] = new Set();
@@ -631,20 +631,20 @@ function _bmRenderBookmarkList(container, browserId) {
     _bmRenderBookmarkList(container, browserId);
   });
 
-  var headerRow = window.HStack(
+  const headerRow = window.HStack(
     window.Text(selectedCount + ' of ' + bookmarks.length + ' selected').styles({ flex: '1', fontSize: '0.7rem', color: 'var(--nr-text-quaternary)' }),
     toggleAllBtn
   ).styles({ padding: '8px 0 6px' });
 
   // Bookmark rows (scrollable)
-  var rows = bookmarks.map(function(bm) {
-    var isSel = selected.has(bm.url);
-    var hostname = '';
+  const rows = bookmarks.map(function(bm) {
+    const isSel = selected.has(bm.url);
+    let hostname = '';
     try { hostname = new URL(bm.url).hostname; } catch(e) {}
-    var favicon = hostname ? '/api/favicon?domain=' + hostname : '';
+    const favicon = hostname ? '/api/favicon?domain=' + hostname : '';
 
-    var checkSvg = isSel ? icon('check', { size: 10, stroke: '#fff', strokeWidth: '3' }) : '';
-    var checkCircle = new window.View('div').styles({
+    const checkSvg = isSel ? icon('check', { size: 10, stroke: '#fff', strokeWidth: '3' }) : '';
+    const checkCircle = new window.View('div').styles({
       width: '16px', height: '16px', borderRadius: '4px', flexShrink: '0',
       border: '1.5px solid ' + (isSel ? 'var(--nr-accent)' : 'rgba(255,255,255,0.15)'),
       background: isSel ? 'var(--nr-accent)' : 'transparent',
@@ -652,14 +652,14 @@ function _bmRenderBookmarkList(container, browserId) {
     });
     if (checkSvg) checkCircle.add(window.RawHTML(checkSvg));
 
-    var faviconView = favicon
+    const faviconView = favicon
       ? window.RawHTML('<img src="' + favicon + '" style="width:14px;height:14px;border-radius:2px;flex-shrink:0;" onerror="this.style.display=\'none\'">')
       : window.RawHTML('<span style="width:14px;"></span>');
 
-    var titleView = window.Text(bm.title || bm.url).styles({ fontSize: '0.78rem', color: 'var(--nr-text-primary)', flex: '1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
-    var hostView = window.Text(hostname).styles({ fontSize: '0.65rem', color: 'var(--nr-text-quaternary)', flexShrink: '0' });
+    const titleView = window.Text(bm.title || bm.url).styles({ fontSize: '0.78rem', color: 'var(--nr-text-primary)', flex: '1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+    const hostView = window.Text(hostname).styles({ fontSize: '0.65rem', color: 'var(--nr-text-quaternary)', flexShrink: '0' });
 
-    var row = window.HStack(checkCircle, faviconView, titleView, hostView)
+    const row = window.HStack(checkCircle, faviconView, titleView, hostView)
       .spacing(2).styles({ padding: '4px 2px', cursor: 'pointer', borderRadius: '4px', transition: 'background 0.1s' });
     row.el.addEventListener('mouseenter', function() { this.style.background = 'rgba(255,255,255,0.04)'; });
     row.el.addEventListener('mouseleave', function() { this.style.background = 'transparent'; });
@@ -673,26 +673,26 @@ function _bmRenderBookmarkList(container, browserId) {
     return row;
   });
 
-  var listWrap = VStack(rows);
+  const listWrap = VStack(rows);
   listWrap.styles({ maxHeight: '240px', overflowY: 'auto' });
 
   // Import button — use State signals to avoid DOM id lookups
-  var importBtnLabel = window.State('Import ' + selectedCount + ' bookmarks');
-  var importBtnDisabled = window.State(selectedCount === 0);
-  var importBtnDone = window.State(false);
-  var importStatusText = window.State('');
+  const importBtnLabel = window.State('Import ' + selectedCount + ' bookmarks');
+  const importBtnDisabled = window.State(selectedCount === 0);
+  const importBtnDone = window.State(false);
+  const importStatusText = window.State('');
 
-  var statusView = window.Text('').styles({ fontSize: '0.72rem', color: 'var(--nr-text-quaternary)' });
+  const statusView = window.Text('').styles({ fontSize: '0.72rem', color: 'var(--nr-text-quaternary)' });
   window.Effect(function() { statusView.el.textContent = importStatusText.get(); });
 
-  var importBtn = window.Button('').styles({
+  const importBtn = window.Button('').styles({
     padding: '6px 16px', borderRadius: '6px', border: 'none', flex: '1',
     fontSize: '0.78rem', fontWeight: '500'
   });
   window.Effect(function() {
-    var label = importBtnLabel.get();
-    var disabled = importBtnDisabled.get();
-    var done = importBtnDone.get();
+    const label = importBtnLabel.get();
+    const disabled = importBtnDisabled.get();
+    const done = importBtnDone.get();
     importBtn.el.textContent = label;
     importBtn.el.disabled = disabled;
     importBtn.el.style.background = done ? 'var(--nr-bg-surface)' : (disabled ? 'var(--nr-bg-surface)' : 'var(--nr-accent)');
@@ -704,15 +704,15 @@ function _bmRenderBookmarkList(container, browserId) {
     if (importBtnDisabled.get() || importBtnDone.get()) return;
     importBtnLabel.set('Importing...');
     importBtnDisabled.set(true);
-    var googleId = window._authUserInfo && window._authUserInfo.google_id;
+    const googleId = window._authUserInfo && window._authUserInfo.google_id;
     if (!googleId) {
       importStatusText.set('Not signed in');
       importBtnLabel.set('Import ' + selectedCount + ' bookmarks');
       importBtnDisabled.set(false);
       return;
     }
-    var sel = _bmSelectedUrls[browserId];
-    var selectedUrls = sel ? Array.from(sel) : [];
+    const sel = _bmSelectedUrls[browserId];
+    const selectedUrls = sel ? Array.from(sel) : [];
     window.electronAPI.dbQuery('bookmark-import', browserId, googleId, selectedUrls).then(function(result) {
       if (result && result.ok) {
         importStatusText.set(result.imported + ' imported' + (result.skipped ? ', ' + result.skipped + ' skipped' : ''));
@@ -721,7 +721,7 @@ function _bmRenderBookmarkList(container, browserId) {
         // Sync localStorage
         window.electronAPI.dbQuery('user-data-get', googleId, 'savedPosts').then(function(data) {
           if (data && data.value) {
-            var val = typeof data.value === 'string' ? data.value : JSON.stringify(data.value);
+            const val = typeof data.value === 'string' ? data.value : JSON.stringify(data.value);
             localStorage.setItem('savedPosts', val);
           }
         }).catch(function() {});
@@ -737,7 +737,7 @@ function _bmRenderBookmarkList(container, browserId) {
     });
   });
 
-  var footer = window.HStack(importBtn, statusView).spacing(2).styles({ paddingTop: '8px', borderTop: '1px solid var(--nr-border-subtle)', marginTop: '4px' });
+  const footer = window.HStack(importBtn, statusView).spacing(2).styles({ paddingTop: '8px', borderTop: '1px solid var(--nr-border-subtle)', marginTop: '4px' });
 
   AetherUI.mount(window.VStack(headerRow, listWrap, footer), container);
 }

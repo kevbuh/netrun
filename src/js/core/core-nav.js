@@ -38,8 +38,8 @@ export function navBack() {
 // ── Universal Side Panel ──
 const _panelRegistry = {};
 let _panelVisible = Settings.get('universalPanelVisible') !== 'false'; // default true
-let _panelActiveView = null;
-let _panelActiveTab = null;
+let _panelActiveView = Settings.get('universalPanelView') || null;
+let _panelActiveTab = Settings.get('universalPanelTab') || null;
 let _panelWidth = parseInt(Settings.get('universalPanelWidth') || '280', 10);
 let _panelScrollPositions = {};
 const _panelRenderedViews = {};
@@ -57,6 +57,7 @@ export function showPanelForView(viewKey) {
   if (!reg || !reg.tabs || !reg.tabs.length) { hidePanel(); return; }
   const viewChanged = _panelActiveView !== viewKey;
   _panelActiveView = viewKey;
+  Settings.set('universalPanelView', viewKey);
   const panel = document.getElementById('universal-panel');
   const tabBar = document.getElementById('universal-panel-tabs');
   const headerEl = document.getElementById('universal-panel-header');
@@ -93,8 +94,9 @@ export function showPanelForView(viewKey) {
     }
   }
 
-  // Select default tab
-  const defaultTab = reg.tabs.find(t => t.id === _panelActiveTab) ? _panelActiveTab : reg.tabs[0].id;
+  // Select default tab — prefer persisted tab, then in-memory, then first tab
+  const savedTab = Settings.get('universalPanelTab') || _panelActiveTab;
+  const defaultTab = reg.tabs.find(t => t.id === savedTab) ? savedTab : reg.tabs[0].id;
   switchPanelTab(defaultTab);
 
   if (_panelVisible) {
@@ -134,6 +136,7 @@ export function switchPanelTab(tabId) {
   if (!tab) return;
   const oldTab = _panelActiveTab;
   _panelActiveTab = tabId;
+  Settings.set('universalPanelTab', tabId);
 
   // Update tab button active states
   document.querySelectorAll('#universal-panel-tabs .universal-panel-tab-btn').forEach(btn => {

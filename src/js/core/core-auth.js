@@ -2,6 +2,7 @@
 // Extracted from core.js
 
 import Settings from '/js/core/core-settings.js';
+import { toast } from '/js/core/core-utils.js';
 import { apiPost, apiGet } from '/js/api.js';
 import { routeFromHash } from '/js/core/core-routing.js';
 import { _loadCustomAnnotationCategories } from '/js/core/core-ui.js';
@@ -274,7 +275,7 @@ export function enterGuestMode() {
   sessionStorage.setItem('window._guestMode', 'true');
   _updateAccountUI();
   if (typeof renderSettingsView === 'function') renderSettingsView();
-  if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Guest mode active');
+  toast('Guest mode active');
 }
 
 export function exitGuestMode() {
@@ -305,7 +306,7 @@ export function exitGuestMode() {
   if (window.electronAPI?.restoreGoogleCookies) window.electronAPI.restoreGoogleCookies();
   _onLoginSuccess();
   if (typeof renderSettingsView === 'function') renderSettingsView();
-  if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Welcome back, ' + (_authUser || 'User'));
+  toast('Welcome back, ' + (_authUser || 'User'));
 }
 
 // ── Initialize: check session, redirect to login if needed ──

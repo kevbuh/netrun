@@ -811,12 +811,12 @@ export function _renderDevFeedServer() {
     window.Text('Go feed server status and controls').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
 
-  var statusDot = window.Text('\u25CF').styles({fontSize:'10px', transition:'color 0.3s'});
-  var statusLabel = window.Text('Checking\u2026').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem'});
-  var statusRow = window.HStack(statusDot, statusLabel).gap('6px').styles({alignItems:'center'});
+  const statusDot = window.Text('\u25CF').styles({fontSize:'10px', transition:'color 0.3s'});
+  const statusLabel = window.Text('Checking\u2026').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem'});
+  const statusRow = window.HStack(statusDot, statusLabel).gap('6px').styles({alignItems:'center'});
 
-  var statsContainer = new window.View('div');
-  var sourcesContainer = new window.View('div');
+  const statsContainer = new window.View('div');
+  const sourcesContainer = new window.View('div');
 
   var refreshBtn = window.Button('Trigger Refresh').className('dev-btn-primary').onTap(function() {
     refreshBtn.el.disabled = true;
@@ -855,15 +855,15 @@ export function _renderDevFeedServer() {
           .then(function(r) { return r.json(); })
           .then(function(sources) {
             if (!Array.isArray(sources)) return;
-            var rows = sources.map(function(s) {
+            const rows = sources.map(function(s) {
               return window.HStack(
                 window.Text(s.name || s.key).styles({fontSize:'0.75rem', color:'var(--nr-text-primary)', flex:'1'}),
                 window.Text(s.cat || '').styles({fontSize:'0.65rem', color:'var(--nr-text-quaternary)'}),
                 window.Text(s.special || s.url ? '\u2713' : '').styles({fontSize:'0.7rem', color:'#22c55e'})
               ).styles({padding:'4px 0', borderBottom:'1px solid var(--nr-border-default)'});
             });
-            var srcHeader = window.Text(sources.length + ' Sources Registered').styles({color:'var(--nr-text-primary)', fontSize:'0.85rem', fontWeight:'600', marginBottom:'8px'});
-            var srcList = window.VStack.apply(null, rows).styles({maxHeight:'300px', overflowY:'auto'});
+            const srcHeader = window.Text(sources.length + ' Sources Registered').styles({color:'var(--nr-text-primary)', fontSize:'0.85rem', fontWeight:'600', marginBottom:'8px'});
+            const srcList = window.VStack.apply(null, rows).styles({maxHeight:'300px', overflowY:'auto'});
             AetherUI.mount(window.VStack(srcHeader, srcList).styles({background:'var(--nr-bg-surface)', border:'1px solid var(--nr-border-default)', borderRadius:'8px', padding:'12px'}), sourcesContainer.el);
           }).catch(function() {});
       })

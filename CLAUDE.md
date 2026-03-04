@@ -118,7 +118,7 @@ Standalone Go microservice at `feedserver/` — sole feed data path:
 
 Custom design system with CSS tokens + JS framework:
 - **Token source of truth**: `src/aether/css/tokens.css` — all `--nr-*` CSS custom properties
-- **Themes**: `src/aether/css/themes/` (dark, light, daylight, clear)
+- **Themes**: `src/aether/css/themes/` (dark, light, clear)
 - **Component CSS**: `src/aether/css/components/`
 - **Feature CSS**: `src/aether/css/features/` (loaded via `<link>` tags in index.html)
 - **JS**: `src/aether/aether.js` (namespace), `motion.js`, `materials.js`, `ambient.js`, `tokens.js`

@@ -18,7 +18,7 @@ import { _isNerdAutoEligible } from '/js/browse/browse-nerd-mode.js';
 import { FEED_CATALOG } from '/js/core/core-views.js';
 import { allPapers, loadAllFeeds } from '/js/feed.js';
 import { _doomScrollMatch, _checkFocusTimer, _doomScrollBypass, _browseShowBlockedPage } from '/js/browse/browse-doom-scroll.js';
-import { _browseInjectYouTubeCSS, _browseInjectRemoveCSS } from '/js/browse/browse-content-scripts.js';
+import { _browseInjectRemoveCSS } from '/js/browse/browse-content-scripts.js';
 
 // Re-export _browseRenderTabs for consumers that imported it from browse-downloads
 export { _browseRenderTabs };
@@ -103,8 +103,6 @@ export function _browseHandleNavigation(tab, frame) {
         if (window.electronAPI.cookieBlockResetCount) window.electronAPI.cookieBlockResetCount(_wcId);
       } catch {}
     }
-    // YouTube: inject ad-block CSS immediately on navigation (before dom-ready / first paint)
-    _browseInjectYouTubeCSS(frame, navUrl);
     // Auto remove CSS if enabled
     _browseInjectRemoveCSS(frame);
     // Reset insight pill to offer state on navigation (don't remove it)
@@ -156,8 +154,6 @@ export function _browseHandleNavigation(tab, frame) {
       _browseUpdateSaveBtn();
       if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(e.url);
     }
-    // YouTube: re-inject ad-block CSS on SPA navigation
-    _browseInjectYouTubeCSS(frame, e.url);
     // Focus timer: check on SPA navigation (don't reset for same domain)
     if (tab.id === _browseActiveTab) _checkFocusTimer(e.url);
     // Update nav buttons so back/forward reflect history stacks

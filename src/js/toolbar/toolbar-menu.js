@@ -1,6 +1,7 @@
 // toolbar-menu.js — Hamburger menu, more menu, privacy, PDF convert
 // Replaces browse-menu.js + browse-pill.js menu portions
 import Settings from '/js/core/core-settings.js';
+import { toast } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { moreMenuOpen } from '/js/toolbar/toolbar-state.js';
 import { browseSaveToReadingList, browseShare } from '/js/browse/browse-features.js';
@@ -14,29 +15,29 @@ import { _browseToggleWebviewDarkMode } from '/js/browse/browse-frame-bind.js';
 // ── Browse More Menu (three dots) ──
 
 export function toggleBrowseMoreMenu() {
-  var dd = document.getElementById('browse-more-menu');
+  let dd = document.getElementById('browse-more-menu');
   // If #browse-more-menu is inside a hidden parent (e.g. browse-view not active),
   // use a fallback container on body
   if (!dd || (dd.offsetParent === null && dd.parentElement && dd.parentElement.style.display === 'none')) {
     dd = document.getElementById('pill-more-menu-dropdown');
     if (!dd) {
-      var ddView = new window.View('div').id('pill-more-menu-dropdown').styles({ display: 'none', position: 'fixed', zIndex: '10000' });
+      const ddView = new window.View('div').id('pill-more-menu-dropdown').styles({ display: 'none', position: 'fixed', zIndex: '10000' });
       AetherUI.append(ddView, document.body);
       dd = ddView.el;
     }
   }
   if (dd.style.display !== 'none') { dd.style.display = 'none'; document.body.classList.remove('island-dropdown-guard'); return; }
 
-  var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
-  var hasTab = tab && !tab.blank && tab.url;
-  var isIsland = true;
+  const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+  const hasTab = tab && !tab.blank && tab.url;
+  const isIsland = true;
 
-  var _closeMenu = function() { dd.style.display = 'none'; document.body.classList.remove('island-dropdown-guard'); };
+  const _closeMenu = function() { dd.style.display = 'none'; document.body.classList.remove('island-dropdown-guard'); };
 
   function _mBtn(svgHtml, label, action, opts) {
     opts = opts || {};
-    var btn = new window.View('button');
-    var row = window.HStack([window.RawHTML(svgHtml), window.Text(label).flex(1)]).spacing(2).alignment('center');
+    const btn = new window.View('button');
+    const row = window.HStack([window.RawHTML(svgHtml), window.Text(label).flex(1)]).spacing(2).alignment('center');
     if (opts.trailing) row.add(opts.trailing);
     btn.add(row);
     btn.padding('6px', '12px')
@@ -51,10 +52,10 @@ export function toggleBrowseMoreMenu() {
     return btn;
   }
 
-  var items = [];
+  const items = [];
 
   // Nav icons row (Home, Feed, Browse, Neuralook, Dev, Settings)
-  var _navItems = [
+  const _navItems = [
     { ic: 'home', label: 'Home', action: function() { if (typeof window.wmOpen === 'function') window.wmOpen('browse'); _closeMenu(); } },
     { ic: 'feed', label: 'Feed', action: function() { if (typeof window.wmOpen === 'function') window.wmOpen('feed'); _closeMenu(); } },
     { ic: 'globe', label: 'Browse', action: function() { if (typeof window.wmOpen === 'function') window.wmOpen('browse'); _closeMenu(); } },
@@ -62,8 +63,8 @@ export function toggleBrowseMoreMenu() {
     { ic: 'code', label: 'Dev', action: function() { if (typeof window.wmOpen === 'function') window.wmOpen('dev'); _closeMenu(); } },
     { ic: 'settings', label: 'Settings', action: function() { location.hash = '#settings'; _closeMenu(); } },
   ];
-  var _navBtns = _navItems.map(function(item) {
-    var btn = new window.View('button').attr('title', item.label)
+  const _navBtns = _navItems.map(function(item) {
+    const btn = new window.View('button').attr('title', item.label)
       .html(icon(item.ic, {size: 16, strokeWidth: '1.5'}))
       .styles({ background: 'none', border: 'none', padding: '6px', borderRadius: '8px', cursor: 'pointer', color: 'var(--nr-text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.12s, color 0.12s' });
     btn.onHover(function() { btn.el.style.background = 'var(--nr-bg-hover)'; btn.el.style.color = 'var(--nr-text-primary)'; }, function() { btn.el.style.background = 'none'; btn.el.style.color = 'var(--nr-text-secondary)'; });
@@ -77,21 +78,21 @@ export function toggleBrowseMoreMenu() {
     items.push(_mBtn(icon('chevronLeft', {size: 16, strokeWidth: '1.5'}), 'Back', function() { if (typeof window.browseBack === 'function') window.browseBack(); _closeMenu(); }, { disabled: !hasTab }));
     items.push(_mBtn(icon('chevronRight', {size: 16, strokeWidth: '1.5'}), 'Forward', function() { if (typeof window.browseForward === 'function') window.browseForward(); _closeMenu(); }, { disabled: !hasTab }));
     items.push(_mBtn(icon('reloadFilled', {size: 16}), 'Reload', function() { if (typeof window.browseReload === 'function') window.browseReload(); _closeMenu(); }, { disabled: !hasTab }));
-    var isSaved = hasTab && isPostSaved(tab.url);
+    const isSaved = hasTab && isPostSaved(tab.url);
     items.push(_mBtn(icon('bookmark', {size: 16, fill: isSaved ? 'var(--nr-accent)' : 'none', stroke: isSaved ? 'var(--nr-accent)' : 'currentColor'}), isSaved ? 'Saved' : 'Save to Reading List', function() { browseSaveToReadingList(); _closeMenu(); }));
     items.push(_mBtn(icon('share', {size: 16, strokeWidth: '1.5'}), 'Share', function() { browseShare(); _closeMenu(); }, { disabled: !hasTab }));
 
     // Privacy Section
     items.push(new window.View('div').styles({borderTop:'1px solid var(--nr-border-default, var(--aether-border))'}).margin('2px', '0'));
 
-    var _privFeatures = [
+    const _privFeatures = [
       { key: 'adBlockEnabled',          label: 'Ad Blocker',       ic: 'shield',  fn: function() { if (typeof window.toggleAdBlock === 'function') window.toggleAdBlock(); toggleBrowseMoreMenu(); toggleBrowseMoreMenu(); }, checkOn: function(v) { return v === 'true'; } },
       { key: 'dohEnabled',              label: 'Encrypted DNS',    ic: 'lock',    fn: function() { if (typeof window.toggleDoH === 'function') window.toggleDoH(); toggleBrowseMoreMenu(); toggleBrowseMoreMenu(); }, checkOn: function(v) { return v !== 'false'; } },
       { key: 'httpsOnlyEnabled',        label: 'HTTPS Only',       ic: 'globe',   fn: function() { if (typeof window.toggleHttpsOnly === 'function') window.toggleHttpsOnly(); toggleBrowseMoreMenu(); toggleBrowseMoreMenu(); }, checkOn: function(v) { return v !== 'false'; } },
       { key: 'trackingStripEnabled',    label: 'Tracking Strip',   ic: 'eye',     fn: function() { if (typeof window.toggleTrackingStrip === 'function') window.toggleTrackingStrip(); toggleBrowseMoreMenu(); toggleBrowseMoreMenu(); }, checkOn: function(v) { return v !== 'false'; } },
       { key: 'thirdPartyCookiesBlocked',label: 'Cookie Blocking',  ic: 'close',   fn: function() { if (typeof window.toggleCookieBlock === 'function') window.toggleCookieBlock(); toggleBrowseMoreMenu(); toggleBrowseMoreMenu(); }, checkOn: function(v) { return v !== 'false'; } },
     ];
-    var _privActive = _privFeatures.filter(function(f) { return f.checkOn(Settings.get(f.key)); }).length;
+    const _privActive = _privFeatures.filter(function(f) { return f.checkOn(Settings.get(f.key)); }).length;
     items.push(new window.View('div').add(
       window.HStack([
         window.Text('PRIVACY').font('caption2').foreground('quaternary').styles({letterSpacing:'0.05em'}),
@@ -99,15 +100,15 @@ export function toggleBrowseMoreMenu() {
       ])
     ).styles({padding:'4px 12px 2px'}));
 
-    for (var pi = 0; pi < _privFeatures.length; pi++) {
+    for (let pi = 0; pi < _privFeatures.length; pi++) {
       (function(pf) {
-        var on = pf.checkOn(Settings.get(pf.key));
+        const on = pf.checkOn(Settings.get(pf.key));
         items.push(_mBtn(icon(pf.ic, {size: 16, strokeWidth: '1.5'}), pf.label, pf.fn, { color: on ? 'var(--nr-accent)' : undefined, trailing: window.Text(on ? 'On' : 'Off').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') }));
       })(_privFeatures[pi]);
     }
 
     // Privacy stats
-    var _privStatsDiv = new window.View('div').styles({
+    const _privStatsDiv = new window.View('div').styles({
       padding:'6px 12px', margin:'2px 8px', borderRadius:'6px',
       background:'color-mix(in srgb, var(--nr-accent) 8%, transparent)',
       minHeight:'22px'
@@ -115,8 +116,8 @@ export function toggleBrowseMoreMenu() {
     items.push(_privStatsDiv);
     if (window.electronAPI && tab && tab.el && typeof tab.el.getWebContentsId === 'function') {
       try {
-        var _wc = tab.el.getWebContentsId();
-        var detailsP = window.electronAPI.privacyDetails ? window.electronAPI.privacyDetails(_wc) : Promise.resolve({});
+        const _wc = tab.el.getWebContentsId();
+        const detailsP = window.electronAPI.privacyDetails ? window.electronAPI.privacyDetails(_wc) : Promise.resolve({});
         Promise.all([
           window.electronAPI.adblockGetCount(_wc),
           window.electronAPI.trackingStripGetCount ? window.electronAPI.trackingStripGetCount(_wc) : Promise.resolve(0),
@@ -124,22 +125,22 @@ export function toggleBrowseMoreMenu() {
           window.electronAPI.cookieBlockGetCount ? window.electronAPI.cookieBlockGetCount(_wc) : Promise.resolve(0),
           detailsP,
         ]).then(function(c) {
-          var details = c[4] || {};
-          var rows = [];
-          var parts = [];
+          const details = c[4] || {};
+          const rows = [];
+          const parts = [];
           if (c[0] > 0) parts.push(c[0] + ' ad' + (c[0] !== 1 ? 's' : '') + ' blocked');
           if (c[1] > 0) parts.push(c[1] + ' tracker' + (c[1] !== 1 ? 's' : '') + ' stripped');
           if (c[2] > 0) parts.push(c[2] + ' HTTPS upgrade' + (c[2] !== 1 ? 's' : ''));
           if (c[3] > 0) parts.push(c[3] + ' cookie' + (c[3] !== 1 ? 's' : '') + ' blocked');
-          var summaryText = parts.length > 0 ? parts.join(' \u00b7 ') : 'No threats detected on this page';
+          const summaryText = parts.length > 0 ? parts.join(' \u00b7 ') : 'No threats detected on this page';
           rows.push(window.Text(summaryText).font('caption2').styles({color:'var(--nr-accent)', fontWeight:'500', lineHeight: '1.4'}));
 
           function _domainRows(map, label) {
-            var entries = Object.entries(map || {}).sort(function(a, b) { return b[1] - a[1]; });
+            const entries = Object.entries(map || {}).sort(function(a, b) { return b[1] - a[1]; });
             if (!entries.length) return;
             rows.push(window.Text(label).font('caption2').foreground('quaternary').styles({marginTop:'4px', fontWeight:'600', textTransform:'uppercase', letterSpacing:'0.04em'}));
-            var shown = entries.slice(0, 5);
-            for (var i = 0; i < shown.length; i++) {
+            const shown = entries.slice(0, 5);
+            for (let i = 0; i < shown.length; i++) {
               rows.push(window.HStack([
                 window.Text(shown[i][0]).font('caption2').foreground('secondary').flex(1).truncate(),
                 window.Text(String(shown[i][1])).font('caption2').foreground('quaternary')
@@ -161,36 +162,36 @@ export function toggleBrowseMoreMenu() {
 
     items.push(new window.View('div').styles({borderTop:'1px solid var(--nr-border-default, var(--aether-border))'}).margin('2px', '0'));
 
-    var _darkOn = tab && tab._webviewDarkMode;
+    const _darkOn = tab && tab._webviewDarkMode;
     items.push(_mBtn(icon('moon', {size: 16, strokeWidth: '1.5'}), 'Dark Mode', function() { _browseToggleWebviewDarkMode(tab); toggleBrowseMoreMenu(); toggleBrowseMoreMenu(); }, { disabled: !hasTab, color: _darkOn ? 'var(--nr-accent)' : undefined, trailing: window.Text(_darkOn ? 'On' : 'Off').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') }));
-    var _cssOff = Settings.get('autoRemoveCSS') === 'true';
+    const _cssOff = Settings.get('autoRemoveCSS') === 'true';
     items.push(_mBtn(icon('code', {size: 16, strokeWidth: '1.5'}), 'Auto Remove CSS', function() { if (typeof window.toggleAutoRemoveCSS === 'function') window.toggleAutoRemoveCSS(); _closeMenu(); }, { disabled: !hasTab, color: _cssOff ? 'var(--nr-accent)' : undefined, trailing: window.Text(_cssOff ? 'On' : 'Off').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') }));
     if (Settings.aiEnabled()) {
-      var _annAnalyzing = tab && _insightAnalyzing.get(tab.id);
-      var _annEnabled = tab && !_annAnalyzing && _annotationsEnabled.get(tab.id);
-      var _annLabel = _annAnalyzing ? 'Stop Analyzing' : _annEnabled ? 'Remove Annotations' : 'Annotate Page';
+      const _annAnalyzing = tab && _insightAnalyzing.get(tab.id);
+      const _annEnabled = tab && !_annAnalyzing && _annotationsEnabled.get(tab.id);
+      const _annLabel = _annAnalyzing ? 'Stop Analyzing' : _annEnabled ? 'Remove Annotations' : 'Annotate Page';
       items.push(_mBtn(icon('annotate', {size: 16}), _annLabel, function() { toggleAnnotations(); _closeMenu(); }, { disabled: !hasTab, color: (_annEnabled || _annAnalyzing) ? 'var(--nr-accent)' : undefined }));
     }
-    var _nerdOn = tab && typeof window._nerdModeEnabled !== 'undefined' && window._nerdModeEnabled.get(tab.id);
-    var isPdfForNerd = hasTab && (tab.pdfUrl || tab.localPath || tab._nbParsedData || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.toLowerCase().endsWith('.ipynb')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
+    const _nerdOn = tab && typeof window._nerdModeEnabled !== 'undefined' && window._nerdModeEnabled.get(tab.id);
+    const isPdfForNerd = hasTab && (tab.pdfUrl || tab.localPath || tab._nbParsedData || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.toLowerCase().endsWith('.ipynb')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
     items.push(_mBtn(icon('research', {size: 16}), 'Nerd Mode', function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); _closeMenu(); }, { disabled: !isPdfForNerd, color: _nerdOn ? 'var(--nr-accent)' : undefined, trailing: _nerdOn ? window.Text('On').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') : undefined }));
     items.push(_mBtn(icon('clock', {size: 16}), 'Search History', function() { if (typeof window.openSearchHistoryPage === 'function') window.openSearchHistoryPage(); _closeMenu(); }));
     items.push(_mBtn(icon('sidebarToggle', {size: 16}), 'Toggle Sidebar', function() { if (typeof window.toggleBrowseSidebar === 'function') window.toggleBrowseSidebar(); _closeMenu(); }));
   } else {
-    var overflowIds = typeof window.getBarOverflowIds === 'function' ? window.getBarOverflowIds() : [];
+    const overflowIds = typeof window.getBarOverflowIds === 'function' ? window.getBarOverflowIds() : [];
     overflowIds.forEach(function(id) {
-      var el = document.getElementById(id);
+      const el = document.getElementById(id);
       if (!el) return;
-      var label = el.title || id;
-      var svgEl = el.querySelector('svg');
-      var iconHtml = svgEl ? svgEl.outerHTML.replace(/w-5 h-5/g, 'w-4 h-4') : '';
+      const label = el.title || id;
+      const svgEl = el.querySelector('svg');
+      let iconHtml = svgEl ? svgEl.outerHTML.replace(/w-5 h-5/g, 'w-4 h-4') : '';
 
       if (id === 'browse-save-btn') {
-        var isSav = tab && !tab.blank && tab.url && isPostSaved(tab.url);
+        const isSav = tab && !tab.blank && tab.url && isPostSaved(tab.url);
         iconHtml = window.icon('bookmark', {size: 16, fill: isSav ? 'var(--nr-accent)' : 'none', stroke: isSav ? 'var(--nr-accent)' : 'currentColor'});
         items.push(_mBtn(iconHtml, isSav ? 'Saved' : 'Save to Reading List', function() { browseSaveToReadingList(); _closeMenu(); }, { dataOverflowId: id }));
       } else {
-        var btn = _mBtn(iconHtml, label, function() { _closeMenu(); try { el.click(); } catch(e) {} }, { dataOverflowId: id });
+        const btn = _mBtn(iconHtml, label, function() { _closeMenu(); try { el.click(); } catch(e) {} }, { dataOverflowId: id });
         items.push(btn);
       }
     });
@@ -206,13 +207,13 @@ export function toggleBrowseMoreMenu() {
       ])
     ).styles({padding:'4px 12px 2px'}));
 
-    for (var wi = 0; wi < window._browseWindows.length; wi++) {
+    for (let wi = 0; wi < window._browseWindows.length; wi++) {
       (function(w) {
-        var isActiveWin = w.id === window._browseActiveWindow;
-        var countTrail = window.Text(String(w.tabs.length)).styles({marginLeft:'auto'}).font('caption2').foreground('quaternary');
-        var trailing;
+        const isActiveWin = w.id === window._browseActiveWindow;
+        const countTrail = window.Text(String(w.tabs.length)).styles({marginLeft:'auto'}).font('caption2').foreground('quaternary');
+        let trailing;
         if (!isActiveWin && window._browseWindows.length > 1) {
-          var closeSpan = window.Text('\u00d7').styles({marginLeft:'4px', opacity:'0.4', cursor:'pointer'});
+          const closeSpan = window.Text('\u00d7').styles({marginLeft:'4px', opacity:'0.4', cursor:'pointer'});
           closeSpan.onTap(function(e) { e.stopPropagation(); browseCloseWindow(w.id); toggleBrowseMoreMenu(); toggleBrowseMoreMenu(); });
           trailing = window.HStack([countTrail, closeSpan]);
         } else {
@@ -227,28 +228,28 @@ export function toggleBrowseMoreMenu() {
   items.push(new window.View('div').styles({borderTop:'1px solid var(--nr-border-default, var(--aether-border))'}).margin('2px', '0'));
 
   // Permissions
-  var permsBtn = _mBtn(icon('lock', {size: 16, strokeWidth: '1.5'}), 'Site Permissions', function(e) { _togglePermissionsInMenu(e || window.event); }, { disabled: !hasTab });
-  var arrowView = window.RawHTML(icon('chevronRightSmall', {size: 12, style: 'margin-left:auto;color:var(--nr-text-quaternary, var(--aether-text-dimmest));transition:transform .15s;'}));
+  const permsBtn = _mBtn(icon('lock', {size: 16, strokeWidth: '1.5'}), 'Site Permissions', function(e) { _togglePermissionsInMenu(e || window.event); }, { disabled: !hasTab });
+  const arrowView = window.RawHTML(icon('chevronRightSmall', {size: 12, style: 'margin-left:auto;color:var(--nr-text-quaternary, var(--aether-text-dimmest));transition:transform .15s;'}));
   arrowView.el.firstChild.id = 'browse-menu-perms-arrow';
   permsBtn.add(arrowView);
   items.push(permsBtn);
 
-  var permsPanel = new window.View('div').id('browse-menu-perms-panel').styles({display:'none', borderTop:'1px solid var(--aether-border)'});
+  const permsPanel = new window.View('div').id('browse-menu-perms-panel').styles({display:'none', borderTop:'1px solid var(--aether-border)'});
   items.push(permsPanel);
 
   // Print
   items.push(_mBtn(icon('print', {size: 16, strokeWidth: '1.5'}), 'Print page', function() { browsePrintPage(); _closeMenu(); }, { disabled: !hasTab }));
 
   // Convert submenu (PDF only)
-  var isPdf = hasTab && (tab.pdfUrl || tab.localPath || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
+  const isPdf = hasTab && (tab.pdfUrl || tab.localPath || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
   if (isPdf) {
-    var convertBtn = _mBtn(icon('convert', {size: 16, strokeWidth: '1.5'}), 'Convert', function(e) { _toggleConvertInMenu(e || window.event); });
-    var convertArrowView = window.RawHTML(icon('chevronRightSmall', {size: 12, style: 'margin-left:auto;color:var(--nr-text-quaternary, var(--aether-text-dimmest));transition:transform .15s;'}));
+    const convertBtn = _mBtn(icon('convert', {size: 16, strokeWidth: '1.5'}), 'Convert', function(e) { _toggleConvertInMenu(e || window.event); });
+    const convertArrowView = window.RawHTML(icon('chevronRightSmall', {size: 12, style: 'margin-left:auto;color:var(--nr-text-quaternary, var(--aether-text-dimmest));transition:transform .15s;'}));
     convertArrowView.el.firstChild.id = 'browse-menu-convert-arrow';
     convertBtn.add(convertArrowView);
     items.push(convertBtn);
 
-    var convertPanel = new window.View('div').id('browse-menu-convert-panel').styles({display:'none', borderTop:'1px solid var(--aether-border)'});
+    const convertPanel = new window.View('div').id('browse-menu-convert-panel').styles({display:'none', borderTop:'1px solid var(--aether-border)'});
     items.push(convertPanel);
   }
 
@@ -259,13 +260,13 @@ export function toggleBrowseMoreMenu() {
   items.push(_mBtn(icon('settings', {size: 16, strokeWidth: '1.5'}), 'Settings', function() { location.hash = '#settings'; _closeMenu(); }));
 
   // Position and mount
-  var anchorBtn = (isIsland
+  const anchorBtn = (isIsland
     ? (document.getElementById('pill-browse-hamburger') || document.getElementById('pill-browse-more'))
     : (document.getElementById('pill-browse-more') || document.getElementById('browse-more-btn'))) || document.getElementById('browse-more-btn');
-  var btnRect = anchorBtn.getBoundingClientRect();
+  const btnRect = anchorBtn.getBoundingClientRect();
 
-  var adaptiveBg = getComputedStyle(document.documentElement).getPropertyValue('--aether-dropdown-bg').trim();
-  var menuPanel = window.VStack(items)
+  const adaptiveBg = getComputedStyle(document.documentElement).getPropertyValue('--aether-dropdown-bg').trim();
+  const menuPanel = window.VStack(items)
     .position('fixed')
     .background('overlay')
     .border('border-default')
@@ -290,12 +291,12 @@ export function toggleBrowseMoreMenu() {
   _setupOverflowDrag(dd);
 
   setTimeout(function() {
-    var handler = function(e) {
+    const handler = function(e) {
       if (!dd.contains(e.target) && !e.target.closest('[onclick*="toggleBrowseMoreMenu"]') && !e.target.closest('#pill-browse-more') && !e.target.closest('#pill-browse-hamburger')) {
         cleanup();
       }
     };
-    var blurHandler = function() { cleanup(); };
+    const blurHandler = function() { cleanup(); };
     function cleanup() {
       dd.style.display = 'none';
       document.body.classList.remove('island-dropdown-guard');
@@ -311,10 +312,10 @@ export function toggleBrowseMoreMenu() {
 
 export function _togglePermissionsInMenu(e) {
   e.stopPropagation();
-  var panel = document.getElementById('browse-menu-perms-panel');
-  var arrow = document.getElementById('browse-menu-perms-arrow');
+  const panel = document.getElementById('browse-menu-perms-panel');
+  const arrow = document.getElementById('browse-menu-perms-arrow');
   if (!panel) return;
-  var open = panel.style.display !== 'none';
+  const open = panel.style.display !== 'none';
   panel.style.display = open ? 'none' : '';
   if (arrow) arrow.style.transform = open ? '' : 'rotate(90deg)';
   if (!open) _renderSitePermissionsDropdown(panel);
@@ -324,22 +325,22 @@ export function _togglePermissionsInMenu(e) {
 
 export function _toggleConvertInMenu(e) {
   e.stopPropagation();
-  var panel = document.getElementById('browse-menu-convert-panel');
-  var arrow = document.getElementById('browse-menu-convert-arrow');
+  const panel = document.getElementById('browse-menu-convert-panel');
+  const arrow = document.getElementById('browse-menu-convert-arrow');
   if (!panel) return;
-  var open = panel.style.display !== 'none';
+  const open = panel.style.display !== 'none';
   panel.style.display = open ? 'none' : '';
   if (arrow) arrow.style.transform = open ? '' : 'rotate(90deg)';
   if (!open) _renderConvertPanel(panel);
 }
 
 function _renderConvertPanel(panel) {
-  var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+  const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
   if (!tab) { AetherUI.mount(new window.View('div'), panel); return; }
 
   function _cBtn(svgHtml, label, action) {
-    var btn = new window.View('button');
-    var row = window.HStack([window.RawHTML(svgHtml), window.Text(label).flex(1)]).spacing(2).alignment('center');
+    const btn = new window.View('button');
+    const row = window.HStack([window.RawHTML(svgHtml), window.Text(label).flex(1)]).spacing(2).alignment('center');
     btn.add(row);
     btn.padding('5px', '16px')
       .foreground('primary')
@@ -349,13 +350,13 @@ function _renderConvertPanel(panel) {
     return btn;
   }
 
-  var _closeAll = function() {
-    var dd = document.getElementById('browse-more-menu');
+  const _closeAll = function() {
+    const dd = document.getElementById('browse-more-menu');
     if (dd) { dd.style.display = 'none'; document.body.classList.remove('island-dropdown-guard'); }
   };
 
-  var div1 = new window.View('div').styles({ borderTop: '1px solid var(--nr-border-default)', margin: '2px 12px' });
-  var div2 = new window.View('div').styles({ borderTop: '1px solid var(--nr-border-default)', margin: '2px 12px' });
+  const div1 = new window.View('div').styles({ borderTop: '1px solid var(--nr-border-default)', margin: '2px 12px' });
+  const div2 = new window.View('div').styles({ borderTop: '1px solid var(--nr-border-default)', margin: '2px 12px' });
 
   AetherUI.mount(window.VStack([
     _cBtn(icon('fileText', {size: 14, strokeWidth: '1.5'}), 'Parse PDF', function() { _closeAll(); _pdfParseAction(tab); }),
@@ -379,11 +380,11 @@ export function _getPdfPath(tab) {
   if (tab.localPath) return Promise.resolve(tab.localPath);
   if (tab.pdfUrl) {
     try {
-      var m = tab.pdfUrl.match(/[?&]path=([^&]+)/);
+      const m = tab.pdfUrl.match(/[?&]path=([^&]+)/);
       if (m) return Promise.resolve(decodeURIComponent(m[1]));
     } catch(e) {}
   }
-  var url = tab.url;
+  const url = tab.url;
   if (url && (url.toLowerCase().endsWith('.pdf') || (url.includes('/pdf/') && url.includes('arxiv.org')))) {
     return electronAPI.pdfDownloadTemp(url).then(function(result) {
       if (result && result.ok && result.path) return result.path;
@@ -394,7 +395,7 @@ export function _getPdfPath(tab) {
 }
 
 function _toast(msg) {
-  if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast(msg);
+  toast(msg);
 }
 
 export function _pdfParseAction(tab) {
@@ -414,7 +415,7 @@ export function _pdfExtractAction(tab) {
     if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
     electronAPI.pdfExtract(pdfPath).then(function(result) {
       if (result.error) { _toast('Extract failed: ' + result.error); return; }
-      var extra = result.pageCount + ' pages';
+      let extra = result.pageCount + ' pages';
       if (result.images && result.images.length) extra += ' \u00b7 ' + result.images.length + ' images extracted';
       _showTextOverlay('Extract PDF', result.text, extra, tab);
     }).catch(function(e) { _toast('Extract failed: ' + e.message); });
@@ -422,9 +423,9 @@ export function _pdfExtractAction(tab) {
 }
 
 export function _pdfSplitAction(tab) {
-  var input = prompt('Enter page numbers to extract (e.g. 1,2,5-8):');
+  const input = prompt('Enter page numbers to extract (e.g. 1,2,5-8):');
   if (!input) return;
-  var pages = _parsePageRange(input);
+  const pages = _parsePageRange(input);
   if (!pages.length) { _toast('Invalid page range'); return; }
   _getPdfPath(tab).then(function(pdfPath) {
     if (!pdfPath) { _toast('Cannot access PDF file path'); return; }
@@ -473,7 +474,7 @@ export function _pdfCompressAction(tab) {
       if (!outPath) return;
       electronAPI.pdfCompress(pdfPath, outPath).then(function(result) {
         if (result.error) { _toast('Compress failed: ' + result.error); return; }
-        var saved = Math.round((1 - result.newSize / result.originalSize) * 100);
+        const saved = Math.round((1 - result.newSize / result.originalSize) * 100);
         _toast('Compressed: ' + _formatBytes(result.originalSize) + ' \u2192 ' + _formatBytes(result.newSize) + ' (' + saved + '% smaller)');
       }).catch(function(e) { _toast('Compress failed: ' + e.message); });
     });
@@ -559,7 +560,7 @@ export function _pdfMdToPdfAction() {
     filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }]
   }).then(function(paths) {
     if (!paths || !paths.length) return;
-    var mdPath = paths[0];
+    const mdPath = paths[0];
     electronAPI.showSaveDialog({
       title: 'Save PDF',
       defaultPath: mdPath.replace(/\.[^.]+$/, '') + '.pdf',
@@ -577,17 +578,17 @@ export function _pdfMdToPdfAction() {
 // ── Print ──
 
 export function browsePrintPage() {
-  var dd = document.getElementById('browse-more-menu');
+  const dd = document.getElementById('browse-more-menu');
   if (dd) dd.style.display = 'none';
 
-  var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
-  var el = tab ? tab.el : null;
+  const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+  const el = tab ? tab.el : null;
   if (!el) return;
 
   if (window._browseIsElectron && el.printToPDF) {
     el.printToPDF({ printBackground: true }).then(function(buf) {
-      var blob = new Blob([buf], { type: 'application/pdf' });
-      var blobUrl = URL.createObjectURL(blob);
+      const blob = new Blob([buf], { type: 'application/pdf' });
+      const blobUrl = URL.createObjectURL(blob);
       if (typeof window.browseNewTab === 'function') window.browseNewTab(blobUrl);
     }).catch(function() { el.print(); });
   } else {
@@ -600,41 +601,41 @@ export function browsePrintPage() {
 // ── AI View ──
 
 export function browseShowAIView() {
-  var tab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
+  const tab = typeof _browseTabs !== 'undefined' && typeof _browseActiveTab !== 'undefined'
     ? _browseTabs.find(function(t) { return t.id === _browseActiveTab; }) : null;
   if (!tab || !tab.el) return;
 
   if (typeof agentGetAccessibleDOM !== 'function') return;
   agentGetAccessibleDOM(tab).then(function(dom) {
     if (!dom || dom.error) return;
-    var text = dom.elements || '(empty page)';
-    var elCount = dom.elementCount || 0;
-    var tokens = Math.round(text.length / 4);
-    var tokenLabel = tokens >= 1000 ? Math.round(tokens / 1000) + 'k' : String(tokens);
+    const text = dom.elements || '(empty page)';
+    const elCount = dom.elementCount || 0;
+    const tokens = Math.round(text.length / 4);
+    const tokenLabel = tokens >= 1000 ? Math.round(tokens / 1000) + 'k' : String(tokens);
 
-    var existing = document.getElementById('ai-view-overlay');
+    const existing = document.getElementById('ai-view-overlay');
     if (existing) existing.remove();
 
-    var titleEl = window.Text('AI View').foreground('primary').styles({ fontSize: '0.85rem', fontWeight: '600' });
-    var badgeEl = window.Text(elCount + ' elements \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars')
+    const titleEl = window.Text('AI View').foreground('primary').styles({ fontSize: '0.85rem', fontWeight: '600' });
+    const badgeEl = window.Text(elCount + ' elements \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars')
       .font('caption2').foreground('secondary').styles({ marginLeft: '8px', fontVariantNumeric: 'tabular-nums' });
-    var urlBadgeEl = window.Text(dom.title ? dom.title + ' \u2014 ' + dom.url : dom.url)
+    const urlBadgeEl = window.Text(dom.title ? dom.title + ' \u2014 ' + dom.url : dom.url)
       .font('caption2').foreground('tertiary').truncate().styles({ marginLeft: '8px', maxWidth: '300px' });
 
-    var closeBtnEl = window.Text('\u00d7').foreground('secondary').padding('4px', '8px')
+    const closeBtnEl = window.Text('\u00d7').foreground('secondary').padding('4px', '8px')
       .styles({ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' })
       .onTap(function() { overlayView.el.remove(); document.removeEventListener('keydown', onKey); });
 
-    var leftGroup = window.HStack([titleEl, badgeEl, urlBadgeEl]).alignment('center');
-    var headerEl = window.HStack([leftGroup, closeBtnEl]).alignment('center')
+    const leftGroup = window.HStack([titleEl, badgeEl, urlBadgeEl]).alignment('center');
+    const headerEl = window.HStack([leftGroup, closeBtnEl]).alignment('center')
       .padding('12px', '16px')
       .styles({ justifyContent: 'space-between', flexShrink: '0', borderBottom: '1px solid var(--nr-border-default)' });
 
-    var contentEl = new window.View('pre').flex(1).overflow('auto').padding(4).foreground('primary')
+    const contentEl = new window.View('pre').flex(1).overflow('auto').padding(4).foreground('primary')
       .styles({ margin: '0', fontSize: '0.75rem', lineHeight: '1.6', whiteSpace: 'pre', fontFamily: 'var(--nr-font-mono, monospace)' });
 
-    var fullText = '--- BROWSER TAB DOM (' + (dom.title || '') + ') [' + (dom.url || '') + '] ---\n' + text + '\n--- END DOM ---';
-    var highlighted = fullText.replace(/^(--- .+ ---)$/gm, '<span style="color:var(--nr-text-secondary)">$1</span>')
+    const fullText = '--- BROWSER TAB DOM (' + (dom.title || '') + ') [' + (dom.url || '') + '] ---\n' + text + '\n--- END DOM ---';
+    const highlighted = fullText.replace(/^(--- .+ ---)$/gm, '<span style="color:var(--nr-text-secondary)">$1</span>')
       .replace(/^(VIEWPORT:.*)$/m, '<span style="color:var(--nr-text-secondary)">$1</span>')
       .replace(/\[(\d+)\]/g, '<span style="color:#67d4f1">[$1]</span>')
       .replace(/<(\w+)/g, '<span style="color:#8bdb8b">&lt;$1</span>')
@@ -657,18 +658,18 @@ export function browseShowAIView() {
 // ── Text overlay ──
 
 export function _showTextOverlay(title, text, subtitle, tab) {
-  var existing = document.getElementById('pdf-text-overlay');
+  const existing = document.getElementById('pdf-text-overlay');
   if (existing) existing.remove();
 
-  var tokens = Math.round(text.length / 4);
-  var tokenLabel = tokens >= 1000 ? Math.round(tokens / 1000) + 'k' : String(tokens);
+  const tokens = Math.round(text.length / 4);
+  const tokenLabel = tokens >= 1000 ? Math.round(tokens / 1000) + 'k' : String(tokens);
 
-  var titleEl = window.Text(title).foreground('primary').styles({ fontSize: '0.85rem', fontWeight: '600' });
-  var badgeEl = window.Text(subtitle + ' \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars')
+  const titleEl = window.Text(title).foreground('primary').styles({ fontSize: '0.85rem', fontWeight: '600' });
+  const badgeEl = window.Text(subtitle + ' \u00b7 ' + tokenLabel + ' tokens \u00b7 ' + text.length.toLocaleString() + ' chars')
     .font('caption2').foreground('secondary').styles({ marginLeft: '8px', fontVariantNumeric: 'tabular-nums' });
 
-  var _copyLabel = window.State('Copy');
-  var copyBtn = window.Button(_copyLabel).foreground('secondary').font('caption2').cornerRadius('sm')
+  const _copyLabel = window.State('Copy');
+  const copyBtn = window.Button(_copyLabel).foreground('secondary').font('caption2').cornerRadius('sm')
     .padding('3px', '10px')
     .styles({ background: 'none', border: '1px solid var(--nr-border-default)', cursor: 'pointer', marginRight: '8px' });
   copyBtn.onTap(function() {
@@ -679,17 +680,17 @@ export function _showTextOverlay(title, text, subtitle, tab) {
     });
   });
 
-  var closeBtn = window.Text('\u00d7').foreground('secondary').padding('4px', '8px')
+  const closeBtn = window.Text('\u00d7').foreground('secondary').padding('4px', '8px')
     .styles({ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem' })
     .onTap(function() { overlayView.el.remove(); document.removeEventListener('keydown', onKey); });
 
-  var leftGroup = window.HStack([titleEl, badgeEl]).alignment('center');
-  var rightGroup = window.HStack([copyBtn, closeBtn]).alignment('center');
-  var headerEl = window.HStack([leftGroup, rightGroup]).alignment('center')
+  const leftGroup = window.HStack([titleEl, badgeEl]).alignment('center');
+  const rightGroup = window.HStack([copyBtn, closeBtn]).alignment('center');
+  const headerEl = window.HStack([leftGroup, rightGroup]).alignment('center')
     .padding('12px', '16px')
     .styles({ justifyContent: 'space-between', flexShrink: '0', borderBottom: '1px solid var(--nr-border-default)' });
 
-  var contentEl = new window.View('pre').flex(1).overflow('auto').padding(4).foreground('primary')
+  const contentEl = new window.View('pre').flex(1).overflow('auto').padding(4).foreground('primary')
     .styles({ margin: '0', fontSize: '0.75rem', lineHeight: '1.6', whiteSpace: 'pre-wrap', fontFamily: 'var(--nr-font-mono, monospace)' });
   contentEl.el.textContent = text;
 
@@ -706,19 +707,19 @@ export function _showTextOverlay(title, text, subtitle, tab) {
 // ── Helpers ──
 
 function _parsePageRange(str) {
-  var pages = [];
-  var parts = str.split(',');
-  for (var i = 0; i < parts.length; i++) {
-    var p = parts[i].trim();
+  const pages = [];
+  const parts = str.split(',');
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i].trim();
     if (!p) continue;
-    var dash = p.indexOf('-');
+    const dash = p.indexOf('-');
     if (dash !== -1) {
-      var start = parseInt(p.slice(0, dash), 10);
-      var end = parseInt(p.slice(dash + 1), 10);
+      const start = parseInt(p.slice(0, dash), 10);
+      const end = parseInt(p.slice(dash + 1), 10);
       if (isNaN(start) || isNaN(end)) continue;
-      for (var j = start; j <= end; j++) pages.push(j - 1);
+      for (let j = start; j <= end; j++) pages.push(j - 1);
     } else {
-      var n = parseInt(p, 10);
+      const n = parseInt(p, 10);
       if (!isNaN(n)) pages.push(n - 1);
     }
   }
@@ -733,29 +734,29 @@ function _formatBytes(bytes) {
 
 export function _refreshOverflowBookmark(btn) {
   if (!btn) return;
-  var tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
-  var isSaved = tab && !tab.blank && tab.url && isPostSaved(tab.url);
-  var svg = btn.querySelector('svg');
+  const tab = _browseTabs.find(function(t) { return t.id === _browseActiveTab; });
+  const isSaved = tab && !tab.blank && tab.url && isPostSaved(tab.url);
+  const svg = btn.querySelector('svg');
   if (svg) {
     svg.setAttribute('fill', isSaved ? 'var(--nr-accent)' : 'none');
     svg.setAttribute('stroke', isSaved ? 'var(--nr-accent)' : 'currentColor');
   }
-  var textNode = Array.from(btn.childNodes).find(function(n) { return n.nodeType === 3 && n.textContent.trim(); });
+  const textNode = Array.from(btn.childNodes).find(function(n) { return n.nodeType === 3 && n.textContent.trim(); });
   if (textNode) textNode.textContent = ' ' + (isSaved ? 'Saved' : 'Save to Reading List');
 }
 
 // ── Overflow drag ──
 
 export function _setupOverflowDrag(dd) {
-  var holdTimer = null;
-  var dragGhost = null;
-  var dragId = null;
-  var dragBtn = null;
+  let holdTimer = null;
+  let dragGhost = null;
+  let dragId = null;
+  let dragBtn = null;
 
   function onPointerDown(e) {
-    var btn = e.target.closest('[data-overflow-id]');
+    const btn = e.target.closest('[data-overflow-id]');
     if (!btn) return;
-    var id = btn.dataset.overflowId;
+    const id = btn.dataset.overflowId;
     holdTimer = setTimeout(function() {
       holdTimer = null;
       dragId = id;
@@ -780,9 +781,9 @@ export function _setupOverflowDrag(dd) {
     if (!dragGhost) return;
     dragGhost.style.left = (e.clientX - 40) + 'px';
     dragGhost.style.top = (e.clientY - 14) + 'px';
-    var bar = document.getElementById('browse-bar');
+    const bar = document.getElementById('browse-bar');
     if (bar) {
-      var r = bar.getBoundingClientRect();
+      const r = bar.getBoundingClientRect();
       if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
         bar.style.outline = '2px solid var(--nr-accent)';
         bar.style.outlineOffset = '-2px';
@@ -796,10 +797,10 @@ export function _setupOverflowDrag(dd) {
   function onPointerUp(e) {
     if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; return; }
     if (!dragGhost || !dragId) return;
-    var bar = document.getElementById('browse-bar');
-    var dropped = false;
+    const bar = document.getElementById('browse-bar');
+    let dropped = false;
     if (bar) {
-      var r = bar.getBoundingClientRect();
+      const r = bar.getBoundingClientRect();
       if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
         dropped = true;
       }

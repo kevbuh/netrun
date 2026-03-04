@@ -86,13 +86,9 @@ const Settings = (function() {
       if (rows && rows.length) {
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i];
-          // SQLite is source of truth — only backfill if localStorage is empty
-          if (localStorage.getItem(row.key) === null) {
-            localStorage.setItem(row.key, row.value);
-          }
-          if (!(row.key in _cache)) {
-            _cache[row.key] = row.value;
-          }
+          // SQLite is source of truth — always overwrite localStorage and cache
+          localStorage.setItem(row.key, row.value);
+          _cache[row.key] = row.value;
         }
       }
       // Push any localStorage-only values into SQLite
@@ -148,6 +144,7 @@ const Settings = (function() {
   define('iconSize',       { default: 'medium',         sync: true  }); // @persisted
   define('spinner',        { default: 'squareCorners',  sync: true  }); // @persisted
   define('customCursor',   { default: 'on',             sync: false }); // @local
+  define('pdfDarkMode',    { default: null,             sync: false }); // @local
 
   // Sidebar
   define('sidebarOrder',       { default: null,  sync: true  }); // @persisted

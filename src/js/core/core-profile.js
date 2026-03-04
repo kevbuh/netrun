@@ -14,9 +14,9 @@ import { openSettings, renderSettingsView } from '/js/settings/settings-core.js'
 import { logger } from '/js/logger.js';
 
 // ── Module-level refs for message form (set by renderUserProfile, used by showProfileMessageForm/sendProfileMessage) ──
-var _msgFormEl = null;       // raw DOM element for the #profile-message-form container
-var _msgTextareaEl = null;   // raw DOM element for the textarea (set when form is rendered)
-var _msgStatusState = null;  // State({ text, color }) for status line
+let _msgFormEl = null;       // raw DOM element for the #profile-message-form container
+let _msgTextareaEl = null;   // raw DOM element for the textarea (set when form is rendered)
+let _msgStatusState = null;  // State({ text, color }) for status line
 
 // ── User Profile ──
 

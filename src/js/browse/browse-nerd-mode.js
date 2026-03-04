@@ -2,6 +2,7 @@
 // Academic research reading mode: replaces webview with PDF.js viewer + lookup panel
 // Depends on: browse-state.js, browse-pdf-viewer.js, browse-nerd-panel.js
 import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
+import { toast } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { showPanelForView, hidePanel, _invalidatePanelRender, ensurePanelVisible } from '/js/core/core-nav.js';
 import { _pdfViewerInit, _pdfViewerDestroy, _pdfViewerGetText, _pdfApplyDarkBg } from '/js/browse/browse-pdf-viewer.js';
@@ -79,7 +80,7 @@ export function toggleNerdMode(tab) {
 
 function _nerdModeEnable(tab) {
   if (!_isNerdTab(tab)) {
-    if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Nerd Mode requires a PDF or notebook tab');
+    toast('Nerd Mode requires a PDF or notebook tab');
     return;
   }
 
@@ -123,7 +124,7 @@ function _nerdModeEnable(tab) {
           _injectNotebookContext(tab);
         }).catch(function(e) {
           console.error('Failed to load notebook:', e);
-          if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Failed to load notebook');
+          toast('Failed to load notebook');
         });
       }
     } else {

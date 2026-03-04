@@ -2,11 +2,13 @@
 // No overlay — file tree lives in the panel's Files tab, PDF stays visible
 // Depends on: browse-nerd-mode.js, browse-nerd-panel.js, browse-paper.js, browse-pdf-viewer.js
 import { icon } from '/js/core/icons.js';
+import { toast } from '/js/core/core-utils.js';
 import { _paperState, _extractArxivId } from '/js/browse/browse-paper.js';
 import { _pdfViewerGetText } from '/js/browse/browse-pdf-viewer.js';
 import { _getPdfPath } from '/js/toolbar/toolbar-menu.js';
 import { switchPanelTab } from '/js/core/core-nav.js';
 import { View } from '/aether/ui/aether-ui.js';
+import { _relativeAge } from '/js/browse/browse-implementations.js';
 
 // ── Prompt dialog (Electron has no window.prompt) ──
 function _promptDialog(label, defaultValue) {
@@ -57,6 +59,46 @@ function _promptDialog(label, defaultValue) {
   });
 }
 
+// ── Shared constants ──
+
+const _NEW_FILE_TYPES = [
+  { label: 'Python', ext: '.py' }, { label: 'JavaScript', ext: '.js' }, { label: 'TypeScript', ext: '.ts' },
+  { label: 'Go', ext: '.go' }, { label: 'Rust', ext: '.rs' }, { label: 'C', ext: '.c' },
+  { label: 'C++', ext: '.cpp' }, { label: 'Java', ext: '.java' },
+  { divider: true },
+  { label: 'HTML', ext: '.html' }, { label: 'CSS', ext: '.css' }, { label: 'JSON', ext: '.json' }, { label: 'YAML', ext: '.yaml' },
+  { divider: true },
+  { label: 'Markdown', ext: '.md' }, { label: 'Text', ext: '.txt' },
+  { divider: true },
+  { label: 'Jupyter Notebook', ext: '.ipynb' },
+  { divider: true },
+  { label: 'Dockerfile', ext: '' }, { label: '.env', ext: '' }, { label: '.gitignore', ext: '' }, { label: 'Makefile', ext: '' }
+];
+
+function _buildNewFileItems(tab, getFileTreeEl, getContentPreview) {
+  return _NEW_FILE_TYPES.map(function(t) {
+    if (t.divider) return t;
+    const defaultName = t.ext ? 'untitled' + t.ext : t.label;
+    const iconInfo = _getFileIcon(defaultName);
+    return {
+      icon: icon(iconInfo.iconName, { size: 14 }),
+      label: t.label + (t.ext ? ' (' + t.ext + ')' : ''),
+      handler: async function() {
+        const name = await _promptDialog('File name:', defaultName);
+        if (!name) return;
+        let content = '';
+        if (name.endsWith('.ipynb')) {
+          content = JSON.stringify({ cells: [{ cell_type: 'code', source: [], metadata: {}, outputs: [], execution_count: null }], metadata: { kernelspec: { display_name: 'Python 3', language: 'python', name: 'python3' }, language_info: { name: 'python', version: '3.10.0' } }, nbformat: 4, nbformat_minor: 5 }, null, 2);
+        }
+        electronAPI.implWriteFile(tab._implFolderPath, name, content).then(function() {
+          _refreshFileTree(tab, getFileTreeEl());
+          if (getContentPreview) getContentPreview(tab, name, name);
+        });
+      }
+    };
+  });
+}
+
 // ── Per-tab state ──
 // tab._implSessionId, tab._implFolderPath, tab._implTermId
 
@@ -94,7 +136,7 @@ function _createSession(tab) {
 
   console.log('[impl] creating session, implCreate available:', typeof electronAPI.implCreate);
   if (!electronAPI.implCreate) {
-    if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('implCreate not available — rebuild & restart needed');
+    toast('implCreate not available — rebuild & restart needed');
     return;
   }
 
@@ -105,7 +147,7 @@ function _createSession(tab) {
   const references = (state && state.refs) ? state.refs.slice(0, 20) : [];
   const highlights = tab._pdfHighlights || [];
 
-  if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Preparing implementation...');
+  toast('Preparing implementation...');
 
   // Extract text content — notebook or PDF
   const isNotebook = typeof window._isNotebookTab === 'function' && window._isNotebookTab(tab);
@@ -153,7 +195,7 @@ function _createSession(tab) {
     }).then(function(result) {
       console.log('[impl] create result:', result);
       if (result.error) {
-        if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Failed to create session: ' + result.error);
+        toast('Failed to create session: ' + result.error);
         return;
       }
       tab._implSessionId = result.id;
@@ -173,7 +215,7 @@ function _createSession(tab) {
 function _resumeSession(tab, sessionId) {
   electronAPI.implGet(sessionId).then(function(session) {
     if (!session || session.error) {
-      if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('Session not found');
+      toast('Session not found');
       return;
     }
     tab._implSessionId = session.id;
@@ -286,46 +328,11 @@ export function _renderFilesTab(container, getTabFn) {
       Text('Sync highlights')
     ).onTap(function() {
       _syncHighlightsToClaude(tab).then(function(ok) {
-        if (typeof Aether !== 'undefined' && Aether.toast) {
-          Aether.toast(ok ? 'Highlights synced to CLAUDE.md' : 'Failed to sync highlights');
-        }
+        toast(ok ? 'Highlights synced to CLAUDE.md' : 'Failed to sync highlights');
       });
     });
     // New file dropdown
-    const _newFileTypes = [
-      { label: 'Python', ext: '.py' }, { label: 'JavaScript', ext: '.js' }, { label: 'TypeScript', ext: '.ts' },
-      { label: 'Go', ext: '.go' }, { label: 'Rust', ext: '.rs' }, { label: 'C', ext: '.c' },
-      { label: 'C++', ext: '.cpp' }, { label: 'Java', ext: '.java' },
-      { divider: true },
-      { label: 'HTML', ext: '.html' }, { label: 'CSS', ext: '.css' }, { label: 'JSON', ext: '.json' }, { label: 'YAML', ext: '.yaml' },
-      { divider: true },
-      { label: 'Markdown', ext: '.md' }, { label: 'Text', ext: '.txt' },
-      { divider: true },
-      { label: 'Jupyter Notebook', ext: '.ipynb' },
-      { divider: true },
-      { label: 'Dockerfile', ext: '' }, { label: '.env', ext: '' }, { label: '.gitignore', ext: '' }, { label: 'Makefile', ext: '' }
-    ];
-    const _newFileItems = _newFileTypes.map(function(t) {
-      if (t.divider) return t;
-      const defaultName = t.ext ? 'untitled' + t.ext : t.label;
-      const iconInfo = _getFileIcon(defaultName);
-      return {
-        icon: icon(iconInfo.iconName, { size: 14 }),
-        label: t.label + (t.ext ? ' (' + t.ext + ')' : ''),
-        handler: async function() {
-          const name = await _promptDialog('File name:', defaultName);
-          if (!name) return;
-          let content = '';
-          if (name.endsWith('.ipynb')) {
-            content = JSON.stringify({ cells: [{ cell_type: 'code', source: [], metadata: {}, outputs: [], execution_count: null }], metadata: { kernelspec: { display_name: 'Python 3', language: 'python', name: 'python3' }, language_info: { name: 'python', version: '3.10.0' } }, nbformat: 4, nbformat_minor: 5 }, null, 2);
-          }
-          electronAPI.implWriteFile(tab._implFolderPath, name, content).then(function() {
-            _refreshFileTree(tab, fileTree.el);
-            _previewFileInContent(tab, name, name);
-          });
-        }
-      };
-    });
+    const _newFileItems = _buildNewFileItems(tab, () => fileTree.el, _previewFileInContent);
     const plusBtn = Dropdown(null, _newFileItems, { placeholder: 'New file' });
     plusBtn.el.style.cssText = 'border:none;padding:2px 6px;font-size:0.7rem;';
 
@@ -400,8 +407,7 @@ export function _renderFilesTab(container, getTabFn) {
       const items = [];
 
       sessions.forEach(function(s) {
-        const age = (Date.now() / 1000 - s.created_at);
-        const ageStr = age < 3600 ? Math.floor(age / 60) + 'm ago' : age < 86400 ? Math.floor(age / 3600) + 'h ago' : Math.floor(age / 86400) + 'd ago';
+        const ageStr = _relativeAge(s.created_at);
         const isActive = tab._implSessionId === s.id;
         items.push({
           label: _implSessionLabel(s) + (isActive ? ' ●' : ''),
@@ -612,7 +618,7 @@ function _previewFileInContent(tab, relativePath, fileName) {
 
   electronAPI.implReadFile(tab._implFolderPath, relativePath).then(function(result) {
     if (!result || result.error) {
-      if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast(result ? result.error : 'Failed to read file');
+      toast(result ? result.error : 'Failed to read file');
       return;
     }
 
@@ -684,52 +690,18 @@ function _restorePdfView(tab) {
 export function _renderImplTreeInline(tab, container) {
   if (!tab || !tab._implSessionId || !tab._implFolderPath) return;
 
-  // Position container for absolute plus button
-  container.style.position = 'relative';
+  // Header row for dropdown
+  const headerRow = document.createElement('div');
+  headerRow.style.cssText = 'display:flex;align-items:center;padding:2px 6px;';
 
   // New file dropdown (top-right)
-  const _newFileTypes = [
-    { label: 'Python', ext: '.py' }, { label: 'JavaScript', ext: '.js' }, { label: 'TypeScript', ext: '.ts' },
-    { label: 'Go', ext: '.go' }, { label: 'Rust', ext: '.rs' }, { label: 'C', ext: '.c' },
-    { label: 'C++', ext: '.cpp' }, { label: 'Java', ext: '.java' },
-    { divider: true },
-    { label: 'HTML', ext: '.html' }, { label: 'CSS', ext: '.css' }, { label: 'JSON', ext: '.json' }, { label: 'YAML', ext: '.yaml' },
-    { divider: true },
-    { label: 'Markdown', ext: '.md' }, { label: 'Text', ext: '.txt' },
-    { divider: true },
-    { label: 'Jupyter Notebook', ext: '.ipynb' },
-    { divider: true },
-    { label: 'Dockerfile', ext: '' }, { label: '.env', ext: '' }, { label: '.gitignore', ext: '' }, { label: 'Makefile', ext: '' }
-  ];
-  // fileTreeEl declared later, referenced in closure (fine)
   let fileTreeEl;
-  const _newFileItems = _newFileTypes.map(function(t) {
-    if (t.divider) return t;
-    const defaultName = t.ext ? 'untitled' + t.ext : t.label;
-    const iconInfo = _getFileIcon(defaultName);
-    return {
-      icon: icon(iconInfo.iconName, { size: 14 }),
-      label: t.label + (t.ext ? ' (' + t.ext + ')' : ''),
-      handler: async function() {
-        const name = await _promptDialog('File name:', defaultName);
-        if (!name) return;
-        let content = '';
-        if (name.endsWith('.ipynb')) {
-          content = JSON.stringify({ cells: [{ cell_type: 'code', source: [], metadata: {}, outputs: [], execution_count: null }], metadata: { kernelspec: { display_name: 'Python 3', language: 'python', name: 'python3' }, language_info: { name: 'python', version: '3.10.0' } }, nbformat: 4, nbformat_minor: 5 }, null, 2);
-        }
-        electronAPI.implWriteFile(tab._implFolderPath, name, content).then(function() {
-          _refreshFileTree(tab, fileTreeEl);
-          _previewFileInContent(tab, name, name);
-        });
-      }
-    };
-  });
+  const _newFileItems = _buildNewFileItems(tab, () => fileTreeEl, _previewFileInContent);
   const newFileDropdown = Dropdown(null, _newFileItems, { placeholder: 'New file' });
-  newFileDropdown.el.style.cssText = 'position:absolute;top:4px;right:6px;z-index:1;border:none;padding:2px;opacity:0.5;';
+  newFileDropdown.el.style.cssText = 'margin-left:auto;border:none;padding:2px 6px;';
   newFileDropdown.el.title = 'New file';
-  newFileDropdown.el.addEventListener('mouseenter', function() { newFileDropdown.el.style.opacity = '1'; });
-  newFileDropdown.el.addEventListener('mouseleave', function() { newFileDropdown.el.style.opacity = '0.5'; });
-  container.appendChild(newFileDropdown.el);
+  headerRow.appendChild(newFileDropdown.el);
+  container.appendChild(headerRow);
 
   // Paper source row
   const paperRow = document.createElement('div');
@@ -874,8 +846,7 @@ function _renderImplDropdown(tab, container) {
       const items = [];
 
       sessions.forEach(function(s) {
-        const age = (Date.now() / 1000 - s.created_at);
-        const ageStr = age < 3600 ? Math.floor(age / 60) + 'm ago' : age < 86400 ? Math.floor(age / 3600) + 'h ago' : Math.floor(age / 86400) + 'd ago';
+        const ageStr = _relativeAge(s.created_at);
         const isActive = tab._implSessionId === s.id;
         items.push({
           label: _implSessionLabel(s) + (isActive ? ' \u25cf' : ''),
@@ -984,7 +955,6 @@ function _teardownSession(tab) {
 }
 
 // ── Window bridge ──
-console.log('[impl-session] module loaded successfully');
 window._implSessionEnable = _implSessionEnable;
 window._implSessionDisable = _implSessionDisable;
 window._isImplSessionActive = _isImplSessionActive;

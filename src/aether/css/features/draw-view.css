@@ -39,7 +39,6 @@
   border-radius: var(--nr-radius-pill);
   box-shadow: var(--nr-shadow-md);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   user-select: none;
 }
 

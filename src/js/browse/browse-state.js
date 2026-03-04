@@ -49,33 +49,15 @@ window._BROWSE_GROUP_COLOR_MAP = _BROWSE_GROUP_COLOR_MAP;
 export const _browseIsElectron = !!(window.electronAPI && window.electronAPI.isElectron);
 window._browseIsElectron = _browseIsElectron;
 
-// Sync initial adblock state to Electron main process
-if (_browseIsElectron && window.electronAPI.adblockSetEnabled) {
-  window.electronAPI.adblockSetEnabled(Settings.get('adBlockEnabled') === 'true');
+// Sync initial privacy/security states to Electron main process
+function _syncToMain(method, ...args) {
+  if (_browseIsElectron && window.electronAPI[method]) window.electronAPI[method](...args);
 }
-
-// Sync DoH state to main process
-if (_browseIsElectron && window.electronAPI.dohSetConfig) {
-  window.electronAPI.dohSetConfig(
-    Settings.get('dohEnabled') !== 'false',
-    Settings.get('dohProvider') || 'cloudflare'
-  );
-}
-
-// Sync tracking strip state to main process
-if (_browseIsElectron && window.electronAPI.trackingStripSetEnabled) {
-  window.electronAPI.trackingStripSetEnabled(Settings.get('trackingStripEnabled') !== 'false');
-}
-
-// Sync HTTPS-only state to main process
-if (_browseIsElectron && window.electronAPI.httpsOnlySetEnabled) {
-  window.electronAPI.httpsOnlySetEnabled(Settings.get('httpsOnlyEnabled') !== 'false');
-}
-
-// Sync third-party cookie blocking state to main process
-if (_browseIsElectron && window.electronAPI.cookieBlockSetEnabled) {
-  window.electronAPI.cookieBlockSetEnabled(Settings.get('thirdPartyCookiesBlocked') !== 'false');
-}
+_syncToMain('adblockSetEnabled', Settings.get('adBlockEnabled') === 'true');
+_syncToMain('dohSetConfig', Settings.get('dohEnabled') !== 'false', Settings.get('dohProvider') || 'cloudflare');
+_syncToMain('trackingStripSetEnabled', Settings.get('trackingStripEnabled') !== 'false');
+_syncToMain('httpsOnlySetEnabled', Settings.get('httpsOnlyEnabled') !== 'false');
+_syncToMain('cookieBlockSetEnabled', Settings.get('thirdPartyCookiesBlocked') !== 'false');
 
 // ── Permission request handler (Electron → renderer round-trip) ──
 // When a webview requests camera/mic/location/notifications, main process sends
@@ -154,39 +136,42 @@ window._resolvePendingPermissionRequest = _resolvePendingPermissionRequest;
 export const _browseAudioTabs = new Map();
 window._browseAudioTabs = _browseAudioTabs;
 
-// Closed captions state
-let _ccStream = null;
-let _ccSocket = null;
-let _ccAudioCtx = null;
-let _ccWorkletNode = null;
-var _ccActive = State(false);  // @signal — drives caption overlay
-var _ccTabId = State(null);    // @signal
+// Closed captions state — _pv = plain var + bridge, _sv = signal + bridge
+function _pv(name, initial) {
+  let v = initial;
+  _bridge(name, () => v, x => { v = x; });
+  return { get: () => v, set: x => { v = x; } };
+}
+function _sv(name, initial) {
+  const s = State(initial);
+  _bridge(name, () => s.value, x => { s.value = x; });
+  return { signal: s, get: () => s.value, set: x => { s.value = x; } };
+}
+
+const _ccs = _pv('_ccStream', null);
+const _ccsk = _pv('_ccSocket', null);
+const _ccac = _pv('_ccAudioCtx', null);
+const _ccwn = _pv('_ccWorkletNode', null);
+const _cca = _sv('_ccActive', false);
+const _ccti = _sv('_ccTabId', null);
 export const _ccCaptionLines = [];
-let _ccFadeTimer = null;
+const _ccft = _pv('_ccFadeTimer', null);
 
-export function getCcStream() { return _ccStream; }
-export function setCcStream(v) { _ccStream = v; }
-export function getCcSocket() { return _ccSocket; }
-export function setCcSocket(v) { _ccSocket = v; }
-export function getCcAudioCtx() { return _ccAudioCtx; }
-export function setCcAudioCtx(v) { _ccAudioCtx = v; }
-export function getCcWorkletNode() { return _ccWorkletNode; }
-export function setCcWorkletNode(v) { _ccWorkletNode = v; }
-export function getCcActive() { return _ccActive.value; }
-export function setCcActive(v) { _ccActive.value = v; }
-export function getCcTabId() { return _ccTabId.value; }
-export function setCcTabId(v) { _ccTabId.value = v; }
-export function getCcFadeTimer() { return _ccFadeTimer; }
-export function setCcFadeTimer(v) { _ccFadeTimer = v; }
-
-_bridge('_ccStream', () => _ccStream, v => { _ccStream = v; });
-_bridge('_ccSocket', () => _ccSocket, v => { _ccSocket = v; });
-_bridge('_ccAudioCtx', () => _ccAudioCtx, v => { _ccAudioCtx = v; });
-_bridge('_ccWorkletNode', () => _ccWorkletNode, v => { _ccWorkletNode = v; });
-_bridge('_ccActive', () => _ccActive.value, v => { _ccActive.value = v; });
-_bridge('_ccTabId', () => _ccTabId.value, v => { _ccTabId.value = v; });
+export function getCcStream() { return _ccs.get(); }
+export function setCcStream(v) { _ccs.set(v); }
+export function getCcSocket() { return _ccsk.get(); }
+export function setCcSocket(v) { _ccsk.set(v); }
+export function getCcAudioCtx() { return _ccac.get(); }
+export function setCcAudioCtx(v) { _ccac.set(v); }
+export function getCcWorkletNode() { return _ccwn.get(); }
+export function setCcWorkletNode(v) { _ccwn.set(v); }
+export function getCcActive() { return _cca.get(); }
+export function setCcActive(v) { _cca.set(v); }
+export function getCcTabId() { return _ccti.get(); }
+export function setCcTabId(v) { _ccti.set(v); }
+export function getCcFadeTimer() { return _ccft.get(); }
+export function setCcFadeTimer(v) { _ccft.set(v); }
 window._ccCaptionLines = _ccCaptionLines;
-_bridge('_ccFadeTimer', () => _ccFadeTimer, v => { _ccFadeTimer = v; });
 
 // NTP uploaded files: { name, content, file }
 export const _ntpUploadedFiles = [];
@@ -201,22 +186,16 @@ window._browseClosedTabs = _browseClosedTabs;
 // Password manager state
 export const _pwAutofillOffered = new Set(); // tab ids that have been offered autofill
 export const _pwSaveDismissed = new Map(); // 'origin|username' → true
-let _pwLastSubmit = null; // { origin, username, ts } dedup
-let _pwPendingPrompt = null; // { tab, data, ts } — survives navigation
-export function getPwLastSubmit() { return _pwLastSubmit; }
-export function setPwLastSubmit(v) { _pwLastSubmit = v; }
-export function getPwPendingPrompt() { return _pwPendingPrompt; }
-export function setPwPendingPrompt(v) { _pwPendingPrompt = v; }
+const _pwls = _pv('_pwLastSubmit', null);    // { origin, username, ts } dedup
+const _pwpp = _pv('_pwPendingPrompt', null); // { tab, data, ts } — survives navigation
+export const getPwLastSubmit = _pwls.get, setPwLastSubmit = _pwls.set;
+export const getPwPendingPrompt = _pwpp.get, setPwPendingPrompt = _pwpp.set;
 window._pwAutofillOffered = _pwAutofillOffered;
 window._pwSaveDismissed = _pwSaveDismissed;
-_bridge('_pwLastSubmit', () => _pwLastSubmit, v => { _pwLastSubmit = v; });
-_bridge('_pwPendingPrompt', () => _pwPendingPrompt, v => { _pwPendingPrompt = v; });
 
 // Split pane state
-let _browseNextPaneId = 1;
-export function getBrowseNextPaneId() { return _browseNextPaneId; }
-export function setBrowseNextPaneId(v) { _browseNextPaneId = v; }
-_bridge('_browseNextPaneId', () => _browseNextPaneId, v => { _browseNextPaneId = v; });
+const _bnpi = _pv('_browseNextPaneId', 1);
+export const getBrowseNextPaneId = _bnpi.get, setBrowseNextPaneId = _bnpi.set;
 
 // Convenience getters for current window's tabs (backward compatibility)
 // NOTE: read _browseActiveWindow via the local var (getter/setter bridge keeps it in sync)

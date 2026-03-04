@@ -6,7 +6,7 @@
 import { State, Computed, Effect, Binding, Store, batch, untrack, Context } from '/aether/ui/state.js';
 import { View } from '/aether/ui/view.js';
 import { VStack, HStack, ZStack, Grid, Spacer, Divider, ScrollView, Text, Label, Link, Image, Icon, Kbd, RawHTML } from '/aether/ui/primitives.js';
-import { Button, TextField, Textarea, Toggle, Checkbox, RadioGroup, Slider, Picker, Stepper, TabView, ProgressBar, Pill, FormField, SearchField, Spinner, Disclosure, Badge, SegmentedControl, Skeleton } from '/aether/ui/controls.js';
+import { Button, TextField, Textarea, Toggle, Checkbox, RadioGroup, Slider, Picker, Stepper, TabView, ProgressBar, Pill, FormField, SearchField, Spinner, Disclosure, Badge, SegmentedControl, Skeleton, Dropdown } from '/aether/ui/controls.js';
 import { ForEach, List, Group, Section, Show, Switch, EmptyState } from '/aether/ui/containers.js';
 import { Sheet, Alert, Popover, Menu, Toast } from '/aether/ui/overlay.js';
 import { Component, defineComponent, getComponent, listComponents } from '/aether/ui/component.js';
@@ -179,6 +179,7 @@ var AetherUI = {
   Badge: Badge,
   SegmentedControl: SegmentedControl,
   Skeleton: Skeleton,
+  Dropdown: Dropdown,
 
   // Containers
   ForEach: ForEach,
@@ -235,7 +236,7 @@ var AetherUI = {
       'Button', 'TextField', 'Textarea', 'Toggle', 'Checkbox', 'RadioGroup',
       'Slider', 'Picker', 'Stepper', 'TabView', 'ProgressBar', 'Pill',
       'FormField', 'SearchField', 'Spinner',
-      'Disclosure', 'Badge', 'SegmentedControl', 'Skeleton',
+      'Disclosure', 'Badge', 'SegmentedControl', 'Skeleton', 'Dropdown',
       'ForEach', 'List', 'Group', 'Section', 'Show', 'Switch', 'EmptyState', 'VirtualList',
       'Sheet', 'Alert', 'Popover', 'Menu', 'Toast',
       'Component', 'defineComponent'
@@ -261,7 +262,7 @@ export {
   State, Computed, Effect, Binding, Store, batch, untrack, Context,
   View,
   VStack, HStack, ZStack, Grid, Spacer, Divider, ScrollView, Text, Label, Link, Image, Icon, Kbd, RawHTML,
-  Button, TextField, Textarea, Toggle, Checkbox, RadioGroup, Slider, Picker, Stepper, TabView, ProgressBar, Pill, FormField, SearchField, Spinner, Disclosure, Badge, SegmentedControl, Skeleton,
+  Button, TextField, Textarea, Toggle, Checkbox, RadioGroup, Slider, Picker, Stepper, TabView, ProgressBar, Pill, FormField, SearchField, Spinner, Disclosure, Badge, SegmentedControl, Skeleton, Dropdown,
   ForEach, List, Group, Section, Show, Switch, EmptyState, VirtualList,
   Sheet, Alert, Popover, Menu, Toast,
   Component, defineComponent, getComponent, listComponents,

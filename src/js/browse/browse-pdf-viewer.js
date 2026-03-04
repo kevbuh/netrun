@@ -3,11 +3,12 @@
 // Depends on: browse-state.js
 
 import { icon } from '/js/core/icons.js';
+import { toast } from '/js/core/core-utils.js';
 import { _paperState } from '/js/browse/browse-paper.js';
 import { _generateCiteFormats } from '/js/browse/browse-nerd-panel.js';
 import { togglePanel } from '/js/core/core-nav.js';
 import { _buildFilesContent } from '/js/browse/browse-nerd-mode.js';
-import { _browseResetAdaptiveColor, _browseApplyAdaptiveText } from '/js/browse-urlbar.js';
+import { _browseApplyAdaptiveText, _browseResetAdaptiveColor } from '/js/browse-urlbar.js';
 
 export function _pdfApplyDarkBg(dark) {
   if (dark) {
@@ -19,8 +20,8 @@ export function _pdfApplyDarkBg(dark) {
 }
 
 // ── PDF.js CDN loader ──
-var _pdfjsLoaded = false;
-var _pdfjsLoadPromise = null;
+let _pdfjsLoaded = false;
+let _pdfjsLoadPromise = null;
 
 // PDF.js legacy global build (CDN)
 function _ensurePdfjsLegacy() {
@@ -28,7 +29,7 @@ function _ensurePdfjsLegacy() {
   if (_pdfjsLoadPromise) return _pdfjsLoadPromise;
   _pdfjsLoadPromise = new Promise(function(resolve, reject) {
     if (window.pdfjsLib) { _pdfjsLoaded = true; resolve(); return; }
-    var script = document.createElement('script');
+    const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
     script.onload = function() {
       if (window.pdfjsLib) {
@@ -43,7 +44,7 @@ function _ensurePdfjsLegacy() {
     document.head.appendChild(script);
 
     if (!document.querySelector('link[href*="pdf_viewer"]')) {
-      var link = document.createElement('link');
+      const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css';
       document.head.appendChild(link);
@@ -53,9 +54,9 @@ function _ensurePdfjsLegacy() {
 }
 
 // ── Constants ──
-var _PDF_SCALE_DEFAULT = 1.5;
-var _PDF_SCALE_MIN = 0.5;
-var _PDF_SCALE_MAX = 4.0;
+const _PDF_SCALE_DEFAULT = 1.5;
+const _PDF_SCALE_MIN = 0.5;
+const _PDF_SCALE_MAX = 4.0;
 export var _PDF_HL_COLORS = [
   { name: 'yellow', color: 'rgba(255,235,59,0.4)' },
   { name: 'green', color: 'rgba(76,175,80,0.4)' },
@@ -77,12 +78,12 @@ export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
   tab._pdfZoom = tab._pdfZoom || _PDF_SCALE_DEFAULT;
   tab._pdfHighlights = tab._pdfHighlights || [];
   if (tab._pdfDarkMode == null) {
-    var saved = Settings.get('pdfDarkMode');
+    const saved = Settings.get('pdfDarkMode');
     if (saved !== null) {
       tab._pdfDarkMode = saved === 'true';
     } else {
-      var theme = document.documentElement.getAttribute('data-theme');
-      tab._pdfDarkMode = !theme || theme === 'dark' || theme === 'clear';
+      const theme = document.documentElement.getAttribute('data-theme');
+      tab._pdfDarkMode = !theme || theme === 'dark';
     }
   }
   tab._pdfLeftPanelVisible = tab._pdfLeftPanelVisible != null ? tab._pdfLeftPanelVisible : true;
@@ -99,7 +100,7 @@ export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
     window.electronAPI.dbQuery('highlights-list', pdfUrl).then(function(rows) {
       if (!rows || !rows.length) return;
       rows.forEach(function(row) {
-        var exists = tab._pdfHighlights.some(function(h) { return h.id === row.id; });
+        const exists = tab._pdfHighlights.some(function(h) { return h.id === row.id; });
         if (exists) return;
         tab._pdfHighlights.push({
           id: row.id,
@@ -114,9 +115,9 @@ export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
       // Re-render highlights on already-rendered pages
       if (tab._pdfRenderedPages && tab._pdfPagesContainer) {
         tab._pdfRenderedPages.forEach(function(_, pageNum) {
-          var wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
+          const wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
           if (!wrapper) return;
-          var hlLayer = wrapper.querySelector('.pdf-highlight-layer');
+          const hlLayer = wrapper.querySelector('.pdf-highlight-layer');
           if (hlLayer) {
             hlLayer.innerHTML = '';
             _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer);
@@ -131,7 +132,7 @@ export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
   _ensurePdfjsLegacy().then(function() {
     _pdfViewerLoadDoc(tab, pdfUrl);
   }).catch(function(err) {
-    var msg = tab._pdfPagesContainer;
+    const msg = tab._pdfPagesContainer;
     if (msg) {
       AetherUI.mount(
         new View('div')
@@ -162,32 +163,32 @@ function _buildViewerDOM(tab, viewerEl) {
   viewerEl.innerHTML = '';
 
   // Toolbar
-  var toolbarView = new View('div').className('pdf-toolbar');
+  const toolbarView = new View('div').className('pdf-toolbar');
   viewerEl.appendChild(toolbarView.el);
   tab._pdfToolbar = toolbarView.el;
   _buildToolbar(tab, toolbarView);
 
   // Body wrapper (left panel + pages)
-  var bodyWrapper = new View('div').className('pdf-body-wrapper');
+  const bodyWrapper = new View('div').className('pdf-body-wrapper');
   viewerEl.appendChild(bodyWrapper.el);
 
   // Left panel
-  var leftPanelView = new View('div').className('pdf-left-panel');
+  const leftPanelView = new View('div').className('pdf-left-panel');
   bodyWrapper.add(leftPanelView);
   tab._pdfLeftPanel = leftPanelView.el;
   _buildLeftPanel(tab, leftPanelView);
 
   // Drag handle for resizing left panel
-  var resizeHandle = document.createElement('div');
+  const resizeHandle = document.createElement('div');
   resizeHandle.className = 'pdf-left-panel-resize';
   bodyWrapper.el.insertBefore(resizeHandle, leftPanelView.el.nextSibling);
   resizeHandle.addEventListener('mousedown', function(e) {
     e.preventDefault();
-    var panel = leftPanelView.el;
-    var startX = e.clientX;
-    var startW = panel.offsetWidth;
+    const panel = leftPanelView.el;
+    const startX = e.clientX;
+    const startW = panel.offsetWidth;
     function onMove(ev) {
-      var w = Math.max(100, Math.min(500, startW + ev.clientX - startX));
+      const w = Math.max(100, Math.min(500, startW + ev.clientX - startX));
       panel.style.width = w + 'px';
     }
     function onUp() {
@@ -203,7 +204,7 @@ function _buildViewerDOM(tab, viewerEl) {
   });
 
   // Pages container
-  var pagesContainer = new View('div').className('pdf-pages-container');
+  const pagesContainer = new View('div').className('pdf-pages-container');
   if (window.Skeleton) {
     AetherUI.mount(window.Skeleton().lines(5).padding(4), pagesContainer.el);
   } else {
@@ -234,8 +235,8 @@ function _buildViewerDOM(tab, viewerEl) {
   });
 
   // Pinch-to-zoom: use CSS transform for instant feedback, debounce canvas re-render
-  var zoomCommitTimer = null;
-  var zoomBaseScale = null; // the scale at which canvases were last rendered
+  let zoomCommitTimer = null;
+  let zoomBaseScale = null; // the scale at which canvases were last rendered
 
   function _pdfViewerPreviewZoom(tab, newZoom) {
     newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, newZoom));
@@ -243,9 +244,9 @@ function _buildViewerDOM(tab, viewerEl) {
     if (zoomBaseScale === null) zoomBaseScale = tab._pdfZoom;
     tab._pdfZoom = newZoom;
     tab._pdfZoomLabel.textContent = Math.round(newZoom * 100) + '%';
-    var ratio = newZoom / zoomBaseScale;
-    var wrappers = tab._pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
-    for (var i = 0; i < wrappers.length; i++) {
+    const ratio = newZoom / zoomBaseScale;
+    const wrappers = tab._pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
+    for (let i = 0; i < wrappers.length; i++) {
       wrappers[i].style.transform = 'scale(' + ratio + ')';
       wrappers[i].style.transformOrigin = 'top center';
       // transform doesn't affect layout — compensate so pages don't overlap
@@ -270,20 +271,20 @@ function _buildViewerDOM(tab, viewerEl) {
   pagesContainer.el.addEventListener('wheel', function(e) {
     if (!e.ctrlKey) return;
     e.preventDefault();
-    var delta = -e.deltaY * 0.01;
-    var newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, tab._pdfZoom + delta));
+    const delta = -e.deltaY * 0.01;
+    const newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, tab._pdfZoom + delta));
     _pdfViewerPreviewZoom(tab, newZoom);
   }, { passive: false });
 
   // Safari native gesture events
-  var gestureBaseZoom = 1;
+  let gestureBaseZoom = 1;
   pagesContainer.el.addEventListener('gesturestart', function(e) {
     e.preventDefault();
     gestureBaseZoom = tab._pdfZoom;
   }, { passive: false });
   pagesContainer.el.addEventListener('gesturechange', function(e) {
     e.preventDefault();
-    var newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, gestureBaseZoom * e.scale));
+    const newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, gestureBaseZoom * e.scale));
     _pdfViewerPreviewZoom(tab, newZoom);
   }, { passive: false });
   pagesContainer.el.addEventListener('gestureend', function(e) {
@@ -295,18 +296,18 @@ function _buildToolbar(tab, toolbarView) {
   // Page nav (panel toggles moved to right side)
 
   // Page nav
-  var prevBtn = _tbBtn(icon('chevronLeft', { size: 16 }), 'Previous page', function() {
+  const prevBtn = _tbBtn(icon('chevronLeft', { size: 16 }), 'Previous page', function() {
     _pdfViewerGoToPage(tab, tab._pdfCurrentPage - 1);
   });
   toolbarView.add(prevBtn);
 
-  var pageIndicator = new View('span')
+  const pageIndicator = new View('span')
     .className('pdf-page-indicator')
     .text('1 / ?');
   toolbarView.add(pageIndicator);
   tab._pdfPageIndicator = pageIndicator.el;
 
-  var nextBtn = _tbBtn(icon('chevronRight', { size: 16 }), 'Next page', function() {
+  const nextBtn = _tbBtn(icon('chevronRight', { size: 16 }), 'Next page', function() {
     _pdfViewerGoToPage(tab, tab._pdfCurrentPage + 1);
   });
   toolbarView.add(nextBtn);
@@ -314,7 +315,7 @@ function _buildToolbar(tab, toolbarView) {
   toolbarView.add(_tbSep());
 
   // Zoom
-  var zoomOut = _tbBtn(icon('minus', { size: 16 }), 'Zoom out', function() {
+  const zoomOut = _tbBtn(icon('minus', { size: 16 }), 'Zoom out', function() {
     _pdfViewerSetZoom(tab, tab._pdfZoom - 0.25);
   });
   toolbarView.add(zoomOut);
@@ -327,7 +328,7 @@ function _buildToolbar(tab, toolbarView) {
   toolbarView.add(zoomLabel);
   tab._pdfZoomLabel = zoomLabel.el;
 
-  var zoomIn = _tbBtn(icon('plus', { size: 16 }), 'Zoom in', function() {
+  const zoomIn = _tbBtn(icon('plus', { size: 16 }), 'Zoom in', function() {
     _pdfViewerSetZoom(tab, tab._pdfZoom + 0.25);
   });
   toolbarView.add(zoomIn);
@@ -348,14 +349,14 @@ function _buildToolbar(tab, toolbarView) {
 
   // Highlight mode toggle
   var hlToggle = _tbBtn(icon('highlighter', { size: 16 }), 'Highlight mode', function() {
-    var active = tab._pdfPagesContainer.classList.toggle('pdf-hl-mode');
+    const active = tab._pdfPagesContainer.classList.toggle('pdf-hl-mode');
     hlToggle.el.classList.toggle('active', active);
   });
   hlToggle.el.id = 'pdf-hl-mode-toggle';
   toolbarView.add(hlToggle);
 
   // Bookmark button
-  var bookmarkBtn = _tbBtn(icon('bookmark', { size: 16 }), 'Save to Reading List', function() {
+  const bookmarkBtn = _tbBtn(icon('bookmark', { size: 16 }), 'Save to Reading List', function() {
     if (typeof window.browseSaveToReadingList === 'function') window.browseSaveToReadingList();
   });
   toolbarView.add(bookmarkBtn);
@@ -385,29 +386,29 @@ function _buildToolbar(tab, toolbarView) {
   toolbarView.add(ttsBtn);
 
   // Cite — copy citation in chosen format
-  var _citeMenu = null;
+  let _citeMenu = null;
   var citeBtn = _tbBtn(icon('blockquote', { size: 16 }), 'Cite', function() {
     if (_citeMenu && _citeMenu.isOpen.value) { _citeMenu.dismiss(); return; }
-    var state = _paperState.get(tab.id);
-    var s2 = state && state.s2Data;
+    const state = _paperState.get(tab.id);
+    const s2 = state && state.s2Data;
     if (!s2) {
-      if (typeof Aether !== 'undefined' && Aether.toast) Aether.toast('No paper data available');
+      toast('No paper data available');
       return;
     }
-    var formats = _generateCiteFormats(s2);
-    var items = [];
+    const formats = _generateCiteFormats(s2);
+    const items = [];
     items.push({ view: function() {
       return Text('Cite').cssText('padding:8px 12px 4px;font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--nr-text-secondary);');
     }});
     Object.keys(formats).forEach(function(fmt) {
       items.push({ view: function() {
-        var row = new View('div')
+        const row = new View('div')
           .cssText('display:flex;gap:10px;padding:8px 12px;border-radius:6px;align-items:baseline;');
         row.add(
           Text(fmt).cssText('font-size:0.72rem;font-weight:600;text-transform:uppercase;color:var(--nr-accent);white-space:nowrap;min-width:70px;'),
           Text(formats[fmt]).cssText('font-size:0.75rem;color:var(--nr-text-primary);line-height:1.45;word-break:break-word;flex:1;')
         );
-        var copyBtn = new View('button')
+        const copyBtn = new View('button')
           .text('Copy')
           .cssText('flex-shrink:0;padding:2px 8px;font-size:0.68rem;border:1px solid var(--nr-border-default);border-radius:4px;background:transparent;color:var(--nr-text-secondary);cursor:pointer;transition:all 0.15s;');
         copyBtn.el.addEventListener('mouseenter', function() { copyBtn.el.style.background = 'var(--nr-bg-raised)'; });
@@ -424,7 +425,7 @@ function _buildToolbar(tab, toolbarView) {
       }});
     });
     _citeMenu = Menu(null, items);
-    var rect = citeBtn.el.getBoundingClientRect();
+    const rect = citeBtn.el.getBoundingClientRect();
     _citeMenu.showAt(rect.left, rect.bottom + 4);
   });
   toolbarView.add(citeBtn);
@@ -433,17 +434,17 @@ function _buildToolbar(tab, toolbarView) {
   if (!tab._implSessionId && window.electronAPI && window.electronAPI.implList) {
     electronAPI.implList({ paperUrl: tab.url }).then(function(sessions) {
       if (!sessions || sessions.error || !sessions.length) return;
-      var recent = sessions[0];
+      const recent = sessions[0];
       if (window._implSessionEnable) window._implSessionEnable(tab, recent.id);
     });
   }
 
   // Spacer
-  var spacer = new View('div').style('flex', '1');
+  const spacer = new View('div').style('flex', '1');
   toolbarView.add(spacer);
 
   // Search
-  var searchBtn = _tbBtn(icon('search', { size: 16 }), 'Search in PDF', function() {
+  const searchBtn = _tbBtn(icon('search', { size: 16 }), 'Search in PDF', function() {
     _pdfViewerToggleSearch(tab);
   });
   toolbarView.add(searchBtn);
@@ -451,7 +452,7 @@ function _buildToolbar(tab, toolbarView) {
   toolbarView.add(_tbSep());
 
   // Panel toggle button group
-  var panelGroup = new View('div').className('pdf-panel-toggle-group');
+  const panelGroup = new View('div').className('pdf-panel-toggle-group');
 
   var leftPanelBtn = _tbBtn(icon('panelLeft', { size: 16 }), 'Toggle thumbnails', function() {
     tab._pdfLeftPanelVisible = !tab._pdfLeftPanelVisible;
@@ -465,8 +466,8 @@ function _buildToolbar(tab, toolbarView) {
     togglePanel();
     // Update active state after toggle
     setTimeout(function() {
-      var panelEl = document.getElementById('universal-panel');
-      var visible = panelEl && panelEl.style.display !== 'none' && !panelEl.classList.contains('panel-hidden');
+      const panelEl = document.getElementById('universal-panel');
+      const visible = panelEl && panelEl.style.display !== 'none' && !panelEl.classList.contains('panel-hidden');
       rightPanelBtn.el.classList.toggle('active', visible);
     }, 50);
   });
@@ -492,32 +493,32 @@ function _tbSep() {
 
 function _buildLeftPanel(tab, leftPanelView) {
   // Tab bar
-  var tabBar = new View('div').className('pdf-left-panel-tabs');
+  const tabBar = new View('div').className('pdf-left-panel-tabs');
 
-  var filesScroll = new View('div').className('pdf-thumb-scroll nerd-files-scroll');
-  var thumbScroll = new View('div').className('pdf-thumb-scroll').style('display', 'none');
-  var outlineScroll = new View('div').className('pdf-outline-scroll').style('display', 'none');
+  const filesScroll = new View('div').className('pdf-thumb-scroll nerd-files-scroll');
+  const thumbScroll = new View('div').className('pdf-thumb-scroll').style('display', 'none');
+  const outlineScroll = new View('div').className('pdf-outline-scroll').style('display', 'none');
 
   tab._pdfFilesScroll = filesScroll.el;
   tab._pdfThumbScroll = thumbScroll.el;
   tab._pdfOutlineScroll = outlineScroll.el;
 
-  var tabBtns = [];
-  var scrolls = [filesScroll.el, thumbScroll.el, outlineScroll.el];
+  let tabBtns = [];
+  const scrolls = [filesScroll.el, thumbScroll.el, outlineScroll.el];
 
   function selectLeftTab(idx) {
-    for (var i = 0; i < 3; i++) {
+    for (let i = 0; i < 3; i++) {
       scrolls[i].style.display = i === idx ? '' : 'none';
       tabBtns[i].el.classList.toggle('active', i === idx);
     }
     if (idx === 0) _buildFilesContent(filesScroll.el);
   }
 
-  var filesTab = new View('button').className('pdf-left-panel-tab active').text('Files')
+  const filesTab = new View('button').className('pdf-left-panel-tab active').text('Files')
     .onTap(function() { selectLeftTab(0); });
-  var thumbTab = new View('button').className('pdf-left-panel-tab').text('Thumbs')
+  const thumbTab = new View('button').className('pdf-left-panel-tab').text('Thumbs')
     .onTap(function() { selectLeftTab(1); });
-  var outlineTab = new View('button').className('pdf-left-panel-tab').text('Outline')
+  const outlineTab = new View('button').className('pdf-left-panel-tab').text('Outline')
     .onTap(function() { selectLeftTab(2); });
 
   tabBtns = [filesTab, thumbTab, outlineTab];
@@ -525,7 +526,7 @@ function _buildLeftPanel(tab, leftPanelView) {
   leftPanelView.add(tabBar);
 
   // Content area
-  var content = new View('div').className('pdf-left-panel-content');
+  const content = new View('div').className('pdf-left-panel-content');
   content.add(filesScroll, thumbScroll, outlineScroll);
   leftPanelView.add(content);
 
@@ -536,7 +537,7 @@ function _buildLeftPanel(tab, leftPanelView) {
 // ── Load Document ──
 
 function _pdfViewerLoadDoc(tab, url) {
-  var loadingTask = window.pdfjsLib.getDocument(url);
+  const loadingTask = window.pdfjsLib.getDocument(url);
   loadingTask.promise.then(function(pdfDoc) {
     tab._pdfDoc = pdfDoc;
     tab._pdfPageCount = pdfDoc.numPages;
@@ -577,19 +578,19 @@ function _pdfViewerLoadDoc(tab, url) {
 
 function _pdfViewerRenderAllPages(tab) {
   if (!tab._pdfDoc) return;
-  for (var i = 1; i <= tab._pdfPageCount; i++) {
+  for (let i = 1; i <= tab._pdfPageCount; i++) {
     _pdfViewerCreatePageSlot(tab, i);
   }
   // Render first few pages immediately, rest on scroll
-  var initialPages = Math.min(5, tab._pdfPageCount);
-  for (var j = 1; j <= initialPages; j++) {
+  const initialPages = Math.min(5, tab._pdfPageCount);
+  for (let j = 1; j <= initialPages; j++) {
     _pdfViewerRenderPage(tab, j);
   }
 }
 
 function _pdfViewerCreatePageSlot(tab, pageNum) {
   // Page slots are raw DOM — they host canvas + textLayer which must be imperative
-  var wrapper = document.createElement('div');
+  const wrapper = document.createElement('div');
   wrapper.className = 'pdf-page-wrapper';
   wrapper.setAttribute('data-page-num', pageNum);
   wrapper.style.minHeight = '400px';
@@ -602,23 +603,23 @@ function _pdfViewerRenderPage(tab, pageNum) {
   tab._pdfRenderedPages.set(pageNum, true);
 
   tab._pdfDoc.getPage(pageNum).then(function(page) {
-    var scale = tab._pdfZoom;
-    var viewport = page.getViewport({ scale: scale });
+    const scale = tab._pdfZoom;
+    const viewport = page.getViewport({ scale: scale });
 
-    var wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
+    const wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
     if (!wrapper) return;
 
     // Render canvas off-screen first, then swap when painted
-    var canvas = document.createElement('canvas');
+    const canvas = document.createElement('canvas');
     canvas.width = viewport.width * (window.devicePixelRatio || 1);
     canvas.height = viewport.height * (window.devicePixelRatio || 1);
     canvas.style.width = viewport.width + 'px';
     canvas.style.height = viewport.height + 'px';
 
-    var ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d');
     ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
 
-    var renderTask = page.render({ canvasContext: ctx, viewport: viewport });
+    const renderTask = page.render({ canvasContext: ctx, viewport: viewport });
     renderTask.promise.then(function() {
       // Canvas is fully painted — swap old content atomically
       wrapper.innerHTML = '';
@@ -632,7 +633,7 @@ function _pdfViewerRenderPage(tab, pageNum) {
       wrapper.appendChild(canvas);
 
       // Text layer for selection
-      var textLayerDiv = document.createElement('div');
+      const textLayerDiv = document.createElement('div');
       textLayerDiv.className = 'textLayer';
       textLayerDiv.style.width = viewport.width + 'px';
       textLayerDiv.style.height = viewport.height + 'px';
@@ -641,7 +642,7 @@ function _pdfViewerRenderPage(tab, pageNum) {
 
       page.getTextContent().then(function(textContent) {
         if (window.pdfjsLib.renderTextLayer) {
-          var opts = {
+          const opts = {
             container: textLayerDiv,
             viewport: viewport,
             textDivs: []
@@ -652,7 +653,7 @@ function _pdfViewerRenderPage(tab, pageNum) {
       });
 
       // Highlight layer
-      var hlLayer = document.createElement('div');
+      const hlLayer = document.createElement('div');
       hlLayer.className = 'pdf-highlight-layer';
       hlLayer.style.width = viewport.width + 'px';
       hlLayer.style.height = viewport.height + 'px';
@@ -662,7 +663,7 @@ function _pdfViewerRenderPage(tab, pageNum) {
       // Annotation layer (internal PDF links)
       page.getAnnotations().then(function(annotations) {
         if (!annotations || !annotations.length) return;
-        var annotLayer = document.createElement('div');
+        const annotLayer = document.createElement('div');
         annotLayer.className = 'pdf-annotation-layer';
         annotLayer.style.width = viewport.width + 'px';
         annotLayer.style.height = viewport.height + 'px';
@@ -670,13 +671,13 @@ function _pdfViewerRenderPage(tab, pageNum) {
 
         annotations.forEach(function(ann) {
           if (ann.subtype !== 'Link' || !ann.rect) return;
-          var rect = viewport.convertToViewportRectangle(ann.rect);
-          var left = Math.min(rect[0], rect[2]);
-          var top = Math.min(rect[1], rect[3]);
-          var width = Math.abs(rect[2] - rect[0]);
-          var height = Math.abs(rect[3] - rect[1]);
+          const rect = viewport.convertToViewportRectangle(ann.rect);
+          const left = Math.min(rect[0], rect[2]);
+          const top = Math.min(rect[1], rect[3]);
+          const width = Math.abs(rect[2] - rect[0]);
+          const height = Math.abs(rect[3] - rect[1]);
 
-          var link = new View('div')
+          const link = new View('div')
             .className('pdf-annot-link')
             .cssText('left:' + left + 'px;top:' + top + 'px;width:' + width + 'px;height:' + height + 'px;');
 
@@ -712,15 +713,15 @@ function _pdfViewerOnScroll(tab) {
   if (!tab._pdfDoc || !tab._pdfPagesContainer || !tab._pdfRenderedPages) return;
 
   // Update current page
-  var container = tab._pdfPagesContainer;
-  var wrappers = container.querySelectorAll('.pdf-page-wrapper');
-  var scrollTop = container.scrollTop;
-  var containerHeight = container.clientHeight;
-  var center = scrollTop + containerHeight / 2;
+  const container = tab._pdfPagesContainer;
+  const wrappers = container.querySelectorAll('.pdf-page-wrapper');
+  const scrollTop = container.scrollTop;
+  const containerHeight = container.clientHeight;
+  const center = scrollTop + containerHeight / 2;
 
-  var currentPage = 1;
-  for (var i = 0; i < wrappers.length; i++) {
-    var w = wrappers[i];
+  let currentPage = 1;
+  for (let i = 0; i < wrappers.length; i++) {
+    const w = wrappers[i];
     if (w.offsetTop + w.offsetHeight / 2 < center) {
       currentPage = i + 1;
     }
@@ -732,11 +733,11 @@ function _pdfViewerOnScroll(tab) {
   }
 
   // Lazy render pages near viewport
-  var buffer = containerHeight * 2;
-  for (var j = 0; j < wrappers.length; j++) {
-    var wr = wrappers[j];
-    var top = wr.offsetTop;
-    var bottom = top + wr.offsetHeight;
+  const buffer = containerHeight * 2;
+  for (let j = 0; j < wrappers.length; j++) {
+    const wr = wrappers[j];
+    const top = wr.offsetTop;
+    const bottom = top + wr.offsetHeight;
     if (bottom >= scrollTop - buffer && top <= scrollTop + containerHeight + buffer) {
       _pdfViewerRenderPage(tab, j + 1);
     }
@@ -750,7 +751,7 @@ function _pdfViewerGoToPage(tab, pageNum) {
   tab._pdfCurrentPage = pageNum;
   tab._pdfPageIndicator.textContent = pageNum + ' / ' + tab._pdfPageCount;
 
-  var wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
+  const wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
   if (wrapper) {
     wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -776,18 +777,18 @@ function _pdfViewerSetZoom(tab, newZoom, force) {
 }
 
 function _pdfViewerToggleZoomDropdown(tab, labelEl) {
-  var existing = tab._pdfToolbar.querySelector('.pdf-zoom-dropdown');
+  const existing = tab._pdfToolbar.querySelector('.pdf-zoom-dropdown');
   if (existing) { existing.remove(); return; }
 
-  var levels = [50, 75, 100, 125, 150, 200, 300, 400];
-  var menuItems = levels.map(function(pct) {
+  const levels = [50, 75, 100, 125, 150, 200, 300, 400];
+  const menuItems = levels.map(function(pct) {
     return {
       label: pct + '%',
       handler: function() { _pdfViewerSetZoom(tab, pct / 100); }
     };
   });
 
-  var menu = Menu(labelEl, menuItems);
+  const menu = Menu(labelEl, menuItems);
   menu.show();
 }
 
@@ -808,9 +809,9 @@ function _pdfViewerRenderThumbnails(tab) {
   if (!tab._pdfDoc || !tab._pdfThumbScroll) return;
   tab._pdfThumbScroll.innerHTML = '';
 
-  for (var i = 1; i <= tab._pdfPageCount; i++) {
+  for (let i = 1; i <= tab._pdfPageCount; i++) {
     (function(pageNum) {
-      var item = new View('div')
+      const item = new View('div')
         .className('pdf-thumb-item' + (pageNum === 1 ? ' active' : ''))
         .style('position', 'relative')
         .attr('data-thumb-page', pageNum)
@@ -819,18 +820,18 @@ function _pdfViewerRenderThumbnails(tab) {
 
       // Render thumb canvas asynchronously — stays imperative (PDF.js canvas rendering)
       tab._pdfDoc.getPage(pageNum).then(function(page) {
-        var vp = page.getViewport({ scale: 0.3 });
-        var canvas = document.createElement('canvas');
+        const vp = page.getViewport({ scale: 0.3 });
+        const canvas = document.createElement('canvas');
         canvas.width = vp.width;
         canvas.height = vp.height;
         canvas.style.width = '100%';
         canvas.style.display = 'block';
         item.el.appendChild(canvas);
 
-        var labelEl = new View('div').className('pdf-thumb-label').text(String(pageNum));
+        const labelEl = new View('div').className('pdf-thumb-label').text(String(pageNum));
         item.add(labelEl);
 
-        var ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d');
         page.render({ canvasContext: ctx, viewport: vp });
       });
 
@@ -845,7 +846,7 @@ function _pdfViewerUpdateThumbActive(tab, pageNum) {
     el.classList.toggle('active', parseInt(el.getAttribute('data-thumb-page')) === pageNum);
   });
   // Scroll active thumb into view
-  var active = tab._pdfThumbScroll.querySelector('.pdf-thumb-item.active');
+  const active = tab._pdfThumbScroll.querySelector('.pdf-thumb-item.active');
   if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
@@ -868,7 +869,7 @@ function _pdfViewerExtractOutline(tab) {
 
 function _renderOutlineItems(tab, items, container, level) {
   items.forEach(function(item) {
-    var el = new View('div')
+    const el = new View('div')
       .className('pdf-toc-item')
       .style('paddingLeft', (6 + level * 14) + 'px')
       .text(item.title)
@@ -901,13 +902,13 @@ function _renderOutlineItems(tab, items, container, level) {
 function _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer) {
   if (!tab._pdfHighlights) return;
   hlLayer.innerHTML = '';
-  var wrapper = hlLayer.parentElement;
-  var wW = wrapper.offsetWidth;
-  var wH = wrapper.offsetHeight;
+  const wrapper = hlLayer.parentElement;
+  const wW = wrapper.offsetWidth;
+  const wH = wrapper.offsetHeight;
   tab._pdfHighlights.forEach(function(hl, hlIdx) {
     if (hl.pageNum !== pageNum || !hl.rects) return;
     hl.rects.forEach(function(r) {
-      var rect = new View('div')
+      const rect = new View('div')
         .className('pdf-highlight-rect cursor-pointer')
         .styles({
           left: (r.left * wW) + 'px',
@@ -927,17 +928,17 @@ function _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer) {
 }
 
 function _showNotePopup(tab, hl, hlIdx, x, y) {
-  var old = document.querySelector('.pdf-note-popup');
+  const old = document.querySelector('.pdf-note-popup');
   if (old) old.remove();
 
-  var popup = new View('div').className('pdf-note-popup')
+  const popup = new View('div').className('pdf-note-popup')
     .cssText('position:fixed;z-index:10002;left:' + x + 'px;top:' + y + 'px;');
 
-  var header = new View('div').className('pdf-note-popup-header');
-  var quote = new View('div').className('pdf-note-popup-quote')
+  const header = new View('div').className('pdf-note-popup-header');
+  const quote = new View('div').className('pdf-note-popup-quote')
     .styles({ borderColor: hl.color || _PDF_HL_COLORS[0].color })
     .text((hl.text || '').length > 120 ? hl.text.slice(0, 120) + '…' : (hl.text || ''));
-  var delBtn = new View('button').className('pdf-note-popup-del')
+  const delBtn = new View('button').className('pdf-note-popup-del')
     .attr('title', 'Delete highlight')
     .html(icon('trash', { size: 14 }))
     .on('mousedown', function(e) { e.stopPropagation(); })
@@ -949,11 +950,11 @@ function _showNotePopup(tab, hl, hlIdx, x, y) {
   header.add(quote, delBtn);
   popup.add(header);
 
-  var textarea = new View('textarea').className('pdf-note-popup-textarea')
+  const textarea = new View('textarea').className('pdf-note-popup-textarea')
     .attr('placeholder', 'Add a note…')
     .attr('rows', '3');
   textarea.el.value = hl.note || '';
-  var _saveTimer = null;
+  let _saveTimer = null;
   textarea.on('input', function() {
     hl.note = textarea.el.value;
     clearTimeout(_saveTimer);
@@ -969,7 +970,7 @@ function _showNotePopup(tab, hl, hlIdx, x, y) {
 
   // Keep popup in viewport
   requestAnimationFrame(function() {
-    var r = popup.el.getBoundingClientRect();
+    const r = popup.el.getBoundingClientRect();
     if (r.right > window.innerWidth - 8) popup.el.style.left = (window.innerWidth - r.width - 8) + 'px';
     if (r.bottom > window.innerHeight - 8) popup.el.style.top = (window.innerHeight - r.height - 8) + 'px';
   });
@@ -993,10 +994,10 @@ export function _pdfViewerAddHighlight(tab, highlight) {
   highlight.id = _hlId();
 
   // Normalize rects to fractions (0–1) of wrapper dimensions
-  var wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + highlight.pageNum + '"]');
+  const wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + highlight.pageNum + '"]');
   if (wrapper && highlight.rects) {
-    var wW = wrapper.offsetWidth;
-    var wH = wrapper.offsetHeight;
+    const wW = wrapper.offsetWidth;
+    const wH = wrapper.offsetHeight;
     highlight.rects = highlight.rects.map(function(r) {
       return { left: r.left / wW, top: r.top / wH, width: r.width / wW, height: r.height / wH };
     });
@@ -1006,7 +1007,7 @@ export function _pdfViewerAddHighlight(tab, highlight) {
 
   // Re-render the highlight layer for that page
   if (wrapper) {
-    var hlLayer = wrapper.querySelector('.pdf-highlight-layer');
+    const hlLayer = wrapper.querySelector('.pdf-highlight-layer');
     if (hlLayer) {
       _pdfViewerRenderHighlightsForPage(tab, highlight.pageNum, hlLayer);
     }
@@ -1023,13 +1024,13 @@ export function _pdfViewerAddHighlight(tab, highlight) {
 
 export function _pdfViewerRemoveHighlight(tab, index) {
   if (!tab._pdfHighlights) return;
-  var hl = tab._pdfHighlights[index];
+  const hl = tab._pdfHighlights[index];
   if (!hl) return;
   tab._pdfHighlights.splice(index, 1);
   // Re-render
-  var wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + hl.pageNum + '"]');
+  const wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + hl.pageNum + '"]');
   if (wrapper) {
-    var hlLayer = wrapper.querySelector('.pdf-highlight-layer');
+    const hlLayer = wrapper.querySelector('.pdf-highlight-layer');
     if (hlLayer) {
       hlLayer.innerHTML = '';
       _pdfViewerRenderHighlightsForPage(tab, hl.pageNum, hlLayer);
@@ -1051,7 +1052,7 @@ export function _pdfViewerInstallHighlightHandler(tab) {
 
 // ── Search ──
 
-var _searchBar = null;
+let _searchBar = null;
 
 function _pdfViewerToggleSearch(tab) {
   if (_searchBar && _searchBar.parentNode) {
@@ -1062,13 +1063,13 @@ function _pdfViewerToggleSearch(tab) {
     return;
   }
 
-  var countLabel = new View('span').styles({
+  const countLabel = new View('span').styles({
     fontSize: '0.72rem',
     color: 'var(--nr-text-quaternary)',
     minWidth: '40px'
   });
 
-  var input = new View('input')
+  const input = new View('input')
     .attr('type', 'text')
     .attr('placeholder', 'Search in PDF...')
     .styles({
@@ -1082,17 +1083,17 @@ function _pdfViewerToggleSearch(tab) {
       outline: 'none'
     });
 
-  var prevBtn = _tbBtn(icon('chevronUp', { size: 14 }), 'Previous match', function() {
+  const prevBtn = _tbBtn(icon('chevronUp', { size: 14 }), 'Previous match', function() {
     _pdfSearchPrev(tab);
   });
-  var nextBtn = _tbBtn(icon('chevronDown', { size: 14 }), 'Next match', function() {
+  const nextBtn = _tbBtn(icon('chevronDown', { size: 14 }), 'Next match', function() {
     _pdfSearchNext(tab);
   });
-  var closeBtn = _tbBtn(icon('close', { size: 14 }), 'Close search', function() {
+  const closeBtn = _tbBtn(icon('close', { size: 14 }), 'Close search', function() {
     _pdfViewerToggleSearch(tab);
   });
 
-  var searchBarView = new HStack()
+  const searchBarView = new HStack()
     .styles({
       gap: '6px',
       alignItems: 'center',
@@ -1108,7 +1109,7 @@ function _pdfViewerToggleSearch(tab) {
   tab._pdfToolbar.parentNode.insertBefore(_searchBar, tab._pdfToolbar.nextSibling);
   input.el.focus();
 
-  var searchTimer = null;
+  let searchTimer = null;
   input.on('input', function() {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(function() {
@@ -1129,36 +1130,36 @@ function _pdfViewerDoSearch(tab, query, countLabelEl) {
   tab._pdfSearchIdx = -1;
   if (!query || !tab._pdfDoc) { countLabelEl.textContent = ''; return; }
 
-  var matchCount = 0;
-  var promises = [];
-  var queryLower = query.toLowerCase();
+  let matchCount = 0;
+  const promises = [];
+  const queryLower = query.toLowerCase();
 
-  for (var i = 1; i <= tab._pdfPageCount; i++) {
+  for (let i = 1; i <= tab._pdfPageCount; i++) {
     (function(pageNum) {
       promises.push(
         tab._pdfDoc.getPage(pageNum).then(function(page) {
-          var wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
+          const wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
           if (!wrapper) return;
-          var textLayer = wrapper.querySelector('.textLayer');
+          const textLayer = wrapper.querySelector('.textLayer');
           if (!textLayer) return;
 
-          var spans = textLayer.querySelectorAll('span');
+          const spans = textLayer.querySelectorAll('span');
           spans.forEach(function(span) {
-            var text = span.textContent || '';
-            var textLower = text.toLowerCase();
-            var idx = textLower.indexOf(queryLower);
+            const text = span.textContent || '';
+            const textLower = text.toLowerCase();
+            let idx = textLower.indexOf(queryLower);
             while (idx !== -1) {
               matchCount++;
               // Create a highlight overlay positioned over the matching text
-              var range = document.createRange();
+              const range = document.createRange();
               range.setStart(span.firstChild || span, idx);
               range.setEnd(span.firstChild || span, Math.min(idx + query.length, text.length));
-              var rects = range.getClientRects();
-              var wrapperRect = wrapper.getBoundingClientRect();
+              const rects = range.getClientRects();
+              const wrapperRect = wrapper.getBoundingClientRect();
 
-              for (var r = 0; r < rects.length; r++) {
-                var rect = rects[r];
-                var mark = document.createElement('div');
+              for (let r = 0; r < rects.length; r++) {
+                const rect = rects[r];
+                const mark = document.createElement('div');
                 mark.className = 'pdf-search-highlight';
                 mark.style.cssText = 'position:absolute;left:' + (rect.left - wrapperRect.left) + 'px;top:' + (rect.top - wrapperRect.top) + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;background:rgba(255,165,0,0.35);border-radius:1px;pointer-events:none;z-index:5;';
                 wrapper.appendChild(mark);
@@ -1184,12 +1185,12 @@ function _pdfViewerDoSearch(tab, query, countLabelEl) {
 
 function _pdfSearchScrollToMatch(tab) {
   if (!tab._pdfSearchMatches || !tab._pdfSearchMatches.length) return;
-  var idx = tab._pdfSearchIdx;
+  const idx = tab._pdfSearchIdx;
   if (idx < 0 || idx >= tab._pdfSearchMatches.length) return;
 
   // Remove active class from all, add to current
   tab._pdfSearchMatches.forEach(function(m) { m.el.classList.remove('pdf-search-active'); });
-  var match = tab._pdfSearchMatches[idx];
+  const match = tab._pdfSearchMatches[idx];
   match.el.classList.add('pdf-search-active');
   match.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -1212,8 +1213,8 @@ export function _pdfViewerGetText(tab, startPage, endPage) {
   if (!tab._pdfDoc) return Promise.resolve('');
   startPage = startPage || 1;
   endPage = endPage || tab._pdfPageCount;
-  var pages = [];
-  for (var i = startPage; i <= endPage; i++) pages.push(i);
+  const pages = [];
+  for (let i = startPage; i <= endPage; i++) pages.push(i);
 
   return Promise.all(pages.map(function(pageNum) {
     return tab._pdfDoc.getPage(pageNum).then(function(page) {
@@ -1228,44 +1229,44 @@ export function _pdfViewerGetText(tab, startPage, endPage) {
 
 // ── Citation hover popups ──
 
-var _citationPopup = null;
-var _citationHideTimer = null;
+let _citationPopup = null;
+let _citationHideTimer = null;
 
 function _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv) {
-  var attempts = 0;
+  let attempts = 0;
   function tryInstall() {
     attempts++;
-    var spans = textLayerDiv.querySelectorAll('span');
+    const spans = textLayerDiv.querySelectorAll('span');
     if (!spans.length && attempts < 10) {
       setTimeout(tryInstall, 300);
       return;
     }
 
     // Citation overlays are pixel-positioned over the canvas — imperative DOM needed
-    var citLayer = document.createElement('div');
+    const citLayer = document.createElement('div');
     citLayer.className = 'pdf-citation-layer';
     wrapper.appendChild(citLayer);
 
-    var wrapperRect = wrapper.getBoundingClientRect();
+    const wrapperRect = wrapper.getBoundingClientRect();
 
     spans.forEach(function(span) {
-      var text = span.textContent;
+      const text = span.textContent;
       if (!text) return;
 
-      var pattern = /\[(\d+(?:\s*[,\-–]\s*\d+)*)\]/g;
-      var match;
+      const pattern = /\[(\d+(?:\s*[,\-–]\s*\d+)*)\]/g;
+      let match;
       while ((match = pattern.exec(text)) !== null) {
-        var refNums = _parseCitationNums(match[1]);
+        const refNums = _parseCitationNums(match[1]);
         if (!refNums.length) continue;
 
         // Try Range for precise position, fall back to whole span
-        var rects = null;
+        let rects = null;
         try {
           // Walk text nodes to find the one containing our match offset
-          var walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+          const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
           var node, offset = 0, startNode = null, startOffset = 0, endNode = null, endOffset = 0;
           while ((node = walker.nextNode())) {
-            var nodeLen = node.textContent.length;
+            const nodeLen = node.textContent.length;
             if (!startNode && offset + nodeLen > match.index) {
               startNode = node;
               startOffset = match.index - offset;
@@ -1278,7 +1279,7 @@ function _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv) {
             offset += nodeLen;
           }
           if (startNode && endNode) {
-            var range = document.createRange();
+            const range = document.createRange();
             range.setStart(startNode, startOffset);
             range.setEnd(endNode, endOffset);
             rects = range.getClientRects();
@@ -1290,8 +1291,8 @@ function _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv) {
           rects = [span.getBoundingClientRect()];
         }
 
-        for (var r = 0; r < rects.length; r++) {
-          var cr = rects[r];
+        for (let r = 0; r < rects.length; r++) {
+          const cr = rects[r];
           if (cr.width < 1 || cr.height < 1) continue;
           var overlay = new View('div')
             .className('pdf-citation-ref')
@@ -1320,16 +1321,16 @@ function _showCitationPopup(tab, refNums, x, y) {
   if (_citationHideTimer) { clearTimeout(_citationHideTimer); _citationHideTimer = null; }
   if (_citationPopup) _citationPopup.remove();
 
-  var popup = new View('div').className('citation-popup');
+  const popup = new View('div').className('citation-popup');
   _citationPopup = popup.el;
 
   _populateCitationPopup(popup, tab, refNums);
 
   document.body.appendChild(popup.el);
-  var pw = popup.el.offsetWidth;
-  var ph = popup.el.offsetHeight;
-  var left = Math.max(8, Math.min(x - pw / 2, window.innerWidth - pw - 8));
-  var top = y - ph - 12;
+  const pw = popup.el.offsetWidth;
+  const ph = popup.el.offsetHeight;
+  const left = Math.max(8, Math.min(x - pw / 2, window.innerWidth - pw - 8));
+  let top = y - ph - 12;
   if (top < 8) top = y + 20;
   popup.el.style.left = left + 'px';
   popup.el.style.top = top + 'px';
@@ -1343,8 +1344,8 @@ function _showCitationPopup(tab, refNums, x, y) {
 }
 
 function _populateCitationPopup(popupView, tab, refNums) {
-  var state = _paperState.get(tab.id);
-  var refs = state && state.refs ? state.refs : null;
+  const state = _paperState.get(tab.id);
+  const refs = state && state.refs ? state.refs : null;
 
   popupView.el.innerHTML = '';
 
@@ -1355,20 +1356,20 @@ function _populateCitationPopup(popupView, tab, refNums) {
       popupView.el
     );
     // Poll until refs arrive
-    var pollCount = 0;
+    let pollCount = 0;
     var pollTimer = setInterval(function() {
       pollCount++;
       if (pollCount > 20 || !_citationPopup || _citationPopup !== popupView.el) {
         clearInterval(pollTimer);
         return;
       }
-      var s = _paperState.get(tab.id);
+      const s = _paperState.get(tab.id);
       if (s && s.refs && s.refs.length) {
         clearInterval(pollTimer);
         _populateCitationPopup(popupView, tab, refNums);
         // Reposition after content change
-        var ph = popupView.el.offsetHeight;
-        var curTop = parseFloat(popupView.el.style.top);
+        const ph = popupView.el.offsetHeight;
+        const curTop = parseFloat(popupView.el.style.top);
         if (curTop + ph > window.innerHeight - 8) {
           popupView.el.style.top = Math.max(8, window.innerHeight - ph - 8) + 'px';
         }
@@ -1378,7 +1379,7 @@ function _populateCitationPopup(popupView, tab, refNums) {
   }
 
   refNums.forEach(function(num, idx) {
-    var ref = refs[num - 1];
+    const ref = refs[num - 1];
     if (!ref) return;
 
     if (idx > 0) {
@@ -1400,7 +1401,7 @@ function _populateCitationPopup(popupView, tab, refNums) {
       popupView.el
     );
 
-    var meta = [];
+    const meta = [];
     if (ref.authors && ref.authors.length) {
       meta.push(ref.authors.slice(0, 3).map(function(a) { return a.name; }).join(', ') + (ref.authors.length > 3 ? ' et al.' : ''));
     }
@@ -1414,7 +1415,7 @@ function _populateCitationPopup(popupView, tab, refNums) {
       );
     }
 
-    var linkEl = new View('a')
+    const linkEl = new View('a')
       .className('citation-popup-link')
       .text('Search on Google Scholar \u2192')
       .attr('href', '#')
@@ -1435,16 +1436,16 @@ function _scheduleCitationHide() {
 }
 
 function _parseCitationNums(str) {
-  var nums = [];
+  const nums = [];
   str.split(',').forEach(function(part) {
     part = part.trim();
-    var dashMatch = part.match(/(\d+)\s*[\-–]\s*(\d+)/);
+    const dashMatch = part.match(/(\d+)\s*[\-–]\s*(\d+)/);
     if (dashMatch) {
-      var start = parseInt(dashMatch[1]);
-      var end = parseInt(dashMatch[2]);
-      for (var i = start; i <= end; i++) nums.push(i);
+      const start = parseInt(dashMatch[1]);
+      const end = parseInt(dashMatch[2]);
+      for (let i = start; i <= end; i++) nums.push(i);
     } else {
-      var n = parseInt(part);
+      const n = parseInt(part);
       if (!isNaN(n)) nums.push(n);
     }
   });

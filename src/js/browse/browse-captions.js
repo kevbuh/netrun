@@ -199,11 +199,11 @@ export function stopCaptions() {
 
 export function _showCaption(text) {
   // Update island CC pill lines
-  var act = window._islandActivities ? window._islandActivities.value.cc : null;
-  var lines = (act && act.lines) ? act.lines.slice() : [];
+  const act = window._islandActivities ? window._islandActivities.value.cc : null;
+  const lines = (act && act.lines) ? act.lines.slice() : [];
   lines.push(text);
   if (lines.length > 12) lines.shift();
-  var snippet = text.length > 30 ? text.slice(0, 30) + '…' : text;
+  const snippet = text.length > 30 ? text.slice(0, 30) + '…' : text;
   if (typeof window.islandUpdate === 'function') window.islandUpdate('cc', { type: 'cc', label: 'CC Live', lines: lines, detail: snippet, action: function() { if (typeof window.toggleCaptions === 'function') window.toggleCaptions(); } });
 
   // Update unified audio pill

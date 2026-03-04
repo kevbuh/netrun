@@ -53,7 +53,7 @@ export function _setSettingsFeedTab(tab) {
   _settingsFeedTab.value = tab;
 }
 
-var _settingsSearchQuery = State('');
+const _settingsSearchQuery = State('');
 
 export async function openSettings(searchQuery) {
   hideAllViews();
@@ -68,7 +68,7 @@ export async function openSettings(searchQuery) {
   }
 }
 
-var _hooksRegistered = false;
+let _hooksRegistered = false;
 
 export function renderSettingsView() {
   // ── Sidebar (built once, active state is reactive) ──
@@ -80,19 +80,19 @@ export function renderSettingsView() {
     sbViews.push(Text('Settings').cssText('font-size:1.1rem;font-weight:600;color:var(--nr-text-primary);padding:0 12px 8px 12px;text-align:left;'));
 
     // Search field
-    var searchField = SearchField(_settingsSearchQuery, 'Search settings…').debounce(100);
+    const searchField = SearchField(_settingsSearchQuery, 'Search settings…').debounce(100);
     searchField.el.style.margin = '0 8px 8px 8px';
     sbViews.push(searchField);
 
     // Section nav (hidden when searching)
-    var navContainer = VStack([]);
+    const navContainer = VStack([]);
     const base = 'w-full flex items-center gap-2.5 px-3 py-2 text-left text-[0.8rem] rounded-md transition-colors ';
     _SETTINGS_SECTIONS.forEach(function(s) {
       if (s.type === 'label') {
         navContainer.add(Text(s.text).className('nr-settings-sidebar-label'));
         return;
       }
-      var btn = HStack([
+      const btn = HStack([
         window.RawHTML(s.icon),
         Text(s.label)
       ]).spacing(10).alignment('center')
@@ -100,7 +100,7 @@ export function renderSettingsView() {
       btn.el.setAttribute('role', 'button');
       btn.onTap(function() { _setSettingsSection(s.key); });
       Effect(function() {
-        var active = _settingsSection.value === s.key;
+        const active = _settingsSection.value === s.key;
         btn.el.className = base + (active ? 'bg-accent/10 text-accent' : 'text-muted hover:text-primary hover:bg-hover');
       });
       navContainer.add(btn);
@@ -108,15 +108,15 @@ export function renderSettingsView() {
     sbViews.push(navContainer);
 
     // Search results (shown when searching)
-    var resultsContainer = VStack([]).cssText('display:none;');
+    const resultsContainer = VStack([]).cssText('display:none;');
     sbViews.push(resultsContainer);
 
     // Section label map for badges
-    var sectionLabels = {};
+    const sectionLabels = {};
     _SETTINGS_SECTIONS.forEach(function(s) { if (s.key) sectionLabels[s.key] = s.label; });
 
     Effect(function() {
-      var q = _settingsSearchQuery.value.toLowerCase().trim();
+      const q = _settingsSearchQuery.value.toLowerCase().trim();
       if (!q) {
         navContainer.el.style.display = '';
         resultsContainer.el.style.display = 'none';
@@ -124,13 +124,13 @@ export function renderSettingsView() {
       }
       navContainer.el.style.display = 'none';
       resultsContainer.el.style.display = '';
-      var matches = _SETTINGS_REGISTRY.filter(function(entry) {
-        var haystack = (entry.label + ' ' + entry.desc + ' ' + entry.keywords).toLowerCase();
+      const matches = _SETTINGS_REGISTRY.filter(function(entry) {
+        const haystack = (entry.label + ' ' + entry.desc + ' ' + entry.keywords).toLowerCase();
         return q.split(/\s+/).every(function(word) { return haystack.includes(word); });
       });
-      var rows = [];
+      const rows = [];
       matches.forEach(function(entry) {
-        var btn = HStack([
+        const btn = HStack([
           Text(entry.label)
         ]).spacing(10).alignment('center')
           .cssText('width:calc(100% - 16px);margin:0 8px;cursor:pointer;');
@@ -149,7 +149,7 @@ export function renderSettingsView() {
     });
 
     // Version (pushed to bottom via spacer)
-    var versionText = VStack([]).cssText('margin-top:auto;padding:12px 16px;');
+    const versionText = VStack([]).cssText('margin-top:auto;padding:12px 16px;');
     versionText.el.id = 'settings-version';
     versionText.el.style.color = 'var(--nr-text-quaternary)';
     versionText.el.style.fontSize = '0.65rem';
@@ -162,10 +162,10 @@ export function renderSettingsView() {
   const pane = document.getElementById('settings-content-pane');
   if (pane) {
     const titles = { profile: 'Profile', appearance: 'Appearance', browser: 'Browser', ai: 'AI', feed: 'Feed', downloads: 'Downloads', context: 'Context', help: 'Help' };
-    var titleView = Text('').font('1.2rem').fontWeight(600).foreground('primary').cssText('margin-bottom:20px;');
+    const titleView = Text('').font('1.2rem').fontWeight(600).foreground('primary').cssText('margin-bottom:20px;');
     titleView._bindText(function() { return titles[_settingsSection.value] || 'Settings'; });
 
-    var sectionView = window.Switch(_settingsSection, {
+    const sectionView = window.Switch(_settingsSection, {
       profile: function() { return VStack([_renderAccountSettings()]); },
       appearance: function() { return _renderAppearanceSettings(); },
       browser: function() { return _renderBrowserSettings(); },
@@ -190,7 +190,7 @@ export function renderSettingsView() {
 
     // Section-specific post-render hooks (reactive — runs on each section change)
     Effect(function() {
-      var section = _settingsSection.value;
+      const section = _settingsSection.value;
       if (section === 'appearance') {
         updateSpinnerPreview(getSelectedSpinner());
       } else if (section === 'ai') {

@@ -162,6 +162,39 @@ export function registerSystemIPC(): void {
     return { ok: true, name: name || url };
   });
 
+  ipcMain.handle('system:read-dir', (_event, dirPath: string) => {
+    if (!dirPath) return { error: 'dirPath required' };
+    const resolved = path.resolve(dirPath);
+    const BLOCKED_DIRS = ['.ssh', '.gnupg', '.aws', '.config', '.netrc', '.git', '.env'];
+    const parts = resolved.split(path.sep);
+    if (parts.some(p => BLOCKED_DIRS.includes(p))) {
+      return { error: 'Access denied' };
+    }
+    try {
+      if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+        return { error: 'Directory not found' };
+      }
+      const entries = fs.readdirSync(resolved, { withFileTypes: true });
+      const files: Array<{ name: string; path: string; isDirectory: boolean }> = [];
+      for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue;
+        const ext = path.extname(entry.name).toLowerCase();
+        if (entry.isDirectory() || ext === '.pdf' || ext === '.ipynb') {
+          files.push({
+            name: entry.name,
+            path: path.join(resolved, entry.name),
+            isDirectory: entry.isDirectory(),
+          });
+        }
+      }
+      files.sort((a, b) => {
+        if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+      return { files };
+    } catch { return { error: 'Failed to read directory' }; }
+  });
+
   ipcMain.handle('db:local-file', (_event, filePath: string) => {
     if (!filePath) return { error: 'File not found' };
     const resolved = path.resolve(filePath);
@@ -179,7 +212,7 @@ export function registerSystemIPC(): void {
       '.txt': 'text/plain', '.md': 'text/markdown',
       '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
       '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp',
-      '.pdf': 'application/pdf',
+      '.pdf': 'application/pdf', '.ipynb': 'application/json',
       '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg',
       '.mp4': 'video/mp4', '.webm': 'video/webm',
     };
