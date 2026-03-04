@@ -48,17 +48,24 @@ export function _clearWebSearchHistory() {
 // ── Browsing History ──
 
 export function _getBrowseHistory() {
-  try { return Settings.getJSON('browseHistory', []); } catch { return []; }
+  try {
+    const raw = Settings.getJSON('browseHistory', []);
+    return raw.filter(h => h && typeof h.url === 'string' && h.url).map(h => ({
+      ...h,
+      title: (typeof h.title === 'string') ? h.title : ''
+    }));
+  } catch { return []; }
 }
 
 export function _saveBrowseVisit(url, title) {
-  if (!url || url === 'about:blank') return;
+  if (!url || typeof url !== 'string' || url === 'about:blank') return;
+  const safeTitle = (typeof title === 'string') ? title : '';
   let hist = _getBrowseHistory();
   if (hist.length && hist[0].url === url) {
-    hist[0].title = title || hist[0].title;
+    hist[0].title = safeTitle || hist[0].title;
     hist[0].ts = Date.now();
   } else {
-    hist.unshift({ url, title: title || _browseTitleFromUrl(url), ts: Date.now() });
+    hist.unshift({ url, title: safeTitle || _browseTitleFromUrl(url), ts: Date.now() });
   }
   if (hist.length > 1000) hist = hist.slice(0, 1000);
   Settings.setJSON('browseHistory', hist);
@@ -251,14 +258,12 @@ export function _renderWebSearchHistoryPage(el) {
   }
 
   // Tab switcher
-  const browseTab = Button(
-    RawHTML('Sites <span style="font-size:0.7rem;color:var(--nr-text-quaternary);">' + browseHist.length + '</span>')
-  ).cssText(tabStyle(isBrowse));
+  const browseTab = new View('button').cssText(tabStyle(isBrowse));
+  browseTab.add(RawHTML('Sites <span style="font-size:0.7rem;color:var(--nr-text-quaternary);">' + browseHist.length + '</span>'));
   browseTab.onTap(function() { _historyPageTab = 'browse'; _renderWebSearchHistoryPage(el); });
 
-  const searchTab = Button(
-    RawHTML('Searches <span style="font-size:0.7rem;color:var(--nr-text-quaternary);">' + searchHist.length + '</span>')
-  ).cssText(tabStyle(!isBrowse));
+  const searchTab = new View('button').cssText(tabStyle(!isBrowse));
+  searchTab.add(RawHTML('Searches <span style="font-size:0.7rem;color:var(--nr-text-quaternary);">' + searchHist.length + '</span>'));
   searchTab.onTap(function() { _historyPageTab = 'search'; _renderWebSearchHistoryPage(el); });
 
   const tabBar = HStack(browseTab, searchTab).cssText('display:flex;gap:0;border-bottom:1px solid var(--nr-border-strong);margin-bottom:16px;');
@@ -332,8 +337,8 @@ export function _renderWebSearchHistoryListView(hist) {
     groupMap[label].forEach(h => {
       const origIdx = allHist.findIndex(a => a.q === h.q && a.ts === h.ts);
       const time = _relativeTime(h.ts);
-      const delBtn = Button(RawHTML(_CLOSE_SVG))
-        .cssText('background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);opacity:0;flex-shrink:0;transition:opacity 0.15s;');
+      const delBtn = new View('button').cssText('background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);opacity:0;flex-shrink:0;transition:opacity 0.15s;');
+      delBtn.add(RawHTML(_CLOSE_SVG));
       delBtn.el.className = 'hist-del';
       delBtn.onTap(function(ev) { ev.stopPropagation(); _removeWebSearch(origIdx); _filterWebSearchHistory(); });
 
@@ -378,8 +383,8 @@ export function _renderBrowseHistoryListView(hist) {
         Text(domain).cssText('font-size:0.7rem;color:var(--nr-text-quaternary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;')
       ).cssText('flex:1;overflow:hidden;min-width:0;');
 
-      const delBtn = Button(RawHTML(_CLOSE_SVG))
-        .cssText('background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);opacity:0;flex-shrink:0;transition:opacity 0.15s;');
+      const delBtn = new View('button').cssText('background:none;border:none;cursor:pointer;padding:2px;color:var(--nr-text-quaternary);opacity:0;flex-shrink:0;transition:opacity 0.15s;');
+      delBtn.add(RawHTML(_CLOSE_SVG));
       delBtn.el.className = 'hist-del';
       delBtn.onTap(function(ev) { ev.stopPropagation(); _removeBrowseVisit(origIdx); _filterWebSearchHistory(); });
 
