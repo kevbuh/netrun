@@ -97,6 +97,17 @@
   word-break: break-word;
 }
 
+/* ── Content area preview ── */
+
+.impl-content-preview {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--nr-bg-base);
+}
+
 /* ── Session cards in code tab ── */
 
 .impl-session-card {

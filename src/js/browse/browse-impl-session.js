@@ -250,11 +250,11 @@ export function _renderFilesTab(container, getTabFn) {
   AetherUI.mount(wrap, container);
 
   // Load file tree
-  _refreshFileTree(tab, fileTree.el, container, getTabFn);
+  _refreshFileTree(tab, fileTree.el);
 
   // Start file watcher (guard against duplicates)
   if (!tab._implFileHandler) {
-    _startWatcher(tab, fileTree.el, container, getTabFn);
+    _startWatcher(tab, fileTree.el);
   }
 }
 
@@ -306,7 +306,7 @@ function _buildHighlightsSection(highlights) {
 
 // ── File Tree ──
 
-function _refreshFileTree(tab, treeContainer, panelContainer, getTabFn) {
+function _refreshFileTree(tab, treeContainer) {
   if (!tab._implFolderPath) return;
 
   electronAPI.implReadTree(tab._implFolderPath).then(function(tree) {
@@ -315,7 +315,7 @@ function _refreshFileTree(tab, treeContainer, panelContainer, getTabFn) {
     // Clear
     while (treeContainer.firstChild) treeContainer.removeChild(treeContainer.firstChild);
 
-    _renderTreeNodes(tab, treeContainer, tree, 0, '', panelContainer, getTabFn);
+    _renderTreeNodes(tab, treeContainer, tree, 0, '');
   });
 }
 
@@ -325,7 +325,7 @@ function _setTreeActive(treeContainer, activeRow) {
   if (activeRow) activeRow.classList.add('active');
 }
 
-function _renderTreeNodes(tab, container, nodes, depth, parentPath, panelContainer, getTabFn) {
+function _renderTreeNodes(tab, container, nodes, depth, parentPath) {
   nodes.forEach(function(node) {
     var relativePath = parentPath ? parentPath + '/' + node.name : node.name;
     var row = document.createElement('div');
@@ -344,9 +344,15 @@ function _renderTreeNodes(tab, container, nodes, depth, parentPath, panelContain
 
     if (node.type === 'file') {
       row.addEventListener('click', function() {
-        _previewFileInPanel(tab, relativePath, node.name, panelContainer, getTabFn);
+        _previewFileInContent(tab, relativePath, node.name);
         var treeRoot = row.closest('.impl-file-tree-panel');
         if (treeRoot) _setTreeActive(treeRoot, row);
+        // Also clear paper row active state
+        var parentContainer = treeRoot ? treeRoot.parentElement : null;
+        if (parentContainer) {
+          var paperRow = parentContainer.querySelector('.impl-tree-paper');
+          if (paperRow) paperRow.classList.remove('active');
+        }
       });
     }
 
@@ -356,7 +362,7 @@ function _renderTreeNodes(tab, container, nodes, depth, parentPath, panelContain
     if (node.type === 'dir' && node.children && node.children.length) {
       var expanded = true;
       var childContainer = document.createElement('div');
-      _renderTreeNodes(tab, childContainer, node.children, depth + 1, relativePath, panelContainer, getTabFn);
+      _renderTreeNodes(tab, childContainer, node.children, depth + 1, relativePath);
       container.appendChild(childContainer);
 
       // Toggle on click
@@ -370,9 +376,9 @@ function _renderTreeNodes(tab, container, nodes, depth, parentPath, panelContain
   });
 }
 
-// ── File Preview (in panel) ──
+// ── File Preview (in main content area) ──
 
-function _previewFileInPanel(tab, relativePath, fileName, panelContainer, getTabFn) {
+function _previewFileInContent(tab, relativePath, fileName) {
   if (!tab._implFolderPath) return;
 
   electronAPI.implReadFile(tab._implFolderPath, relativePath).then(function(result) {
@@ -381,12 +387,27 @@ function _previewFileInPanel(tab, relativePath, fileName, panelContainer, getTab
       return;
     }
 
-    var preview = new View('div').className('nerd-files-wrap');
+    // Insert preview as sibling of pages container in pdf-body-wrapper
+    var pagesContainer = tab._pdfPagesContainer;
+    if (!pagesContainer) return;
+    var wrapper = pagesContainer.parentElement;
+    if (!wrapper) return;
+
+    // Remove any existing preview
+    if (tab._implPreviewEl) {
+      tab._implPreviewEl.remove();
+      tab._implPreviewEl = null;
+    }
+
+    // Hide PDF pages
+    pagesContainer.style.display = 'none';
+
+    // Create preview element
+    var preview = new View('div').className('impl-content-preview');
 
     var header = new View('div').className('impl-preview-header').add(
       new View('button').className('impl-preview-close').text('\u2190').onTap(function() {
-        // Back to file tree
-        _renderFilesTab(panelContainer, getTabFn);
+        _restorePdfView(tab);
       }),
       Text(fileName).className('impl-preview-title')
     );
@@ -394,8 +415,19 @@ function _previewFileInPanel(tab, relativePath, fileName, panelContainer, getTab
     var content = new View('pre').className('impl-preview-content').text(result.content);
 
     preview.add(header, content);
-    AetherUI.mount(preview, panelContainer);
+    wrapper.appendChild(preview.el);
+    tab._implPreviewEl = preview.el;
   });
+}
+
+function _restorePdfView(tab) {
+  if (tab._implPreviewEl) {
+    tab._implPreviewEl.remove();
+    tab._implPreviewEl = null;
+  }
+  if (tab._pdfPagesContainer) {
+    tab._pdfPagesContainer.style.display = '';
+  }
 }
 
 // ── Inline tree renderer (for left sidebar) ──
@@ -416,7 +448,13 @@ export function _renderImplTreeInline(tab, container) {
   paperName.textContent = tab.title || (tab.url ? tab.url.split('/').pop() : 'Paper');
   paperName.title = tab.url || tab.localPath || '';
   paperRow.appendChild(paperName);
+  paperRow.classList.add('active');
   paperRow.addEventListener('click', function() {
+    _restorePdfView(tab);
+    // Set paper row active, clear file tree active states
+    paperRow.classList.add('active');
+    var treePanel = container.querySelector('.impl-file-tree-panel');
+    if (treePanel) _setTreeActive(treePanel, null);
     if (typeof window._pdfViewerScrollToPage === 'function') window._pdfViewerScrollToPage(tab, 1);
   });
   container.appendChild(paperRow);
@@ -476,20 +514,16 @@ export function _renderImplTreeInline(tab, container) {
   fileTreeEl.className = 'impl-file-tree-panel';
   container.appendChild(fileTreeEl);
 
-  // panelContainer for file preview — use the right panel content
-  var panelContainer = document.getElementById('universal-panel-content');
-  var getTabFn = function() { return tab; };
-
-  _refreshFileTree(tab, fileTreeEl, panelContainer, getTabFn);
+  _refreshFileTree(tab, fileTreeEl);
 
   if (!tab._implFileHandler) {
-    _startWatcher(tab, fileTreeEl, panelContainer, getTabFn);
+    _startWatcher(tab, fileTreeEl);
   }
 }
 
 // ── File Watcher ──
 
-function _startWatcher(tab, fileTreeEl, panelContainer, getTabFn) {
+function _startWatcher(tab, fileTreeEl) {
   if (!tab._implSessionId || !tab._implFolderPath) return;
 
   electronAPI.implWatchStart(tab._implSessionId, tab._implFolderPath);
@@ -499,7 +533,7 @@ function _startWatcher(tab, fileTreeEl, panelContainer, getTabFn) {
     if (sid !== tab._implSessionId) return;
     clearTimeout(debounce);
     debounce = setTimeout(function() {
-      _refreshFileTree(tab, fileTreeEl, panelContainer, getTabFn);
+      _refreshFileTree(tab, fileTreeEl);
     }, 500);
   };
   electronAPI.onImplFileChanged(handler);
@@ -509,6 +543,9 @@ function _startWatcher(tab, fileTreeEl, panelContainer, getTabFn) {
 // ── Teardown ──
 
 function _teardownSession(tab) {
+  // Restore PDF if preview is active
+  _restorePdfView(tab);
+
   // Stop watcher
   if (tab._implSessionId) {
     electronAPI.implWatchStop(tab._implSessionId);
