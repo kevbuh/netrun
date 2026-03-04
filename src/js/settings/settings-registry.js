@@ -4,11 +4,9 @@ export const _SETTINGS_REGISTRY = [
   { section: 'profile', label: 'Private Profile', desc: 'Hide your profile from search and browse', keywords: 'privacy private hide search' },
 
   // ── Appearance: Visual ──
-  { section: 'appearance', label: 'Theme', desc: 'App-wide color theme: dark, light, daylight, or clear', keywords: 'dark light daylight clear theme mode color scheme' },
+  { section: 'appearance', label: 'Theme', desc: 'App-wide color theme: dark, light, or clear', keywords: 'dark light clear theme mode color scheme' },
   { section: 'appearance', label: 'Aether Theme', desc: 'Color scheme for the Aether chat panel', keywords: 'aether panel chat midnight match color' },
   { section: 'appearance', label: 'Accent Color', desc: 'Pick the app accent color', keywords: 'accent color brand tint orange red gold green blue purple pink' },
-  { section: 'appearance', label: 'Editor Theme', desc: 'Code editor syntax theme', keywords: 'editor code syntax monokai dracula solarized github nord' },
-  { section: 'appearance', label: 'Icon Size', desc: 'Sidebar icon size: small, medium, or large', keywords: 'icon size sidebar density' },
   { section: 'appearance', label: 'Pixel Pet', desc: 'Animated companion that follows the cursor', keywords: 'pet mascot animation cursor cat dog bunny' },
 
   // ── Appearance: Layout ──
@@ -25,8 +23,6 @@ export const _SETTINGS_REGISTRY = [
   // ── Appearance: Captions ──
   { section: 'appearance', label: 'Captions Overlay', desc: 'Display captions as a floating bar on the page', keywords: 'captions overlay subtitle transcript' },
 
-  // ── Appearance: Menu Icons ──
-  { section: 'appearance', label: 'Menu Icons', desc: 'Toggle and reorder sidebar menu icons', keywords: 'sidebar menu icon reorder drag visibility' },
 
   // ── Browser: Layout ──
   { section: 'browser', label: 'Simplify URLs', desc: 'Show only the domain name in the URL bar', keywords: 'url domain address bar shorten clean' },

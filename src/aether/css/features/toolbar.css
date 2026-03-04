@@ -84,6 +84,7 @@ body.electron-app .pill-island-container { left: 80px; }
   flex-shrink: 0;
   padding: 0;
 }
+.sidebar-icon > svg { width: 18px; height: 18px; }
 .sidebar-icon:hover { background: transparent; color: var(--aether-text); transform: scale(1.3); }
 .sidebar-icon.active { background: transparent; color: var(--aether-text); }
 .sidebar-icon.active:hover { background: transparent; }
@@ -102,10 +103,6 @@ body.electron-app .pill-island-container { left: 80px; }
 
 /* Dashboard avatar */
 #sb-dashboard-avatar img { border-radius: 50% !important; }
-
-/* Icon size overrides */
-[data-icon-size="medium"] .sidebar-icon > svg { width: 18px !important; height: 18px !important; }
-[data-icon-size="large"] .sidebar-icon > svg { width: 20px !important; height: 20px !important; }
 
 
 /* ══════════════════════════════════════════════════════════════════════════════

@@ -1,95 +1,13 @@
 import Settings from '../core/core-settings.js';
-import { icon } from '/js/core/icons.js';
-import { applySidebarVisibility, getSidebarOrder, applySidebarOrder } from '/js/core/core-sidebar.js';
-import { getLS, setLS } from '/js/core/core-auth.js';
 import { getSelectedSpinner } from '/js/core/core-layout.js';
 import { CLICK_SOUND_PRESETS, setClickSoundType, toggleClickSound } from '/js/core/core-sounds.js';
 import { _settingBtnGroup, _settingCard, _settingGroupContent, _settingRow, _settingToggle } from '/js/settings/settings-helpers.js';
 import { cycleSpinner, setAccentColor, setAetherColor, _accentColorState } from '/js/settings/settings-colors.js';
 import { renderSettingsView } from '/js/settings/settings-core.js';
-import { setEditorTheme, setIconSize, setTheme } from '/js/settings/settings-theme.js';
+import { setTheme } from '/js/settings/settings-theme.js';
 import { setPixelPetType, togglePixelPet } from '/js/pixel-pet.js';
 
 // ─── Appearance Settings ──────────────────────────────────────
-
-export function toggleSidebarIcon(id, visible) {
-  let hidden = [];
-  hidden = getLS('hiddenSidebarIcons', []);
-  if (visible) {
-    hidden = hidden.filter(h => h !== id);
-  } else {
-    if (!hidden.includes(id)) hidden.push(id);
-  }
-  setLS('hiddenSidebarIcons', hidden);
-  applySidebarVisibility();
-}
-
-export function resetSidebarIcons() {
-  Settings.remove('sidebarOrder');
-  Settings.remove('hiddenSidebarIcons');
-  applySidebarOrder();
-  applySidebarVisibility();
-  renderSettingsView();
-}
-
-// ─── Sidebar Icon Drag (uses setPointerCapture) ─────────────
-
-export let _sbDragEl = null, _sbDragGhost = null, _sbDragStartY = 0, _sbDragStarted = false;
-
-export function _sbDragDown(e) {
-  const handle = e.target.closest('.sb-drag-handle');
-  if (!handle) return;
-  const row = handle.closest('.sb-icon-row');
-  if (!row) return;
-  _sbDragEl = row;
-  _sbDragStartY = e.clientY;
-  _sbDragStarted = false;
-  row.setPointerCapture(e.pointerId);
-  e.preventDefault();
-}
-
-export function _sbDragMove(e) {
-  if (!_sbDragEl) return;
-  if (!_sbDragStarted && Math.abs(e.clientY - _sbDragStartY) < 4) return;
-  const list = document.getElementById('sb-icon-list');
-  if (!list) return;
-  if (!_sbDragStarted) {
-    _sbDragStarted = true;
-    _sbDragEl.style.opacity = '0.3';
-    _sbDragGhost = _sbDragEl.cloneNode(true);
-    _sbDragGhost.style.cssText = 'position:fixed;pointer-events:none;z-index:999;opacity:0.9;background:var(--nr-bg-raised);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.4);width:' + _sbDragEl.offsetWidth + 'px;left:' + _sbDragEl.getBoundingClientRect().left + 'px';
-    document.body.appendChild(_sbDragGhost);
-  }
-  _sbDragGhost.style.top = (e.clientY - _sbDragGhost.offsetHeight / 2) + 'px';
-  const rows = Array.from(list.querySelectorAll('.sb-icon-row'));
-  for (const row of rows) {
-    if (row === _sbDragEl) continue;
-    const r = row.getBoundingClientRect();
-    const mid = r.top + r.height / 2;
-    if (e.clientY < mid) {
-      list.insertBefore(_sbDragEl, row);
-      return;
-    }
-  }
-  list.appendChild(_sbDragEl);
-}
-
-export function _sbDragEnd() {
-  if (!_sbDragEl) return;
-  _sbDragEl.style.opacity = '';
-  if (_sbDragGhost) { _sbDragGhost.remove(); _sbDragGhost = null; }
-  if (_sbDragStarted) {
-    const list = document.getElementById('sb-icon-list');
-    if (list) {
-      const order = Array.from(list.querySelectorAll('.sb-icon-row')).map(r => r.dataset.id);
-      setLS('sidebarOrder', order);
-      applySidebarOrder();
-      applySidebarVisibility();
-    }
-  }
-  _sbDragEl = null;
-  _sbDragStarted = false;
-}
 
 export function _renderAppearanceSettings() {
   const currentTheme = Settings.get('theme') || 'light';
@@ -193,48 +111,6 @@ export function _renderAppearanceSettings() {
   });
   const ttsSpeedRow = _settingRow('Read Aloud Speed', null, speedSel);
 
-  // Sidebar icons
-  const resetBtn = new window.View('button');
-  resetBtn.text('Reset');
-  resetBtn.className('text-[0.72rem] text-dimmer hover:text-primary cursor-pointer');
-  resetBtn.styles({ background: 'none', border: 'none' });
-  resetBtn.onTap(function() { resetSidebarIcons(); });
-
-  const labels = { 'sb-dashboard': 'Home', 'sb-home': 'Feed', 'sb-browse': 'Browse', 'sb-neuralook': 'Neuralook', 'sb-dev': 'Dev Stats', 'sb-settings': 'Settings' };
-  const order = getSidebarOrder();
-  const hidden = getLS('hiddenSidebarIcons', []);
-  const iconRows = order.map(function(id) {
-    const label = labels[id] || id;
-    const isVisible = !hidden.includes(id);
-    const toggle = window.Toggle(null);
-    const input = toggle.el.querySelector('input[type="checkbox"]');
-    if (input) input.checked = isVisible;
-    toggle.on('change', function(e) { if (e.target.type === 'checkbox') toggleSidebarIcon(id, e.target.checked); });
-    const row = window.HStack(
-      window.RawHTML('<span class="sb-drag-handle text-dimmest cursor-grab" style="touch-action:none">' + icon('dragHandle', { size: 14, class: 'w-3.5 h-3.5' }) + '</span>'),
-      window.Text(label).className('text-primary text-sm'),
-      window.Spacer(),
-      toggle
-    ).spacing(2).className('sb-icon-row flex items-center justify-between py-2');
-    row.attr('data-id', id);
-    row.styles({ touchAction: 'none' });
-    return row;
-  });
-  const iconList = VStack(iconRows);
-  iconList.el.id = 'sb-icon-list';
-  iconList.el.addEventListener('pointerdown', function(e) { _sbDragDown(e); });
-  iconList.el.addEventListener('pointermove', function(e) { _sbDragMove(e); });
-  iconList.el.addEventListener('pointerup', function(e) { _sbDragEnd(e); });
-  iconList.el.addEventListener('pointercancel', function(e) { _sbDragEnd(e); });
-
-  const menuSection = window.VStack(
-    window.HStack(
-      window.Text('Menu Icons').className('text-white_ text-sm font-semibold'),
-      window.Spacer(), resetBtn
-    ).className('mb-3'),
-    iconList
-  ).className('mb-8');
-
   // Accent color row
   const accentRow = _settingRow('Accent Color', null, HStack(accentSwatches).spacing(2));
 
@@ -249,11 +125,9 @@ export function _renderAppearanceSettings() {
 
   return window.VStack(
     _settingCard('Visual', [
-      _settingBtnGroup('Theme', ['auto','dark','light','daylight','clear'], currentTheme, function(v) { setTheme(v); }),
+      _settingBtnGroup('Theme', ['auto','dark','light','clear'], currentTheme, function(v) { setTheme(v); }),
       _settingBtnGroup('Aether', [{value:'midnight',label:'Midnight'},{value:'aether',label:'Aether'},{value:'match',label:'Match'}], aetherCur, function(v) { setAetherColor(v); }),
       accentRow,
-      _settingBtnGroup('Editor Theme', ['auto','monokai','dracula','solarized','github','nord'], Settings.get('editorTheme') || 'auto', function(v) { setEditorTheme(v); }),
-      _settingBtnGroup('Icon Size', ['small','medium','large'], Settings.get('iconSize') || 'medium', function(v) { setIconSize(v); }),
       petGroupRow,
     ]),
     _settingCard('Layout', [
@@ -275,7 +149,6 @@ export function _renderAppearanceSettings() {
       _settingToggle('Show overlay on page', 'Display captions as a floating bar at the bottom of the page in addition to the island pill',
         Settings.get('ccDisplay') === 'overlay', function(on) { Settings.set('ccDisplay', on ? 'overlay' : 'pill'); }),
     ]),
-    menuSection
   );
 }
 

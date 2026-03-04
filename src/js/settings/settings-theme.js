@@ -1,13 +1,12 @@
 import Settings from '../core/core-settings.js';
 import { apiPut } from '/js/api.js';
 import { renderSettingsView } from '/js/settings/settings-core.js';
-import { setAetherColor, startDaylightTheme, stopDaylightTheme } from '/js/settings/settings-colors.js';
+import { setAetherColor } from '/js/settings/settings-colors.js';
 
 // Map each theme to its underlying color scheme (dark or light)
 export const THEME_COLOR_SCHEME = {
   dark: 'dark',
   light: 'light',
-  daylight: 'light',
   clear: 'dark',
 };
 
@@ -22,7 +21,6 @@ export function _resolveAutoTheme() {
 
 // Apply the resolved theme to the DOM (shared by setTheme and the system listener)
 export function _applyResolvedTheme(resolved) {
-  stopDaylightTheme();
   if (resolved === 'light') {
     document.documentElement.setAttribute('data-theme', 'light');
   } else if (resolved === 'dark') {
@@ -30,7 +28,6 @@ export function _applyResolvedTheme(resolved) {
   } else {
     document.documentElement.setAttribute('data-theme', resolved);
   }
-  if (resolved === 'daylight') startDaylightTheme();
 }
 
 // Listen for system color scheme changes to update 'auto' theme in real time
@@ -48,7 +45,7 @@ export function setTheme(theme) {
   if (resolved === 'clear' && typeof setAetherColor === 'function') {
     setAetherColor('match');
   }
-  ['auto', 'dark', 'light', 'daylight', 'clear'].forEach(t => {
+  ['auto', 'dark', 'light', 'clear'].forEach(t => {
     const btn = document.getElementById('theme-btn-' + t);
     if (btn) btn.className = `px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ${theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary'}`;
   });
@@ -82,22 +79,5 @@ export function resetAdBlockRules() {
     }).catch(() => { if (el) el.textContent = 'Error updating filter lists.'; });
 }
 
-export function setEditorTheme(theme) {
-  Settings.set('editorTheme', theme);
-  if (theme === 'auto') {
-    document.documentElement.removeAttribute('data-editor-theme');
-  } else {
-    document.documentElement.setAttribute('data-editor-theme', theme);
-  }
-  ['auto','monokai','dracula','solarized','github','nord'].forEach(t => {
-    const btn = document.getElementById('editor-theme-btn-' + t);
-    if (btn) btn.className = 'px-3 py-1 rounded-md text-[0.78rem] border cursor-pointer transition-colors ' + (theme === t ? 'border-accent text-accent bg-accent/10' : 'border-border-input text-muted bg-card hover:border-accent hover:text-primary');
-  });
-}
 
-export function setIconSize(size) {
-  Settings.set('iconSize', size);
-  document.documentElement.setAttribute('data-icon-size', size);
-  renderSettingsView();
-}
 
