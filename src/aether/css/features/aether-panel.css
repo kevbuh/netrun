@@ -447,6 +447,14 @@
     }
     .doc-ask-inline-send:hover, .doc-ask-mic-btn:hover { color: var(--nr-accent); background: var(--aether-hover-subtle); }
     .doc-ask-inline-send:disabled { opacity: 0.3; cursor: not-allowed; }
+    .aether-math-badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--nr-accent);
+      white-space: nowrap;
+      padding: 0 4px;
+      flex-shrink: 0;
+    }
     .doc-ask-mic-btn {
       display: flex; align-items: center; justify-content: center;
       width: 26px; height: 22px;

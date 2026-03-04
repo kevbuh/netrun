@@ -23,6 +23,7 @@ import { openHelpPage } from '/js/browse-urlbar.js';
 import { openSettings, _setSettingsSection } from '/js/settings/settings-core.js';
 import { _getActiveBrowseTab, _saveTabPanelState } from '/js/panel-state.js';
 import { _PDF_HL_COLORS, _pdfViewerAddHighlight } from '/js/browse/browse-pdf-viewer.js';
+import { _tryMathAnswer } from '/js/urlbar/urlbar-instant.js';
 
 // Global helper for chat error buttons to open Settings > AI
 window._openSettingsToAI = function() {
@@ -1714,6 +1715,23 @@ export function _panelBuildChatInput(popup, config) {
     } else {
       _aetherHideCmdDropdown(popup);
       _aetherHideHistoryDropdown(popup);
+      // Math calculator — compact result badge next to input
+      let mathBadge = popup.querySelector('.aether-math-badge');
+      const mathResult = _tryMathAnswer(val.trim());
+      if (mathResult) {
+        if (!mathBadge) {
+          mathBadge = document.createElement('span');
+          mathBadge.className = 'aether-math-badge';
+          const inputWrap = popup.querySelector('.doc-ask-inline-wrap');
+          if (inputWrap) inputWrap.appendChild(mathBadge);
+        }
+        // Extract just the formatted number from the result
+        const m = mathResult.html.match(/font-weight:700[^>]*>([^<]+)/);
+        mathBadge.textContent = '= ' + (m ? m[1] : '');
+        mathBadge.style.display = '';
+      } else if (mathBadge) {
+        mathBadge.style.display = 'none';
+      }
     }
   });
   askInput.on('mousedown', (ev) => ev.stopPropagation());
