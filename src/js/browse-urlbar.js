@@ -192,7 +192,9 @@ function _relativeLuminance(r, g, b) {
 }
 
 // Set text + tint + aether token overrides to guarantee contrast against adaptive bg
-export function _browseApplyAdaptiveText({ r, g, b }) {
+export function _browseApplyAdaptiveText(color) {
+  if (!color) return;
+  const { r, g, b } = color;
   const lum = _relativeLuminance(r, g, b);
   const el = document.documentElement;
   if (lum > 0.4) {

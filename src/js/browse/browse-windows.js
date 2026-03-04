@@ -8,6 +8,7 @@ import { _browseResolveUrl } from '/js/toolbar/toolbar-url.js';
 import { _browseFaviconUrl, _browseTitleFromUrl } from '/js/toolbar/toolbar-nav.js';
 import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
 import { _browseApplyAdaptiveColor, _saveBrowseVisit, openHelpPage, openSearchHistoryPage } from '/js/browse-urlbar.js';
+import { _nerdModeEnabled, _nerdModeOnTabSelect } from '/js/browse/browse-nerd-mode.js';
 import { _browseBindFrame } from '/js/browse/browse-frame-bind.js';
 import { _browseCreateFrame } from '/js/browse/browse-ntp.js';
 import { _browseInstallKeyGuard, _browseInstallPinchOverlay } from '/js/browse/browse-features.js';
@@ -179,7 +180,7 @@ export function openBrowse(url) {
   // Re-apply adaptive background color for the active tab
   if (typeof _browseApplyAdaptiveColor === 'function') {
     const activeTab = _browseTabs && _browseTabs.find(t => t.id === _browseActiveTab);
-    if (activeTab) _browseApplyAdaptiveColor(activeTab);
+    if (activeTab && !_nerdModeEnabled.get(activeTab.id)) _browseApplyAdaptiveColor(activeTab);
   }
 
   if (!window._browseWindows.length) {
@@ -209,6 +210,8 @@ export function openBrowse(url) {
       if (typeof _initSidebarForUrl === 'function') _initSidebarForUrl(tab.url);
       if (typeof _showAnnotateOfferPill === 'function') _showAnnotateOfferPill(tab);
     }
+    // Restore nerd panel if the active tab has nerd mode on
+    if (tab) _nerdModeOnTabSelect(tab);
   }
   _browseInstallPinchOverlay();
   _browseInstallKeyGuard();
@@ -375,7 +378,7 @@ export async function openLocalPdfDialog() {
 // ── New Notebook ──
 export function createNewNotebook() {
   // Build minimal nbformat 4 notebook JSON
-  var nbData = {
+  const nbData = {
     nbformat: 4,
     nbformat_minor: 5,
     metadata: {
@@ -388,9 +391,9 @@ export function createNewNotebook() {
   };
 
   browseNewTab('');
-  var win = window._getCurrentWindow();
+  const win = window._getCurrentWindow();
   if (!win) return;
-  var tab = win.tabs.find(function(t) { return t.id === win.activeTab; });
+  const tab = win.tabs.find(function(t) { return t.id === win.activeTab; });
   if (!tab) return;
 
   tab._nbParsedData = nbData;

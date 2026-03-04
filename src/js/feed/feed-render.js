@@ -11,7 +11,7 @@ import { openBrowse, openLocalPdf } from '/js/browse/browse-windows.js';
 import { openPaper } from '/js/panel.js';
 import { petReact } from '/js/pixel-pet.js';
 import { logger } from '/js/logger.js';
-import { allPapers, allCategories, citationMap, hiddenSourceFilters, PAGE_SIZE, getSavedPosts, isPostSaved, toggleSavePost, isPostCached, _offlineCachedIcon, _offlineDownloadIcon, cachePostOffline, markPostAsRead, openCardMenu, getSourceAffinity, getInterestProfile, _computeContentScore, getHiddenPosts, getReadPosts, getBlockedWords, _renderedLinks, _previousPostLinks, lastFilteredPapers, setLastFilteredPapers, fetchCitationsFor, showOnboarding, loadAllFeeds } from '/js/feed/feed-data.js';
+import { allPapers, allCategories, citationMap, hiddenSourceFilters, PAGE_SIZE, getSavedPosts, isPostSaved, toggleSavePost, isPostCached, _offlineCachedIcon, _offlineDownloadIcon, cachePostOffline, markPostAsRead, openCardMenu, getSourceAffinity, getInterestProfile, _computeContentScore, getHiddenPosts, getReadPosts, getBlockedWords, _renderedLinks, setRenderedLinks, _previousPostLinks, lastFilteredPapers, setLastFilteredPapers, fetchCitationsFor, showOnboarding, loadAllFeeds } from '/js/feed/feed-data.js';
 import { currentSort, feedViewMode, getFilteredPapers, parseSearchQuery, visibleCount, setVisibleCount } from '/js/feed/feed-filter.js';
 
 // ── Card rendering helpers ──
@@ -297,7 +297,7 @@ export function _renderFilteredPapers(filtered, ctx) {
 
   // Animate cards that are new since the last render
   const prevLinks = _renderedLinks;
-  _renderedLinks = new Set(visible.map(function(p) { return p.link; }));
+  setRenderedLinks(new Set(visible.map(function(p) { return p.link; })));
   if (prevLinks.size > 0) {
     let _feedNewIdx = 0;
     container.querySelectorAll('[data-link]').forEach(function(el) {

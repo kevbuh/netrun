@@ -68,6 +68,7 @@ export let _refreshSecondsLeft = 300;
 export function clearRefreshTimer() { if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; } }
 export let _previousPostLinks = new Set();
 export let _renderedLinks = new Set();
+export function setRenderedLinks(s) { _renderedLinks = s; }
 
 export function startRefreshTimer() {
   if (_refreshTimer) clearInterval(_refreshTimer);
@@ -299,26 +300,26 @@ export function getInterestProfile() {
 
 // ── Content Score (replaces LLM) ──
 export function _computeContentScore(paper, profile) {
-  var score = 30; // baseline
+  let score = 30; // baseline
   if (!profile) return score;
 
-  var titleWords = (paper.title || '').toLowerCase().replace(/[^a-z0-9\s-]/g, '').split(/\s+/).filter(function(w) { return w.length > 2; });
-  var topTopics = profile.topTopics || [];
-  var topCategories = profile.topCategories || [];
+  const titleWords = (paper.title || '').toLowerCase().replace(/[^a-z0-9\s-]/g, '').split(/\s+/).filter(function(w) { return w.length > 2; });
+  const topTopics = profile.topTopics || [];
+  const topCategories = profile.topCategories || [];
 
   // Topic match bonus: up to +40
-  var topicMatches = 0;
-  var topTopicSet = new Set(topTopics);
-  for (var j = 0; j < titleWords.length; j++) {
+  let topicMatches = 0;
+  const topTopicSet = new Set(topTopics);
+  for (let j = 0; j < titleWords.length; j++) {
     if (topTopicSet.has(titleWords[j])) topicMatches++;
   }
   score += Math.min(40, topicMatches * 15);
 
   // Category match bonus: up to +30
-  var paperCats = Array.isArray(paper.categories) ? paper.categories : [];
-  var topCatSet = new Set(topCategories);
-  var catMatches = 0;
-  for (var k = 0; k < paperCats.length; k++) {
+  const paperCats = Array.isArray(paper.categories) ? paper.categories : [];
+  const topCatSet = new Set(topCategories);
+  let catMatches = 0;
+  for (let k = 0; k < paperCats.length; k++) {
     if (topCatSet.has(paperCats[k])) catMatches++;
   }
   score += Math.min(30, catMatches * 15);
@@ -354,7 +355,7 @@ export function markPostAsRead(link) {
   }
 }
 
-var _feedCardMenu = null;
+let _feedCardMenu = null;
 
 export function openCardMenu(btn, ev, index) {
   ev.stopPropagation();
@@ -704,7 +705,7 @@ export function _renderHcCategoryTabs() {
   if (!container) return;
   const cats = [];
   FEED_CATALOG.forEach(function(f) { if (!cats.includes(f.cat)) cats.push(f.cat); });
-  var tabs = [null].concat(cats).map(function(cat) {
+  const tabs = [null].concat(cats).map(function(cat) {
     return window.View('button')
       .className('hc-tab' + ((cat === null ? _hcActiveCategory === null : _hcActiveCategory === cat) ? ' active' : ''))
       .onTap(function() { _hcSelectCategory(cat); })

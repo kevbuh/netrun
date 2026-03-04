@@ -505,6 +505,7 @@ export function goHome() {
     const config = VIEW_REGISTRY[viewId];
     if (config && config.tier === 2) unmountView(viewId);
   }
+  hidePanel();
   document.getElementById('home-main').style.display = '';
   window.location.hash = 'feed';
   setSidebarActive('sb-home');
