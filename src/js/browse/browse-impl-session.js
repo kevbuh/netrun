@@ -403,18 +403,23 @@ function _previewFileInPanel(tab, relativePath, fileName, panelContainer, getTab
 export function _renderImplTreeInline(tab, container) {
   if (!tab || !tab._implSessionId || !tab._implFolderPath) return;
 
-  // Sync highlights button
-  var syncBtn = document.createElement('button');
-  syncBtn.className = 'nerd-sync-btn';
-  syncBtn.innerHTML = icon('highlighter', { size: 12 }) + ' Sync highlights';
-  syncBtn.onclick = function() {
-    _syncHighlightsToClaude(tab).then(function(ok) {
-      if (typeof Aether !== 'undefined' && Aether.toast) {
-        Aether.toast(ok ? 'Highlights synced to CLAUDE.md' : 'Failed to sync highlights');
-      }
-    });
-  };
-  container.appendChild(syncBtn);
+  // Paper source row
+  var paperRow = document.createElement('div');
+  paperRow.className = 'impl-tree-row impl-tree-paper';
+  paperRow.style.paddingLeft = '8px';
+  var paperIcon = document.createElement('span');
+  paperIcon.className = 'impl-tree-icon';
+  paperIcon.textContent = '\uD83D\uDCC4';
+  paperRow.appendChild(paperIcon);
+  var paperName = document.createElement('span');
+  paperName.className = 'impl-tree-name';
+  paperName.textContent = tab.title || (tab.url ? tab.url.split('/').pop() : 'Paper');
+  paperName.title = tab.url || tab.localPath || '';
+  paperRow.appendChild(paperName);
+  paperRow.addEventListener('click', function() {
+    if (typeof window._pdfViewerScrollToPage === 'function') window._pdfViewerScrollToPage(tab, 1);
+  });
+  container.appendChild(paperRow);
 
   // Highlights folder (collapsible)
   var highlights = tab._pdfHighlights || [];
