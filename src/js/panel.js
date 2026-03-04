@@ -14,7 +14,7 @@ import { _browseToggleFindBar, _switchTabLeft, _switchTabRight } from '/js/brows
 import { _extractTextFromFrame, injectSingleAnnotation } from '/js/browse/browse-annotations.js';
 import { browseNewTab, openBrowse } from '/js/browse/browse-windows.js';
 import { browseNavigate } from '/js/toolbar/toolbar-url.js';
-var _tabHoverDismissTimeout = window._tabHoverDismissTimeout ?? null;
+let _tabHoverDismissTimeout = window._tabHoverDismissTimeout ?? null;
 import { _ttsChunkText, _ttsFetchAndQueue, _ttsStopAll, _ttsUpdateBtnIcon } from '/js/panel-tts.js';
 import { allPapers, getSavedPosts, lastFilteredPapers, markPostAsRead } from '/js/feed.js';
 import { openBrowseWithPaper } from '/js/browse/browse-ntp.js';
@@ -33,12 +33,12 @@ window._openSettingsToAI = function() {
 
 // ── Hold-to-Record: Option+Space (global, works without panel open) ──
 // Standalone mic system separate from panel's closured mic button
-var _holdMicStream = null;
-var _holdMicCtx = null;
-var _holdMicWorklet = null;
-var _holdMicAccum = [];
-var _holdMicActive = false;
-var _holdRecording = false;
+let _holdMicStream = null;
+let _holdMicCtx = null;
+let _holdMicWorklet = null;
+let _holdMicAccum = [];
+let _holdMicActive = false;
+let _holdRecording = false;
 
 async function _holdMicStart() {
   if (_holdMicActive) return;
@@ -52,9 +52,9 @@ async function _holdMicStart() {
   if (typeof window.islandUpdate === 'function') window.islandUpdate('mic', { type: 'mic', label: 'Listening\u2026', lines: [], action: function() { _holdMicStop(); } });
 
   _holdMicCtx = new AudioContext({ sampleRate: 16000 });
-  var processorCode = 'class P extends AudioWorkletProcessor{constructor(){super();this._b=new Float32Array(24000);this._p=0}process(i){var c=i[0]&&i[0][0];if(!c)return true;for(var j=0;j<c.length;j++){this._b[this._p++]=c[j];if(this._p>=24000){this.port.postMessage(this._b.buffer.slice(0));this._p=0}}return true}}registerProcessor("hold-mic",P);';
-  var blob = new Blob([processorCode], { type: 'application/javascript' });
-  var blobUrl = URL.createObjectURL(blob);
+  const processorCode = 'class P extends AudioWorkletProcessor{constructor(){super();this._b=new Float32Array(24000);this._p=0}process(i){var c=i[0]&&i[0][0];if(!c)return true;for(var j=0;j<c.length;j++){this._b[this._p++]=c[j];if(this._p>=24000){this.port.postMessage(this._b.buffer.slice(0));this._p=0}}return true}}registerProcessor("hold-mic",P);';
+  const blob = new Blob([processorCode], { type: 'application/javascript' });
+  const blobUrl = URL.createObjectURL(blob);
   await _holdMicCtx.audioWorklet.addModule(blobUrl);
   URL.revokeObjectURL(blobUrl);
 
@@ -62,15 +62,15 @@ async function _holdMicStart() {
   _holdMicWorklet.port.onmessage = async function(e) {
     if (!_holdMicActive || !window.electronAPI) return;
     try {
-      var bytes = new Uint8Array(e.data);
-      var binary = '';
-      for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-      var base64 = btoa(binary);
-      var result = await window.electronAPI.captionsTranscribe(base64, 16000);
+      const bytes = new Uint8Array(e.data);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      const base64 = btoa(binary);
+      const result = await window.electronAPI.captionsTranscribe(base64, 16000);
       if (result && result.text && _holdMicActive) {
         _holdMicAccum.push(result.text);
-        var micAct = window._islandActivities ? window._islandActivities.value.mic : null;
-        var micLines = (micAct && micAct.lines) ? micAct.lines.slice() : [];
+        const micAct = window._islandActivities ? window._islandActivities.value.mic : null;
+        const micLines = (micAct && micAct.lines) ? micAct.lines.slice() : [];
         micLines.push(result.text);
         if (micLines.length > 12) micLines.shift();
         if (typeof window.islandUpdate === 'function') window.islandUpdate('mic', { type: 'mic', label: 'Listening\u2026', lines: micLines, action: function() { _holdMicStop(); } });
@@ -78,7 +78,7 @@ async function _holdMicStart() {
     } catch (_e) {}
   };
 
-  var source = _holdMicCtx.createMediaStreamSource(_holdMicStream);
+  const source = _holdMicCtx.createMediaStreamSource(_holdMicStream);
   source.connect(_holdMicWorklet);
 
   // AnalyserNode for waveform visualization in AI pill
@@ -91,13 +91,13 @@ async function _holdMicStart() {
 function _holdMicWaveformTick() {
   window._micRafId = requestAnimationFrame(_holdMicWaveformTick);
   if (!window._micAnalyser) return;
-  var buf = new Uint8Array(window._micAnalyser.frequencyBinCount);
+  const buf = new Uint8Array(window._micAnalyser.frequencyBinCount);
   window._micAnalyser.getByteFrequencyData(buf);
-  var bars = document.querySelectorAll('.ai-unified-mic .island-waveform-bar');
+  const bars = document.querySelectorAll('.ai-unified-mic .island-waveform-bar');
   if (!bars.length) return;
-  var step = Math.max(1, Math.floor(buf.length / bars.length));
-  for (var i = 0; i < bars.length; i++) {
-    var v = buf[i * step] / 255;
+  const step = Math.max(1, Math.floor(buf.length / bars.length));
+  for (let i = 0; i < bars.length; i++) {
+    const v = buf[i * step] / 255;
     bars[i].style.height = Math.max(2, v * 14) + 'px';
   }
 }
@@ -116,9 +116,9 @@ async function _holdMicStop() {
 
 async function _holdMicStopAndPaste() {
   // Grab text from accumulator + island mic lines as fallback
-  var text = _holdMicAccum.join(' ').trim();
+  let text = _holdMicAccum.join(' ').trim();
   if (!text) {
-    var micAct = window._islandActivities ? window._islandActivities.value.mic : null;
+    const micAct = window._islandActivities ? window._islandActivities.value.mic : null;
     if (micAct && micAct.lines && micAct.lines.length) text = micAct.lines.join(' ').trim();
   }
   await _holdMicStop();
@@ -135,7 +135,7 @@ async function _holdMicStopAndPaste() {
 // Send voice result to Aether chat
 window._voiceResultToChat = function(text) {
   // If panel is open, insert into its input
-  var askInput = document.querySelector('.aether-ask-input');
+  const askInput = document.querySelector('.aether-ask-input');
   if (askInput) {
     askInput.value = askInput.value + (askInput.value ? ' ' : '') + text;
     askInput.focus();
@@ -1821,8 +1821,8 @@ export function _panelBuildChatInput(popup, config) {
         if (result && result.text && _micActive) {
           _micAccum.push(result.text);
           // Update island mic pill lines
-          var micAct = window._islandActivities ? window._islandActivities.value.mic : null;
-          var micLines = (micAct && micAct.lines) ? micAct.lines.slice() : [];
+          const micAct = window._islandActivities ? window._islandActivities.value.mic : null;
+          const micLines = (micAct && micAct.lines) ? micAct.lines.slice() : [];
           micLines.push(result.text);
           if (micLines.length > 12) micLines.shift();
           if (typeof window.islandUpdate === 'function') window.islandUpdate('mic', { type: 'mic', label: 'Listening\u2026', lines: micLines, action: function() { if (typeof window._pillMicClick === 'function') window._pillMicClick(); } });
@@ -1866,8 +1866,8 @@ export function _panelBuildChatInput(popup, config) {
     .attr('title', 'Toggle Local/Cloud AI')
     .on('click', function(e) {
       e.stopPropagation();
-      var cur = Settings.get('aiProvider') || 'ollama';
-      var next = cur === 'openrouter' ? 'ollama' : 'openrouter';
+      const cur = Settings.get('aiProvider') || 'ollama';
+      const next = cur === 'openrouter' ? 'ollama' : 'openrouter';
       Settings.set('aiProvider', next);
       if (window.electronAPI && window.electronAPI.providerSetDefault) window.electronAPI.providerSetDefault(next);
       window.dispatchEvent(new CustomEvent('aimode-changed', { detail: { provider: next } }));
@@ -1876,7 +1876,7 @@ export function _panelBuildChatInput(popup, config) {
 
   // Listen for mode changes to update this chip
   function _updateAiModeChip() {
-    var cloud = Settings.get('aiProvider') === 'openrouter';
+    const cloud = Settings.get('aiProvider') === 'openrouter';
     AetherUI.mount(window.HStack(window.RawHTML(cloud ? cloudSvg : localSvg), window.Text(cloud ? 'Cloud' : 'Local')), aiModeChip.el);
     aiModeChip.el.classList.toggle('ai-mode-cloud', cloud);
   }
@@ -1896,14 +1896,19 @@ export function _panelBuildCopyKeyHandler(popup) {
   function _onCopyKey(e) {
     if (!((e.metaKey || e.ctrlKey) && e.key === 'c')) return;
     if (!popup.isConnected) { document.removeEventListener('keydown', _onCopyKey, true); return; }
-    // Only act when the input is empty (user hasn't typed anything)
+    // Only intercept if focus is inside the popup
+    if (!popup.contains(document.activeElement) && document.activeElement !== popup) return;
     const input = popup.querySelector('.doc-ask-inline-input');
     if (input && input.value) return;
-    // Copy the captured selection text if available
     const text = popup._capturedText;
     if (text) {
       e.preventDefault();
-      navigator.clipboard.writeText(text).then(() => { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(() => {});
+      if (window.electronAPI && electronAPI.clipboardWriteText) {
+        electronAPI.clipboardWriteText(text);
+        if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6');
+      } else {
+        navigator.clipboard.writeText(text).then(() => { if (window.AetherCursor && AetherCursor.pulse) AetherCursor.pulse('#3b82f6'); }).catch(() => {});
+      }
     }
     _flashCopyBtn(popup);
   }

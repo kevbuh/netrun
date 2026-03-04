@@ -22,11 +22,19 @@ let _nativeCursorHidden = false;
 let _customCursorEnabled = false;
 let _cursorNative = null;
 try { _cursorNative = require('../native/cursor/build/Release/cursor_native.node'); } catch (e) {}
+let _focusedGuestId = null;
+
+// ── Edit menu helper: route to focused webContents (including webview guests) ──
+function _getFocusedWebContents() {
+  if (_focusedGuestId != null) {
+    const wc = webContents.fromId(_focusedGuestId);
+    if (wc && !wc.isDestroyed()) return wc;
+    _focusedGuestId = null;
+  }
+  return mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null;
+}
 
 // Hold-to-record: Option+Space (keyDown starts, keyUp stops)
-// CLI context bridge — current browse selection/page for external AI tools
-const _browseContext = { selection: null, page: null, highlights: [], timestamp: 0 };
-
 let _voiceHoldActive = false;
 function _voiceHoldCheck(event, input) {
   if (!mainWindow) return;
@@ -147,7 +155,6 @@ async function createWindow() {
   while (retries < maxRetries) {
     try {
       serverPort = await staticServer.startStaticServer(PREFERRED_PORT, getStaticDir(), getDataDir());
-      staticServer.setContextStore(_browseContext);
       break;
     } catch (_e) {
       retries++;
@@ -262,6 +269,9 @@ app.on('web-contents-created', (event, contents) => {
   contents.setWebRTCIPHandlingPolicy('disable_non_proxied_udp');
 
   if (contents.getType && contents.getType() === 'webview') {
+    contents.on('focus', () => { _focusedGuestId = contents.id; });
+    contents.on('blur', () => { if (_focusedGuestId === contents.id) _focusedGuestId = null; });
+    contents.on('destroyed', () => { if (_focusedGuestId === contents.id) _focusedGuestId = null; });
     contents.setMaxListeners(20);
     const ses = contents.session;
     // ── YouTube content script (DOM safety net: skip buttons + popup dismissal) ──
@@ -537,17 +547,6 @@ app.whenReady().then(() => {
   } catch (err) {
     console.warn('[core] Could not initialize core system (build may be needed):', err.message);
   }
-
-  // ── Browse context IPC (CLI context bridge) ──
-  ipcMain.handle('browse:update-context', (_, data) => {
-    if (data.selection !== undefined)
-      _browseContext.selection = data.selection ? { ...data.selection, timestamp: Date.now() } : null;
-    if (data.page !== undefined)
-      _browseContext.page = data.page ? { ...data.page, timestamp: Date.now() } : null;
-    if (data.highlights !== undefined)
-      _browseContext.highlights = data.highlights || [];
-    _browseContext.timestamp = Date.now();
-  });
 
   createMenu();
 
