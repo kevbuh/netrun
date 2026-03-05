@@ -8,6 +8,8 @@ import { browseSelectTab } from '/js/browse/browse-passwords.js';
 import { toggleAnnotations, _annotationsEnabled, _insightAnalyzing } from '/js/browse/browse-annotations.js';
 import { toggleCaptions } from '/js/browse/browse-captions.js';
 import { _showPanel } from '/js/panel.js';
+import { _browseToggleWebviewDarkMode } from '/js/browse/browse-frame-bind.js';
+import { _nerdModeEnabled } from '/js/browse/browse-nerd-mode.js';
 
 // ── State ──
 let _dirty = false;
@@ -133,7 +135,12 @@ function _renderUnifiedPill() {
       const as = state.audioState;
       const _liveCount = typeof window._getActiveLLMCalls === 'function' ? window._getActiveLLMCalls().length : 0;
       const _pulseCount = (state.pulseState.recent || []).length;
-      const key = [state.primary, !!as.tab, !!as.tts, as.tts && as.tts.paused, !!as.cc, !!as.mic, as.micRecording, _liveCount, _pulseCount].join(',');
+      const _activeTab = _getActiveTab();
+      const _darkKey = _activeTab && _activeTab._webviewDarkMode;
+      const _cssKey = Settings.get('autoRemoveCSS');
+      const _nerdKey = _activeTab && _nerdModeEnabled.get(_activeTab.id);
+      const _annKey = _activeTab && (_insightAnalyzing.get(_activeTab.id) || _annotationsEnabled.get(_activeTab.id));
+      const key = [state.primary, !!as.tab, !!as.tts, as.tts && as.tts.paused, !!as.cc, !!as.mic, as.micRecording, _liveCount, _pulseCount, _darkKey, _cssKey, _nerdKey, _annKey].join(',');
       if (key !== _dropdownStateKey) {
         _dropdownStateKey = key;
         _renderDropdown(dropdown, state);
@@ -297,7 +304,7 @@ function _renderDropdown(dropdown, state) {
 
   // 1. Ask AI
   children.push(_dropdownItem(
-    icon('chatBubble', { size: 14 }),
+    icon('chatBubble', { size: 16 }),
     'Ask AI',
     function() { _closeDropdown(); _showPanel({ anchor: _pillAnchor(), trackCursor: false }); },
     { highlight: true }
@@ -336,22 +343,49 @@ function _renderDropdown(dropdown, state) {
 
   children.push(_divider());
 
-  // 2. AI section
+  // 2. Page Tools section
+  children.push(_sectionLabel('Page Tools'));
   const tab = _getActiveTab();
   const hasTab = tab && !tab.blank && tab.url;
+
+  const _darkOn = tab && tab._webviewDarkMode;
+  children.push(_dropdownItem(
+    icon('moon', { size: 16, strokeWidth: '1.5' }),
+    'Dark Mode',
+    function() { _browseToggleWebviewDarkMode(tab); _scheduleRender(); },
+    { disabled: !hasTab, color: _darkOn ? 'var(--nr-accent)' : undefined, trailing: Text(_darkOn ? 'On' : 'Off').font('caption2').foreground('quaternary') }
+  ));
+
+  const _cssOn = Settings.get('autoRemoveCSS') === 'true';
+  children.push(_dropdownItem(
+    icon('code', { size: 16, strokeWidth: '1.5' }),
+    'Auto Remove CSS',
+    function() { if (typeof window.toggleAutoRemoveCSS === 'function') window.toggleAutoRemoveCSS(); _closeDropdown(); },
+    { disabled: !hasTab, color: _cssOn ? 'var(--nr-accent)' : undefined, trailing: Text(_cssOn ? 'On' : 'Off').font('caption2').foreground('quaternary') }
+  ));
+
   const annAnalyzing = hasTab && _insightAnalyzing.get(tab.id);
   const annEnabled = hasTab && !annAnalyzing && _annotationsEnabled.get(tab.id);
   const annLabel = annAnalyzing ? 'Stop Analyzing' : annEnabled ? 'Remove Annotations' : 'Annotate Page';
-
   children.push(_dropdownItem(
-    icon('annotate', { size: 14 }),
+    icon('annotate', { size: 16 }),
     annLabel,
     function() { _closeDropdown(); toggleAnnotations(); },
     { disabled: !hasTab, color: (annEnabled || annAnalyzing) ? 'var(--nr-accent)' : undefined }
   ));
+
+  const _nerdOn = tab && _nerdModeEnabled.get(tab.id);
+  const isPdfForNerd = hasTab && (tab.pdfUrl || tab.localPath || tab._nbParsedData || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.toLowerCase().endsWith('.ipynb')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
+  children.push(_dropdownItem(
+    icon('research', { size: 16 }),
+    'Nerd Mode',
+    function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); _closeDropdown(); },
+    { disabled: !isPdfForNerd, color: _nerdOn ? 'var(--nr-accent)' : undefined, trailing: _nerdOn ? Text('On').font('caption2').foreground('quaternary') : undefined }
+  ));
+
   const ttsActive = !!(window._ttsAudio || window._ttsPaused || (window._ttsChunks && window._ttsChunks.length > 0));
   children.push(_dropdownItem(
-    icon(ttsActive ? 'close' : 'speaker', { size: 14 }),
+    icon(ttsActive ? 'close' : 'speaker', { size: 16 }),
     ttsActive ? 'Stop Reading' : 'Read Aloud',
     function() {
       if (ttsActive) { window._ttsStopAll(); _scheduleRender(); }
@@ -359,6 +393,7 @@ function _renderDropdown(dropdown, state) {
     },
     { disabled: !hasTab && !ttsActive, color: ttsActive ? '#ef4444' : undefined }
   ));
+
   // 3. Audio section
   children.push(_divider());
   children.push(_sectionLabel('Audio'));
@@ -374,13 +409,13 @@ function _renderDropdown(dropdown, state) {
   if (audioState.tts) {
     const spdText = (parseFloat(Settings.get('ttsSpeed')) || 1).toFixed(1).replace(/\.0$/, '') + 'x';
     children.push(_dropdownItem(
-      icon(audioState.tts.paused ? 'play' : 'pause', { size: 14 }),
+      icon(audioState.tts.paused ? 'play' : 'pause', { size: 16 }),
       audioState.tts.paused ? 'Resume TTS' : 'Pause TTS',
       function() { window._ttsPauseResume(); _scheduleRender(); },
-      { color: 'var(--nr-accent)', trailing: Text(spdText).styles({ marginLeft: 'auto', fontSize: '0.7rem', opacity: '0.5' }) }
+      { color: 'var(--nr-accent)', trailing: Text(spdText).font('caption2').foreground('quaternary') }
     ));
     children.push(_dropdownItem(
-      icon('close', { size: 14 }),
+      icon('close', { size: 16 }),
       'Stop TTS',
       function() { window._ttsStopAll(); _scheduleRender(); }
     ));
@@ -388,32 +423,32 @@ function _renderDropdown(dropdown, state) {
 
   if (audioState.cc) {
     children.push(_dropdownItem(
-      icon('cc', { size: 14 }),
+      icon('cc', { size: 16 }),
       escapeHtml(audioState.cc.label || 'CC'),
       function() { toggleCaptions(); _scheduleRender(); },
       { color: 'var(--nr-accent)' }
     ));
   } else if (audioState.tab) {
-    children.push(_dropdownItem(icon('cc', { size: 14 }), 'Captions', function() { toggleCaptions(); _scheduleRender(); }));
+    children.push(_dropdownItem(icon('cc', { size: 16 }), 'Captions', function() { toggleCaptions(); _scheduleRender(); }));
   }
 
   // Mic
   if (audioState.micRecording) {
     children.push(_dropdownItem(
-      icon('microphone', { size: 14, stroke: '#ef4444' }),
+      icon('microphone', { size: 16, stroke: '#ef4444' }),
       'Stop recording',
       function() { if (typeof window._pillMicClick === 'function') window._pillMicClick(); },
       { color: '#ef4444' }
     ));
   } else if (audioState.mic) {
     children.push(_dropdownItem(
-      icon('microphone', { size: 14 }),
+      icon('microphone', { size: 16 }),
       escapeHtml(audioState.mic.label || 'Transcribing\u2026'),
       null,
       { disabled: true }
     ));
   } else {
-    children.push(_dropdownItem(icon('microphone', { size: 14 }), 'Voice input', function() {
+    children.push(_dropdownItem(icon('microphone', { size: 16 }), 'Voice input', function() {
       _closeDropdown();
       if (typeof window._pillMicClick === 'function') { window._pillMicClick(); }
       else { _showPanel({ anchor: _pillAnchor(), trackCursor: false }); setTimeout(function() { if (typeof window._pillMicClick === 'function') window._pillMicClick(); }, 100); }
@@ -494,7 +529,7 @@ function _dropdownItem(iconHtml, label, action, opts) {
   if (opts.disabled) cls += ' ai-unified-item-disabled';
 
   const iconView = RawHTML(iconHtml || '');
-  const labelView = Text(label);
+  const labelView = Text(label).flex(1);
 
   const row = HStack(iconView, labelView);
   if (opts.color) row.styles({ color: opts.color });

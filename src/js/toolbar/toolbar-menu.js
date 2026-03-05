@@ -1,6 +1,5 @@
 // toolbar-menu.js — Hamburger menu, more menu, privacy, PDF convert
 // Replaces browse-menu.js + browse-pill.js menu portions
-import Settings from '/js/core/core-settings.js';
 import { toast } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { moreMenuOpen } from '/js/toolbar/toolbar-state.js';
@@ -8,9 +7,7 @@ import { browseSaveToReadingList, browseShare } from '/js/browse/browse-features
 import { browseSelectWindow, browseCloseWindow } from '/js/browse/browse-windows.js';
 import { isPostSaved } from '/js/feed.js';
 import { agentGetAccessibleDOM } from '/js/browse/browse-agent.js';
-import { toggleAnnotations, _annotationsEnabled, _insightAnalyzing } from '/js/browse/browse-annotations.js';
 import { _renderSitePermissionsDropdown } from '/js/urlbar/urlbar-permissions.js';
-import { _browseToggleWebviewDarkMode } from '/js/browse/browse-frame-bind.js';
 
 // ── Browse More Menu (three dots) ──
 
@@ -84,19 +81,6 @@ export function toggleBrowseMoreMenu() {
 
     items.push(new window.View('div').styles({borderTop:'1px solid var(--nr-border-default, var(--aether-border))'}).margin('2px', '0'));
 
-    const _darkOn = tab && tab._webviewDarkMode;
-    items.push(_mBtn(icon('moon', {size: 16, strokeWidth: '1.5'}), 'Dark Mode', function() { _browseToggleWebviewDarkMode(tab); toggleBrowseMoreMenu(); toggleBrowseMoreMenu(); }, { disabled: !hasTab, color: _darkOn ? 'var(--nr-accent)' : undefined, trailing: window.Text(_darkOn ? 'On' : 'Off').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') }));
-    const _cssOff = Settings.get('autoRemoveCSS') === 'true';
-    items.push(_mBtn(icon('code', {size: 16, strokeWidth: '1.5'}), 'Auto Remove CSS', function() { if (typeof window.toggleAutoRemoveCSS === 'function') window.toggleAutoRemoveCSS(); _closeMenu(); }, { disabled: !hasTab, color: _cssOff ? 'var(--nr-accent)' : undefined, trailing: window.Text(_cssOff ? 'On' : 'Off').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') }));
-    if (Settings.aiEnabled()) {
-      const _annAnalyzing = tab && _insightAnalyzing.get(tab.id);
-      const _annEnabled = tab && !_annAnalyzing && _annotationsEnabled.get(tab.id);
-      const _annLabel = _annAnalyzing ? 'Stop Analyzing' : _annEnabled ? 'Remove Annotations' : 'Annotate Page';
-      items.push(_mBtn(icon('annotate', {size: 16}), _annLabel, function() { toggleAnnotations(); _closeMenu(); }, { disabled: !hasTab, color: (_annEnabled || _annAnalyzing) ? 'var(--nr-accent)' : undefined }));
-    }
-    const _nerdOn = tab && typeof window._nerdModeEnabled !== 'undefined' && window._nerdModeEnabled.get(tab.id);
-    const isPdfForNerd = hasTab && (tab.pdfUrl || tab.localPath || tab._nbParsedData || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.toLowerCase().endsWith('.ipynb')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
-    items.push(_mBtn(icon('research', {size: 16}), 'Nerd Mode', function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); _closeMenu(); }, { disabled: !isPdfForNerd, color: _nerdOn ? 'var(--nr-accent)' : undefined, trailing: _nerdOn ? window.Text('On').styles({marginLeft:'auto'}).font('caption2').foreground('quaternary') : undefined }));
     items.push(_mBtn(icon('clock', {size: 16}), 'Search History', function() { if (typeof window.openSearchHistoryPage === 'function') window.openSearchHistoryPage(); _closeMenu(); }));
     items.push(_mBtn(icon('sidebarToggle', {size: 16}), 'Toggle Sidebar', function() { if (typeof window.toggleBrowseSidebar === 'function') window.toggleBrowseSidebar(); _closeMenu(); }));
   } else {

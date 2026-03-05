@@ -1099,20 +1099,20 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 35
 
 /* Dropdown items */
 .ai-unified-item {
-  display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px;
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 8px;
   font-size: 0.78rem; color: var(--aether-text); cursor: pointer; white-space: nowrap;
-  transition: background 0.12s ease;
+  transition: background 0.12s ease; margin: 0 4px; width: calc(100% - 8px);
 }
-.ai-unified-item:hover { background: var(--aether-hover); }
+.ai-unified-item:hover { background: var(--nr-bg-hover, var(--aether-hover)); }
 .ai-unified-item svg { flex-shrink: 0; opacity: 0.6; }
 .ai-unified-item:hover svg { opacity: 1; }
 .ai-unified-item-highlight { color: var(--nr-accent, #a78bfa); font-weight: 500; }
 .ai-unified-item-highlight svg { opacity: 0.9; }
 .ai-unified-item-disabled { opacity: 0.35; pointer-events: none; cursor: default; }
-.ai-unified-divider { height: 1px; background: var(--aether-border, rgba(255,255,255,0.06)); margin: 4px 0; }
+.ai-unified-divider { height: 1px; background: var(--nr-border-default, var(--aether-border, rgba(255,255,255,0.06))); margin: 2px 0; }
 .ai-unified-section-label {
-  padding: 4px 10px 2px; font-size: 0.6rem;
-  color: var(--aether-text-muted, rgba(255,255,255,0.4));
+  padding: 4px 12px 2px; font-size: 0.6rem;
+  color: var(--nr-text-quaternary, var(--aether-text-muted, rgba(255,255,255,0.4)));
   text-transform: uppercase; letter-spacing: 0.5px;
 }
 
