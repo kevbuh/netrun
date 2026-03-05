@@ -122,7 +122,7 @@ body.electron-app .pill-island-container { left: 80px; }
 .pill-bar.browse-mode .pill-island-container {
   position: relative; left: auto; top: auto; transform: none;
 }
-body.electron-app .pill-bar.browse-mode { left: 80px; right: 8px; }
+body.electron-app .pill-bar.browse-mode { left: 70px; right: 8px; }
 
 /* Nav icons container — collapses in browse mode */
 #pill-nav-icons {
@@ -687,7 +687,7 @@ body.electron-app .pill-bar.browse-mode.ntp-active .pill-island-container { marg
 [data-aether-theme="aether"] .browse-mode.island-mode #pill-url-wrap { background: rgba(0,0,0,0.08); }
 [data-aether-theme="aether"] .browse-mode.island-mode #pill-url-wrap:hover { background: rgba(0,0,0,0.12); }
 /* aether expanded lock removed */
-body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80px); }
+body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 35px); }
 
 /* Reload button: hidden in collapsed, shown on hover (mirrors newtab pattern) */
 .browse-mode.island-mode #pill-url-wrap #pill-browse-reload {
@@ -750,10 +750,10 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .pill-url-popup {
   position: fixed;
   z-index: 9999;
-  background: var(--aether-dropdown-bg, var(--nr-bg-overlay));
-  backdrop-filter: blur(20px);
-  border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.35), 0 0 0 1px var(--nr-border-default);
+  background: var(--pill-surface, var(--aether-hover));
+  backdrop-filter: blur(16px);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35);
   overflow: hidden;
   color-scheme: dark;
 }
@@ -1325,6 +1325,11 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 
 .pill-island-nav { display: none; flex-shrink: 0; -webkit-app-region: no-drag; }
 .browse-mode .pill-island-nav { display: flex; }
+#pill-browse-back { margin-right: -2px; }
+#pill-browse-back > svg,
+#pill-browse-fwd > svg { width: 22px; height: 22px; }
+#pill-menu-btn > svg,
+#pill-browse-hamburger > svg { width: 22px; height: 22px; }
 
 .browse-history-dropdown {
   position: fixed; min-width: 200px; max-width: 340px; max-height: 320px;

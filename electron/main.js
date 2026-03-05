@@ -202,7 +202,7 @@ async function createWindow() {
       webviewTag: true,
     },
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 15, y: 10 },
+    trafficLightPosition: { x: 10, y: 8 },
     transparent: true,
     vibrancy: 'under-window',
   });
