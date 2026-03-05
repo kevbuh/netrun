@@ -524,8 +524,6 @@ document.addEventListener('keydown', function(e) {
     e.preventDefault();
     const popup = document.getElementById('doc-chat-ask-float');
     if (popup) { _maybeDismissToIsland(popup); if (!window._aetherBackgroundStreaming && window._popupChatAbort) { window._popupChatAbort.abort(); window._popupChatAbort = null; } popup.remove(); window._aetherTrackMode = false; window._aetherPinned = false; _aetherShowCursor(); _aetherRestoreFocus(); return; }
-    const tag = document.activeElement?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
     _showPanel({ anchor: { x: window._lastMouseX, y: window._lastMouseY } });
     return;
   }
@@ -582,7 +580,8 @@ export function _handleContextMenuChat(e) {
   e.preventDefault();
   // Capture the previously focused editable element before panel steals focus
   const active = document.activeElement;
-  const priorEditable = isEditable(active) ? active : null;
+  const activeTag = active?.tagName;
+  const priorEditable = (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || active?.isContentEditable) ? active : null;
   if (popup) { popup.remove(); window._aetherTrackMode = false; }
   _showPanel({ anchor: { x: e.clientX, y: e.clientY }, priorEditable, trackCursor: true });
 }

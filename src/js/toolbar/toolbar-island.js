@@ -184,13 +184,27 @@ function _openUrlPopup(mode) {
   const compactFavicons = _snapshotStripFavicons(wrap);
   const pillRect = wrap.getBoundingClientRect();
 
-  // 1b. Hide tabs pill + anchor, lock pill width so it doesn't shrink
-  const tabsPill = wrap.querySelector('.pill-island[data-island-id="tabs"]');
-  if (tabsPill) tabsPill.style.display = 'none';
+  // 1b. Slide tabs anchor left + lock pill width so it doesn't shrink
   const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
-  if (tabsAnchor) tabsAnchor.style.display = 'none';
   wrap.style.width = Math.round(pillRect.width) + 'px';
   wrap.classList.add('pill-popup-open');
+  if (tabsAnchor && tabsAnchor.offsetWidth > 0) {
+    var anchorW = tabsAnchor.offsetWidth;
+    tabsAnchor.style.minWidth = '0';    // override flex min-width:auto
+    tabsAnchor.style.overflow = 'hidden';
+    var slideOut = tabsAnchor.animate([
+      { width: anchorW + 'px', opacity: 1 },
+      { width: '0px', opacity: 0 }
+    ], { duration: 220, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' });
+    slideOut.onfinish = function() {
+      tabsAnchor.style.display = 'none';
+      tabsAnchor.style.minWidth = '';
+      tabsAnchor.style.overflow = '';
+      slideOut.cancel();
+    };
+  } else if (tabsAnchor) {
+    tabsAnchor.style.display = 'none';
+  }
   // Let URL input fill the freed space
   const urlWrap = document.getElementById('pill-browse-url');
   if (urlWrap) urlWrap.style.flex = '1 1 auto';
@@ -353,11 +367,14 @@ function _closeUrlPopup() {
   // 1. Snapshot popup tab favicon positions BEFORE removing popup
   const popupFavicons = _snapshotTabFavicons(popup, '.popup-tab-item[data-island-tab]', { onlyVisible: true });
 
-  // 2. Restore tabs pill + anchor so we can snapshot compact positions
-  const tabsPill = wrap ? wrap.querySelector('.pill-island[data-island-id="tabs"]') : null;
-  if (tabsPill) tabsPill.style.display = '';
+  // 2. Restore tabs anchor so we can snapshot compact positions
   const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
-  if (tabsAnchor) tabsAnchor.style.display = '';
+  if (tabsAnchor) {
+    tabsAnchor.style.display = '';
+    tabsAnchor.style.minWidth = '';
+    tabsAnchor.style.overflow = '';
+    tabsAnchor.getAnimations().forEach(function(a) { a.cancel(); });
+  }
   // Reset pill width/flex so layout reflows to compact state
   if (wrap) { wrap.style.width = ''; wrap.classList.remove('pill-popup-open'); }
   const urlWrap = document.getElementById('pill-browse-url');
@@ -365,10 +382,25 @@ function _closeUrlPopup() {
   const urlInput = document.getElementById('pill-browse-url-input');
   if (urlInput) { urlInput.style.maxWidth = ''; urlInput.style.flex = ''; }
 
-  // 3. Snapshot compact favicon positions (now visible)
+  // 3. Snapshot compact favicon positions (anchor restored at full size)
+  void (wrap || document.body).offsetHeight;
   const compactFavicons = wrap ? _snapshotStripFavicons(wrap) : [];
   const compactMap = {};
   for (let i = 0; i < compactFavicons.length; i++) compactMap[compactFavicons[i].tabId] = compactFavicons[i].rect;
+
+  // 3b. Animate tabs anchor sliding back in
+  if (tabsAnchor && tabsAnchor.offsetWidth > 0) {
+    var anchorTargetW = tabsAnchor.offsetWidth;
+    tabsAnchor.style.minWidth = '0';
+    tabsAnchor.style.overflow = 'hidden';
+    tabsAnchor.animate([
+      { width: '0px', opacity: 0 },
+      { width: anchorTargetW + 'px', opacity: 1 }
+    ], { duration: 220, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' }).onfinish = function() {
+      tabsAnchor.style.minWidth = '';
+      tabsAnchor.style.overflow = '';
+    };
+  }
 
   // 4. Reverse FLIP ghost animation: favicons fly from popup to compact strip
   const departOrder = popupFavicons.slice().reverse();
