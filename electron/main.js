@@ -311,6 +311,16 @@ app.on('web-contents-created', (event, contents) => {
         ytAdstrip.registerProtocolInterceptor(ses);
       }
 
+      // ── Throttled adblock notification to renderer ──
+      const _adblockNotifyTimers = {};
+      function _notifyAdblockBlocked(wcId, count) {
+        if (_adblockNotifyTimers[wcId]) return; // throttle: max once per 400ms per webContents
+        _adblockNotifyTimers[wcId] = setTimeout(() => { delete _adblockNotifyTimers[wcId]; }, 400);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('adblock-blocked', wcId, count);
+        }
+      }
+
       // ── Ad block check helper (used by onBeforeRequest, both sync and async paths) ──
       function _doAdblockCheck(url, wcId, details, cb) {
         if (!adblock.isEnabled()) return cb({});
@@ -325,6 +335,7 @@ app.on('web-contents-created', (event, contents) => {
             const counts = adblock.getBlockedCounts();
             counts[wcId] = (counts[wcId] || 0) + 1;
             try { adblock._trackDetail(adblock.getBlockedDetails(), wcId, new URL(url).hostname); } catch {}
+            _notifyAdblockBlocked(wcId, counts[wcId]);
             return cb({ cancel: true });
           }
         }
@@ -337,6 +348,7 @@ app.on('web-contents-created', (event, contents) => {
             const counts = adblock.getBlockedCounts();
             counts[wcId] = (counts[wcId] || 0) + 1;
             try { adblock._trackDetail(adblock.getBlockedDetails(), wcId, new URL(url).hostname); } catch {}
+            _notifyAdblockBlocked(wcId, counts[wcId]);
             return cb({ cancel: true });
           }
         } catch {}

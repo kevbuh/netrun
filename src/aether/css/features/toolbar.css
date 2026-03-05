@@ -470,9 +470,17 @@ body.electron-app .pill-bar.browse-mode.ntp-active .pill-island-container { marg
   box-shadow: 0 8px 24px rgba(0,0,0,0.25);
 }
 
-/* Pageinfo pill — icon always visible, label fades in/out */
-.pill-island[data-island-id="pageinfo"] .island-pageinfo-icon {
-  display: flex; align-items: center;
+/* Pageinfo pill — shield icon always visible, label fades in/out */
+.pill-island[data-island-id="pageinfo"] .island-shield-icon {
+  display: flex; align-items: center; transition: transform 0.2s ease;
+}
+.island-shield-icon.island-shield-pulse {
+  animation: shield-pulse 0.4s ease-out;
+}
+@keyframes shield-pulse {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.35); }
+  100% { transform: scale(1); }
 }
 
 /* Webview pointer guard when tray is open */

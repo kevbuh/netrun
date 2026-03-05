@@ -67,6 +67,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   adblockStats: () => ipcRenderer.invoke('adblock-stats'),
   adblockSetSiteException: (domain, disabled) => ipcRenderer.invoke('adblock-set-site-exception', domain, disabled),
   adblockGetSiteExceptions: () => ipcRenderer.invoke('adblock-get-site-exceptions'),
+  onAdblockBlocked: (cb) => ipcRenderer.on('adblock-blocked', (_, wcId, count) => cb(wcId, count)),
   // IP geolocation
   ipGeo: (hostname) => ipcRenderer.invoke('db:ip-geo', hostname),
   // DNS-over-HTTPS

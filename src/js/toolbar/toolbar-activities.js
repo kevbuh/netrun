@@ -273,12 +273,17 @@ export function _islandRenderPill(a) {
   } else if (a.type === 'nerd') {
     return H([R(icon('research', { size: 14 })), T(a.label || 'Nerd Mode?')]).spacing(1).styles({ whiteSpace: 'nowrap' });
   } else if (a.type === 'pageinfo') {
-    const infoIcon = R(icon('info', { size: 14, stroke: 'var(--nr-text-secondary)' })).className('island-pageinfo-icon');
+    const _adGlobal = Settings.get('adBlockEnabled') !== 'false';
+    const _adDomain = _getCurrentBrowseDomain();
+    const _adExcs = Settings.getJSON('adblockSiteExceptions', {});
+    const adblockOn = _adGlobal && !(_adDomain && _adExcs[_adDomain]);
+    const shieldIcon = adblockOn ? 'shieldCheck' : 'shieldOff';
+    const shieldColor = adblockOn ? 'var(--nr-text-secondary)' : 'var(--nr-text-quaternary)';
+    const shieldView = R(icon(shieldIcon, { size: 14, stroke: shieldColor })).className('island-shield-icon');
     if (a.label) {
-      return H([infoIcon, T(a.label).foreground('var(--nr-text-secondary)').className('island-pageinfo-label')]).spacing(1).styles({ whiteSpace: 'nowrap' });
+      return H([shieldView, T(a.label).foreground('var(--nr-text-secondary)').className('island-pageinfo-label')]).spacing(1).styles({ whiteSpace: 'nowrap' });
     }
-    // Icon hidden by default, shown on hover via CSS
-    return infoIcon;
+    return shieldView;
   } else if (a.type === 'calendar') {
     return H([R(icon('calendar', { size: 14, stroke: '#3b82f6' })), T(a.label || '').foreground('#3b82f6')]);
   } else if (a.type === 'bookmark') {
@@ -1071,3 +1076,20 @@ window.addEventListener('resize', function() {
   const avail = ur.left - cr.left - 12;
   if (avail > 0) cont.style.setProperty('--island-pills-max-w', Math.floor(avail) + 'px');
 });
+
+// ── Adblock shield pulse ──
+
+if (window.electronAPI && window.electronAPI.onAdblockBlocked) {
+  window.electronAPI.onAdblockBlocked(function(wcId, count) {
+    // Only pulse if the blocked event is for the active tab's webContents
+    var win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
+    var activeTab = win ? win.tabs.find(function(t) { return t.id === win.activeTab; }) : null;
+    if (!activeTab || !activeTab.el || typeof activeTab.el.getWebContentsId !== 'function') return;
+    try { if (activeTab.el.getWebContentsId() !== wcId) return; } catch(e) { return; }
+    var shieldEl = document.querySelector('.island-shield-icon');
+    if (!shieldEl) return;
+    shieldEl.classList.remove('island-shield-pulse');
+    void shieldEl.offsetWidth; // force reflow to restart animation
+    shieldEl.classList.add('island-shield-pulse');
+  });
+}
