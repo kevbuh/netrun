@@ -184,24 +184,29 @@ function _openUrlPopup(mode) {
   const compactFavicons = _snapshotStripFavicons(wrap);
   const pillRect = wrap.getBoundingClientRect();
 
-  // 1b. Slide tabs anchor left + lock pill width so it doesn't shrink
+  // 1b. Slide tabs pill left via CSS transition + lock pill width
   const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
+  const tabsPill = wrap.querySelector('.pill-island[data-island-id="tabs"]');
   wrap.style.width = Math.round(pillRect.width) + 'px';
   wrap.classList.add('pill-popup-open');
-  if (tabsAnchor && tabsAnchor.offsetWidth > 0) {
-    var anchorW = tabsAnchor.offsetWidth;
-    tabsAnchor.style.minWidth = '0';    // override flex min-width:auto
-    tabsAnchor.style.overflow = 'hidden';
-    var slideOut = tabsAnchor.animate([
-      { width: anchorW + 'px', opacity: 1 },
-      { width: '0px', opacity: 0 }
-    ], { duration: 220, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' });
-    slideOut.onfinish = function() {
-      tabsAnchor.style.display = 'none';
-      tabsAnchor.style.minWidth = '';
-      tabsAnchor.style.overflow = '';
-      slideOut.cancel();
-    };
+  if (tabsPill) {
+    // The pill already has CSS transition on max-width, opacity, padding
+    tabsPill.style.minWidth = '0';
+    tabsPill.style.overflow = 'hidden';
+    tabsPill.style.maxWidth = '0px';
+    tabsPill.style.opacity = '0';
+    tabsPill.style.padding = '0';
+    if (tabsAnchor) tabsAnchor.classList.add('pill-anchor-collapsing');
+    setTimeout(function() {
+      if (tabsAnchor) tabsAnchor.style.display = 'none';
+      if (tabsPill) tabsPill.style.display = 'none';
+      // Clear inline overrides (element is hidden)
+      tabsPill.style.minWidth = '';
+      tabsPill.style.overflow = '';
+      tabsPill.style.maxWidth = '';
+      tabsPill.style.opacity = '';
+      tabsPill.style.padding = '';
+    }, 400);
   } else if (tabsAnchor) {
     tabsAnchor.style.display = 'none';
   }
@@ -367,13 +372,20 @@ function _closeUrlPopup() {
   // 1. Snapshot popup tab favicon positions BEFORE removing popup
   const popupFavicons = _snapshotTabFavicons(popup, '.popup-tab-item[data-island-tab]', { onlyVisible: true });
 
-  // 2. Restore tabs anchor so we can snapshot compact positions
+  // 2. Restore tabs anchor + pill to natural state for snapshotting
   const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
+  const tabsPill = tabsAnchor ? tabsAnchor.querySelector('.pill-island[data-island-id="tabs"]') : null;
   if (tabsAnchor) {
     tabsAnchor.style.display = '';
-    tabsAnchor.style.minWidth = '';
-    tabsAnchor.style.overflow = '';
-    tabsAnchor.getAnimations().forEach(function(a) { a.cancel(); });
+    tabsAnchor.classList.remove('pill-anchor-collapsing');
+  }
+  if (tabsPill) {
+    tabsPill.style.display = '';
+    tabsPill.style.minWidth = '';
+    tabsPill.style.overflow = '';
+    tabsPill.style.maxWidth = '';
+    tabsPill.style.opacity = '';
+    tabsPill.style.padding = '';
   }
   // Reset pill width/flex so layout reflows to compact state
   if (wrap) { wrap.style.width = ''; wrap.classList.remove('pill-popup-open'); }
@@ -382,24 +394,26 @@ function _closeUrlPopup() {
   const urlInput = document.getElementById('pill-browse-url-input');
   if (urlInput) { urlInput.style.maxWidth = ''; urlInput.style.flex = ''; }
 
-  // 3. Snapshot compact favicon positions (anchor restored at full size)
+  // 3. Snapshot compact favicon positions (everything at natural size)
   void (wrap || document.body).offsetHeight;
   const compactFavicons = wrap ? _snapshotStripFavicons(wrap) : [];
   const compactMap = {};
   for (let i = 0; i < compactFavicons.length; i++) compactMap[compactFavicons[i].tabId] = compactFavicons[i].rect;
 
-  // 3b. Animate tabs anchor sliding back in
-  if (tabsAnchor && tabsAnchor.offsetWidth > 0) {
-    var anchorTargetW = tabsAnchor.offsetWidth;
-    tabsAnchor.style.minWidth = '0';
-    tabsAnchor.style.overflow = 'hidden';
-    tabsAnchor.animate([
-      { width: '0px', opacity: 0 },
-      { width: anchorTargetW + 'px', opacity: 1 }
-    ], { duration: 220, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' }).onfinish = function() {
-      tabsAnchor.style.minWidth = '';
-      tabsAnchor.style.overflow = '';
-    };
+  // 3b. Slide tabs pill back in via CSS transition
+  if (tabsPill) {
+    tabsPill.style.minWidth = '0';
+    tabsPill.style.overflow = 'hidden';
+    tabsPill.style.maxWidth = '0px';
+    tabsPill.style.opacity = '0';
+    tabsPill.style.padding = '0';
+    void tabsPill.offsetWidth; // register collapsed state
+    tabsPill.style.maxWidth = '';
+    tabsPill.style.opacity = '';
+    tabsPill.style.padding = '';
+    setTimeout(function() {
+      if (tabsPill) { tabsPill.style.minWidth = ''; tabsPill.style.overflow = ''; }
+    }, 400);
   }
 
   // 4. Reverse FLIP ghost animation: favicons fly from popup to compact strip

@@ -867,7 +867,8 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 35
 }
 .browse-mode.island-mode #pill-island-tabs-anchor:empty::after { display: none; }
 .browse-mode.island-mode.ntp-active #pill-island-tabs-anchor::after,
-#pill-island-tabs-anchor.ntp-hide-divider::after { display: none; }
+#pill-island-tabs-anchor.ntp-hide-divider::after,
+#pill-island-tabs-anchor.pill-anchor-collapsing::after { display: none; }
 /* NTP: hide all island pills except tabs */
 .browse-mode.island-mode.ntp-active #pill-island > .pill-island { display: none !important; }
 .browse-mode.island-mode.ntp-active #pill-island > .pill-island[data-island-id="tabs"] {
