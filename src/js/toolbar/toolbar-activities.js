@@ -5,7 +5,7 @@ import { icon } from '/js/core/icons.js';
 import { ANN_COLORS, ANN_COLOR_MAP } from '/js/browse/browse-annotations.js';
 import { visibleActivities, notifyTabsChanged } from '/js/toolbar/toolbar-state.js';
 import { browseSelectTab, browseCloseTab } from '/js/browse/browse-passwords.js';
-import { _getCurrentBrowseDomain } from '/js/urlbar/urlbar-permissions.js';
+import { _getCurrentBrowseDomain, _renderSitePermissionsDropdown } from '/js/urlbar/urlbar-permissions.js';
 
 // ── Privacy features definition (shared by tray + stats) ──
 var _privFeatures = [
@@ -482,6 +482,21 @@ export function _islandBuildTray(a, isBrowse) {
     rows.push(new V('div').id('pageinfo-priv-stats').styles({
       padding: '4px 2px', minHeight: '18px'
     }));
+
+    // ── Site permissions ──
+    if (_siteDomain) {
+      rows.push(new V('div').styles({ height: '1px', background: 'var(--nr-border-default)', margin: '6px 0 4px' }));
+      rows.push(H([
+        T('PERMISSIONS').font('caption2').foreground('quaternary').styles({ letterSpacing: '0.05em' }),
+      ]).styles({ padding: '0 2px' }));
+      var permsContainer = new V('div').id('pageinfo-perms-panel');
+      rows.push(permsContainer);
+      // Render after mount so DOM is ready
+      setTimeout(function() {
+        var el = document.getElementById('pageinfo-perms-panel');
+        if (el) _renderSitePermissionsDropdown(el);
+      }, 0);
+    }
 
     if (rows.length === 0) return null;
     return VS(rows).styles({ gap: '2px', padding: '8px 10px', minWidth: '200px' });

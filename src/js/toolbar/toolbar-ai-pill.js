@@ -258,23 +258,10 @@ function _renderInlineLabels(container, inline) {
     return;
   }
 
-  const children = [];
-  const shortModel = _shortModelName(inline.modelName);
-
-  if (inline.modelLabel) {
-    children.push(
-      Text(escapeHtml(inline.modelLabel)).className('ai-unified-model-label')
-    );
-  }
-
-  if (shortModel) {
-    children.push(
-      Text(escapeHtml(shortModel)).className('ai-unified-model-name')
-    );
-  }
-
-  const row = HStack(children);
-  AetherUI.mount(row, container);
+  // Show only the task label inline (e.g. "Chatting", "Analyzing…")
+  // Model name is visible in the dropdown on click
+  const label = Text(escapeHtml(inline.modelLabel)).className('ai-unified-model-label');
+  AetherUI.mount(label, container);
 }
 
 // ── Secondary dots ──
@@ -392,6 +379,13 @@ function _renderDropdown(dropdown, state) {
       else { _closeDropdown(); if (typeof window._readPageAloud === 'function') window._readPageAloud(); }
     },
     { disabled: !hasTab && !ttsActive, color: ttsActive ? '#ef4444' : undefined }
+  ));
+
+  children.push(_dropdownItem(
+    icon('eye', { size: 16, strokeWidth: '1.5' }),
+    'AI View',
+    function() { _closeDropdown(); if (typeof window.browseShowAIView === 'function') window.browseShowAIView(); },
+    { disabled: !hasTab }
   ));
 
   // 3. Audio section

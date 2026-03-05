@@ -370,7 +370,7 @@ export function _nlTrainOnServerSSE(onProgress, onLog, refine) {
 
     _nl.trainAbort = new AbortController();
     const modelLabel = (_nl.modelType || 'cnn').toUpperCase();
-    islandUpdate('ai-train', { type: 'ai', label: modelLabel, detail: 'Training \u00B7 ' + modelLabel });
+    islandUpdate('ai-train', { type: 'ai', label: 'Training', detail: modelLabel });
     api('/api/neuralook/train', {
       method: 'POST',
       signal: _nl.trainAbort.signal,

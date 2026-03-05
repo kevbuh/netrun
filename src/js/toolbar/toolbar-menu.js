@@ -3,7 +3,7 @@
 import { toast } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { moreMenuOpen } from '/js/toolbar/toolbar-state.js';
-import { browseSaveToReadingList, browseShare } from '/js/browse/browse-features.js';
+import { browseSaveToReadingList } from '/js/browse/browse-features.js';
 import { browseSelectWindow, browseCloseWindow } from '/js/browse/browse-windows.js';
 import { isPostSaved } from '/js/feed.js';
 import { agentGetAccessibleDOM } from '/js/browse/browse-agent.js';
@@ -77,12 +77,10 @@ export function toggleBrowseMoreMenu() {
     items.push(_mBtn(icon('reloadFilled', {size: 16}), 'Reload', function() { if (typeof window.browseReload === 'function') window.browseReload(); _closeMenu(); }, { disabled: !hasTab }));
     const isSaved = hasTab && isPostSaved(tab.url);
     items.push(_mBtn(icon('bookmark', {size: 16, fill: isSaved ? 'var(--nr-accent)' : 'none', stroke: isSaved ? 'var(--nr-accent)' : 'currentColor'}), isSaved ? 'Saved' : 'Save to Reading List', function() { browseSaveToReadingList(); _closeMenu(); }));
-    items.push(_mBtn(icon('share', {size: 16, strokeWidth: '1.5'}), 'Share', function() { browseShare(); _closeMenu(); }, { disabled: !hasTab }));
 
     items.push(new window.View('div').styles({borderTop:'1px solid var(--nr-border-default, var(--aether-border))'}).margin('2px', '0'));
 
     items.push(_mBtn(icon('clock', {size: 16}), 'Search History', function() { if (typeof window.openSearchHistoryPage === 'function') window.openSearchHistoryPage(); _closeMenu(); }));
-    items.push(_mBtn(icon('sidebarToggle', {size: 16}), 'Toggle Sidebar', function() { if (typeof window.toggleBrowseSidebar === 'function') window.toggleBrowseSidebar(); _closeMenu(); }));
   } else {
     const overflowIds = typeof window.getBarOverflowIds === 'function' ? window.getBarOverflowIds() : [];
     overflowIds.forEach(function(id) {
@@ -133,16 +131,6 @@ export function toggleBrowseMoreMenu() {
   // Fixed items
   items.push(new window.View('div').styles({borderTop:'1px solid var(--nr-border-default, var(--aether-border))'}).margin('2px', '0'));
 
-  // Permissions
-  const permsBtn = _mBtn(icon('lock', {size: 16, strokeWidth: '1.5'}), 'Site Permissions', function(e) { _togglePermissionsInMenu(e || window.event); }, { disabled: !hasTab });
-  const arrowView = window.RawHTML(icon('chevronRightSmall', {size: 12, style: 'margin-left:auto;color:var(--nr-text-quaternary, var(--aether-text-dimmest));transition:transform .15s;'}));
-  arrowView.el.firstChild.id = 'browse-menu-perms-arrow';
-  permsBtn.add(arrowView);
-  items.push(permsBtn);
-
-  const permsPanel = new window.View('div').id('browse-menu-perms-panel').styles({display:'none', borderTop:'1px solid var(--aether-border)'});
-  items.push(permsPanel);
-
   // Print
   items.push(_mBtn(icon('print', {size: 16, strokeWidth: '1.5'}), 'Print page', function() { browsePrintPage(); _closeMenu(); }, { disabled: !hasTab }));
 
@@ -158,9 +146,6 @@ export function toggleBrowseMoreMenu() {
     const convertPanel = new window.View('div').id('browse-menu-convert-panel').styles({display:'none', borderTop:'1px solid var(--aether-border)'});
     items.push(convertPanel);
   }
-
-  // AI View
-  items.push(_mBtn(icon('eye', {size: 16, strokeWidth: '1.5'}), 'AI View', function() { browseShowAIView(); _closeMenu(); }, { disabled: !hasTab }));
 
   // Settings
   items.push(_mBtn(icon('settings', {size: 16, strokeWidth: '1.5'}), 'Settings', function() { location.hash = '#settings'; _closeMenu(); }));

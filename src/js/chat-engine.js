@@ -272,7 +272,7 @@ function _makeSession(thread, messages, allMessages) {
 
       const _aiModelName = hasVision ? (Settings.get('visionModel') || chatModel || 'default') : (chatModel || 'default');
       if (typeof islandUpdate === 'function') {
-        islandUpdate('aether', { type: 'ai', label: _aiModelName, detail: 'Chatting \u00B7 ' + _aiModelName });
+        islandUpdate('aether', { type: 'ai', label: 'Chatting', detail: _aiModelName });
       }
 
       // ── Stream via IPC Agent ──
