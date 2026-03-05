@@ -198,6 +198,7 @@ function _openUrlPopup(mode) {
     tabsPill.style.padding = '0';
     if (tabsAnchor) tabsAnchor.classList.add('pill-anchor-collapsing');
     setTimeout(function() {
+      if (!_urlPopupEl) return; // popup already closed
       if (tabsAnchor) tabsAnchor.style.display = 'none';
       if (tabsPill) tabsPill.style.display = 'none';
       // Clear inline overrides (element is hidden)
@@ -374,13 +375,17 @@ function _closeUrlPopup() {
 
   // 2. Restore tabs anchor + pill to natural state for snapshotting
   const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
-  const tabsPill = tabsAnchor ? tabsAnchor.querySelector('.pill-island[data-island-id="tabs"]') : null;
+  // Search broadly — pill may have been moved out of anchor by _islandRender
+  const tabsPill = document.querySelector('.pill-island[data-island-id="tabs"]');
   if (tabsAnchor) {
     tabsAnchor.style.display = '';
     tabsAnchor.classList.remove('pill-anchor-collapsing');
+    // Ensure pill is back in anchor
+    if (tabsPill && tabsPill.parentElement !== tabsAnchor) tabsAnchor.insertBefore(tabsPill, tabsAnchor.firstChild);
   }
   if (tabsPill) {
     tabsPill.style.display = '';
+    tabsPill.style.transition = 'none';
     tabsPill.style.minWidth = '';
     tabsPill.style.overflow = '';
     tabsPill.style.maxWidth = '';
@@ -402,18 +407,23 @@ function _closeUrlPopup() {
 
   // 3b. Slide tabs pill back in via CSS transition
   if (tabsPill) {
+    // Set collapsed state instantly (transition still 'none' from above)
     tabsPill.style.minWidth = '0';
     tabsPill.style.overflow = 'hidden';
     tabsPill.style.maxWidth = '0px';
     tabsPill.style.opacity = '0';
     tabsPill.style.padding = '0';
-    void tabsPill.offsetWidth; // register collapsed state
-    tabsPill.style.maxWidth = '';
-    tabsPill.style.opacity = '';
-    tabsPill.style.padding = '';
-    setTimeout(function() {
-      if (tabsPill) { tabsPill.style.minWidth = ''; tabsPill.style.overflow = ''; }
-    }, 400);
+    void tabsPill.offsetWidth; // commit collapsed state
+    // Re-enable transitions in next frame, then animate to natural
+    requestAnimationFrame(function() {
+      tabsPill.style.transition = '';
+      tabsPill.style.maxWidth = '';
+      tabsPill.style.opacity = '';
+      tabsPill.style.padding = '';
+      setTimeout(function() {
+        if (tabsPill) { tabsPill.style.minWidth = ''; tabsPill.style.overflow = ''; }
+      }, 400);
+    });
   }
 
   // 4. Reverse FLIP ghost animation: favicons fly from popup to compact strip
