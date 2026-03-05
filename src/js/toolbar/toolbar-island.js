@@ -335,20 +335,34 @@ function _closeUrlPopup() {
   // Cancel any in-flight animation
   if (_islandAnimCancel) { _islandAnimCancel(); _islandAnimCancel = null; }
 
-  // 1. Snapshot popup tab favicon positions for reverse FLIP
+  // 1. Snapshot popup tab favicon positions BEFORE removing popup
   const popupFavicons = _snapshotTabFavicons(popup, '.popup-tab-item[data-island-tab]', { onlyVisible: true });
+
+  // 2. Restore tabs pill + anchor so we can snapshot compact positions
+  const tabsPill = wrap ? wrap.querySelector('.pill-island[data-island-id="tabs"]') : null;
+  if (tabsPill) tabsPill.style.display = '';
+  const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
+  if (tabsAnchor) tabsAnchor.style.display = '';
+  // Reset pill width/flex so layout reflows to compact state
+  if (wrap) { wrap.style.width = ''; wrap.classList.remove('pill-popup-open'); }
+  const urlWrap = document.getElementById('pill-browse-url');
+  if (urlWrap) urlWrap.style.flex = '';
+  const urlInput = document.getElementById('pill-browse-url-input');
+  if (urlInput) { urlInput.style.maxWidth = ''; urlInput.style.flex = ''; }
+
+  // 3. Snapshot compact favicon positions (now visible)
   const compactFavicons = wrap ? _snapshotStripFavicons(wrap) : [];
   const compactMap = {};
   for (let i = 0; i < compactFavicons.length; i++) compactMap[compactFavicons[i].tabId] = compactFavicons[i].rect;
 
-  // 2. Reverse FLIP ghost animation
+  // 4. Reverse FLIP ghost animation: favicons fly from popup to compact strip
   const departOrder = popupFavicons.slice().reverse();
   const ghostCount = departOrder.length;
   const ghostDuration = 200 + ghostCount * 10;
   const ghostStagger = 10 + ghostCount * 2;
   const ghosts = _createGhostAnimation(departOrder, compactMap, ghostDuration, ghostStagger, { scalePulse: true, crossFade: true });
 
-  // 3. Animate popup out
+  // 5. Animate popup out
   popup.style.transition = 'opacity 120ms ' + _islandEasing + ', transform 120ms ' + _islandEasing;
   popup.style.opacity = '0';
   popup.style.transform = 'translateY(-4px)';
@@ -359,21 +373,11 @@ function _closeUrlPopup() {
     popup.remove();
   }, totalTime);
 
-  // 4. Clean up
+  // 6. Clean up state
   _urlPopupEl = null;
   window._urlPopupEl = null;
   islandExpanded.value = false;
   if (wrap) wrap.classList.remove('pill-dropdown-open');
-  // Restore tabs pill + anchor, unlock pill width, reset URL flex
-  if (wrap) { wrap.style.width = ''; wrap.classList.remove('pill-popup-open'); }
-  const urlWrap = document.getElementById('pill-browse-url');
-  if (urlWrap) urlWrap.style.flex = '';
-  const urlInput = document.getElementById('pill-browse-url-input');
-  if (urlInput) { urlInput.style.maxWidth = ''; urlInput.style.flex = ''; }
-  const tabsPill = wrap ? wrap.querySelector('.pill-island[data-island-id="tabs"]') : null;
-  if (tabsPill) tabsPill.style.display = '';
-  const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
-  if (tabsAnchor) tabsAnchor.style.display = '';
   _collapseIslandCleanup();
 
   // 5. Restore shortened URL
