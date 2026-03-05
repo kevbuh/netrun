@@ -218,6 +218,8 @@ export function openBrowse(url) {
 }
 
 export function browseNewTab(url) {
+  // Close popup if open
+  if (typeof window._collapseIsland === 'function') window._collapseIsland();
   // Intercept netrun:// URLs
   const trimUrl = (url || '').trim().toLowerCase();
   if (trimUrl === 'netrun://history' || trimUrl === 'netrun://history/') {

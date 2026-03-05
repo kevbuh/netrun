@@ -695,9 +695,13 @@ export function _islandAttachHandlers() {
 }
 
 function _islandPillClickHandler(e) {
-    // Tab click
+    // Tab click — if popup not open, open it in tabs mode instead of switching
     const tabEl = e.target.closest('[data-island-tab]');
     if (tabEl) {
+      if (!window._urlPopupEl) {
+        if (typeof window._expandIsland === 'function') window._expandIsland('tabs');
+        return;
+      }
       const tabId = parseInt(tabEl.dataset.islandTab, 10);
       if (e.target.closest('[data-island-tab-close]')) {
         browseCloseTab(tabId);
@@ -744,6 +748,12 @@ function _islandPillClickHandler(e) {
     const pill = e.target.closest('.pill-island');
     if (pill) {
       const id = pill.dataset.islandId;
+      // Tabs pill click → open popup in tabs mode
+      if (id === 'tabs' && !window._urlPopupEl) {
+        e.stopPropagation();
+        if (typeof window._expandIsland === 'function') window._expandIsland('tabs');
+        return;
+      }
       const act = window._islandActivities ? window._islandActivities.value[id] : null;
       if (act && act.action) {
         e.stopPropagation();

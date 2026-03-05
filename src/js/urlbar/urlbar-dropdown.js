@@ -232,13 +232,16 @@ export function _browseUrlKeydown(e) {
         } else {
           browseNavigate(q);
         }
+        if (typeof window._collapseIsland === 'function') window._collapseIsland();
       }
     } else if (ntp) {
       // NTP: hide dropdown, let form onsubmit (submitSearch) handle Enter
       _browseUrlHideHistory();
     } else {
+      const val = input ? input.value : '';
       _browseUrlHideHistory();
-      browseNavigate(input ? input.value : '');
+      browseNavigate(val);
+      if (typeof window._collapseIsland === 'function') window._collapseIsland();
     }
     return;
   }
@@ -558,12 +561,13 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
   const pillWrap = document.getElementById('pill-url-wrap');
   const isIsland = dd.id === 'pill-url-dropdown';
   const isPopup = dd.id === 'pill-url-popup-dropdown';
+  const popupMode = window._urlPopupEl ? window._urlPopupEl.dataset.popupMode : null;
 
   if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showBrowse.length && !matchedBangs.length && !quickOpenMatches.length && !(ntp && filter)) {
     if (isPopup) {
-      // In popup mode: show tabs, hide dropdown
+      // In popup mode: show tabs (unless url mode), hide dropdown
       const tabsEl = window._urlPopupEl ? window._urlPopupEl.querySelector('#pill-url-popup-tabs') : null;
-      if (tabsEl) tabsEl.style.display = '';
+      if (tabsEl) tabsEl.style.display = popupMode === 'url' ? 'none' : '';
       dd.innerHTML = '';
       dd.style.display = 'none';
     } else {
@@ -591,7 +595,7 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
     dd.style.maxHeight = '320px';
     dd.style.overflowY = 'auto';
     const tabsEl = window._urlPopupEl ? window._urlPopupEl.querySelector('#pill-url-popup-tabs') : null;
-    if (tabsEl) tabsEl.style.display = filter ? 'none' : '';
+    if (tabsEl) tabsEl.style.display = (filter || popupMode === 'url') ? 'none' : '';
   } else if (isIsland) {
     dd.style.position = '';
     dd.style.left = '';
@@ -920,7 +924,7 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
   if (!hasContent) {
     if (isPopup) {
       const tabsEl = window._urlPopupEl ? window._urlPopupEl.querySelector('#pill-url-popup-tabs') : null;
-      if (tabsEl) tabsEl.style.display = '';
+      if (tabsEl) tabsEl.style.display = popupMode === 'url' ? 'none' : '';
       dd.innerHTML = '';
       dd.style.display = 'none';
     } else {
@@ -931,9 +935,9 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
   }
 
   if (isPopup) {
-    // In popup mode: hide tabs when showing suggestions, render into popup dropdown
+    // In popup mode: hide tabs when showing suggestions or in url mode
     const tabsEl = window._urlPopupEl ? window._urlPopupEl.querySelector('#pill-url-popup-tabs') : null;
-    if (tabsEl) tabsEl.style.display = filter ? 'none' : '';
+    if (tabsEl) tabsEl.style.display = (filter || popupMode === 'url') ? 'none' : '';
     AetherUI.mount(root, dd);
     dd.style.display = '';
   } else {
@@ -1041,12 +1045,13 @@ export function _browseUrlHideHistory() {
   if (ntpDd) { ntpDd.style.display = 'none'; ntpDd.classList.add('hidden'); }
   const pillWrap = document.getElementById('pill-url-wrap');
   if (pillWrap) pillWrap.classList.remove('pill-dropdown-open');
-  // Popup mode: restore tabs, clear dropdown
+  // Popup mode: restore tabs (unless url mode), clear dropdown
   if (window._urlPopupEl) {
     const popupDd = window._urlPopupEl.querySelector('#pill-url-popup-dropdown');
     if (popupDd) { popupDd.innerHTML = ''; popupDd.style.display = 'none'; }
     const tabsEl = window._urlPopupEl.querySelector('#pill-url-popup-tabs');
-    if (tabsEl) tabsEl.style.display = '';
+    const pMode = window._urlPopupEl.dataset.popupMode;
+    if (tabsEl) tabsEl.style.display = pMode === 'url' ? 'none' : '';
   }
   _browseUrlHistIdx = -1;
 }

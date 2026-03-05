@@ -243,6 +243,7 @@ export function _showTabsInPillDropdown() {
   // New tab row
   const newTabIcon = window.RawHTML('<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>');
   views.push(_ddRow([newTabIcon, window.Text('New tab')]).onTap(function() {
+    if (typeof window._collapseIsland === 'function') window._collapseIsland();
     if (typeof window.browseNewTab === 'function') window.browseNewTab();
     _browseUrlHideHistory();
   }));
@@ -268,6 +269,7 @@ export function _showTabsInPillDropdown() {
     row.onTap(function() {
       browseSelectTab(t.id);
       _browseUrlHideHistory();
+      if (typeof window._collapseIsland === 'function') window._collapseIsland();
     });
     return row;
   }

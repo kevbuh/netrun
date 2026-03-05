@@ -291,6 +291,8 @@ document.addEventListener('mousedown', (e) => {
 });
 
 export function browseSelectTab(id) {
+  // Close popup if open
+  if (typeof window._collapseIsland === 'function') window._collapseIsland();
   const win = window._getCurrentWindow();
   if (!win) return;
 

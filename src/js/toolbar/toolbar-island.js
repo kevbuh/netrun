@@ -164,8 +164,10 @@ function _createGhostAnimation(fromFavicons, toMap, duration, stagger, opts) {
 
 // ── Open URL popup (separate dropdown below compact pill) ──
 
-function _openUrlPopup() {
+function _openUrlPopup(mode) {
+  // mode: 'tabs' (default) — show tab list; 'url' — show recent sites
   if (_urlPopupEl) return;
+  mode = mode || 'tabs';
 
   const wrap = document.getElementById('pill-url-wrap');
   if (!wrap) return;
@@ -205,14 +207,16 @@ function _openUrlPopup() {
   _urlPopupEl = popup;
   window._urlPopupEl = popup;
 
-  // 4. Render tab list inside popup
+  // 4. Render tab list inside popup (always created, visibility toggled by mode)
   const tabsContainer = document.createElement('div');
   tabsContainer.id = 'pill-url-popup-tabs';
   tabsContainer.className = 'pill-url-popup-tabs';
   popup.appendChild(tabsContainer);
   _renderPopupTabs(tabsContainer);
+  if (mode === 'url') tabsContainer.style.display = 'none';
+  popup.dataset.popupMode = mode;
 
-  // 5. Add empty container for autocomplete/suggestions
+  // 5. Add container for autocomplete/suggestions
   const ddContainer = document.createElement('div');
   ddContainer.id = 'pill-url-popup-dropdown';
   ddContainer.className = 'pill-url-popup-dropdown';
@@ -297,7 +301,18 @@ function _openUrlPopup() {
 
   // 12. Trigger history/suggestions
   if (typeof window._browseUrlShowHistory === 'function') {
-    setTimeout(function() { window._browseUrlShowHistory(); }, 10);
+    setTimeout(function() {
+      // In url mode, show unfiltered recents (clear input temporarily)
+      if (mode === 'url' && input) {
+        var saved = input.value;
+        input.value = '';
+        window._browseUrlShowHistory();
+        input.value = saved;
+        input.select();
+      } else {
+        window._browseUrlShowHistory();
+      }
+    }, 10);
   }
 
   // 13. Outside-click handler
@@ -443,8 +458,8 @@ function _renderPopupTabs(container) {
   AetherUI.mount(window.VStack(rows), container);
 }
 
-export function _expandIsland() {
-  _openUrlPopup();
+export function _expandIsland(mode) {
+  _openUrlPopup(mode || 'url');
 }
 
 export function _collapseIsland() {
@@ -820,24 +835,7 @@ export function _cancelPillMenuClose() {
 
 // ── Favicon click → navigate to tab (capture phase, fires before expand) ──
 
-document.addEventListener('click', function(e) {
-  const wrap = document.getElementById('pill-url-wrap');
-  if (!wrap || _urlPopupEl) return;
-  const favEl = e.target.closest('[data-island-tab]');
-  if (!favEl || !wrap.contains(favEl)) return;
-  // Close button inside a favicon wrap
-  if (e.target.closest('[data-island-tab-close]')) {
-    e.stopPropagation();
-    const closeId = +e.target.closest('[data-island-tab-close]').getAttribute('data-island-tab-close');
-    browseCloseTab(closeId);
-    return;
-  }
-  e.stopPropagation();
-  const tabId = +favEl.getAttribute('data-island-tab');
-  browseSelectTab(tabId);
-}, true);
-
-// ── Click handler for capsule → open popup ──
+// ── Click handler for capsule → open popup or handle favicon clicks ──
 
 document.addEventListener('click', function(e) {
   const wrap = document.getElementById('pill-url-wrap');
@@ -845,13 +843,23 @@ document.addEventListener('click', function(e) {
   if (_urlPopupEl) return;
   // Don't expand when clicking satellite pills — they have their own tray handlers
   if (e.target.closest('.pill-satellite-container')) return;
-  if (wrap.contains(e.target)) _openUrlPopup();
+  if (!wrap.contains(e.target)) return;
+  // Close button on compact favicon — close tab, don't open popup
+  if (e.target.closest('[data-island-tab-close]')) {
+    e.stopPropagation();
+    const closeId = +e.target.closest('[data-island-tab-close]').getAttribute('data-island-tab-close');
+    browseCloseTab(closeId);
+    return;
+  }
+  // Clicking tabs pill or favicon → show tabs; clicking URL area → show recent sites
+  const isTabsPill = !!e.target.closest('.pill-island[data-island-id="tabs"], #pill-island-tabs-anchor, [data-island-tab]');
+  _openUrlPopup(isTabsPill ? 'tabs' : 'url');
 });
 
 document.addEventListener('DOMContentLoaded', function() {
   const input = document.getElementById('pill-browse-url-input');
   if (input) input.addEventListener('focus', function() {
-    _openUrlPopup();
+    _openUrlPopup('url');
   });
 });
 
