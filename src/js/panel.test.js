@@ -1,4 +1,47 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// ═══════════════════════════════════════════════════════════════
+// Re-implement _handleContextMenuChat decision logic from panel.js
+// This mirrors the guard conditions so regressions are caught.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Returns what the context menu handler should do:
+ *   'skip'       — bail, let native context menu through
+ *   'editable'   — open panel with editableTarget
+ *   'tab-menu'   — show tab context menu
+ *   'panel'      — open aether panel (default)
+ */
+function contextMenuAction(opts) {
+  const { aiEnabled, clickAether, target, activeElement } = opts;
+  if (!aiEnabled) return 'skip';
+  if (clickAether === 'off') return 'skip';
+  // Login/onboard guards omitted (trivial DOM check)
+  // Existing popup guard omitted (trivial DOM check)
+
+  // URL bar
+  if (target.id === 'browse-url-input' || target.closest('#browse-bar')) return 'skip';
+
+  // Editable elements
+  const tag = target.tagName;
+  const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
+  if (isEditable) return 'editable';
+
+  // Browse tabs
+  if (target.closest('.browse-tab, .browse-vtab')) return 'tab-menu';
+
+  // Browse chrome
+  if (target.closest('#browse-bar, #browse-tab-row, #browse-vtabs, #universal-panel')) return 'skip';
+
+  // Webview/iframe inside browse-content
+  const browseContent = target.closest('#browse-content');
+  if (browseContent && (target.tagName === 'IFRAME' || target.tagName === 'WEBVIEW')) return 'skip';
+
+  // Default: open panel. priorEditable captures active element.
+  const activeTag = activeElement?.tagName;
+  const priorEditable = (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeElement?.isContentEditable) ? activeElement : null;
+  return { action: 'panel', priorEditable };
+}
 
 // ── Re-implement _positionAtCursor from panel.js ──
 
@@ -88,5 +131,117 @@ describe('_positionAtCursor', () => {
       const { top } = _positionAtCursor(500, 500, 200, 100, false);
       expect(top).toBe(400); // 500-100, above cursor
     });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Context menu (right-click) guard logic
+// ═══════════════════════════════════════════════════════════════
+
+describe('contextMenuAction (right-click guards)', () => {
+  function makeTarget(tagName, opts = {}) {
+    const parents = new Set(opts.parents || []);
+    return {
+      tagName,
+      id: opts.id || '',
+      isContentEditable: opts.contentEditable || false,
+      closest(selector) {
+        // Simple mock: check if any parent selector matches
+        const selectors = selector.split(',').map(s => s.trim());
+        return selectors.some(s => parents.has(s)) ? {} : null;
+      }
+    };
+  }
+
+  const defaults = { aiEnabled: true, clickAether: 'on' };
+
+  it('skips when AI is disabled', () => {
+    const target = makeTarget('DIV');
+    expect(contextMenuAction({ ...defaults, aiEnabled: false, target, activeElement: null })).toBe('skip');
+  });
+
+  it('skips when clickAether setting is off', () => {
+    const target = makeTarget('DIV');
+    expect(contextMenuAction({ ...defaults, clickAether: 'off', target, activeElement: null })).toBe('skip');
+  });
+
+  it('skips on browse URL input by id', () => {
+    const target = makeTarget('INPUT', { id: 'browse-url-input' });
+    expect(contextMenuAction({ ...defaults, target, activeElement: null })).toBe('skip');
+  });
+
+  it('skips on elements inside #browse-bar', () => {
+    const target = makeTarget('DIV', { parents: ['#browse-bar'] });
+    expect(contextMenuAction({ ...defaults, target, activeElement: null })).toBe('skip');
+  });
+
+  it('opens panel with editableTarget for INPUT elements', () => {
+    const target = makeTarget('INPUT');
+    expect(contextMenuAction({ ...defaults, target, activeElement: null })).toBe('editable');
+  });
+
+  it('opens panel with editableTarget for TEXTAREA elements', () => {
+    const target = makeTarget('TEXTAREA');
+    expect(contextMenuAction({ ...defaults, target, activeElement: null })).toBe('editable');
+  });
+
+  it('opens panel with editableTarget for contentEditable elements', () => {
+    const target = makeTarget('DIV', { contentEditable: true });
+    expect(contextMenuAction({ ...defaults, target, activeElement: null })).toBe('editable');
+  });
+
+  it('shows tab menu for browse tabs', () => {
+    const target = makeTarget('DIV', { parents: ['.browse-tab'] });
+    expect(contextMenuAction({ ...defaults, target, activeElement: null })).toBe('tab-menu');
+  });
+
+  it('skips browse chrome (#browse-tab-row, #browse-vtabs, #universal-panel)', () => {
+    for (const sel of ['#browse-tab-row', '#browse-vtabs', '#universal-panel']) {
+      const target = makeTarget('DIV', { parents: [sel] });
+      expect(contextMenuAction({ ...defaults, target, activeElement: null })).toBe('skip');
+    }
+  });
+
+  it('skips webview/iframe inside #browse-content', () => {
+    const target = makeTarget('WEBVIEW', { parents: ['#browse-content'] });
+    expect(contextMenuAction({ ...defaults, target, activeElement: null })).toBe('skip');
+    const target2 = makeTarget('IFRAME', { parents: ['#browse-content'] });
+    expect(contextMenuAction({ ...defaults, target: target2, activeElement: null })).toBe('skip');
+  });
+
+  it('opens panel on regular NTP content inside #browse-content', () => {
+    const target = makeTarget('DIV', { parents: ['#browse-content'] });
+    const result = contextMenuAction({ ...defaults, target, activeElement: null });
+    expect(result).toEqual({ action: 'panel', priorEditable: null });
+  });
+
+  it('opens panel on NTP with focused input — captures priorEditable', () => {
+    const target = makeTarget('DIV', { parents: ['#browse-content'] });
+    const activeInput = makeTarget('INPUT');
+    const result = contextMenuAction({ ...defaults, target, activeElement: activeInput });
+    expect(result.action).toBe('panel');
+    expect(result.priorEditable).toBe(activeInput);
+  });
+
+  it('opens panel on NTP with focused textarea — captures priorEditable', () => {
+    const target = makeTarget('DIV', { parents: ['#browse-content'] });
+    const activeTextarea = makeTarget('TEXTAREA');
+    const result = contextMenuAction({ ...defaults, target, activeElement: activeTextarea });
+    expect(result.action).toBe('panel');
+    expect(result.priorEditable).toBe(activeTextarea);
+  });
+
+  it('opens panel on NTP with non-editable activeElement — priorEditable is null', () => {
+    const target = makeTarget('DIV', { parents: ['#browse-content'] });
+    const activeDiv = makeTarget('DIV');
+    const result = contextMenuAction({ ...defaults, target, activeElement: activeDiv });
+    expect(result.action).toBe('panel');
+    expect(result.priorEditable).toBeNull();
+  });
+
+  it('opens panel on empty page (no browse-content parent)', () => {
+    const target = makeTarget('DIV');
+    const result = contextMenuAction({ ...defaults, target, activeElement: null });
+    expect(result).toEqual({ action: 'panel', priorEditable: null });
   });
 });
