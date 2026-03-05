@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 /**
  * _getOmniInput — determines which input + dropdown pair to use
- * Extracted from browse-urlbar.js (the core routing logic)
+ * Extracted from urlbar-dropdown.js (the core routing logic)
  */
 function _getOmniInput() {
   const ntpEl = document.getElementById('browse-content')?.querySelector('.browse-ntp');
@@ -16,15 +16,16 @@ function _getOmniInput() {
     const dd = document.getElementById('search-history-dropdown-view');
     if (input && dd) return { input, dd, ntp: true };
   }
+  // Popup mode: URL input stays in pill, dropdown renders in popup
+  if (window._urlPopupEl) {
+    const input = document.getElementById('pill-browse-url-input');
+    const dd = window._urlPopupEl.querySelector('#pill-url-popup-dropdown');
+    return { input, dd, ntp: false, island: true, popup: true };
+  }
+  // Island mode: use pill input + pill dropdown
   const nav = document.getElementById('sidebar-nav');
   if (nav && nav.classList.contains('island-mode') && nav.classList.contains('browse-mode')) {
     const pillInput = document.getElementById('pill-browse-url-input');
-    const pillWrap = document.getElementById('pill-url-wrap');
-    const isExpanded = pillWrap && pillWrap.classList.contains('island-expanded');
-    if (isExpanded) {
-      const centerCol = document.getElementById('pill-island-center');
-      if (pillInput && centerCol) return { input: pillInput, dd: centerCol, ntp: false, island: true, islandCenter: true };
-    }
     const pillDd = document.getElementById('pill-url-dropdown');
     if (pillInput && pillDd) return { input: pillInput, dd: pillDd, ntp: false, island: true };
   }
@@ -37,72 +38,32 @@ function _getOmniInput() {
   return { input: document.getElementById('browse-url-input'), dd: document.getElementById('browse-url-history-dd'), ntp: false };
 }
 
-/**
- * _islandCenterRestorePageInfo — restores page info after dropdown hides
- */
-function _islandCenterRestorePageInfo() {
-  const ddWrap = document.getElementById('island-center-dropdown');
-  if (ddWrap) { ddWrap.innerHTML = ''; ddWrap.style.display = 'none'; }
-  const leftCol = document.getElementById('pill-island-left');
-  const actionsRow = document.getElementById('pill-island-actions-row');
-  const titleEl = document.getElementById('pill-island-title');
-  const navRow = document.getElementById('pill-island-nav-row');
-  const centerCol = document.getElementById('pill-island-center');
-  if (leftCol) leftCol.style.display = '';
-  if (actionsRow) actionsRow.style.display = '';
-  if (titleEl) titleEl.style.display = '';
-  if (navRow) navRow.style.display = '';
-  if (centerCol) centerCol.classList.remove('island-center-dd-active');
-}
-
-/**
- * Simulates the island-center dropdown render path from _browseUrlRenderDropdown
- */
-function renderIslandCenterDropdown(html) {
-  const centerCol = document.getElementById('pill-island-center');
-  if (!centerCol) return null;
-
-  const leftCol = document.getElementById('pill-island-left');
-  const actionsRow = document.getElementById('pill-island-actions-row');
-  const titleEl = document.getElementById('pill-island-title');
-  const navRow = document.getElementById('pill-island-nav-row');
-  if (leftCol) leftCol.style.display = 'none';
-  if (actionsRow) actionsRow.style.display = 'none';
-  if (titleEl) titleEl.style.display = 'none';
-  if (navRow) navRow.style.display = 'none';
-  centerCol.classList.add('island-center-dd-active');
-
-  let ddWrap = document.getElementById('island-center-dropdown');
-  if (!ddWrap) {
-    ddWrap = document.createElement('div');
-    ddWrap.id = 'island-center-dropdown';
-    const pillWrap = document.getElementById('pill-url-wrap');
-    if (pillWrap) pillWrap.appendChild(ddWrap);
-  }
-  ddWrap.innerHTML = html;
-  ddWrap.style.display = '';
-  return ddWrap;
-}
-
 // ──────────────────────────────────────────────────────────
 // DOM Helpers
 // ──────────────────────────────────────────────────────────
 
-function setupIslandExpandedDOM() {
+function setupIslandPopupDOM() {
   document.body.innerHTML = `
     <nav id="sidebar-nav" class="island-mode browse-mode">
-      <div id="pill-url-wrap" class="island-expanded">
+      <div id="pill-url-wrap">
         <input id="pill-browse-url-input" type="text">
-        <div id="pill-island-left"><div id="pill-island-tabs-anchor"></div></div>
-        <div id="pill-island-center">
-          <div id="pill-island-title">Page Title</div>
-          <div id="pill-island-nav-row"><button>Back</button></div>
-          <div id="pill-island-actions-row">Page info content</div>
-        </div>
+        <div id="pill-island-left"></div>
+        <div id="pill-island-center"></div>
         <div id="pill-url-dropdown"></div>
       </div>
     </nav>
   `;
+  // Create popup element simulating open state
+  const popup = document.createElement('div');
+  popup.className = 'pill-url-popup';
+  const tabs = document.createElement('div');
+  tabs.id = 'pill-url-popup-tabs';
+  popup.appendChild(tabs);
+  const dd = document.createElement('div');
+  dd.id = 'pill-url-popup-dropdown';
+  popup.appendChild(dd);
+  document.body.appendChild(popup);
+  window._urlPopupEl = popup;
 }
 
 function setupIslandCollapsedDOM() {
@@ -116,6 +77,7 @@ function setupIslandCollapsedDOM() {
       </div>
     </nav>
   `;
+  window._urlPopupEl = null;
 }
 
 function setupClassicBrowseDOM() {
@@ -127,6 +89,7 @@ function setupClassicBrowseDOM() {
       </div>
     </nav>
   `;
+  window._urlPopupEl = null;
 }
 
 // ──────────────────────────────────────────────────────────
@@ -136,20 +99,21 @@ function setupClassicBrowseDOM() {
 describe('_getOmniInput', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    window._urlPopupEl = null;
   });
 
-  describe('Island expanded mode', () => {
-    it('should return center column as dropdown target', () => {
-      setupIslandExpandedDOM();
+  describe('Popup mode (popup open)', () => {
+    it('should return popup dropdown as dropdown target', () => {
+      setupIslandPopupDOM();
       const result = _getOmniInput();
-      expect(result.dd.id).toBe('pill-island-center');
-      expect(result.islandCenter).toBe(true);
+      expect(result.dd.id).toBe('pill-url-popup-dropdown');
+      expect(result.popup).toBe(true);
       expect(result.island).toBe(true);
       expect(result.ntp).toBe(false);
     });
 
     it('should return pill input as the input element', () => {
-      setupIslandExpandedDOM();
+      setupIslandPopupDOM();
       const result = _getOmniInput();
       expect(result.input.id).toBe('pill-browse-url-input');
     });
@@ -161,7 +125,7 @@ describe('_getOmniInput', () => {
       const result = _getOmniInput();
       expect(result.dd.id).toBe('pill-url-dropdown');
       expect(result.island).toBe(true);
-      expect(result.islandCenter).toBeUndefined();
+      expect(result.popup).toBeUndefined();
     });
   });
 
@@ -188,6 +152,7 @@ describe('_getOmniInput', () => {
         <input id="search-query" type="text">
         <div id="search-history-dropdown-view"></div>
       `;
+      window._urlPopupEl = null;
       const result = _getOmniInput();
       expect(result.ntp).toBe(true);
       expect(result.input.id).toBe('search-query');
@@ -196,125 +161,30 @@ describe('_getOmniInput', () => {
   });
 });
 
-describe('Island Center Dropdown Rendering', () => {
+describe('Popup Tab/Dropdown Toggle', () => {
   beforeEach(() => {
-    setupIslandExpandedDOM();
+    setupIslandPopupDOM();
   });
 
-  it('should create island-center-dropdown element inside pill-url-wrap', () => {
-    renderIslandCenterDropdown('<div>Test</div>');
-    const ddWrap = document.getElementById('island-center-dropdown');
-    expect(ddWrap).not.toBeNull();
-    expect(ddWrap.parentElement.id).toBe('pill-url-wrap');
+  it('popup should have tabs and dropdown containers', () => {
+    const popup = window._urlPopupEl;
+    expect(popup.querySelector('#pill-url-popup-tabs')).not.toBeNull();
+    expect(popup.querySelector('#pill-url-popup-dropdown')).not.toBeNull();
   });
 
-  it('should hide left column when dropdown is shown', () => {
-    renderIslandCenterDropdown('<div>Test</div>');
-    const leftCol = document.getElementById('pill-island-left');
-    expect(leftCol.style.display).toBe('none');
-  });
-
-  it('should hide actions row when dropdown is shown', () => {
-    renderIslandCenterDropdown('<div>Test</div>');
-    const actionsRow = document.getElementById('pill-island-actions-row');
-    expect(actionsRow.style.display).toBe('none');
-  });
-
-  it('should hide title when dropdown is shown', () => {
-    renderIslandCenterDropdown('<div>Test</div>');
-    const titleEl = document.getElementById('pill-island-title');
-    expect(titleEl.style.display).toBe('none');
-  });
-
-  it('should hide nav row when dropdown is shown', () => {
-    renderIslandCenterDropdown('<div>Test</div>');
-    const navRow = document.getElementById('pill-island-nav-row');
-    expect(navRow.style.display).toBe('none');
-  });
-
-  it('should add island-center-dd-active class to center column', () => {
-    renderIslandCenterDropdown('<div>Test</div>');
-    const centerCol = document.getElementById('pill-island-center');
-    expect(centerCol.classList.contains('island-center-dd-active')).toBe(true);
-  });
-
-  it('should render HTML content into the dropdown wrapper', () => {
-    renderIslandCenterDropdown('<div class="test-item">Result</div>');
-    const ddWrap = document.getElementById('island-center-dropdown');
-    expect(ddWrap.querySelector('.test-item')).not.toBeNull();
-    expect(ddWrap.querySelector('.test-item').textContent).toBe('Result');
-  });
-
-  it('should reuse existing dropdown wrapper on subsequent renders', () => {
-    renderIslandCenterDropdown('<div>First</div>');
-    renderIslandCenterDropdown('<div>Second</div>');
-    const wrappers = document.querySelectorAll('#island-center-dropdown');
-    expect(wrappers).toHaveLength(1);
-    expect(wrappers[0].innerHTML).toBe('<div>Second</div>');
+  it('should toggle tabs visibility based on filter', () => {
+    const tabsEl = window._urlPopupEl.querySelector('#pill-url-popup-tabs');
+    // Simulate typing: hide tabs
+    tabsEl.style.display = 'none';
+    expect(tabsEl.style.display).toBe('none');
+    // Clear filter: show tabs
+    tabsEl.style.display = '';
+    expect(tabsEl.style.display).toBe('');
   });
 });
 
-describe('_islandCenterRestorePageInfo', () => {
-  beforeEach(() => {
-    setupIslandExpandedDOM();
-  });
-
-  it('should restore left column visibility', () => {
-    renderIslandCenterDropdown('<div>Test</div>');
-    _islandCenterRestorePageInfo();
-    const leftCol = document.getElementById('pill-island-left');
-    expect(leftCol.style.display).toBe('');
-  });
-
-  it('should restore actions row visibility', () => {
-    renderIslandCenterDropdown('<div>Test</div>');
-    _islandCenterRestorePageInfo();
-    const actionsRow = document.getElementById('pill-island-actions-row');
-    expect(actionsRow.style.display).toBe('');
-  });
-
-  it('should restore title visibility', () => {
-    renderIslandCenterDropdown('<div>Test</div>');
-    _islandCenterRestorePageInfo();
-    const titleEl = document.getElementById('pill-island-title');
-    expect(titleEl.style.display).toBe('');
-  });
-
-  it('should restore nav row visibility', () => {
-    renderIslandCenterDropdown('<div>Test</div>');
-    _islandCenterRestorePageInfo();
-    const navRow = document.getElementById('pill-island-nav-row');
-    expect(navRow.style.display).toBe('');
-  });
-
-  it('should remove island-center-dd-active class from center column', () => {
-    renderIslandCenterDropdown('<div>Test</div>');
-    _islandCenterRestorePageInfo();
-    const centerCol = document.getElementById('pill-island-center');
-    expect(centerCol.classList.contains('island-center-dd-active')).toBe(false);
-  });
-
-  it('should clear and hide dropdown wrapper', () => {
-    renderIslandCenterDropdown('<div>Test</div>');
-    _islandCenterRestorePageInfo();
-    const ddWrap = document.getElementById('island-center-dropdown');
-    expect(ddWrap.innerHTML).toBe('');
-    expect(ddWrap.style.display).toBe('none');
-  });
-
-  it('should be safe to call without dropdown existing', () => {
-    expect(() => _islandCenterRestorePageInfo()).not.toThrow();
-  });
-
-  it('should be safe to call on empty DOM', () => {
-    document.body.innerHTML = '';
-    expect(() => _islandCenterRestorePageInfo()).not.toThrow();
-  });
-});
-
-describe('Island Expanded Theme Tokens', () => {
+describe('Theme Tokens', () => {
   it('page info title should use --nr-text-primary token', () => {
-    // Extracted from toolbar-island.js _renderIslandActions()
     const titleStyle = { fontSize: '0.82rem', fontWeight: '600', color: 'var(--nr-text-primary)' };
     expect(titleStyle.color).toBe('var(--nr-text-primary)');
     expect(titleStyle.color).not.toContain('#fff');

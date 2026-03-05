@@ -274,17 +274,7 @@ body.electron-app .browse-mode.island-mode #pill-island-right {
   position: absolute !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important;
   height: auto; min-width: 0; padding: 0; overflow: visible;
 }
-/* NTP expanded: restore overlay background (NTP compact is transparent) */
-.browse-mode.island-mode.ntp-active #pill-url-wrap.island-expanded {
-  background: var(--nr-bg-overlay) !important; backdrop-filter: blur(20px) !important;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.45), 0 0 0 1px var(--nr-border-default) !important;
-}
-.browse-mode.island-mode.ntp-active #pill-url-wrap.island-expanded #pill-browse-url-input,
-.browse-mode.island-mode.ntp-active #pill-url-wrap.island-expanded #pill-island-center,
-.browse-mode.island-mode.ntp-active #pill-url-wrap.island-expanded #pill-island-right-col,
-.browse-mode.island-mode.ntp-active #pill-url-wrap.island-expanded #pill-island-nav-row {
-  display: none !important;
-}
+/* NTP expanded rules removed — popup mode handles this */
 .browse-mode.ntp-active #pill-nav-icons {
   position: static; flex-direction: row; background: transparent; box-shadow: none;
   border-radius: 0; max-width: 800px; max-height: none; opacity: 1;
@@ -636,9 +626,7 @@ body.electron-app .pill-bar.browse-mode.ntp-active .pill-island-container { marg
 .browse-mode.island-mode #pill-url-wrap #pill-newtab-btn:hover {
   background: rgba(255, 255, 255, 0.12); color: var(--aether-text); transform: none;
 }
-/* Island expanded: hide close/divider (newtab + reload stay visible in first row) */
-.browse-mode.island-mode #pill-url-wrap.island-expanded > .pill-close-tab-btn,
-.browse-mode.island-mode #pill-url-wrap.island-expanded > .pill-url-divider { display: none !important; }
+/* Close/divider hidden in island mode */
 
 /* Drag ghost */
 .browse-bar-drag-ghost {
@@ -689,21 +677,16 @@ body.electron-app .pill-bar.browse-mode.ntp-active .pill-island-container { marg
               box-shadow 0.3s ease;
 }
 .browse-mode.island-mode #pill-url-wrap:hover { background: var(--pill-surface-hover, rgba(255,255,255,0.18)); }
-/* Expanded: lock to non-hover surface */
-.browse-mode.island-mode #pill-url-wrap.island-expanded,
-.browse-mode.island-mode #pill-url-wrap.island-expanded:hover { background: var(--pill-surface, rgba(255,255,255,0.14)); }
+/* Expanded surface lock removed — popup mode */
 [data-aether-theme="midnight"] .browse-mode.island-mode #pill-url-wrap { background: rgba(255,255,255,0.12); }
 [data-aether-theme="midnight"] .browse-mode.island-mode #pill-url-wrap:hover { background: rgba(255,255,255,0.18); }
-[data-aether-theme="midnight"] .browse-mode.island-mode #pill-url-wrap.island-expanded,
-[data-aether-theme="midnight"] .browse-mode.island-mode #pill-url-wrap.island-expanded:hover { background: rgba(255,255,255,0.12); }
+/* midnight expanded lock removed */
 [data-aether-theme="match"] .browse-mode.island-mode #pill-url-wrap { background: rgba(255,255,255,0.12); }
 [data-aether-theme="match"] .browse-mode.island-mode #pill-url-wrap:hover { background: rgba(255,255,255,0.18); }
-[data-aether-theme="match"] .browse-mode.island-mode #pill-url-wrap.island-expanded,
-[data-aether-theme="match"] .browse-mode.island-mode #pill-url-wrap.island-expanded:hover { background: rgba(255,255,255,0.12); }
+/* match expanded lock removed */
 [data-aether-theme="aether"] .browse-mode.island-mode #pill-url-wrap { background: rgba(0,0,0,0.08); }
 [data-aether-theme="aether"] .browse-mode.island-mode #pill-url-wrap:hover { background: rgba(0,0,0,0.12); }
-[data-aether-theme="aether"] .browse-mode.island-mode #pill-url-wrap.island-expanded,
-[data-aether-theme="aether"] .browse-mode.island-mode #pill-url-wrap.island-expanded:hover { background: rgba(0,0,0,0.08); }
+/* aether expanded lock removed */
 body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80px); }
 
 /* Reload button: hidden in collapsed, shown on hover (mirrors newtab pattern) */
@@ -714,6 +697,12 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .browse-mode.island-mode #pill-url-wrap:hover #pill-browse-reload { width: 16px; opacity: 1; margin-right: 6px; }
 .browse-mode.island-mode #pill-url-wrap #pill-browse-reload:hover {
   background: rgba(255, 255, 255, 0.12); color: var(--aether-text); transform: none;
+}
+
+/* Popup open: always show reload + newtab */
+.browse-mode.island-mode #pill-url-wrap.pill-popup-open #pill-newtab-btn,
+.browse-mode.island-mode #pill-url-wrap.pill-popup-open #pill-browse-reload {
+  width: 16px; opacity: 1; margin-right: 6px;
 }
 
 /* Collapsed layout wrappers */
@@ -746,131 +735,54 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   14. ISLAND EXPANDED — same-width morph (grows vertically from compact pill)
+   14. URL POPUP — separate dropdown below compact pill (replaces island-expanded)
    ══════════════════════════════════════════════════════════════════════════════ */
-
-.browse-mode.island-mode #pill-url-wrap.island-expanded {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  height: auto;
-  padding: 0;
-  overflow: visible;
-  /* Pin top edge at compact pill's top edge, grow downward.
-     Compact is top:50% + translateY(-50%) with height 24px → top edge at calc(50% - 12px).
-     Remove the Y centering so height growth extends downward only. */
-  top: calc(50% - 12px);
-  transform: translateX(-50%);
-  border-radius: 12px;
-}
-
-/* URL input — fills first row, left-aligned */
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input {
-  display: block !important; opacity: 1 !important; max-width: none !important;
-  flex: 1 1 0; min-width: 40px; height: auto !important;
-  font-size: 0.75rem; color: var(--aether-text);
-  padding: 4px 10px; border-radius: 0; background: transparent;
-  border: none; text-align: left; box-sizing: border-box;
-  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-  order: 0;
-}
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:hover { color: var(--nr-text-primary); }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-url-input:focus {
-  color: var(--nr-text-primary); white-space: normal; overflow: visible;
-}
-
-/* Tab list — wraps to new row below first row, full width */
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-left {
-  display: flex; flex-direction: column; gap: 0;
-  width: 100%; order: 10;
-  padding: 1px 0; overflow-y: auto; max-height: 180px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-/* Center column — hidden by default, shown for CC/mic live */
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-center {
-  display: none;
-}
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-title { display: none; }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-actions-row {
-  display: flex; flex-direction: column; align-items: stretch; gap: 2px;
-  width: 100%; order: 11;
-}
-
-/* Right column — hidden */
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-right-col {
-  display: none;
-}
-
-/* CC/mic live mode — center column takes over, hide tabs */
-.browse-mode.island-mode #pill-url-wrap.island-expanded.island-cc-live #pill-island-left {
-  display: none;
-}
-.browse-mode.island-mode #pill-url-wrap.island-expanded.island-cc-live #pill-island-center {
-  display: flex; flex-direction: column;
-  width: 100%; order: 10;
-  padding: 6px 12px;
-}
-
-/* Nav row — hidden */
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-nav-row { display: none; }
 
 /* Utility row — hidden */
 #pill-island-utility-row { display: none; }
 
-/* Expanded tab items (vertical list) */
-.island-vtab-item {
-  display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 6px;
-  cursor: pointer; transition: background 0.12s; font-size: 0.72rem;
-  color: var(--nr-text-secondary); white-space: nowrap; overflow: hidden;
+/* Stray child cleanup */
+#pill-url-wrap > #pill-island ~ #pill-island-right,
+.browse-mode.island-mode:not(.ntp-active) #pill-island-right { display: none; }
+.browse-mode.island-mode #pill-url-wrap > * { margin: 0; }
+
+/* ── Popup container ── */
+.pill-url-popup {
+  position: fixed;
+  z-index: 9999;
+  background: var(--aether-dropdown-bg, var(--nr-bg-overlay));
+  backdrop-filter: blur(20px);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35), 0 0 0 1px var(--nr-border-default);
+  overflow: hidden;
+  color-scheme: dark;
 }
-.browse-mode.island-mode #pill-url-wrap.island-expanded .island-vtab-item { overflow: visible; }
-.island-vtab-item:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
-.island-vtab-item.active { color: var(--nr-text-primary); font-weight: 600; }
-.island-vtab-item img { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; object-fit: contain; }
-.island-vtab-item-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.island-vtab-item-close {
+.pill-url-popup-tabs { padding: 4px 0; }
+.pill-url-popup-dropdown {
+  max-height: 320px; overflow-y: auto;
+  border-top: 1px solid var(--nr-border-default);
+}
+.pill-url-popup-dropdown:empty { display: none; border-top: none; }
+
+/* ── Popup tab rows ── */
+.popup-tab-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; font-size: 0.75rem; cursor: pointer;
+  color: var(--nr-text-secondary); white-space: nowrap; overflow: hidden;
+  transition: background 0.12s, color 0.12s;
+}
+.popup-tab-item:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
+.popup-tab-item.active { color: var(--nr-text-primary); font-weight: 600; }
+.popup-tab-item img { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; object-fit: contain; }
+.popup-tab-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.popup-tab-close {
   flex-shrink: 0; width: 18px; height: 18px; border: none; background: transparent;
   color: var(--nr-text-quaternary); font-size: 0.85rem; line-height: 1; border-radius: 4px;
   cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
   opacity: 0; transition: opacity 0.12s, background 0.12s, color 0.12s;
 }
-.island-vtab-item:hover .island-vtab-item-close { opacity: 0.7; }
-.island-vtab-item-close:hover { opacity: 1 !important; background: var(--nr-bg-raised); color: var(--nr-text-primary); }
-.island-vtab-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 3px 8px 1px; font-size: 0.62rem; font-weight: 600;
-  color: var(--nr-text-quaternary); text-transform: uppercase; letter-spacing: 0.04em;
-}
-.island-vtab-header-plus {
-  width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
-  border-radius: 4px; cursor: pointer; color: var(--nr-text-quaternary);
-  transition: background 0.12s, color 0.12s;
-}
-.island-vtab-header-plus:hover { background: var(--nr-bg-raised); color: var(--nr-text-primary); }
-
-/* Expanded: show reload + newtab after URL (same order as collapsed) */
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-reload {
-  width: 16px; opacity: 0.5; margin: 0 2px; flex-shrink: 0; overflow: visible; order: 1;
-}
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-browse-reload:hover { opacity: 1; }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-newtab-btn {
-  display: flex !important; width: 16px; opacity: 0.5; margin: 0 2px; flex-shrink: 0; overflow: visible; order: 2;
-}
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-newtab-btn:hover { opacity: 1; }
-
-/* Hide stray children in expanded mode */
-#pill-url-wrap.island-expanded > #pill-island { display: none; }
-#pill-url-wrap.island-expanded > #pill-close-tab-btn,
-#pill-url-wrap.island-expanded > .pill-url-divider { display: none !important; }
-#pill-url-wrap > #pill-island ~ #pill-island-right,
-.browse-mode.island-mode:not(.ntp-active) #pill-island-right { display: none; }
-.browse-mode.island-mode #pill-url-wrap > * { margin: 0; }
-
-/* Focus-within — only change text color */
-.browse-mode.island-mode #pill-url-wrap.island-expanded:focus-within #pill-browse-url-input {
-  color: var(--nr-text-primary);
-}
+.popup-tab-item:hover .popup-tab-close { opacity: 0.7; }
+.popup-tab-close:hover { opacity: 1 !important; background: var(--nr-bg-raised); color: var(--nr-text-primary); }
 
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -896,15 +808,7 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .island-tabs-full-item:hover .island-tabs-full-close { opacity: 0.6; }
 .island-tabs-full-close:hover { opacity: 1 !important; color: var(--nr-text-primary); }
 
-/* Sub-state: AI Expanded */
-.island-ai-expanded #pill-island-left,
-.island-ai-expanded #pill-island-center,
-.island-ai-expanded #pill-island-right-col { display: none !important; }
-.island-ai-expanded #pill-island-ai-full {
-  display: flex !important; flex-direction: column;
-  width: 100%; order: 10;
-  max-height: 400px; overflow-y: auto;
-}
+/* AI expanded sub-state removed — popup mode */
 
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -913,7 +817,7 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 
 #pill-url-dropdown { display: none; }
 .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open { border-radius: 12px 12px 0 0; }
-.browse-mode.island-mode #pill-url-wrap.island-expanded.pill-dropdown-open { border-radius: 12px 12px 0 0; }
+/* expanded pill-dropdown-open removed — popup mode */
 .browse-mode.island-mode #pill-url-wrap #pill-url-dropdown {
   display: block; position: absolute; top: 100%; left: 0; width: 100%;
   min-width: 300px; max-height: 320px; overflow-y: auto; overflow-x: hidden;
@@ -926,21 +830,7 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 .browse-mode.island-mode #pill-url-wrap.pill-dropdown-open #pill-url-dropdown {
   opacity: 1; transform: scaleY(1); pointer-events: auto;
 }
-/* When island is expanded, never show the bottom dropdown — use center column instead */
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-url-dropdown {
-  display: none !important;
-}
-.browse-mode.island-mode #pill-url-wrap.island-expanded.pill-dropdown-open {
-  border-radius: 12px !important;
-}
-
-/* Island center dropdown — replaces tabs + page info when typing in expanded island */
-#island-center-dropdown {
-  overflow-y: auto; overflow-x: hidden;
-  max-height: 280px; padding: 2px 0;
-  width: 100%; order: 10;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
+/* Expanded dropdown + center column removed — popup mode handles dropdown */
 
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -977,7 +867,7 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
   background: var(--pill-surface, var(--aether-hover)) !important;
   border-radius: 12px;
 }
-.browse-mode.island-mode #pill-url-wrap.island-expanded #pill-island-tabs-anchor { display: none !important; }
+/* expanded tabs-anchor hide removed — popup mode */
 
 /* Island pill inside capsule */
 #pill-url-wrap > #pill-island {
@@ -1017,10 +907,7 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
 
 /* Hide satellites on NTP */
 .browse-mode.island-mode.ntp-active .pill-satellite-container { display: none !important; }
-/* Pin satellites to top row when expanded */
-.browse-mode.island-mode #pill-url-wrap.island-expanded > .pill-satellite-container {
-  top: 12px;
-}
+/* Satellite expanded pin removed — popup mode */
 
 /* Island-mode tray: clean dropdown style */
 .browse-mode.island-mode #pill-island-tabs-anchor .island-ctx-tray {
@@ -1552,8 +1439,7 @@ body.electron-app .browse-mode.island-mode #pill-url-wrap { left: calc(50vw - 80
   transition: opacity 0.3s ease;
 }
 
-/* Hide in expanded state */
-.island-expanded .island-cc-subtitle { display: none; }
+/* Hide CC subtitle when popup is open (JS manages this) */
 
 /* ── Mic tray (island pill dropdown) ── */
 

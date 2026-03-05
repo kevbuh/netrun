@@ -84,22 +84,16 @@ export function _browseAutoSizeUrlInput(input) {
   if (!input || input.id !== 'pill-browse-url-input') return;
   const pill = document.getElementById('sidebar-nav');
   if (!pill || !pill.classList.contains('island-mode')) return;
-  // When island is expanded, URL input is full-width via CSS grid — don't override
-  const wrap = document.getElementById('pill-url-wrap');
-  if (wrap && wrap.classList.contains('island-expanded')) {
-    input.style.width = '';
-    input.style.maxWidth = '';
-    input.style.opacity = '';
-    return;
-  }
   const canvas = _browseAutoSizeUrlInput._c || (_browseAutoSizeUrlInput._c = document.createElement('canvas'));
   const ctx = canvas.getContext('2d');
   ctx.font = getComputedStyle(input).font;
   const text = input.value || input.placeholder || '';
   const w = Math.ceil(ctx.measureText(text).width) + 24; // 24 for padding
-  const isFocused = document.activeElement === input;
-  const maxW = isFocused ? 420 : 320;
+  const isPopupOpen = !!window._urlPopupEl;
+  const isFocused = document.activeElement === input || isPopupOpen;
+  const maxW = isPopupOpen ? 600 : isFocused ? 420 : 320;
   input.style.width = Math.min(Math.max(w, 80), maxW) + 'px';
+  input.style.maxWidth = isPopupOpen ? 'none' : '';
 }
 window._browseAutoSizeUrlInput = _browseAutoSizeUrlInput;
 
@@ -428,16 +422,13 @@ function _initUrlBarEvents() {
     });
   }
 
-  // Island center dropdown (when expanded, dropdown renders inside pill-url-wrap)
-  const pillWrapEl = document.getElementById('pill-url-wrap');
-  if (pillWrapEl) {
-    pillWrapEl.addEventListener('mousedown', (e) => {
-      if (e.target.closest('#island-center-dropdown')) {
-        e.preventDefault();
-        _urlCancelHide();
-      }
-    });
-  }
+  // Popup dropdown: prevent blur-triggered hide when clicking inside popup
+  document.addEventListener('mousedown', (e) => {
+    if (window._urlPopupEl && window._urlPopupEl.contains(e.target)) {
+      e.preventDefault();
+      _urlCancelHide();
+    }
+  });
 }
 
 if (typeof document !== 'undefined') {

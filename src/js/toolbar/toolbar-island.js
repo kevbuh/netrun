@@ -63,12 +63,15 @@ export function _applyBrowseTabLayout() {
   _browseRenderTabs();
 }
 
-// ── Expand/collapse ──
+// ── Expand/collapse (popup mode) ──
 
 let _islandExpandedOutsideHandler = null;
 let _islandExpandedBlurHandler = null;
 let _islandAnimating = false;
 let _islandAnimCancel = null;
+export var _urlPopupEl = null;
+window._urlPopupEl = null;
+let _urlPopupResizeHandler = null;
 
 // ── Helper: snapshot favicon rects from the compact strip ──
 
@@ -90,16 +93,14 @@ function _snapshotStripFavicons(wrap) {
   return result;
 }
 
-// ── Helper: snapshot favicon rects from expanded vtab items ──
+// ── Helper: snapshot favicon rects from tab items in a container ──
 
-function _snapshotVtabFavicons(wrap, opts) {
+function _snapshotTabFavicons(container, selector, opts) {
   opts = opts || {};
   const onlyVisible = opts.onlyVisible !== false;
   const result = [];
-  const items = wrap.querySelectorAll('.island-vtab-item[data-island-tab]');
-  // Get the scrollable container bounds to cull offscreen items
-  const leftCol = onlyVisible ? document.getElementById('pill-island-left') : null;
-  const containerRect = leftCol ? leftCol.getBoundingClientRect() : null;
+  const items = container.querySelectorAll(selector);
+  const containerRect = onlyVisible ? container.getBoundingClientRect() : null;
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     const tabId = item.getAttribute('data-island-tab');
@@ -107,7 +108,6 @@ function _snapshotVtabFavicons(wrap, opts) {
     if (!img) continue;
     const r = img.getBoundingClientRect();
     if (r.width === 0) continue;
-    // Skip items scrolled out of the visible area
     if (containerRect && (r.bottom < containerRect.top || r.top > containerRect.bottom)) continue;
     result.push({ tabId: tabId, rect: r, clone: img.cloneNode(true) });
   }
@@ -162,328 +162,289 @@ function _createGhostAnimation(fromFavicons, toMap, duration, stagger, opts) {
   return { layer: layer, anims: anims };
 }
 
-// ── Animated expand: FLIP ghost-clone favicons + height morph ──
+// ── Open URL popup (separate dropdown below compact pill) ──
 
-function _animateExpand(wrap) {
-  if (_islandAnimCancel) { _islandAnimCancel(); _islandAnimCancel = null; }
-  _islandAnimating = true;
+function _openUrlPopup() {
+  if (_urlPopupEl) return;
 
-  // 1. Snapshot compact state
-  const compactRect = wrap.getBoundingClientRect();
-  const compactFavicons = _snapshotStripFavicons(wrap);
-
-  // 2. Lock width to compact width
-  wrap.style.width = compactRect.width + 'px';
-
-  // 3. Apply expanded state + render content
-  wrap.classList.add('island-expanded');
-  islandExpanded.value = true;
-  const input = document.getElementById('pill-browse-url-input');
-  if (input) { input.style.width = ''; input.style.maxWidth = ''; input.style.opacity = ''; input.style.display = ''; input.style.overflow = ''; }
-  _moveElementsIntoIsland();
-  _renderIslandTabPill();
-  _renderIslandActions();
-  _pillSyncUrl();
-  if (input) { requestAnimationFrame(function() { input.focus(); input.select(); }); }
-
-  // 4. Force layout to get expanded dimensions — lock width to compact so it only grows vertically
-  wrap.style.width = compactRect.width + 'px';
-  void wrap.offsetHeight;
-  const expandedRect = wrap.getBoundingClientRect();
-  const expandedHeight = expandedRect.height;
-
-  // 5. Snapshot expanded favicon positions → map by tab ID
-  const expandedVtabs = _snapshotVtabFavicons(wrap);
-  const expandedMap = {};
-  for (let i = 0; i < expandedVtabs.length; i++) expandedMap[expandedVtabs[i].tabId] = expandedVtabs[i].rect;
-
-  // 6. Set wrapper to compact dimensions for animation start
-  wrap.style.width = compactRect.width + 'px';
-  wrap.style.height = compactRect.height + 'px';
-  wrap.classList.add('island-animating');
-
-  // 7. Hide expanded tab list rows (will stagger-reveal during animation)
-  const leftCol = document.getElementById('pill-island-left');
-  const vtabItems = leftCol ? leftCol.querySelectorAll('.island-vtab-item, .island-vtab-header') : [];
-  if (leftCol) leftCol.style.opacity = '0';
-
-  // 8. Create ghost favicons with subtle scale pulse + cross-fade
-  // Reverse so rightmost favicons (longest travel distance) depart first
-  let cancelled = false;
-  const departOrder = compactFavicons.slice().reverse();
-  const ghosts = _createGhostAnimation(departOrder, expandedMap, 260, 20, { scalePulse: true, crossFade: true });
-
-  // 9. Animate wrapper height only — width stays locked to compact pill (drops down in place)
-  wrap.style.willChange = 'height';
-  const morphAnim = wrap.animate(
-    [
-      { height: compactRect.height + 'px' },
-      { height: expandedHeight + 'px' }
-    ],
-    { duration: 260, easing: _islandEasing, fill: 'forwards' }
-  );
-
-  // 10. Staggered per-row reveal of tab list — fluid fade-up
-  const rowStagger = 22;
-  const rowBaseDelay = 70;
-  const fadeTimer = setTimeout(function() {
-    if (cancelled) return;
-    if (leftCol) leftCol.style.opacity = '1';
-    for (let ri = 0; ri < vtabItems.length; ri++) {
-      (function(item, idx) {
-        item.style.opacity = '0';
-        item.style.transform = 'translateY(4px)';
-        setTimeout(function() {
-          if (cancelled) return;
-          item.style.transition = 'opacity 180ms cubic-bezier(0.4, 0.0, 0.0, 1.0), transform 180ms cubic-bezier(0.4, 0.0, 0.0, 1.0)';
-          item.style.opacity = '1';
-          item.style.transform = 'translateY(0)';
-          setTimeout(function() {
-            item.style.transition = '';
-            item.style.transform = '';
-          }, 190);
-        }, idx * rowStagger);
-      })(vtabItems[ri], ri);
-    }
-  }, rowBaseDelay);
-
-  // Cancel function
-  _islandAnimCancel = function() {
-    cancelled = true;
-    clearTimeout(fadeTimer);
-    try { morphAnim.cancel(); } catch(e) {}
-    for (let ai = 0; ai < ghosts.anims.length; ai++) try { ghosts.anims[ai].cancel(); } catch(e) {}
-    ghosts.layer.remove();
-    _clearRowStyles(leftCol, vtabItems);
-    wrap.style.height = '';
-    wrap.style.overflow = '';
-    wrap.style.willChange = '';
-    wrap.classList.remove('island-animating');
-    _islandAnimating = false;
-    _islandAnimCancel = null;
-  };
-
-  // 11. Cleanup on finish
-  morphAnim.finished.then(function() {
-    if (cancelled) return;
-    try { morphAnim.cancel(); } catch(e) {}
-    ghosts.layer.remove();
-    _clearRowStyles(leftCol, vtabItems);
-    wrap.style.height = '';
-    wrap.style.overflow = '';
-    wrap.style.willChange = '';
-    wrap.classList.remove('island-animating');
-    _islandAnimating = false;
-    _islandAnimCancel = null;
-  }).catch(function() {
-    ghosts.layer.remove();
-    _clearRowStyles(leftCol, vtabItems);
-    wrap.style.height = '';
-    wrap.style.overflow = '';
-    wrap.style.willChange = '';
-    wrap.classList.remove('island-animating');
-    _islandAnimating = false;
-  });
-}
-
-function _clearRowStyles(leftCol, vtabItems) {
-  if (leftCol) { leftCol.style.opacity = ''; leftCol.style.transition = ''; }
-  for (let i = 0; i < vtabItems.length; i++) {
-    vtabItems[i].style.opacity = '';
-    vtabItems[i].style.transform = '';
-    vtabItems[i].style.transition = '';
-  }
-}
-
-// ── Animated collapse: reverse FLIP — favicons fly back to compact strip ──
-
-function _animateCollapse(wrap) {
-  _islandAnimating = true;
-  let cancelled = false;
-
-  // 1. Snapshot expanded state
-  const expandedRect = wrap.getBoundingClientRect();
-  const expandedHeight = expandedRect.height;
-  const expandedWidth = expandedRect.width;
-  const expandedFavicons = _snapshotVtabFavicons(wrap);
-
-  // 2. Hide expanded content BEFORE collapsing to prevent flash
-  const leftCol = document.getElementById('pill-island-left');
-  if (leftCol) leftCol.style.visibility = 'hidden';
-
-  // 3. Instantly apply compact state
-  _doCollapse(wrap);
-  void wrap.offsetHeight;
-
-  // 4. Measure compact favicon positions + compact dimensions
-  const compactRect = wrap.getBoundingClientRect();
-  const compactHeight = compactRect.height;
-  const compactWidth = compactRect.width;
-  const compactFavicons = _snapshotStripFavicons(wrap);
-  const compactMap = {};
-  for (let i = 0; i < compactFavicons.length; i++) compactMap[compactFavicons[i].tabId] = compactFavicons[i].rect;
-
-  // 5. Hide each compact favicon individually (will reveal one-by-one as ghosts land)
-  const strip = wrap.querySelector('.island-favicon-strip');
-  const stripFavEls = strip ? strip.querySelectorAll('[data-island-tab]') : [];
-  const stripOverflow = strip ? strip.querySelector('.island-strip-overflow') : null;
-  for (let fi = 0; fi < stripFavEls.length; fi++) stripFavEls[fi].style.opacity = '0';
-  if (stripOverflow) stripOverflow.style.opacity = '0';
-
-  // 6. Temporarily set height to expanded (width stays at compact — drops straight down)
-  wrap.style.height = expandedHeight + 'px';
-
-  // 7. Create ghost favicons — least recent (furthest) departs first
-  const ghostCount = expandedFavicons.length;
-  const ghostDuration = 200 + ghostCount * 10;  // 3 tabs → 230ms, 7 tabs → 270ms
-  const ghostStagger = 10 + ghostCount * 2;     // 3 tabs → 16ms, 7 tabs → 24ms
-  // Reverse so bottom items (least recent, most distance) fly first
-  const departOrder = expandedFavicons.slice().reverse();
-  const totalGhostTime = ghostDuration + ghostStagger * Math.max(0, ghostCount - 1);
-  const ghosts = _createGhostAnimation(departOrder, compactMap, ghostDuration, ghostStagger, { scalePulse: true, crossFade: true });
-
-  // 8. Reveal each compact favicon as its ghost arrives (staggered pop-in, same order as departure)
-  const revealTimers = [];
-  for (let ri = 0; ri < departOrder.length; ri++) {
-    (function(idx) {
-      const arriveAt = ghostStagger * idx + ghostDuration * 0.7; // reveal at 70% of ghost flight
-      const timer = setTimeout(function() {
-        if (cancelled) return;
-        const tabId = departOrder[idx].tabId;
-        // Find matching compact favicon by data-island-tab
-        const el = strip ? strip.querySelector('[data-island-tab="' + tabId + '"]') : null;
-        if (el) {
-          el.style.transition = 'opacity 80ms ease';
-          el.style.opacity = '1';
-          setTimeout(function() { el.style.transition = ''; }, 90);
-        }
-      }, arriveAt);
-      revealTimers.push(timer);
-    })(ri);
-  }
-  // Reveal overflow count label at the end
-  const overflowTimer = setTimeout(function() {
-    if (cancelled || !stripOverflow) return;
-    stripOverflow.style.transition = 'opacity 80ms ease';
-    stripOverflow.style.opacity = '1';
-    setTimeout(function() { if (stripOverflow) stripOverflow.style.transition = ''; }, 90);
-  }, totalGhostTime * 0.8);
-
-  // 9. Animate wrapper height shrink — width stays constant (retracts straight up)
-  wrap.style.willChange = 'height';
-  const morphAnim = wrap.animate(
-    [
-      { height: expandedHeight + 'px' },
-      { height: compactHeight + 'px' }
-    ],
-    { duration: totalGhostTime, easing: _islandEasing, fill: 'forwards' }
-  );
-
-  const _cleanup = function() {
-    for (let ci = 0; ci < revealTimers.length; ci++) clearTimeout(revealTimers[ci]);
-    clearTimeout(overflowTimer);
-    ghosts.layer.remove();
-    // Reset per-favicon styles
-    for (let fi = 0; fi < stripFavEls.length; fi++) { stripFavEls[fi].style.opacity = ''; stripFavEls[fi].style.transition = ''; }
-    if (stripOverflow) { stripOverflow.style.opacity = ''; stripOverflow.style.transition = ''; }
-    const lc = document.getElementById('pill-island-left');
-    if (lc) lc.style.visibility = '';
-    wrap.style.width = '';
-    wrap.style.height = '';
-    wrap.style.overflow = '';
-    wrap.style.willChange = '';
-    _islandAnimating = false;
-    _islandAnimCancel = null;
-  };
-
-  _islandAnimCancel = function() {
-    cancelled = true;
-    try { morphAnim.cancel(); } catch(e) {}
-    for (let ai = 0; ai < ghosts.anims.length; ai++) try { ghosts.anims[ai].cancel(); } catch(e) {}
-    _cleanup();
-  };
-
-  morphAnim.finished.then(function() {
-    if (cancelled) return;
-    try { morphAnim.cancel(); } catch(e) {}
-    _cleanup();
-  }).catch(function() {
-    _cleanup();
-  });
-}
-
-export function _expandIsland() {
-  const wrap = document.getElementById('pill-url-wrap');
-  if (!wrap || wrap.classList.contains('island-expanded')) return;
-
-  // Cancel any in-flight animation
-  if (_islandAnimCancel) { _islandAnimCancel(); _islandAnimCancel = null; }
-
-  // Lock width to compact pill width BEFORE expanding — flex-wrap on an absolutely
-  // positioned element would otherwise stretch to the containing block width.
-  wrap.style.width = wrap.getBoundingClientRect().width + 'px';
-
-  if (typeof Motion !== 'undefined' && Motion.animate) {
-    _animateExpand(wrap);
-  } else {
-    // Fallback: instant expand (Motion not loaded yet)
-    wrap.classList.add('island-expanded');
-    islandExpanded.value = true;
-    const input = document.getElementById('pill-browse-url-input');
-    if (input) { input.style.width = ''; input.style.maxWidth = ''; input.style.opacity = ''; input.style.display = ''; input.style.overflow = ''; }
-    _moveElementsIntoIsland();
-    _renderIslandTabPill();
-    _renderIslandActions();
-    _pillSyncUrl();
-    if (input) { requestAnimationFrame(function() { input.focus(); input.select(); }); }
-  }
-
-  _collapseIslandCleanup();
-  _islandExpandedOutsideHandler = function(e) {
-    if (wrap.contains(e.target)) return;
-    if (_islandTabsDropdownEl && _islandTabsDropdownEl.contains(e.target)) return;
-    _collapseIsland();
-  };
-  _islandExpandedBlurHandler = function() { _collapseIsland(); };
-  setTimeout(function() {
-    document.addEventListener('mousedown', _islandExpandedOutsideHandler, true);
-    window.addEventListener('blur', _islandExpandedBlurHandler);
-  }, 0);
-}
-
-export function _collapseIsland() {
   const wrap = document.getElementById('pill-url-wrap');
   if (!wrap) return;
 
   // Cancel any in-flight animation
   if (_islandAnimCancel) { _islandAnimCancel(); _islandAnimCancel = null; }
 
-  // Animate collapse when expanded and Motion is available
-  if (wrap.classList.contains('island-expanded') && typeof Motion !== 'undefined' && Motion.animate) {
-    _animateCollapse(wrap);
+  // 0. Clear old island dropdown (focus may have populated it before popup was set)
+  const oldDd = wrap.querySelector('#pill-url-dropdown');
+  if (oldDd) { oldDd.innerHTML = ''; oldDd.style.display = 'none'; oldDd.classList.add('hidden'); }
+  wrap.classList.remove('pill-dropdown-open');
+
+  // 1. Snapshot compact favicon positions + pill width BEFORE hiding tabs pill
+  const compactFavicons = _snapshotStripFavicons(wrap);
+  const pillRect = wrap.getBoundingClientRect();
+
+  // 1b. Hide tabs pill + anchor, lock pill width so it doesn't shrink
+  const tabsPill = wrap.querySelector('.pill-island[data-island-id="tabs"]');
+  if (tabsPill) tabsPill.style.display = 'none';
+  const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
+  if (tabsAnchor) tabsAnchor.style.display = 'none';
+  wrap.style.width = Math.round(pillRect.width) + 'px';
+  wrap.classList.add('pill-popup-open');
+  // Let URL input fill the freed space
+  const urlWrap = document.getElementById('pill-browse-url');
+  if (urlWrap) urlWrap.style.flex = '1 1 auto';
+  const urlInput = document.getElementById('pill-browse-url-input');
+  if (urlInput) { urlInput.style.maxWidth = 'none'; urlInput.style.flex = '1'; }
+
+  // 3. Create popup element
+  const popup = document.createElement('div');
+  popup.className = 'pill-url-popup';
+  popup.style.left = Math.round(pillRect.left) + 'px';
+  popup.style.top = Math.round(pillRect.bottom + 4) + 'px';
+  popup.style.width = Math.max(Math.round(pillRect.width), 300) + 'px';
+  document.body.appendChild(popup);
+  _urlPopupEl = popup;
+  window._urlPopupEl = popup;
+
+  // 4. Render tab list inside popup
+  const tabsContainer = document.createElement('div');
+  tabsContainer.id = 'pill-url-popup-tabs';
+  tabsContainer.className = 'pill-url-popup-tabs';
+  popup.appendChild(tabsContainer);
+  _renderPopupTabs(tabsContainer);
+
+  // 5. Add empty container for autocomplete/suggestions
+  const ddContainer = document.createElement('div');
+  ddContainer.id = 'pill-url-popup-dropdown';
+  ddContainer.className = 'pill-url-popup-dropdown';
+  popup.appendChild(ddContainer);
+
+  // 6. Force layout, snapshot popup tab favicon positions
+  void popup.offsetHeight;
+  const popupFavicons = _snapshotTabFavicons(popup, '.popup-tab-item[data-island-tab]', { onlyVisible: false });
+  const popupMap = {};
+  for (let i = 0; i < popupFavicons.length; i++) popupMap[popupFavicons[i].tabId] = popupFavicons[i].rect;
+
+  // 7. FLIP ghost animation: favicons fly from compact strip into popup tab rows
+  let cancelled = false;
+  const departOrder = compactFavicons.slice().reverse();
+  const ghosts = _createGhostAnimation(departOrder, popupMap, 260, 20, { scalePulse: true, crossFade: true });
+
+  // 8. Hide popup tab rows initially, stagger-reveal
+  const tabItems = tabsContainer.querySelectorAll('.popup-tab-item');
+  for (let i = 0; i < tabItems.length; i++) {
+    tabItems[i].style.opacity = '0';
+    tabItems[i].style.transform = 'translateY(4px)';
+  }
+  const fadeTimer = setTimeout(function() {
+    if (cancelled) return;
+    for (let ri = 0; ri < tabItems.length; ri++) {
+      (function(item, idx) {
+        setTimeout(function() {
+          if (cancelled) return;
+          item.style.transition = 'opacity 180ms cubic-bezier(0.4, 0.0, 0.0, 1.0), transform 180ms cubic-bezier(0.4, 0.0, 0.0, 1.0)';
+          item.style.opacity = '1';
+          item.style.transform = 'translateY(0)';
+          setTimeout(function() { item.style.transition = ''; item.style.transform = ''; }, 190);
+        }, idx * 22);
+      })(tabItems[ri], ri);
+    }
+  }, 70);
+
+  // 9. Popup slides in
+  popup.style.opacity = '0';
+  popup.style.transform = 'translateY(-6px)';
+  requestAnimationFrame(function() {
+    popup.style.transition = 'opacity 200ms ' + _islandEasing + ', transform 200ms ' + _islandEasing;
+    popup.style.opacity = '1';
+    popup.style.transform = 'translateY(0)';
+    setTimeout(function() { popup.style.transition = ''; }, 210);
+  });
+
+  _islandAnimCancel = function() {
+    cancelled = true;
+    clearTimeout(fadeTimer);
+    for (let ai = 0; ai < ghosts.anims.length; ai++) try { ghosts.anims[ai].cancel(); } catch(e) {}
+    ghosts.layer.remove();
+    _islandAnimating = false;
+    _islandAnimCancel = null;
+  };
+
+  // Cleanup ghosts on finish
+  var longestAnim = ghosts.anims.length ? ghosts.anims[ghosts.anims.length - 1] : null;
+  if (longestAnim) {
+    longestAnim.finished.then(function() {
+      if (!cancelled) ghosts.layer.remove();
+      _islandAnimating = false;
+      _islandAnimCancel = null;
+    }).catch(function() { ghosts.layer.remove(); _islandAnimating = false; });
   } else {
-    _doCollapse(wrap);
+    _islandAnimating = false;
+    _islandAnimCancel = null;
+  }
+
+  // 10. Set state
+  islandExpanded.value = true;
+
+  // 11. Show full URL in pill input
+  const input = document.getElementById('pill-browse-url-input');
+  if (input) {
+    if (typeof window._browseUrlOnFocus === 'function') window._browseUrlOnFocus(input);
+    requestAnimationFrame(function() {
+      input.focus();
+      input.select();
+    });
+  }
+
+  // 12. Trigger history/suggestions
+  if (typeof window._browseUrlShowHistory === 'function') {
+    setTimeout(function() { window._browseUrlShowHistory(); }, 10);
+  }
+
+  // 13. Outside-click handler
+  _collapseIslandCleanup();
+  _islandExpandedOutsideHandler = function(e) {
+    if (wrap.contains(e.target)) return;
+    if (popup.contains(e.target)) return;
+    if (_islandTabsDropdownEl && _islandTabsDropdownEl.contains(e.target)) return;
+    _closeUrlPopup();
+  };
+  _islandExpandedBlurHandler = function() { _closeUrlPopup(); };
+  setTimeout(function() {
+    document.addEventListener('mousedown', _islandExpandedOutsideHandler, true);
+    window.addEventListener('blur', _islandExpandedBlurHandler);
+  }, 0);
+
+  // 14. Window resize: reposition popup
+  _urlPopupResizeHandler = function() {
+    if (!_urlPopupEl) return;
+    const r = wrap.getBoundingClientRect();
+    _urlPopupEl.style.left = Math.round(r.left) + 'px';
+    _urlPopupEl.style.top = Math.round(r.bottom + 4) + 'px';
+    _urlPopupEl.style.width = Math.max(Math.round(r.width), 300) + 'px';
+  };
+  window.addEventListener('resize', _urlPopupResizeHandler);
+}
+
+// ── Close URL popup ──
+
+function _closeUrlPopup() {
+  if (!_urlPopupEl) return;
+  const popup = _urlPopupEl;
+  const wrap = document.getElementById('pill-url-wrap');
+
+  // Cancel any in-flight animation
+  if (_islandAnimCancel) { _islandAnimCancel(); _islandAnimCancel = null; }
+
+  // 1. Snapshot popup tab favicon positions for reverse FLIP
+  const popupFavicons = _snapshotTabFavicons(popup, '.popup-tab-item[data-island-tab]', { onlyVisible: true });
+  const compactFavicons = wrap ? _snapshotStripFavicons(wrap) : [];
+  const compactMap = {};
+  for (let i = 0; i < compactFavicons.length; i++) compactMap[compactFavicons[i].tabId] = compactFavicons[i].rect;
+
+  // 2. Reverse FLIP ghost animation
+  const departOrder = popupFavicons.slice().reverse();
+  const ghostCount = departOrder.length;
+  const ghostDuration = 200 + ghostCount * 10;
+  const ghostStagger = 10 + ghostCount * 2;
+  const ghosts = _createGhostAnimation(departOrder, compactMap, ghostDuration, ghostStagger, { scalePulse: true, crossFade: true });
+
+  // 3. Animate popup out
+  popup.style.transition = 'opacity 120ms ' + _islandEasing + ', transform 120ms ' + _islandEasing;
+  popup.style.opacity = '0';
+  popup.style.transform = 'translateY(-4px)';
+
+  var totalTime = Math.max(120, ghostDuration + ghostStagger * Math.max(0, ghostCount - 1));
+  setTimeout(function() {
+    ghosts.layer.remove();
+    popup.remove();
+  }, totalTime);
+
+  // 4. Clean up
+  _urlPopupEl = null;
+  window._urlPopupEl = null;
+  islandExpanded.value = false;
+  if (wrap) wrap.classList.remove('pill-dropdown-open');
+  // Restore tabs pill + anchor, unlock pill width, reset URL flex
+  if (wrap) { wrap.style.width = ''; wrap.classList.remove('pill-popup-open'); }
+  const urlWrap = document.getElementById('pill-browse-url');
+  if (urlWrap) urlWrap.style.flex = '';
+  const urlInput = document.getElementById('pill-browse-url-input');
+  if (urlInput) { urlInput.style.maxWidth = ''; urlInput.style.flex = ''; }
+  const tabsPill = wrap ? wrap.querySelector('.pill-island[data-island-id="tabs"]') : null;
+  if (tabsPill) tabsPill.style.display = '';
+  const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
+  if (tabsAnchor) tabsAnchor.style.display = '';
+  _collapseIslandCleanup();
+
+  // 5. Restore shortened URL
+  _pillSyncUrl();
+
+  // 6. Hide history dropdown
+  if (typeof window._browseUrlHideHistory === 'function') window._browseUrlHideHistory();
+
+  // 7. Remove resize handler
+  if (_urlPopupResizeHandler) {
+    window.removeEventListener('resize', _urlPopupResizeHandler);
+    _urlPopupResizeHandler = null;
   }
 }
 
-function _doCollapse(wrap) {
-  wrap.classList.remove('island-expanded', 'island-ai-expanded', 'island-cc-live', 'island-animating');
-  wrap.style.width = '';
-  wrap.style.height = '';
-  wrap.style.overflow = '';
-  islandExpanded.value = false;
-  islandSubState.value = 'default';
-  _closeIslandTabsDropdown();
-  _collapseIslandCleanup();
-  _restoreElementsFromIsland();
-  const aiFull = document.getElementById('pill-island-ai-full');
-  const actionsRow = document.getElementById('pill-island-actions-row');
-  if (aiFull) AetherUI.mount(new View('div'), aiFull);
-  if (actionsRow) actionsRow.remove();
-  const tabsAnchor = document.getElementById('pill-island-tabs-anchor');
-  if (tabsAnchor) tabsAnchor.style.display = '';
-  // Re-render compact pill content (replaces expanded tab list in leftCol)
-  _renderIslandActions();
+// ── Render tab list inside popup ──
+
+function _renderPopupTabs(container) {
+  const win = typeof window._getCurrentWindow === 'function' ? window._getCurrentWindow() : null;
+  if (!win || !win.tabs || !win.tabs.length) return;
+  const activeTabId = win.activeTab;
+
+  // Sort tabs by recency
+  const sortedTabs = win.tabs.filter(function(t) { return !t.blank; }).slice();
+  sortedTabs.sort(function(a, b) { return (b.lastVisited || 0) - (a.lastVisited || 0); });
+
+  const globeSvg = '<svg style="width:14px;height:14px;opacity:0.4;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+  const plusSvg = '<svg style="width:14px;height:14px;flex-shrink:0;opacity:0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>';
+
+  const rows = sortedTabs.map(function(t) {
+    const isActive = t.id === activeTabId;
+    const title = t.title || 'New Tab';
+    const favView = t.favicon
+      ? window.Image(t.favicon).frame({ width: 14, height: 14 }).cornerRadius('xs').styles({ flexShrink: '0' })
+          .on('error', function() { this.style.display = 'none'; })
+      : window.RawHTML(globeSvg);
+    const nameView = window.Text(title).className('popup-tab-title');
+    const closeBtn = window.Text('\u00d7').className('popup-tab-close').attr('title', 'Close tab')
+      .onTap(function(e) {
+        e.stopPropagation();
+        browseCloseTab(t.id);
+        setTimeout(function() { _renderPopupTabs(container); }, 50);
+      });
+    return window.HStack([favView, nameView, closeBtn])
+      .className('popup-tab-item' + (isActive ? ' active' : ''))
+      .attr('data-island-tab', t.id)
+      .onTap(function(e) {
+        e.stopPropagation();
+        browseSelectTab(t.id);
+        _closeUrlPopup();
+      });
+  });
+
+  // New tab row
+  rows.push(new window.View('div').styles({ height: '1px', background: 'var(--nr-border-default)', margin: '2px 10px' }));
+  rows.push(window.HStack([window.RawHTML(plusSvg), window.Text('New tab')])
+    .className('popup-tab-item')
+    .onTap(function() {
+      _closeUrlPopup();
+      if (typeof window.browseNewTab === 'function') window.browseNewTab();
+    }));
+
+  AetherUI.mount(window.VStack(rows), container);
+}
+
+export function _expandIsland() {
+  _openUrlPopup();
+}
+
+export function _collapseIsland() {
+  _closeUrlPopup();
 }
 
 function _collapseIslandCleanup() {
@@ -495,17 +456,6 @@ function _collapseIslandCleanup() {
     window.removeEventListener('blur', _islandExpandedBlurHandler);
     _islandExpandedBlurHandler = null;
   }
-}
-
-function _moveElementsIntoIsland() {
-  // AI pill is now a satellite — no elements to move
-}
-
-function _restoreElementsFromIsland() {
-  const leftCol = document.getElementById('pill-island-left');
-  if (leftCol) { AetherUI.mount(new View('div'), leftCol); leftCol.onclick = null; }
-  const rightCol = document.getElementById('pill-island-right-col');
-  if (rightCol) { AetherUI.mount(new View('div'), rightCol); rightCol.onclick = null; }
 }
 
 // ── Sub-state management ──
@@ -868,7 +818,7 @@ export function _cancelPillMenuClose() {
 
 document.addEventListener('click', function(e) {
   const wrap = document.getElementById('pill-url-wrap');
-  if (!wrap || wrap.classList.contains('island-expanded')) return;
+  if (!wrap || _urlPopupEl) return;
   const favEl = e.target.closest('[data-island-tab]');
   if (!favEl || !wrap.contains(favEl)) return;
   // Close button inside a favicon wrap
@@ -883,21 +833,21 @@ document.addEventListener('click', function(e) {
   browseSelectTab(tabId);
 }, true);
 
-// ── Click handler for capsule expand ──
+// ── Click handler for capsule → open popup ──
 
 document.addEventListener('click', function(e) {
   const wrap = document.getElementById('pill-url-wrap');
   if (!wrap) return;
-  if (wrap.classList.contains('island-expanded')) return;
+  if (_urlPopupEl) return;
   // Don't expand when clicking satellite pills — they have their own tray handlers
   if (e.target.closest('.pill-satellite-container')) return;
-  if (wrap.contains(e.target)) _expandIsland();
+  if (wrap.contains(e.target)) _openUrlPopup();
 });
 
 document.addEventListener('DOMContentLoaded', function() {
   const input = document.getElementById('pill-browse-url-input');
   if (input) input.addEventListener('focus', function() {
-    _expandIsland();
+    _openUrlPopup();
   });
 });
 

@@ -637,7 +637,7 @@ export function _islandRender() {
 function _renderCCSubtitle() {
   const wrap = document.getElementById('pill-url-wrap');
   if (!wrap) return;
-  const isExpanded = wrap.classList.contains('island-expanded');
+  const isExpanded = !!window._urlPopupEl;
   const ccAct = window._islandActivities ? window._islandActivities.value.cc : null;
   const micAct = window._islandActivities ? window._islandActivities.value.mic : null;
   let subEl = document.getElementById('island-cc-subtitle');

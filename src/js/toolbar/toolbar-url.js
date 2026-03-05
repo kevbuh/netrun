@@ -198,7 +198,14 @@ export function _pillUrlKeydown(e) {
   if (typeof _browseUrlKeydown === 'function') {
     _browseUrlKeydown(e);
     if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'ArrowUp') return;
-    if (e.key === 'Escape') { e.target.blur(); return; }
+    if (e.key === 'Escape') {
+      // Close popup if open
+      if (window._urlPopupEl && typeof window._collapseIsland === 'function') {
+        window._collapseIsland();
+      }
+      e.target.blur();
+      return;
+    }
   }
 }
 

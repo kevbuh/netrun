@@ -10,9 +10,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
  * Replicate the expand-guard logic from toolbar-island.js
  * document-level click handler.
  */
-function shouldExpandIsland(e, wrap, pill) {
+function shouldExpandIsland(e, wrap, pill, popupOpen) {
   if (!wrap) return false;
-  if (wrap.classList.contains('island-expanded')) return false;
+  if (popupOpen) return false;
   if (pill && pill.classList.contains('ntp-active')) return false;
   if (e.target.closest('[data-island-tab], [data-island-tab-close], [data-island-tab-new]')) return false;
   if (wrap.contains(e.target)) return true;
@@ -70,12 +70,11 @@ describe('Island expand guard', () => {
     expect(shouldExpandIsland({ target: closeBtn }, wrap, pill)).toBe(false);
   });
 
-  it('does NOT expand when already expanded', () => {
+  it('does NOT expand when popup is already open', () => {
     const wrap = document.getElementById('pill-url-wrap');
-    wrap.classList.add('island-expanded');
     const pill = document.getElementById('sidebar-nav');
     const overflow = document.querySelector('.island-strip-overflow');
-    expect(shouldExpandIsland({ target: overflow }, wrap, pill)).toBe(false);
+    expect(shouldExpandIsland({ target: overflow }, wrap, pill, true)).toBe(false);
   });
 
   it('does NOT expand when NTP is active', () => {

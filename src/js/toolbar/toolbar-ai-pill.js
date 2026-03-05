@@ -141,9 +141,9 @@ function _renderUnifiedPill() {
     }
   }
 
-  // Expanded island — re-render CC/mic center column when state changes
+  // Popup open — re-render CC/mic center column when state changes
   const wrap = document.getElementById('pill-url-wrap');
-  if (wrap && wrap.classList.contains('island-expanded')) {
+  if (wrap && window._urlPopupEl) {
     const as2 = state.audioState;
 
     // Center column — re-render when CC is active (live captions)

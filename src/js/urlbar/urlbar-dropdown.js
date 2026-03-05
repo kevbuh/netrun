@@ -162,16 +162,16 @@ export function _getOmniInput() {
     const dd = document.getElementById('search-history-dropdown-view');
     if (input && dd) return { input, dd, ntp: true };
   }
-  // Island mode: use pill input + pill dropdown (or center column when expanded)
+  // Popup mode: URL input stays in pill, dropdown renders in popup
+  if (window._urlPopupEl) {
+    const input = document.getElementById('pill-browse-url-input');
+    const dd = window._urlPopupEl.querySelector('#pill-url-popup-dropdown');
+    return { input, dd, ntp: false, island: true, popup: true };
+  }
+  // Island mode: use pill input + pill dropdown
   const nav = document.getElementById('sidebar-nav');
   if (nav && nav.classList.contains('island-mode') && nav.classList.contains('browse-mode')) {
     const pillInput = document.getElementById('pill-browse-url-input');
-    const pillWrap = document.getElementById('pill-url-wrap');
-    const isExpanded = pillWrap && pillWrap.classList.contains('island-expanded');
-    if (isExpanded) {
-      const centerCol = document.getElementById('pill-island-center');
-      if (pillInput && centerCol) return { input: pillInput, dd: centerCol, ntp: false, island: true, islandCenter: true };
-    }
     const pillDd = document.getElementById('pill-url-dropdown');
     if (pillInput && pillDd) return { input: pillInput, dd: pillDd, ntp: false, island: true };
   }
@@ -185,10 +185,12 @@ export function _getOmniInput() {
 }
 
 export function _browseUrlKeydown(e) {
-  const { input, dd, ntp, island } = _getOmniInput();
-  const visible = island
-    ? !!(document.getElementById('pill-url-wrap') && document.getElementById('pill-url-wrap').classList.contains('pill-dropdown-open'))
-    : dd && dd.style.display !== 'none' && !dd.classList.contains('hidden');
+  const { input, dd, ntp, island, popup } = _getOmniInput();
+  const visible = popup
+    ? !!(dd && dd.style.display !== 'none' && dd.innerHTML)
+    : island
+      ? !!(document.getElementById('pill-url-wrap') && document.getElementById('pill-url-wrap').classList.contains('pill-dropdown-open'))
+      : dd && dd.style.display !== 'none' && !dd.classList.contains('hidden');
 
   // Backspace/Delete: clear autocomplete, keep only the typed portion
   if ((e.key === 'Backspace' || e.key === 'Delete') && _browseUrlAutocompleteSuggestion) {
@@ -292,7 +294,7 @@ export function _browseUrlHighlight(items) {
 
 
 export function _browseUrlShowHistory() {
-  const { input, dd, ntp, islandCenter } = _getOmniInput();
+  const { input, dd, ntp, popup } = _getOmniInput();
   if (!input || !dd) return;
   // When autocomplete was active and user types, the selection gets replaced.
   // Detect this: if cursor is NOT at the autocomplete boundary, user typed new input.
@@ -555,11 +557,15 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
 
   const pillWrap = document.getElementById('pill-url-wrap');
   const isIsland = dd.id === 'pill-url-dropdown';
-  const isIslandCenter = dd.id === 'pill-island-center';
+  const isPopup = dd.id === 'pill-url-popup-dropdown';
 
   if (!showHist.length && !projects.length && !suggestions.length && !hasDef && !hasInstant && !showBrowse.length && !matchedBangs.length && !quickOpenMatches.length && !(ntp && filter)) {
-    if (isIslandCenter) {
-      _islandCenterRestorePageInfo();
+    if (isPopup) {
+      // In popup mode: show tabs, hide dropdown
+      const tabsEl = window._urlPopupEl ? window._urlPopupEl.querySelector('#pill-url-popup-tabs') : null;
+      if (tabsEl) tabsEl.style.display = '';
+      dd.innerHTML = '';
+      dd.style.display = 'none';
     } else {
       dd.style.display = 'none'; dd.classList.add('hidden');
       if (isIsland && pillWrap) pillWrap.classList.remove('pill-dropdown-open');
@@ -576,13 +582,16 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
     dd.style.width = '';
     dd.style.maxHeight = '320px';
     dd.style.overflowY = 'auto';
-  } else if (isIslandCenter) {
+  } else if (isPopup) {
+    // Popup mode: container handles positioning, toggle tab list visibility
     dd.style.position = '';
     dd.style.left = '';
     dd.style.top = '';
     dd.style.width = '';
-    dd.style.maxHeight = '';
+    dd.style.maxHeight = '320px';
     dd.style.overflowY = 'auto';
+    const tabsEl = window._urlPopupEl ? window._urlPopupEl.querySelector('#pill-url-popup-tabs') : null;
+    if (tabsEl) tabsEl.style.display = filter ? 'none' : '';
   } else if (isIsland) {
     dd.style.position = '';
     dd.style.left = '';
@@ -909,8 +918,11 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
   }
 
   if (!hasContent) {
-    if (isIslandCenter) {
-      _islandCenterRestorePageInfo();
+    if (isPopup) {
+      const tabsEl = window._urlPopupEl ? window._urlPopupEl.querySelector('#pill-url-popup-tabs') : null;
+      if (tabsEl) tabsEl.style.display = '';
+      dd.innerHTML = '';
+      dd.style.display = 'none';
     } else {
       dd.style.display = 'none'; dd.classList.add('hidden');
       if (isIsland && pillWrap) pillWrap.classList.remove('pill-dropdown-open');
@@ -918,25 +930,12 @@ export function _browseUrlRenderDropdown(dd, input, projects, showHist, filter, 
     return;
   }
 
-  if (isIslandCenter) {
-    // Hide tabs + page info, show dropdown spanning full width
-    const leftCol = document.getElementById('pill-island-left');
-    const actionsRow = document.getElementById('pill-island-actions-row');
-    const titleEl = document.getElementById('pill-island-title');
-    const navRow = document.getElementById('pill-island-nav-row');
-    if (leftCol) leftCol.style.display = 'none';
-    if (actionsRow) actionsRow.style.display = 'none';
-    if (titleEl) titleEl.style.display = 'none';
-    if (navRow) navRow.style.display = 'none';
-    dd.classList.add('island-center-dd-active');
-    let ddWrap = document.getElementById('island-center-dropdown');
-    if (!ddWrap) {
-      ddWrap = new View('div').attr('id', 'island-center-dropdown').el;
-      const pillWrapEl = document.getElementById('pill-url-wrap');
-      if (pillWrapEl) pillWrapEl.appendChild(ddWrap);
-    }
-    AetherUI.mount(root, ddWrap);
-    ddWrap.style.display = '';
+  if (isPopup) {
+    // In popup mode: hide tabs when showing suggestions, render into popup dropdown
+    const tabsEl = window._urlPopupEl ? window._urlPopupEl.querySelector('#pill-url-popup-tabs') : null;
+    if (tabsEl) tabsEl.style.display = filter ? 'none' : '';
+    AetherUI.mount(root, dd);
+    dd.style.display = '';
   } else {
     AetherUI.mount(root, dd);
     dd.style.display = '';
@@ -1031,20 +1030,7 @@ export function _browseUrlCancelHide() {
   _browseUrlHideTimeout = null;
 }
 
-function _islandCenterRestorePageInfo() {
-  const ddWrap = document.getElementById('island-center-dropdown');
-  if (ddWrap) { ddWrap.innerHTML = ''; ddWrap.style.display = 'none'; }
-  const leftCol = document.getElementById('pill-island-left');
-  const actionsRow = document.getElementById('pill-island-actions-row');
-  const titleEl = document.getElementById('pill-island-title');
-  const navRow = document.getElementById('pill-island-nav-row');
-  const centerCol = document.getElementById('pill-island-center');
-  if (leftCol) leftCol.style.display = '';
-  if (actionsRow) actionsRow.style.display = '';
-  if (titleEl) titleEl.style.display = '';
-  if (navRow) navRow.style.display = '';
-  if (centerCol) centerCol.classList.remove('island-center-dd-active');
-}
+// _islandCenterRestorePageInfo removed — popup mode doesn't use center column for dropdown
 
 export function _browseUrlHideHistory() {
   _browseUrlClearAutocomplete();
@@ -1055,7 +1041,13 @@ export function _browseUrlHideHistory() {
   if (ntpDd) { ntpDd.style.display = 'none'; ntpDd.classList.add('hidden'); }
   const pillWrap = document.getElementById('pill-url-wrap');
   if (pillWrap) pillWrap.classList.remove('pill-dropdown-open');
-  _islandCenterRestorePageInfo();
+  // Popup mode: restore tabs, clear dropdown
+  if (window._urlPopupEl) {
+    const popupDd = window._urlPopupEl.querySelector('#pill-url-popup-dropdown');
+    if (popupDd) { popupDd.innerHTML = ''; popupDd.style.display = 'none'; }
+    const tabsEl = window._urlPopupEl.querySelector('#pill-url-popup-tabs');
+    if (tabsEl) tabsEl.style.display = '';
+  }
   _browseUrlHistIdx = -1;
 }
 
@@ -1066,13 +1058,14 @@ window._getOmniInput = _getOmniInput;
 
 // ── Global mousedown to close dropdown ──
 document.addEventListener('mousedown', (e) => {
-  const { input, dd, island, islandCenter } = _getOmniInput();
+  const { input, dd, island, popup } = _getOmniInput();
   if (!dd) return;
-  // Check visibility: pill dropdown uses class, others use display
-  if (islandCenter) {
-    const ddWrap = document.getElementById('island-center-dropdown');
-    if (!ddWrap || ddWrap.style.display === 'none') return;
-    if ((input && input.contains(e.target)) || (e.target.closest && e.target.closest('#pill-url-wrap'))) return;
+  // Check visibility: popup mode is handled by its own outside-click handler
+  if (popup) {
+    if (dd.style.display === 'none' || !dd.innerHTML) return;
+    if ((input && input.contains(e.target)) || dd.contains(e.target)) return;
+    if (window._urlPopupEl && window._urlPopupEl.contains(e.target)) return;
+    if (e.target.closest && e.target.closest('#pill-url-wrap')) return;
   } else if (island) {
     const pillWrap = document.getElementById('pill-url-wrap');
     if (!pillWrap || !pillWrap.classList.contains('pill-dropdown-open')) return;
