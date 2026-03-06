@@ -5,7 +5,7 @@ import { escapeHtml } from '/js/core/core-utils.js';
 import { icon } from '/js/core/icons.js';
 import { aiPillState } from '/js/toolbar/toolbar-state.js';
 import { browseSelectTab } from '/js/browse/browse-passwords.js';
-import { toggleAnnotations, _annotationsEnabled, _insightAnalyzing } from '/js/browse/browse-annotations.js';
+import { toggleAnnotations, _annotationsEnabled, _insightAnalyzing, _insightCache, ANN_COLOR_MAP, scrollToAnnotation } from '/js/browse/browse-annotations.js';
 import { toggleCaptions } from '/js/browse/browse-captions.js';
 import { _showPanel } from '/js/panel.js';
 import { _browseToggleWebviewDarkMode } from '/js/browse/browse-frame-bind.js';
@@ -140,7 +140,9 @@ function _renderUnifiedPill() {
       const _cssKey = Settings.get('autoRemoveCSS');
       const _nerdKey = _activeTab && _nerdModeEnabled.get(_activeTab.id);
       const _annKey = _activeTab && (_insightAnalyzing.get(_activeTab.id) || _annotationsEnabled.get(_activeTab.id));
-      const key = [state.primary, !!as.tab, !!as.tts, as.tts && as.tts.paused, !!as.cc, !!as.mic, as.micRecording, _liveCount, _pulseCount, _darkKey, _cssKey, _nerdKey, _annKey].join(',');
+      const _annCache = _activeTab && _insightCache.get(_activeTab.url);
+      const _annCount = _annCache && _annCache.annotations ? _annCache.annotations.length : 0;
+      const key = [state.primary, !!as.tab, !!as.tts, as.tts && as.tts.paused, !!as.cc, !!as.mic, as.micRecording, _liveCount, _pulseCount, _darkKey, _cssKey, _nerdKey, _annKey, _annCount].join(',');
       if (key !== _dropdownStateKey) {
         _dropdownStateKey = key;
         _renderDropdown(dropdown, state);
@@ -360,6 +362,39 @@ function _renderDropdown(dropdown, state) {
     function() { _closeDropdown(); toggleAnnotations(); },
     { disabled: !hasTab, color: (annEnabled || annAnalyzing) ? 'var(--nr-accent)' : undefined }
   ));
+
+  // Annotation rows — show cached annotations inline
+  if (hasTab && annEnabled) {
+    const cached = _insightCache.get(tab.url);
+    const anns = cached && cached.annotations ? cached.annotations : [];
+    const maxShow = 8;
+    const showAnns = anns.slice(0, maxShow);
+    for (let ai = 0; ai < showAnns.length; ai++) {
+      (function(ann, idx) {
+        const colorInfo = ANN_COLOR_MAP[ann.type] || ANN_COLOR_MAP.INSIGHT;
+        const dot = new View('span').styles({
+          width: '6px', height: '6px', borderRadius: '50%',
+          background: colorInfo.border, flexShrink: '0'
+        });
+        const typeLabel = Text(colorInfo.label).font('caption2').styles({ color: colorInfo.border, flexShrink: '0' });
+        const explain = Text(escapeHtml(ann.explanation || '')).font('caption2').foreground('secondary')
+          .styles({ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: '1', minWidth: '0' });
+        const row = HStack(dot, typeLabel, explain)
+          .className('ai-unified-ann-row')
+          .styles({ padding: '3px 10px 3px 32px', gap: '6px', cursor: 'pointer', alignItems: 'center' })
+          .onTap(function(e) { e.stopPropagation(); _closeDropdown(); scrollToAnnotation(idx); });
+        children.push(row);
+      })(showAnns[ai], ai);
+    }
+    if (anns.length > maxShow) {
+      children.push(
+        Text('Show all ' + anns.length + ' annotations')
+          .font('caption2').foreground('accent')
+          .styles({ padding: '3px 10px 3px 32px', cursor: 'pointer' })
+          .onTap(function(e) { e.stopPropagation(); _closeDropdown(); if (typeof window._showAnnotationsTray === 'function') window._showAnnotationsTray(); })
+      );
+    }
+  }
 
   const _nerdOn = tab && _nerdModeEnabled.get(tab.id);
   const isPdfForNerd = hasTab && (tab.pdfUrl || tab.localPath || tab._nbParsedData || (tab.url && tab.url.toLowerCase().endsWith('.pdf')) || (tab.url && tab.url.toLowerCase().endsWith('.ipynb')) || (tab.url && tab.url.includes('/pdf/') && tab.url.includes('arxiv.org')));
