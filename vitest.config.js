@@ -53,6 +53,10 @@ export default defineConfig({
     alias: {
       '@': '/src/js',
       '@core': '/src/core',
+      // Map browser-absolute paths (used by AetherUI ES modules) to source files
+      '/aether/ui/state.js': '/src/aether/ui/state.js',
+      '/aether/ui/view.js': '/src/aether/ui/view.js',
+      '/aether/tokens.js': '/src/aether/tokens.js',
     },
   },
 });
