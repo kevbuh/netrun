@@ -1,11 +1,12 @@
 /**
- * browse-notebook-viewer.js — Jupyter notebook renderer + kernel execution UI
+ * browse-notebook-viewer.js — Jupyter notebook editor + kernel execution UI
  *
  * Exports:
  *   _notebookViewerInit(tab, viewerEl, notebookData)
  *   _notebookViewerDestroy(tab)
  *   _notebookViewerGetText(tab)
  *   _notebookViewerScrollToCell(tab, cellIndex)
+ *   _notebookViewerSerialize(tab)
  */
 
 import { toast } from '/js/core/core-utils.js';
@@ -188,25 +189,87 @@ function _renderExistingOutputs(cell, outputEl) {
   }
 }
 
-// ── Play icon SVG ───────────────────────────────────────────────────
+// ── SVG icons ───────────────────────────────────────────────────────
 const _PLAY_SVG = '<svg viewBox="0 0 16 16" fill="currentColor"><polygon points="4,2 14,8 4,14"/></svg>';
 const _STOP_SVG = '<svg viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="1"/></svg>';
 const _CHEVRON_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5,3 11,8 5,13"/></svg>';
 const _CHEVRON_DOWN_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,5 8,11 13,5"/></svg>';
+const _DELETE_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>';
+const _MOVE_UP_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4,10 8,5 12,10"/></svg>';
+const _MOVE_DOWN_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="4,6 8,11 12,6"/></svg>';
+const _PLUS_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>';
+const _CLEAR_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M6 4V3h4v1M5 4v9h6V4"/></svg>';
+
+// ── Dirty tracking ──────────────────────────────────────────────────
+function _markDirty(tab) {
+  if (tab._nbDirty) return;
+  tab._nbDirty = true;
+  if (tab.title && !tab.title.startsWith('● ')) {
+    tab.title = '● ' + tab.title;
+    if (typeof window._browseRenderTabs === 'function') window._browseRenderTabs();
+  }
+}
+
+// ── Refresh indices after structural changes ────────────────────────
+function _refreshCellIndices(tab) {
+  if (!tab._nbCellsEl) return;
+  const cells = tab._nbCellsEl.querySelectorAll('.nb-cell');
+  for (let i = 0; i < cells.length; i++) {
+    cells[i].dataset.cellIndex = i;
+  }
+  const codeCells = (tab._nbData.cells || []).filter(function(c) { return c.cell_type === 'code'; });
+  if (tab._nbCellCounter) {
+    tab._nbCellCounter.textContent = codeCells.length + ' code cells';
+  }
+}
+
+function _refreshDividerIndices(tab) {
+  if (!tab._nbCellsEl) return;
+  const dividers = tab._nbCellsEl.querySelectorAll('.nb-add-cell-divider');
+  for (let i = 0; i < dividers.length; i++) {
+    dividers[i].dataset.insertIndex = i;
+  }
+}
+
+// ── Cell action button helper ───────────────────────────────────────
+function _cellActionBtn(svg, title, handler) {
+  const btn = document.createElement('button');
+  btn.className = 'nb-cell-action-btn';
+  btn.innerHTML = svg;
+  btn.title = title;
+  btn.onclick = function(e) { e.stopPropagation(); handler(); };
+  return btn;
+}
 
 // ── Build cell DOM ──────────────────────────────────────────────────
-function _buildMarkdownCell(cell, cellIndex) {
+function _buildMarkdownCell(cell, cellIndex, tab) {
   const el = document.createElement('div');
   el.className = 'nb-cell nb-cell-markdown';
   el.dataset.cellIndex = cellIndex;
   el.dataset.cellType = 'markdown';
 
+  const actions = document.createElement('div');
+  actions.className = 'nb-cell-actions';
+  actions.appendChild(_cellActionBtn(_MOVE_UP_SVG, 'Move up', function() { _moveCell(tab, parseInt(el.dataset.cellIndex, 10), -1); }));
+  actions.appendChild(_cellActionBtn(_MOVE_DOWN_SVG, 'Move down', function() { _moveCell(tab, parseInt(el.dataset.cellIndex, 10), 1); }));
+  actions.appendChild(_cellActionBtn(_DELETE_SVG, 'Delete cell', function() { _deleteCell(tab, parseInt(el.dataset.cellIndex, 10)); }));
+  el.appendChild(actions);
+
   const rendered = document.createElement('div');
   rendered.className = 'nb-cell-rendered';
   const source = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
-  rendered.innerHTML = _renderMarkdownCell(source);
-  _processKatexInEl(rendered);
+  if (source.trim()) {
+    rendered.innerHTML = _renderMarkdownCell(source);
+    _processKatexInEl(rendered);
+  } else {
+    rendered.innerHTML = '<p class="nb-md-placeholder">Double-click to edit markdown</p>';
+  }
   el.appendChild(rendered);
+
+  rendered.addEventListener('dblclick', function() {
+    _enterMarkdownEdit(tab, el);
+  });
+
   return el;
 }
 
@@ -224,7 +287,7 @@ function _buildCodeCell(cell, cellIndex, tab) {
   runBtn.className = 'nb-run-btn';
   runBtn.innerHTML = _PLAY_SVG;
   runBtn.title = 'Run cell (Shift+Enter)';
-  runBtn.onclick = function() { _executeCell(tab, cellIndex); };
+  runBtn.onclick = function() { _executeCell(tab, parseInt(el.dataset.cellIndex, 10)); };
   header.appendChild(runBtn);
 
   const execCount = document.createElement('span');
@@ -232,6 +295,18 @@ function _buildCodeCell(cell, cellIndex, tab) {
   const ec = cell.execution_count;
   execCount.textContent = ec != null ? 'In [' + ec + ']:' : 'In [ ]:';
   header.appendChild(execCount);
+
+  const spacer = document.createElement('span');
+  spacer.style.flex = '1';
+  header.appendChild(spacer);
+
+  const headerActions = document.createElement('div');
+  headerActions.className = 'nb-header-actions';
+  headerActions.appendChild(_cellActionBtn(_CLEAR_SVG, 'Clear output', function() { _clearCellOutput(tab, parseInt(el.dataset.cellIndex, 10)); }));
+  headerActions.appendChild(_cellActionBtn(_MOVE_UP_SVG, 'Move up', function() { _moveCell(tab, parseInt(el.dataset.cellIndex, 10), -1); }));
+  headerActions.appendChild(_cellActionBtn(_MOVE_DOWN_SVG, 'Move down', function() { _moveCell(tab, parseInt(el.dataset.cellIndex, 10), 1); }));
+  headerActions.appendChild(_cellActionBtn(_DELETE_SVG, 'Delete cell', function() { _deleteCell(tab, parseInt(el.dataset.cellIndex, 10)); }));
+  header.appendChild(headerActions);
 
   const collapseBtn = document.createElement('button');
   collapseBtn.className = 'nb-collapse-btn';
@@ -248,7 +323,6 @@ function _buildCodeCell(cell, cellIndex, tab) {
   const codeContainer = document.createElement('div');
   codeContainer.className = 'nb-code-source';
   const source = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
-  // Start with <pre>, lazy-upgrade to CodeMirror on intersection
   const pre = document.createElement('pre');
   pre.textContent = source;
   codeContainer.appendChild(pre);
@@ -275,6 +349,316 @@ function _buildRawCell(cell, cellIndex) {
   pre.textContent = source;
   el.appendChild(pre);
   return el;
+}
+
+// ── Add cell divider ────────────────────────────────────────────────
+function _buildAddCellDivider(tab, insertIndex) {
+  const divider = document.createElement('div');
+  divider.className = 'nb-add-cell-divider';
+  divider.dataset.insertIndex = insertIndex;
+
+  const btnGroup = document.createElement('div');
+  btnGroup.className = 'nb-add-cell-btns';
+
+  const codeBtn = document.createElement('button');
+  codeBtn.className = 'nb-add-cell-btn';
+  codeBtn.innerHTML = _PLUS_SVG + ' Code';
+  codeBtn.onclick = function(e) { e.stopPropagation(); _addCell(tab, parseInt(divider.dataset.insertIndex, 10), 'code'); };
+  btnGroup.appendChild(codeBtn);
+
+  const mdBtn = document.createElement('button');
+  mdBtn.className = 'nb-add-cell-btn';
+  mdBtn.innerHTML = _PLUS_SVG + ' Markdown';
+  mdBtn.onclick = function(e) { e.stopPropagation(); _addCell(tab, parseInt(divider.dataset.insertIndex, 10), 'markdown'); };
+  btnGroup.appendChild(mdBtn);
+
+  divider.appendChild(btnGroup);
+  return divider;
+}
+
+// ── Cell operations ─────────────────────────────────────────────────
+function _addCell(tab, index, type) {
+  const newCell = { cell_type: type, source: [], metadata: {} };
+  if (type === 'code') {
+    newCell.execution_count = null;
+    newCell.outputs = [];
+  }
+  tab._nbData.cells.splice(index, 0, newCell);
+
+  var cellEl;
+  if (type === 'markdown') {
+    cellEl = _buildMarkdownCell(newCell, index, tab);
+  } else if (type === 'code') {
+    cellEl = _buildCodeCell(newCell, index, tab);
+  } else {
+    cellEl = _buildRawCell(newCell, index);
+  }
+
+  const dividers = tab._nbCellsEl.querySelectorAll('.nb-add-cell-divider');
+  const targetDivider = dividers[index];
+  if (targetDivider) {
+    const newDivider = _buildAddCellDivider(tab, index + 1);
+    targetDivider.after(cellEl);
+    cellEl.after(newDivider);
+  }
+
+  _refreshCellIndices(tab);
+  _refreshDividerIndices(tab);
+
+  const prev = tab._nbCellsEl.querySelector('.nb-cell-selected');
+  if (prev) prev.classList.remove('nb-cell-selected');
+  cellEl.classList.add('nb-cell-selected');
+  cellEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  if (type === 'code') {
+    const codeContainer = cellEl.querySelector('.nb-code-source');
+    _initCodeMirror(codeContainer, tab);
+    if (codeContainer._cm) {
+      requestAnimationFrame(function() { codeContainer._cm.focus(); });
+    }
+  } else if (type === 'markdown') {
+    _enterMarkdownEdit(tab, cellEl);
+  }
+
+  _markDirty(tab);
+}
+
+function _deleteCell(tab, cellIndex) {
+  const cells = tab._nbData.cells;
+  if (cells.length <= 1) { toast('Cannot delete the last cell'); return; }
+
+  const deleted = cells.splice(cellIndex, 1)[0];
+  tab._nbDeleteStack = tab._nbDeleteStack || [];
+  tab._nbDeleteStack.push({ cell: deleted, index: cellIndex });
+
+  const cellEl = tab._nbCellsEl.querySelector('.nb-cell[data-cell-index="' + cellIndex + '"]');
+  if (cellEl) {
+    const codeContainer = cellEl.querySelector('.nb-code-source');
+    if (codeContainer && codeContainer._cm) { codeContainer._cm.toTextArea(); codeContainer._cm = null; }
+    if (cellEl._mdCm) { cellEl._mdCm.toTextArea(); cellEl._mdCm = null; }
+    const nextEl = cellEl.nextElementSibling;
+    if (nextEl && nextEl.classList.contains('nb-add-cell-divider')) nextEl.remove();
+    cellEl.remove();
+  }
+
+  _refreshCellIndices(tab);
+  _refreshDividerIndices(tab);
+
+  const remaining = tab._nbCellsEl.querySelectorAll('.nb-cell');
+  if (remaining.length > 0) {
+    const selectIdx = Math.min(cellIndex, remaining.length - 1);
+    remaining[selectIdx].classList.add('nb-cell-selected');
+  }
+
+  _markDirty(tab);
+}
+
+function _undoDeleteCell(tab) {
+  if (!tab._nbDeleteStack || tab._nbDeleteStack.length === 0) return;
+  const entry = tab._nbDeleteStack.pop();
+  const cell = entry.cell;
+  const safeIndex = Math.min(entry.index, tab._nbData.cells.length);
+  _addCell(tab, safeIndex, cell.cell_type);
+
+  const restored = tab._nbData.cells[safeIndex];
+  restored.source = cell.source;
+  restored.outputs = cell.outputs || [];
+  restored.execution_count = cell.execution_count;
+  restored.metadata = cell.metadata;
+
+  const cellEl = tab._nbCellsEl.querySelector('.nb-cell[data-cell-index="' + safeIndex + '"]');
+  if (cellEl && cell.cell_type === 'code') {
+    const codeContainer = cellEl.querySelector('.nb-code-source');
+    const source = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
+    if (codeContainer && codeContainer._cm) codeContainer._cm.setValue(source);
+    const outputsEl = cellEl.querySelector('.nb-outputs');
+    if (outputsEl) { outputsEl.innerHTML = ''; _renderExistingOutputs(cell, outputsEl); }
+  } else if (cellEl && cell.cell_type === 'markdown') {
+    _exitMarkdownEdit(tab, cellEl);
+    const rendered = cellEl.querySelector('.nb-cell-rendered');
+    if (rendered) {
+      const source = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
+      rendered.innerHTML = _renderMarkdownCell(source);
+      _processKatexInEl(rendered);
+    }
+  }
+  toast('Cell restored');
+}
+
+function _moveCell(tab, cellIndex, direction) {
+  const cells = tab._nbData.cells;
+  const newIndex = cellIndex + direction;
+  if (newIndex < 0 || newIndex >= cells.length) return;
+
+  const temp = cells[cellIndex];
+  cells[cellIndex] = cells[newIndex];
+  cells[newIndex] = temp;
+
+  const cellEl = tab._nbCellsEl.querySelector('.nb-cell[data-cell-index="' + cellIndex + '"]');
+  const otherEl = tab._nbCellsEl.querySelector('.nb-cell[data-cell-index="' + newIndex + '"]');
+  if (!cellEl || !otherEl) return;
+
+  if (direction === -1) {
+    const prevDivider = otherEl.previousElementSibling;
+    if (prevDivider) prevDivider.before(cellEl);
+  } else {
+    const nextDivider = otherEl.nextElementSibling;
+    if (nextDivider) nextDivider.after(cellEl);
+  }
+
+  _refreshCellIndices(tab);
+  _markDirty(tab);
+  cellEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function _changeCellType(tab, cellIndex, newType) {
+  const cell = tab._nbData.cells[cellIndex];
+  if (!cell || cell.cell_type === newType) return;
+
+  const cellEl = tab._nbCellsEl.querySelector('.nb-cell[data-cell-index="' + cellIndex + '"]');
+  let source = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
+  if (cellEl && cell.cell_type === 'code') {
+    const codeContainer = cellEl.querySelector('.nb-code-source');
+    if (codeContainer && codeContainer._cm) source = codeContainer._cm.getValue();
+  } else if (cellEl && cellEl._mdCm) {
+    source = cellEl._mdCm.getValue();
+  }
+
+  cell.cell_type = newType;
+  cell.source = source ? source.split('\n').map(function(l, i, a) { return i < a.length - 1 ? l + '\n' : l; }) : [];
+  if (newType === 'code') {
+    cell.execution_count = cell.execution_count || null;
+    cell.outputs = cell.outputs || [];
+  } else {
+    delete cell.execution_count;
+    delete cell.outputs;
+  }
+
+  var newCellEl;
+  if (newType === 'markdown') {
+    newCellEl = _buildMarkdownCell(cell, cellIndex, tab);
+  } else if (newType === 'code') {
+    newCellEl = _buildCodeCell(cell, cellIndex, tab);
+  } else {
+    newCellEl = _buildRawCell(cell, cellIndex);
+  }
+
+  if (cellEl) {
+    const codeContainer = cellEl.querySelector('.nb-code-source');
+    if (codeContainer && codeContainer._cm) codeContainer._cm.toTextArea();
+    if (cellEl._mdCm) { cellEl._mdCm.toTextArea(); cellEl._mdCm = null; }
+    cellEl.replaceWith(newCellEl);
+  }
+
+  if (newType === 'code') {
+    const codeContainer = newCellEl.querySelector('.nb-code-source');
+    _initCodeMirror(codeContainer, tab);
+  }
+
+  newCellEl.classList.add('nb-cell-selected');
+  _markDirty(tab);
+}
+
+function _clearCellOutput(tab, cellIndex) {
+  const cell = tab._nbData.cells[cellIndex];
+  if (!cell || cell.cell_type !== 'code') return;
+  cell.outputs = [];
+  cell.execution_count = null;
+  const cellEl = tab._nbCellsEl.querySelector('.nb-cell[data-cell-index="' + cellIndex + '"]');
+  if (cellEl) {
+    const outputsEl = cellEl.querySelector('.nb-outputs');
+    if (outputsEl) outputsEl.innerHTML = '';
+    const execCount = cellEl.querySelector('.nb-exec-count');
+    if (execCount) execCount.textContent = 'In [ ]:';
+  }
+}
+
+function _clearAllOutputs(tab) {
+  const cells = tab._nbData.cells || [];
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i].cell_type === 'code') _clearCellOutput(tab, i);
+  }
+}
+
+// ── Markdown cell editing ───────────────────────────────────────────
+function _enterMarkdownEdit(tab, cellEl) {
+  if (!cellEl || cellEl.classList.contains('nb-md-editing')) return;
+  if (typeof CodeMirror === 'undefined') return;
+  cellEl.classList.add('nb-md-editing');
+
+  const rendered = cellEl.querySelector('.nb-cell-rendered');
+  const cellIndex = parseInt(cellEl.dataset.cellIndex, 10);
+  const cell = tab._nbData.cells[cellIndex];
+  const source = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
+
+  if (rendered) rendered.style.display = 'none';
+
+  const editContainer = document.createElement('div');
+  editContainer.className = 'nb-md-edit-container';
+  const textarea = document.createElement('textarea');
+  editContainer.appendChild(textarea);
+  cellEl.appendChild(editContainer);
+
+  const cm = CodeMirror.fromTextArea(textarea, {
+    mode: 'markdown',
+    theme: 'default',
+    lineWrapping: true,
+    lineNumbers: false,
+    matchBrackets: true,
+    viewportMargin: Infinity,
+    extraKeys: {
+      'Shift-Enter': function() {
+        _exitMarkdownEdit(tab, cellEl);
+        const idx = parseInt(cellEl.dataset.cellIndex, 10);
+        const next = tab._nbCellsEl.querySelector('.nb-cell[data-cell-index="' + (idx + 1) + '"]');
+        if (next) {
+          cellEl.classList.remove('nb-cell-selected');
+          next.classList.add('nb-cell-selected');
+          next.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      },
+      'Escape': function() {
+        _exitMarkdownEdit(tab, cellEl);
+      }
+    }
+  });
+  cm.setValue(source);
+  cellEl._mdCm = cm;
+  cm.on('change', function() { _markDirty(tab); });
+  requestAnimationFrame(function() { cm.focus(); cm.setCursor(cm.lineCount(), 0); });
+}
+
+function _exitMarkdownEdit(tab, cellEl) {
+  if (!cellEl || !cellEl.classList.contains('nb-md-editing')) return;
+  cellEl.classList.remove('nb-md-editing');
+
+  const cm = cellEl._mdCm;
+  const cellIndex = parseInt(cellEl.dataset.cellIndex, 10);
+
+  if (cm) {
+    const newSource = cm.getValue();
+    const cell = tab._nbData.cells[cellIndex];
+    if (cell) {
+      cell.source = newSource ? newSource.split('\n').map(function(l, i, a) { return i < a.length - 1 ? l + '\n' : l; }) : [];
+    }
+
+    const rendered = cellEl.querySelector('.nb-cell-rendered');
+    if (rendered) {
+      if (newSource.trim()) {
+        rendered.innerHTML = _renderMarkdownCell(newSource);
+        _processKatexInEl(rendered);
+      } else {
+        rendered.innerHTML = '<p class="nb-md-placeholder">Double-click to edit markdown</p>';
+      }
+      rendered.style.display = '';
+    }
+
+    cm.toTextArea();
+    cellEl._mdCm = null;
+  }
+
+  const editContainer = cellEl.querySelector('.nb-md-edit-container');
+  if (editContainer) editContainer.remove();
 }
 
 // ── Lazy CodeMirror init via IntersectionObserver ────────────────────
@@ -310,23 +694,73 @@ function _initCodeMirror(codeContainer, tab) {
   if (pre) pre.style.display = 'none';
 
   const cm = CodeMirror.fromTextArea(textarea, {
-    value: source,
     mode: mode,
     theme: 'default',
-    readOnly: true,
+    readOnly: false,
     lineNumbers: true,
     matchBrackets: true,
-    viewportMargin: Infinity
+    closeBrackets: true,
+    indentWithTabs: false,
+    indentUnit: 4,
+    tabSize: 4,
+    viewportMargin: Infinity,
+    extraKeys: {
+      'Tab': function(cm) {
+        if (cm.somethingSelected()) { cm.indentSelection('add'); }
+        else { cm.replaceSelection('    ', 'end'); }
+      },
+      'Shift-Tab': function(cm) {
+        cm.indentSelection('subtract');
+      },
+      'Shift-Enter': function() {
+        const cellEl = codeContainer.closest('.nb-cell');
+        if (!cellEl) return;
+        const idx = parseInt(cellEl.dataset.cellIndex, 10);
+        _executeCell(tab, idx);
+        const next = tab._nbCellsEl.querySelector('.nb-cell[data-cell-index="' + (idx + 1) + '"]');
+        if (next) {
+          cellEl.classList.remove('nb-cell-selected');
+          next.classList.add('nb-cell-selected');
+          next.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          const nextCode = next.querySelector('.nb-code-source');
+          if (nextCode && nextCode._cm) {
+            requestAnimationFrame(function() { nextCode._cm.focus(); });
+          }
+        }
+      },
+      'Ctrl-Enter': function() {
+        const cellEl = codeContainer.closest('.nb-cell');
+        if (cellEl) _executeCell(tab, parseInt(cellEl.dataset.cellIndex, 10));
+      },
+      'Cmd-Enter': function() {
+        const cellEl = codeContainer.closest('.nb-cell');
+        if (cellEl) _executeCell(tab, parseInt(cellEl.dataset.cellIndex, 10));
+      },
+      'Alt-Enter': function() {
+        const cellEl = codeContainer.closest('.nb-cell');
+        if (!cellEl) return;
+        const idx = parseInt(cellEl.dataset.cellIndex, 10);
+        _executeCell(tab, idx);
+        _addCell(tab, idx + 1, 'code');
+      },
+      'Escape': function() {
+        cm.getInputField().blur();
+      }
+    }
   });
   cm.setValue(source);
   codeContainer._cm = cm;
+
+  cm.on('change', function() {
+    codeContainer._source = cm.getValue();
+    _markDirty(tab);
+  });
 }
 
 // ── Toolbar ─────────────────────────────────────────────────────────
 function _buildToolbar(tab) {
   const toolbar = document.createElement('div');
   toolbar.className = 'nb-toolbar';
-
 
   // Kernel status
   const kernelStatus = document.createElement('div');
@@ -366,6 +800,40 @@ function _buildToolbar(tab) {
 
   toolbar.appendChild(_sep());
 
+  // Add Code Cell
+  const addCodeBtn = _tbBtn('Add code cell', function() {
+    const selected = tab._nbCellsEl ? tab._nbCellsEl.querySelector('.nb-cell-selected') : null;
+    const idx = selected ? parseInt(selected.dataset.cellIndex, 10) + 1 : tab._nbData.cells.length;
+    _addCell(tab, idx, 'code');
+  });
+  addCodeBtn.innerHTML = _PLUS_SVG;
+  addCodeBtn.title = 'Add code cell below selected';
+  addCodeBtn.classList.add('nb-tb-labeled');
+  addCodeBtn.insertAdjacentHTML('beforeend', ' Code');
+  toolbar.appendChild(addCodeBtn);
+
+  // Add Markdown Cell
+  const addMdBtn = _tbBtn('Add markdown cell', function() {
+    const selected = tab._nbCellsEl ? tab._nbCellsEl.querySelector('.nb-cell-selected') : null;
+    const idx = selected ? parseInt(selected.dataset.cellIndex, 10) + 1 : tab._nbData.cells.length;
+    _addCell(tab, idx, 'markdown');
+  });
+  addMdBtn.innerHTML = _PLUS_SVG;
+  addMdBtn.title = 'Add markdown cell below selected';
+  addMdBtn.classList.add('nb-tb-labeled');
+  addMdBtn.insertAdjacentHTML('beforeend', ' Md');
+  toolbar.appendChild(addMdBtn);
+
+  toolbar.appendChild(_sep());
+
+  // Clear All Outputs
+  const clearBtn = _tbBtn('Clear All Outputs', function() { _clearAllOutputs(tab); });
+  clearBtn.innerHTML = _CLEAR_SVG;
+  clearBtn.title = 'Clear all outputs';
+  toolbar.appendChild(clearBtn);
+
+  toolbar.appendChild(_sep());
+
   // Cell counter
   const cellCounter = document.createElement('span');
   cellCounter.className = 'nb-cell-counter';
@@ -375,9 +843,9 @@ function _buildToolbar(tab) {
   tab._nbCellCounter = cellCounter;
 
   // Spacer
-  const spacer = document.createElement('span');
-  spacer.style.flex = '1';
-  toolbar.appendChild(spacer);
+  const spacerEl = document.createElement('span');
+  spacerEl.style.flex = '1';
+  toolbar.appendChild(spacerEl);
 
   // Left panel toggle
   var outlineBtn = _tbBtn('Panel', function() {
@@ -488,7 +956,6 @@ function _buildNbLeftPanel(tab) {
     outlineScroll.appendChild(item);
   }
 
-  // Initial files tab selection (ensures display is set and content is built)
   filesBtn.onclick();
 
   return panel;
@@ -554,7 +1021,6 @@ async function _restartKernel(tab) {
   try {
     await electronAPI.notebookRestart(tab._nbSessionId);
     _updateKernelStatus(tab, 'idle');
-    // Reset all execution counts
     const execCounts = tab._nbCellsEl ? tab._nbCellsEl.querySelectorAll('.nb-exec-count') : [];
     for (let i = 0; i < execCounts.length; i++) {
       execCounts[i].textContent = 'In [ ]:';
@@ -578,7 +1044,6 @@ async function _executeCell(tab, cellIndex) {
   const cellEl = tab._nbCellsEl ? tab._nbCellsEl.querySelector('[data-cell-index="' + cellIndex + '"]') : null;
   if (!cellEl || cellEl.dataset.cellType !== 'code') return;
 
-  // Auto-start kernel if needed
   if (tab._nbKernelState !== 'idle' && tab._nbKernelState !== 'busy') {
     await _startKernel(tab);
     if (tab._nbKernelState !== 'idle') return;
@@ -593,11 +1058,16 @@ async function _executeCell(tab, cellIndex) {
   }
   if (!source.trim()) return;
 
+  // Sync source back to data
+  const cell = tab._nbData.cells[cellIndex];
+  if (cell) {
+    cell.source = source.split('\n').map(function(l, i, a) { return i < a.length - 1 ? l + '\n' : l; });
+  }
+
   const cellId = 'cell-' + cellIndex;
   const execCount = cellEl.querySelector('.nb-exec-count');
   const outputsEl = cellEl.querySelector('.nb-outputs');
 
-  // Clear previous outputs
   outputsEl.innerHTML = '';
   cellEl.classList.add('nb-cell-executing');
   if (execCount) { execCount.textContent = 'In [*]:'; execCount.classList.add('nb-exec-running'); }
@@ -616,7 +1086,6 @@ async function _executeAll(tab) {
   for (let i = 0; i < cells.length; i++) {
     const idx = parseInt(cells[i].dataset.cellIndex, 10);
     await _executeCell(tab, idx);
-    // Wait for completion before next cell
     await new Promise(function(resolve) {
       const check = function() {
         if (tab._nbKernelState !== 'busy') resolve();
@@ -639,7 +1108,6 @@ function _setupIPCListeners(tab) {
     if (!outputsEl) return;
 
     if (data.event === 'stream') {
-      // Find or create last stream output of same name
       const lastStream = outputsEl.querySelector('.nb-output-stream:last-child pre' + (data.name === 'stderr' ? '.nb-stderr' : ':not(.nb-stderr)'));
       if (lastStream) {
         lastStream.innerHTML += _ansiToHtml(data.text);
@@ -680,6 +1148,10 @@ function _setupIPCListeners(tab) {
       execCount.textContent = data.executionCount != null ? 'In [' + data.executionCount + ']:' : 'In [ ]:';
       execCount.classList.remove('nb-exec-running');
     }
+    // Store execution count in data
+    const cellIndex = parseInt(cellEl.dataset.cellIndex, 10);
+    const cell = tab._nbData.cells[cellIndex];
+    if (cell) cell.execution_count = data.executionCount;
   };
 
   if (electronAPI.onNotebookOutput) electronAPI.onNotebookOutput(tab._nbOutputHandler);
@@ -707,38 +1179,171 @@ function _setupIframeResize(tab) {
   window.addEventListener('message', tab._nbIframeResizeHandler);
 }
 
-// ── Keyboard shortcuts ──────────────────────────────────────────────
+// ── Keyboard shortcuts (command mode + global) ──────────────────────
 function _setupKeyboard(tab) {
+  let dPending = false;
+
   tab._nbKeyHandler = function(e) {
     if (!tab._nbViewerEl || !tab._nbViewerEl.offsetParent) return;
 
-    // Cmd+S / Ctrl+S — save notebook
+    // Cmd+S / Ctrl+S — save
     if ((e.metaKey || e.ctrlKey) && e.key === 's') {
       e.preventDefault();
       _saveNotebook(tab);
       return;
     }
 
-    // Find selected cell
     const selected = tab._nbCellsEl ? tab._nbCellsEl.querySelector('.nb-cell-selected') : null;
     const cellIndex = selected ? parseInt(selected.dataset.cellIndex, 10) : -1;
 
-    if (e.shiftKey && e.key === 'Enter') {
+    // Check if we're in an editor
+    const activeEl = document.activeElement;
+    const inEditor = activeEl && (activeEl.closest && activeEl.closest('.CodeMirror'));
+
+    // Skip command mode if typing in an input/textarea outside CodeMirror
+    const tag = activeEl ? activeEl.tagName : '';
+    if (!inEditor && (tag === 'INPUT' || tag === 'TEXTAREA' || (activeEl && activeEl.isContentEditable))) return;
+
+    if (inEditor) {
+      // Edit mode — only Escape exits
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        const cmEl = activeEl.closest('.CodeMirror');
+        if (cmEl && cmEl.CodeMirror) cmEl.CodeMirror.getInputField().blur();
+      }
+      return;
+    }
+
+    // ── Command mode shortcuts ──
+
+    // Enter → edit mode
+    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
-      if (cellIndex >= 0) {
-        _executeCell(tab, cellIndex);
-        // Advance to next cell
-        const next = tab._nbCellsEl.querySelector('[data-cell-index="' + (cellIndex + 1) + '"]');
+      if (selected) {
+        if (selected.dataset.cellType === 'code') {
+          const cc = selected.querySelector('.nb-code-source');
+          if (cc && cc._cm) cc._cm.focus();
+        } else if (selected.dataset.cellType === 'markdown') {
+          _enterMarkdownEdit(tab, selected);
+        }
+      }
+      dPending = false;
+      return;
+    }
+
+    // Navigation: Up/k, Down/j
+    if (e.key === 'ArrowUp' || e.key === 'k') {
+      if (e.altKey && cellIndex >= 0) {
+        e.preventDefault();
+        _moveCell(tab, cellIndex, -1);
+      } else if (cellIndex > 0) {
+        e.preventDefault();
+        const prev = tab._nbCellsEl.querySelector('.nb-cell[data-cell-index="' + (cellIndex - 1) + '"]');
+        if (prev) {
+          selected.classList.remove('nb-cell-selected');
+          prev.classList.add('nb-cell-selected');
+          prev.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+      dPending = false;
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'j') {
+      if (e.altKey && cellIndex >= 0) {
+        e.preventDefault();
+        _moveCell(tab, cellIndex, 1);
+      } else {
+        e.preventDefault();
+        const next = tab._nbCellsEl.querySelector('.nb-cell[data-cell-index="' + (cellIndex + 1) + '"]');
         if (next) {
           if (selected) selected.classList.remove('nb-cell-selected');
           next.classList.add('nb-cell-selected');
           next.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
       }
-    } else if (e.ctrlKey && e.key === 'Enter') {
+      dPending = false;
+      return;
+    }
+
+    // a — add cell above
+    if (e.key === 'a' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      _addCell(tab, cellIndex >= 0 ? cellIndex : 0, 'code');
+      dPending = false;
+      return;
+    }
+    // b — add cell below
+    if (e.key === 'b' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      _addCell(tab, cellIndex >= 0 ? cellIndex + 1 : tab._nbData.cells.length, 'code');
+      dPending = false;
+      return;
+    }
+
+    // dd — delete cell
+    if (e.key === 'd' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      if (dPending) {
+        if (cellIndex >= 0) _deleteCell(tab, cellIndex);
+        dPending = false;
+      } else {
+        dPending = true;
+        setTimeout(function() { dPending = false; }, 500);
+      }
+      return;
+    }
+
+    // m — to markdown
+    if (e.key === 'm' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      if (cellIndex >= 0) _changeCellType(tab, cellIndex, 'markdown');
+      dPending = false;
+      return;
+    }
+    // y — to code
+    if (e.key === 'y' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      if (cellIndex >= 0) _changeCellType(tab, cellIndex, 'code');
+      dPending = false;
+      return;
+    }
+
+    // z — undo delete
+    if (e.key === 'z' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      _undoDeleteCell(tab);
+      dPending = false;
+      return;
+    }
+
+    // Shift+Enter — run and advance
+    if (e.shiftKey && e.key === 'Enter') {
+      e.preventDefault();
+      if (cellIndex >= 0) {
+        if (selected && selected.dataset.cellType === 'markdown') {
+          _exitMarkdownEdit(tab, selected);
+        } else {
+          _executeCell(tab, cellIndex);
+        }
+        const next = tab._nbCellsEl.querySelector('.nb-cell[data-cell-index="' + (cellIndex + 1) + '"]');
+        if (next) {
+          if (selected) selected.classList.remove('nb-cell-selected');
+          next.classList.add('nb-cell-selected');
+          next.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+      dPending = false;
+      return;
+    }
+    // Ctrl+Enter — run in place
+    if (e.ctrlKey && e.key === 'Enter') {
       e.preventDefault();
       if (cellIndex >= 0) _executeCell(tab, cellIndex);
+      dPending = false;
+      return;
     }
+
+    dPending = false;
   };
   document.addEventListener('keydown', tab._nbKeyHandler);
 }
@@ -749,7 +1354,7 @@ function _setupCellSelection(tab) {
     const cell = e.target.closest('.nb-cell');
     if (!cell) return;
     const prev = tab._nbCellsEl.querySelector('.nb-cell-selected');
-    if (prev) prev.classList.remove('nb-cell-selected');
+    if (prev && prev !== cell) prev.classList.remove('nb-cell-selected');
     cell.classList.add('nb-cell-selected');
   };
   tab._nbCellsEl.addEventListener('click', tab._nbCellClickHandler);
@@ -760,8 +1365,9 @@ export function _notebookViewerInit(tab, viewerEl, notebookData) {
   tab._nbData = notebookData;
   tab._nbViewerEl = viewerEl;
   tab._nbFontScale = tab._nbFontScale || 1;
+  tab._nbDirty = false;
+  tab._nbDeleteStack = [];
 
-  // Detect language from kernelspec
   const meta = notebookData.metadata || {};
   const kernelspec = meta.kernelspec || {};
   tab._nbLanguage = kernelspec.language || (meta.language_info && meta.language_info.name) || 'python';
@@ -779,13 +1385,13 @@ export function _notebookViewerInit(tab, viewerEl, notebookData) {
   const bodyWrapper = document.createElement('div');
   bodyWrapper.className = 'nb-body-wrapper';
 
-  // Left panel (Files | Outline)
+  // Left panel
   const leftPanel = _buildNbLeftPanel(tab);
   bodyWrapper.appendChild(leftPanel);
   tab._nbLeftPanel = leftPanel;
   tab._nbLeftPanelVisible = false;
 
-  // Drag handle for resizing left panel
+  // Drag handle
   const resizeHandle = document.createElement('div');
   resizeHandle.className = 'pdf-left-panel-resize';
   bodyWrapper.appendChild(resizeHandle);
@@ -821,24 +1427,32 @@ export function _notebookViewerInit(tab, viewerEl, notebookData) {
   tab._nbCellsEl = cellsEl;
 
   const cells = notebookData.cells || [];
+
+  // Initial divider
+  cellsEl.appendChild(_buildAddCellDivider(tab, 0));
+
   for (let i = 0; i < cells.length; i++) {
     const cell = cells[i];
     var cellEl;
     if (cell.cell_type === 'markdown') {
-      cellEl = _buildMarkdownCell(cell, i);
+      cellEl = _buildMarkdownCell(cell, i, tab);
     } else if (cell.cell_type === 'code') {
       cellEl = _buildCodeCell(cell, i, tab);
     } else {
       cellEl = _buildRawCell(cell, i);
     }
     cellsEl.appendChild(cellEl);
+    cellsEl.appendChild(_buildAddCellDivider(tab, i + 1));
   }
+
+  // Select first cell
+  const firstCell = cellsEl.querySelector('.nb-cell');
+  if (firstCell) firstCell.classList.add('nb-cell-selected');
 
   scrollContainer.appendChild(cellsEl);
   bodyWrapper.appendChild(scrollContainer);
   viewerEl.appendChild(bodyWrapper);
 
-  // Setup lazy CodeMirror, keyboard, selection, IPC, iframe resize
   _setupLazyCM(tab);
   _setupKeyboard(tab);
   _setupCellSelection(tab);
@@ -847,10 +1461,8 @@ export function _notebookViewerInit(tab, viewerEl, notebookData) {
 }
 
 export function _notebookViewerDestroy(tab) {
-  // Shutdown kernel
   _shutdownKernel(tab);
 
-  // Remove event listeners
   if (tab._nbKeyHandler) {
     document.removeEventListener('keydown', tab._nbKeyHandler);
     tab._nbKeyHandler = null;
@@ -861,21 +1473,21 @@ export function _notebookViewerDestroy(tab) {
   }
   _removeIPCListeners(tab);
 
-  // Dispose CodeMirror instances
   if (tab._nbCellsEl) {
     const cms = tab._nbCellsEl.querySelectorAll('.nb-code-source');
     for (let i = 0; i < cms.length; i++) {
       if (cms[i]._cm) { cms[i]._cm.toTextArea(); cms[i]._cm = null; }
     }
+    const mdCells = tab._nbCellsEl.querySelectorAll('.nb-cell-markdown');
+    for (let i = 0; i < mdCells.length; i++) {
+      if (mdCells[i]._mdCm) { mdCells[i]._mdCm.toTextArea(); mdCells[i]._mdCm = null; }
+    }
   }
 
-  // Disconnect observer
   if (tab._nbCMObserver) { tab._nbCMObserver.disconnect(); tab._nbCMObserver = null; }
 
-  // Clear DOM
   if (tab._nbViewerEl) tab._nbViewerEl.innerHTML = '';
 
-  // Null references
   tab._nbData = null;
   tab._nbCellsEl = null;
   tab._nbScrollContainer = null;
@@ -886,20 +1498,30 @@ export function _notebookViewerDestroy(tab) {
   tab._nbKernelDot = null;
   tab._nbKernelLabel = null;
   tab._nbCellCounter = null;
+  tab._nbDirty = false;
+  tab._nbDeleteStack = null;
 }
 
 export function _notebookViewerGetText(tab) {
   if (!tab._nbData) return '';
   const cells = tab._nbData.cells || [];
+  const cellEls = tab._nbCellsEl ? tab._nbCellsEl.querySelectorAll('.nb-cell') : [];
   const parts = [];
   for (let i = 0; i < cells.length; i++) {
     const cell = cells[i];
-    const source = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
+    let source = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
+    const cellEl = cellEls[i];
+    // Pull live source from editors
+    if (cellEl && cell.cell_type === 'code') {
+      const cc = cellEl.querySelector('.nb-code-source');
+      if (cc && cc._cm) source = cc._cm.getValue();
+    } else if (cellEl && cellEl._mdCm) {
+      source = cellEl._mdCm.getValue();
+    }
     if (cell.cell_type === 'markdown') {
       parts.push(source);
     } else if (cell.cell_type === 'code') {
       parts.push('```' + (tab._nbLanguage || 'python') + '\n' + source + '\n```');
-      // Include text outputs
       const outputs = cell.outputs || [];
       for (let j = 0; j < outputs.length; j++) {
         const out = outputs[j];
@@ -921,7 +1543,6 @@ export function _notebookViewerScrollToCell(tab, cellIndex) {
   const cellEl = tab._nbCellsEl.querySelector('[data-cell-index="' + cellIndex + '"]');
   if (cellEl) {
     cellEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    // Select it
     const prev = tab._nbCellsEl.querySelector('.nb-cell-selected');
     if (prev) prev.classList.remove('nb-cell-selected');
     cellEl.classList.add('nb-cell-selected');
@@ -943,12 +1564,13 @@ export function _notebookViewerSerialize(tab) {
     const cell = cells[i];
     const cellEl = cellEls[i];
     let source = Array.isArray(cell.source) ? cell.source.join('') : (cell.source || '');
-    // Pull live source from CodeMirror if available
     if (cellEl && cell.cell_type === 'code') {
       const codeContainer = cellEl.querySelector('.nb-code-source');
       if (codeContainer && codeContainer._cm) {
         source = codeContainer._cm.getValue();
       }
+    } else if (cellEl && cellEl._mdCm) {
+      source = cellEl._mdCm.getValue();
     }
     const outCell = {
       cell_type: cell.cell_type,
@@ -970,7 +1592,7 @@ async function _saveNotebook(tab) {
   let filePath = tab.localPath;
   if (!filePath || tab._nbUnsaved) {
     filePath = await electronAPI.showSaveDialog({
-      defaultPath: tab.title || 'Untitled.ipynb',
+      defaultPath: tab.title ? tab.title.replace(/^● /, '') : 'Untitled.ipynb',
       filters: [{ name: 'Jupyter Notebook', extensions: ['ipynb'] }]
     });
     if (!filePath) return;
@@ -981,6 +1603,7 @@ async function _saveNotebook(tab) {
     await electronAPI.notebookSave(filePath, json);
     tab.localPath = filePath;
     tab._nbUnsaved = false;
+    tab._nbDirty = false;
     tab.title = filePath.split('/').pop();
     if (typeof _browseRenderTabs === 'function') _browseRenderTabs();
     else if (typeof window._browseRenderTabs === 'function') window._browseRenderTabs();
