@@ -168,6 +168,10 @@ export function _browseApplyAdaptiveColor(tab) {
     _browseResetAdaptiveColor();
     return;
   }
+  // Skip adaptive color when nerd mode is active — PDF viewer manages its own bg
+  if (tab && window._nerdModeEnabled && window._nerdModeEnabled.get(tab.id)) {
+    return;
+  }
   const color = tab && tab.themeColor ? _browseParseColor(tab.themeColor) : null;
   if (!color) {
     _browseResetAdaptiveColor();

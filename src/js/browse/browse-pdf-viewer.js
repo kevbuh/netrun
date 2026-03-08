@@ -8,14 +8,13 @@ import { _paperState } from '/js/browse/browse-paper.js';
 import { _generateCiteFormats } from '/js/browse/browse-nerd-panel.js';
 import { togglePanel } from '/js/core/core-nav.js';
 import { _buildFilesContent } from '/js/browse/browse-nerd-mode.js';
-import { _browseApplyAdaptiveText, _browseResetAdaptiveColor } from '/js/browse-urlbar.js';
 
 export function _pdfApplyDarkBg(dark) {
   if (dark) {
     document.documentElement.style.setProperty('--nr-bg-body', '#1a1a1a');
-    _browseApplyAdaptiveText({ r: 26, g: 26, b: 26 });
   } else {
-    _browseResetAdaptiveColor();
+    // Remove inline override so the CSS theme value takes effect
+    document.documentElement.style.removeProperty('--nr-bg-body');
   }
 }
 
@@ -78,13 +77,9 @@ export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
   tab._pdfZoom = tab._pdfZoom || _PDF_SCALE_DEFAULT;
   tab._pdfHighlights = tab._pdfHighlights || [];
   if (tab._pdfDarkMode == null) {
-    const saved = Settings.get('pdfDarkMode');
-    if (saved !== null) {
-      tab._pdfDarkMode = saved === 'true';
-    } else {
-      const theme = document.documentElement.getAttribute('data-theme');
-      tab._pdfDarkMode = !theme || theme === 'dark';
-    }
+    // Always derive from current app theme — don't persist across sessions
+    const theme = document.documentElement.getAttribute('data-theme');
+    tab._pdfDarkMode = !theme || theme === 'dark';
   }
   tab._pdfLeftPanelVisible = tab._pdfLeftPanelVisible != null ? tab._pdfLeftPanelVisible : false;
   tab._pdfRenderedPages = new Map();
@@ -413,7 +408,6 @@ function _buildToolbar(tab, toolbarView) {
     if (tab._pdfLeftPanel) tab._pdfLeftPanel.classList.toggle('pdf-dark-render', tab._pdfDarkMode);
     darkToggle.el.classList.toggle('active', tab._pdfDarkMode);
     _pdfApplyDarkBg(tab._pdfDarkMode);
-    Settings.set('pdfDarkMode', String(tab._pdfDarkMode));
   });
   if (tab._pdfDarkMode) darkToggle.el.classList.add('active');
   toolbarView.add(darkToggle);
@@ -916,7 +910,6 @@ export function _pdfViewerToggleDark(tab) {
   tab._pdfPagesContainer.classList.toggle('pdf-dark-render', tab._pdfDarkMode);
   if (tab._pdfLeftPanel) tab._pdfLeftPanel.classList.toggle('pdf-dark-render', tab._pdfDarkMode);
   _pdfApplyDarkBg(tab._pdfDarkMode);
-  Settings.set('pdfDarkMode', String(tab._pdfDarkMode));
 }
 
 // ── Thumbnails ──

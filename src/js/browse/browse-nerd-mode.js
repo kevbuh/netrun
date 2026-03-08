@@ -193,6 +193,8 @@ function _nerdModeDisable(tab) {
   if (_isNotebookTab(tab)) {
     _notebookViewerDestroy(tab);
   } else {
+    // Clear dark bg override before destroying
+    _pdfApplyDarkBg(false);
     _pdfViewerDestroy(tab);
   }
   if (tab._nerdViewerEl) {
@@ -262,6 +264,8 @@ export function _nerdModeOnTabSelect(tab) {
       showPanelForView('browse');
     }
   } else {
+    // Clear dark bg override when switching to a non-nerd tab
+    _pdfApplyDarkBg(false);
     islandRemove('nerd');
   }
 }
@@ -327,11 +331,22 @@ window._buildFilesContent = _buildFilesContent;
 window._refreshFilesContent = _refreshFilesContent;
 
 // ── Restore nerd mode for tabs from previous session ──
+// Eagerly mark nerd-mode tabs so adaptive color guards work before the full restore
+(function() {
+  const win = window._getCurrentWindow && window._getCurrentWindow();
+  if (win) {
+    win.tabs.forEach(function(tab) {
+      if (tab._nerdMode && _isNerdTab(tab)) {
+        _nerdModeEnabled.set(tab.id, true);
+      }
+    });
+  }
+})();
 setTimeout(function() {
   const win = window._getCurrentWindow();
   if (!win) return;
   win.tabs.forEach(function(tab) {
-    if (tab._nerdMode && !_nerdModeEnabled.get(tab.id) && _isNerdTab(tab)) {
+    if (tab._nerdMode && _isNerdTab(tab)) {
       delete tab._nerdMode;
       if (tab.id === win.activeTab) {
         _nerdModeEnable(tab);
