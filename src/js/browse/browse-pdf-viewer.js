@@ -113,9 +113,9 @@ export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
         });
       });
       // Re-render highlights on already-rendered pages
-      if (tab._pdfRenderedPages && tab._pdfPagesContainer) {
+      if (tab._pdfRenderedPages && tab._pdfPageWrappers) {
         tab._pdfRenderedPages.forEach(function(_, pageNum) {
-          const wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
+          const wrapper = tab._pdfPageWrappers[pageNum];
           if (!wrapper) return;
           const hlLayer = wrapper.querySelector('.pdf-highlight-layer');
           if (hlLayer) {
@@ -229,9 +229,14 @@ function _buildViewerDOM(tab, viewerEl) {
     leftPanelView.el.style.display = 'none';
   }
 
-  // Scroll listener for page tracking
+  // Scroll listener for page tracking (rAF-throttled)
+  let scrollRaf = 0;
   pagesContainer.on('scroll', function() {
-    _pdfViewerOnScroll(tab);
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(function() {
+      scrollRaf = 0;
+      _pdfViewerOnScroll(tab);
+    });
   });
 
   // Arrow key page navigation when zoomed out enough that a full page fits
@@ -241,7 +246,7 @@ function _buildViewerDOM(tab, viewerEl) {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     // Check if current page fits within the container
     const container = tab._pdfPagesContainer;
-    const wrapper = container.querySelector('[data-page-num="' + tab._pdfCurrentPage + '"]');
+    const wrapper = tab._pdfPageWrappers && tab._pdfPageWrappers[tab._pdfCurrentPage];
     if (!wrapper || !wrapper.offsetHeight) return;
     if (wrapper.offsetHeight > container.clientHeight) return;
     e.preventDefault();
@@ -255,30 +260,77 @@ function _buildViewerDOM(tab, viewerEl) {
   // Pinch-to-zoom: use CSS transform for instant feedback, debounce canvas re-render
   let zoomCommitTimer = null;
   let zoomBaseScale = null; // the scale at which canvases were last rendered
+  let zoomCachedHeights = null; // cached offsetHeights to avoid reflow during gesture
+  let zoomRaf = 0;
+  let zoomPendingNewZoom = 0;
 
   function _pdfViewerPreviewZoom(tab, newZoom) {
-    newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, newZoom));
-    // Capture the rendered scale before updating
-    if (zoomBaseScale === null) zoomBaseScale = tab._pdfZoom;
+    zoomPendingNewZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, newZoom));
+    if (zoomRaf) return; // already scheduled
+    zoomRaf = requestAnimationFrame(function() {
+      zoomRaf = 0;
+      _pdfViewerApplyZoomPreview(tab, zoomPendingNewZoom);
+    });
+  }
+
+  function _pdfViewerApplyZoomPreview(tab, newZoom) {
+    // Capture the rendered scale + heights before first zoom tick
+    if (zoomBaseScale === null) {
+      zoomBaseScale = tab._pdfZoom;
+      // Cache all wrapper heights in one read pass (single reflow)
+      zoomCachedHeights = [];
+      const wrappers = tab._pdfPageWrappers || [];
+      for (let i = 1; i <= tab._pdfPageCount; i++) {
+        zoomCachedHeights[i] = wrappers[i] ? wrappers[i].offsetHeight : 0;
+      }
+      // Promote visible pages to GPU layers for the gesture duration
+      const container = tab._pdfPagesContainer;
+      const scrollTop = container.scrollTop;
+      const viewH = container.clientHeight;
+      for (let i = 1; i <= tab._pdfPageCount; i++) {
+        const w = wrappers[i];
+        if (!w) continue;
+        const top = w.offsetTop;
+        if (top > scrollTop + viewH * 3) break;
+        if (top + zoomCachedHeights[i] >= scrollTop - viewH * 2) {
+          w.style.willChange = 'transform';
+        }
+      }
+    }
     tab._pdfZoom = newZoom;
     tab._pdfZoomLabel.textContent = Math.round(newZoom * 100) + '%';
     const ratio = newZoom / zoomBaseScale;
-    const wrappers = tab._pdfPagesContainer.querySelectorAll('.pdf-page-wrapper');
-    for (let i = 0; i < wrappers.length; i++) {
-      wrappers[i].style.transform = 'scale(' + ratio + ')';
-      wrappers[i].style.transformOrigin = 'top center';
-      // transform doesn't affect layout — compensate so pages don't overlap
-      wrappers[i].style.marginBottom = (wrappers[i].offsetHeight * (ratio - 1)) + 'px';
+
+    // Only transform visible pages (± 2 screens), use cached heights
+    const container = tab._pdfPagesContainer;
+    const scrollTop = container.scrollTop;
+    const viewH = container.clientHeight;
+    const wrappers = tab._pdfPageWrappers || [];
+    for (let i = 1; i <= tab._pdfPageCount; i++) {
+      const w = wrappers[i];
+      if (!w) continue;
+      const top = w.offsetTop;
+      if (top > scrollTop + viewH * 3) break;
+      if (top + (zoomCachedHeights[i] || 400) < scrollTop - viewH * 2) continue;
+      w.style.transform = 'scale(' + ratio + ')';
+      w.style.transformOrigin = 'top center';
+      w.style.marginBottom = (zoomCachedHeights[i] * (ratio - 1)) + 'px';
     }
     // Debounce the full re-render
     clearTimeout(zoomCommitTimer);
     zoomCommitTimer = setTimeout(function() {
       _pdfViewerCommitZoom(tab);
       zoomBaseScale = null;
+      zoomCachedHeights = null;
     }, 200);
   }
 
   function _pdfViewerCommitZoom(tab) {
+    // Clear will-change hints
+    const wrappers = tab._pdfPageWrappers || [];
+    for (let i = 1; i <= tab._pdfPageCount; i++) {
+      if (wrappers[i]) wrappers[i].style.willChange = '';
+    }
     // Don't clear transforms or content here — let per-page re-render swap them
     // to avoid all pages blinking blank simultaneously
     tab._pdfRenderedPages = new Map();
@@ -290,8 +342,7 @@ function _buildViewerDOM(tab, viewerEl) {
     if (!e.ctrlKey) return;
     e.preventDefault();
     const delta = -e.deltaY * 0.01;
-    const newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, tab._pdfZoom + delta));
-    _pdfViewerPreviewZoom(tab, newZoom);
+    _pdfViewerPreviewZoom(tab, tab._pdfZoom + delta);
   }, { passive: false });
 
   // Safari native gesture events
@@ -302,8 +353,7 @@ function _buildViewerDOM(tab, viewerEl) {
   }, { passive: false });
   pagesContainer.el.addEventListener('gesturechange', function(e) {
     e.preventDefault();
-    const newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, gestureBaseZoom * e.scale));
-    _pdfViewerPreviewZoom(tab, newZoom);
+    _pdfViewerPreviewZoom(tab, gestureBaseZoom * e.scale);
   }, { passive: false });
   pagesContainer.el.addEventListener('gestureend', function(e) {
     e.preventDefault();
@@ -625,6 +675,9 @@ function _pdfViewerCreatePageSlot(tab, pageNum) {
   wrapper.setAttribute('data-page-num', pageNum);
   wrapper.style.minHeight = '400px';
   tab._pdfPagesContainer.appendChild(wrapper);
+  // Cache wrapper reference for fast lookup
+  if (!tab._pdfPageWrappers) tab._pdfPageWrappers = [];
+  tab._pdfPageWrappers[pageNum] = wrapper;
 }
 
 function _pdfViewerRenderPage(tab, pageNum) {
@@ -636,7 +689,7 @@ function _pdfViewerRenderPage(tab, pageNum) {
     const scale = tab._pdfZoom;
     const viewport = page.getViewport({ scale: scale });
 
-    const wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
+    const wrapper = tab._pdfPageWrappers && tab._pdfPageWrappers[pageNum];
     if (!wrapper) return;
 
     // Render canvas off-screen first, then swap when painted
@@ -662,33 +715,40 @@ function _pdfViewerRenderPage(tab, pageNum) {
       wrapper.style.setProperty('--scale-factor', scale);
       wrapper.appendChild(canvas);
 
-      // Text layer for selection
-      const textLayerDiv = document.createElement('div');
-      textLayerDiv.className = 'textLayer';
-      textLayerDiv.style.width = viewport.width + 'px';
-      textLayerDiv.style.height = viewport.height + 'px';
-      textLayerDiv.style.setProperty('--scale-factor', scale);
-      wrapper.appendChild(textLayerDiv);
-
-      page.getTextContent().then(function(textContent) {
-        if (window.pdfjsLib.renderTextLayer) {
-          const opts = {
-            container: textLayerDiv,
-            viewport: viewport,
-            textDivs: []
-          };
-          opts.textContentSource = textContent;
-          window.pdfjsLib.renderTextLayer(opts);
-        }
-      });
-
-      // Highlight layer
+      // Highlight layer (lightweight, render immediately)
       const hlLayer = document.createElement('div');
       hlLayer.className = 'pdf-highlight-layer';
       hlLayer.style.width = viewport.width + 'px';
       hlLayer.style.height = viewport.height + 'px';
       wrapper.appendChild(hlLayer);
       _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer);
+
+      // Defer text layer + annotations to idle time so canvas paint isn't blocked
+      const deferFn = window.requestIdleCallback || function(cb) { setTimeout(cb, 16); };
+      deferFn(function() {
+        // Text layer for selection
+        const textLayerDiv = document.createElement('div');
+        textLayerDiv.className = 'textLayer';
+        textLayerDiv.style.width = viewport.width + 'px';
+        textLayerDiv.style.height = viewport.height + 'px';
+        textLayerDiv.style.setProperty('--scale-factor', scale);
+        wrapper.appendChild(textLayerDiv);
+
+        page.getTextContent().then(function(textContent) {
+          if (window.pdfjsLib.renderTextLayer) {
+            const opts = {
+              container: textLayerDiv,
+              viewport: viewport,
+              textDivs: []
+            };
+            opts.textContentSource = textContent;
+            window.pdfjsLib.renderTextLayer(opts);
+          }
+
+          // Citation overlays after text layer is populated
+          _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv);
+        });
+      });
 
       // Annotation layer (internal PDF links)
       page.getAnnotations().then(function(annotations) {
@@ -730,9 +790,6 @@ function _pdfViewerRenderPage(tab, pageNum) {
         });
       });
 
-      // Citation hover overlays — scan rendered text layer spans after they appear
-      _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv);
-
     }).catch(function() {});
   });
 }
@@ -742,34 +799,43 @@ function _pdfViewerRenderPage(tab, pageNum) {
 function _pdfViewerOnScroll(tab) {
   if (!tab._pdfDoc || !tab._pdfPagesContainer || !tab._pdfRenderedPages) return;
 
-  // Update current page
   const container = tab._pdfPagesContainer;
-  const wrappers = container.querySelectorAll('.pdf-page-wrapper');
+  const wrappers = tab._pdfPageWrappers;
+  if (!wrappers) return;
   const scrollTop = container.scrollTop;
   const containerHeight = container.clientHeight;
   const center = scrollTop + containerHeight / 2;
+  const pageCount = tab._pdfPageCount;
 
+  // Binary-search-style: find current page from cached wrappers
   let currentPage = 1;
-  for (let i = 0; i < wrappers.length; i++) {
+  for (let i = 1; i <= pageCount; i++) {
     const w = wrappers[i];
+    if (!w) continue;
     if (w.offsetTop + w.offsetHeight / 2 < center) {
-      currentPage = i + 1;
+      currentPage = i;
+    } else {
+      break;
     }
   }
   if (currentPage !== tab._pdfCurrentPage) {
     tab._pdfCurrentPage = currentPage;
-    tab._pdfPageIndicator.textContent = currentPage + ' / ' + tab._pdfPageCount;
+    tab._pdfPageIndicator.textContent = currentPage + ' / ' + pageCount;
     _pdfViewerUpdateThumbActive(tab, currentPage);
   }
 
-  // Lazy render pages near viewport
+  // Lazy render pages near viewport — scan outward from current page
   const buffer = containerHeight * 2;
-  for (let j = 0; j < wrappers.length; j++) {
+  const lo = scrollTop - buffer;
+  const hi = scrollTop + containerHeight + buffer;
+  for (let j = 1; j <= pageCount; j++) {
     const wr = wrappers[j];
+    if (!wr) continue;
     const top = wr.offsetTop;
+    if (top > hi) break; // past viewport, no need to check further
     const bottom = top + wr.offsetHeight;
-    if (bottom >= scrollTop - buffer && top <= scrollTop + containerHeight + buffer) {
-      _pdfViewerRenderPage(tab, j + 1);
+    if (bottom >= lo) {
+      _pdfViewerRenderPage(tab, j);
     }
   }
 }
@@ -781,7 +847,7 @@ function _pdfViewerGoToPage(tab, pageNum) {
   tab._pdfCurrentPage = pageNum;
   tab._pdfPageIndicator.textContent = pageNum + ' / ' + tab._pdfPageCount;
 
-  const wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
+  const wrapper = tab._pdfPageWrappers && tab._pdfPageWrappers[pageNum];
   if (wrapper) {
     // Center the page when it fits in the viewport, otherwise scroll to top
     const fits = wrapper.offsetHeight <= tab._pdfPagesContainer.clientHeight;
@@ -1268,23 +1334,18 @@ let _citationPopup = null;
 let _citationHideTimer = null;
 
 function _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv) {
-  let attempts = 0;
-  function tryInstall() {
-    attempts++;
-    const spans = textLayerDiv.querySelectorAll('span');
-    if (!spans.length && attempts < 10) {
-      setTimeout(tryInstall, 300);
-      return;
-    }
+  // Called after text layer is rendered, so spans should be present
+  const spans = textLayerDiv.querySelectorAll('span');
+  if (!spans.length) return;
 
-    // Citation overlays are pixel-positioned over the canvas — imperative DOM needed
-    const citLayer = document.createElement('div');
-    citLayer.className = 'pdf-citation-layer';
-    wrapper.appendChild(citLayer);
+  // Citation overlays are pixel-positioned over the canvas — imperative DOM needed
+  const citLayer = document.createElement('div');
+  citLayer.className = 'pdf-citation-layer';
+  wrapper.appendChild(citLayer);
 
-    const wrapperRect = wrapper.getBoundingClientRect();
+  const wrapperRect = wrapper.getBoundingClientRect();
 
-    spans.forEach(function(span) {
+  spans.forEach(function(span) {
       const text = span.textContent;
       if (!text) return;
 
@@ -1348,8 +1409,6 @@ function _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv) {
         }
       }
     });
-  }
-  setTimeout(tryInstall, 500);
 }
 
 function _showCitationPopup(tab, refNums, x, y) {
