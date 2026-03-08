@@ -63,6 +63,26 @@ function startStaticServer(port, staticDir, dataDir) {
         return;
       }
 
+      // Serve local files (PDFs, notebooks, etc.) by absolute path
+      if (urlPath === '/api/local-file') {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const filePath = params.get('path');
+        if (!filePath) { res.writeHead(400); res.end('Missing path'); return; }
+        const resolved = path.resolve(filePath);
+        // Block sensitive dotfile directories
+        const BLOCKED = ['.ssh', '.gnupg', '.aws', '.config', '.netrc', '.git', '.env'];
+        if (resolved.split(path.sep).some(p => BLOCKED.includes(p))) {
+          res.writeHead(403); res.end('Access denied'); return;
+        }
+        if (!fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+          res.writeHead(404); res.end('Not found'); return;
+        }
+        const ext = path.extname(resolved).toLowerCase();
+        res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+        fs.createReadStream(resolved).pipe(res);
+        return;
+      }
+
       // Static file serving
       if (urlPath === '/') urlPath = '/index.html';
       const filePath = path.join(staticDir, urlPath);

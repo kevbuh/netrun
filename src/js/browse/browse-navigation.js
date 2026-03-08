@@ -107,12 +107,23 @@ export function _browseHandleNavigation(tab, frame) {
     _browseInjectRemoveCSS(frame);
     // Reset insight pill to offer state on navigation (don't remove it)
     if (typeof _showAnnotateOfferPill === 'function' && tab.id === _browseActiveTab) _showAnnotateOfferPill(tab);
-    // Nerd Mode: auto-re-enable if tab had it on, otherwise show offer pill
+    // Nerd Mode: auto-enable for PDF URLs, auto-re-enable if tab had it on
     if (_isNerdAutoEligible(navUrl, tab)) {
+      // Extract localPath/pdfUrl from /api/local-file URLs so nerd mode can load the PDF
+      if (!tab.pdfUrl && navUrl.includes('/api/local-file')) {
+        try {
+          var u = new URL(navUrl, 'http://localhost');
+          var fp = u.searchParams.get('path');
+          if (fp) { tab.localPath = fp; tab.pdfUrl = '/api/local-file?path=' + encodeURIComponent(fp); }
+        } catch (e) {}
+      }
       if (typeof window._isNerdMode === 'function' && window._isNerdMode(tab.id)) {
         // Already in nerd mode — will re-init via viewer
       } else if (window._nerdModeSticky && window._nerdModeSticky.has(tab.id)) {
         // Tab previously had nerd mode — re-enable automatically
+        setTimeout(function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); }, 300);
+      } else {
+        // Fresh PDF navigation — auto-enable nerd mode
         setTimeout(function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); }, 300);
       }
     }

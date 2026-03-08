@@ -237,16 +237,14 @@ function _buildViewerDOM(tab, viewerEl) {
     });
   });
 
-  // Arrow key page navigation when zoomed out enough that a full page fits
+  // Arrow key page navigation — always flip unless there's a horizontal scrollbar
   pagesContainer.el.setAttribute('tabindex', '0');
   pagesContainer.el.style.outline = 'none';
   pagesContainer.el.addEventListener('keydown', function(e) {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    // Check if current page fits within the container
+    // Only skip if there's horizontal overflow (arrows needed for scrolling)
     const container = tab._pdfPagesContainer;
-    const wrapper = tab._pdfPageWrappers && tab._pdfPageWrappers[tab._pdfCurrentPage];
-    if (!wrapper || !wrapper.offsetHeight) return;
-    if (wrapper.offsetHeight > container.clientHeight) return;
+    if (container.scrollWidth > container.clientWidth) return;
     e.preventDefault();
     if (e.key === 'ArrowLeft') {
       _pdfViewerGoToPage(tab, tab._pdfCurrentPage - 1);
@@ -263,6 +261,7 @@ function _buildViewerDOM(tab, viewerEl) {
   let zoomPendingNewZoom = 0;
 
   function _pdfViewerPreviewZoom(tab, newZoom) {
+    tab._pdfFitMode = null;
     zoomPendingNewZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, newZoom));
     if (zoomRaf) return; // already scheduled
     zoomRaf = requestAnimationFrame(function() {
@@ -382,6 +381,7 @@ function _buildToolbar(tab, toolbarView) {
 
   // Zoom
   const zoomOut = _tbBtn(icon('minus', { size: 16 }), 'Zoom out', function() {
+    tab._pdfFitMode = null;
     _pdfViewerSetZoom(tab, tab._pdfZoom - 0.25);
   });
   toolbarView.add(zoomOut);
@@ -395,6 +395,7 @@ function _buildToolbar(tab, toolbarView) {
   tab._pdfZoomLabel = zoomLabel.el;
 
   const zoomIn = _tbBtn(icon('plus', { size: 16 }), 'Zoom in', function() {
+    tab._pdfFitMode = null;
     _pdfViewerSetZoom(tab, tab._pdfZoom + 0.25);
   });
   toolbarView.add(zoomIn);
@@ -879,23 +880,59 @@ function _pdfViewerSetZoom(tab, newZoom, force) {
   newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, newZoom));
   if (!force && newZoom === tab._pdfZoom) return;
   tab._pdfZoom = newZoom;
-  tab._pdfZoomLabel.textContent = Math.round(newZoom * 100) + '%';
+  if (!tab._pdfFitMode) {
+    tab._pdfZoomLabel.textContent = Math.round(newZoom * 100) + '%';
+  }
 
   // Mark all pages for re-render; old content stays visible until replaced
   tab._pdfRenderedPages = new Map();
   _pdfViewerOnScroll(tab);
 }
 
+function _pdfViewerFitWidth(tab) {
+  if (!tab._pdfDoc || !tab._pdfPagesContainer) return;
+  tab._pdfDoc.getPage(1).then(function(page) {
+    var vp = page.getViewport({ scale: 1 });
+    var containerWidth = tab._pdfPagesContainer.clientWidth - 40; // padding
+    var scale = containerWidth / vp.width;
+    scale = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, scale));
+    _pdfViewerSetZoom(tab, scale, true);
+    tab._pdfFitMode = 'width';
+    tab._pdfZoomLabel.textContent = 'Fit W';
+  });
+}
+
+function _pdfViewerFitPage(tab) {
+  if (!tab._pdfDoc || !tab._pdfPagesContainer) return;
+  tab._pdfDoc.getPage(1).then(function(page) {
+    var vp = page.getViewport({ scale: 1 });
+    var containerWidth = tab._pdfPagesContainer.clientWidth - 40;
+    var containerHeight = tab._pdfPagesContainer.clientHeight - 20;
+    var scaleW = containerWidth / vp.width;
+    var scaleH = containerHeight / vp.height;
+    var scale = Math.min(scaleW, scaleH);
+    scale = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, scale));
+    _pdfViewerSetZoom(tab, scale, true);
+    tab._pdfFitMode = 'page';
+    tab._pdfZoomLabel.textContent = 'Fit P';
+  });
+}
+
 function _pdfViewerToggleZoomDropdown(tab, labelEl) {
   const existing = tab._pdfToolbar.querySelector('.pdf-zoom-dropdown');
   if (existing) { existing.remove(); return; }
 
-  const levels = [50, 75, 100, 125, 150, 200, 300, 400];
-  const menuItems = levels.map(function(pct) {
-    return {
+  var menuItems = [
+    { label: 'Fit to width', handler: function() { _pdfViewerFitWidth(tab); } },
+    { label: 'Fit to page', handler: function() { _pdfViewerFitPage(tab); } },
+    { divider: true }
+  ];
+  var levels = [50, 75, 100, 125, 150, 200, 300, 400];
+  levels.forEach(function(pct) {
+    menuItems.push({
       label: pct + '%',
-      handler: function() { _pdfViewerSetZoom(tab, pct / 100); }
-    };
+      handler: function() { tab._pdfFitMode = null; _pdfViewerSetZoom(tab, pct / 100); }
+    });
   });
 
   const menu = Menu(labelEl, menuItems);

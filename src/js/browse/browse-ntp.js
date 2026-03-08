@@ -8,7 +8,7 @@ import { _browseRenderTabs } from '/js/toolbar/toolbar-tabs.js';
 import { _browseUpdateAdBlockBadge, _getEffectivePermissions } from '/js/browse-urlbar.js';
 import { _injectIframeChatHandler } from '/js/panel.js';
 import { browseCloseTab, browseSelectTab } from '/js/browse/browse-passwords.js';
-import { browseNewPaperTab, browseNewTab, browseSelectWindow, openBrowse, openLocalPdf } from '/js/browse/browse-windows.js';
+import { browseNewPaperTab, browseNewTab, browseSelectWindow, openBrowse, openLocalPdf, openLocalPdfByPath } from '/js/browse/browse-windows.js';
 
 // ── NTP File Upload ──
 
@@ -121,6 +121,18 @@ export function removeNtpFile(idx) {
 export function openNtpFile(idx) {
   const f = window._ntpUploadedFiles[idx];
   if (!f) return;
+  const lower = f.name.toLowerCase();
+  // PDFs and notebooks: open in nerd mode viewer
+  if (lower.endsWith('.pdf') || lower.endsWith('.ipynb')) {
+    if (f.localPath) {
+      openLocalPdfByPath(f.localPath);
+    } else if (f.file) {
+      openLocalPdf(f.file);
+    }
+    window._ntpUploadedFiles.splice(idx, 1);
+    _renderNtpFileChips();
+    return;
+  }
   if (f.localPath) {
     const url = 'file://' + f.localPath;
     browseNewTab(url);

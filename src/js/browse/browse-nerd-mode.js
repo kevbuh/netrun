@@ -1,10 +1,9 @@
 // browse-nerd-mode.js — Nerd Mode orchestrator
 // Academic research reading mode: replaces webview with PDF.js viewer + lookup panel
 // Depends on: browse-state.js, browse-pdf-viewer.js, browse-nerd-panel.js
-import { islandUpdate, islandRemove } from '/js/core/core-ui.js';
+import { islandRemove } from '/js/core/core-ui.js';
 import { toast } from '/js/core/core-utils.js';
-import { icon } from '/js/core/icons.js';
-import { showPanelForView, hidePanel, _invalidatePanelRender, ensurePanelVisible } from '/js/core/core-nav.js';
+import { hidePanel, _invalidatePanelRender } from '/js/core/core-nav.js';
 import { _pdfViewerInit, _pdfViewerDestroy, _pdfViewerGetText, _pdfApplyDarkBg } from '/js/browse/browse-pdf-viewer.js';
 import { _notebookViewerInit, _notebookViewerDestroy, _notebookViewerGetText } from '/js/browse/browse-notebook-viewer.js';
 import { _nerdPanelRegister, _nerdPanelRefresh } from '/js/browse/browse-nerd-panel.js';
@@ -48,11 +47,17 @@ export function _isNerdAutoEligible(url, tab) {
   if (!url) return false;
   // Notebooks
   if (tab && tab._nbParsedData) return true;
-  const lower = (url || '').toLowerCase();
-  if (lower.endsWith('.ipynb')) return true;
+  // Strip fragment (#...) and query for extension checks
+  var lower = (url || '').toLowerCase();
+  var bare = lower.split('#')[0].split('?')[0];
+  if (bare.endsWith('.ipynb')) return true;
   // Local PDFs opened via nerd:// or Cmd+O
   if (tab && (tab.localPath || tab.pdfUrl)) return true;
-  return lower.endsWith('.pdf') || (lower.includes('/pdf/') && lower.includes('arxiv.org'));
+  if (bare.endsWith('.pdf')) return true;
+  if (lower.includes('/pdf/') && lower.includes('arxiv.org')) return true;
+  // /api/local-file?path=...pdf
+  if (lower.includes('/api/local-file') && lower.includes('.pdf')) return true;
+  return false;
 }
 
 function _getPdfUrl(tab) {
@@ -150,24 +155,12 @@ function _nerdModeEnable(tab) {
     }, 1000);
   }
 
-  // Only show lookup panel if paper data is available (or becomes available)
+  // Register panel content but don't force it open — user can toggle it manually
   _invalidatePanelRender('browse');
-  if (_paperState.has(tab.id)) {
-    ensurePanelVisible();
-    showPanelForView('browse');
-  }
 
   // Refresh files lists across all viewers
   _refreshFilesContent();
 
-  // Island pill
-  const pillLabel = isNotebook ? 'Notebook view' : 'PDF view';
-  islandUpdate('nerd', {
-    type: 'nerd',
-    label: pillLabel,
-    icon: icon('glasses', { size: 14 }),
-    action: function() { toggleNerdMode(tab); }
-  });
 }
 
 function _injectNotebookContext(tab) {
@@ -246,23 +239,10 @@ export function _nerdModeOnTabSelect(tab) {
     // Refresh files lists
     _refreshFilesContent();
 
-    // Show nerd pill
-    const tabPillLabel = _isNotebookTab(tab) ? 'Notebook view' : 'PDF view';
-    islandUpdate('nerd', {
-      type: 'nerd',
-      label: tabPillLabel,
-      icon: icon('glasses', { size: 14 }),
-      action: function() { toggleNerdMode(tab); }
-    });
-
-    // Show panel only if paper data is available
+    // Refresh panel content but don't force it open
     _nerdPanelRegister();
     _nerdPanelRefresh(tab);
     _invalidatePanelRender('browse');
-    if (_paperState.has(tab.id)) {
-      ensurePanelVisible();
-      showPanelForView('browse');
-    }
   } else {
     // Clear dark bg override when switching to a non-nerd tab
     _pdfApplyDarkBg(false);

@@ -279,9 +279,17 @@ export function browseNewTab(url) {
 export function browseNewPaperTab(url, paper) {
   const win = window._getCurrentWindow();
   if (!win) return false;
-  const id = window._browseNextTabId++;
-  // Open as regular browse tab (iframe)
   browseNewTab(url);
+  // Set paper properties on the newly created tab so nerd mode auto-activates
+  if (paper) {
+    const tab = win.tabs.find(t => t.id === win.activeTab);
+    if (tab) {
+      if (paper.pdfUrl) tab.pdfUrl = paper.pdfUrl;
+      if (paper.localPath) tab.localPath = paper.localPath;
+      if (paper.title) tab.title = paper.title;
+      _browseRenderTabs();
+    }
+  }
   return true;
 }
 
@@ -314,6 +322,12 @@ export function openLocalPdf(file) {
     const paper = { title: file.name, link: url, source: 'upload', pdfUrl };
     if (localPath) paper.localPath = localPath;
     browseNewPaperTab(url, paper);
+    // Auto-activate nerd mode for uploaded PDFs
+    const win = window._getCurrentWindow();
+    if (win) {
+      const tab = win.tabs.find(t => t.id === win.activeTab);
+      if (tab) setTimeout(function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); }, 200);
+    }
   } else {
     browseNewTab(url);
     const win = window._getCurrentWindow();
@@ -356,6 +370,7 @@ export function openLocalPdfByPath(filePath) {
         tab.pdfUrl = pdfUrl;
         tab.title = name;
         _browseRenderTabs();
+        setTimeout(function() { if (typeof window.toggleNerdMode === 'function') window.toggleNerdMode(tab); }, 200);
       }
     }
   }
