@@ -13,7 +13,7 @@ import { _buildFilesContent } from '/js/browse/browse-nerd-mode.js';
 var _canvasPool = [];
 var _CANVAS_POOL_MAX = 20;
 var _bitmapCache = new Map(); // key: "pageNum-scale", value: ImageBitmap
-var _BITMAP_CACHE_MAX = 60;
+var _BITMAP_CACHE_MAX = 200;
 
 function _acquireCanvas(w, h, dpr) {
   var canvas = _canvasPool.pop();
@@ -173,6 +173,7 @@ export function _pdfViewerDestroy(tab) {
     tab._pdfDoc = null;
   }
   tab._pdfRenderedPages = null;
+  tab._pdfStrippedPages = null;
   tab._pdfPageWrappers = null;
   tab._pdfThumbItems = null;
   tab._pdfTextIndex = null;
@@ -183,6 +184,8 @@ export function _pdfViewerDestroy(tab) {
   if (tab._pdfPageObserver) { tab._pdfPageObserver.disconnect(); tab._pdfPageObserver = null; }
   _bitmapCache.forEach(function(bmp) { bmp.close(); });
   _bitmapCache.clear();
+  _renderQueue.length = 0;
+  _renderActive = 0;
   // Preserve _pdfCurrentPage, _pdfZoom, _pdfDarkMode, _pdfLeftPanelVisible for re-init
 }
 
@@ -362,6 +365,8 @@ function _buildViewerDOM(tab, viewerEl) {
     // Don't clear transforms or content here — let per-page re-render swap them
     // to avoid all pages blinking blank simultaneously
     tab._pdfRenderedPages = new Map();
+    tab._pdfStrippedPages = null;
+    _renderQueue.length = 0;
     // Reinstall observer so it re-fires for visible pages at the new zoom
     _pdfViewerInstallObserver(tab);
     _pdfViewerOnScroll(tab);
@@ -763,6 +768,118 @@ function _assembleRenderedPage(tab, pageNum, wrapper, canvas, cssW, cssH, scale)
   _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer);
 }
 
+// Rebuild text + annotation + citation layers for a previously stripped page
+function _pdfViewerRebuildLayers(tab, pageNum) {
+  if (!tab._pdfDoc) return;
+  var wrapper = tab._pdfPageWrappers && tab._pdfPageWrappers[pageNum];
+  if (!wrapper) return;
+  // Skip if layers already exist
+  if (wrapper.querySelector('.textLayer')) return;
+
+  tab._pdfDoc.getPage(pageNum).then(function(page) {
+    var scale = tab._pdfZoom;
+    var viewport = page.getViewport({ scale: scale });
+
+    var deferFn = window.requestIdleCallback || function(cb) { setTimeout(cb, 16); };
+    deferFn(function() {
+      // Check wrapper is still in DOM and still stripped
+      if (!wrapper.parentNode || wrapper.querySelector('.textLayer')) return;
+
+      var textLayerDiv = document.createElement('div');
+      textLayerDiv.className = 'textLayer';
+      textLayerDiv.style.width = viewport.width + 'px';
+      textLayerDiv.style.height = viewport.height + 'px';
+      textLayerDiv.style.setProperty('--scale-factor', scale);
+      wrapper.appendChild(textLayerDiv);
+
+      page.getTextContent().then(function(textContent) {
+        if (window.pdfjsLib.renderTextLayer) {
+          window.pdfjsLib.renderTextLayer({
+            container: textLayerDiv,
+            viewport: viewport,
+            textDivs: [],
+            textContentSource: textContent
+          });
+        }
+        _installCitationOverlays(tab, pageNum, wrapper, textLayerDiv);
+      });
+    });
+
+    page.getAnnotations().then(function(annotations) {
+      if (!annotations || !annotations.length) return;
+      if (wrapper.querySelector('.pdf-annotation-layer')) return;
+      var annotLayer = document.createElement('div');
+      annotLayer.className = 'pdf-annotation-layer';
+      annotLayer.style.width = viewport.width + 'px';
+      annotLayer.style.height = viewport.height + 'px';
+      wrapper.appendChild(annotLayer);
+
+      annotations.forEach(function(ann) {
+        if (ann.subtype !== 'Link' || !ann.rect) return;
+        var rect = viewport.convertToViewportRectangle(ann.rect);
+        var left = Math.min(rect[0], rect[2]);
+        var top = Math.min(rect[1], rect[3]);
+        var width = Math.abs(rect[2] - rect[0]);
+        var height = Math.abs(rect[3] - rect[1]);
+
+        var link = new View('div')
+          .className('pdf-annot-link')
+          .cssText('left:' + left + 'px;top:' + top + 'px;width:' + width + 'px;height:' + height + 'px;');
+
+        if (ann.dest) {
+          link.attr('data-dest', JSON.stringify(ann.dest))
+            .onTap(function() {
+              tab._pdfDoc.getDestination(ann.dest).then(function(dest) {
+                if (!dest) return;
+                tab._pdfDoc.getPageIndex(dest[0]).then(function(idx) {
+                  _pdfViewerGoToPage(tab, idx + 1);
+                });
+              }).catch(function() {});
+            });
+        } else if (ann.url) {
+          link.onTap(function() {
+            if (typeof browseNewTab === 'function') window.browseNewTab(ann.url);
+          });
+        }
+        annotLayer.appendChild(link.el);
+      });
+    });
+  });
+}
+
+// ── Render queue with concurrency control ──
+// PDF.js page.render() is expensive. When holding arrow key at low zoom,
+// the observer fires for dozens of pages. Without limiting concurrency,
+// they all start rendering simultaneously, thrashing the main thread.
+// Queue renders and process up to _RENDER_CONCURRENCY at a time,
+// prioritizing pages closest to the current viewport.
+var _renderQueue = [];       // { tab, pageNum, priority }
+var _renderActive = 0;
+var _RENDER_CONCURRENCY = 4;
+var _renderFlushScheduled = false;
+
+function _enqueueRender(tab, pageNum) {
+  var priority = Math.abs(pageNum - (tab._pdfCurrentPage || 1));
+  _renderQueue.push({ tab: tab, pageNum: pageNum, priority: priority });
+  if (!_renderFlushScheduled) {
+    _renderFlushScheduled = true;
+    Promise.resolve().then(_flushRenderQueue);
+  }
+}
+
+function _flushRenderQueue() {
+  _renderFlushScheduled = false;
+  // Sort by priority (closest to viewport first)
+  _renderQueue.sort(function(a, b) { return a.priority - b.priority; });
+  while (_renderActive < _RENDER_CONCURRENCY && _renderQueue.length > 0) {
+    var item = _renderQueue.shift();
+    // Skip stale entries (tab destroyed or page already rendered by cache hit)
+    if (!item.tab._pdfDoc || !item.tab._pdfRenderedPages) continue;
+    if (!item.tab._pdfRenderedPages.has(item.pageNum)) continue;
+    _pdfViewerRenderPageNow(item.tab, item.pageNum);
+  }
+}
+
 function _pdfViewerRenderPage(tab, pageNum) {
   if (!tab._pdfDoc || !tab._pdfRenderedPages) return;
   if (tab._pdfRenderedPages.has(pageNum)) return;
@@ -771,18 +888,27 @@ function _pdfViewerRenderPage(tab, pageNum) {
   const wrapper = tab._pdfPageWrappers && tab._pdfPageWrappers[pageNum];
   if (!wrapper) return;
 
-  // Check bitmap cache for instant restore
+  // Check bitmap cache for instant restore (no queuing needed)
   var cacheKey = pageNum + '-' + tab._pdfZoom;
   var cached = _bitmapCache.get(cacheKey);
   if (cached) {
     var dpr = window.devicePixelRatio || 1;
     var pool = _acquireCanvas(cached.width / dpr, cached.height / dpr, dpr);
-    pool.ctx.setTransform(1, 0, 0, 1, 0, 0); // reset for drawImage
+    pool.ctx.setTransform(1, 0, 0, 1, 0, 0);
     pool.ctx.drawImage(cached, 0, 0);
     _assembleRenderedPage(tab, pageNum, wrapper, pool.canvas, cached.width / dpr, cached.height / dpr, tab._pdfZoom);
     return;
   }
 
+  // Queue for PDF.js render with concurrency control
+  _enqueueRender(tab, pageNum);
+}
+
+function _pdfViewerRenderPageNow(tab, pageNum) {
+  const wrapper = tab._pdfPageWrappers && tab._pdfPageWrappers[pageNum];
+  if (!wrapper) return;
+
+  _renderActive++;
   tab._pdfDoc.getPage(pageNum).then(function(page) {
     const scale = tab._pdfZoom;
     const viewport = page.getViewport({ scale: scale });
@@ -793,6 +919,7 @@ function _pdfViewerRenderPage(tab, pageNum) {
 
     const renderTask = page.render({ canvasContext: pool.ctx, viewport: viewport });
     renderTask.promise.then(function() {
+      _renderActive--;
       _assembleRenderedPage(tab, pageNum, wrapper, canvas, viewport.width, viewport.height, scale);
 
       // Snapshot to bitmap cache for instant restore
@@ -805,6 +932,9 @@ function _pdfViewerRenderPage(tab, pageNum) {
           _bitmapCache.delete(oldest);
         }
       });
+
+      // Kick next queued render
+      _flushRenderQueue();
 
       // Defer text layer + annotations to idle time so canvas paint isn't blocked
       const deferFn = window.requestIdleCallback || function(cb) { setTimeout(cb, 16); };
@@ -873,7 +1003,10 @@ function _pdfViewerRenderPage(tab, pageNum) {
         });
       });
 
-    }).catch(function() {});
+    }).catch(function() {
+      _renderActive--;
+      _flushRenderQueue();
+    });
   });
 }
 
@@ -907,9 +1040,33 @@ function _pdfViewerOnScroll(tab) {
     }
   }
 
-  // Lazy rendering handled by IntersectionObserver — no loop needed here
-  // Pages stay in DOM permanently; content-visibility: auto lets the browser
-  // skip layout/paint for off-screen pages and manage GPU textures natively.
+  // Lazy rendering handled by IntersectionObserver — no loop needed here.
+  // content-visibility: auto handles paint, but DOM nodes still consume memory.
+  // Strip heavyweight layers (text, annotations, citations) from distant pages
+  // to keep DOM node count bounded. Canvas + highlight layer stay so pages
+  // never go blank. Layers are rebuilt lazily when scrolled back into range.
+  var currentPage = tab._pdfCurrentPage || 1;
+  if (!tab._pdfStrippedPages) tab._pdfStrippedPages = new Set();
+  tab._pdfRenderedPages.forEach(function(_, pg) {
+    if (Math.abs(pg - currentPage) <= 15) {
+      // Close enough — restore layers if previously stripped
+      if (tab._pdfStrippedPages.has(pg)) {
+        tab._pdfStrippedPages.delete(pg);
+        _pdfViewerRebuildLayers(tab, pg);
+      }
+      return;
+    }
+    if (tab._pdfStrippedPages.has(pg)) return; // already stripped
+    var w = wrappers[pg];
+    if (!w) return;
+    var textLayer = w.querySelector('.textLayer');
+    if (textLayer) textLayer.remove();
+    var annotLayer = w.querySelector('.pdf-annotation-layer');
+    if (annotLayer) annotLayer.remove();
+    var citLayer = w.querySelector('.pdf-citation-layer');
+    if (citLayer) citLayer.remove();
+    tab._pdfStrippedPages.add(pg);
+  });
 }
 
 // ── Page Navigation ──
@@ -953,6 +1110,8 @@ function _pdfViewerSetZoom(tab, newZoom, force) {
 
   // Mark all pages for re-render; old content stays visible until replaced
   tab._pdfRenderedPages = new Map();
+  tab._pdfStrippedPages = null;
+  _renderQueue.length = 0; // drop stale-zoom queued renders
   _pdfViewerInstallObserver(tab);
   _pdfViewerOnScroll(tab);
 }
