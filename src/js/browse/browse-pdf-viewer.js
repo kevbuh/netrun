@@ -151,6 +151,10 @@ export function _pdfViewerDestroy(tab) {
   tab._pdfRenderedPages = null;
   tab._pdfPageWrappers = null;
   tab._pdfThumbItems = null;
+  tab._pdfTextIndex = null;
+  tab._pdfTextIndexPromise = null;
+  tab._pdfSearchMatches = null;
+  if (_searchBar && _searchBar.parentNode) { _searchBar.remove(); _searchBar = null; }
   if (tab._pdfThumbObserver) { tab._pdfThumbObserver.disconnect(); tab._pdfThumbObserver = null; }
   // Preserve _pdfCurrentPage, _pdfZoom, _pdfDarkMode, _pdfLeftPanelVisible for re-init
 }
@@ -1230,22 +1234,60 @@ export function _pdfViewerInstallHighlightHandler(tab) {
 
 let _searchBar = null;
 
+// Pre-extract text content from all pages for fast search
+function _pdfEnsureTextIndex(tab) {
+  if (tab._pdfTextIndex) return Promise.resolve(tab._pdfTextIndex);
+  if (tab._pdfTextIndexPromise) return tab._pdfTextIndexPromise;
+  if (!tab._pdfDoc) return Promise.resolve(null);
+
+  tab._pdfTextIndexPromise = new Promise(function(resolve) {
+    var index = []; // index[pageNum] = { text, items }
+    var promises = [];
+    for (var i = 1; i <= tab._pdfPageCount; i++) {
+      (function(pageNum) {
+        promises.push(
+          tab._pdfDoc.getPage(pageNum).then(function(page) {
+            return page.getTextContent();
+          }).then(function(content) {
+            var fullText = '';
+            var items = [];
+            content.items.forEach(function(item) {
+              items.push({ str: item.str, offset: fullText.length, transform: item.transform, width: item.width, height: item.height });
+              fullText += item.str;
+            });
+            index[pageNum] = { text: fullText, textLower: fullText.toLowerCase(), items: items };
+          })
+        );
+      })(i);
+    }
+    Promise.all(promises).then(function() {
+      tab._pdfTextIndex = index;
+      tab._pdfTextIndexPromise = null;
+      resolve(index);
+    });
+  });
+  return tab._pdfTextIndexPromise;
+}
+
 function _pdfViewerToggleSearch(tab) {
   if (_searchBar && _searchBar.parentNode) {
     _searchBar.remove();
     _searchBar = null;
-    // Clear highlights
-    tab._pdfPagesContainer.querySelectorAll('.pdf-search-highlight').forEach(function(el) { el.remove(); });
+    _pdfSearchClearHighlights(tab);
     return;
   }
 
-  const countLabel = new View('span').styles({
+  // Start building text index immediately
+  _pdfEnsureTextIndex(tab);
+
+  var countLabel = new View('span').styles({
     fontSize: '0.72rem',
     color: 'var(--nr-text-quaternary)',
-    minWidth: '40px'
+    minWidth: '40px',
+    whiteSpace: 'nowrap'
   });
 
-  const input = new View('input')
+  var input = new View('input')
     .attr('type', 'text')
     .attr('placeholder', 'Search in PDF...')
     .styles({
@@ -1256,20 +1298,21 @@ function _pdfViewerToggleSearch(tab) {
       padding: '4px 8px',
       fontSize: '0.78rem',
       color: 'var(--nr-text-primary)',
-      outline: 'none'
+      outline: 'none',
+      minWidth: '120px'
     });
 
-  const prevBtn = _tbBtn(icon('chevronUp', { size: 14 }), 'Previous match', function() {
-    _pdfSearchPrev(tab);
+  var prevBtn = _tbBtn(icon('chevronUp', { size: 14 }), 'Previous match', function() {
+    _pdfSearchPrev(tab, countLabel.el);
   });
-  const nextBtn = _tbBtn(icon('chevronDown', { size: 14 }), 'Next match', function() {
-    _pdfSearchNext(tab);
+  var nextBtn = _tbBtn(icon('chevronDown', { size: 14 }), 'Next match', function() {
+    _pdfSearchNext(tab, countLabel.el);
   });
-  const closeBtn = _tbBtn(icon('close', { size: 14 }), 'Close search', function() {
+  var closeBtn = _tbBtn(icon('close', { size: 14 }), 'Close search', function() {
     _pdfViewerToggleSearch(tab);
   });
 
-  const searchBarView = new HStack()
+  var searchBarView = new HStack()
     .styles({
       gap: '6px',
       alignItems: 'center',
@@ -1285,101 +1328,159 @@ function _pdfViewerToggleSearch(tab) {
   tab._pdfToolbar.parentNode.insertBefore(_searchBar, tab._pdfToolbar.nextSibling);
   input.el.focus();
 
-  let searchTimer = null;
+  var searchTimer = null;
   input.on('input', function() {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(function() {
       _pdfViewerDoSearch(tab, input.el.value.trim(), countLabel.el);
-    }, 300);
+    }, 150);
   });
   input.on('keydown', function(e) {
     if (e.key === 'Escape') _pdfViewerToggleSearch(tab);
-    if (e.key === 'Enter' && e.shiftKey) { _pdfSearchPrev(tab); }
-    else if (e.key === 'Enter') { _pdfSearchNext(tab); }
+    else if (e.key === 'Enter' && e.shiftKey) _pdfSearchPrev(tab, countLabel.el);
+    else if (e.key === 'Enter') _pdfSearchNext(tab, countLabel.el);
   });
 }
 
-function _pdfViewerDoSearch(tab, query, countLabelEl) {
-  // Clear previous
-  tab._pdfPagesContainer.querySelectorAll('.pdf-search-highlight').forEach(function(el) { el.remove(); });
+function _pdfSearchClearHighlights(tab) {
+  if (tab._pdfPagesContainer) {
+    tab._pdfPagesContainer.querySelectorAll('.pdf-search-highlight').forEach(function(el) { el.remove(); });
+  }
   tab._pdfSearchMatches = [];
   tab._pdfSearchIdx = -1;
+}
+
+function _pdfViewerDoSearch(tab, query, countLabelEl) {
+  _pdfSearchClearHighlights(tab);
   if (!query || !tab._pdfDoc) { countLabelEl.textContent = ''; return; }
 
-  let matchCount = 0;
-  const promises = [];
-  const queryLower = query.toLowerCase();
+  _pdfEnsureTextIndex(tab).then(function(index) {
+    if (!index) { countLabelEl.textContent = ''; return; }
+    var queryLower = query.toLowerCase();
+    var matches = []; // { pageNum, charOffset, length }
 
-  for (let i = 1; i <= tab._pdfPageCount; i++) {
-    (function(pageNum) {
-      promises.push(
-        tab._pdfDoc.getPage(pageNum).then(function(page) {
-          const wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
-          if (!wrapper) return;
-          const textLayer = wrapper.querySelector('.textLayer');
-          if (!textLayer) return;
-
-          const spans = textLayer.querySelectorAll('span');
-          spans.forEach(function(span) {
-            const text = span.textContent || '';
-            const textLower = text.toLowerCase();
-            let idx = textLower.indexOf(queryLower);
-            while (idx !== -1) {
-              matchCount++;
-              // Create a highlight overlay positioned over the matching text
-              const range = document.createRange();
-              range.setStart(span.firstChild || span, idx);
-              range.setEnd(span.firstChild || span, Math.min(idx + query.length, text.length));
-              const rects = range.getClientRects();
-              const wrapperRect = wrapper.getBoundingClientRect();
-
-              for (let r = 0; r < rects.length; r++) {
-                const rect = rects[r];
-                const mark = document.createElement('div');
-                mark.className = 'pdf-search-highlight';
-                mark.style.cssText = 'position:absolute;left:' + (rect.left - wrapperRect.left) + 'px;top:' + (rect.top - wrapperRect.top) + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;background:rgba(255,165,0,0.35);border-radius:1px;pointer-events:none;z-index:5;';
-                wrapper.appendChild(mark);
-                tab._pdfSearchMatches.push({ el: mark, pageNum: pageNum });
-              }
-              idx = textLower.indexOf(queryLower, idx + 1);
-            }
-          });
-        })
-      );
-    })(i);
-  }
-
-  Promise.all(promises).then(function() {
-    countLabelEl.textContent = matchCount + ' match' + (matchCount !== 1 ? 'es' : '');
-    // Auto-scroll to first match
-    if (tab._pdfSearchMatches && tab._pdfSearchMatches.length) {
-      tab._pdfSearchIdx = 0;
-      _pdfSearchScrollToMatch(tab);
+    // Phase 1: fast text-only scan across all pages (no DOM)
+    for (var p = 1; p <= tab._pdfPageCount; p++) {
+      var entry = index[p];
+      if (!entry) continue;
+      var idx = entry.textLower.indexOf(queryLower);
+      while (idx !== -1) {
+        matches.push({ pageNum: p, charOffset: idx, length: query.length });
+        idx = entry.textLower.indexOf(queryLower, idx + 1);
+      }
     }
+
+    tab._pdfSearchMatches = matches;
+    tab._pdfSearchIdx = matches.length ? 0 : -1;
+    countLabelEl.textContent = matches.length ? '1 / ' + matches.length : 'No results';
+
+    // Phase 2: highlight matches on rendered pages
+    _pdfSearchHighlightVisible(tab);
+
+    // Scroll to first match
+    if (matches.length) _pdfSearchScrollToMatch(tab);
+  });
+}
+
+function _pdfSearchHighlightVisible(tab) {
+  if (!tab._pdfSearchMatches || !tab._pdfSearchMatches.length) return;
+  var index = tab._pdfTextIndex;
+  if (!index) return;
+
+  // Only highlight on pages that have rendered text layers
+  tab._pdfSearchMatches.forEach(function(match, matchIdx) {
+    if (match._highlighted) return;
+    var wrapper = tab._pdfPageWrappers && tab._pdfPageWrappers[match.pageNum];
+    if (!wrapper) return;
+    var textLayer = wrapper.querySelector('.textLayer');
+    if (!textLayer) return;
+
+    var entry = index[match.pageNum];
+    if (!entry) return;
+
+    // Find which spans contain this match
+    var spans = textLayer.querySelectorAll('span');
+    var charPos = 0;
+    var matchStart = match.charOffset;
+    var matchEnd = matchStart + match.length;
+
+    for (var s = 0; s < spans.length; s++) {
+      var span = spans[s];
+      var spanText = span.textContent || '';
+      var spanStart = charPos;
+      var spanEnd = charPos + spanText.length;
+      charPos = spanEnd;
+
+      // Check overlap
+      if (spanEnd <= matchStart || spanStart >= matchEnd) continue;
+
+      var hlStart = Math.max(0, matchStart - spanStart);
+      var hlEnd = Math.min(spanText.length, matchEnd - spanStart);
+
+      try {
+        var range = document.createRange();
+        range.setStart(span.firstChild || span, hlStart);
+        range.setEnd(span.firstChild || span, hlEnd);
+        var rects = range.getClientRects();
+        var wrapperRect = wrapper.getBoundingClientRect();
+
+        for (var r = 0; r < rects.length; r++) {
+          var rect = rects[r];
+          var mark = document.createElement('div');
+          mark.className = 'pdf-search-highlight';
+          mark.setAttribute('data-match-idx', matchIdx);
+          mark.style.cssText = 'position:absolute;left:' + (rect.left - wrapperRect.left) + 'px;top:' + (rect.top - wrapperRect.top) + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;background:rgba(255,165,0,0.35);border-radius:1px;pointer-events:none;z-index:5;';
+          wrapper.appendChild(mark);
+        }
+      } catch (e) { /* range error on unrendered spans */ }
+    }
+    match._highlighted = true;
   });
 }
 
 function _pdfSearchScrollToMatch(tab) {
   if (!tab._pdfSearchMatches || !tab._pdfSearchMatches.length) return;
-  const idx = tab._pdfSearchIdx;
+  var idx = tab._pdfSearchIdx;
   if (idx < 0 || idx >= tab._pdfSearchMatches.length) return;
 
-  // Remove active class from all, add to current
-  tab._pdfSearchMatches.forEach(function(m) { m.el.classList.remove('pdf-search-active'); });
-  const match = tab._pdfSearchMatches[idx];
-  match.el.classList.add('pdf-search-active');
-  match.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  var match = tab._pdfSearchMatches[idx];
+
+  // Remove active class from all highlights
+  if (tab._pdfPagesContainer) {
+    tab._pdfPagesContainer.querySelectorAll('.pdf-search-active').forEach(function(el) {
+      el.classList.remove('pdf-search-active');
+    });
+  }
+
+  // Ensure the target page is rendered, then scroll
+  _pdfViewerRenderPage(tab, match.pageNum);
+
+  // Wait a tick for render, then highlight and scroll
+  setTimeout(function() {
+    _pdfSearchHighlightVisible(tab);
+    var els = tab._pdfPagesContainer.querySelectorAll('[data-match-idx="' + idx + '"]');
+    if (els.length) {
+      els.forEach(function(el) { el.classList.add('pdf-search-active'); });
+      els[0].scrollIntoView({ behavior: 'instant', block: 'center' });
+    } else {
+      // Fallback: scroll to the page wrapper
+      var wrapper = tab._pdfPageWrappers && tab._pdfPageWrappers[match.pageNum];
+      if (wrapper) wrapper.scrollIntoView({ behavior: 'instant', block: 'start' });
+    }
+  }, 100);
 }
 
-function _pdfSearchNext(tab) {
+function _pdfSearchNext(tab, countLabelEl) {
   if (!tab._pdfSearchMatches || !tab._pdfSearchMatches.length) return;
   tab._pdfSearchIdx = (tab._pdfSearchIdx + 1) % tab._pdfSearchMatches.length;
+  if (countLabelEl) countLabelEl.textContent = (tab._pdfSearchIdx + 1) + ' / ' + tab._pdfSearchMatches.length;
   _pdfSearchScrollToMatch(tab);
 }
 
-function _pdfSearchPrev(tab) {
+function _pdfSearchPrev(tab, countLabelEl) {
   if (!tab._pdfSearchMatches || !tab._pdfSearchMatches.length) return;
   tab._pdfSearchIdx = (tab._pdfSearchIdx - 1 + tab._pdfSearchMatches.length) % tab._pdfSearchMatches.length;
+  if (countLabelEl) countLabelEl.textContent = (tab._pdfSearchIdx + 1) + ' / ' + tab._pdfSearchMatches.length;
   _pdfSearchScrollToMatch(tab);
 }
 
@@ -1628,3 +1729,4 @@ window._pdfViewerScrollToPage = _pdfViewerScrollToPage;
 window._pdfViewerGetText = _pdfViewerGetText;
 window._pdfViewerAddHighlight = _pdfViewerAddHighlight;
 window._pdfViewerRemoveHighlight = _pdfViewerRemoveHighlight;
+window._pdfViewerToggleSearch = _pdfViewerToggleSearch;

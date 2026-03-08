@@ -396,6 +396,11 @@ document.addEventListener('keydown', function(e) {
     if (ntp && ntp.style.display !== 'none') {
       const inp = ntp.querySelector('#search-query');
       if (inp) { inp.focus(); inp.select(); }
+    } else if (typeof window._isNerdMode === 'function' && typeof window._pdfViewerToggleSearch === 'function') {
+      const win = window._getCurrentWindow && window._getCurrentWindow();
+      const tab = win && win.tabs.find(function(t) { return t.id === win.activeTab; });
+      if (tab && window._isNerdMode(tab.id)) { window._pdfViewerToggleSearch(tab); }
+      else { _browseToggleFindBar(); }
     } else { _browseToggleFindBar(); }
   }
 });
