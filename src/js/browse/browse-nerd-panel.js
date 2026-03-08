@@ -2,7 +2,7 @@
 // Registers panel tabs: Info, References, Authors, Highlights, Code, Files, Terminal
 // Depends on: core-nav.js, browse-paper.js, browse-pdf-viewer.js
 import { icon } from '/js/core/icons.js';
-import { registerPanelTabs } from '/js/core/core-nav.js';
+import { registerPanelTabs, ensurePanelVisible, showPanelForView } from '/js/core/core-nav.js';
 import { _paperState, _s2Cache, _s2Fetch, _s2GetAuthor, _s2GetAuthorFull, _extractArxivId, _s2LookupByArxivId, _s2SearchPaper } from '/js/browse/browse-paper.js';
 import { _pdfViewerScrollToPage, _pdfViewerGetText } from '/js/browse/browse-pdf-viewer.js';
 import { _nerdModeEnabled } from '/js/browse/browse-nerd-mode.js';
@@ -59,6 +59,8 @@ function _fetchPaperData(tab) {
         });
         // Re-render info tab now that we have basic data
         _reRenderInfoIfActive();
+        // Show panel now that we have data
+        _showPanelIfNerdActive(tab);
         // Fetch author details
         _fetchAuthorDetails(tab, data);
       }
@@ -85,6 +87,8 @@ function _fetchPaperData(tab) {
                 });
                 // Re-render info tab now that we have basic data
                 _reRenderInfoIfActive();
+                // Show panel now that we have data
+                _showPanelIfNerdActive(tab);
                 _fetchAuthorDetails(tab, full);
               }
             });
@@ -92,6 +96,13 @@ function _fetchPaperData(tab) {
         }
       });
     }
+  }
+}
+
+function _showPanelIfNerdActive(tab) {
+  if (tab && _nerdModeEnabled.get(tab.id)) {
+    ensurePanelVisible();
+    showPanelForView('browse');
   }
 }
 

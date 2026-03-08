@@ -8,6 +8,7 @@ import { showPanelForView, hidePanel, _invalidatePanelRender, ensurePanelVisible
 import { _pdfViewerInit, _pdfViewerDestroy, _pdfViewerGetText, _pdfApplyDarkBg } from '/js/browse/browse-pdf-viewer.js';
 import { _notebookViewerInit, _notebookViewerDestroy, _notebookViewerGetText } from '/js/browse/browse-notebook-viewer.js';
 import { _nerdPanelRegister, _nerdPanelRefresh } from '/js/browse/browse-nerd-panel.js';
+import { _paperState } from '/js/browse/browse-paper.js';
 import { _renderImplTreeInline } from '/js/browse/browse-impl-session.js';
 import { _browseResetAdaptiveColor, _browseApplyAdaptiveColor } from '/js/browse-urlbar.js';
 import { View } from '/aether/ui/aether-ui.js';
@@ -149,10 +150,12 @@ function _nerdModeEnable(tab) {
     }, 1000);
   }
 
-  // Show lookup panel
-  ensurePanelVisible();
+  // Only show lookup panel if paper data is available (or becomes available)
   _invalidatePanelRender('browse');
-  showPanelForView('browse');
+  if (_paperState.has(tab.id)) {
+    ensurePanelVisible();
+    showPanelForView('browse');
+  }
 
   // Refresh files lists across all viewers
   _refreshFilesContent();
@@ -250,12 +253,14 @@ export function _nerdModeOnTabSelect(tab) {
       action: function() { toggleNerdMode(tab); }
     });
 
-    // Show panel
+    // Show panel only if paper data is available
     _nerdPanelRegister();
     _nerdPanelRefresh(tab);
-    ensurePanelVisible();
     _invalidatePanelRender('browse');
-    showPanelForView('browse');
+    if (_paperState.has(tab.id)) {
+      ensurePanelVisible();
+      showPanelForView('browse');
+    }
   } else {
     islandRemove('nerd');
   }

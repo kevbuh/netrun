@@ -234,6 +234,24 @@ function _buildViewerDOM(tab, viewerEl) {
     _pdfViewerOnScroll(tab);
   });
 
+  // Arrow key page navigation when zoomed out enough that a full page fits
+  pagesContainer.el.setAttribute('tabindex', '0');
+  pagesContainer.el.style.outline = 'none';
+  pagesContainer.el.addEventListener('keydown', function(e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    // Check if current page fits within the container
+    const container = tab._pdfPagesContainer;
+    const wrapper = container.querySelector('[data-page-num="' + tab._pdfCurrentPage + '"]');
+    if (!wrapper || !wrapper.offsetHeight) return;
+    if (wrapper.offsetHeight > container.clientHeight) return;
+    e.preventDefault();
+    if (e.key === 'ArrowLeft') {
+      _pdfViewerGoToPage(tab, tab._pdfCurrentPage - 1);
+    } else {
+      _pdfViewerGoToPage(tab, tab._pdfCurrentPage + 1);
+    }
+  });
+
   // Pinch-to-zoom: use CSS transform for instant feedback, debounce canvas re-render
   let zoomCommitTimer = null;
   let zoomBaseScale = null; // the scale at which canvases were last rendered
@@ -495,8 +513,10 @@ function _buildLeftPanel(tab, leftPanelView) {
   // Tab bar
   const tabBar = new View('div').className('pdf-left-panel-tabs');
 
+  const hasImpl = !!(tab._implSessionId && tab._implFolderPath);
+
   const filesScroll = new View('div').className('pdf-thumb-scroll nerd-files-scroll');
-  const thumbScroll = new View('div').className('pdf-thumb-scroll').style('display', 'none');
+  const thumbScroll = new View('div').className('pdf-thumb-scroll');
   const outlineScroll = new View('div').className('pdf-outline-scroll').style('display', 'none');
 
   tab._pdfFilesScroll = filesScroll.el;
@@ -504,33 +524,43 @@ function _buildLeftPanel(tab, leftPanelView) {
   tab._pdfOutlineScroll = outlineScroll.el;
 
   let tabBtns = [];
-  const scrolls = [filesScroll.el, thumbScroll.el, outlineScroll.el];
+  let scrolls, tabOffset;
+
+  const filesTab = new View('button').className('pdf-left-panel-tab').text('Files')
+    .onTap(function() { selectLeftTab(0); });
+  const thumbTab = new View('button').className('pdf-left-panel-tab').text('Thumbs')
+    .onTap(function() { selectLeftTab(hasImpl ? 1 : 0); });
+  const outlineTab = new View('button').className('pdf-left-panel-tab').text('Outline')
+    .onTap(function() { selectLeftTab(hasImpl ? 2 : 1); });
+
+  if (hasImpl) {
+    filesScroll.style('display', 'none');
+    thumbScroll.style('display', 'none');
+    tabBtns = [filesTab, thumbTab, outlineTab];
+    scrolls = [filesScroll.el, thumbScroll.el, outlineScroll.el];
+    tabBar.add(filesTab, thumbTab, outlineTab);
+  } else {
+    tabBtns = [thumbTab, outlineTab];
+    scrolls = [thumbScroll.el, outlineScroll.el];
+    tabBar.add(thumbTab, outlineTab);
+  }
+  leftPanelView.add(tabBar);
 
   function selectLeftTab(idx) {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < scrolls.length; i++) {
       scrolls[i].style.display = i === idx ? '' : 'none';
       tabBtns[i].el.classList.toggle('active', i === idx);
     }
-    if (idx === 0) _buildFilesContent(filesScroll.el);
+    if (hasImpl && idx === 0) _buildFilesContent(filesScroll.el);
   }
-
-  const filesTab = new View('button').className('pdf-left-panel-tab active').text('Files')
-    .onTap(function() { selectLeftTab(0); });
-  const thumbTab = new View('button').className('pdf-left-panel-tab').text('Thumbs')
-    .onTap(function() { selectLeftTab(1); });
-  const outlineTab = new View('button').className('pdf-left-panel-tab').text('Outline')
-    .onTap(function() { selectLeftTab(2); });
-
-  tabBtns = [filesTab, thumbTab, outlineTab];
-  tabBar.add(filesTab, thumbTab, outlineTab);
-  leftPanelView.add(tabBar);
 
   // Content area
   const content = new View('div').className('pdf-left-panel-content');
-  content.add(filesScroll, thumbScroll, outlineScroll);
+  if (hasImpl) content.add(filesScroll);
+  content.add(thumbScroll, outlineScroll);
   leftPanelView.add(content);
 
-  // Initial files tab selection (ensures display is set and content is built)
+  // Default to Thumbs tab
   selectLeftTab(0);
 }
 
@@ -753,9 +783,14 @@ function _pdfViewerGoToPage(tab, pageNum) {
 
   const wrapper = tab._pdfPagesContainer.querySelector('[data-page-num="' + pageNum + '"]');
   if (wrapper) {
-    wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Center the page when it fits in the viewport, otherwise scroll to top
+    const fits = wrapper.offsetHeight <= tab._pdfPagesContainer.clientHeight;
+    wrapper.scrollIntoView({ behavior: fits ? 'instant' : 'smooth', block: fits ? 'center' : 'start' });
   }
   _pdfViewerRenderPage(tab, pageNum);
+  // Pre-render adjacent pages so flipping feels instant
+  if (pageNum > 1) _pdfViewerRenderPage(tab, pageNum - 1);
+  if (pageNum < tab._pdfPageCount) _pdfViewerRenderPage(tab, pageNum + 1);
   _pdfViewerUpdateThumbActive(tab, pageNum);
 }
 
