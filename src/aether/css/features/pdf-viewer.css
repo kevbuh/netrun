@@ -618,11 +618,12 @@
     .pdf-thumb-scroll {
       overflow-y: auto;
       height: 100%;
-      padding: 8px 10px;
+      padding: 12px 10px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 16px;
       scrollbar-width: thin;
+      align-items: center;
     }
     .pdf-thumb-scroll::-webkit-scrollbar, .pdf-outline-scroll::-webkit-scrollbar { width: 4px; }
     .pdf-thumb-scroll::-webkit-scrollbar-thumb, .pdf-outline-scroll::-webkit-scrollbar-thumb { background: var(--nr-border-dim); border-radius: 2px; }
@@ -647,16 +648,22 @@
       padding: 12px 8px;
     }
     .pdf-thumb-item {
-      border: 2px solid transparent;
-      border-radius: 4px;
+      border: 1px solid var(--nr-border-dim);
+      border-radius: 6px;
       background: #fff;
       cursor: pointer;
       overflow: hidden;
       flex-shrink: 0;
-      transition: border-color 0.15s;
+      transition: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
     }
     .pdf-thumb-item:hover {
       border-color: var(--nr-text-quaternary);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.18);
     }
     .pdf-thumb-item:focus {
       outline: none;
@@ -664,22 +671,22 @@
     }
     .pdf-thumb-item.active {
       border-color: var(--nr-accent);
-      box-shadow: 0 0 0 1px var(--nr-accent);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.18), 0 0 0 1px var(--nr-accent);
     }
-    .pdf-thumb-item canvas,
-    .pdf-thumb-label {
+    .pdf-thumb-item canvas {
       pointer-events: none;
     }
     .pdf-thumb-label {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
       text-align: center;
-      font-size: 0.6rem;
-      color: #fff;
-      padding: 1px 0;
-      background: linear-gradient(transparent, rgba(0,0,0,0.5));
+      font-size: 0.85rem;
+      color: var(--nr-text-tertiary);
+      padding: 8px 0;
+      font-variant-numeric: tabular-nums;
+      pointer-events: none;
+    }
+    .pdf-thumb-item.active .pdf-thumb-label {
+      color: var(--nr-accent);
+      font-weight: 600;
     }
     /* ── PDF Zoom Dropdown ── */
     .pdf-zoom-label {
@@ -732,6 +739,11 @@
     }
     .pdf-pages-container.pdf-dark-render .pdf-highlight-rect {
       mix-blend-mode: multiply;
+    }
+    .pdf-left-panel.pdf-dark-render .pdf-thumb-item {
+      background: #2a2a2a;
+      border-color: rgba(255,255,255,0.08);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
     .pdf-left-panel.pdf-dark-render .pdf-thumb-item canvas {
       filter: invert(0.88) hue-rotate(180deg);

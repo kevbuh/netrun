@@ -86,7 +86,7 @@ export function _pdfViewerInit(tab, viewerEl, pdfUrl) {
       tab._pdfDarkMode = !theme || theme === 'dark';
     }
   }
-  tab._pdfLeftPanelVisible = tab._pdfLeftPanelVisible != null ? tab._pdfLeftPanelVisible : true;
+  tab._pdfLeftPanelVisible = tab._pdfLeftPanelVisible != null ? tab._pdfLeftPanelVisible : false;
   tab._pdfRenderedPages = new Map();
   tab._pdfUrl = pdfUrl;
 
@@ -154,6 +154,9 @@ export function _pdfViewerDestroy(tab) {
     tab._pdfDoc = null;
   }
   tab._pdfRenderedPages = null;
+  tab._pdfPageWrappers = null;
+  tab._pdfThumbItems = null;
+  if (tab._pdfThumbObserver) { tab._pdfThumbObserver.disconnect(); tab._pdfThumbObserver = null; }
   // Preserve _pdfCurrentPage, _pdfZoom, _pdfDarkMode, _pdfLeftPanelVisible for re-init
 }
 
@@ -527,7 +530,7 @@ function _buildToolbar(tab, toolbarView) {
     tab._pdfLeftPanel.style.display = tab._pdfLeftPanelVisible ? '' : 'none';
     leftPanelBtn.el.classList.toggle('active', tab._pdfLeftPanelVisible);
   });
-  leftPanelBtn.el.classList.add('active');
+  if (tab._pdfLeftPanelVisible) leftPanelBtn.el.classList.add('active');
   panelGroup.add(leftPanelBtn);
 
   var rightPanelBtn = _tbBtn(icon('panelRight', { size: 16 }), 'Toggle lookup panel', function() {
@@ -658,22 +661,29 @@ function _pdfViewerLoadDoc(tab, url) {
 
 function _pdfViewerRenderAllPages(tab) {
   if (!tab._pdfDoc) return;
-  for (let i = 1; i <= tab._pdfPageCount; i++) {
-    _pdfViewerCreatePageSlot(tab, i);
-  }
-  // Render first few pages immediately, rest on scroll
-  const initialPages = Math.min(5, tab._pdfPageCount);
-  for (let j = 1; j <= initialPages; j++) {
-    _pdfViewerRenderPage(tab, j);
-  }
+  // Get first page dimensions to set accurate placeholder heights (avoids scroll jumps)
+  tab._pdfDoc.getPage(1).then(function(firstPage) {
+    const vp = firstPage.getViewport({ scale: tab._pdfZoom });
+    const slotHeight = Math.round(vp.height);
+    const slotWidth = Math.round(vp.width);
+    for (let i = 1; i <= tab._pdfPageCount; i++) {
+      _pdfViewerCreatePageSlot(tab, i, slotWidth, slotHeight);
+    }
+    // Render first few pages immediately, rest on scroll
+    const initialPages = Math.min(5, tab._pdfPageCount);
+    for (let j = 1; j <= initialPages; j++) {
+      _pdfViewerRenderPage(tab, j);
+    }
+  });
 }
 
-function _pdfViewerCreatePageSlot(tab, pageNum) {
+function _pdfViewerCreatePageSlot(tab, pageNum, width, height) {
   // Page slots are raw DOM — they host canvas + textLayer which must be imperative
   const wrapper = document.createElement('div');
   wrapper.className = 'pdf-page-wrapper';
   wrapper.setAttribute('data-page-num', pageNum);
-  wrapper.style.minHeight = '400px';
+  wrapper.style.minHeight = height ? (height + 'px') : '400px';
+  if (width) wrapper.style.width = width + 'px';
   tab._pdfPagesContainer.appendChild(wrapper);
   // Cache wrapper reference for fast lookup
   if (!tab._pdfPageWrappers) tab._pdfPageWrappers = [];
@@ -807,21 +817,24 @@ function _pdfViewerOnScroll(tab) {
   const center = scrollTop + containerHeight / 2;
   const pageCount = tab._pdfPageCount;
 
-  // Binary-search-style: find current page from cached wrappers
-  let currentPage = 1;
-  for (let i = 1; i <= pageCount; i++) {
-    const w = wrappers[i];
-    if (!w) continue;
-    if (w.offsetTop + w.offsetHeight / 2 < center) {
-      currentPage = i;
-    } else {
-      break;
+  // Skip page detection if a recent goToPage navigation is settling
+  const navGuarded = tab._pdfNavGuardUntil && performance.now() < tab._pdfNavGuardUntil;
+  if (!navGuarded) {
+    let currentPage = 1;
+    for (let i = 1; i <= pageCount; i++) {
+      const w = wrappers[i];
+      if (!w) continue;
+      if (w.offsetTop + w.offsetHeight / 2 <= center) {
+        currentPage = i;
+      } else {
+        break;
+      }
     }
-  }
-  if (currentPage !== tab._pdfCurrentPage) {
-    tab._pdfCurrentPage = currentPage;
-    tab._pdfPageIndicator.textContent = currentPage + ' / ' + pageCount;
-    _pdfViewerUpdateThumbActive(tab, currentPage);
+    if (currentPage !== tab._pdfCurrentPage) {
+      tab._pdfCurrentPage = currentPage;
+      tab._pdfPageIndicator.textContent = currentPage + ' / ' + pageCount;
+      _pdfViewerUpdateThumbActive(tab, currentPage);
+    }
   }
 
   // Lazy render pages near viewport — scan outward from current page
@@ -846,6 +859,8 @@ function _pdfViewerGoToPage(tab, pageNum) {
   if (!tab._pdfDoc || pageNum < 1 || pageNum > tab._pdfPageCount) return;
   tab._pdfCurrentPage = pageNum;
   tab._pdfPageIndicator.textContent = pageNum + ' / ' + tab._pdfPageCount;
+  // Suppress scroll handler from overriding this navigation
+  tab._pdfNavGuardUntil = performance.now() + 300;
 
   const wrapper = tab._pdfPageWrappers && tab._pdfPageWrappers[pageNum];
   if (wrapper) {
@@ -910,16 +925,36 @@ function _pdfViewerRenderThumbnails(tab) {
   if (!tab._pdfDoc || !tab._pdfThumbScroll) return;
   tab._pdfThumbScroll.innerHTML = '';
 
+  // Cache thumb items for fast active-state updates
+  if (!tab._pdfThumbItems) tab._pdfThumbItems = [];
+  tab._pdfRenderedThumbs = new Set();
+
   for (let i = 1; i <= tab._pdfPageCount; i++) {
     (function(pageNum) {
       const item = new View('div')
         .className('pdf-thumb-item' + (pageNum === 1 ? ' active' : ''))
-        .style('position', 'relative')
         .attr('data-thumb-page', pageNum)
         .attr('tabIndex', '0')
         .onTap(function() { _pdfViewerGoToPage(tab, pageNum); });
 
-      // Render thumb canvas asynchronously — stays imperative (PDF.js canvas rendering)
+      // Set placeholder height based on typical aspect ratio
+      item.el.style.minHeight = '120px';
+
+      tab._pdfThumbItems[pageNum] = item.el;
+      tab._pdfThumbScroll.appendChild(item.el);
+    })(i);
+  }
+
+  // Lazy-render visible thumbnails via IntersectionObserver
+  const thumbObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      const pageNum = parseInt(el.getAttribute('data-thumb-page'));
+      if (tab._pdfRenderedThumbs.has(pageNum)) return;
+      tab._pdfRenderedThumbs.add(pageNum);
+      thumbObserver.unobserve(el);
+
       tab._pdfDoc.getPage(pageNum).then(function(page) {
         const vp = page.getViewport({ scale: 0.3 });
         const canvas = document.createElement('canvas');
@@ -927,28 +962,38 @@ function _pdfViewerRenderThumbnails(tab) {
         canvas.height = vp.height;
         canvas.style.width = '100%';
         canvas.style.display = 'block';
-        item.el.appendChild(canvas);
+        el.appendChild(canvas);
+        el.style.minHeight = '';
 
-        const labelEl = new View('div').className('pdf-thumb-label').text(String(pageNum));
-        item.add(labelEl);
+        const labelEl = document.createElement('div');
+        labelEl.className = 'pdf-thumb-label';
+        labelEl.textContent = String(pageNum);
+        el.appendChild(labelEl);
 
         const ctx = canvas.getContext('2d');
         page.render({ canvasContext: ctx, viewport: vp });
       });
+    });
+  }, { root: tab._pdfThumbScroll, rootMargin: '200px' });
 
-      tab._pdfThumbScroll.appendChild(item.el);
-    })(i);
+  for (let j = 1; j <= tab._pdfPageCount; j++) {
+    if (tab._pdfThumbItems[j]) thumbObserver.observe(tab._pdfThumbItems[j]);
   }
+  tab._pdfThumbObserver = thumbObserver;
 }
 
 function _pdfViewerUpdateThumbActive(tab, pageNum) {
-  if (!tab._pdfThumbScroll) return;
-  tab._pdfThumbScroll.querySelectorAll('.pdf-thumb-item').forEach(function(el) {
-    el.classList.toggle('active', parseInt(el.getAttribute('data-thumb-page')) === pageNum);
-  });
-  // Scroll active thumb into view
-  const active = tab._pdfThumbScroll.querySelector('.pdf-thumb-item.active');
-  if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  if (!tab._pdfThumbItems) return;
+  // Deactivate previous, activate current (O(1) instead of scanning all)
+  if (tab._pdfActiveThumbPage && tab._pdfThumbItems[tab._pdfActiveThumbPage]) {
+    tab._pdfThumbItems[tab._pdfActiveThumbPage].classList.remove('active');
+  }
+  tab._pdfActiveThumbPage = pageNum;
+  const active = tab._pdfThumbItems[pageNum];
+  if (active) {
+    active.classList.add('active');
+    active.scrollIntoView({ block: 'center', behavior: 'instant' });
+  }
 }
 
 // ── Outline / TOC ──
