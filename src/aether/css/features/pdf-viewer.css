@@ -46,6 +46,8 @@
       background: #fff;
       box-shadow: none;
       contain: layout style paint;
+      content-visibility: auto;
+      contain-intrinsic-size: auto 612px 792px; /* letter-size fallback */
     }
     .pdf-page-wrapper canvas {
       display: block;

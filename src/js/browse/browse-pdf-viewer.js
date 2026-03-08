@@ -9,6 +9,30 @@ import { _generateCiteFormats } from '/js/browse/browse-nerd-panel.js';
 import { togglePanel } from '/js/core/core-nav.js';
 import { _buildFilesContent } from '/js/browse/browse-nerd-mode.js';
 
+// ── Canvas pool + bitmap cache for smooth rendering ──
+var _canvasPool = [];
+var _CANVAS_POOL_MAX = 20;
+var _bitmapCache = new Map(); // key: "pageNum-scale", value: ImageBitmap
+var _BITMAP_CACHE_MAX = 60;
+
+function _acquireCanvas(w, h, dpr) {
+  var canvas = _canvasPool.pop();
+  if (!canvas) canvas = document.createElement('canvas');
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  var ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { canvas: canvas, ctx: ctx };
+}
+
+function _releaseCanvas(canvas) {
+  if (_canvasPool.length < _CANVAS_POOL_MAX) {
+    _canvasPool.push(canvas);
+  }
+}
+
 export function _pdfApplyDarkBg(dark) {
   if (dark) {
     document.documentElement.style.setProperty('--nr-bg-body', '#1a1a1a');
@@ -156,6 +180,9 @@ export function _pdfViewerDestroy(tab) {
   tab._pdfSearchMatches = null;
   if (_searchBar && _searchBar.parentNode) { _searchBar.remove(); _searchBar = null; }
   if (tab._pdfThumbObserver) { tab._pdfThumbObserver.disconnect(); tab._pdfThumbObserver = null; }
+  if (tab._pdfPageObserver) { tab._pdfPageObserver.disconnect(); tab._pdfPageObserver = null; }
+  _bitmapCache.forEach(function(bmp) { bmp.close(); });
+  _bitmapCache.clear();
   // Preserve _pdfCurrentPage, _pdfZoom, _pdfDarkMode, _pdfLeftPanelVisible for re-init
 }
 
@@ -335,6 +362,8 @@ function _buildViewerDOM(tab, viewerEl) {
     // Don't clear transforms or content here — let per-page re-render swap them
     // to avoid all pages blinking blank simultaneously
     tab._pdfRenderedPages = new Map();
+    // Reinstall observer so it re-fires for visible pages at the new zoom
+    _pdfViewerInstallObserver(tab);
     _pdfViewerOnScroll(tab);
   }
 
@@ -665,15 +694,36 @@ function _pdfViewerRenderAllPages(tab) {
     const vp = firstPage.getViewport({ scale: tab._pdfZoom });
     const slotHeight = Math.round(vp.height);
     const slotWidth = Math.round(vp.width);
+    tab._pdfSlotHeight = slotHeight; // cached for scroll estimation (avoids reflow)
     for (let i = 1; i <= tab._pdfPageCount; i++) {
       _pdfViewerCreatePageSlot(tab, i, slotWidth, slotHeight);
     }
-    // Render first few pages immediately, rest on scroll
+    // Set up IntersectionObserver for lazy rendering (no reflows on scroll)
+    _pdfViewerInstallObserver(tab);
+    // Render first few pages immediately, rest via observer
     const initialPages = Math.min(5, tab._pdfPageCount);
     for (let j = 1; j <= initialPages; j++) {
       _pdfViewerRenderPage(tab, j);
     }
   });
+}
+
+// IntersectionObserver for lazy page rendering — zero reflow cost on scroll.
+// Each page wrapper is observed; when it enters the viewport (+ margin), render fires.
+function _pdfViewerInstallObserver(tab) {
+  if (tab._pdfPageObserver) tab._pdfPageObserver.disconnect();
+  var rootEl = tab._pdfPagesContainer;
+  tab._pdfPageObserver = new IntersectionObserver(function(entries) {
+    for (var i = 0; i < entries.length; i++) {
+      if (!entries[i].isIntersecting) continue;
+      var pageNum = parseInt(entries[i].target.getAttribute('data-page-num'));
+      if (pageNum) _pdfViewerRenderPage(tab, pageNum);
+    }
+  }, { root: rootEl, rootMargin: '200% 0px' });
+  var wrappers = tab._pdfPageWrappers || [];
+  for (var j = 1; j <= tab._pdfPageCount; j++) {
+    if (wrappers[j]) tab._pdfPageObserver.observe(wrappers[j]);
+  }
 }
 
 function _pdfViewerCreatePageSlot(tab, pageNum, width, height) {
@@ -683,10 +733,34 @@ function _pdfViewerCreatePageSlot(tab, pageNum, width, height) {
   wrapper.setAttribute('data-page-num', pageNum);
   wrapper.style.minHeight = height ? (height + 'px') : '400px';
   if (width) wrapper.style.width = width + 'px';
+  if (width && height) wrapper.style.containIntrinsicSize = width + 'px ' + height + 'px';
   tab._pdfPagesContainer.appendChild(wrapper);
   // Cache wrapper reference for fast lookup
   if (!tab._pdfPageWrappers) tab._pdfPageWrappers = [];
   tab._pdfPageWrappers[pageNum] = wrapper;
+}
+
+function _assembleRenderedPage(tab, pageNum, wrapper, canvas, cssW, cssH, scale) {
+  var oldCanvas = wrapper.querySelector('canvas');
+  if (oldCanvas) _releaseCanvas(oldCanvas);
+  wrapper.innerHTML = '';
+  wrapper.style.width = cssW + 'px';
+  wrapper.style.height = cssH + 'px';
+  wrapper.style.minHeight = '';
+  wrapper.style.transform = '';
+  wrapper.style.transformOrigin = '';
+  wrapper.style.marginBottom = '';
+  wrapper.style.containIntrinsicSize = cssW + 'px ' + cssH + 'px';
+  wrapper.style.setProperty('--scale-factor', scale);
+  wrapper.appendChild(canvas);
+
+  // Highlight layer (lightweight, render immediately)
+  const hlLayer = document.createElement('div');
+  hlLayer.className = 'pdf-highlight-layer';
+  hlLayer.style.width = cssW + 'px';
+  hlLayer.style.height = cssH + 'px';
+  wrapper.appendChild(hlLayer);
+  _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer);
 }
 
 function _pdfViewerRenderPage(tab, pageNum) {
@@ -694,43 +768,43 @@ function _pdfViewerRenderPage(tab, pageNum) {
   if (tab._pdfRenderedPages.has(pageNum)) return;
   tab._pdfRenderedPages.set(pageNum, true);
 
+  const wrapper = tab._pdfPageWrappers && tab._pdfPageWrappers[pageNum];
+  if (!wrapper) return;
+
+  // Check bitmap cache for instant restore
+  var cacheKey = pageNum + '-' + tab._pdfZoom;
+  var cached = _bitmapCache.get(cacheKey);
+  if (cached) {
+    var dpr = window.devicePixelRatio || 1;
+    var pool = _acquireCanvas(cached.width / dpr, cached.height / dpr, dpr);
+    pool.ctx.setTransform(1, 0, 0, 1, 0, 0); // reset for drawImage
+    pool.ctx.drawImage(cached, 0, 0);
+    _assembleRenderedPage(tab, pageNum, wrapper, pool.canvas, cached.width / dpr, cached.height / dpr, tab._pdfZoom);
+    return;
+  }
+
   tab._pdfDoc.getPage(pageNum).then(function(page) {
     const scale = tab._pdfZoom;
     const viewport = page.getViewport({ scale: scale });
+    const dpr = window.devicePixelRatio || 1;
 
-    const wrapper = tab._pdfPageWrappers && tab._pdfPageWrappers[pageNum];
-    if (!wrapper) return;
+    var pool = _acquireCanvas(viewport.width, viewport.height, dpr);
+    var canvas = pool.canvas;
 
-    // Render canvas off-screen first, then swap when painted
-    const canvas = document.createElement('canvas');
-    canvas.width = viewport.width * (window.devicePixelRatio || 1);
-    canvas.height = viewport.height * (window.devicePixelRatio || 1);
-    canvas.style.width = viewport.width + 'px';
-    canvas.style.height = viewport.height + 'px';
-
-    const ctx = canvas.getContext('2d');
-    ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
-
-    const renderTask = page.render({ canvasContext: ctx, viewport: viewport });
+    const renderTask = page.render({ canvasContext: pool.ctx, viewport: viewport });
     renderTask.promise.then(function() {
-      // Canvas is fully painted — swap old content atomically
-      wrapper.innerHTML = '';
-      wrapper.style.width = viewport.width + 'px';
-      wrapper.style.height = viewport.height + 'px';
-      wrapper.style.minHeight = '';
-      wrapper.style.transform = '';
-      wrapper.style.transformOrigin = '';
-      wrapper.style.marginBottom = '';
-      wrapper.style.setProperty('--scale-factor', scale);
-      wrapper.appendChild(canvas);
+      _assembleRenderedPage(tab, pageNum, wrapper, canvas, viewport.width, viewport.height, scale);
 
-      // Highlight layer (lightweight, render immediately)
-      const hlLayer = document.createElement('div');
-      hlLayer.className = 'pdf-highlight-layer';
-      hlLayer.style.width = viewport.width + 'px';
-      hlLayer.style.height = viewport.height + 'px';
-      wrapper.appendChild(hlLayer);
-      _pdfViewerRenderHighlightsForPage(tab, pageNum, hlLayer);
+      // Snapshot to bitmap cache for instant restore
+      createImageBitmap(canvas).then(function(bmp) {
+        var key = pageNum + '-' + scale;
+        _bitmapCache.set(key, bmp);
+        if (_bitmapCache.size > _BITMAP_CACHE_MAX) {
+          var oldest = _bitmapCache.keys().next().value;
+          _bitmapCache.get(oldest).close();
+          _bitmapCache.delete(oldest);
+        }
+      });
 
       // Defer text layer + annotations to idle time so canvas paint isn't blocked
       const deferFn = window.requestIdleCallback || function(cb) { setTimeout(cb, 16); };
@@ -811,24 +885,21 @@ function _pdfViewerOnScroll(tab) {
   const container = tab._pdfPagesContainer;
   const wrappers = tab._pdfPageWrappers;
   if (!wrappers) return;
-  const scrollTop = container.scrollTop;
-  const containerHeight = container.clientHeight;
-  const center = scrollTop + containerHeight / 2;
   const pageCount = tab._pdfPageCount;
 
   // Skip page detection if a recent goToPage navigation is settling
   const navGuarded = tab._pdfNavGuardUntil && performance.now() < tab._pdfNavGuardUntil;
   if (!navGuarded) {
-    let currentPage = 1;
-    for (let i = 1; i <= pageCount; i++) {
-      const w = wrappers[i];
-      if (!w) continue;
-      if (w.offsetTop + w.offsetHeight / 2 <= center) {
-        currentPage = i;
-      } else {
-        break;
-      }
-    }
+    // Estimate current page from scrollTop + known slot height (no reflow)
+    const scrollTop = container.scrollTop;
+    const containerHeight = container.clientHeight;
+    const slotH = tab._pdfSlotHeight || 400;
+    const gap = 12; // matches css gap on .pdf-pages-container
+    const center = scrollTop + containerHeight / 2;
+    let currentPage = Math.max(1, Math.min(pageCount, Math.round(center / (slotH + gap)) + 1));
+    // Clamp — binary estimation can overshoot on variable-height pages
+    if (currentPage > pageCount) currentPage = pageCount;
+
     if (currentPage !== tab._pdfCurrentPage) {
       tab._pdfCurrentPage = currentPage;
       tab._pdfPageIndicator.textContent = currentPage + ' / ' + pageCount;
@@ -836,20 +907,9 @@ function _pdfViewerOnScroll(tab) {
     }
   }
 
-  // Lazy render pages near viewport — scan outward from current page
-  const buffer = containerHeight * 2;
-  const lo = scrollTop - buffer;
-  const hi = scrollTop + containerHeight + buffer;
-  for (let j = 1; j <= pageCount; j++) {
-    const wr = wrappers[j];
-    if (!wr) continue;
-    const top = wr.offsetTop;
-    if (top > hi) break; // past viewport, no need to check further
-    const bottom = top + wr.offsetHeight;
-    if (bottom >= lo) {
-      _pdfViewerRenderPage(tab, j);
-    }
-  }
+  // Lazy rendering handled by IntersectionObserver — no loop needed here
+  // Pages stay in DOM permanently; content-visibility: auto lets the browser
+  // skip layout/paint for off-screen pages and manage GPU textures natively.
 }
 
 // ── Page Navigation ──
@@ -883,13 +943,17 @@ export function _pdfViewerScrollToPage(tab, pageNum) {
 function _pdfViewerSetZoom(tab, newZoom, force) {
   newZoom = Math.max(_PDF_SCALE_MIN, Math.min(_PDF_SCALE_MAX, newZoom));
   if (!force && newZoom === tab._pdfZoom) return;
+  var oldZoom = tab._pdfZoom;
   tab._pdfZoom = newZoom;
+  // Update cached slot height for scroll estimation
+  if (tab._pdfSlotHeight && oldZoom) tab._pdfSlotHeight = Math.round(tab._pdfSlotHeight * newZoom / oldZoom);
   if (!tab._pdfFitMode) {
     tab._pdfZoomLabel.textContent = Math.round(newZoom * 100) + '%';
   }
 
   // Mark all pages for re-render; old content stays visible until replaced
   tab._pdfRenderedPages = new Map();
+  _pdfViewerInstallObserver(tab);
   _pdfViewerOnScroll(tab);
 }
 
