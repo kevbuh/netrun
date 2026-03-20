@@ -8,9 +8,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run build:core        # TypeScript src/core/ → dist/main/
 npm run start             # Build + launch Electron
 npm run start:dev         # Launch without rebuild (faster iteration)
-npm run feedserver:build  # Go build → dist/feedserver
-npm run feedserver:start  # Build feedserver + start electron
-npm run feedserver:start-dev  # go run (no build) + electron
 ```
 
 ## Testing
@@ -105,14 +102,14 @@ Tool execution goes through `src/core/tools/registry.ts`. Tool middleware in `sr
 - **Neuralook** (`src/core/neuralook-manager.ts`) — eye-tracking / gaze estimation via Python CNN model. IPC: `db:neuralook-*` (save-calibration, train, predict, etc.)
 - **Captions** (`src/core/captions-manager.ts`, `src/core/parakeet-manager.ts`) — real-time speech transcription via Python Parakeet TDT subprocess. IPC: `captions:transcribe`
 
-### Feed Server
+### Feed System
 
-Standalone Go microservice at `feedserver/` — sole feed data path:
-- Packages: `internal/api`, `internal/fetch`, `internal/model`, `internal/rank`, `internal/store`
-- Default port: `8400` (configurable via `--port` flag or `FEEDSERVER_PORT` env var)
-- Own SQLite DB at `feedserver/feedserver.db`
-- Auto-refreshes all sources every 10 minutes + initial refresh on startup
-- Frontend (`src/js/feed.js`) connects directly to `http://localhost:8400`
+Integrated TypeScript feed engine in `src/core/feeds/` + `src/core/db/queries/feed-store.ts`:
+- **Fetcher** (`src/core/feeds/fetcher.ts`) — concurrent feed fetching with freshness checks, 10-minute background refresh
+- **Ranking** (`src/core/feeds/rank.ts`) — content scoring, source affinity, interest profiling, category interleaving, search parsing
+- **Store** (`src/core/db/queries/feed-store.ts`) — user state (read/saved/hidden/rated posts, source prefs, rank params)
+- All data in the main better-sqlite3 database (no separate DB)
+- Frontend communicates via IPC (`db:feed-timeline`, `db:feed-refresh`, `db:feed-sources-sync`, etc.)
 
 ### Aether Design System
 
@@ -179,7 +176,7 @@ Settings navigation is reactive: `_settingsSection` is a `State()` signal drivin
 
 ### Feeds
 
-Now served by the Go feed server (see Feed Server section above). Some specialized feed IPC remains in `src/core/ipc/feeds.ts` (arXiv, HN, Polymarket handlers).
+Feed data managed by the integrated TypeScript feed engine (see Feed System section). IPC handlers in `src/core/ipc/feeds.ts` handle timeline, refresh, source management, and user state.
 
 ### Tool & Agent System
 

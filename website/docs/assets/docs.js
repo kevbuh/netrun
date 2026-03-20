@@ -1,9 +1,9 @@
 /* AetherUI Docs — JS */
 (function () {
   // Version tracking
-  var DOCS_VERSION = '1.0';
-  var DOCS_COMMIT = '4f98420';
-  var DOCS_DATE = 'Feb 25, 2026';
+  var DOCS_VERSION = '1.1';
+  var DOCS_COMMIT = 'a3d7e19';
+  var DOCS_DATE = 'Mar 20, 2026';
 
   var versionEl = document.querySelector('.docs-version');
   if (versionEl) {

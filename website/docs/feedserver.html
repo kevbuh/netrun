@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Feed Server — Netrun</title>
+  <title>Feed Engine — Netrun</title>
   <link rel="stylesheet" href="assets/docs.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
 </head>
@@ -23,7 +23,7 @@
 
   <div class="mobile-bar">
     <button aria-label="Toggle sidebar">&#9776;</button>
-    <span>Feed Server</span>
+    <span>Feed Engine</span>
   </div>
 
   <div class="docs-shell">
@@ -55,114 +55,194 @@
         <a href="agents.html">Agent System</a>
         <a href="providers.html">LLM Providers</a>
         <a href="database.html">Database</a>
-        <a href="feedserver.html">Feed Server</a>
+        <a href="feedserver.html">Feed Engine</a>
       </div>
     </aside>
 
     <div class="sidebar-overlay"></div>
 
     <main class="docs-content">
-      <h1>Feed Server</h1>
-      <p class="subtitle">A standalone Go microservice serving ranked feed data on port 8400, with its own SQLite database and auto-refresh.</p>
+      <h1>Feed Engine</h1>
+      <p class="subtitle">An integrated TypeScript feed system built into the core backend, using the main better-sqlite3 database and communicating via IPC.</p>
 
       <h2>Overview</h2>
-      <p>The feed server is a separate Go process at <code>feedserver/</code>. It is independent of the main Electron app — has its own SQLite database (<code>feedserver/feedserver.db</code>) and runs as an HTTP server. The frontend connects to it directly via <code>http://localhost:8400</code>.</p>
+      <p>The feed engine is fully integrated into the Electron core backend at <code>src/core/</code>. Unlike the previous standalone Go microservice, it shares the main better-sqlite3 database and is accessed by the frontend through Electron IPC — the same channel used by every other subsystem.</p>
 
       <div class="callout callout-info">
-        <strong>Not routed through IPC.</strong>
-        Unlike the rest of the backend, the feed server is accessed directly via HTTP from the renderer, not through the Electron IPC bridge.
+        <strong>No separate process.</strong>
+        The feed engine runs in-process with the Electron main process. There is no HTTP server, no separate port, and no CORS configuration needed.
       </div>
 
-      <h2>Startup Sequence</h2>
-      <div class="code-block"><pre><code class="language-text">1. store.New(cfg.DBPath)         → open SQLite DB
-2. Seed sources from SeedCatalog → initial source list
-3. fetch.NewFetcher(db, catalog) → create fetcher
-4. goroutine: fetcher.RefreshAll()       → immediate fetch
-5. goroutine: ticker every 10 minutes    → periodic refresh
-6. api.NewServer(db, fetcher, catalog)   → HTTP server
-7. http.ListenAndServe(:8400)            → start serving</code></pre></div>
+      <h2>Architecture</h2>
+      <div class="code-block"><pre><code class="language-text">┌──────────────────────────────────────────────────────┐
+│                    Renderer                           │
+│                  src/js/feed.js                        │
+│                                                       │
+│   electronAPI.invoke('db:feed-timeline', opts)        │
+│   electronAPI.invoke('db:feed-refresh')               │
+│   electronAPI.invoke('db:feed-save', link)             │
+└───────────────────────┬──────────────────────────────┘
+                        │ IPC (invoke / handle)
+┌───────────────────────┴──────────────────────────────┐
+│                  Core Backend                         │
+│                                                       │
+│   ┌─────────────────┐  ┌──────────────────────────┐   │
+│   │  IPC Handlers    │  │  Fetcher                 │   │
+│   │  ipc/feeds.ts    │  │  feeds/fetcher.ts        │   │
+│   │                  │  │                          │   │
+│   │  db:feed-*       │  │  RSS, arXiv, HN,         │   │
+│   │  handlers        │  │  Polymarket fetching     │   │
+│   └──────┬───────────┘  └──────────┬───────────────┘   │
+│          │                         │                   │
+│   ┌──────┴───────────┐  ┌──────────┴───────────────┐   │
+│   │  Ranking          │  │  Feed Store              │   │
+│   │  feeds/rank.ts    │  │  db/queries/             │   │
+│   │                   │  │  feed-store.ts           │   │
+│   │  For-you, latest, │  │                          │   │
+│   │  search, filter   │  │  Sources, user state,    │   │
+│   └───────────────────┘  │  rank params             │   │
+│                          └──────────┬──────────────┘   │
+│                                     │                  │
+│                          ┌──────────┴──────────────┐   │
+│                          │  better-sqlite3 (WAL)   │   │
+│                          │  Main app database       │   │
+│                          └─────────────────────────┘   │
+└──────────────────────────────────────────────────────┘</code></pre></div>
 
-      <h2>Configuration</h2>
+      <h2>Startup Sequence</h2>
+      <div class="code-block"><pre><code class="language-text">1. registerFeedsIPC()              → register all db:feed-* handlers
+2. feedStore.listSources()         → load sources from DB
+3. fetcher.setSources(sources)     → configure fetcher
+4. fetcher.startBackgroundRefresh()
+   ├── immediate refreshAll()      → fetch stale sources
+   └── setInterval(10 min)         → periodic refresh</code></pre></div>
+
+      <h2>Source Files</h2>
       <table class="api-table">
-        <tr><th>Setting</th><th>Default</th><th>Override</th></tr>
-        <tr><td>Port</td><td><code>8400</code></td><td><code>--port</code> flag or <code>FEEDSERVER_PORT</code> env var</td></tr>
-        <tr><td>DB path</td><td><code>feedserver/feedserver.db</code></td><td><code>--db</code> flag</td></tr>
-        <tr><td>Refresh interval</td><td>10 minutes</td><td>Hard-coded</td></tr>
+        <tr><th>File</th><th>Purpose</th></tr>
+        <tr><td><code>src/core/feeds/fetcher.ts</code></td><td>Fetches RSS, arXiv, Hacker News, and Polymarket data with concurrency limiting</td></tr>
+        <tr><td><code>src/core/feeds/rank.ts</code></td><td>Ranking algorithm: for-you scoring, search/filter, category interleaving</td></tr>
+        <tr><td><code>src/core/db/queries/feed-store.ts</code></td><td>SQLite persistence — sources, user state, saved posts, rank params</td></tr>
+        <tr><td><code>src/core/ipc/feeds.ts</code></td><td>IPC handlers mapping <code>db:feed-*</code> channels to store/fetcher/rank calls</td></tr>
       </table>
 
-      <h2>REST API</h2>
+      <h2>IPC Channels</h2>
 
       <h3>Timeline &amp; Content</h3>
       <table class="api-table">
-        <tr><th>Method</th><th>Path</th><th>Description</th></tr>
-        <tr><td><code>GET</code></td><td><code>/api/timeline</code></td><td>Ranked feed items. Query: <code>sort</code>, <code>category</code>, <code>search</code>, <code>limit</code> (default 100), <code>offset</code></td></tr>
-        <tr><td><code>POST</code></td><td><code>/api/refresh</code></td><td>Trigger immediate refresh. Returns <code>{ fetched: n }</code></td></tr>
-        <tr><td><code>GET</code></td><td><code>/api/rss-proxy</code></td><td>Proxy RSS fetch via <code>?url=...</code> (15s timeout)</td></tr>
+        <tr><th>Channel</th><th>Args</th><th>Description</th></tr>
+        <tr><td><code>db:feed-timeline</code></td><td><code>{ sort, category, search, limit, offset }</code></td><td>Ranked feed items. Returns <code>{ items, total }</code></td></tr>
+        <tr><td><code>db:feed-refresh</code></td><td><em>none</em></td><td>Trigger immediate refresh of stale sources. Returns <code>{ fetched: n }</code></td></tr>
+        <tr><td><code>db:feed-items-catalog</code></td><td><code>entries[], limit</code></td><td>Fetch items for specific catalog entries, refreshing stale ones</td></tr>
+        <tr><td><code>db:feed-items-custom</code></td><td><code>feeds[]</code></td><td>Fetch custom RSS feeds by URL</td></tr>
+        <tr><td><code>db:rss-proxy</code></td><td><code>feedUrl</code></td><td>Proxy an RSS feed fetch (returns base64 XML)</td></tr>
       </table>
 
       <h3>Sources</h3>
       <table class="api-table">
-        <tr><th>Method</th><th>Path</th><th>Description</th></tr>
-        <tr><td><code>GET</code></td><td><code>/api/sources</code></td><td>List all feed sources</td></tr>
-        <tr><td><code>POST</code></td><td><code>/api/sources</code></td><td>Add a new source (triggers background refresh)</td></tr>
-        <tr><td><code>PUT</code></td><td><code>/api/sources/{key}/toggle</code></td><td>Enable/disable a source</td></tr>
-        <tr><td><code>POST</code></td><td><code>/api/sources/sync</code></td><td>Bulk-sync source enabled/disabled preferences</td></tr>
+        <tr><th>Channel</th><th>Args</th><th>Description</th></tr>
+        <tr><td><code>db:feed-sources-init</code></td><td><code>catalog[]</code></td><td>Seed sources from catalog, initializes fetcher</td></tr>
+        <tr><td><code>db:feed-sources</code></td><td><em>none</em></td><td>List all feed sources</td></tr>
+        <tr><td><code>db:feed-source-add</code></td><td><code>{ key, name, url?, cat? }</code></td><td>Add a new source (triggers background refresh)</td></tr>
+        <tr><td><code>db:feed-source-toggle</code></td><td><code>key</code></td><td>Enable/disable a source. Returns <code>{ key, enabled }</code></td></tr>
+        <tr><td><code>db:feed-sources-sync</code></td><td><code>prefs</code></td><td>Bulk-sync source enabled/disabled preferences</td></tr>
       </table>
 
       <h3>User Actions</h3>
       <table class="api-table">
-        <tr><th>Method</th><th>Path</th><th>Description</th></tr>
-        <tr><td><code>POST</code></td><td><code>/api/read</code></td><td>Mark item as read. Body: <code>{ link }</code></td></tr>
-        <tr><td><code>POST</code></td><td><code>/api/save</code></td><td>Save/bookmark an item</td></tr>
-        <tr><td><code>DELETE</code></td><td><code>/api/save</code></td><td>Unsave an item</td></tr>
-        <tr><td><code>POST</code></td><td><code>/api/hide</code></td><td>Hide an item from the feed</td></tr>
-        <tr><td><code>POST</code></td><td><code>/api/rate</code></td><td>Rate an item. Body: <code>{ link, rating }</code></td></tr>
-        <tr><td><code>GET</code></td><td><code>/api/saved</code></td><td>List saved items</td></tr>
+        <tr><th>Channel</th><th>Args</th><th>Description</th></tr>
+        <tr><td><code>db:feed-mark-read</code></td><td><code>link</code></td><td>Mark item as read</td></tr>
+        <tr><td><code>db:feed-save</code></td><td><code>link</code></td><td>Save/bookmark an item</td></tr>
+        <tr><td><code>db:feed-unsave</code></td><td><code>link</code></td><td>Unsave an item</td></tr>
+        <tr><td><code>db:feed-hide</code></td><td><code>link</code></td><td>Hide an item from the feed</td></tr>
+        <tr><td><code>db:feed-rate</code></td><td><code>link, rating</code></td><td>Rate an item</td></tr>
+        <tr><td><code>db:feed-saved</code></td><td><em>none</em></td><td>List saved items. Returns <code>{ items }</code></td></tr>
       </table>
 
       <h3>State &amp; Config</h3>
       <table class="api-table">
-        <tr><th>Method</th><th>Path</th><th>Description</th></tr>
-        <tr><td><code>GET</code></td><td><code>/api/state</code></td><td>User state (enabled sources, preferences)</td></tr>
-        <tr><td><code>PUT</code></td><td><code>/api/rank-params</code></td><td>Update ranking algorithm parameters</td></tr>
+        <tr><th>Channel</th><th>Args</th><th>Description</th></tr>
+        <tr><td><code>db:feed-state</code></td><td><em>none</em></td><td>Full user state (read/saved/hidden posts, ratings, source prefs, rank params)</td></tr>
+        <tr><td><code>db:feed-rank-params</code></td><td><code>params</code></td><td>Update ranking algorithm parameters</td></tr>
       </table>
 
-      <h2>Internal Packages</h2>
+      <h2>Fetcher</h2>
+      <p>The fetcher (<code>src/core/feeds/fetcher.ts</code>) handles data acquisition from multiple source types with a concurrency-limited semaphore (max 10 parallel fetches).</p>
+
+      <h3>Source Types</h3>
       <table class="api-table">
-        <tr><th>Package</th><th>Purpose</th></tr>
-        <tr><td><code>internal/api</code></td><td>HTTP handlers and routing</td></tr>
-        <tr><td><code>internal/fetch</code></td><td>RSS/feed fetching and parsing</td></tr>
-        <tr><td><code>internal/model</code></td><td>Data types: <code>Source</code>, <code>RankParams</code>, etc.</td></tr>
-        <tr><td><code>internal/rank</code></td><td>Feed ranking algorithm</td></tr>
-        <tr><td><code>internal/store</code></td><td>SQLite persistence layer</td></tr>
+        <tr><th>Special</th><th>Handler</th><th>Description</th></tr>
+        <tr><td><code>arxiv</code></td><td><code>fetchArxivItems()</code></td><td>arXiv CS RSS feed, extracts paper IDs</td></tr>
+        <tr><td><code>hn</code></td><td><code>fetchHNItems()</code></td><td>Hacker News best stories API (top 30)</td></tr>
+        <tr><td><code>polymarket</code></td><td><code>fetchPolymarketItems()</code></td><td>Polymarket breaking/biggest-movers via SSR data</td></tr>
+        <tr><td><em>(default)</em></td><td><code>fetchRSSItems()</code></td><td>Generic RSS/Atom feed parsing</td></tr>
       </table>
 
-      <h2>CORS</h2>
-      <p>The <code>withCORS</code> middleware wraps the HTTP mux, allowing all origins with <code>GET, POST, PUT, DELETE, OPTIONS</code> methods. This permits the Electron renderer (loaded from <code>localhost:8000</code>) to call the feed server at <code>localhost:8400</code>.</p>
+      <h3>Staleness</h3>
+      <p>Before fetching, the fetcher checks each source's last fetch timestamp. Sources are only re-fetched if older than 10 minutes (600 seconds). This prevents redundant network requests when data is still fresh.</p>
 
-      <h2>Build &amp; Run</h2>
-      <div class="code-block"><pre><code class="language-bash"># Build Go binary → dist/feedserver
-npm run feedserver:build
+      <h2>Ranking Algorithm</h2>
+      <p>The ranking engine (<code>src/core/feeds/rank.ts</code>) supports three sort modes:</p>
 
-# Build + start both feedserver and Electron
-npm run feedserver:start
+      <table class="api-table">
+        <tr><th>Sort</th><th>Behavior</th></tr>
+        <tr><td><code>foryou</code> (default)</td><td>Personalized scoring based on interest profile, source affinity, recency, and exploration bonus. Results are interleaved across categories.</td></tr>
+        <tr><td><code>latest</code></td><td>Chronological by publication date (newest first)</td></tr>
+        <tr><td><code>citations</code></td><td>By citation count or HN score (highest first)</td></tr>
+      </table>
 
-# Development mode (go run, no build)
-npm run feedserver:start-dev</code></pre></div>
+      <h3>For-You Scoring</h3>
+      <p>The for-you algorithm combines several signals:</p>
+      <ul>
+        <li><strong>Content score</strong> — matches title tokens and categories against an interest profile built from read, saved, and rated items</li>
+        <li><strong>Source affinity</strong> — engagement rate per source (reads, saves, ratings vs. total items)</li>
+        <li><strong>Recency</strong> — bonus for items published within the last 20 hours, scaled by <code>weightRecency</code></li>
+        <li><strong>Exploration</strong> — bonus for items from low-affinity sources to promote diversity</li>
+      </ul>
+
+      <h3>Rank Parameters</h3>
+      <p>Users can tune the ranking weights via <code>db:feed-rank-params</code>:</p>
+      <table class="api-table">
+        <tr><th>Parameter</th><th>Default</th><th>Purpose</th></tr>
+        <tr><td><code>weightBase</code></td><td><code>0.7</code></td><td>Base multiplier for content score</td></tr>
+        <tr><td><code>weightAffinity</code></td><td><code>0.3</code></td><td>Source affinity contribution</td></tr>
+        <tr><td><code>weightRecency</code></td><td><code>1.0</code></td><td>Recency bonus scale</td></tr>
+        <tr><td><code>weightExploration</code></td><td><code>0.10</code></td><td>Exploration bonus for underread sources</td></tr>
+        <tr><td><code>maxPerCategoryRun</code></td><td><code>3</code></td><td>Max consecutive items from one category before interleaving</td></tr>
+      </table>
+
+      <h3>Search Syntax</h3>
+      <p>The <code>search</code> parameter supports advanced query syntax:</p>
+      <table class="api-table">
+        <tr><th>Syntax</th><th>Example</th><th>Description</th></tr>
+        <tr><td>Plain text</td><td><code>transformer</code></td><td>Match against title, authors, description</td></tr>
+        <tr><td><code>"exact phrase"</code></td><td><code>"neural network"</code></td><td>Exact phrase match</td></tr>
+        <tr><td><code>title:"phrase"</code></td><td><code>title:"attention"</code></td><td>Match in title only</td></tr>
+        <tr><td><code>by:author</code></td><td><code>by:hinton</code></td><td>Filter by author name</td></tr>
+        <tr><td><code>source:key</code></td><td><code>source:arxiv</code></td><td>Filter by source</td></tr>
+        <tr><td><code>sort:mode</code></td><td><code>sort:latest</code></td><td>Override sort mode</td></tr>
+      </table>
 
       <h2>Frontend Integration</h2>
-      <div class="code-block"><pre><code class="language-javascript">// src/js/feed.js connects directly to the feed server
-const response = await fetch('http://localhost:8400/api/timeline?limit=50');
-const items = await response.json();
+      <div class="code-block"><pre><code class="language-javascript">// src/js/feed.js communicates via IPC
+const { items, total } = await electronAPI.invoke('db:feed-timeline', {
+  sort: 'foryou', limit: 50
+});
 
 // Trigger refresh
-await fetch('http://localhost:8400/api/refresh', { method: 'POST' });
+const { fetched } = await electronAPI.invoke('db:feed-refresh');
 
 // Save an item
-await fetch('http://localhost:8400/api/save', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ link: item.link }),
+await electronAPI.invoke('db:feed-save', item.link);
+
+// Mark as read
+await electronAPI.invoke('db:feed-mark-read', item.link);
+
+// Update rank parameters
+await electronAPI.invoke('db:feed-rank-params', {
+  weightBase: 0.7, weightAffinity: 0.3,
+  weightRecency: 1.0, weightExploration: 0.10,
+  maxPerCategoryRun: 3,
 });</code></pre></div>
 
       <footer class="docs-footer">

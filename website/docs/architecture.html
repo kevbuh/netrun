@@ -55,7 +55,7 @@
         <a href="agents.html">Agent System</a>
         <a href="providers.html">LLM Providers</a>
         <a href="database.html">Database</a>
-        <a href="feedserver.html">Feed Server</a>
+        <a href="feedserver.html">Feed Engine</a>
       </div>
     </aside>
 
@@ -63,7 +63,7 @@
 
     <main class="docs-content">
       <h1>Architecture Overview</h1>
-      <p class="subtitle">Netrun is an Electron desktop app with three layers: Main process, Core backend, and Renderer frontend, plus a standalone Go feed server.</p>
+      <p class="subtitle">Netrun is an Electron desktop app with three layers: Main process, Core backend (with integrated feed engine), and Renderer frontend.</p>
 
       <h2>Three-Layer Architecture</h2>
       <div class="code-block"><pre><code class="language-text">┌─────────────────────────────────────────────────┐
@@ -98,15 +98,8 @@
 │   LLM Providers (Ollama, OpenRouter)             │
 │   Database (better-sqlite3, WAL)                 │
 │   Context System · Insight Pipeline              │
+│   Feed Engine (fetch, rank, store)               │
 │   Terminal Manager · Captions                    │
-└─────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────┐
-│               Feed Server (Go)                   │
-│              feedserver/ → :8400                  │
-│                                                  │
-│   REST API · Own SQLite DB · Auto-refresh        │
-│   RSS/feed fetching · Ranking algorithm          │
 └─────────────────────────────────────────────────┘</code></pre></div>
 
       <h2>Layer Responsibilities</h2>
@@ -129,8 +122,8 @@
       <h3>Core Backend</h3>
       <p>TypeScript modules in <code>src/core/</code>, compiled to <code>dist/main/</code>. Registered at app startup via <code>initCore()</code> in <code>src/core/init.ts</code>. Provides the tool registry, agent runtime, LLM providers, database, and IPC handlers.</p>
 
-      <h3>Feed Server</h3>
-      <p>A standalone Go microservice at <code>feedserver/</code> running on port <code>8400</code>. Has its own SQLite database and auto-refreshes all sources every 10 minutes. The frontend connects directly to <code>http://localhost:8400</code>. See the <a href="feedserver.html">Feed Server</a> page for details.</p>
+      <h3>Feed Engine</h3>
+      <p>An integrated TypeScript feed system within the core backend. Fetches RSS, arXiv, Hacker News, and Polymarket data, stores items in the main database, and provides ranked timelines via IPC. Auto-refreshes all sources every 10 minutes. See the <a href="feedserver.html">Feed Engine</a> page for details.</p>
 
       <h2>Startup Sequence</h2>
       <div class="code-block"><pre><code class="language-text">1. app.requestSingleInstanceLock()
@@ -174,7 +167,7 @@ electronAPI.toolExecute()
         <tr><td><code>src/core/ipc/</code></td><td>IPC handler modules — one file per subsystem (15 total)</td></tr>
         <tr><td><code>src/core/tools/</code></td><td>Tool definitions organized by category</td></tr>
         <tr><td><code>src/core/agents/</code></td><td>Agent runtime and built-in agents</td></tr>
-        <tr><td><code>feedserver/</code></td><td>Go feed microservice — API, fetch, rank, store</td></tr>
+        <tr><td><code>src/core/feeds/</code></td><td>Feed engine — fetcher, ranking algorithm</td></tr>
       </table>
 
       <footer class="docs-footer">

@@ -184,9 +184,6 @@ export function _devNavigateTo(sectionId) {
 export function renderDevSection(sectionId) {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
-  // Clean up feed server polling when navigating away
-  if (_feedServerPoll && sectionId !== 'feed-server') { clearInterval(_feedServerPoll); _feedServerPoll = null; }
-
   const renderers = {
     'overview': _renderDevOverview,
     'function-registry': _renderDevFunctionRegistry,
@@ -797,23 +794,15 @@ export async function _renderDevGitLog() {
 }
 
 // ── Dev Tools Section ──
-// ── Feed Server Section ──
-var _feedServerPoll = null;
+// ── Feed System Section ──
 export function _renderDevFeedServer() {
   const contentPane = document.getElementById('dev-content-pane');
   if (!contentPane) return;
-  if (_feedServerPoll) { clearInterval(_feedServerPoll); _feedServerPoll = null; }
-
-  const SERVER = 'http://localhost:8400';
 
   const header = window.VStack(
-    window.Text('Feed Server').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
-    window.Text('Go feed server status and controls').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
+    window.Text('Feed System').styles({color:'var(--nr-text-primary)', fontSize:'1.25rem', fontWeight:'700', margin:'0 0 4px 0'}),
+    window.Text('Integrated feed engine (IPC)').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem', margin:'0'})
   ).styles({marginBottom:'24px'});
-
-  const statusDot = window.Text('\u25CF').styles({fontSize:'10px', transition:'color 0.3s'});
-  const statusLabel = window.Text('Checking\u2026').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem'});
-  const statusRow = window.HStack(statusDot, statusLabel).gap('6px').styles({alignItems:'center'});
 
   const statsContainer = new window.View('div');
   const sourcesContainer = new window.View('div');
@@ -821,14 +810,13 @@ export function _renderDevFeedServer() {
   var refreshBtn = window.Button('Trigger Refresh').className('dev-btn-primary').onTap(function() {
     refreshBtn.el.disabled = true;
     refreshBtn.el.textContent = 'Refreshing\u2026';
-    fetch(SERVER + '/api/refresh', { method: 'POST', signal: AbortSignal.timeout(30000) })
-      .then(function(r) { return r.json(); })
+    electronAPI.dbQuery('db:feed-refresh')
       .then(function(d) {
         refreshBtn.el.textContent = 'Fetched ' + (d.fetched || 0) + ' items';
         setTimeout(function() {
           refreshBtn.el.textContent = 'Trigger Refresh';
           refreshBtn.el.disabled = false;
-          pollStatus();
+          loadStats();
         }, 2000);
       })
       .catch(function() {
@@ -837,50 +825,35 @@ export function _renderDevFeedServer() {
       });
   });
 
-  AetherUI.mount(window.VStack(header, statusRow, statsContainer, refreshBtn, sourcesContainer).gap('16px'), contentPane);
+  AetherUI.mount(window.VStack(header, statsContainer, refreshBtn, sourcesContainer).gap('16px'), contentPane);
 
-  function pollStatus() {
-    fetch(SERVER + '/api/timeline?sort=latest&limit=1', { signal: AbortSignal.timeout(3000) })
-      .then(function(r) { return r.json(); })
+  function loadStats() {
+    electronAPI.dbQuery('db:feed-timeline', { sort: 'latest', limit: 1 })
       .then(function(data) {
-        statusDot.el.style.color = '#22c55e';
-        statusLabel.el.textContent = 'Online \u2014 localhost:8400';
-        statusLabel.el.style.color = '#22c55e';
         AetherUI.mount(_devStatGrid(
-          _devStatCard(data.total || 0, 'Total Items', 'var(--nr-accent)'),
-          _devStatCard((data.items || []).length > 0 ? '1' : '0', 'Responded', null)
+          _devStatCard(data.total || 0, 'Total Items', 'var(--nr-accent)')
         ), statsContainer.el);
-        // Fetch source count
-        fetch(SERVER + '/api/sources', { signal: AbortSignal.timeout(3000) })
-          .then(function(r) { return r.json(); })
-          .then(function(sources) {
-            if (!Array.isArray(sources)) return;
-            const rows = sources.map(function(s) {
-              return window.HStack(
-                window.Text(s.name || s.key).styles({fontSize:'0.75rem', color:'var(--nr-text-primary)', flex:'1'}),
-                window.Text(s.cat || '').styles({fontSize:'0.65rem', color:'var(--nr-text-quaternary)'}),
-                window.Text(s.special || s.url ? '\u2713' : '').styles({fontSize:'0.7rem', color:'#22c55e'})
-              ).styles({padding:'4px 0', borderBottom:'1px solid var(--nr-border-default)'});
-            });
-            const srcHeader = window.Text(sources.length + ' Sources Registered').styles({color:'var(--nr-text-primary)', fontSize:'0.85rem', fontWeight:'600', marginBottom:'8px'});
-            const srcList = window.VStack.apply(null, rows).styles({maxHeight:'300px', overflowY:'auto'});
-            AetherUI.mount(window.VStack(srcHeader, srcList).styles({background:'var(--nr-bg-surface)', border:'1px solid var(--nr-border-default)', borderRadius:'8px', padding:'12px'}), sourcesContainer.el);
-          }).catch(function() {});
+        return electronAPI.dbQuery('db:feed-sources');
+      })
+      .then(function(sources) {
+        if (!Array.isArray(sources)) return;
+        const rows = sources.map(function(s) {
+          return window.HStack(
+            window.Text(s.name || s.key).styles({fontSize:'0.75rem', color:'var(--nr-text-primary)', flex:'1'}),
+            window.Text(s.cat || '').styles({fontSize:'0.65rem', color:'var(--nr-text-quaternary)'}),
+            window.Text(s.special || s.url ? '\u2713' : '').styles({fontSize:'0.7rem', color:'#22c55e'})
+          ).styles({padding:'4px 0', borderBottom:'1px solid var(--nr-border-default)'});
+        });
+        const srcHeader = window.Text(sources.length + ' Sources Registered').styles({color:'var(--nr-text-primary)', fontSize:'0.85rem', fontWeight:'600', marginBottom:'8px'});
+        const srcList = window.VStack.apply(null, rows).styles({maxHeight:'300px', overflowY:'auto'});
+        AetherUI.mount(window.VStack(srcHeader, srcList).styles({background:'var(--nr-bg-surface)', border:'1px solid var(--nr-border-default)', borderRadius:'8px', padding:'12px'}), sourcesContainer.el);
       })
       .catch(function() {
-        statusDot.el.style.color = '#ef4444';
-        statusLabel.el.textContent = 'Offline \u2014 server not running';
-        statusLabel.el.style.color = '#ef4444';
-        AetherUI.mount(window.VStack(
-          window.Text('Feed server is not running.').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem'}),
-          window.Text('Start with: cd feedserver && go run .').styles({color:'var(--nr-text-quaternary)', fontSize:'0.7rem', fontFamily:'monospace', marginTop:'4px'})
-        ), statsContainer.el);
-        AetherUI.mount(window.Text(''), sourcesContainer.el);
+        AetherUI.mount(window.Text('Could not load feed stats.').styles({color:'var(--nr-text-quaternary)', fontSize:'0.75rem'}), statsContainer.el);
       });
   }
 
-  pollStatus();
-  _feedServerPoll = setInterval(pollStatus, 10000);
+  loadStats();
 }
 
 export function _renderDevTools() {

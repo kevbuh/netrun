@@ -1,5 +1,8 @@
 import { ipcMain } from 'electron';
 import * as feedQueries from '../db/queries/feeds.js';
+import * as feedStore from '../db/queries/feed-store.js';
+import * as fetcher from '../feeds/fetcher.js';
+import { rank, itemsToJSON, buildCatMap } from '../feeds/rank.js';
 import { cachedFetch, getActiveProvider } from './shared.js';
 
 export const STALE_THRESHOLD = 600; // 10 minutes in seconds
@@ -327,4 +330,121 @@ export function registerFeedsIPC(): void {
     } catch { return { suggestions: [] }; }
   });
 
+  // ── Feed management IPC (replaces Go feedserver) ──
+
+  ipcMain.handle('db:feed-sources-init', (_event, catalog: Array<{ key: string; name: string; desc?: string; cat?: string; url?: string; special?: string; favicon?: string }>) => {
+    if (!catalog?.length) return { ok: true };
+    for (const src of catalog) {
+      feedStore.upsertSource({
+        key: src.key, name: src.name, desc: src.desc ?? '', cat: src.cat ?? '',
+        url: src.url ?? '', special: src.special ?? '', favicon: src.favicon ?? '',
+      });
+    }
+    // Update fetcher with full source list
+    fetcher.setSources(feedStore.listSources());
+    return { ok: true, count: catalog.length };
+  });
+
+  ipcMain.handle('db:feed-timeline', (_event, opts?: { sort?: string; category?: string; search?: string; limit?: number; offset?: number }) => {
+    try {
+      const state = feedStore.getUserState();
+      const items = feedStore.getAllFeedItems(2000);
+      const jsonItems = itemsToJSON(items);
+      const sources = feedStore.listSources();
+      const catMap = buildCatMap(sources);
+      return rank(jsonItems, state, catMap, {
+        sort: opts?.sort, category: opts?.category, search: opts?.search,
+        limit: opts?.limit ?? 100, offset: opts?.offset,
+      });
+    } catch (e: any) { return { items: [], total: 0, error: e.message }; }
+  });
+
+  ipcMain.handle('db:feed-refresh', async () => {
+    try {
+      const n = await fetcher.refreshAll();
+      return { fetched: n };
+    } catch (e: any) { return { error: e.message }; }
+  });
+
+  ipcMain.handle('db:feed-sources', () => {
+    try { return feedStore.listSources(); }
+    catch (e: any) { return { error: e.message }; }
+  });
+
+  ipcMain.handle('db:feed-source-add', async (_event, src: { key: string; name: string; url?: string; cat?: string }) => {
+    if (!src?.key || !src?.name) return { error: 'key and name required' };
+    feedStore.upsertSource({ key: src.key, name: src.name, desc: '', cat: src.cat ?? '', url: src.url ?? '', special: '', favicon: '' });
+    fetcher.addSource({ key: src.key, name: src.name, desc: '', cat: src.cat ?? '', url: src.url ?? '', special: '', favicon: '' });
+    fetcher.refreshSources([src.key]).catch(() => {});
+    return src;
+  });
+
+  ipcMain.handle('db:feed-source-toggle', (_event, key: string) => {
+    try {
+      const enabled = feedStore.toggleSource(key);
+      return { key, enabled };
+    } catch (e: any) { return { error: e.message }; }
+  });
+
+  ipcMain.handle('db:feed-mark-read', (_event, link: string) => {
+    if (!link) return { error: 'link required' };
+    feedStore.markRead(link);
+    return { status: 'ok' };
+  });
+
+  ipcMain.handle('db:feed-save', (_event, link: string) => {
+    if (!link) return { error: 'link required' };
+    feedStore.savePost(link);
+    return { status: 'ok' };
+  });
+
+  ipcMain.handle('db:feed-unsave', (_event, link: string) => {
+    if (!link) return { error: 'link required' };
+    feedStore.unsavePost(link);
+    return { status: 'ok' };
+  });
+
+  ipcMain.handle('db:feed-hide', (_event, link: string) => {
+    if (!link) return { error: 'link required' };
+    feedStore.hidePost(link);
+    return { status: 'ok' };
+  });
+
+  ipcMain.handle('db:feed-rate', (_event, link: string, rating: number) => {
+    if (!link) return { error: 'link required' };
+    feedStore.ratePost(link, rating);
+    return { status: 'ok' };
+  });
+
+  ipcMain.handle('db:feed-saved', () => {
+    try {
+      const items = feedStore.getSavedPosts();
+      const jsonItems = itemsToJSON(items);
+      return { items: jsonItems };
+    } catch (e: any) { return { error: e.message }; }
+  });
+
+  ipcMain.handle('db:feed-state', () => {
+    try { return feedStore.getUserState(); }
+    catch (e: any) { return { error: e.message }; }
+  });
+
+  ipcMain.handle('db:feed-rank-params', (_event, params: { weightBase: number; weightAffinity: number; weightRecency: number; weightExploration: number; maxPerCategoryRun: number }) => {
+    try {
+      feedStore.updateRankParams(params);
+      return params;
+    } catch (e: any) { return { error: e.message }; }
+  });
+
+  ipcMain.handle('db:feed-sources-sync', (_event, prefs: Record<string, boolean>) => {
+    if (!prefs || Object.keys(prefs).length === 0) return { status: 'ok' };
+    try {
+      feedStore.setSourcePrefs(prefs);
+      return { status: 'ok' };
+    } catch (e: any) { return { error: e.message }; }
+  });
+
+  // Start background feed refresh
+  fetcher.setSources(feedStore.listSources());
+  fetcher.startBackgroundRefresh();
 }

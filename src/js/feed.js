@@ -2,7 +2,6 @@
 
 // ── Re-exports from feed-data.js ──
 export {
-  _feedFetch, _feedPost, _feedDelete, _feedPut,
   _refreshTimer, _refreshSecondsLeft, clearRefreshTimer, _previousPostLinks, _renderedLinks,
   startRefreshTimer, renderRefreshCountdown,
   updateSavedBadge,
@@ -62,7 +61,7 @@ export {
 } from '/js/feed/feed-render.js';
 
 // ── Imports for window bindings + registerActions ──
-import { getSavedPosts, resetPersonalization, showOnboarding, completeOnboarding, addCustomFeed, loadAllFeeds, _feedPost, getCustomFeeds } from '/js/feed/feed-data.js';
+import { getSavedPosts, resetPersonalization, showOnboarding, completeOnboarding, addCustomFeed, loadAllFeeds, getCustomFeeds } from '/js/feed/feed-data.js';
 import { renderPapers, _buildRenderCtx } from '/js/feed/feed-render.js';
 import { renderSourceBubbles, renderTrends, currentSort, setSortMode, toggleViewMode } from '/js/feed/feed-filter.js';
 
@@ -71,7 +70,7 @@ window.renderPapers = renderPapers;
 window.renderTrends = renderTrends;
 window.renderSourceBubbles = renderSourceBubbles;
 window._buildRenderCtx = _buildRenderCtx;
-window._feedPost = _feedPost;
+window._feedPost = function() {}; // no-op, feedserver removed
 window.getCustomFeeds = getCustomFeeds;
 window.getSavedPosts = getSavedPosts;
 window.resetPersonalization = resetPersonalization;

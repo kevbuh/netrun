@@ -167,6 +167,70 @@ export function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_fi_pubdate ON feed_items(pub_date DESC);
   `);
 
+  // ── Feed user state ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS feed_sources (
+      key      TEXT PRIMARY KEY,
+      name     TEXT NOT NULL,
+      desc_    TEXT NOT NULL DEFAULT '',
+      cat      TEXT NOT NULL DEFAULT '',
+      url      TEXT NOT NULL DEFAULT '',
+      special  TEXT NOT NULL DEFAULT '',
+      favicon  TEXT NOT NULL DEFAULT '',
+      enabled  INTEGER NOT NULL DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS user_read_posts (
+      user_id TEXT NOT NULL DEFAULT 'default',
+      link    TEXT NOT NULL,
+      read_at INTEGER NOT NULL,
+      PRIMARY KEY(user_id, link)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_saved_posts (
+      user_id  TEXT NOT NULL DEFAULT 'default',
+      link     TEXT NOT NULL,
+      saved_at INTEGER NOT NULL,
+      PRIMARY KEY(user_id, link)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_hidden_posts (
+      user_id   TEXT NOT NULL DEFAULT 'default',
+      link      TEXT NOT NULL,
+      hidden_at INTEGER NOT NULL,
+      PRIMARY KEY(user_id, link)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_ratings (
+      user_id TEXT NOT NULL DEFAULT 'default',
+      link    TEXT NOT NULL,
+      rating  INTEGER NOT NULL,
+      PRIMARY KEY(user_id, link)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_blocked_words (
+      user_id TEXT NOT NULL DEFAULT 'default',
+      word    TEXT NOT NULL,
+      PRIMARY KEY(user_id, word)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_source_prefs (
+      user_id TEXT NOT NULL DEFAULT 'default',
+      source  TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY(user_id, source)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_rank_params (
+      user_id            TEXT PRIMARY KEY DEFAULT 'default',
+      weight_base        REAL NOT NULL DEFAULT 0.7,
+      weight_affinity    REAL NOT NULL DEFAULT 0.3,
+      weight_recency     REAL NOT NULL DEFAULT 1.0,
+      weight_exploration REAL NOT NULL DEFAULT 0.10,
+      max_per_cat_run    INTEGER NOT NULL DEFAULT 3
+    );
+  `);
+
   // ── Context meta (living context file tracking) ──
   db.exec(`
     CREATE TABLE IF NOT EXISTS context_meta (

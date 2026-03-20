@@ -13,54 +13,13 @@ import { openPaper } from '/js/panel.js';
 import { petReact } from '/js/pixel-pet.js';
 import { logger } from '/js/logger.js';
 
-// ── Feed Server ──
-const _FEED_SERVER = 'http://localhost:8400';
+// ── Feed IPC helpers ──
 
-export async function _feedFetch(path) {
-  const resp = await fetch(_FEED_SERVER + path, { signal: AbortSignal.timeout(5000) });
-  if (!resp.ok) throw new Error(resp.status);
-  return resp.json();
-}
-
-export function _feedPost(path, body) {
-  fetch(_FEED_SERVER + path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(5000)
-  }).catch(() => {});
-}
-
-export function _feedDelete(path, body) {
-  fetch(_FEED_SERVER + path, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(5000)
-  }).catch(() => {});
-}
-
-export function _feedPut(path, body) {
-  fetch(_FEED_SERVER + path, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(5000)
-  }).catch(() => {});
+function _feedIPC(channel, ...args) {
+  if (window.electronAPI) electronAPI.dbQuery(channel, ...args).catch(() => {});
 }
 
 let _sourcesSynced = false;
-
-function _setFeedServerStatus(online) {
-  const wrap = document.getElementById('feed-server-status');
-  const dot = document.getElementById('feed-server-dot');
-  const label = document.getElementById('feed-server-label');
-  if (!wrap || !dot || !label) return;
-  wrap.style.display = 'flex';
-  dot.style.background = online ? '#22c55e' : '#ef4444';
-  label.textContent = online ? 'Server' : 'Offline';
-  wrap.title = online ? 'Feed server online \u2014 localhost:8400' : 'Feed server offline';
-}
 
 // ── Auto-refresh timer ──
 export let _refreshTimer = null;
@@ -345,7 +304,7 @@ export function resetPersonalization() {
 export function markPostAsRead(link) {
   const read = getReadPosts();
   if (!read.includes(link)) { read.push(link); setLS('readPosts', read); }
-  _feedPost('/api/read', { link });
+  _feedIPC('db:feed-mark-read', link);
   // Capture read article into living context
   if (typeof contextIngest === 'function') {
     const paper = allPapers.find(function(p) { return p.link === link; });
@@ -383,7 +342,7 @@ export function hidePost(link, title, event) {
   const hidden = getHiddenPosts();
   if (!hidden.includes(link)) hidden.push(link);
   setLS('hiddenPosts', hidden);
-  _feedPost('/api/hide', { link });
+  _feedIPC('db:feed-hide', link);
   if (title) addTestTitle(title);
   if (!Settings.get('ach_curator')) {
     Settings.set('ach_curator', '1');
@@ -509,10 +468,10 @@ export function toggleSavePost(paper, event) {
   const wasAdding = !saved[paper.link];
   if (saved[paper.link]) {
     delete saved[paper.link];
-    _feedDelete('/api/save', { link: paper.link });
+    _feedIPC('db:feed-unsave', paper.link);
   } else {
     saved[paper.link] = { paper, savedAt: Date.now(), read: false, groupId: 'uncategorized', contentType: _detectContentType(paper.link), thumbnail: paper.image || null, tags: [] };
-    _feedPost('/api/save', { link: paper.link });
+    _feedIPC('db:feed-save', paper.link);
     if (typeof petReact === 'function') petReact('happy');
   }
   savePosts(saved);
@@ -608,8 +567,7 @@ export function unsubscribeSource(key) {
     custom[idx].enabled = false;
     Settings.setJSON('customFeeds', custom);
   }
-  // Sync disable to feedserver
-  _feedPost('/api/sources/sync', { sources: { [key]: false } });
+  _feedIPC('db:feed-sources-sync', { [key]: false });
   // Remove posts from this source and re-render
   allPapers = allPapers.filter(p => p.source !== key);
   window.renderSourceBubbles();
@@ -838,8 +796,7 @@ export function completeOnboarding() {
   });
   setLS('feedSources', sources);
   setLS('feedNotifSources', notifSources);
-  // Sync source selections to feedserver
-  _feedPost('/api/sources/sync', { sources });
+  _feedIPC('db:feed-sources-sync', sources);
   document.getElementById('onboard-view').style.display = 'none';
   document.getElementById('home-feed-section').style.display = '';
   // Show top pill bar after onboarding
@@ -886,24 +843,23 @@ export async function addCustomFeed() {
   }
   const feeds = getCustomFeeds();
   if (feeds.some(f => f.url === url)) return;
-  // Try to fetch the feed title via feedserver proxy
+  // Try to fetch the feed title via IPC proxy
   let name = url;
   try { name = new URL(url).hostname.replace(/^www\./, '').replace(/^api\./, ''); } catch (e) { /* fire-and-forget */ }
   try {
-    const resp = await fetch(_FEED_SERVER + '/api/rss-proxy?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(10000) });
-    if (resp.ok) {
-      const xml = await resp.text();
+    const result = await electronAPI.dbQuery('db:rss-proxy', url);
+    if (result && result._proxy) {
+      const xml = atob(result.data);
       const doc = new DOMParser().parseFromString(xml, 'text/xml');
       const feedTitle = (doc.querySelector('channel > title, feed > title')?.textContent || '').trim();
       if (feedTitle) name = feedTitle;
     }
-  } catch (_) { /* feed server unavailable — use hostname as name */ }
+  } catch (_) { /* proxy unavailable — use hostname as name */ }
   feeds.push({ url, name, enabled: true });
   setLS('customFeeds', feeds);
   input.value = '';
   renderCustomFeedsList();
-  // Register with feedserver
-  _feedPost('/api/sources', { key: 'custom:' + name, name, url, cat: 'Custom' });
+  _feedIPC('db:feed-source-add', { key: 'custom:' + name, name, url, cat: 'Custom' });
   allPapers = [];
   loadAllFeeds();
 }
@@ -912,8 +868,7 @@ export function removeCustomFeed(index) {
   const feeds = getCustomFeeds();
   const removed = feeds.splice(index, 1)[0];
   setLS('customFeeds', feeds);
-  // Sync removal to feedserver (disable the source)
-  if (removed) _feedPost('/api/sources/sync', { sources: { ['custom:' + removed.name]: false } });
+  if (removed) _feedIPC('db:feed-sources-sync', { ['custom:' + removed.name]: false });
   renderCustomFeedsList();
   allPapers = [];
   loadAllFeeds();
@@ -923,9 +878,8 @@ export function toggleCustomFeed(index, enabled) {
   const feeds = getCustomFeeds();
   feeds[index].enabled = enabled;
   setLS('customFeeds', feeds);
-  // Sync toggle to feedserver
   const f = feeds[index];
-  _feedPost('/api/sources/sync', { sources: { ['custom:' + f.name]: enabled } });
+  _feedIPC('db:feed-sources-sync', { ['custom:' + f.name]: enabled });
   allPapers = [];
   loadAllFeeds();
 }
@@ -993,37 +947,36 @@ export async function loadAllFeeds() {
     AetherUI.mount(window.RawHTML('<div style="grid-column:1/-1" class="flex items-center justify-center h-[60vh]"><span class="spinner"></span></div>'), container);
   }
 
-  // Ensure feedserver is running (lazy start from main process)
-  if (window.electronAPI && electronAPI.feedserverEnsure) electronAPI.feedserverEnsure();
+  // Seed sources and sync prefs on first contact
+  if (!_sourcesSynced) {
+    _sourcesSynced = true;
+    try {
+      await electronAPI.dbQuery('db:feed-sources-init', FEED_CATALOG);
+      await electronAPI.dbQuery('db:feed-sources-sync', getFeedSources());
+      const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
+      for (const f of customFeeds) {
+        await electronAPI.dbQuery('db:feed-source-add', { key: 'custom:' + f.name, name: f.name, url: f.url, cat: 'Custom' });
+      }
+    } catch (_) { /* ignore init errors */ }
+  }
 
-  // Fetch from feedserver
+  // Fetch ranked timeline via IPC
   try {
-    const result = await _feedFetch('/api/timeline?sort=latest&limit=2000');
+    const result = await electronAPI.dbQuery('db:feed-timeline', { sort: 'latest', limit: 2000 });
     if (abort.signal.aborted) return;
     if (result && result.items) {
       allPapers = result.items;
-      _setFeedServerStatus(true);
       window.renderPapers();
-      if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Loading feeds', detail: 'Feed server OK' });
+      if (typeof islandUpdate === 'function') islandUpdate('feed', { type: 'feed', label: 'Loading feeds', detail: 'Feed loaded' });
       // Trigger background refresh so next load has fresher data
-      _feedPost('/api/refresh', {});
-      // Sync source prefs + custom feeds to feedserver on first contact
-      if (!_sourcesSynced) {
-        _sourcesSynced = true;
-        _feedPost('/api/sources/sync', { sources: getFeedSources() });
-        const customFeeds = getCustomFeeds().filter(f => f.enabled !== false);
-        customFeeds.forEach(f => {
-          _feedPost('/api/sources', { key: 'custom:' + f.name, name: f.name, url: f.url, cat: 'Custom' });
-        });
-      }
+      electronAPI.dbQuery('db:feed-refresh').catch(() => {});
     }
   } catch (e) {
     if (abort.signal.aborted) return;
-    _setFeedServerStatus(false);
     if (typeof islandRemove === 'function') islandRemove('feed');
     AetherUI.mount(window.VStack(
-      window.Text('Feed server unavailable').foreground('red'),
-      window.Text('Make sure the feed server is running on port 8400.').className('mt-2 text-[0.85rem] text-muted')
+      window.Text('Feed unavailable').foreground('red'),
+      window.Text('Could not load feed data.').className('mt-2 text-[0.85rem] text-muted')
     ).className('text-center py-20 text-red-400'), container);
     return;
   }

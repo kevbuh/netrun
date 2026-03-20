@@ -56,8 +56,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openPath: (path) => shell.openPath(path),
   showItemInFolder: (path) => shell.showItemInFolder(path),
   saveAndOpenTemp: (name, buffer) => ipcRenderer.invoke('save-and-open-temp', name, buffer),
-  // Feedserver (lazy start)
-  feedserverEnsure: () => ipcRenderer.invoke('feedserver-ensure'),
   // Ad blocker (adblock-rs in main process)
   adblockGetCount: (wcId) => ipcRenderer.invoke('adblock-get-count', wcId),
   adblockResetCount: (wcId) => ipcRenderer.invoke('adblock-reset-count', wcId),

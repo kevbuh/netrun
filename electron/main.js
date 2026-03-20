@@ -11,26 +11,6 @@ const staticServer = require('./static-server');
 
 app.setName('NetRun');
 
-// ── Lazy feedserver management ──
-let _feedServerProc = null;
-function _ensureFeedServer() {
-  if (_feedServerProc && !_feedServerProc.killed) return; // already running
-  const { spawn } = require('child_process');
-  const binPath = path.join(__dirname, '..', 'dist', 'feedserver');
-  if (fs.existsSync(binPath)) {
-    _feedServerProc = spawn(binPath, [], { stdio: 'ignore', detached: false });
-  } else {
-    // Fall back to go run
-    _feedServerProc = spawn('go', ['run', '.'], { cwd: path.join(__dirname, '..', 'feedserver'), stdio: 'ignore', detached: false });
-  }
-  _feedServerProc.on('error', () => { _feedServerProc = null; });
-  _feedServerProc.on('exit', () => { _feedServerProc = null; });
-}
-app.on('will-quit', () => {
-  if (_feedServerProc && !_feedServerProc.killed) {
-    try { _feedServerProc.kill(); } catch {}
-  }
-});
 
 // ── Core tool system (TypeScript) ──
 let _coreInitialized = false;
@@ -595,8 +575,6 @@ app.whenReady().then(() => {
   // ── Ad block IPC handlers ──
   const blockedCounts = adblock.getBlockedCounts();
   const blockedDetails = adblock.getBlockedDetails();
-  ipcMain.handle('feedserver-ensure', () => { _ensureFeedServer(); });
-
   ipcMain.handle('adblock-get-count', (_, wcId) => blockedCounts[wcId] || 0);
   ipcMain.handle('adblock-reset-count', (_, wcId) => { blockedCounts[wcId] = 0; delete blockedDetails[wcId]; });
   ipcMain.handle('adblock-set-enabled', (_, on) => { adblock.setEnabled(on); });
