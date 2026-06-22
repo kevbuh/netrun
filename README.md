@@ -24,13 +24,11 @@ privacy-focused AI-native smart browser that i worked on all day for 38 straight
     <td align="center"><em>i love this panel: right clicking (e.g. on the word "oxford here") brings up an interactive ai panel that follows your mouse. no side panels. its extremely useful and i'm surprised no-one else has done it.</em></td>
   </tr>
   <tr>
-    <td width="33%"><img src="screenshots/05-paper-panel.png" alt="paper panel"></td>
-    <td width="33%"><img src="screenshots/04-pdf-reader.png" alt="pdf reader"></td>
-    <td width="33%"><img src="screenshots/06-chats.png" alt="chats"></td>
+    <td width="50%"><img src="screenshots/05-paper-panel.png" alt="paper panel"></td>
+    <td width="50%"><img src="screenshots/06-chats.png" alt="chats"></td>
   </tr>
   <tr>
     <td align="center"><em>custom PDF reader that automatically brings up references and metadata about your research papers</em></td>
-    <td align="center"><em>dark mode papers</em></td>
     <td align="center"><em>all chats routed to one place</em></td>
   </tr>
 </table>
