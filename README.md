@@ -15,9 +15,9 @@ privacy-focused AI-native smart browser that i worked on all day for 38 straight
     <td width="33%"><img src="screenshots/03-lookup.png" alt="lookup"></td>
   </tr>
   <tr>
-    <td align="center"><em>left: netrun, right: chrome. notice how much space you save, while still having all the essentials</em></td>
-    <td align="center"><em>home page is way cleaner than chrome and is built around the search bar</em></td>
-    <td align="center"><em>i love this feature: right clicking brings up an interactive ai panel that follows your mouse. no side panels.</em></td>
+    <td align="center"><em>left: netrun, right: chrome. notice how much space is saved at the top but you haven't lost any functionality</em></td>
+    <td align="center"><em>left: netrun, right: chrome. home page is way cleaner than chrome and is built around the search bar</em></td>
+    <td align="center"><em>i love this panel: right clicking (e.g. on the word "oxford here") brings up an interactive ai panel that follows your mouse. no side panels. its extremely useful and i'm surprised no-one else has done it.</em></td>
   </tr>
   <tr>
     <td width="33%"><img src="screenshots/05-paper-panel.png" alt="paper panel"></td>
@@ -33,9 +33,11 @@ privacy-focused AI-native smart browser that i worked on all day for 38 straight
 
 ## Features
 
-- right-click to get ai panel anywhere
-- cleaner than apple
 - brain-rot warnings
+- feels alive since i incorporated dynamic island 
+- right-click to get ai panel anywhere
+- neuralook: ai model that allows you to move the mouse just by looking at the screen
+- cleaner than apple
 - convincing ai voice that read pages aloud and highlights the words being spoken
 - max privacy (HTTPS-only, tracker/cookie blocking, DoH, WebRTC leak guard)
 - youtube ad blocking (uses brave's blocker so it works great)
