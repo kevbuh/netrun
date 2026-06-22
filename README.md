@@ -10,12 +10,16 @@ privacy-focused AI-native smart browser that i worked on all day for 38 straight
 
 <table>
   <tr>
-    <td width="33%"><img src="screenshots/01-reader.png" alt="reader"></td>
-    <td width="33%"><img src="screenshots/02-chat.png" alt="chat"></td>
-    <td width="33%"><img src="screenshots/03-lookup.png" alt="lookup"></td>
+    <td colspan="3"><img src="screenshots/01-reader.png" alt="reader" width="100%"></td>
   </tr>
   <tr>
-    <td align="center"><em>left: netrun, right: chrome. notice how much space is saved at the top but you haven't lost any functionality</em></td>
+    <td colspan="3" align="center"><em>left: netrun, right: chrome. notice how much space is saved at the top but you haven't lost any functionality</em></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="screenshots/02-chat.png" alt="chat"></td>
+    <td width="50%"><img src="screenshots/03-lookup.png" alt="lookup"></td>
+  </tr>
+  <tr>
     <td align="center"><em>left: netrun, right: chrome. home page is way cleaner than chrome and is built around the search bar</em></td>
     <td align="center"><em>i love this panel: right clicking (e.g. on the word "oxford here") brings up an interactive ai panel that follows your mouse. no side panels. its extremely useful and i'm surprised no-one else has done it.</em></td>
   </tr>
